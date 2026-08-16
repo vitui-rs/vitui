@@ -1,0 +1,19 @@
+[package]
+name = "vitui-engine"
+description = "Cells, surfaces, layers, compositing and damage tracking for terminal rendering"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+crossterm.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+vitui-alloc-probe.workspace = true
+
+[[bench]]
+name = "compose"
+harness = false

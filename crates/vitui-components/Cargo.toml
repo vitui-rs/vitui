@@ -1,0 +1,11 @@
+[package]
+name = "vitui-components"
+description = "Windows, panels, charts, lists, trees, forms and pickers built on vitui-runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+vitui-runtime.workspace = true

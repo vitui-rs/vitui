@@ -1,0 +1,49 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/vitui",
+    "crates/vitui-engine",
+    "crates/vitui-runtime",
+    "crates/vitui-components",
+    "crates/vitui-alloc-probe",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/REPLACE-ME/vitui"
+rust-version = "1.85"
+
+[workspace.dependencies]
+# The engine's only permitted runtime dependency. See docs/adr/0001-crossterm-behind-a-seam.md.
+#
+# `event-stream` stays disabled — it pulls `futures-core` and would tie the engine to an async
+# runtime, breaking the runtime-agnostic guarantee.
+#
+# `derive-more` is dropped from the defaults: it only adds trait derives to crossterm's public types,
+# which we do not expose anyway, and it drags in a proc-macro chain (syn, quote, convert_case,
+# unicode-segmentation) purely at build time.
+#
+# `events` is kept and is non-negotiable — the input parser is the entire reason this dependency
+# exists. Note that it pulls `mio` and `signal-hook` on every platform; that is crossterm's polling
+# implementation, not an async runtime, and it is accepted.
+crossterm = { version = "0.29", default-features = false, features = [
+    "bracketed-paste",
+    "events",
+    "windows",
+] }
+
+criterion = "0.8"
+
+vitui-engine = { path = "crates/vitui-engine", version = "0.0.0" }
+vitui-runtime = { path = "crates/vitui-runtime", version = "0.0.0" }
+vitui-components = { path = "crates/vitui-components", version = "0.0.0" }
+vitui-alloc-probe = { path = "crates/vitui-alloc-probe", version = "0.0.0" }
+
+[profile.bench]
+debug = true
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

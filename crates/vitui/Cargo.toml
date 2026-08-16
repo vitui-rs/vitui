@@ -1,0 +1,13 @@
+[package]
+name = "vitui"
+description = "A fast, layered, reactive TUI library for Rust"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+vitui-engine.workspace = true
+vitui-runtime.workspace = true
+vitui-components.workspace = true

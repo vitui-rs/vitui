@@ -1,0 +1,13 @@
+[package]
+name = "vitui-runtime"
+description = "Scene tree, layout, reactivity, focus and event routing on top of vitui-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+# Dependency policy, from the map: vitui-runtime takes NO dependencies beyond the engine.
+# Reactivity and layout are written by hand. Do not add a crate here without a decision.
+[dependencies]
+vitui-engine.workspace = true
