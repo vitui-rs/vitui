@@ -24,11 +24,23 @@ styled. A double-width glyph occupies two cells.
 **Surface** — a rectangular grid of cells that can be drawn into. The engine's central primitive and
 the type component authors touch most.
 
-**Viewport** — a surface addressed in content coordinates while only a window of it is real. What
-makes drawing a million-row list affordable: writes outside the window cost nothing.
+**View** — a borrowed rectangle of a surface: an origin, a clip region and a content offset, with no
+cells of its own. What a component is handed when it is asked to draw. A view can be narrowed into a
+child view and can never be widened.
+
+**Viewport** — a surface addressed in content coordinates while only a window of it is real. Part of
+what makes drawing a million-row list affordable; the other part is the visibility query, because a
+discarded write is cheap rather than free and a million cheap writes are not affordable.
+
+**Visibility query** — the engine telling a caller which content coordinates currently fall inside a
+view's window, so the caller can skip the rest. The engine still iterates nothing and measures
+nothing: it answers about coordinates the caller already chose.
 
 **Clip region** — the area of a surface a write is permitted to affect. Writes outside it are
 discarded silently and cheaply.
+
+**Drawing verb** — one call that puts something into a surface. Verbs are span-shaped: they carry a
+run of cells, not a single cell, because damage is marked once per verb.
 
 **Layer** — a surface positioned in the stack with a z-order and a blend mode. A window, a popup, a
 shadow and a modal dim are all layers; nothing else is.
