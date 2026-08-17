@@ -64,10 +64,19 @@ terminal's default colour into concrete channels first.
 
 **Composite** — to resolve the layer stack, bottom-up, into a single grid of cells.
 
-**Frame** — one composited, immutable grid, handed to the render thread to be written.
+**Frame** — one composited, immutable grid. It is produced on the application thread and stays
+there; what reaches the render thread is a snapshot of the part of it that changed.
 
-**Snapshot** — the immutable hand-off of a frame from the application thread to the render thread.
-The render thread sees only snapshots and never reads application state.
+**Snapshot** — the immutable hand-off from the application thread to the render thread: the damaged
+runs of a frame together with the cells inside them, and nothing else. The render thread sees only
+snapshots, never reads application state, and holds no grid of its own.
+
+**Packet** — a snapshot in flight, together with the buffer carrying it. Packets are leased from a
+pool and returned to it, so a steady stream of frames allocates nothing.
+
+**Lease** — taking a buffer from the pool to draw or to fill. A lease is never invalidated from
+outside; if what it produced has become wrong — the terminal resized under it — the frame is
+discarded and the buffer returns to the pool.
 
 **Damage** — the region that changed and therefore has to be repainted. The engine's central
 optimisation, and the subject of its central invariant: *frame cost is proportional to visible cells,
