@@ -82,6 +82,30 @@ discarded and the buffer returns to the pool.
 optimisation, and the subject of its central invariant: *frame cost is proportional to visible cells,
 never to data volume.*
 
+## Threads
+
+**App thread** — the thread that owns application state, produces frames and submits them. Not
+necessarily the process's first thread: it is whichever thread the engine was attached on. The thread
+whose freezing is visible to a user, and therefore the one the whole enforcement vocabulary below
+exists to protect.
+
+**Capability token** — a zero-sized value that is proof of being on the app thread, and cannot be
+moved off it. It is not a permission the holder was granted so much as a fact about where the holder
+is running; types that contain one inherit the same immobility.
+
+**Handle pair** — one shared primitive presented as two types, so that each thread holds only the
+verbs it is allowed to use. The app thread's half cannot leave it; the other half can do nothing the
+app thread's half is responsible for. Preferred over a runtime check or a documented rule, because an
+unreachable method needs no enforcement.
+
+**Frame budget overrun** — an app-thread iteration that took longer than one frame interval, measured
+from waking to submitting. Named as a distinct thing because its cause is irrelevant to its effect: a
+slow pure computation and a blocking read produce the same frozen screen.
+
+**Permitted iteration** — an iteration declared in advance to be legitimately slow, with a reason
+recorded. Cold start reads configuration; that is not the defect the overrun detector hunts, and
+saying so explicitly is what keeps the detector strict everywhere else.
+
 ## Terminal
 
 **Backend** — the seam behind which the terminal library lives. `crossterm` sits here and is not
