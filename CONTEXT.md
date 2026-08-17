@@ -42,12 +42,21 @@ discarded silently and cheaply.
 **Drawing verb** — one call that puts something into a surface. Verbs are span-shaped: they carry a
 run of cells, not a single cell, because damage is marked once per verb.
 
-**Layer** — a surface positioned in the stack with a z-order and a blend mode. A window, a popup, a
-shadow and a modal dim are all layers; nothing else is.
+**Layer** — a rectangle positioned in the stack with a z-order. A window, a popup, a shadow and a
+modal dim are all layers; nothing else is. A layer is one of two kinds.
+
+**Content layer** — a layer that carries its own cells, in a surface of its own, and is painted over
+whatever lies beneath it. A window and a popup are content layers.
+
+**Operator layer** — a layer with no cells of its own: a rectangle and a transformation applied to
+whatever is already there. A shadow and a modal dim are operator layers. The distinction matters
+because a terminal cell has no alpha channel, so an effect with no content of its own cannot be
+expressed as content that happens to be transparent.
 
 **Blend mode** — how a layer combines with what is already beneath it. The one mechanism from which
-shadows, liftings, modal dimming, gradients and fades are all built. A terminal cell has no alpha
-channel, so blending resolves colours rather than compositing transparency.
+shadows, liftings, modal dimming, gradients and fades are all built. Blending resolves colours
+rather than compositing transparency, and resolving them means turning a palette index or the
+terminal's default colour into concrete channels first.
 
 **Shadow** — a layer that darkens what lies beneath it, offset from the layer it belongs to.
 
