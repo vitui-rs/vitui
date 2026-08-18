@@ -170,6 +170,22 @@ the visible area declares nothing by not being drawn.
 only, buttons and drag, or every movement. The levels are totally ordered, each containing the one
 below, which is what lets several components' needs combine by taking the highest.
 
+**Focus ring** — the widgets that can hold the keyboard, in the order `Tab` visits them. Rebuilt
+every frame during the draw, by the widgets that declare focusability, so it is always the ring that
+just drew rather than a description of the previous frame. Focusability is declared and never
+derived: being clickable is not being a tab stop, and wanting keys is not either.
+
+**Tab stop** — a ring position `Tab` can land on. Not the same as a ring entry: a scope may collapse
+a whole range onto one stop, so a menu bar of seven is seven entries and one stop. The stop count,
+not the ring length, is what decides whether a keyboard walkthrough of a screen is usable.
+
+**Focus scope** — a range of the ring, opened around a body, that changes what `Tab` does with it.
+A *group* is one stop for the whole range; a *trap* is a range `Tab` cannot leave; an *isolated*
+scope keeps the tab key for the focused widget, which is how a code editor inserts one. Frame-local:
+a scope is a pair of ring positions and nothing about it survives the frame. The one closure-taking
+construct that does **not** rename its children, because a trap appears around a form that is
+already on screen and renaming it there loses the focus at exactly the wrong moment.
+
 **Base layout** — where a key physically is, as opposed to what it printed. A shortcut is expressed
 against the base layout and text against what was produced, because on a non-US layout the two
 disagree and binding to either alone loses one of them.
