@@ -5,28 +5,41 @@ tickets, in commit messages and in conversation. No implementation details live 
 
 ## Layers of the system
 
-**Engine** — `vitui-engine`. Turns drawing calls into bytes on the terminal, as fast as possible. It
-owns cells, surfaces, layers, compositing, damage and the frame writer. It does not lay anything out,
-does not know what a widget is, and never iterates application data.
+**Engine** — `vitui-engine`. Everything that touches the terminal: cells, surfaces, layers,
+compositing, damage, the bytes on the wire, input, and the frame clock that decides *when* those
+bytes go out. It does not lay anything out, does not know what a widget is, never iterates
+application data, and never calls the runtime. "The engine only draws" is the short form; this is the
+form that survives an argument about input.
 
-**Runtime** — `vitui-runtime`. Everything between the engine and a component: the scene tree, layout,
-reactivity, focus, hit-testing and event routing. Replaceable in principle — a different runtime
-should be able to sit on the same engine.
+**Runtime** — `vitui-runtime`. Everything above the engine: the scene tree, layout, reactivity,
+focus, hit-testing, event routing — and the API components are written against. Convenience is the
+runtime's responsibility, not the engine's. Replaceable in principle: a different runtime should be
+able to sit on the same engine, and a TEA-style one and a signal-based one both do.
 
 **Components** — `vitui-components`. The library of things an application author uses directly:
-windows, panels, charts, lists, trees, forms, pickers.
+windows, panels, charts, lists, trees, forms, pickers. A component author never names an engine type.
+
+**Draw context** — what a component is handed when it is asked to draw: the runtime's own type,
+carrying a view together with whatever else that runtime decided a component needs — the frame's
+time, a place to ask for another frame, focus, theme. It belongs to the runtime, which is why two
+runtimes can offer two different ones over the same engine.
+
+**Component state** — what a component keeps *about* a view of data: a selection, a scroll position,
+an expanded set. Named as a separate thing from the data itself because it is passed alongside it and
+never owned together with it — that is what lets two components show one table at the same moment,
+neither owning it and neither needing a mutable borrow of it.
 
 ## Drawing
 
 **Cell** — one addressable position in the terminal grid, holding what is drawn there and how it is
 styled. A double-width glyph occupies two cells.
 
-**Surface** — a rectangular grid of cells that can be drawn into. The engine's central primitive and
-the type component authors touch most.
+**Surface** — a rectangular grid of cells that can be drawn into. The engine's central primitive.
+Usually a layer owns one; a caller constructs one directly only to draw somewhere off-screen.
 
 **View** — a borrowed rectangle of a surface: an origin, a clip region and a content offset, with no
-cells of its own. What a component is handed when it is asked to draw. A view can be narrowed into a
-child view and can never be widened.
+cells of its own. A view can be narrowed into a child view and can never be widened. It is what the
+runtime wraps in a draw context; a component reaches it through that, not directly.
 
 **Viewport** — a surface addressed in content coordinates while only a window of it is real. Part of
 what makes drawing a million-row list affordable; the other part is the visibility query, because a
@@ -82,6 +95,25 @@ discarded and the buffer returns to the pool.
 optimisation, and the subject of its central invariant: *frame cost is proportional to visible cells,
 never to data volume.*
 
+## The loop
+
+**Screen** — the app thread's handle to the attached terminal, and the whole of the engine from the
+runtime's side: the layer stack, the composited grid, the frame clock, the wake source and the event
+queue behind one name. Obtained by attaching, and dropping it gives the terminal back.
+
+**Frame clock** — the engine's decision about *when* a composed frame becomes bytes. Expressed as a
+ceiling in hertz and enforced as a **minimum gap, not a tick**: the first change after a quiet period
+goes out at once, and everything arriving inside the gap is folded into a single later frame. The
+engine holds it, so how often a runtime offers frames is not what decides how often they are shown.
+
+**Wake** — why the app thread came back to life: input arrived, a background job posted, a registered
+deadline passed, or the program was asked to quit. Distinct from an **event**, which is *what
+happened*; a wake is only the reason for looking.
+
+**Handoff slot** — a one-value drop point from a worker thread to the app thread. It can only be
+taken from without waiting, which is why a background result reaches the app thread as something it
+finds rather than something it waits for.
+
 ## Threads
 
 **App thread** — the thread that owns application state, produces frames and submits them. Not
@@ -91,12 +123,15 @@ exists to protect.
 
 **Capability token** — a zero-sized value that is proof of being on the app thread, and cannot be
 moved off it. It is not a permission the holder was granted so much as a fact about where the holder
-is running; types that contain one inherit the same immobility.
+is running; types that contain one inherit the same immobility. **Internal**: no signature takes one,
+and it is named here because it is what makes the drawing types immovable, not because anyone passes
+it. See `docs/adr/0003`.
 
 **Handle pair** — one shared primitive presented as two types, so that each thread holds only the
 verbs it is allowed to use. The app thread's half cannot leave it; the other half can do nothing the
 app thread's half is responsible for. Preferred over a runtime check or a documented rule, because an
-unreachable method needs no enforcement.
+unreachable method needs no enforcement. **Internal** in the same sense: the app-thread halves live
+inside the screen and only the posting half is ever handed out. See `docs/adr/0003`.
 
 **Frame budget overrun** — an app-thread iteration that took longer than one frame interval, measured
 from waking to submitting. Named as a distinct thing because its cause is irrelevant to its effect: a
