@@ -178,6 +178,37 @@ disagree and binding to either alone loses one of them.
 taken from without waiting, which is why a background result reaches the app thread as something it
 finds rather than something it waits for.
 
+## Data
+
+**Revision** — a number that names a version of some application data, and the key a memoised result
+is stored under. It comes from **one process-global counter**, not one per value: two values with
+their own counters both stand at revision 1, and every memo keyed on them is blind to a swap between
+them. Bumped once per edit, never per frame and never per row.
+
+**Versioned** — a wrapper around application data whose only path to `&mut` is a guard. Reading goes
+through `Deref` and stays shared, so any number of components may read one table in a frame; writing
+does not, because `DerefMut` is deliberately absent, and that absence is the whole mechanism rather
+than an omission.
+
+**Edit** — the write guard `Versioned` hands out, and the thing that makes a bump unforgettable: the
+`Revision` moves when the guard *drops*, not when the value changes. Three prices, each deliberate —
+the data is exclusive for as long as the guard is held, an edit that changed nothing still bumps, and
+one revision covers the whole value, so touching one column of a table invalidates memos of the
+columns that did not move.
+
+**Memo** — a cached result beside the `Revision` it was computed at: it recomputes when the revision
+it was given differs from the one it holds, and returns what it has otherwise. Keyed by **where it is
+stored** — a field of the owner's own state — so it consumes no `Id`, is not swept when its widget
+stops drawing, and survives a tab being switched away and back for nothing. It is the whole of the
+reactivity this runtime contains, and it is not reactivity: it is a cache with a key.
+
+**Rows** — *considered and refused.* The proposal had the runtime's first and only trait, with `len`
+and `revision` on it. Both were removed by building them: a length is already an argument to every
+collection, and under a trait a filtered view has to invent a second one; a revision is a value, and
+what makes it unforgettable is `Drop` on a guard, which is a wrapper rather than a trait. The
+guarantee a trait was wanted for — O(1) indexed access — is prose in both shapes and is carried by
+neither. Named here so nobody re-derives it.
+
 ## Threads
 
 **App thread** — the thread that owns application state, produces frames and submits them. Not
