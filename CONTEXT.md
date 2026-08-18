@@ -14,7 +14,9 @@ form that survives an argument about input.
 **Runtime** — `vitui-runtime`. Everything above the engine: the scene tree, layout, reactivity,
 focus, hit-testing, event routing — and the API components are written against. Convenience is the
 runtime's responsibility, not the engine's. Replaceable in principle: a different runtime should be
-able to sit on the same engine, and a TEA-style one and a signal-based one both do.
+able to sit on the same engine, and a TEA-style one and a signal-based one both do — built twice on
+the frozen seam, and twice again on the runtime itself, with the same screen coming out cell for
+cell.
 
 **Components** — `vitui-components`. The library of things an application author uses directly:
 windows, panels, charts, lists, trees, forms, pickers. A component author never names an engine type.
@@ -291,6 +293,18 @@ it was given differs from the one it holds, and returns what it has otherwise. K
 stored** — a field of the owner's own state — so it consumes no `Id`, is not swept when its widget
 stops drawing, and survives a tab being switched away and back for nothing. It is the whole of the
 reactivity this runtime contains, and it is not reactivity: it is a cache with a key.
+
+**Reactivity layer** — a TEA pump, a signal graph, or whatever else an application puts between its
+state and the draw. It lives **above** the runtime and never inside it: what the runtime offers is
+the frame loop, `request_frame()`, deadlines and `Wake::Posted`, and what a layer does with them is
+its own business. Two consequences are worth naming because they are not obvious. **Re-running the
+view is the propagation** — not as a convenience of immediate mode, but because a frame that draws
+less than the whole screen *declares* less than the whole screen: the hit index, the focus ring, the
+overlay queue and the deadline sink are rebuilt from the draw, so a widget that did not draw cannot
+be clicked, focused or hovered, while every one of its cells still looks correct. And a layer that
+wants to know whether something changed must **diff**, because the revision guard bumps when it
+drops rather than when the value moves; the diff is free only because component state is small,
+owned and comparable.
 
 **Rows** — *considered and refused.* The proposal had the runtime's first and only trait, with `len`
 and `revision` on it. Both were removed by building them: a length is already an argument to every
