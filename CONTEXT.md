@@ -178,6 +178,37 @@ disagree and binding to either alone loses one of them.
 taken from without waiting, which is why a background result reaches the app thread as something it
 finds rather than something it waits for.
 
+## Overlays
+
+**Overlay** — a layer requested during a draw and drawn after it, because a component cannot open a
+layer mid-draw. The request names an owner, an anchor and a body; the body runs in a second pass,
+after every base-pass draw context has been dropped, and its outcome reaches its owner on the frame
+after. A dropdown, a menu, a tooltip and a modal are overlays; anything that draws inline is not.
+
+**Owner id** — the identity an overlay is keyed on, *handed to* the request rather than derived at
+it. Derivation cannot work: a component carries `#[track_caller]` and the attribute reaches into the
+body, so a derived id is the id the owner already claimed one line earlier. The owner id keys the
+layer's lifecycle across frames and roots the overlay's own id stack — which is what makes an
+overlay a different *place* for identity and not only for geometry.
+
+**Frame arena** — the bump region an overlay body lives in for the length of one frame. Reset rather
+than freed, so a steady stream of frames allocates nothing; it drops nothing itself, so a body that
+owns anything is dropped by a thunk the request carries beside it.
+
+**Placement** — where an overlay's rectangle lands against its anchor, as integer arithmetic in one
+order: place, flip, shift, clamp. Flipping is conditional on the other side having more room, so a
+tie keeps the side that was asked for, and clamping is last and never resizes.
+
+**Scrim** — the darkening under a modal. An operator layer, because a terminal cell has no alpha: it
+transforms what is already there rather than covering it. Proportional to the screen it darkens and
+not to the overlay it belongs to, which is why it is the expensive half of a modal.
+
+**Modal barrier** — the position in a frame's hit index below which nothing receives the pointer. It
+is an **ordering, not a membership**: everything past it is inside the modal's scope by position
+alone, and no entry carries a scope of its own. That is what forces a nested overlay's z-order to
+count from its parent's layer rather than from its own band — a dropdown inside a modal, sorted into
+the band its own kind belongs to, would land below the barrier that exists to protect it.
+
 ## Data
 
 **Revision** — a number that names a version of some application data, and the key a memoised result
