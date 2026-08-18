@@ -35,7 +35,23 @@ neither owning it and neither needing a mutable borrow of it.
 styled. A double-width glyph occupies two cells.
 
 **Surface** — a rectangular grid of cells that can be drawn into. The engine's central primitive.
-Usually a layer owns one; a caller constructs one directly only to draw somewhere off-screen.
+Usually a layer owns one; a caller constructs one directly only to draw somewhere off-screen. A
+surface holds cells and damage and nothing else — in particular it does not hold the handle tables,
+which is what lets one layer be composited into another as a plain copy.
+
+**Handle table** — engine-owned state that a cell's handles point into: the grapheme interner for
+multi-scalar clusters, and the extended-style table for the colours that did not fit in the style
+word. There is **one set per engine**, so every surface it mints speaks one handle space. Nothing
+public names a handle; drawing verbs reach the tables through the draw context.
+
+**Extended style** — a style whose colours live in a handle table rather than in its `u64`. It is
+what an underline colour or a hyperlink costs, and it is a *cost, not a state*: clearing both
+channels puts the cell back inline. Under 1% of cells in ordinary text.
+
+**Sweep** — reclaiming handle-table entries nothing points at, by marking from the live surfaces and
+compacting. Runs where allocation is already permitted, never inside a frame, and marks no damage —
+the cells still say the same thing. When it renumbers, the next packet repaints in full, because
+handle identity is the one thing the mirror compares across frames.
 
 **View** — a borrowed rectangle of a surface: an origin, a clip region and a content offset, with no
 cells of its own. A view can be narrowed into a child view and can never be widened. It is what the
@@ -85,7 +101,10 @@ runs of a frame together with the cells inside them, and nothing else. The rende
 snapshots, never reads application state, and holds no grid of its own.
 
 **Packet** — a snapshot in flight, together with the buffer carrying it. Packets are leased from a
-pool and returned to it, so a steady stream of frames allocates nothing.
+pool and returned to it, so a steady stream of frames allocates nothing. A packet is
+**self-contained**: every handle its cells carry is resolved at pack time into a side table the
+packet owns, so the render thread never reads a handle table and the app thread may grow or sweep one
+while a frame is being written.
 
 **Lease** — taking a buffer from the pool to draw or to fill. A lease is never invalidated from
 outside; if what it produced has become wrong — the terminal resized under it — the frame is
