@@ -6,6 +6,7 @@ members = [
     "crates/vitui-runtime",
     "crates/vitui-components",
     "crates/vitui-alloc-probe",
+    "crates/vitui-bench",
 ]
 
 [workspace.package]
@@ -34,12 +35,11 @@ crossterm = { version = "0.29", default-features = false, features = [
     "windows",
 ] }
 
-criterion = "0.8"
-
 vitui-engine = { path = "crates/vitui-engine", version = "0.0.0" }
 vitui-runtime = { path = "crates/vitui-runtime", version = "0.0.0" }
 vitui-components = { path = "crates/vitui-components", version = "0.0.0" }
 vitui-alloc-probe = { path = "crates/vitui-alloc-probe", version = "0.0.0" }
+vitui-bench = { path = "crates/vitui-bench", version = "0.0.0" }
 
 [profile.bench]
 debug = true

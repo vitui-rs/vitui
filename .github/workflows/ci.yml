@@ -23,6 +23,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets
+      # This also runs the doctests, and the doctests are where the negative gates live. A case
+      # that must NOT compile is a ```compile_fail``` block paired with an ordinary block that
+      # names the same items, so a rename fails the pair instead of silently satisfying it. There
+      # is deliberately no `RUSTFLAGS`-flipping "must fail to compile" step here: measured on
+      # ticket 18's own negative cases, that step passes when the negative cases are deleted. See
+      # the verification-strategy ticket.
       - run: cargo test --workspace
       # Allocation assertions read a process-global counter, so they cannot share a process with
       # other tests. See crates/vitui-alloc-probe.
@@ -30,18 +36,29 @@ jobs:
 
   # The dependency policy is a decision, not a preference: the engine takes crossterm and nothing
   # else, and the runtime takes nothing at all. See docs/adr/0001-crossterm-behind-a-seam.md.
+  #
+  # It covers dev-dependencies too, and that is not a formality: `criterion` reached `futures-core`
+  # and `futures-util` through `plotters` -> `web-sys` -> `js-sys` and made this job red.
   deny:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: EmbarkStudios/cargo-deny-action@v2
 
-  # Placeholder. The verification-strategy ticket decides how the performance budget becomes a gate
-  # rather than a report; until then this only proves the harness compiles and runs.
-  bench:
+  # The performance budget. Numbers come from `examples/*_numbers.rs` built on `vitui-bench`
+  # (round-robin, minimum of forty) and a gate is an `assert_under` inside one of them, so a
+  # regression fails the job rather than appearing in a report nobody reads.
+  #
+  # Not here yet, and each for a stated reason:
+  #   - the idle-cost gate needs `/usr/bin/time -l` on macOS and `-v` on GNU and has no equivalent
+  #     on Windows, so it is a two-runner job, not a matrix one, and it needs 30 s per run because
+  #     at 3 s the difference is below the tool's resolution;
+  #   - the comparative suite needs ratatui, Textual and notcurses installed, so it is a separate
+  #     workflow on a pinned runner and it reports rather than gates.
+  budget:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo bench --workspace -- --test
+      - run: cargo run --release --example budget -p vitui-engine

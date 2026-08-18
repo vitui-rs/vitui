@@ -27,7 +27,8 @@
 //!
 //! The counter is process-global, so a test asserting on it must not run concurrently with another
 //! test that allocates. Use `--test-threads=1`, or keep allocation assertions in their own binary.
-//! The verification-strategy ticket owns the final decision on how this is wired into CI.
+//! Both: CI runs the whole suite a second time under `--test-threads=1`, and an allocation
+//! assertion belongs in a test binary of its own so that the second run is the one that can fail.
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicUsize, Ordering};
