@@ -188,7 +188,27 @@ already on screen and renaming it there loses the focus at exactly the wrong mom
 
 **Base layout** — where a key physically is, as opposed to what it printed. A shortcut is expressed
 against the base layout and text against what was produced, because on a non-US layout the two
-disagree and binding to either alone loses one of them.
+disagree and binding to either alone loses one of them. **Knowable only where the terminal reports
+it**: below that, what arrives in its place is the keycap, and nothing distinguishes the two.
+
+**Key tier** — how much the terminal is willing to say about the keyboard, from bytes alone up to
+reporting which physical key was pressed. Ordered, each level containing the one below, in the same
+way a tracking level is. It decides whether a chord means what it says, and it is read and never
+edited: a binding is not rewritten because the terminal is poor, it simply does not fire.
+
+**Chord** — a key together with the modifiers held with it, as a thing an application binds an
+action to. It names either a base-layout position or a printed character, and which of the two is
+part of the chord rather than a matter of taste: `Ctrl+S` means a place, a bare `y` on a yes/no
+prompt means a letter, and on a non-US layout no answer serves both. Caps lock and num lock are
+keyboard *state* and can never be part of one.
+
+**Binding** — a chord or a few interchangeable chords, an action, and the help text that names it,
+declared once so it can be both routed and rendered. What routes and what is rendered are not the
+same object: routing needs the chords and the action, help needs the words.
+
+**Key map** — an ordered set of bindings, first match wins, consulted after the focused widget and
+its enclosing scopes have declined. A map is declared for a scope, and the innermost scope holding
+the focus answers first — so a dialog's own bindings beat the application's while the dialog is up.
 
 **Handoff slot** — a one-value drop point from a worker thread to the app thread. It can only be
 taken from without waiting, which is why a background result reaches the app thread as something it
