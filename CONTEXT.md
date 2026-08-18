@@ -191,10 +191,33 @@ saying so explicitly is what keeps the detector strict everywhere else.
 **Backend** — the seam behind which the terminal library lives. `crossterm` sits here and is not
 visible in any public type.
 
-**Capability** — something the attached terminal can do, discovered at runtime rather than assumed:
-colour depth, synchronised output, the keyboard protocol level, the glyph repertoire.
+**Capability** — something the attached terminal can do. A capability is either *detected* by querying
+the live pty — colour depth, synchronised output, the keyboard protocol flags — or *declared* by the
+operator, which is the only way the glyph repertoire can be known, since no query asks whether a font
+contains a character. The distinction decides the shape of the answer: a detected axis is exposed as
+independent booleans, because the world does not sort; a declared axis may be an ordered ladder,
+because a promise is downward-closed by whoever makes it. See `docs/adr/0010`.
 
-**Tier** — a named combination of capabilities a scene can be rendered against. Full-colour Unicode
-and `--ascii --no-color` are both tiers; so is legacy Windows conhost.
+**Repertoire** — the set of characters the operator promises their font can show: ASCII only, Unicode
+with box drawing and block elements, or everything including braille and emoji. Declared, never
+detected, and a component branches on it rather than the engine substituting behind its back.
 
-**Degradation** — rendering the same scene against a lower tier without the caller writing it twice.
+**Quirk** — a correction applied *after* detection, for a terminal that answers a query correctly and
+then misbehaves anyway. Where the per-terminal facts live: legacy SGR on ConPTY, and which text
+attributes actually work.
+
+**Override** — a capability pinned or lowered by the caller instead of being detected. Overrides are
+where `--ascii` and `--no-color` land, and they sit at the top of one stated precedence order: the
+explicit API, then `VITUI_*` environment variables, then `NO_COLOR`, then `TERM=dumb` or a non-tty,
+then the quirk table, then detection, then conservative defaults.
+
+**Degradation** — rendering the same scene against a weaker terminal without the caller writing it
+twice. The engine degrades *presentation* — colour is quantised, an unsupported attribute is dropped,
+both silently at serialise time — and never *content*: a glyph is emitted unchanged, because the
+character carries the information itself and there is no meaning-preserving substitute for it. A
+component that cannot express itself at a given repertoire builds something different instead. See
+`docs/adr/0009`.
+
+**Quantise** — to resolve a colour into the nearest one the terminal can show. Happens on the render
+thread, inside the run scan, *before* the comparison with the mirror — so the mirror holds what the
+terminal was told, and the equality filter is exact with respect to the wire.
