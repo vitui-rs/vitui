@@ -132,6 +132,29 @@ engine holds it, so how often a runtime offers frames is not what decides how of
 deadline passed, or the program was asked to quit. Distinct from an **event**, which is *what
 happened*; a wake is only the reason for looking.
 
+**Event** — what happened: a key, a mouse action, a paste, a resize, focus arriving or leaving.
+Distinct from a wake, which is only the reason the thread looked. An event is owned outright, carries
+the moment the input thread read it, and says nothing about which widget it concerns.
+
+**Intent** — the property that decides whether an event may be discarded. A press, a release, a wheel
+turn, a keystroke, a resize express something the user meant and are never dropped; an intermediate
+pointer position expresses only where the pointer was on the way, and consecutive ones collapse. Named
+because *input is never dropped* is not a rule the engine can keep, and this one it can. See
+`docs/adr/0008`.
+
+**Interest** — what a component declares it wants to receive, stated during the draw with the region
+it applies to. It belongs to the runtime; what reaches the engine is only the combined tracking level
+the frame turned out to need. A component that declares nothing costs nothing, and one drawn outside
+the visible area declares nothing by not being drawn.
+
+**Tracking level** — how much the terminal is asked to report about the pointer: nothing, buttons
+only, buttons and drag, or every movement. The levels are totally ordered, each containing the one
+below, which is what lets several components' needs combine by taking the highest.
+
+**Base layout** — where a key physically is, as opposed to what it printed. A shortcut is expressed
+against the base layout and text against what was produced, because on a non-US layout the two
+disagree and binding to either alone loses one of them.
+
 **Handoff slot** — a one-value drop point from a worker thread to the app thread. It can only be
 taken from without waiting, which is why a background result reaches the app thread as something it
 finds rather than something it waits for.
