@@ -178,6 +178,29 @@ disagree and binding to either alone loses one of them.
 taken from without waiting, which is why a background result reaches the app thread as something it
 finds rather than something it waits for.
 
+## Layout and sizing
+
+**Sizing function** — a plain function beside a component that answers how large it wants to be:
+the same `&data` the component takes, plus the width or height it is about to be given, returning
+integers. It takes no draw context, so it cannot draw, cannot claim an identity and cannot route —
+which is the whole of what makes it a function rather than a method on a trait. It is how a
+container sizes to its contents without any measure pass existing.
+
+**Measure pass** — calling a component in a mode that produces a size instead of cells, so a
+container can lay out around the answer. Deliberately absent: it is either a trait a component must
+implement, or a second execution of the frame, and both were built and priced. What replaces it is
+a sizing function beside the component, checked against it.
+
+**Dry run** — drawing a component into a discard surface and reading how far its verbs reached. Not
+the layout mechanism — it is a second whole frame, it reports the clip rather than the content for
+anything virtualised, and it repeats every side effect the frame has. It is kept as the **test**
+that a sizing function still agrees with the component beside it, which is a thing no compiler
+checks and which drifted silently for three tickets.
+
+**Drawn extent** — the largest content coordinate any drawing verb touched inside a body. What a
+dry run reads, and what a scroll area over bounded content uses instead of a declared content size.
+It is one frame old when a scroll area uses it, and same-frame when a test uses it.
+
 ## Overlays
 
 **Overlay** — a layer requested during a draw and drawn after it, because a component cannot open a
