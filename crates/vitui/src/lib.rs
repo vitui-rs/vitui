@@ -3,7 +3,7 @@
 //! This crate is the facade. It re-exports the three layers so an application depends on one name:
 //!
 //! - [`engine`] — cells, surfaces, layers, compositing, damage, the frame writer
-//! - [`runtime`] — scene tree, layout, reactivity, focus, event routing
+//! - [`runtime`] — layout, identity, focus, hit-testing, routing, key maps, theming
 //! - [`components`] — windows, panels, charts, lists, trees, forms, pickers
 //!
 //! A caller who wants only fast layered terminal output can depend on `vitui-engine` alone and never

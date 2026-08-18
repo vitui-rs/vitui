@@ -11,12 +11,12 @@ bytes go out. It does not lay anything out, does not know what a widget is, neve
 application data, and never calls the runtime. "The engine only draws" is the short form; this is the
 form that survives an argument about input.
 
-**Runtime** — `vitui-runtime`. Everything above the engine: the scene tree, layout, reactivity,
-focus, hit-testing, event routing — and the API components are written against. Convenience is the
-runtime's responsibility, not the engine's. Replaceable in principle: a different runtime should be
-able to sit on the same engine, and a TEA-style one and a signal-based one both do — built twice on
-the frozen seam, and twice again on the runtime itself, with the same screen coming out cell for
-cell.
+**Runtime** — `vitui-runtime`. Everything above the engine: layout, identity, focus, hit-testing,
+event routing, key maps, theming, overlays and the data contract — and the API components are
+written against. Convenience is the runtime's responsibility, not the engine's. Replaceable in
+principle: a different runtime should be able to sit on the same engine, and a TEA-style one and a
+signal-based one both do — built twice on the frozen seam, and twice again on the runtime itself,
+with the same screen coming out cell for cell.
 
 **Components** — `vitui-components`. The library of things an application author uses directly:
 windows, panels, charts, lists, trees, forms, pickers. A component author never names an engine type.
@@ -30,6 +30,23 @@ runtimes can offer two different ones over the same engine.
 an expanded set. Named as a separate thing from the data itself because it is passed alongside it and
 never owned together with it — that is what lets two components show one table at the same moment,
 neither owning it and neither needing a mutable borrow of it.
+
+**Frame state** — what the runtime keeps for the length of one draw and rebuilds on the next: the
+hit index, the focus ring, the overlay request queue, the deadline sink and the key queue. Five flat
+structures, not one and not a tree, and **rebuilt from the draw rather than diffed against the last
+one** — which is why a widget that did not draw cannot be clicked, focused or hovered even though
+its cells still look right. Four id-keyed facts deliberately outlive it, because they are the ones a
+widget cannot re-declare by drawing: the pointer grab, the press origin and the focus, which a sweep
+releases when their widget stops drawing, and the click record, which is not swept.
+
+**Scene tree** — *considered and refused*, and it was in this file for longer than any other refused
+term. There is no tree of nodes anywhere in `vitui`, and four separate answers each removed one:
+the clip stack **is** the call stack, so the draw tree is never a value; the id path is the
+**closure** tree and not the draw tree, so a rectangle-returning split leaves its panes siblings at
+one depth; the layer stack is a sorted `Vec` and a window inside a window is two entries with
+different z-order; and intrinsic sizing takes no measure walk, so nothing needs a node to hang a
+cached size on. What the runtime owns instead is *frame state* above. Named here so nobody
+re-derives it — and because the term survived nine tickets that had already made it false.
 
 ## Drawing
 

@@ -1,13 +1,16 @@
 [package]
 name = "vitui-runtime"
-description = "Scene tree, layout, reactivity, focus and event routing on top of vitui-engine"
+description = "Layout, identity, focus, hit-testing, routing, key maps and theming on top of vitui-engine"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
-# Dependency policy, from the map: vitui-runtime takes NO dependencies beyond the engine.
-# Reactivity and layout are written by hand. Do not add a crate here without a decision.
+# Dependency policy, from the map and restated by runtime ticket 14: vitui-runtime takes NO
+# dependencies beyond the engine. Layout, keys, theming, animation and the data contract are written
+# by hand and are modules of this crate; reactivity is not here at all — it is an application's, and
+# `vitui-signals` is the crate for the shape that wants one. Do not add a crate here without a
+# decision.
 [dependencies]
 vitui-engine.workspace = true

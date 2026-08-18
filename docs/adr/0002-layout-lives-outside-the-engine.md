@@ -7,8 +7,9 @@ date: 2026-08-16
 
 `vitui-engine` does not lay anything out. Callers bring rectangles; the engine draws into them,
 composites the layer stack and writes bytes. Layout, along with the scene tree, reactivity, focus and
-hit-testing, lives in `vitui-runtime`. Every comparable library — ratatui, termwiz, notcurses — bundles
-some form of layout with rendering, so the absence is surprising enough to record.
+hit-testing, lives in `vitui-runtime`. (Two of those five are corrected by the amendment below.)
+Every comparable library — ratatui, termwiz, notcurses — bundles some form of layout with rendering,
+so the absence is surprising enough to record.
 
 ## Why
 
@@ -40,3 +41,21 @@ been violated.
 
 The reverse also holds — no layout concept may enter through the `Surface` API. That door is the one
 this decision is most likely to be eroded through.
+
+## Amendment — 2026-08-18, runtime ticket 14
+
+The decision stands unchanged; two words in its opening paragraph do not, and they are left in place
+rather than edited because they were true of what was known in August 2026 and the record is worth
+more than the tidiness.
+
+- **"the scene tree"** names nothing. There is no tree of nodes in `vitui-runtime` or anywhere else:
+  the clip stack is the call stack, the id path is the closure tree, the layer stack is a sorted
+  `Vec`, and intrinsic sizing takes no measure walk. `CONTEXT.md` carries the correction and the
+  four answers behind it under *Scene tree — considered and refused*.
+- **"reactivity"** does not live in `vitui-runtime` either. It lives above it, in the application:
+  the runtime ships the loop and three hooks and nothing else, which runtime ticket 13 discharged by
+  building a TEA pump and a signal graph on one unmodified runtime.
+
+Neither correction touches this ADR's subject. The engine still lays nothing out, and the reason it
+must not — that layout and reactivity are entangled and would drag each other in — is if anything
+stronger now that reactivity has been measured to be outside the runtime as well.

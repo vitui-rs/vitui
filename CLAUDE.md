@@ -20,7 +20,8 @@ Read these before working, in this order:
 ```
 crates/vitui-engine       cells, surfaces, layers, compositing, damage, frame writer
                           └ crossterm behind a seam: raw mode, input, capability detection
-crates/vitui-runtime      scene tree, layout, reactivity, focus, hit-testing, event routing
+crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key maps, theming,
+                          overlays, the data contract — no scene tree, no reactivity
 crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers
 crates/vitui              facade re-export
 crates/vitui-alloc-probe  dev-only counting global allocator (publish = false)

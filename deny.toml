@@ -1,13 +1,17 @@
 # cargo-deny configuration.
 #
-# The dependency policy is a decision from the wayfinder map, not a preference:
+# The dependency policy is a decision from the wayfinder maps, not a preference. Runtime ticket 14
+# restated it against a split that was built rather than sketched:
 #
 #   vitui-engine      crossterm (without `event-stream`) plus build-script-generated UCD tables.
 #                     Nothing else.
-#   vitui-runtime     No dependencies. Reactivity and layout are written by hand.
-#   vitui-components  Case by case.
+#   vitui-runtime     vitui-engine and nothing else. Layout, reactivity, keys, theming and the data
+#                     contract are written by hand and are modules, not crates.
+#   vitui-components  vitui-runtime, plus dependencies case by case. It may not name crossterm.
+#   vitui-signals     vitui-runtime and nothing else, and nothing in this workspace depends on it.
+#   vitui             the facade: engine, runtime, components. Deliberately not signals.
 #
-# See docs/adr/0001-crossterm-behind-a-seam.md.
+# See docs/adr/0001-crossterm-behind-a-seam.md and runtime ticket 14.
 #
 # Run with: cargo deny check
 # Install with: cargo install cargo-deny
@@ -20,6 +24,23 @@ multiple-versions = "warn"
 wildcards = "deny"
 
 deny = [
+    # **ADR 0001, enforced instead of reviewed.** "crossterm is invisible" was a rule the map has
+    # restated four times and nothing checked: any crate could have added it and `cargo deny` would
+    # have said `bans ok`. `wrappers` says *who may depend on it*, so the engine keeps its one
+    # dependency and every other crate meets `error[banned]` instead of a code review. Runtime
+    # ticket 14 checked this in both directions — the second is a `crossterm.workspace = true` in
+    # `vitui-runtime/Cargo.toml`, which fails the gate.
+    { name = "crossterm", wrappers = ["vitui-engine"] },
+
+    # **Runtime ticket 14's facade decision, enforced the same way.** R13 built `vitui-signals` and
+    # recommended it as a crate; R14 accepts it and keeps it *out of the facade*, because a facade
+    # that re-exports one of two reactivity shapes has picked a winner between two that measured
+    # identical — 0 of 24 000 differing cells, all inside a ±0.5 µs noise floor. An empty `wrappers`
+    # list is that decision: the crate may exist and be published, and nothing in this workspace may
+    # depend on it. An application adds one line to its own `Cargo.toml`, which is the visibility
+    # the choice deserves.
+    { name = "vitui-signals", wrappers = [] },
+
     # Signals that crossterm's `event-stream` feature has been enabled, or that an async runtime has
     # been introduced. Either would break the runtime-agnostic guarantee.
     { name = "futures-core" },
@@ -36,6 +57,15 @@ deny = [
 # platform as its polling implementation — this is not `event-stream` and not an async runtime, and
 # `events` is the entire reason crossterm is a dependency at all. Verified against crossterm 0.29.0,
 # whose feature table reads `events = [dep:mio, dep:signal-hook, dep:signal-hook-mio]`.
+#
+# NOT used, deliberately: `[bans] allow`, cargo-deny's whole-graph allowlist. It would make
+# "`vitui-runtime` takes no dependencies" enforceable *positively* rather than by banning the
+# tempting shortcuts one at a time — and runtime ticket 14 measured what it costs: the graph is
+# **38 crates** under `all-features = true` across every target, most of them transitive and
+# platform-specific (`winapi`, `redox_syscall`, `wasi`, `windows-sys`), so every upstream patch
+# release becomes a `deny.toml` edit and the gate's first failure is always a false alarm. The
+# negative form above is weaker and stays true without maintenance. This is a judgement with a
+# number behind it, not an oversight.
 
 [licenses]
 allow = [
