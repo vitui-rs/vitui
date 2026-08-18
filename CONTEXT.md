@@ -95,6 +95,28 @@ discarded and the buffer returns to the pool.
 optimisation, and the subject of its central invariant: *frame cost is proportional to visible cells,
 never to data volume.*
 
+**Run** — one damaged span on one row, inclusive at both ends. The unit damage is reported in and the
+only shape the serializer ever sees: runs arrive in row order, ascending by column within a row, and
+that order *is* the order bytes are written in.
+
+**Serialize** — to turn a snapshot into the bytes that go to the terminal. The engine writes its own
+escape sequences; the backend crate is used for input and terminal mode, never for output.
+
+**Mirror** — the render thread's record of what the terminal is currently showing: one grid of cells,
+updated as bytes are emitted. Distinct from a frame, which is what the application *wants* shown.
+Named a mirror rather than a shadow because a shadow is already a kind of layer. It is what lets the
+serializer skip a cell the frame rewrote without changing, and what lets a scroll be proved before it
+is emitted. See `docs/adr/0006`.
+
+**Unknown row** — a row of the mirror that cannot be trusted: at startup, and after a resize. An
+unknown row is written whole rather than compared, which is how a full repaint expresses itself
+without a separate mode.
+
+**Scroll region** — the terminal's own ability to move a band of rows, addressed as top and bottom
+margins plus a count. Cheaper than repainting the band by two orders of magnitude, applicable only
+when moving *every* column of the band produces what the frame asked for, and therefore emitted only
+after that has been checked against the mirror.
+
 ## The loop
 
 **Screen** — the app thread's handle to the attached terminal, and the whole of the engine from the
