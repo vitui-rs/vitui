@@ -31,6 +31,16 @@ an expanded set. Named as a separate thing from the data itself because it is pa
 never owned together with it — that is what lets two components show one table at the same moment,
 neither owning it and neither needing a mutable borrow of it.
 
+**Identity** — the name a widget keeps between frames, derived from the call site it is written at:
+its parent's identity, its `file:line:col`, and a key where one call site produces many widgets. It
+is what focus, hit-testing, interest, overlay ownership and scroll association are keyed on — five
+things, not six, because a memo is keyed by where it is *stored* instead. Two properties are not
+negotiable. A container that returns a rectangle preserves its children's identity and one that takes
+a closure renames them, with `scope` and `scroll_scope` the deliberate exceptions. And **an `Id`
+differs between two runs of the same binary and may never be persisted**: the file pointer is an
+address, so nothing may write one to disk, send one over a wire, or compare one against a stored
+value. See `docs/adr/0013`.
+
 **Frame state** — what the runtime keeps for the length of one draw and rebuilds on the next: the
 hit index, the focus ring, the overlay request queue, the deadline sink and the key queue. Five flat
 structures, not one and not a tree, and **rebuilt from the draw rather than diffed against the last
@@ -430,6 +440,19 @@ because a promise is downward-closed by whoever makes it. See `docs/adr/0010`.
 with box drawing and block elements, or everything including braille and emoji. Declared, never
 detected, and a component branches on it rather than the engine substituting behind its back. The
 type is `GlyphSet`, with the three levels `docs/adr/0010` names.
+
+**Role** — what a component asks a theme for instead of asking for a colour. **A role names a paint,
+not a colour**, and that is the whole of why there are thirteen of them rather than twenty-six: a
+component handed a foreground and a background separately would have to pair them, and pairing is the
+style literal the no-literals rule exists to forbid. Two roles are the unit degradation is measured
+in, because quantisation collapses *pairs* — a role that survives a tier alone tells you nothing.
+
+**Paint** — a resolved style, obtainable only from a `Theme`. A newtype whose inner value is private
+to the theme, so a component can name a role and can never construct one; the six drawing verbs that
+take a style are closed by their signature, and the seventh, `restyle`, is closed by taking a
+descriptor rather than a function that could return a style it invented. A paint *is* a style once it
+is made, which is why the role a cell was painted with cannot be read back from the cell. See
+`docs/adr/0018`.
 
 **Application palette** — the colours an application ships and a `Theme` is made of: thirteen roles,
 each a whole paint. A base16 YAML scheme or an opencode theme JSON is one of these. It is authored

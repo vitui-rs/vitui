@@ -44,6 +44,11 @@ vitui-bench = { path = "crates/vitui-bench", version = "0.0.0" }
 [profile.bench]
 debug = true
 
+# `codegen-units = 1` was removed by runtime ticket 16, which inherited the decision from runtime
+# ticket 14's measurement. On the dense 300x80 screen a single-crate build costs 33.0 us with it and
+# 28.7 us at 16, while the four-crate build is 28.7 and 28.4 — four crates are four codegen units
+# whatever the setting says, so it is moot on the shipped workspace and costs 4.3 us, 4.3% of the
+# frame budget, on the one shape where it is not. Nothing was found that it buys. ThinLTO is what
+# earns the inlining back.
 [profile.release]
 lto = "thin"
-codegen-units = 1

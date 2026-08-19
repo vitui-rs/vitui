@@ -14,6 +14,9 @@ Read these before working, in this order:
    decisions that constrain everything; do not reopen them without a new decision.
 2. `CONTEXT.md` — the glossary. Use its terms in code, comments, tickets and commit messages.
 3. `docs/adr/` — decisions that are hard to reverse and surprising without context.
+4. `.scratch/vitui-runtime-architecture/spec.md` — the runtime's settled architecture, if the work is
+   above the engine. Its map is closed; `architecture.md` beside it is the superseded proposal and is
+   kept only as the record of what was argued.
 
 ## Workspace
 
