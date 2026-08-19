@@ -392,3 +392,35 @@ component that cannot express itself at a given repertoire builds something diff
 **Quantise** — to resolve a colour into the nearest one the terminal can show. Happens on the render
 thread, inside the run scan, *before* the comparison with the mirror — so the mirror holds what the
 terminal was told, and the equality filter is exact with respect to the wire.
+
+## Verification
+
+**Gate** — a check that fails a build. A gate is a **count**, a **ratio**, an **equality** or a
+**compile outcome**, never a timing — except for one shape, below. A number that appears in a report
+and is asserted nowhere is not a gate, however often it is quoted.
+
+**Report** — a measurement that is committed and read, and gates nothing. Every
+`examples/*_numbers.rs` is one. A report may not be load-bearing for a gate: five of the runtime's
+negative cases were, for a while, kept honest only by a `size_of` line in a benchmark, which nobody
+had decided and `cargo test` compiled by accident.
+
+**Pair** — how a compile outcome is written: a ```` ```compile_fail ```` block and an ordinary block
+in the same rustdoc, differing in exactly the hostile line. Neither half is a gate alone. Deleting the
+hostile line is caught by the first half; renaming the item it protects is caught only by the second,
+and **only if the second names the item by path** — a positive half that merely exercises the
+mechanism survives the rename, and eleven of the runtime's fifty-seven cases were written that way.
+The error-code annotation is documentation: it is not enforced on stable.
+
+**Cliff** — a regression that shows up as a large absolute cost on one scene: an un-memoised fold, a
+paste that went quadratic, a second whole frame. Caught by a **timing gate sitting at the budget**,
+never at the current measurement.
+
+**Slope** — a regression in how a cost grows with the widget count. Caught by a **growth ratio**
+across two sizes of one scene, and by nothing else: a quadratic duplicate scan costs the dense screen
+1.19x and walks straight through a 100 µs gate, while the same defect at 200 → 800 widgets is 9.2x
+against 3.96x. Most quadratics on this map have been slopes.
+
+**Scene list** — the fixed set of screens every gate and report is measured against. It is part of the
+gate rather than an appendix: three scenes that score identically on every candidate validate the
+wrong design while reporting success. A scene is removed only by a ticket naming the property it can
+no longer distinguish.
