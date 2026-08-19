@@ -391,6 +391,29 @@ slow pure computation and a blocking read produce the same frozen screen.
 recorded. Cold start reads configuration; that is not the defect the overrun detector hunts, and
 saying so explicitly is what keeps the detector strict everywhere else.
 
+**Question** — the thing a background job is asked, identified by a key the app thread computes. Not
+the job and not the answer: two requests carrying the same key are one question, so the verb that
+asks is idempotent and a component may call it unconditionally on every frame. Immediate mode has no
+mount, so *every frame* is the only moment a component has.
+
+**Generation** — a monotonic number minted on the app thread when a question is asked, and carried
+back beside the answer. What makes a landing rejectable: an answer whose generation is not the newest
+is an answer to a question nobody is asking. Deliberately **not** a `Revision` — a revision is
+compared with `==` and answers *is this different*, never *is this newer*.
+
+**Landing** — an answer arriving from a worker: the payload plus its generation. A landing is a write
+to application data and belongs at the top of the view, before anything reads. Taken mid-draw it
+tears the frame between two widgets that read the same field.
+
+**Resident worker** — a background thread with a **one-slot inbox**, asked questions rather than
+handed functions. A question replaced in the inbox before the worker looks at it costs nothing: no
+thread, no started job, no decision to stop. The counterpart of the one-slot outbox and of the frame
+mailbox, and the three share one rule — *the newest supersedes, because nobody wants the older one*.
+
+**Cooperative cancel** — a flag a job agrees to poll. There is no other kind: a thread cannot be
+killed, so a job that never looks is not cancellable and no signature says so. Worth having and worth
+not over-trusting: it saves nothing at all while the work finishes faster than the user moves.
+
 ## Terminal
 
 **Backend** — the seam behind which the terminal library lives. `crossterm` sits here and is not
@@ -453,6 +476,12 @@ never at the current measurement.
 across two sizes of one scene, and by nothing else: a quadratic duplicate scan costs the dense screen
 1.19x and walks straight through a 100 µs gate, while the same defect at 200 → 800 widgets is 9.2x
 against 3.96x. Most quadratics on this map have been slopes.
+
+**Attribution window** — the span an allocation or timing assertion is taken over, and *whose* work
+it can be trusted to describe. The allocation probe is process-global: it counts allocations, not
+allocations by the app thread, so a window overlapping a worker attributes the worker's growth to the
+frame. A gate with a background job in it therefore runs on a deterministic spawner, or joins before
+it measures.
 
 **Scene list** — the fixed set of screens every gate and report is measured against. It is part of the
 gate rather than an appendix: three scenes that score identically on every candidate validate the
