@@ -435,6 +435,17 @@ type is `GlyphSet`, with the three levels `docs/adr/0010` names.
 each a whole paint. A base16 YAML scheme or an opencode theme JSON is one of these. It is authored
 against widgets, it travels with the program, and every colour in it is a real colour.
 
+**Theme registry** — the set of application palettes a program offers its users, plus which one is
+current. A runtime type held as *application* state: the type resolves each theme against the
+detected colour tier so the call cannot be forgotten, and the value is written between frames like
+any other state, because a component may not write to `Env` mid-frame. A picker reads it as ordinary
+data.
+
+**Swap frame** — the one frame on which the current theme changes. It is a steady frame plus a full
+repaint, because every cell whose style moved is a cell that changed; it is also the frame on which
+every memo keyed on the theme misses at once, which is why a memo carries the theme in its key only
+when its value is made of paints.
+
 **Operator palette** — the sixteen ANSI colours the *terminal* is configured with, plus its own
 default foreground and background. An `.itermcolors` plist or a terminal profile is one of these. It
 decides what `indexed(n)` and `Color::DEFAULT` mean on the machine the frame lands on, no application
