@@ -192,7 +192,9 @@ below, which is what lets several components' needs combine by taking the highes
 **Focus ring** — the widgets that can hold the keyboard, in the order `Tab` visits them. Rebuilt
 every frame during the draw, by the widgets that declare focusability, so it is always the ring that
 just drew rather than a description of the previous frame. Focusability is declared and never
-derived: being clickable is not being a tab stop, and wanting keys is not either.
+derived: being clickable is not being a tab stop, and wanting keys is not either. An entry carries
+its rectangle in the enclosing scroll area's content coordinates — read at the end of the same frame
+and never after it — which is what lets a `Tab` onto a row below the fold scroll it into view.
 
 **Tab stop** — a ring position `Tab` can land on. Not the same as a ring entry: a scope may collapse
 a whole range onto one stop, so a menu bar of seven is seven entries and one stop. The stop count,
@@ -252,9 +254,41 @@ anything virtualised, and it repeats every side effect the frame has. It is kept
 that a sizing function still agrees with the component beside it, which is a thing no compiler
 checks and which drifted silently for three tickets.
 
-**Drawn extent** — the largest content coordinate any drawing verb touched inside a body. What a
-dry run reads, and what a scroll area over bounded content uses instead of a declared content size.
-It is one frame old when a scroll area uses it, and same-frame when a test uses it.
+**Drawn extent** — the largest content coordinate any drawing verb touched inside a body, on both
+axes. What a dry run reads, and what a scroll area over bounded content uses instead of a declared
+content size. It is one frame old when a scroll area uses it, and same-frame when a test uses it.
+The coordinate recorded is the one a verb **offered**, not the one it managed to write — marking the
+clipped width is what made the extent blind sideways — and it is maintained only while the frame is
+asked to maintain it, because measuring the width of every verb costs 7% of the frame budget.
+
+## Scrolling
+
+**Scroll area** — a viewport over content larger than itself, moved by an offset the *application*
+owns. Cost is proportional to the content, because the body draws as if everything were visible and
+the clip rejects the rest; that is what makes it right for a form and wrong for a million rows.
+
+**Virtualised collection** — a viewport over an indexed source, where the caller draws only the rows
+the visible range admits. Cost is proportional to the window. It is a different mechanism from a
+scroll area and not a faster one, and choosing the wrong one of the two is the single most expensive
+mistake available above this runtime.
+
+**Scrollable** — where a widget can still move, as four directions rather than two axes. It is
+declared per direction because a wheel click is one direction: a collection at its bottom that
+reports "the vertical axis is movable" consumes every downward click and the area around it never
+sees one.
+
+**Wheel chaining** — the innermost scrollable under the pointer that can still move *the way the
+wheel is going* consumes the click; otherwise it passes outward. Resolved from the previous frame's
+index, and it is the one pointer channel that cannot be resolved at the end of the frame instead,
+because the offset is read during the draw by the widget that owns it. The residue is one click, at
+each end stop and on an area's first frame.
+
+**Scroll-into-view** — bringing a newly focused entry inside its enclosing area's viewport. Resolved
+at the end of the frame that drew, from the focus ring's content-coordinate rectangle, so the next
+frame is already scrolled; it fires only for a keyboard-driven focus move, because a press proves
+the widget was on screen and an unconditional pull fights the wheel. What crosses the frame boundary
+is an offset, never a rectangle. It has no meaning inside a virtualised collection: a row that did
+not draw is not in the ring.
 
 ## Overlays
 
