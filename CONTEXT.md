@@ -428,7 +428,19 @@ because a promise is downward-closed by whoever makes it. See `docs/adr/0010`.
 
 **Repertoire** — the set of characters the operator promises their font can show: ASCII only, Unicode
 with box drawing and block elements, or everything including braille and emoji. Declared, never
-detected, and a component branches on it rather than the engine substituting behind its back.
+detected, and a component branches on it rather than the engine substituting behind its back. The
+type is `GlyphSet`, with the three levels `docs/adr/0010` names.
+
+**Application palette** — the colours an application ships and a `Theme` is made of: thirteen roles,
+each a whole paint. A base16 YAML scheme or an opencode theme JSON is one of these. It is authored
+against widgets, it travels with the program, and every colour in it is a real colour.
+
+**Operator palette** — the sixteen ANSI colours the *terminal* is configured with, plus its own
+default foreground and background. An `.itermcolors` plist or a terminal profile is one of these. It
+decides what `indexed(n)` and `Color::DEFAULT` mean on the machine the frame lands on, no application
+may assume it, and nothing in the process can read it — which is why a role resolved to a palette
+index is a role whose distance from another role is unknowable from inside (`docs/adr/0007`), and why
+a pair count taken at sixteen colours is a lower bound rather than a measurement.
 
 **Quirk** — a correction applied *after* detection, for a terminal that answers a query correctly and
 then misbehaves anyway. Where the per-terminal facts live: legacy SGR on ConPTY, and which text
