@@ -1,0 +1,86 @@
+# The same three gates as `.github/workflows/ci.yml`, on a runner that is on this machine.
+#
+# Why both exist: a CI job nobody has watched go green is not a gate, whatever it checks. This
+# repository has no hosted CI yet, so `infra/` stands up a GitLab and a runner in Docker and this
+# file is what they run. See `infra/README.md`.
+#
+# What this does NOT cover, and the GitHub workflow does: the `test` job there is a three-OS matrix
+# (ubuntu, macos, windows). A local Docker runner is one OS and one architecture — here,
+# linux/arm64. Green here means the gates pass; it does not mean they pass on Windows.
+
+variables:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+  # Keep the registry and the build inside the project directory so `cache:` can see them. The
+  # default locations are under $HOME, which is thrown away with the job container.
+  CARGO_HOME: $CI_PROJECT_DIR/.cargo
+  GIT_DEPTH: "1"
+
+default:
+  image: rust:1-bookworm
+
+cache:
+  key: $CI_COMMIT_REF_SLUG
+  paths:
+    - .cargo/registry/index
+    - .cargo/registry/cache
+    - target
+
+stages:
+  - check
+
+test:
+  stage: check
+  # `cargo test` has no per-test timeout of its own and a hang is worse than a failure.
+  timeout: 20m
+  script:
+    - rustup component add rustfmt clippy
+    - cargo fmt --all --check
+    # Runs under `RUSTFLAGS: -D warnings` above, so a lint is a build failure. Any custom `cfg`
+    # this workspace ships must be registered where it is defined — `[lints.rust] unexpected_cfgs`
+    # in the crate manifest, and `cargo::rustc-check-cfg` in the build script once one exists.
+    - cargo clippy --workspace --all-targets
+    # One test command, and it is the serialised one. The allocation probe counts through a
+    # process-global counter and `cargo test` runs a binary's tests on several threads, so an
+    # allocating sibling lands in the number. The unserialised pass is deliberately absent — it
+    # buys nothing back and only adds a way to be flaky. This also runs the doctests, and the
+    # doctests are where the negative gates live.
+    - cargo test --workspace -- --test-threads=1
+
+deny:
+  stage: check
+  timeout: 10m
+  # The dependency policy is a decision, not a preference: the engine takes crossterm and nothing
+  # else, and the runtime takes nothing at all. See docs/adr/0001-crossterm-behind-a-seam.md.
+  #
+  # A `wildcard` error is fixed by giving the path dependency a `version`, never by loosening
+  # `wildcards = "deny"`. A `banned` error is fixed at its source, or the crate joins ADR 0001's
+  # `wrappers` list in `deny.toml` with its reason on the same line.
+  script:
+    # The prebuilt binary rather than `cargo install --locked`, which is four minutes of compiling
+    # a linter on every run. The fallback exists because the asset naming is upstream's to change.
+    - |
+      set -eu
+      arch=$(uname -m)
+      url="https://github.com/EmbarkStudios/cargo-deny/releases/download/${CARGO_DENY_VERSION}/cargo-deny-${CARGO_DENY_VERSION}-${arch}-unknown-linux-musl.tar.gz"
+      if curl -fsSL "$url" -o /tmp/cargo-deny.tar.gz; then
+        tar -xzf /tmp/cargo-deny.tar.gz -C /tmp --strip-components=1
+        install /tmp/cargo-deny /usr/local/bin/cargo-deny
+      else
+        echo "no prebuilt binary at $url; falling back to cargo install" >&2
+        cargo install cargo-deny --version "$CARGO_DENY_VERSION" --locked
+      fi
+    - cargo deny check
+  variables:
+    CARGO_DENY_VERSION: "0.20.2"
+
+budget:
+  stage: check
+  timeout: 15m
+  # The performance budget. A gate is an `assert_under` inside the example, so a regression fails
+  # the job rather than appearing in a report nobody reads.
+  #
+  # The numbers this prints are worth what a laptop under load is worth. It is here as a gate on
+  # the cliffs, not as a measurement anyone should quote.
+  script:
+    - cargo run --release --example budget -p vitui-engine

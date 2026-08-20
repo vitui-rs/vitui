@@ -15,6 +15,10 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    # `cargo test` has no per-test timeout of its own, and a hung test binary is worse than a
+    # failing one: it burns a runner for six hours and reports nothing. Every job here carries a
+    # ceiling for that reason.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -22,16 +26,29 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all --check
+      # Runs under the workflow's `RUSTFLAGS: -D warnings`, so a lint is a build failure. Any
+      # custom `cfg` this workspace ships must therefore be registered where it is defined —
+      # `[lints.rust] unexpected_cfgs = { level = "warn", check-cfg = [...] }` in the crate
+      # manifest, and again via `cargo::rustc-check-cfg` in the build script once one exists.
+      # `unexpected_cfgs` warns by default, and under `-D warnings` a warning is red.
       - run: cargo clippy --workspace --all-targets
+      # One test command, and it is the serialised one.
+      #
+      # The allocation probe counts through a process-global counter, and `cargo test` runs a
+      # binary's test functions on several threads, so an allocating sibling lands in the number.
+      # On the measured lineage that failed on a different binary each run and with a different
+      # count each run. The plain `cargo test --workspace` step was deleted rather than kept
+      # alongside this one: serialising costs ~9.4 s of in-binary time against a ~10.9 s wall
+      # clock, so a second unserialised pass buys nothing back and only adds a way to be flaky.
+      #
       # This also runs the doctests, and the doctests are where the negative gates live. A case
       # that must NOT compile is a ```compile_fail``` block paired with an ordinary block that
       # names the same items, so a rename fails the pair instead of silently satisfying it. There
       # is deliberately no `RUSTFLAGS`-flipping "must fail to compile" step here: measured on
-      # ticket 18's own negative cases, that step passes when the negative cases are deleted. See
-      # the verification-strategy ticket.
-      - run: cargo test --workspace
-      # Allocation assertions read a process-global counter, so they cannot share a process with
-      # other tests. See crates/vitui-alloc-probe.
+      # ticket 18's own negative cases, that step passes when the negative cases are deleted, its
+      # positive direction does not compile under this workflow's flags at all, and a
+      # `RUSTFLAGS="--cfg ..."` *replaces* `-D warnings` rather than composing with it. See the
+      # verification-strategy ticket.
       - run: cargo test --workspace -- --test-threads=1
 
   # The dependency policy is a decision, not a preference: the engine takes crossterm and nothing
@@ -39,8 +56,13 @@ jobs:
   #
   # It covers dev-dependencies too, and that is not a formality: `criterion` reached `futures-core`
   # and `futures-util` through `plotters` -> `web-sys` -> `js-sys` and made this job red.
+  #
+  # A `wildcard` error here is fixed by giving the path dependency a `version`, never by loosening
+  # `wildcards = "deny"`. A `banned` error is fixed at its source, or the crate joins ADR 0001's
+  # `wrappers` list in `deny.toml` with its reason on the same line.
   deny:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: EmbarkStudios/cargo-deny-action@v2
@@ -57,6 +79,7 @@ jobs:
   #     workflow on a pinned runner and it reports rather than gates.
   budget:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
