@@ -5,16 +5,27 @@
 //! why `n` here is tens and the stack is a sorted `Vec` rather than a tree or a skip list
 //! (spec §5).
 //!
+//! A tree was rejected because a `z` local to a parent *is* a scene, and the scene lives above the
+//! engine (ADR 0002). A skip list was rejected for three reasons and each is worth keeping: **n is
+//! tens**; **the dominant operation is an ordered traversal of the whole stack every frame**, which
+//! is what a contiguous `Vec` is best at and a skip list worst at; and a skip list's real modern
+//! advantage is lock-free concurrent ordered access, and there is no concurrency here — plus a node
+//! allocation per insert and an RNG for level assignment, which is non-determinism where this
+//! project wants a property a test can assert. If a `Vec` ever stops being enough the answer is
+//! `BTreeMap<(z, seq), Layer>`.
+//!
 //! # Scope
 //!
-//! This is the tracer bullet's half: content layers, painted bottom-up over the damaged runs. The
-//! point query, removal and the reordering verbs arrive with ticket 10, the edge repairs at a layer
-//! boundary with ticket 11, and the operator layer and its `Mix` with ticket 12.
+//! The whole of spec §12's `LayerStack` is here (ticket 10). What is **not** here is the operator
+//! layer's compositing: [`add_operator`](LayerStack::add_operator) places one, orders it and lets
+//! it be moved and removed, and ticket 12 is what makes a `Mix` reach a cell. The edge repairs at a
+//! layer boundary are ticket 11's.
 
 use crate::cell::{Cell, GraphemeId};
 use crate::damage::Run;
+use crate::exts::{ExtStyle, LinkId};
 use crate::geom::Rect;
-use crate::style::Style;
+use crate::style::{Color, Style};
 use crate::surface::Surface;
 use crate::tables::Tables;
 use crate::view::View;
@@ -25,6 +36,60 @@ use crate::view::View;
 /// *this layer again* without being able to say *entry 7*.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub struct LayerId(u32);
+
+/// The one operator: a colour, and how far toward it what is already there is moved.
+///
+/// **Darken is `Mix` toward black, lifting is `Mix` toward white, tint is `Mix` toward anything, and
+/// a fade is `amount` moving across frames.** One mechanism instead of three blend modes, and the
+/// three-item list it replaced (`Replace`, `Darken`, `Blend`) collapsed for a reason worth keeping:
+/// `Replace` is not a blend mode, it is what a content layer does, and **alpha-over is rejected**
+/// because a terminal cell has no alpha — blending two layers' glyphs is not a thing, one of them
+/// has to win, and a compositor has no basis for choosing (spec §5).
+///
+/// The fields are private and [`new`](Mix::new) clamps, because `0..=256` is an invariant the
+/// compositing arithmetic rests on rather than a suggestion — the same shape [`Color`] already
+/// takes. `amount == 0` is the identity, and the identity never reaches a cell.
+///
+/// **Ticket 12 owns what a `Mix` does.** This type exists here because
+/// [`add_operator`](LayerStack::add_operator) needs a signature, and the stack has to be able to
+/// order, move and remove an operator layer before there is anything for it to paint.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Mix {
+    toward: Color,
+    amount: u16,
+}
+
+impl Mix {
+    /// All the way to `toward`, leaving nothing of what was underneath.
+    pub const FULL: u16 = 256;
+
+    /// A mix `amount`/256 of the way toward `toward`, saturating at [`FULL`](Mix::FULL).
+    pub const fn new(toward: Color, amount: u16) -> Mix {
+        Mix {
+            toward,
+            amount: if amount > Mix::FULL {
+                Mix::FULL
+            } else {
+                amount
+            },
+        }
+    }
+
+    /// The colour this operator moves cells toward.
+    pub const fn toward(self) -> Color {
+        self.toward
+    }
+
+    /// How far toward it, out of [`FULL`](Mix::FULL).
+    pub const fn amount(self) -> u16 {
+        self.amount
+    }
+
+    /// Whether this operator changes nothing, and is therefore skipped entirely.
+    pub const fn is_identity(self) -> bool {
+        self.amount == 0
+    }
+}
 
 /// One layer, as the reference compositor and the gates need to see it.
 ///
@@ -41,6 +106,31 @@ pub(crate) struct LayerRef<'a> {
     pub(crate) surface: &'a Surface,
 }
 
+/// What a layer is made of: cells, or a transformation of whatever is already there.
+///
+/// Not public, and spec §12 is where that is decided rather than here — its compositing section
+/// names `LayerId` and `Mix` and no `LayerKind`. A public `Content { surface: Surface }` would also
+/// be a door onto a layer's cells, which is the one ADR 0023 closes.
+///
+/// **The surface is boxed**, and that is a decision about the dominant operation rather than a
+/// habit. §5 chose a contiguous `Vec` because *the dominant operation is an ordered traversal of the
+/// whole stack every frame*, and that argument is about bytes touched per layer. A `Surface`
+/// carries three tables and two `Vec`s; inline, every `Layer` would be its own cache line and a
+/// scan of two hundred would be two hundred misses. Boxed, a `Layer` is forty bytes — asserted
+/// below, because the number is the whole reason — and the scan reads `z`, `rect` and a tag, and
+/// follows the pointer only for the layers a run actually touches.
+///
+/// Measured on the shipped stack (`examples/budget.rs`): the full ordered scan is **19.6 ns at
+/// n = 20 and 205 ns at n = 200** — about one nanosecond a layer, and linear. §5's prototype was
+/// 5.05 and 59.3 ns, a quarter of a nanosecond a layer, and forty bytes is why: 1.6 layers to a
+/// cache line rather than the four a sixteen-byte record would give. It is not chased, because the
+/// whole scan at n = 200 is 0.2% of a 100 µs frame and the fix would be a parallel array of the hot
+/// fields — a second structure to keep in step, for a fifth of a percent.
+enum Kind {
+    Content { surface: Box<Surface>, opaque: bool },
+    Operator(Mix),
+}
+
 struct Layer {
     id: LayerId,
     z: i32,
@@ -48,8 +138,42 @@ struct Layer {
     /// restores the exact original order.
     seq: u32,
     rect: Rect,
-    surface: Surface,
-    opaque: bool,
+    kind: Kind,
+}
+
+impl Layer {
+    /// The cells this layer paints, or `None` for an operator layer, which has none.
+    fn surface(&self) -> Option<&Surface> {
+        match &self.kind {
+            Kind::Content { surface, .. } => Some(surface),
+            Kind::Operator(_) => None,
+        }
+    }
+
+    /// Whether this layer can change a composited cell at all.
+    ///
+    /// False for an operator whose `Mix` is the identity, which is §5's rule that `amount == 0` is
+    /// skipped entirely: adding, moving and removing one damages nothing, because there is nothing
+    /// it could have painted for the frame to have to undo.
+    fn paints(&self) -> bool {
+        match &self.kind {
+            Kind::Content { .. } => true,
+            Kind::Operator(mix) => !mix.is_identity(),
+        }
+    }
+
+    /// Whether this layer covers every cell of `run`, opaquely — in which case nothing below it is
+    /// visible there and the composite can start from it.
+    fn floors(&self, run: Run) -> bool {
+        let Kind::Content { opaque: true, .. } = self.kind else {
+            return false;
+        };
+        let y = run.y as i32;
+        y >= self.rect.y
+            && y < self.rect.bottom()
+            && self.rect.x <= run.lo as i32
+            && self.rect.right() > run.hi as i32
+    }
 }
 
 /// The layers, in bottom-to-top order.
@@ -65,8 +189,20 @@ pub struct LayerStack {
     /// They live here rather than in a `Surface` because that is what keeps compositing a
     /// `copy_from_slice`: with one handle space there is nothing to translate on the way across,
     /// and the per-surface arm measured 4.9x on a realistic layer and 46x on a hostile one.
-    /// `add_content_with` is what renumbers a donated surface into them (ticket 10).
+    /// [`add_content_with`](LayerStack::add_content_with) is what renumbers a donated surface into
+    /// them.
     tables: Tables,
+    /// Rectangles of the frame that **no layer's own damage can speak for**.
+    ///
+    /// A layer's bitset lives in its surface, so removing a layer, moving it or reordering it
+    /// damages an area that either belongs to no layer at all or belongs to layers that have not
+    /// changed. Those rectangles are collected here and unioned into the frame by
+    /// [`take_damage_into`](LayerStack::take_damage_into), which drains them: an exposure is a
+    /// fact about one frame, not a standing property of the stack.
+    ///
+    /// A `Vec` that is drained rather than freed, because the steady state has no topology change
+    /// in it and must allocate nothing (`tests/alloc.rs`).
+    exposed: Vec<Rect>,
     next_id: u32,
     next_seq: u32,
 }
@@ -76,6 +212,7 @@ impl LayerStack {
         LayerStack {
             layers: Vec::new(),
             tables: Tables::new(),
+            exposed: Vec::new(),
             next_id: 0,
             next_seq: 0,
         }
@@ -91,45 +228,199 @@ impl LayerStack {
     /// The new layer damages its whole rectangle, because nothing beneath it has been asked to
     /// repaint what it now covers.
     pub fn add_content(&mut self, z: i32, rect: Rect, opaque: bool) -> LayerId {
-        let id = LayerId(self.next_id);
-        self.next_id += 1;
-        let seq = self.next_seq;
-        self.next_seq += 1;
+        let surface = Surface::new_filled(rect.w, rect.h, ground(opaque));
+        self.place(z, rect, opaque, surface)
+    }
 
-        // A non-opaque layer is born EMPTY rather than blank. The trap spec §5 names is a caller
-        // who draws only a border into a popup and gets a rectangle of opaque spaces that erases
-        // the window underneath; being born blank is what would spring it.
-        let ground = if opaque {
-            Cell::BLANK
-        } else {
-            Cell::new(GraphemeId::EMPTY, Style::DEFAULT)
-        };
-        let mut surface = Surface::new_filled(rect.w, rect.h, ground);
-        surface.damage_mut().mark_all();
+    /// Add a content layer at `z`, covering `rect`, painting cells that are already drawn.
+    ///
+    /// The worker's door, and the reason [`Surface`] is [`Send`]: drawing a heavy off-screen
+    /// surface on another thread and donating it is legitimate traffic, and ownership transfer is
+    /// the mechanism by which the app thread never waits.
+    ///
+    /// # The donated surface's handles are renumbered, once, here
+    ///
+    /// A `Surface` drawn through [`Surface::root`](Surface::root) interns into a table of its own,
+    /// because that door has no engine to reach through (spec §3, architecture ticket 19). Its
+    /// grapheme handles, its extended-style handles and the link ids **inside** those are therefore
+    /// meaningless in this stack's handle space, and are rewritten here so that
+    /// *every surface in a layer stack speaks that stack's handle space* holds by renumbering where
+    /// it holds by construction for [`add_content`](LayerStack::add_content).
+    ///
+    /// **Nearly every donation skips the walk**: Latin, CJK, box drawing and every single-scalar
+    /// emoji are their own handles and touch no table, and a cell that is neither hyperlinked nor
+    /// coloured-underlined carries no extended style. A surface whose three tables are all empty
+    /// moves in as it is.
+    ///
+    /// The renumbering marks no damage — a new layer already damages its whole rectangle — and it
+    /// happens at a scene topology change, where allocation is permitted, never inside a frame.
+    ///
+    /// # A size mismatch is intersected, not rejected
+    ///
+    /// The donated surface is what there is to paint, so the layer covers `rect` intersected with
+    /// it: a surface smaller than `rect` paints its own cells and no more, and one larger is
+    /// clipped. That is §5's rule for a layer that hangs off an edge, applied to the other way a
+    /// rectangle and a grid can disagree.
+    pub fn add_content_with(
+        &mut self,
+        z: i32,
+        rect: Rect,
+        opaque: bool,
+        mut surface: Surface,
+    ) -> LayerId {
+        self.renumber(&mut surface);
+        self.place(z, rect, opaque, surface)
+    }
 
-        let layer = Layer {
-            id,
-            z,
-            seq,
-            rect,
-            surface,
-            opaque,
-        };
-        let at = self
-            .layers
-            .partition_point(|l| (l.z, l.seq) < (layer.z, layer.seq));
-        self.layers.insert(at, layer);
+    /// Add an operator layer at `z`, covering `rect`.
+    ///
+    /// An operator has no cells: it is a rectangle and a transformation of whatever is already
+    /// there. A shadow is one of these at a `z` just below its window, and the window occludes its
+    /// own shadow by painting over it — which is why there is no region arithmetic anywhere in this
+    /// file, no rectangle-minus-rectangle and no L-shapes. Modal dimming is the same trick with the
+    /// scrim beneath the modal.
+    ///
+    /// An identity mix and a zero-area rectangle both mark no damage, because neither can change a
+    /// cell.
+    ///
+    /// **Ticket 12 is what makes this paint.** Until then an operator layer is placed, ordered,
+    /// moved and removed like any other and composites to nothing, so the picture is the one the
+    /// content layers make.
+    pub fn add_operator(&mut self, z: i32, rect: Rect, mix: Mix) -> LayerId {
+        let id = self.insert(z, rect, Kind::Operator(mix));
+        if !mix.is_identity() {
+            self.expose(rect);
+        }
         id
+    }
+
+    /// Remove a layer. `false` when this stack has no layer with that id.
+    ///
+    /// What was underneath is exposed and repainted; the layer's surface, and the cells in it, are
+    /// dropped. The handle-table entries those cells named are **not** reclaimed here — that is the
+    /// mark-and-compact sweep's job, and it runs where allocation is permitted rather than inside a
+    /// verb (spec §3, ticket 08).
+    pub fn remove(&mut self, id: LayerId) -> bool {
+        let Some(at) = self.find(id) else {
+            return false;
+        };
+        let gone = self.layers.remove(at);
+        if gone.paints() {
+            self.expose(gone.rect);
+        }
+        true
+    }
+
+    /// Move a layer to a new `z`, keeping its `seq`. `false` when this stack has no layer with
+    /// that id.
+    ///
+    /// **`seq` is never mutated**, which is the whole of the tie-break: raising a layer to the top
+    /// and dropping it back to the `z` it came from restores the exact original order, however many
+    /// layers share that `z`.
+    pub fn set_z(&mut self, id: LayerId, z: i32) -> bool {
+        let Some(at) = self.find(id) else {
+            return false;
+        };
+        if self.layers[at].z == z {
+            return true;
+        }
+        let mut layer = self.layers.remove(at);
+        layer.z = z;
+        let (rect, paints) = (layer.rect, layer.paints());
+        self.sorted_insert(layer);
+        if paints {
+            self.expose(rect);
+        }
+        true
+    }
+
+    /// Move or resize a layer. `false` when this stack has no layer with that id.
+    ///
+    /// A move keeps the layer's cells. **A resize does not**: the surface is reallocated at the new
+    /// size and every cell of it goes back to the layer's ground, so the caller redraws. Carrying
+    /// the old cells across would leave a window that has changed shape holding a picture drawn for
+    /// the shape it used to be, which is worse than a blank one — and the runtime brings a
+    /// rectangle and a draw for every layer every frame anyway (spec §12).
+    ///
+    /// The rectangle the layer came from is exposed, and the one it goes to is damaged.
+    pub fn set_rect(&mut self, id: LayerId, rect: Rect) -> bool {
+        let Some(at) = self.find(id) else {
+            return false;
+        };
+        let old = self.layers[at].rect;
+        let paints = self.layers[at].paints();
+        match &mut self.layers[at].kind {
+            Kind::Content { surface, opaque } => {
+                // Against the **rectangle** the layer already had, never against the surface's own
+                // size. A donated surface may be larger than the rectangle it was fitted to, and
+                // comparing against the surface would reallocate on a pure move — throwing away
+                // the cells this verb promises to keep, for a layer that did not change shape.
+                if (rect.w, rect.h) != (old.w, old.h) {
+                    **surface = Surface::new_filled(rect.w, rect.h, ground(*opaque));
+                }
+                surface.damage_mut().mark_all();
+                self.layers[at].rect = fit(rect, surface.size());
+            }
+            Kind::Operator(_) => {
+                self.layers[at].rect = rect;
+                if paints {
+                    // A content layer's new rectangle is damaged by its surface's own bitset; an
+                    // operator has no surface to carry one.
+                    self.expose(rect);
+                }
+            }
+        }
+        if paints {
+            self.expose(old);
+        }
+        true
     }
 
     /// A view of a layer's cells, drawing into this stack's handle space. The only way to reach
     /// them.
+    ///
+    /// `None` for an id this stack never minted, and for an **operator** layer, which has no cells
+    /// to draw into.
     pub fn view(&mut self, id: LayerId) -> Option<View<'_>> {
         let tables = &mut self.tables;
         self.layers
             .iter_mut()
             .find(|l| l.id == id)
-            .map(|l| l.surface.draw(tables))
+            .and_then(|l| match &mut l.kind {
+                Kind::Content { surface, .. } => Some(surface.draw(tables)),
+                Kind::Operator(_) => None,
+            })
+    }
+
+    /// The topmost layer covering `(x, y)`, or `None` where there is none.
+    ///
+    /// A plain reverse linear scan. §5 measured 13.5 ns at n = 20 and 81.0 ns at n = 200, and a
+    /// spatial index is warranted where n is thousands — there n is *widgets*, which is a runtime
+    /// concept two orders of magnitude away from a stack of windows, popups, shadows and dims.
+    /// The division of labour is the one `visible_rows` already established: **the engine owns the
+    /// query, the runtime owns the index.**
+    ///
+    /// **Operator layers are not hittable.** A shadow is not a thing you click, so a click near a
+    /// modal's edge cannot resolve to it.
+    ///
+    /// The answer is about rectangles and never about cells. A non-opaque layer is hit anywhere
+    /// inside its rectangle, `EMPTY` cells included: reading cells here would make the answer
+    /// depend on what a component happened to draw, which is the runtime's business and not the
+    /// engine's — and **the query must return a layer and never a widget**, which is the door
+    /// ADR 0002 exists to keep shut.
+    pub fn topmost_at(&self, x: i32, y: i32) -> Option<LayerId> {
+        self.layers
+            .iter()
+            .rev()
+            .find(|l| {
+                matches!(l.kind, Kind::Content { .. })
+                    && !l.rect.is_empty()
+                    && x >= l.rect.x
+                    && x < l.rect.right()
+                    && y >= l.rect.y
+                    && y < l.rect.bottom()
+            })
+            .map(|l| l.id)
     }
 
     /// The handle space every surface in this stack speaks.
@@ -151,16 +442,153 @@ impl LayerStack {
         self.layers.is_empty()
     }
 
-    /// Union every layer's damage into the frame, in the frame's own coordinates.
-    pub(crate) fn union_damage_into(&self, frame: &mut Surface) {
-        let clip = Rect::new(0, 0, frame.width(), frame.height());
+    /// Place a content layer, fitted to its surface, damaging the whole of it.
+    fn place(&mut self, z: i32, rect: Rect, opaque: bool, mut surface: Surface) -> LayerId {
+        surface.damage_mut().mark_all();
+        let rect = fit(rect, surface.size());
+        self.insert(
+            z,
+            rect,
+            Kind::Content {
+                surface: Box::new(surface),
+                opaque,
+            },
+        )
+    }
+
+    /// Mint an id and a `seq`, and put the layer where `(z, seq)` says it goes.
+    fn insert(&mut self, z: i32, rect: Rect, kind: Kind) -> LayerId {
+        let id = LayerId(self.next_id);
+        self.next_id += 1;
+        let seq = self.next_seq;
+        self.next_seq += 1;
+        self.sorted_insert(Layer {
+            id,
+            z,
+            seq,
+            rect,
+            kind,
+        });
+        id
+    }
+
+    fn sorted_insert(&mut self, layer: Layer) {
+        let at = self
+            .layers
+            .partition_point(|l| (l.z, l.seq) < (layer.z, layer.seq));
+        self.layers.insert(at, layer);
+    }
+
+    fn find(&self, id: LayerId) -> Option<usize> {
+        self.layers.iter().position(|l| l.id == id)
+    }
+
+    /// Record a rectangle of the frame that has to be repainted although no layer's own bitset
+    /// says so. Empty rectangles are dropped rather than carried.
+    fn expose(&mut self, rect: Rect) {
+        if !rect.is_empty() {
+            self.exposed.push(rect);
+        }
+    }
+
+    /// Rewrite a donated surface's handles into this stack's handle space.
+    ///
+    /// Two passes and not one: the tables are walked first and the cells second, so a surface of a
+    /// thousand accented cells pays one re-intern per **distinct** cluster and an array lookup per
+    /// cell, rather than a hash of the cluster's bytes per cell.
+    ///
+    /// **Links before extended styles.** An extended-style entry names a `LinkId`, and both tables
+    /// deduplicate — so re-interning an entry that still carries the donor's id would dedup against
+    /// the wrong key and two different links could collapse into one.
+    fn renumber(&mut self, surface: &mut Surface) {
+        // The skip that makes this free for nearly every donation. An empty set of tables means no
+        // cell in the surface carries a handle that means anything different here.
+        if surface.tables().is_empty() {
+            return;
+        }
+
+        let donor = surface.tables();
+
+        let mut links: Vec<LinkId> = Vec::with_capacity(donor.links.entries().len());
+        for uri in donor.links.entries() {
+            links.push(self.tables.links.mint(uri));
+        }
+
+        let mut exts: Vec<u32> = Vec::with_capacity(donor.exts.entries().len());
+        for entry in donor.exts.entries() {
+            let renumbered = ExtStyle {
+                link: remapped(&links, entry.link),
+                ..entry
+            };
+            exts.push(self.tables.exts.handle(renumbered));
+        }
+
+        let mut graphemes: Vec<GraphemeId> = Vec::with_capacity(donor.interner.entries().len());
+        for cluster in donor.interner.entries() {
+            // The same bytes that minted a handle over there mint one here, and the width — and so
+            // the wide flag — is recomputed from the cluster rather than carried across, which is
+            // why the handle a cell arrives with is not the handle it leaves with even in the low
+            // bits. A cluster that occupies no column never reaches a cell, so it never reaches a
+            // table either (`Interner::handle` answers `None` before interning one).
+            graphemes.push(
+                self.tables
+                    .interner
+                    .handle(cluster)
+                    .expect("a cluster in a surface's table occupies a column"),
+            );
+        }
+
+        for y in 0..surface.height() {
+            for cell in surface.row_mut(y) {
+                if let Some(id) = cell.grapheme.cluster_id()
+                    && let Some(g) = graphemes.get(id as usize)
+                {
+                    cell.grapheme = *g;
+                }
+                if let Some(h) = cell.style.ext_handle()
+                    && let Some(new) = exts.get(h as usize)
+                {
+                    cell.style = Style::extended(cell.style.attr_word(), *new);
+                }
+            }
+        }
+
+        // The surface speaks this stack's handle space now, and its own table is unreachable
+        // through `LayerStack::view`. Keeping it would hold the donor's clusters alive for the life
+        // of the layer.
+        *surface.tables_mut() = Tables::new();
+    }
+
+    /// Move every layer's damage into the frame, in the frame's own coordinates.
+    ///
+    /// **`take`, not `union`, because the exposures are drained.** A layer's own bitset is left
+    /// alone — `clear_damage` is what empties those, after the frame has been written — but
+    /// `exposed` is consumed here, so a caller that takes damage and then throws the frame away
+    /// loses it. `present` is the only caller that is not a test, and it never does that: it takes,
+    /// and either finds nothing damaged (in which case the exposures were off-screen and had
+    /// nothing to contribute) or composites and writes.
+    ///
+    /// A layer's damage is clipped to **its own rectangle** as well as to the frame. A layer cannot
+    /// damage what it does not cover, and a donated surface larger than the rectangle it was given
+    /// is the case that makes the difference visible.
+    pub(crate) fn take_damage_into(&mut self, frame: &mut Surface) {
+        let screen = Rect::new(0, 0, frame.width(), frame.height());
         for layer in &self.layers {
+            let Some(surface) = layer.surface() else {
+                continue;
+            };
             frame.damage_mut().union_translated(
-                layer.surface.damage(),
+                surface.damage(),
                 layer.rect.x,
                 layer.rect.y,
-                clip,
+                screen.intersect(layer.rect),
             );
+        }
+        for rect in self.exposed.drain(..) {
+            let r = screen.intersect(rect);
+            for y in r.y..r.bottom() {
+                frame.damage_mut().mark(y, r.x, r.right() - 1);
+            }
         }
     }
 
@@ -169,6 +597,15 @@ impl LayerStack {
     /// Cost is damaged area times depth, which is the claim a flattened prefix cache would have
     /// existed to deliver — delivered by damage rectangles instead (ADR 0024).
     ///
+    /// # The ground, and the floor
+    ///
+    /// A damaged run is **not** guaranteed to lie inside some layer's rectangle any more: `remove`,
+    /// `set_z` and `set_rect` expose areas whose owner has just gone away. So the run is filled
+    /// with the frame's ground before the layers paint over it — unless some opaque content layer
+    /// covers the whole run, in which case nothing below it is visible and the composite starts
+    /// there. The two arms are one decision: the scan for that layer is what says whether a ground
+    /// fill is needed, and finding one skips both the fill and every layer beneath it.
+    ///
     /// # This is not wide-glyph-aware yet, and it is reachable
     ///
     /// Ticket 06 put double-width pairs in cells and **did not** move the five repair rules to
@@ -176,23 +613,27 @@ impl LayerStack {
     /// legal configurations put a broken pair in the composited frame: a layer clipped by the
     /// frame's edge loses one half of a pair straddling the clamp, and the non-opaque `EMPTY` skip
     /// below copies cell by cell with no width awareness. Both reproducers are written out in
-    /// ticket 11's acceptance criteria. **The hazard was vacuous before ticket 06 and is not any
-    /// more** — nothing minted a wide head, so nothing could be cut in half.
+    /// ticket 11's acceptance criteria.
     pub(crate) fn composite_run(&self, frame: &mut Surface, run: Run) {
         let row = frame.row_mut(run.y);
         let target = &mut row[run.lo as usize..=run.hi as usize];
 
-        // No ground is painted first, and that is a claim rather than an omission: **every damaged
-        // cell of the frame lies inside some layer's rectangle.** Damage reaches the frame only
-        // through `union_damage_into`, and a layer's own bitset is sized to its own surface, so a
-        // translated run cannot leave the rectangle it came from. Two damaged layers standing apart
-        // stay two runs, because the bitset is exact — which is the whole reason it was chosen.
-        //
-        // A ground fill was written here first and survived a mutation check with every test still
-        // green, which is what said it was unreachable. It becomes reachable at ticket 10, where a
-        // layer can be removed or moved and expose what was under it; that ticket owns the fill and
-        // the test that needs it.
-        for layer in &self.layers {
+        let floor = self.layers.iter().rposition(|l| l.floors(run));
+        let from = match floor {
+            Some(at) => at,
+            None => {
+                // The frame is opaque, so its ground is a blank rather than the `EMPTY` a
+                // non-opaque layer is born as.
+                target.fill(Cell::BLANK);
+                0
+            }
+        };
+
+        for layer in &self.layers[from..] {
+            // An operator layer has no cells. Ticket 12 is what gives this arm something to do.
+            let Kind::Content { surface, opaque } = &layer.kind else {
+                continue;
+            };
             let y = run.y as i32 - layer.rect.y;
             if y < 0 || y >= layer.rect.h as i32 {
                 continue;
@@ -202,13 +643,13 @@ impl LayerStack {
             if hi < lo {
                 continue;
             }
-            let src = layer.surface.row(y as u16);
+            let src = surface.row(y as u16);
             let src_lo = (lo - layer.rect.x) as usize;
             let src_hi = (hi - layer.rect.x) as usize;
             let dst_lo = (lo - run.lo as i32) as usize;
             let dst_hi = (hi - run.lo as i32) as usize;
 
-            if layer.opaque {
+            if *opaque {
                 target[dst_lo..=dst_hi].copy_from_slice(&src[src_lo..=src_hi]);
             } else {
                 for (d, s) in target[dst_lo..=dst_hi]
@@ -223,21 +664,34 @@ impl LayerStack {
         }
     }
 
-    /// Every layer, in **storage order**, each carrying its own `(z, seq)`.
+    /// Every **content** layer, in **storage order**, each carrying its own `(z, seq)`.
     ///
-    /// Deliberately not "bottom-up". Storage order happens to be bottom-up because `add_content`
-    /// sorts on insert, and handing that out as an ordering would make the reference compositor
-    /// take its stacking order from the fast path — so a defect in that insert would be invisible
-    /// to the gate generated from it. The oracle sorts for itself.
+    /// Deliberately not "bottom-up". Storage order happens to be bottom-up because the inserts sort
+    /// as they go, and handing that out as an ordering would make the reference compositor take its
+    /// stacking order from the fast path — so a defect in that insert would be invisible to the
+    /// gate generated from it. The oracle sorts for itself.
+    ///
+    /// Operator layers are absent because neither compositor paints one yet; ticket 12 is what puts
+    /// them in both.
     #[cfg(test)]
     pub(crate) fn as_stored(&self) -> impl Iterator<Item = LayerRef<'_>> {
-        self.layers.iter().map(|l| LayerRef {
-            z: l.z,
-            seq: l.seq,
-            rect: l.rect,
-            opaque: l.opaque,
-            surface: &l.surface,
+        self.layers.iter().filter_map(|l| match &l.kind {
+            Kind::Content { surface, opaque } => Some(LayerRef {
+                z: l.z,
+                seq: l.seq,
+                rect: l.rect,
+                opaque: *opaque,
+                surface,
+            }),
+            Kind::Operator(_) => None,
         })
+    }
+
+    /// Every layer's `(id, z, seq)`, bottom to top. What "the order is byte-identical" is asserted
+    /// over.
+    #[cfg(test)]
+    pub(crate) fn order(&self) -> Vec<(LayerId, i32, u32)> {
+        self.layers.iter().map(|l| (l.id, l.z, l.seq)).collect()
     }
 
     /// How many cells every layer's damage reports, summed.
@@ -248,13 +702,75 @@ impl LayerStack {
     /// union is allowed to be smaller and that is occlusion, not under-reporting.
     #[cfg(test)]
     pub(crate) fn reported_cells(&self) -> usize {
-        self.layers.iter().map(|l| l.surface.damaged_cells()).sum()
+        self.layers
+            .iter()
+            .filter_map(Layer::surface)
+            .map(Surface::damaged_cells)
+            .sum()
     }
 
     /// Clear every layer's damage. `present` owns this; nothing above the engine can reach it.
     pub(crate) fn clear_damage(&mut self) {
         for layer in &mut self.layers {
-            layer.surface.damage_mut().clear();
+            if let Kind::Content { surface, .. } = &mut layer.kind {
+                surface.damage_mut().clear();
+            }
+        }
+    }
+}
+
+/// What an untouched cell of a content layer holds.
+///
+/// A non-opaque layer is born **`EMPTY`** rather than blank. The trap spec §5 names is a caller who
+/// draws only a border into a popup and gets a rectangle of opaque spaces that erases the window
+/// underneath; being born blank is what would spring it.
+const fn ground(opaque: bool) -> Cell {
+    if opaque {
+        Cell::BLANK
+    } else {
+        Cell::new(GraphemeId::EMPTY, Style::DEFAULT)
+    }
+}
+
+/// `rect`, shrunk to the cells a surface of `size` actually has. Placement is the rectangle's;
+/// extent is the surface's, and where they disagree the smaller wins.
+fn fit(rect: Rect, size: (u16, u16)) -> Rect {
+    Rect::new(rect.x, rect.y, rect.w.min(size.0), rect.h.min(size.1))
+}
+
+/// The link id a donated one becomes.
+///
+/// # An id the donor's table does not name is passed through, not cleared
+///
+/// [`Screen::link`](crate::Screen::link) is the **only** public mint, and it mints into the layer
+/// stack's table. So the only link id a caller can put on a standalone [`Surface`] is one that
+/// already belongs to this stack's handle space, and every publicly reachable donation arrives with
+/// an **empty** donor link table and ids that are already right. Renumbering them would map them
+/// onto whatever the donor happened to hold, and clearing them would **delete a hyperlink
+/// silently** — which is the one failure this whole area exists to prevent: the prototype spec §5
+/// records deleted a hyperlink under a shadow, and `Style::with_fg_bg` was removed for the same
+/// thing.
+///
+/// The case the two rules disagree about — a surface carrying ids from **both** tables — is not
+/// reachable from the public API, because there is no second mint for one of them to come from.
+/// That is a gap in spec §3/§4/§12 rather than a decision this file may take, and it is filed as
+/// [architecture ticket 21](../../../.scratch/vitui-engine-architecture/issues/21-a-hyperlink-on-a-standalone-surface-has-no-mint.md).
+fn remapped(links: &[LinkId], id: LinkId) -> LinkId {
+    let Some(i) = id.index() else {
+        return LinkId::NONE;
+    };
+    match links.get(i) {
+        Some(mapped) => *mapped,
+        None => {
+            // The undecidable case, made loud in debug rather than left to be discovered: a donor
+            // that minted links of its own **and** a cell naming an id past the end of them. There
+            // is no public way to build one today, and if there ever is, pass-through stops being
+            // obviously right and ticket 21 has to have answered first.
+            debug_assert!(
+                links.is_empty(),
+                "a donated surface carries link ids from two handle spaces at once"
+            );
+            id
         }
     }
 }
@@ -262,15 +778,24 @@ impl LayerStack {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::restyle::Restyle;
     use crate::style::Style;
 
-    fn composite(stack: &LayerStack, frame: &mut Surface) {
-        stack.union_damage_into(frame);
-        let mut runs = Vec::new();
-        frame.damage().for_each_run(|r| runs.push(r));
-        for r in runs {
-            stack.composite_run(frame, r);
+    /// One whole frame — take the damage, composite every run it reported, clear — with those runs
+    /// handed back for the tests that are about *which* cells were repainted.
+    fn repaint(stack: &mut LayerStack, frame: &mut Surface) -> Vec<Run> {
+        let runs = runs_of(stack, frame);
+        for r in &runs {
+            stack.composite_run(frame, *r);
         }
+        frame.damage_mut().clear();
+        stack.clear_damage();
+        runs
+    }
+
+    /// The same, for the tests that are about the picture rather than the runs.
+    fn composite(stack: &mut LayerStack, frame: &mut Surface) {
+        repaint(stack, frame);
     }
 
     fn glyphs(s: &Surface, y: u16) -> String {
@@ -278,6 +803,27 @@ mod tests {
             .iter()
             .map(|c| c.grapheme.as_scalar().unwrap_or('?'))
             .collect()
+    }
+
+    fn runs_of(stack: &mut LayerStack, frame: &mut Surface) -> Vec<Run> {
+        stack.take_damage_into(frame);
+        let mut runs = Vec::new();
+        frame.damage().for_each_run(|r| runs.push(r));
+        runs
+    }
+
+    #[test]
+    fn a_layer_is_forty_bytes_so_that_the_ordered_scan_stays_cheap() {
+        // The reason `Kind` boxes the surface. A `Surface` inline would put every layer on its own
+        // cache line, and §5 chose a contiguous `Vec` precisely because the dominant operation is
+        // a traversal of the whole stack. The number is asserted rather than argued because it is
+        // the only thing the decision rests on, and adding one `Vec` to `Layer` would undo it
+        // silently.
+        assert_eq!(size_of::<Layer>(), 40);
+        assert!(
+            size_of::<Surface>() > 4 * size_of::<Layer>(),
+            "if a surface ever became small enough to inline, this decision is worth re-taking"
+        );
     }
 
     #[test]
@@ -293,7 +839,7 @@ mod tests {
         let id = stack.add_content(0, Rect::new(1, 1, 4, 1), true);
         stack.view(id).unwrap().text(0, 0, "abcd", Style::new());
         let mut frame = Surface::new(8, 3);
-        composite(&stack, &mut frame);
+        composite(&mut stack, &mut frame);
         assert_eq!(glyphs(&frame, 1), " abcd   ");
     }
 
@@ -302,11 +848,8 @@ mod tests {
         let mut stack = LayerStack::new();
         stack.add_content(0, Rect::new(2, 1, 3, 2), true);
         let mut frame = Surface::new(8, 4);
-        stack.union_damage_into(&mut frame);
-        let mut runs = Vec::new();
-        frame.damage().for_each_run(|r| runs.push(r));
         assert_eq!(
-            runs,
+            runs_of(&mut stack, &mut frame),
             vec![Run { y: 1, lo: 2, hi: 4 }, Run { y: 2, lo: 2, hi: 4 }]
         );
     }
@@ -325,7 +868,7 @@ mod tests {
             .unwrap()
             .fill(Rect::new(0, 0, 3, 1), "#", Style::new());
         let mut frame = Surface::new(8, 1);
-        composite(&stack, &mut frame);
+        composite(&mut stack, &mut frame);
         assert_eq!(glyphs(&frame, 0), "..###...");
     }
 
@@ -343,7 +886,7 @@ mod tests {
             .unwrap()
             .fill(Rect::new(0, 0, 4, 1), ".", Style::new());
         let mut frame = Surface::new(4, 1);
-        composite(&stack, &mut frame);
+        composite(&mut stack, &mut frame);
         assert_eq!(glyphs(&frame, 0), "####");
     }
 
@@ -361,7 +904,7 @@ mod tests {
             .unwrap()
             .fill(Rect::new(0, 0, 4, 1), "2", Style::new());
         let mut frame = Surface::new(4, 1);
-        composite(&stack, &mut frame);
+        composite(&mut stack, &mut frame);
         assert_eq!(glyphs(&frame, 0), "2222");
     }
 
@@ -374,9 +917,56 @@ mod tests {
             .unwrap()
             .fill(Rect::new(0, 0, 4, 3), "#", Style::new());
         let mut frame = Surface::new(4, 2);
-        composite(&stack, &mut frame);
+        composite(&mut stack, &mut frame);
         assert_eq!(glyphs(&frame, 0), "##  ");
         assert_eq!(glyphs(&frame, 1), "##  ");
+    }
+
+    #[test]
+    fn a_layer_larger_than_the_frame_is_intersected_not_rejected() {
+        // The other half of §5's first degenerate case: too big rather than out to the left.
+        let mut stack = LayerStack::new();
+        let id = stack.add_content(0, Rect::new(0, 0, 400, 400), true);
+        stack
+            .view(id)
+            .unwrap()
+            .fill(Rect::new(0, 0, 400, 400), "#", Style::new());
+        let mut frame = Surface::new(3, 2);
+        composite(&mut stack, &mut frame);
+        assert_eq!(glyphs(&frame, 0), "###");
+        assert_eq!(glyphs(&frame, 1), "###");
+    }
+
+    #[test]
+    fn a_shadow_falling_off_the_edge_is_the_same_intersection() {
+        // An operator hanging off two edges at once. It paints nothing until ticket 12; what is
+        // asserted here is that placing it is not a panic and that it damages only what is on
+        // screen.
+        let mut stack = LayerStack::new();
+        stack.add_operator(
+            -1,
+            Rect::new(-2, 1, 4, 40),
+            Mix::new(Color::rgb(0, 0, 0), 128),
+        );
+        let mut frame = Surface::new(4, 3);
+        assert_eq!(
+            runs_of(&mut stack, &mut frame),
+            vec![Run { y: 1, lo: 0, hi: 1 }, Run { y: 2, lo: 0, hi: 1 }]
+        );
+    }
+
+    #[test]
+    fn a_zero_area_layer_is_skipped() {
+        let mut stack = LayerStack::new();
+        let id = stack.add_content(0, Rect::new(1, 1, 0, 4), true);
+        let op = stack.add_operator(1, Rect::new(1, 1, 4, 0), Mix::new(Color::DEFAULT, 256));
+        assert_eq!(stack.len(), 2);
+        let mut frame = Surface::new(8, 4);
+        assert!(runs_of(&mut stack, &mut frame).is_empty());
+        assert_eq!(stack.topmost_at(1, 1), None, "it covers no cell to be hit");
+        // And it is still a layer: reachable, drawable-into and removable.
+        assert!(stack.view(id).is_some());
+        assert!(stack.remove(op));
     }
 
     #[test]
@@ -391,7 +981,7 @@ mod tests {
         // Only the middle two cells of the upper layer are written; the rest stay EMPTY.
         stack.view(high).unwrap().text(1, 0, "ab", Style::new());
         let mut frame = Surface::new(4, 1);
-        composite(&stack, &mut frame);
+        composite(&mut stack, &mut frame);
         assert_eq!(glyphs(&frame, 0), ".ab.");
     }
 
@@ -408,7 +998,7 @@ mod tests {
             .fill(Rect::new(0, 0, 4, 1), ".", Style::new());
         stack.view(high).unwrap().text(1, 0, "ab", Style::new());
         let mut frame = Surface::new(4, 1);
-        composite(&stack, &mut frame);
+        composite(&mut stack, &mut frame);
         assert_eq!(glyphs(&frame, 0), " ab ");
     }
 
@@ -423,9 +1013,17 @@ mod tests {
     }
 
     #[test]
+    fn view_of_an_operator_layer_is_none() {
+        // `view(id)` is the only way to a layer's cells, and an operator layer has none.
+        let mut stack = LayerStack::new();
+        let op = stack.add_operator(0, Rect::new(0, 0, 4, 1), Mix::new(Color::DEFAULT, 64));
+        assert!(stack.view(op).is_none());
+    }
+
+    #[test]
     fn two_layers_standing_apart_leave_the_gap_between_them_undamaged() {
-        // The invariant `composite_run` rests on: no damaged run reaches past the layers that
-        // caused it, so there is no ground to paint.
+        // The reason a ground fill costs nothing on an ordinary frame: no damaged run reaches past
+        // the layers that caused it, so the gap is never composited at all.
         let mut stack = LayerStack::new();
         let left = stack.add_content(0, Rect::new(0, 0, 5, 1), true);
         let right = stack.add_content(0, Rect::new(100, 0, 5, 1), true);
@@ -439,9 +1037,7 @@ mod tests {
             .fill(Rect::new(0, 0, 5, 1), "R", Style::new());
 
         let mut frame = Surface::new(300, 1);
-        stack.union_damage_into(&mut frame);
-        let mut runs = Vec::new();
-        frame.damage().for_each_run(|r| runs.push(r));
+        let runs = runs_of(&mut stack, &mut frame);
         assert_eq!(
             runs,
             vec![
@@ -474,7 +1070,636 @@ mod tests {
             .fill(Rect::new(0, 0, 4, 1), "#", Style::new());
         stack.clear_damage();
         let mut frame = Surface::new(4, 1);
-        stack.union_damage_into(&mut frame);
-        assert!(frame.damage().is_empty());
+        assert!(runs_of(&mut stack, &mut frame).is_empty());
+    }
+
+    // --- removing, reordering and moving -------------------------------------------------------
+
+    #[test]
+    fn removing_a_layer_exposes_what_was_under_it() {
+        let mut stack = LayerStack::new();
+        let low = stack.add_content(0, Rect::new(0, 0, 6, 1), true);
+        let high = stack.add_content(1, Rect::new(2, 0, 2, 1), true);
+        stack
+            .view(low)
+            .unwrap()
+            .fill(Rect::new(0, 0, 6, 1), ".", Style::new());
+        stack
+            .view(high)
+            .unwrap()
+            .fill(Rect::new(0, 0, 2, 1), "#", Style::new());
+        let mut frame = Surface::new(6, 1);
+        composite(&mut stack, &mut frame);
+        assert_eq!(glyphs(&frame, 0), "..##..");
+
+        assert!(stack.remove(high));
+        assert_eq!(stack.len(), 1);
+        composite(&mut stack, &mut frame);
+        assert_eq!(glyphs(&frame, 0), "......");
+    }
+
+    #[test]
+    fn removing_the_only_layer_leaves_the_frames_own_ground() {
+        // The fill `composite_run` did not have before this ticket: nothing is under the removed
+        // layer, so the exposed run has no layer to paint it and the frame's blank is the answer.
+        let mut stack = LayerStack::new();
+        let id = stack.add_content(0, Rect::new(1, 0, 3, 1), true);
+        stack
+            .view(id)
+            .unwrap()
+            .fill(Rect::new(0, 0, 3, 1), "#", Style::new());
+        let mut frame = Surface::new(5, 1);
+        composite(&mut stack, &mut frame);
+        assert_eq!(glyphs(&frame, 0), " ### ");
+
+        assert!(stack.remove(id));
+        composite(&mut stack, &mut frame);
+        assert_eq!(glyphs(&frame, 0), "     ");
+    }
+
+    #[test]
+    fn removing_a_layer_this_stack_did_not_mint_is_false() {
+        let mut ours = LayerStack::new();
+        let mut theirs = LayerStack::new();
+        let stranger = theirs.add_content(0, Rect::new(0, 0, 1, 1), true);
+        assert!(!ours.remove(stranger));
+        assert!(!ours.set_z(stranger, 3));
+        assert!(!ours.set_rect(stranger, Rect::new(0, 0, 1, 1)));
+    }
+
+    #[test]
+    fn raising_a_layer_and_dropping_it_back_restores_the_exact_original_order() {
+        // The gate `seq` exists for. Three layers share a `z`, so a `seq` that was rewritten on the
+        // way up could only put the raised one back at the end.
+        let mut stack = LayerStack::new();
+        let a = stack.add_content(0, Rect::new(0, 0, 4, 1), true);
+        let b = stack.add_content(0, Rect::new(0, 0, 4, 1), true);
+        let c = stack.add_content(0, Rect::new(0, 0, 4, 1), true);
+        let before = stack.order();
+        assert_eq!(
+            before.iter().map(|e| e.0).collect::<Vec<_>>(),
+            vec![a, b, c]
+        );
+
+        assert!(stack.set_z(a, 100));
+        assert_eq!(
+            stack.order().iter().map(|e| e.0).collect::<Vec<_>>(),
+            vec![b, c, a],
+            "raised to the top"
+        );
+
+        assert!(stack.set_z(a, 0));
+        assert_eq!(
+            stack.order(),
+            before,
+            "byte-identical, because `seq` never moved"
+        );
+    }
+
+    #[test]
+    fn two_layers_with_identical_z_stay_stable_under_any_later_reordering() {
+        // §5's third degenerate case. `b` goes up and comes back; `c` goes down and comes back;
+        // the order is the one insertion gave.
+        let mut stack = LayerStack::new();
+        let a = stack.add_content(0, Rect::new(0, 0, 4, 1), true);
+        let b = stack.add_content(0, Rect::new(0, 0, 4, 1), true);
+        let c = stack.add_content(0, Rect::new(0, 0, 4, 1), true);
+        let before = stack.order();
+        for (id, z) in [(b, 7), (c, -7), (b, 0), (c, 0)] {
+            assert!(stack.set_z(id, z));
+        }
+        assert_eq!(stack.order(), before);
+        assert_eq!(
+            stack.order().iter().map(|e| e.0).collect::<Vec<_>>(),
+            vec![a, b, c]
+        );
+    }
+
+    #[test]
+    fn setting_z_repaints_the_layers_rectangle() {
+        let mut stack = LayerStack::new();
+        let low = stack.add_content(0, Rect::new(0, 0, 4, 1), true);
+        let high = stack.add_content(1, Rect::new(1, 0, 2, 1), true);
+        stack
+            .view(low)
+            .unwrap()
+            .fill(Rect::new(0, 0, 4, 1), ".", Style::new());
+        stack
+            .view(high)
+            .unwrap()
+            .fill(Rect::new(0, 0, 2, 1), "#", Style::new());
+        let mut frame = Surface::new(4, 1);
+        composite(&mut stack, &mut frame);
+        assert_eq!(glyphs(&frame, 0), ".##.");
+
+        assert!(stack.set_z(high, -1));
+        assert_eq!(
+            repaint(&mut stack, &mut frame),
+            vec![Run { y: 0, lo: 1, hi: 2 }],
+            "only the moved layer's own rectangle"
+        );
+        assert_eq!(glyphs(&frame, 0), "....", "it went under");
+    }
+
+    #[test]
+    fn setting_z_to_the_z_it_already_has_damages_nothing() {
+        let mut stack = LayerStack::new();
+        let id = stack.add_content(3, Rect::new(0, 0, 4, 1), true);
+        let mut frame = Surface::new(4, 1);
+        composite(&mut stack, &mut frame);
+        assert!(stack.set_z(id, 3));
+        assert!(runs_of(&mut stack, &mut frame).is_empty());
+    }
+
+    #[test]
+    fn moving_a_layer_keeps_its_cells_and_repaints_both_rectangles() {
+        let mut stack = LayerStack::new();
+        let id = stack.add_content(0, Rect::new(0, 0, 2, 1), true);
+        stack.view(id).unwrap().text(0, 0, "ab", Style::new());
+        let mut frame = Surface::new(6, 1);
+        composite(&mut stack, &mut frame);
+        assert_eq!(glyphs(&frame, 0), "ab    ");
+
+        assert!(stack.set_rect(id, Rect::new(4, 0, 2, 1)));
+        assert_eq!(
+            repaint(&mut stack, &mut frame),
+            vec![Run { y: 0, lo: 0, hi: 1 }, Run { y: 0, lo: 4, hi: 5 }],
+            "the rectangle it left and the one it arrived at"
+        );
+        assert_eq!(glyphs(&frame, 0), "    ab", "the cells travelled with it");
+    }
+
+    #[test]
+    fn resizing_a_layer_starts_it_again_from_its_ground() {
+        // A resized window redraws. Carrying the old cells across would leave a picture drawn for
+        // the shape the layer used to be.
+        let mut stack = LayerStack::new();
+        let id = stack.add_content(0, Rect::new(0, 0, 4, 1), true);
+        stack.view(id).unwrap().text(0, 0, "abcd", Style::new());
+        let mut frame = Surface::new(6, 1);
+        composite(&mut stack, &mut frame);
+        assert_eq!(glyphs(&frame, 0), "abcd  ");
+
+        assert!(stack.set_rect(id, Rect::new(0, 0, 6, 1)));
+        composite(&mut stack, &mut frame);
+        assert_eq!(glyphs(&frame, 0), "      ");
+        stack.view(id).unwrap().text(0, 0, "xyzxyz", Style::new());
+        composite(&mut stack, &mut frame);
+        assert_eq!(glyphs(&frame, 0), "xyzxyz");
+    }
+
+    #[test]
+    fn moving_a_donated_layer_fitted_smaller_than_its_surface_keeps_its_cells() {
+        // The review's find. The layer's rectangle is 2 wide and its donated surface is 6, so a
+        // `set_rect` that asked the *surface* whether the size changed would reallocate on a pure
+        // move and throw away the cells `set_rect` promises to keep.
+        let mut off = Surface::new(6, 1);
+        off.root().text(0, 0, "abcdef", Style::new());
+        let mut stack = LayerStack::new();
+        let id = stack.add_content_with(0, Rect::new(0, 0, 2, 1), true, off);
+        let mut frame = Surface::new(8, 1);
+        composite(&mut stack, &mut frame);
+        assert_eq!(glyphs(&frame, 0), "ab      ");
+
+        assert!(stack.set_rect(id, Rect::new(5, 0, 2, 1)));
+        composite(&mut stack, &mut frame);
+        assert_eq!(glyphs(&frame, 0), "     ab ", "the cells travelled with it");
+    }
+
+    #[test]
+    fn moving_an_operator_layer_repaints_both_rectangles() {
+        let mut stack = LayerStack::new();
+        let low = stack.add_content(0, Rect::new(0, 0, 8, 1), true);
+        stack
+            .view(low)
+            .unwrap()
+            .fill(Rect::new(0, 0, 8, 1), ".", Style::new());
+        let op = stack.add_operator(1, Rect::new(0, 0, 2, 1), Mix::new(Color::DEFAULT, 128));
+        let mut frame = Surface::new(8, 1);
+        composite(&mut stack, &mut frame);
+
+        assert!(stack.set_rect(op, Rect::new(6, 0, 2, 1)));
+        assert_eq!(
+            runs_of(&mut stack, &mut frame),
+            vec![Run { y: 0, lo: 0, hi: 1 }, Run { y: 0, lo: 6, hi: 7 }]
+        );
+    }
+
+    #[test]
+    fn an_identity_operator_marks_no_damage() {
+        // §5: `amount == 0` is skipped entirely and the identity never reaches a cell.
+        let mut stack = LayerStack::new();
+        let op = stack.add_operator(0, Rect::new(0, 0, 4, 1), Mix::new(Color::rgb(0, 0, 0), 0));
+        let mut frame = Surface::new(4, 1);
+        assert!(runs_of(&mut stack, &mut frame).is_empty());
+        assert!(stack.set_rect(op, Rect::new(1, 0, 2, 1)));
+        assert!(runs_of(&mut stack, &mut frame).is_empty());
+    }
+
+    #[test]
+    fn a_mix_saturates_rather_than_wrapping() {
+        assert_eq!(Mix::new(Color::DEFAULT, 60_000).amount(), Mix::FULL);
+        assert!(Mix::new(Color::DEFAULT, 0).is_identity());
+        assert!(!Mix::new(Color::DEFAULT, 1).is_identity());
+        assert_eq!(
+            Mix::new(Color::rgb(1, 2, 3), 8).toward(),
+            Color::rgb(1, 2, 3)
+        );
+    }
+
+    /// Gate #1's shape, applied to the verbs that have no scene.
+    ///
+    /// Composite the whole stack the slow obvious way before a topology change and again after it;
+    /// every cell that differs must lie inside a run the damage structure reported, and the
+    /// damage-tracked frame must equal the oracle **everywhere**, including outside every run.
+    /// Nothing in that sentence mentions `exposed`, which is why it would still catch the ground
+    /// fill being wrong after the mechanism behind it is replaced.
+    ///
+    /// The twelve scenes are a normative list and none of them removes a layer, so this drives the
+    /// same oracle from here rather than adding a thirteenth (spec §14).
+    fn agrees_with_the_oracle(
+        stack: &mut LayerStack,
+        frame: &mut Surface,
+        what: &str,
+        change: impl FnOnce(&mut LayerStack),
+    ) {
+        let (w, h) = frame.size();
+        let before = crate::reference::composite(stack, w, h);
+        change(stack);
+        let after = crate::reference::composite(stack, w, h);
+
+        let runs = repaint(stack, frame);
+
+        for (x, y) in crate::reference::differences(&before, &after) {
+            assert!(
+                runs.iter().any(|r| r.y == y && r.lo <= x && x <= r.hi),
+                "{what}: ({x}, {y}) changed and no run reported it"
+            );
+        }
+        for y in 0..h {
+            for x in 0..w {
+                assert_eq!(
+                    frame.row(y)[x as usize],
+                    after.row(y)[x as usize],
+                    "{what}: the damage-tracked frame and the oracle disagree at ({x}, {y})"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn every_topology_change_agrees_with_the_reference_compositor() {
+        const W: u16 = 12;
+        const H: u16 = 4;
+        let mut stack = LayerStack::new();
+        let mut frame = Surface::new(W, H);
+
+        let back = stack.add_content(0, Rect::new(0, 0, W, H), true);
+        stack
+            .view(back)
+            .unwrap()
+            .fill(Rect::new(0, 0, W, H), ".", Style::new());
+        let popup = stack.add_content(2, Rect::new(2, 1, 5, 2), true);
+        stack
+            .view(popup)
+            .unwrap()
+            .fill(Rect::new(0, 0, 5, 2), "#", Style::new());
+        let float = stack.add_content(1, Rect::new(8, 0, 3, 3), false);
+        stack.view(float).unwrap().text(0, 0, "xyz", Style::new());
+        composite(&mut stack, &mut frame);
+
+        agrees_with_the_oracle(&mut stack, &mut frame, "raise the popup", |s| {
+            assert!(s.set_z(popup, 9));
+        });
+        agrees_with_the_oracle(&mut stack, &mut frame, "drop it back", |s| {
+            assert!(s.set_z(popup, 2));
+        });
+        agrees_with_the_oracle(&mut stack, &mut frame, "move the float", |s| {
+            assert!(s.set_rect(float, Rect::new(1, 2, 3, 2)));
+        });
+        agrees_with_the_oracle(&mut stack, &mut frame, "redraw the float", |s| {
+            s.view(float).unwrap().text(0, 0, "pq", Style::new());
+        });
+        agrees_with_the_oracle(&mut stack, &mut frame, "add a layer over it", |s| {
+            let over = s.add_content(3, Rect::new(0, 0, 4, 1), true);
+            s.view(over)
+                .unwrap()
+                .fill(Rect::new(0, 0, 4, 1), "=", Style::new());
+        });
+        agrees_with_the_oracle(&mut stack, &mut frame, "remove the popup", |s| {
+            assert!(s.remove(popup));
+        });
+        // The step the ground fill exists for: nothing is left under the float.
+        agrees_with_the_oracle(&mut stack, &mut frame, "remove the background", |s| {
+            assert!(s.remove(back));
+        });
+        agrees_with_the_oracle(&mut stack, &mut frame, "empty the stack", |s| {
+            assert!(s.remove(float));
+        });
+        assert_eq!(
+            stack.len(),
+            1,
+            "the layer added mid-sequence is still there"
+        );
+    }
+
+    // --- the point query -----------------------------------------------------------------------
+
+    #[test]
+    fn topmost_at_answers_with_the_layer_on_top() {
+        let mut stack = LayerStack::new();
+        let low = stack.add_content(0, Rect::new(0, 0, 8, 2), true);
+        let high = stack.add_content(1, Rect::new(2, 0, 3, 1), true);
+        assert_eq!(stack.topmost_at(3, 0), Some(high));
+        assert_eq!(stack.topmost_at(3, 1), Some(low), "below the popup");
+        assert_eq!(stack.topmost_at(0, 0), Some(low));
+        assert_eq!(stack.topmost_at(9, 0), None, "outside every rectangle");
+        assert_eq!(stack.topmost_at(-1, 0), None);
+    }
+
+    #[test]
+    fn topmost_at_never_returns_an_operator_layer_at_any_z() {
+        // A shadow is not a thing you click, so a click near a modal's edge cannot resolve to it.
+        // Asserted at three `z`s — under the content, between two content layers, and above
+        // everything — because "not hittable" must not be an accident of ordering.
+        let mut stack = LayerStack::new();
+        let window = stack.add_content(0, Rect::new(0, 0, 8, 1), true);
+        let popup = stack.add_content(5, Rect::new(2, 0, 2, 1), true);
+        for z in [-100, 3, 100] {
+            let shadow =
+                stack.add_operator(z, Rect::new(0, 0, 8, 1), Mix::new(Color::DEFAULT, 128));
+            for x in 0..8 {
+                let hit = stack.topmost_at(x, 0);
+                assert_ne!(
+                    hit,
+                    Some(shadow),
+                    "an operator answered at x = {x}, z = {z}"
+                );
+                let expected = if (2..4).contains(&x) { popup } else { window };
+                assert_eq!(hit, Some(expected));
+            }
+            assert!(stack.remove(shadow));
+        }
+    }
+
+    #[test]
+    fn topmost_at_over_an_empty_stack_is_none() {
+        assert_eq!(LayerStack::new().topmost_at(0, 0), None);
+    }
+
+    #[test]
+    fn topmost_at_follows_a_layer_that_was_raised() {
+        let mut stack = LayerStack::new();
+        let a = stack.add_content(0, Rect::new(0, 0, 4, 1), true);
+        let b = stack.add_content(0, Rect::new(0, 0, 4, 1), true);
+        assert_eq!(stack.topmost_at(1, 0), Some(b));
+        assert!(stack.set_z(a, 1));
+        assert_eq!(stack.topmost_at(1, 0), Some(a));
+    }
+
+    #[test]
+    fn topmost_at_answers_over_a_non_opaque_layers_untouched_cells() {
+        // The query is about rectangles. A popup with a transparent gutter is still the layer at
+        // that point; which of its cells were written is the runtime's business.
+        let mut stack = LayerStack::new();
+        stack.add_content(0, Rect::new(0, 0, 4, 1), true);
+        let overlay = stack.add_content(1, Rect::new(0, 0, 4, 1), false);
+        assert_eq!(stack.topmost_at(3, 0), Some(overlay));
+    }
+
+    // --- donation ------------------------------------------------------------------------------
+
+    fn donated(surface: Surface) -> (LayerStack, LayerId) {
+        let mut stack = LayerStack::new();
+        let (w, h) = surface.size();
+        let id = stack.add_content_with(0, Rect::new(0, 0, w, h), true, surface);
+        (stack, id)
+    }
+
+    #[test]
+    fn a_donated_surface_of_plain_text_moves_in_as_it_is() {
+        let mut off = Surface::new(4, 1);
+        off.root().text(0, 0, "ab漢", Style::new());
+        assert!(
+            off.tables().is_empty(),
+            "Latin and CJK are their own handles and touch no table"
+        );
+
+        let (mut stack, _) = donated(off);
+        let mut frame = Surface::new(4, 1);
+        composite(&mut stack, &mut frame);
+        assert_eq!(glyphs(&frame, 0), "ab漢?", "the continuation reads as `?`");
+        assert!(stack.tables().is_empty(), "and nothing was interned here");
+    }
+
+    #[test]
+    fn a_cluster_donated_and_composited_reaches_the_frame_as_the_same_cluster() {
+        // The equality the renumbering exists for. The handle the cell arrives with is **not** the
+        // handle it leaves with: the donor's table has one entry and this stack's has two, so a
+        // pass that forgot to renumber would resolve the cell against the wrong row.
+        let family = "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}";
+        let mut off = Surface::new(4, 1);
+        off.root().text(0, 0, family, Style::new());
+        let donated_handle = off.row(0)[0].grapheme;
+
+        let mut stack = LayerStack::new();
+        // Something else is already in this stack's table, so id 0 over there is not id 0 here.
+        let other = stack.add_content(0, Rect::new(0, 0, 2, 1), true);
+        stack
+            .view(other)
+            .unwrap()
+            .text(0, 0, "e\u{301}", Style::new());
+        let id = stack.add_content_with(1, Rect::new(0, 0, 4, 1), true, off);
+
+        let mut frame = Surface::new(4, 1);
+        composite(&mut stack, &mut frame);
+        let landed = frame.row(0)[0].grapheme;
+        assert_ne!(landed, donated_handle, "it was renumbered");
+        assert_eq!(
+            stack.tables().interner.resolve(landed).as_deref(),
+            Some(family)
+        );
+        assert!(stack.view(id).is_some());
+    }
+
+    #[test]
+    fn a_hyperlinked_cell_donated_and_composited_resolves_to_the_same_uri() {
+        // The link id inside the extended-style entry has to be renumbered *before* the entry is
+        // re-interned, or the new table dedups against the wrong key.
+        const URI: &str = "https://example.com/donated";
+        let mut off = Surface::new(2, 1);
+        {
+            let link = off.tables_mut().link(URI);
+            let mut view = off.root();
+            view.text(0, 0, "ab", Style::new());
+            view.restyle(
+                Rect::new(0, 0, 2, 1),
+                &Restyle {
+                    link: Some(link),
+                    ..Default::default()
+                },
+            );
+        }
+
+        let donated_handle = off.row(0)[0]
+            .style
+            .ext_handle()
+            .expect("extended over there");
+        let donated_link = off
+            .tables()
+            .exts
+            .get(donated_handle)
+            .expect("interned over there")
+            .link;
+
+        let mut stack = LayerStack::new();
+        // Two URIs and an extended style this stack minted first, so **neither** the donor's link
+        // id nor its extended-style handle is this stack's — which is what makes the assertions
+        // below about renumbering rather than about two tables happening to agree.
+        stack.tables_mut().link("https://example.com/a");
+        stack.tables_mut().link("https://example.com/b");
+        let seeded = stack.add_content(0, Rect::new(0, 0, 2, 1), true);
+        stack.view(seeded).unwrap().text(0, 0, "xy", Style::new());
+        stack.view(seeded).unwrap().restyle(
+            Rect::new(0, 0, 2, 1),
+            &Restyle {
+                ul: Some(Color::rgb(1, 1, 1)),
+                ..Default::default()
+            },
+        );
+        stack.add_content_with(1, Rect::new(0, 0, 2, 1), true, off);
+
+        let mut frame = Surface::new(2, 1);
+        composite(&mut stack, &mut frame);
+        let handle = frame.row(0)[0]
+            .style
+            .ext_handle()
+            .expect("the cell is extended");
+        let entry = stack.tables().exts.get(handle).expect("interned here");
+        assert_ne!(handle, donated_handle, "the extended handle was renumbered");
+        assert_ne!(entry.link, donated_link, "and so was the link id inside it");
+        assert_eq!(
+            stack.tables().links.uri(entry.link),
+            Some(URI),
+            "and it still names the same URI, which is the whole point"
+        );
+    }
+
+    #[test]
+    fn a_screen_minted_link_survives_a_donation_it_was_not_minted_for() {
+        // The only publicly reachable hyperlink-plus-donation flow, because `Screen::link` is the
+        // only mint: the id is already in this stack's space and arrives on a surface whose own
+        // link table is empty. Clearing it here would delete a hyperlink silently, which is the
+        // defect this area exists to prevent. See `remapped` and architecture ticket 21.
+        const URI: &str = "https://example.com/minted-by-the-screen";
+        let mut stack = LayerStack::new();
+        let link = stack.tables_mut().link(URI);
+
+        let mut off = Surface::new(2, 1);
+        {
+            let mut view = off.root();
+            view.text(0, 0, "ab", Style::new());
+            view.restyle(
+                Rect::new(0, 0, 2, 1),
+                &Restyle {
+                    link: Some(link),
+                    ..Default::default()
+                },
+            );
+        }
+        assert!(off.tables().links.is_empty(), "no second mint exists");
+
+        stack.add_content_with(0, Rect::new(0, 0, 2, 1), true, off);
+        let mut frame = Surface::new(2, 1);
+        composite(&mut stack, &mut frame);
+        let handle = frame.row(0)[0]
+            .style
+            .ext_handle()
+            .expect("the cell is extended");
+        let entry = stack.tables().exts.get(handle).expect("interned here");
+        assert_eq!(stack.tables().links.uri(entry.link), Some(URI));
+    }
+
+    #[test]
+    fn a_donated_underline_colour_survives_without_a_link() {
+        // The extended half that carries no link at all: `remapped` must leave `NONE` alone rather
+        // than sending it through the map.
+        let mut off = Surface::new(2, 1);
+        off.root().text(0, 0, "ab", Style::new());
+        off.root().restyle(
+            Rect::new(0, 0, 2, 1),
+            &Restyle {
+                ul: Some(Color::rgb(9, 8, 7)),
+                ..Default::default()
+            },
+        );
+
+        let (stack, _) = donated(off);
+        let handle = stack.as_stored().next().unwrap().surface.row(0)[0]
+            .style
+            .ext_handle()
+            .expect("the cell is extended");
+        let entry = stack.tables().exts.get(handle).expect("interned here");
+        assert_eq!(entry.ul, Color::rgb(9, 8, 7));
+        assert_eq!(entry.link, LinkId::NONE);
+    }
+
+    #[test]
+    fn a_donated_surface_hands_its_own_tables_back_empty() {
+        let mut off = Surface::new(2, 1);
+        off.root().text(0, 0, "e\u{301}", Style::new());
+        assert!(!off.tables().is_empty());
+
+        let (stack, _) = donated(off);
+        let surface = stack.as_stored().next().unwrap().surface;
+        assert!(
+            surface.tables().is_empty(),
+            "the surface speaks the stack's handle space now"
+        );
+    }
+
+    #[test]
+    fn two_donations_of_the_same_cluster_land_on_one_entry() {
+        let cluster = "a\u{308}";
+        let mut stack = LayerStack::new();
+        for x in [0, 2] {
+            let mut off = Surface::new(2, 1);
+            off.root().text(0, 0, cluster, Style::new());
+            stack.add_content_with(0, Rect::new(x, 0, 2, 1), true, off);
+        }
+        assert_eq!(
+            stack.tables().interner.entries().len(),
+            1,
+            "the second donation deduplicated"
+        );
+    }
+
+    #[test]
+    fn a_donated_surface_smaller_than_its_rectangle_paints_only_its_own_cells() {
+        let mut off = Surface::new(2, 1);
+        off.root().text(0, 0, "ab", Style::new());
+        let mut stack = LayerStack::new();
+        stack.add_content_with(0, Rect::new(0, 0, 6, 1), true, off);
+        let mut frame = Surface::new(6, 1);
+        composite(&mut stack, &mut frame);
+        assert_eq!(glyphs(&frame, 0), "ab    ");
+        assert_eq!(stack.topmost_at(4, 0), None, "the rectangle shrank with it");
+    }
+
+    #[test]
+    fn a_donated_surface_larger_than_its_rectangle_is_clipped() {
+        let mut off = Surface::new(6, 2);
+        off.root().text(0, 0, "abcdef", Style::new());
+        off.root().text(0, 1, "ghijkl", Style::new());
+        let mut stack = LayerStack::new();
+        stack.add_content_with(0, Rect::new(0, 0, 3, 1), true, off);
+        let mut frame = Surface::new(6, 2);
+        composite(&mut stack, &mut frame);
+        assert_eq!(glyphs(&frame, 0), "abc   ");
+        assert_eq!(
+            glyphs(&frame, 1),
+            "      ",
+            "the second row is not the layer's"
+        );
     }
 }

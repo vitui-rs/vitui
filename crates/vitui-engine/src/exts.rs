@@ -57,7 +57,7 @@ impl LinkId {
     }
 
     /// The index into [`Links`], for an id that names one.
-    const fn index(self) -> Option<usize> {
+    pub(crate) const fn index(self) -> Option<usize> {
         if self.is_none() {
             None
         } else {
@@ -103,15 +103,17 @@ impl Links {
     }
 
     /// Whether this table has never been reached.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "ticket 10's `add_content_with` is the first caller outside the gates"
-        )
-    )]
     pub(crate) fn is_empty(&self) -> bool {
         self.uris.is_empty()
+    }
+
+    /// Every URI this table holds, in id order — so index `i` is [`LinkId`] `i + 1`.
+    ///
+    /// The donation walk re-mints these into the stack's table before it touches an extended-style
+    /// entry, because an entry names a `LinkId` and re-interning it against the donor's id would
+    /// dedup on the wrong key (ticket 10).
+    pub(crate) fn entries(&self) -> impl ExactSizeIterator<Item = &str> {
+        self.uris.iter().map(|u| &**u)
     }
 }
 
@@ -197,15 +199,16 @@ impl ExtStyles {
     }
 
     /// Whether this table has never been reached.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "ticket 10's `add_content_with` is the first caller outside the gates"
-        )
-    )]
     pub(crate) fn is_empty(&self) -> bool {
         self.entries.is_empty()
+    }
+
+    /// Every extended style this table holds, in handle order.
+    ///
+    /// Read by the donation walk, which re-interns each entry — with its `link` already renumbered
+    /// — into the stack's table and indexes the result by the donor's own handle (ticket 10).
+    pub(crate) fn entries(&self) -> impl ExactSizeIterator<Item = ExtStyle> {
+        self.entries.iter().copied()
     }
 }
 

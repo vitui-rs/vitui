@@ -42,13 +42,15 @@
 //! [`Restyle`], [`LinkId`] and the two side tables the packet now carries — and the clip, the
 //! viewport and the visibility query (ticket 09): [`View::child`], [`View::scrolled`],
 //! [`View::visible_rows`] and [`View::visible_cols`], which are what make a component's rectangle
-//! inescapable and a 1M-row tree cost what a 1k-row one costs.
+//! inescapable and a 1M-row tree cost what a 1k-row one costs — and the whole of the layer stack
+//! (ticket 10): [`LayerStack::add_content_with`] with the renumbering that lets a surface drawn on
+//! a worker be donated, [`LayerStack::remove`], [`LayerStack::set_z`], [`LayerStack::set_rect`] and
+//! [`LayerStack::topmost_at`], the query that answers with a layer and never a widget.
 //!
 //! Not here yet, each with the ticket that brings it:
-//! the rest of the layer stack including `add_content_with` (10), operator layers and the `Mix`
-//! (11, 12), the `shortest` cursor encoding and the equality filter (13, 14), the scroll region
-//! (15), capability detection (16), the three threads and the frame clock (18, 19), and input
-//! (20, 21).
+//! the edge repairs at a layer boundary (11), what a [`Mix`] does to a cell (12), the `shortest`
+//! cursor encoding and the equality filter (13, 14), the scroll region (15), capability detection
+//! (16), the three threads and the frame clock (18, 19), and input (20, 21).
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]
@@ -107,7 +109,7 @@ mod roundtrip;
 pub use engine::{AttachError, Clock, Config, Engine, Output, Presented, Screen, WakeHandle};
 pub use exts::LinkId;
 pub use geom::Rect;
-pub use layer::{LayerId, LayerStack};
+pub use layer::{LayerId, LayerStack, Mix};
 pub use restyle::Restyle;
 pub use style::{Color, Style};
 pub use surface::Surface;

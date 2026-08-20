@@ -48,15 +48,19 @@ impl Interner {
     ///
     /// What `add_content_with` tests before walking a donated surface: an empty table means no cell
     /// carries a handle that needs renumbering, which is the common case (ticket 10).
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "ticket 10's `add_content_with` is the first caller outside the gates"
-        )
-    )]
     pub(crate) fn is_empty(&self) -> bool {
         self.clusters.is_empty()
+    }
+
+    /// Every cluster this table holds, in handle order.
+    ///
+    /// The donation walk's first phase: `add_content_with` re-interns each of these into the
+    /// stack's table **once** and indexes the result by the donor's own id, so the per-cell pass
+    /// after it is an array lookup rather than a hash of the cluster's bytes. A donated surface of
+    /// a thousand combining-mark cells holds a handful of distinct clusters, and the walk should
+    /// cost the handful rather than the thousand.
+    pub(crate) fn entries(&self) -> impl ExactSizeIterator<Item = &str> {
+        self.clusters.iter().map(|c| &**c)
     }
 
     /// The handle for one extended grapheme cluster, minting one if this is the first sight of it.

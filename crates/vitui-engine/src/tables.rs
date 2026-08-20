@@ -36,6 +36,18 @@ impl Tables {
     pub(crate) fn link(&mut self, uri: &str) -> LinkId {
         self.links.mint(uri)
     }
+
+    /// Whether all three tables have never been reached.
+    ///
+    /// **The test `add_content_with` makes before it walks a donated surface**, and the reason the
+    /// walk is skipped for nearly every donation: a surface of Latin, CJK, box drawing or
+    /// single-scalar emoji carries no cluster, and one that is neither hyperlinked nor
+    /// coloured-underlined carries no extended style, so there is no handle in it that means
+    /// anything different in the stack's space than it did in its own (spec §3, architecture
+    /// ticket 19).
+    pub(crate) fn is_empty(&self) -> bool {
+        self.interner.is_empty() && self.exts.is_empty() && self.links.is_empty()
+    }
 }
 
 #[cfg(test)]

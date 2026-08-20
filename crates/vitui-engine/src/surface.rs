@@ -119,20 +119,16 @@ impl Surface {
 
     /// This surface's own handle space. Empty unless something was drawn through
     /// [`Surface::root`](Surface::root).
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "ticket 10's `add_content_with` is the first caller outside the gates"
-        )
-    )]
     pub(crate) fn tables(&self) -> &Tables {
         &self.tables
     }
 
-    /// This surface's own handle space, to mint into. Test-facing: outside the gates the only mint
-    /// is [`Screen::link`](crate::Screen::link), which reaches the *stack's* tables.
-    #[cfg(test)]
+    /// This surface's own handle space, to mint into or to hand back empty.
+    ///
+    /// [`LayerStack::add_content_with`](crate::LayerStack::add_content_with) empties it once the
+    /// surface's handles have been renumbered into the stack's space: the surface then speaks that
+    /// space and its own table is unreachable, so keeping it would be holding the donor's clusters
+    /// alive for the life of the layer.
     pub(crate) fn tables_mut(&mut self) -> &mut Tables {
         &mut self.tables
     }

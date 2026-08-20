@@ -116,16 +116,33 @@ whatever is already there. A shadow and a modal dim are operator layers. The dis
 because a terminal cell has no alpha channel, so an effect with no content of its own cannot be
 expressed as content that happens to be transparent.
 
-**Blend mode** — how a layer combines with what is already beneath it. The one mechanism from which
-shadows, liftings, modal dimming, gradients and fades are all built. Blending resolves colours
+**Blend mode** — how a layer combines with what is already beneath it. Blending resolves colours
 rather than compositing transparency, and resolving them means turning a palette index or the
-terminal's default colour into concrete channels first.
+terminal's default colour into concrete channels first. **There is only one, and it is called
+[Mix](#mix)** — the historic list of three (`Replace`, `Darken`, `Blend`) collapsed to two
+mechanisms, because `Replace` is not a blend mode but what a content layer does, and alpha-over is
+not expressible on a cell that has no alpha.
+
+**Mix** — the one operator: a colour, and how far toward it what is already there is moved, out of
+256. Darkening is a mix toward black, lifting is a mix toward white, a tint is a mix toward anything,
+and a fade is the amount moving across frames. An amount of zero is the identity and never reaches a
+cell. A gradient is **not** a mix: it is a fill with a varying style, and the compositor never sees
+one.
 
 **Shadow** — a layer that darkens what lies beneath it, offset from the layer it belongs to.
 
 **Lifting** — the visual cue that a layer sits above the others; a shadow is its most common form.
 
 **Composite** — to resolve the layer stack, bottom-up, into a single grid of cells.
+
+**Exposure** — an area of the frame that has to be repainted although no layer's own damage says so,
+because the layer that owned it was removed, reordered or moved. Damage lives in a layer's surface,
+so an area whose owner has gone away has nothing to speak for it; exposures are recorded by the
+stack and folded into the frame's damage once, at the start of the composite.
+
+**Ground** — what an untouched cell holds. A blank for an opaque surface, the `EMPTY` sentinel for a
+non-opaque one. A composited run falls back to the frame's ground where no layer covers it, which is
+what an exposure over bare screen resolves to.
 
 **Frame** — one composited, immutable grid. It is produced on the application thread and stays
 there; what reaches the render thread is a snapshot of the part of it that changed.

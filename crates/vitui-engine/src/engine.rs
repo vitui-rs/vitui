@@ -264,8 +264,8 @@ impl Screen {
         self.size
     }
 
-    /// The layer stack: add a layer, and draw into one. Removing, reordering and the point query
-    /// arrive with ticket 10.
+    /// The layer stack: add a layer, draw into one, move it, remove it, and ask which one is on
+    /// top at a point.
     pub fn layers(&mut self) -> &mut LayerStack {
         &mut self.layers
     }
@@ -277,7 +277,7 @@ impl Screen {
     /// an invariant rather than a chore, and it is also why nothing above the engine can force a
     /// full repaint.
     pub fn present(&mut self) -> Presented {
-        self.layers.union_damage_into(&mut self.frame);
+        self.layers.take_damage_into(&mut self.frame);
 
         // The idle path, and it is one scan of a couple of summary words rather than of the bitset:
         // an idle frame costs nanoseconds and clears nothing. This is the question ticket 19's

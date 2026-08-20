@@ -1126,7 +1126,7 @@ mod tests {
         v.text(0, 0, "x", Style::new());
 
         let mut frame = Surface::new(6, 1);
-        stack.union_damage_into(&mut frame);
+        stack.take_damage_into(&mut frame);
         let mut runs = Vec::new();
         frame.damage().for_each_run(|r| runs.push(r));
         for r in runs {
@@ -1398,7 +1398,7 @@ mod tests {
             );
         }
         let mut frame = Surface::new(4, 1);
-        stack.union_damage_into(&mut frame);
+        stack.take_damage_into(&mut frame);
         let mut all = Vec::new();
         frame.damage().for_each_run(|r| all.push(r));
         for r in all {

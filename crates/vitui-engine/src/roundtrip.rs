@@ -11,6 +11,7 @@
 
 use crate::geom::Rect;
 use crate::style::{Color, Style};
+use crate::surface::Surface;
 use crate::testing::{Harness, Recorder};
 
 #[test]
@@ -491,5 +492,129 @@ fn a_layer_added_over_a_painted_screen_repaints_what_it_covers() {
         .view(above)
         .unwrap()
         .fill(Rect::new(0, 0, 10, 2), "#", Style::new());
+    assert!(h.present().submitted);
+}
+
+#[test]
+fn a_layer_removed_from_a_painted_screen_repaints_what_it_covered() {
+    // The other direction, and the one that needed `composite_run`'s ground fill: what the popup
+    // covered belongs to nobody once it is gone, so the frame's own blank is what has to reach the
+    // wire. The round trip is what says it did.
+    let mut h = Harness::new(30, 5);
+    let below = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, 20, 5), true);
+    h.screen
+        .layers()
+        .view(below)
+        .unwrap()
+        .fill(Rect::new(0, 0, 20, 5), ".", Style::new());
+    let above = h
+        .screen
+        .layers()
+        .add_content(1, Rect::new(15, 1, 10, 2), true);
+    h.screen
+        .layers()
+        .view(above)
+        .unwrap()
+        .fill(Rect::new(0, 0, 10, 2), "#", Style::new());
+    h.present();
+
+    assert!(h.screen.layers().remove(above));
+    assert!(h.present().submitted);
+}
+
+#[test]
+fn a_raised_layer_and_its_return_survive_the_round_trip() {
+    let mut h = Harness::new(20, 3);
+    let a = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, 20, 3), true);
+    let b = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(4, 1, 8, 1), true);
+    h.screen
+        .layers()
+        .view(a)
+        .unwrap()
+        .fill(Rect::new(0, 0, 20, 3), ".", Style::new());
+    h.screen
+        .layers()
+        .view(b)
+        .unwrap()
+        .fill(Rect::new(0, 0, 8, 1), "#", Style::new());
+    h.present();
+
+    assert!(h.screen.layers().set_z(b, -1));
+    h.present();
+    assert!(h.screen.layers().set_z(b, 0));
+    h.present();
+}
+
+#[test]
+fn a_moved_layer_survives_the_round_trip() {
+    let mut h = Harness::new(20, 3);
+    let back = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, 20, 3), true);
+    let window = h
+        .screen
+        .layers()
+        .add_content(1, Rect::new(0, 0, 6, 2), true);
+    h.screen
+        .layers()
+        .view(back)
+        .unwrap()
+        .fill(Rect::new(0, 0, 20, 3), ".", Style::new());
+    h.screen
+        .layers()
+        .view(window)
+        .unwrap()
+        .fill(Rect::new(0, 0, 6, 2), "#", Style::new());
+    h.present();
+
+    assert!(h.screen.layers().set_rect(window, Rect::new(12, 1, 6, 2)));
+    assert!(h.present().submitted);
+}
+
+#[test]
+fn a_donated_surface_of_clusters_survives_the_round_trip() {
+    // The renumbering, end to end. The harness compares whole cells — handle and style word — so a
+    // handle that landed in the wrong row of the interner fails here rather than showing the wrong
+    // glyph on someone's terminal.
+    //
+    // **The extended half of the donation cannot be driven through here yet**, and that is this
+    // file's existing boundary rather than a gap in ticket 10: neither the serializer nor the
+    // terminal model speaks SGR 58/59 or OSC 8, so an extended cell cannot close the round trip at
+    // all until ticket 13. What the renumbering does to a hyperlink and to an underline colour is
+    // asserted against the composited frame instead, in `layer::tests`.
+    let mut h = Harness::new(20, 2);
+
+    // Something is already in this screen's tables, so the donor's ids are not this screen's.
+    let seeded = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, 20, 2), true);
+    h.screen
+        .layers()
+        .view(seeded)
+        .unwrap()
+        .text(0, 0, "e\u{301}a\u{308}", Style::new());
+    h.present();
+
+    let mut off = Surface::new(10, 1);
+    off.root().text(
+        0,
+        0,
+        "n\u{303}o\u{308}漢",
+        Style::new().fg(Color::rgb(3, 4, 5)),
+    );
+    h.screen
+        .layers()
+        .add_content_with(1, Rect::new(2, 1, 10, 1), true, off);
     assert!(h.present().submitted);
 }

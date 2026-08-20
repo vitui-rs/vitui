@@ -66,6 +66,18 @@ impl Write for Discard {
     }
 }
 
+/// A 300x80 screen writing into nothing, which is what every arm in this file measures against.
+fn sink_screen() -> Screen {
+    let (screen, _wake) = Engine::new(Config {
+        size: (W, H),
+        output: Output::Sink(Box::new(Discard)),
+        ..Default::default()
+    })
+    .attach()
+    .expect("attaching to a sink cannot fail");
+    screen
+}
+
 /// A scene with its layers built, its birth frame gone, and the screen it draws into.
 ///
 /// The pair travels together everywhere below — a scene without its screen cannot be stepped, and
@@ -80,13 +92,7 @@ struct Staged {
 
 impl Staged {
     fn new(mut scene: Box<dyn Scene>, case: &str, iters: u32) -> Staged {
-        let (mut screen, _wake) = Engine::new(Config {
-            size: (W, H),
-            output: Output::Sink(Box::new(Discard)),
-            ..Default::default()
-        })
-        .attach()
-        .expect("attaching to a sink cannot fail");
+        let mut screen = sink_screen();
         scene.build(&mut screen);
         // Adding a layer damages its whole rectangle. That is the design, and it is not what any of
         // these cases is measuring.
@@ -136,6 +142,12 @@ fn main() {
     // §4's isolated prototypes, and comparing to those is the whole point of these two.
     the_restyle_densities();
     the_selection_bar();
+    // Ticket 10's two, early for the same reason: both are compared against numbers spec §5 and
+    // architecture ticket 19 took on isolated prototypes, and the donation arms allocate a 300x80
+    // surface per iteration, which is exactly the measurement the note above says moves 2.6x with
+    // its position in the run.
+    the_layer_stack_operations();
+    the_donation_renumbering();
 
     let mut staged: Vec<Staged> = scenes()
         .into_iter()
@@ -338,13 +350,7 @@ struct Linked {
 }
 
 fn linked(case: &'static str, every: i32) -> Linked {
-    let (mut screen, _wake) = Engine::new(Config {
-        size: (W, H),
-        output: Output::Sink(Box::new(Discard)),
-        ..Default::default()
-    })
-    .attach()
-    .expect("attaching to a sink cannot fail");
+    let mut screen = sink_screen();
     let layer = screen.layers().add_content(0, Rect::new(0, 0, W, H), true);
     let link = screen.link("https://example.com/vitui");
     let row: String = std::iter::repeat_n('m', W as usize).collect();
@@ -609,4 +615,298 @@ fn print_what_is_red() {
             println!("        {why}");
         }
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Ticket 10's two reports: the stack's own operations, and what a donation costs.
+// ---------------------------------------------------------------------------------------------
+
+/// A popup's size, small enough that two hundred of them fit on a screen without covering it.
+const POPUP: (u16, u16) = (20, 5);
+
+/// The point every point-query arm probes, and the one cell `stack_of` guarantees is covered by
+/// exactly one popup — the one nearest the *bottom* of the stack.
+const PROBE: (i32, i32) = (160, 40);
+
+/// A screen carrying `n` layers: a full-screen background, one popup over [`PROBE`], and the rest
+/// scattered over the left third where none of them can cover it.
+///
+/// The shape is deliberate. §5's point query costs 13.5 ns at n = 20 and 81.0 ns at n = 200, which
+/// is 6x for 10x the layers — so the probe it measured was **scanning**, not exiting early on the
+/// window it clicked. A probe answered by the second layer from the bottom reproduces that, and it
+/// is also the honest worst case: an early exit is O(1) and would report a number that says nothing
+/// about n.
+fn stack_of(n: usize) -> (Screen, Vec<LayerId>) {
+    let mut screen = sink_screen();
+
+    let mut ids = vec![screen.layers().add_content(0, Rect::new(0, 0, W, H), true)];
+    if n > 1 {
+        ids.push(screen.layers().add_content(
+            1,
+            Rect::new(PROBE.0 - 4, PROBE.1 - 2, POPUP.0, POPUP.1),
+            true,
+        ));
+    }
+    for i in 2..n {
+        // The left third, so nothing above the popup at index 1 can answer the probe.
+        let x = ((i * 7) % (W as usize / 3)) as i32;
+        let y = ((i * 11) % (H as usize - POPUP.1 as usize)) as i32;
+        ids.push(
+            screen
+                .layers()
+                .add_content(i as i32, Rect::new(x, y, POPUP.0, POPUP.1), true),
+        );
+    }
+    // The birth frame, which is not what any of this measures.
+    screen.present();
+    (screen, ids)
+}
+
+/// One arm of the layer-stack report: a stack of `n`, and the case name it is measured under.
+struct Stacked {
+    case: &'static str,
+    screen: Screen,
+    ids: Vec<LayerId>,
+}
+
+fn stacked(case: &'static str, n: usize) -> Stacked {
+    let (screen, ids) = stack_of(n);
+    Stacked { case, screen, ids }
+}
+
+/// The report ticket 10 owes on §5's own table: ordered traversal, raise, and the point query, at
+/// n = 20 and n = 200.
+///
+/// | | n = 20 | n = 200 |
+/// |---|---|---|
+/// | ordered traversal of the whole stack | 5.05 ns | 59.3 ns |
+/// | raise a layer to the top | 60.7 ns | 447 ns |
+/// | `topmost_at` point query | 13.5 ns | 81.0 ns |
+///
+/// **What "ordered traversal" is measured as, and why it is not the composite.** §5 means the walk
+/// the compositor does every frame, and the compositor is not on the public surface an example may
+/// reach — nor could it be timed apart from the painting it exists to do. `topmost_at` at a point
+/// **no layer covers** is the same walk with a rectangle test per layer and nothing else: every
+/// layer, in order, exactly once. The composite's own cost is damaged area x depth and is ticket
+/// 11's report, where it belongs.
+///
+/// **A report, not a gate.** A timing is a gate only at cliff granularity, and none of these is
+/// near a cliff. What is gated about the stack is gated on the mechanism —
+/// `layer::tests::raising_a_layer_and_dropping_it_back_restores_the_exact_original_order` is an
+/// equality, and `topmost_at_never_returns_an_operator_layer_at_any_z` is an absence.
+fn the_layer_stack_operations() {
+    let mut traverse = [
+        stacked("stack/traverse n=20", 20),
+        stacked("stack/traverse n=200", 200),
+    ];
+    let mut raise = [
+        stacked("stack/raise n=20", 20),
+        stacked("stack/raise n=200", 200),
+    ];
+    let mut point = [
+        stacked("stack/point n=20", 20),
+        stacked("stack/point n=200", 200),
+    ];
+
+    let mut bench = Bench::new(40);
+    for arm in traverse.iter_mut() {
+        let (case, screen) = (arm.case, &mut arm.screen);
+        bench = bench.case(case, 20_000, move || {
+            // Outside every rectangle, including the background's: the scan runs to the end.
+            std::hint::black_box(screen.layers().topmost_at(-1, -1));
+        });
+    }
+    for arm in raise.iter_mut() {
+        let (case, screen, ids) = (arm.case, &mut arm.screen, &arm.ids);
+        // Round-robin over every layer, so the one being lifted out is in the middle of the `Vec`
+        // on average rather than already at the end — which is the case that costs nothing and is
+        // not what "raise a buried window" means.
+        let mut i = 0usize;
+        let mut z = ids.len() as i32;
+        bench = bench.case(case, 5_000, move || {
+            i = (i + 1) % ids.len();
+            z += 1;
+            std::hint::black_box(screen.layers().set_z(ids[i], z));
+        });
+    }
+    for arm in point.iter_mut() {
+        let (case, screen) = (arm.case, &mut arm.screen);
+        bench = bench.case(case, 20_000, move || {
+            std::hint::black_box(screen.layers().topmost_at(PROBE.0, PROBE.1));
+        });
+    }
+    let report = bench.run();
+    println!("the layer stack's own operations, minimum of 40 rounds:\n{report}");
+
+    for (case, spec) in [
+        ("stack/traverse n=20", 5.05),
+        ("stack/traverse n=200", 59.3),
+        ("stack/raise n=20", 60.7),
+        ("stack/raise n=200", 447.0),
+        ("stack/point n=20", 13.5),
+        ("stack/point n=200", 81.0),
+    ] {
+        let ns = report.get(case).expect("measured");
+        println!("            {case:<22} {ns:>8.2} ns   spec §5 measured {spec:.2} ns");
+    }
+    for (small, large) in [
+        ("stack/traverse n=20", "stack/traverse n=200"),
+        ("stack/raise n=20", "stack/raise n=200"),
+        ("stack/point n=20", "stack/point n=200"),
+    ] {
+        let ratio = report.get(large).expect("measured") / report.get(small).expect("measured");
+        println!("            {large} / {small} = {ratio:.2}x");
+    }
+    println!(
+        "            report, not a gate. Every column is linear in n — the ratios above are what\n         \x20           to read, and the shape that would refute §5's contiguous `Vec` is one\n         \x20           growing faster than that. The two scan rows are about a nanosecond a layer\n         \x20           against the prototype's 0.25 and 0.4, and a 40-byte `Layer` is why: 1.6 to\n         \x20           a cache line rather than the four a sixteen-byte record would give. Not\n         \x20           chased — the whole scan at n = 200 is 0.2% of a 100 us frame, and the fix\n         \x20           is a parallel array of the hot fields to keep in step. `raise` is *faster*\n         \x20           than the prototype at both n, which is the column §5 argued the `Vec` down\n         \x20           on."
+    );
+    println!();
+}
+
+/// The clusters a donated surface is built from: a handful of distinct ones, cycled.
+///
+/// A handful and not one per cell, because that is what real text is — spec §3 puts a hyperlinked
+/// full screen at about a hundred distinct clusters — and because a surface of 24 000 *distinct*
+/// clusters would measure the intern table growing rather than the donation walking.
+const CLUSTERS: [&str; 8] = [
+    "e\u{301}", "a\u{308}", "o\u{303}", "u\u{308}", "n\u{303}", "i\u{302}", "c\u{327}", "s\u{30C}",
+];
+
+/// A 300-column row with one cell in `every` carrying a multi-scalar cluster. `0` is plain Latin,
+/// which touches no table at all.
+fn cluster_row(every: usize) -> String {
+    let mut row = String::new();
+    for x in 0..W as usize {
+        if every != 0 && x % every == 0 {
+            row.push_str(CLUSTERS[(x / every) % CLUSTERS.len()]);
+        } else {
+            row.push('m');
+        }
+    }
+    row
+}
+
+/// Draw one off-screen 300x80 surface: the thing a worker hands over.
+fn off_screen(row: &str, ext_every: i32) -> Surface {
+    let mut surface = Surface::new(W, H);
+    let underlined = Restyle {
+        ul: Some(Color::rgb(3, 4, 5)),
+        ..Default::default()
+    };
+    let mut v = surface.root();
+    for y in 0..H as i32 {
+        v.text(0, y, row, Style::new());
+    }
+    if ext_every == 1 {
+        v.restyle(Rect::new(0, 0, W, H), &underlined);
+    } else if ext_every > 1 {
+        for y in 0..H as i32 {
+            let mut x = 0;
+            while x < W as i32 {
+                v.restyle(Rect::new(x, y, 1, 1), &underlined);
+                x += ext_every;
+            }
+        }
+    }
+    surface
+}
+
+/// One arm of the donation report: a density, and the screen it is donated into.
+struct Donated {
+    donate: &'static str,
+    control: &'static str,
+    row: String,
+    ext_every: i32,
+    screen: Screen,
+}
+
+fn donated(
+    donate: &'static str,
+    control: &'static str,
+    cluster_every: usize,
+    ext_every: i32,
+) -> Donated {
+    let screen = sink_screen();
+    Donated {
+        donate,
+        control,
+        row: cluster_row(cluster_every),
+        ext_every,
+        screen,
+    }
+}
+
+/// **§15's sixth owed measurement, and ticket 10 is its named payer**: what `add_content_with`
+/// costs when it renumbers a donated surface.
+///
+/// Architecture ticket 19 moved the remap from *per composite* to *once, at donation*, and left the
+/// cost owed rather than assumed: ADR 0011's 46x is about a remap per frame per layer and does not
+/// transfer. The nearest measured neighbour is the eviction sweep, which walks live surfaces,
+/// rebuilds the tables and rewrites the handles for **58.88 µs on one screen** — the same shape of
+/// work, so the same order is expected, and expectation is not measurement.
+///
+/// **Each density is two arms and the answer is the difference.** A donated surface is *moved*
+/// into the stack, so it cannot be built once and donated forty times; building it inside the
+/// timed body is the only honest option, and the control arm builds the identical surface and
+/// drops it. What is left is the walk, the `mark_all` and the insert. The layer is removed again
+/// each iteration so that the stack does not grow to eight hundred full screens.
+///
+/// **A report, not a gate.** What is gated about the renumbering is gated on the mechanism:
+/// `layer::tests::a_cluster_donated_and_composited_reaches_the_frame_as_the_same_cluster` and
+/// `a_hyperlinked_cell_donated_and_composited_resolves_to_the_same_uri` are equalities, and
+/// `a_donated_surface_of_plain_text_moves_in_as_it_is` is what says the skip is real.
+fn the_donation_renumbering() {
+    let mut arms = [
+        donated("donate/plain", "build/plain", 0, 0),
+        donated("donate/1% clusters", "build/1% clusters", 100, 0),
+        donated("donate/100% clusters", "build/100% clusters", 1, 0),
+        donated("donate/1% extended", "build/1% extended", 0, 100),
+        donated("donate/100% extended", "build/100% extended", 0, 1),
+    ];
+
+    let mut bench = Bench::new(40);
+    for arm in arms.iter_mut() {
+        let (donate, control, ext) = (arm.donate, arm.control, arm.ext_every);
+        let (control_row, donate_row) = (arm.row.clone(), arm.row.clone());
+        let screen = &mut arm.screen;
+        bench = bench.case(control, 5, move || {
+            std::hint::black_box(off_screen(&control_row, ext));
+        });
+        bench = bench.case(donate, 5, move || {
+            let surface = off_screen(&donate_row, ext);
+            let id = screen
+                .layers()
+                .add_content_with(0, Rect::new(0, 0, W, H), true, surface);
+            std::hint::black_box(screen.layers().remove(id));
+        });
+    }
+    let report = bench.run();
+    println!("`add_content_with` on a 300x80 donated surface, minimum of 40 rounds:\n{report}");
+
+    for (donate, control, label) in [
+        ("donate/plain", "build/plain", "plain — the skip"),
+        ("donate/1% clusters", "build/1% clusters", "1% clusters"),
+        (
+            "donate/100% clusters",
+            "build/100% clusters",
+            "100% clusters",
+        ),
+        ("donate/1% extended", "build/1% extended", "1% extended"),
+        (
+            "donate/100% extended",
+            "build/100% extended",
+            "100% extended",
+        ),
+    ] {
+        let cost = report.get(donate).expect("measured") - report.get(control).expect("measured");
+        println!(
+            "            {label:<22} {:>8.2} us of donation over the same build   \
+             (sweep, one screen: 58.88 us)",
+            cost / 1_000.0
+        );
+    }
+    println!(
+        "            report, not a gate — §15's sixth owed measurement, paid, and every arm is\n         \x20           inside the eviction sweep's 58.88 us for the same 24 000 cells.\n         \x20           **The cost is per cell, not per handle**: 1% and 100% clusters are a few\n         \x20           microseconds apart while the number of table lookups between them differs\n         \x20           by 100x, because the two-phase walk re-interns once per distinct entry and\n         \x20           the per-cell pass is an array index. So the walk is what costs, and it is\n         \x20           bounded by the surface rather than by what is in it.\n         \x20           Architecture ticket 19's option A — delete `Surface::root` — does not come\n         \x20           back: the **plain** row is the one that decides it, and a screen of Latin,\n         \x20           CJK or box drawing skips the walk outright.\n         \x20           Method: a difference of two minima, so it is an estimate rather than a\n         \x20           measurement of the walk alone; the arms are round-robin, so both saw the\n         \x20           same interference. The **plain** row lands at or under zero, which is what\n         \x20           a skip below the noise floor looks like, and the **100% clusters** row is\n         \x20           the least precise of the five, being a difference of tens of microseconds\n         \x20           over a build of nearly a millisecond.\n         \x20           **The link phase is not measured here and cannot be**, because a standalone\n         \x20           surface has no way to mint a link id — architecture ticket 21. What the\n         \x20           extended arms exercise is the extended-style table; the link table they walk\n         \x20           is empty."
+    );
+    println!();
 }

@@ -22,10 +22,13 @@
 //! # The one thing it must not do
 //!
 //! Share code with the fast path. Every line here is written from spec §5's description of
-//! painter's algorithm rather than from `LayerStack::composite_run`, including the ground fill the
-//! fast path deliberately does not have — the fast path can skip it because every damaged cell lies
-//! inside some layer's rectangle, and an oracle that made the same assumption would be unable to
-//! notice if it stopped being true.
+//! painter's algorithm rather than from `LayerStack::composite_run`, including the ground fill,
+//! which the fast path does conditionally — it looks for an opaque layer covering the whole run and
+//! starts there — where this one does it unconditionally, for every cell, every time. That is the
+//! shape of the whole file: the oracle is allowed to be slow and is not allowed to be clever.
+//!
+//! Operator layers are absent from both, and that is a real gap rather than an agreement: ticket 12
+//! is what makes a `Mix` reach a cell, and it is what puts one here.
 
 use crate::cell::Cell;
 use crate::layer::LayerStack;
