@@ -65,13 +65,18 @@ styled. A double-width glyph occupies two cells.
 
 **Surface** — a rectangular grid of cells that can be drawn into. The engine's central primitive.
 Usually a layer owns one; a caller constructs one directly only to draw somewhere off-screen. A
-surface holds cells and damage and nothing else — in particular it does not hold the handle tables,
-which is what lets one layer be composited into another as a plain copy.
+surface in a layer stack holds cells and damage and nothing else — it draws into the *stack's*
+handle tables, which is what lets one layer be composited into another as a plain copy. A surface
+outside a stack has no stack to reach, so it carries a table of its own; see **Handle table**.
 
 **Handle table** — engine-owned state that a cell's handles point into: the grapheme interner for
 multi-scalar clusters, and the extended-style table for the colours that did not fit in the style
-word. There is **one set per engine**, so every surface it mints speaks one handle space. Nothing
+word. There is **one set per layer stack**, so every surface in one speaks one handle space. Nothing
 public names a handle; drawing verbs reach the tables through the draw context.
+
+A surface drawn through `Surface::root` is not in a stack and interns into a table of its own, which
+stays empty for every string of Latin, CJK, box drawing and single-scalar emoji. `add_content_with`
+renumbers a donated surface's handles into the stack's, once, at donation.
 
 **Extended style** — a style whose colours live in a handle table rather than in its `u64`. It is
 what an underline colour or a hyperlink costs, and it is a *cost, not a state*: clearing both

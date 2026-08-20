@@ -22,6 +22,13 @@
 //! presentation, which is what `terminal-unicode-core` says of the mode 2027 the engine requests.
 
 /// The generated tables: three three-stage tries, `O(1)` lookup, no binary search on the path.
+///
+/// `UCD_VERSION` is stamped into the generated source and read only by the gates, which is where a
+/// version is worth asserting on.
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "UCD_VERSION is read by this module's gates")
+)]
 mod tables {
     include!(concat!(env!("OUT_DIR"), "/ucd_tables.rs"));
 }
@@ -298,19 +305,45 @@ impl Cursor {
     }
 }
 
-/// The extended grapheme clusters of `s`, as slices borrowed from it.
+/// A printable ASCII byte: `0x20..=0x7E`.
 ///
-/// Restarting the cursor at every boundary is sound rather than a shortcut: each of the three
-/// accumulated rules matches a pattern whose interior contains no boundary, so no state can
-/// legitimately cross one.
+/// The fast path's whole predicate. **Two printable ASCII bytes always break between them**, and no
+/// UAX #29 rule can join them: `Extend`, `SpacingMark`, `ZWJ` and `Prepend` are all non-ASCII, so
+/// are Hangul jamo, regional indicators and Indic consonants, and the one ASCII rule — GB3's
+/// `CR LF` — is about control bytes, which this range excludes. That is what lets the segmenter
+/// take one byte and skip the tables entirely, and it is asserted over the whole 95x95 grid in
+/// [`tests`] rather than argued.
+#[inline]
+const fn is_ascii_printable(b: u8) -> bool {
+    b >= 0x20 && b < 0x7F
+}
+
+/// The extended grapheme clusters of `s`, as slices borrowed from it.
 pub(crate) fn clusters(s: &str) -> Clusters<'_> {
-    Clusters { rest: s }
+    Clusters {
+        rest: s,
+        scanned: 0,
+        cursor: Cursor::new(),
+    }
 }
 
 /// The iterator [`clusters`] returns. Borrows the caller's string; never allocates.
+///
+/// # The cursor is carried across boundaries, and that is worth a factor of two
+///
+/// Restarting it at every cluster is *sound* — each accumulated rule matches a pattern whose
+/// interior contains no boundary — and it costs every code point being classified **twice**, once
+/// as the last character looked at for one cluster and again as the first character of the next.
+/// Classification is two three-stage trie walks, so a screen of CJK paid six dependent loads it did
+/// not need per cell. Carrying the cursor makes it once, and the boundary character is remembered
+/// in `scanned` rather than re-read.
 #[derive(Clone, Debug)]
 pub(crate) struct Clusters<'a> {
+    /// What has not been returned yet.
     rest: &'a str,
+    /// Bytes at the front of `rest` the cursor has already consumed: zero, or one character.
+    scanned: usize,
+    cursor: Cursor,
 }
 
 impl<'a> Iterator for Clusters<'a> {
@@ -320,14 +353,45 @@ impl<'a> Iterator for Clusters<'a> {
         if self.rest.is_empty() {
             return None;
         }
-        let mut cursor = Cursor::new();
-        let end = self
-            .rest
-            .char_indices()
-            .find(|&(i, cp)| cursor.is_break(cp) && i > 0)
-            .map_or(self.rest.len(), |(i, _)| i);
+
+        // The ASCII fast path (spec §4). Nearly every cell ever written takes it, and it costs one
+        // compare against the byte after: the tables, the cursor and the UTF-8 decode are all
+        // skipped, and what is skipped is what made a screen of Latin cost 20.8 ns a cell.
+        //
+        // It tests the *next* byte as well, and that is the whole of its correctness: `e` followed
+        // by a combining acute is one cluster, and the second byte of U+0301 is not ASCII, so this
+        // path is not taken. Resetting the cursor is right because a fresh one means start-of-text,
+        // and a printable ASCII character always breaks before whatever a printable ASCII character
+        // can be followed by here.
+        let bytes = self.rest.as_bytes();
+        if is_ascii_printable(bytes[0]) && bytes.get(1).is_none_or(|b| is_ascii_printable(*b)) {
+            let (cluster, rest) = self.rest.split_at(1);
+            self.rest = rest;
+            self.scanned = 0;
+            self.cursor = Cursor::new();
+            return Some(cluster);
+        }
+
+        if self.scanned == 0 {
+            let first = self.rest.chars().next().expect("`rest` is not empty");
+            self.cursor.is_break(first);
+            self.scanned = first.len_utf8();
+        }
+
+        let end = loop {
+            let Some(ch) = self.rest[self.scanned..].chars().next() else {
+                break self.rest.len();
+            };
+            if self.cursor.is_break(ch) {
+                break self.scanned;
+            }
+            self.scanned += ch.len_utf8();
+        };
+
         let (cluster, rest) = self.rest.split_at(end);
         self.rest = rest;
+        // The character at `end` is already through the cursor; only its length is carried.
+        self.scanned = rest.chars().next().map_or(0, char::len_utf8);
         Some(cluster)
     }
 }
@@ -351,6 +415,23 @@ impl<'a> Iterator for Clusters<'a> {
 /// a default-emoji base back to one column — is `unicode-width`'s, and taking it would put the
 /// engine's own answer at odds with the protocol it asks the terminal to speak.
 pub(crate) fn cluster_width(cluster: &str) -> u16 {
+    // The same fast path as the segmenter's, for the same reason: printable ASCII is one column and
+    // no rule below can say otherwise.
+    if cluster.len() == 1 && is_ascii_printable(cluster.as_bytes()[0]) {
+        return 1;
+    }
+
+    // One scalar, which is every CJK cell, every box-drawing cell and every single-scalar emoji.
+    // Rules 1 and 3 need two code points to apply — a lone regional indicator is the one exception
+    // and it is tested for by name — so the base *is* the cluster and its class is the answer.
+    let mut chars = cluster.chars();
+    if let (Some(only), None) = (chars.next(), chars.next()) {
+        if break_class(only) == Break::RegionalIndicator {
+            return 1;
+        }
+        return width_class(only) as u16;
+    }
+
     let Some(base) = cluster.chars().find(|cp| width_class(*cp) != Columns::Zero) else {
         return 0;
     };

@@ -8,17 +8,23 @@ use crate::style::Style;
 /// The encoding leaves single scalars as their own handle, which is what makes the rule free on the
 /// common path — a cell holding `a` *is* `0x61`, with no table and no hash.
 ///
+/// **Bit 31 is a flag over the low 31 bits, not a third range** (spec §3, architecture ticket 19):
+///
 /// ```text
-/// 0x0000_0000..=0x0010_FFFF   a Unicode scalar value, narrow
-/// 0x0011_0000..=0x7FFF_FFFE   a cluster id in the intern table, narrow
-/// 0x7FFF_FFFF                 EMPTY - a non-opaque content layer's "skip this cell" sentinel
-/// bit 31 set                  a cluster id, but the head of a double-width pair
-/// 0xFFFF_FFFF                 CONTINUATION - the second half of a double-width pair
+/// bit 31         clear: one column.  set: two columns, and a CONTINUATION follows.
+/// bits 0..=30    0x0000_0000..=0x0010_FFFF   a Unicode scalar value
+///                0x0011_0000..=0x7FFF_FFFE   a cluster id in the intern table
+///                0x7FFF_FFFF                 EMPTY - a non-opaque content layer's "skip
+///                                            this cell" sentinel
+///
+/// 0xFFFF_FFFF    CONTINUATION - the second half of a double-width pair, which is exactly
+///                `bit 31 | EMPTY` and needs no range of its own
 /// ```
 ///
-/// Ticket 06 is what mints anything above `0x0010_FFFF`. Until it lands the engine writes single
-/// scalars and nothing else, so no `CONTINUATION` is ever produced and §3's pairing invariant holds
-/// vacuously rather than by enforcement.
+/// Read as three ranges, a wide **scalar** has no representation: `漢` is U+6F22 and is two columns,
+/// so it would have to be interned to be a wide head — and then a screen of CJK would intern 12 000
+/// times, against the sentence above and against spec §4's measurement that a full screen of CJK is
+/// *cheaper* than one of Latin. A wide head and its narrow twin are one bit apart.
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub(crate) struct GraphemeId(u32);
@@ -34,14 +40,63 @@ impl GraphemeId {
     /// The second half of a double-width pair. Ticket 06 is what produces one.
     pub(crate) const CONTINUATION: GraphemeId = GraphemeId(0xFFFF_FFFF);
 
-    /// The handle of a single Unicode scalar, which is the scalar itself.
+    /// The wide flag, and the first cluster id after the scalars.
+    const WIDE: u32 = 1 << 31;
+    pub(crate) const FIRST_CLUSTER: u32 = 0x0011_0000;
+    /// One past the last cluster id: `EMPTY`'s payload is not one.
+    pub(crate) const LAST_CLUSTER: u32 = 0x7FFF_FFFE;
+
+    /// The handle of a single narrow Unicode scalar, which is the scalar itself.
     pub(crate) const fn scalar(c: char) -> GraphemeId {
         GraphemeId(c as u32)
     }
 
+    /// The handle of a single **wide** Unicode scalar: the same scalar, one bit away.
+    pub(crate) const fn wide_scalar(c: char) -> GraphemeId {
+        GraphemeId(GraphemeId::WIDE | c as u32)
+    }
+
+    /// The handle of an interned cluster. `id` is the interner's own index.
+    pub(crate) const fn cluster(id: u32, wide: bool) -> GraphemeId {
+        let payload = GraphemeId::FIRST_CLUSTER + id;
+        GraphemeId(if wide {
+            GraphemeId::WIDE | payload
+        } else {
+            payload
+        })
+    }
+
+    /// The low 31 bits: what this handle names, with the column count stripped off.
+    pub(crate) const fn payload(self) -> u32 {
+        self.0 & !GraphemeId::WIDE
+    }
+
+    /// The interner index this handle names, or `None` when it names a scalar or a sentinel.
+    pub(crate) const fn cluster_id(self) -> Option<u32> {
+        let payload = self.payload();
+        if payload >= GraphemeId::FIRST_CLUSTER && payload <= GraphemeId::LAST_CLUSTER {
+            Some(payload - GraphemeId::FIRST_CLUSTER)
+        } else {
+            None
+        }
+    }
+
     /// The scalar this handle *is*, or `None` when it points into a table or is a sentinel.
+    ///
+    /// Masks bit 31 first, because a wide scalar is a scalar.
     pub(crate) const fn as_scalar(self) -> Option<char> {
-        char::from_u32(self.0)
+        char::from_u32(self.payload())
+    }
+
+    /// The columns this handle occupies: one, or two with a `CONTINUATION` after it.
+    pub(crate) const fn columns(self) -> u16 {
+        if self.0 & GraphemeId::WIDE != 0 { 2 } else { 1 }
+    }
+
+    /// Whether this handle is the head of a double-width pair. `CONTINUATION` is not one, which is
+    /// the one case the bare flag test gets wrong.
+    pub(crate) const fn is_wide_head(self) -> bool {
+        self.0 & GraphemeId::WIDE != 0 && !self.is_continuation()
     }
 
     pub(crate) const fn is_continuation(self) -> bool {
@@ -123,6 +178,32 @@ mod tests {
         assert_eq!(
             GraphemeId::scalar('\u{10FFFF}').as_scalar(),
             Some('\u{10FFFF}')
+        );
+    }
+
+    #[test]
+    fn a_wide_scalar_is_still_its_own_handle_one_bit_away_from_the_narrow_one() {
+        // Spec §3 (19): bit 31 is a flag over the low 31 bits, not a third range. Read as a range,
+        // every cell of a screen of CJK would have to be interned.
+        let narrow = GraphemeId::scalar('a');
+        let wide = GraphemeId::wide_scalar('漢');
+        assert_eq!(wide.0, 0x8000_0000 | 0x6F22);
+        assert_eq!(wide.as_scalar(), Some('漢'));
+        assert_eq!(wide.columns(), 2);
+        assert_eq!(narrow.columns(), 1);
+        assert!(wide.is_wide_head());
+        assert!(!narrow.is_wide_head());
+    }
+
+    #[test]
+    fn continuation_is_exactly_the_wide_flag_over_empty() {
+        assert_eq!(
+            GraphemeId::CONTINUATION.0,
+            0x8000_0000 | GraphemeId::EMPTY.0
+        );
+        assert!(
+            !GraphemeId::CONTINUATION.is_wide_head(),
+            "the second half of a pair is not a head"
         );
     }
 

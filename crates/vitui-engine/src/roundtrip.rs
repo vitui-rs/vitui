@@ -38,6 +38,77 @@ fn one_line_of_text_survives_the_round_trip() {
 }
 
 #[test]
+fn cjk_survives_the_round_trip() {
+    let mut h = Harness::new(20, 2);
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, 20, 2), true);
+    h.screen
+        .layers()
+        .view(id)
+        .unwrap()
+        .text(2, 0, "漢字テスト", Style::new());
+    assert!(h.present().submitted);
+}
+
+#[test]
+fn a_multi_scalar_cluster_survives_the_round_trip() {
+    let mut h = Harness::new(20, 2);
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, 20, 2), true);
+    let family = "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}";
+    let mut v = h.screen.layers().view(id).unwrap();
+    v.text(0, 0, "e\u{301}a\u{308}", Style::new());
+    v.text(0, 1, family, Style::new().bold());
+    assert!(h.present().submitted);
+}
+
+#[test]
+fn a_wide_glyph_broken_in_half_survives_the_round_trip() {
+    // The five repair rules, all the way to the wire: the blanked half has to reach the terminal or
+    // it keeps showing the glyph that is no longer there.
+    let mut h = Harness::new(12, 1);
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, 12, 1), true);
+    h.screen
+        .layers()
+        .view(id)
+        .unwrap()
+        .text(0, 0, "漢字", Style::new());
+    h.present();
+    h.screen
+        .layers()
+        .view(id)
+        .unwrap()
+        .text(1, 0, "x", Style::new());
+    assert!(h.present().submitted);
+}
+
+#[test]
+fn two_cells_whose_clusters_would_join_on_the_wire_survive_the_round_trip() {
+    // Cells are emitted back to back with nothing between them, and UAX #29 does not know where one
+    // cell ended. A cluster ending in ZWJ followed by a pictograph is one cluster when concatenated,
+    // and so is a lone regional indicator followed by another — so what the terminal draws is not
+    // what the frame holds unless the serializer breaks the run.
+    let mut h = Harness::new(20, 2);
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, 20, 2), true);
+    let mut v = h.screen.layers().view(id).unwrap();
+    v.text(0, 0, "\u{1F468}\u{200D}", Style::new());
+    v.text(2, 0, "\u{1F469}", Style::new());
+    v.text(0, 1, "\u{1F1FA}", Style::new());
+    v.text(1, 1, "\u{1F1F8}", Style::new());
+    assert!(h.present().submitted);
+}
+
+#[test]
 fn every_attribute_survives_the_round_trip() {
     let mut h = Harness::new(40, 2);
     let id = h

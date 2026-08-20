@@ -14,6 +14,7 @@
 use crate::cell::{Cell, GraphemeId};
 use crate::damage::Run;
 use crate::geom::Rect;
+use crate::intern::Interner;
 use crate::style::Style;
 use crate::surface::Surface;
 use crate::view::View;
@@ -59,6 +60,12 @@ pub struct LayerStack {
     /// Sorted by `(z, seq)`. The dominant operation is an ordered traversal of the whole stack
     /// every frame, which is what a contiguous `Vec` is best at.
     layers: Vec<Layer>,
+    /// **The one handle space** every surface in this stack speaks (spec §3, ADR 0011 as amended by
+    /// architecture ticket 19). It lives here rather than in a `Surface` because that is what keeps
+    /// compositing a `copy_from_slice`: with one handle space there is nothing to translate on the
+    /// way across, and the per-surface arm measured 4.9x on a realistic layer and 46x on a hostile
+    /// one. `add_content_with` is what renumbers a donated surface into it (ticket 10).
+    interner: Interner,
     next_id: u32,
     next_seq: u32,
 }
@@ -67,6 +74,7 @@ impl LayerStack {
     pub(crate) fn new() -> LayerStack {
         LayerStack {
             layers: Vec::new(),
+            interner: Interner::new(),
             next_id: 0,
             next_seq: 0,
         }
@@ -113,12 +121,24 @@ impl LayerStack {
         id
     }
 
-    /// A view of a layer's cells. The only way to reach them.
+    /// A view of a layer's cells, drawing into this stack's handle space. The only way to reach
+    /// them.
     pub fn view(&mut self, id: LayerId) -> Option<View<'_>> {
+        let interner = &mut self.interner;
         self.layers
             .iter_mut()
             .find(|l| l.id == id)
-            .map(|l| l.surface.root())
+            .map(|l| l.surface.draw(interner))
+    }
+
+    /// The handle space every surface in this stack speaks.
+    pub(crate) fn interner(&self) -> &Interner {
+        &self.interner
+    }
+
+    #[cfg(test)]
+    pub(crate) fn interner_mut(&mut self) -> &mut Interner {
+        &mut self.interner
     }
 
     /// How many layers are in the stack.

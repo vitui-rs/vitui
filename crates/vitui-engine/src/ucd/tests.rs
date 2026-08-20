@@ -145,9 +145,10 @@ mod segmentation {
         assert_eq!(checked, 766, "the conformance suite changed size");
     }
 
-    /// The same suite through the iterator, which restarts its cursor at every boundary. That
-    /// restart is the one piece of reasoning in the module that a conformance pass over
-    /// [`Cursor`] alone would not touch.
+    /// The same suite through the iterator, which is where the two shortcuts live: the ASCII fast
+    /// path, and the cursor carried across a boundary instead of restarted at one. Neither is
+    /// touched by a conformance pass over [`Cursor`] alone, and both were introduced for speed —
+    /// which is exactly the kind of change that passes every hand-written test and fails here.
     #[test]
     fn the_iterator_agrees_with_the_conformance_suite_on_every_line() {
         let text = ucd("GraphemeBreakTest.txt");
@@ -500,6 +501,55 @@ mod rodata {
             break_bytes(),
             aux_bytes(),
             width_bytes()
+        );
+    }
+
+    /// The ASCII fast path takes one byte and skips the tables. This is the claim that lets it.
+    ///
+    /// Every ordered pair of printable ASCII is segmented into exactly two clusters of one column
+    /// each — 9 025 pairs, checked against the same tables the slow path uses rather than against
+    /// the reasoning in the comment beside the fast path. A cached property is only as honest as
+    /// the test that re-derives it.
+    #[test]
+    fn every_pair_of_printable_ascii_is_two_clusters_of_one_column() {
+        for a in 0x20u8..0x7F {
+            for b in 0x20u8..0x7F {
+                let s = String::from_utf8(vec![a, b]).expect("ASCII is UTF-8");
+                let got: Vec<&str> = super::clusters(&s).collect();
+                assert_eq!(
+                    got.len(),
+                    2,
+                    "{:?} segmented into {got:?}, and the fast path assumes two",
+                    s
+                );
+                assert_eq!(super::cluster_width(got[0]), 1);
+                assert_eq!(super::cluster_width(got[1]), 1);
+            }
+        }
+    }
+
+    /// The fast path must not fire where a combining mark follows, which is the one case that would
+    /// make it wrong and the reason it looks at the byte after.
+    #[test]
+    fn printable_ascii_followed_by_a_combining_mark_is_one_cluster() {
+        let got: Vec<&str> = super::clusters("e\u{301}x").collect();
+        assert_eq!(got, vec!["e\u{301}", "x"]);
+        assert_eq!(super::cluster_width(got[0]), 1);
+    }
+
+    /// The cursor is carried across cluster boundaries now, so a rule whose left-hand side spans one
+    /// still has to work. Two flags are two clusters; three regional indicators are two.
+    #[test]
+    fn carrying_the_cursor_across_a_boundary_does_not_change_what_it_decides() {
+        let two_flags = "\u{1F1FA}\u{1F1F8}\u{1F1EC}\u{1F1E7}";
+        assert_eq!(super::clusters(two_flags).count(), 2);
+        let three = "\u{1F1FA}\u{1F1F8}\u{1F1EC}";
+        assert_eq!(super::clusters(three).count(), 2, "a pair, then a lone one");
+        let family = "\u{1F468}\u{200D}\u{1F469}\u{1F600}";
+        assert_eq!(
+            super::clusters(family).count(),
+            2,
+            "the ZWJ joins the first two and the third stands alone"
         );
     }
 }

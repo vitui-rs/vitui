@@ -81,6 +81,7 @@ fn the_steady_state_allocates_nothing() {
     a_thousand_compose_cycles_allocate_nothing();
     a_full_screen_frame_allocates_nothing();
     an_idle_frame_allocates_nothing();
+    a_frame_of_clusters_allocates_nothing();
 }
 
 fn a_thousand_compose_cycles_allocate_nothing() {
@@ -125,6 +126,60 @@ fn a_full_screen_frame_allocates_nothing() {
                 Style::new().fg(vitui_engine::Color::indexed(i)),
             );
             assert!(screen.present().submitted);
+        }
+    });
+}
+
+/// Spec §4's whole frame: a clear, 80 rows of text, a ZWJ family emoji, a box-drawn popup and CJK.
+///
+/// The clusters are what makes this different from the frames above. Segmentation borrows slices of
+/// the caller's string and never builds a `Vec<&str>`; the interner mints a handle once per
+/// *distinct* cluster and never again; and the packet's cluster arena is cleared rather than freed,
+/// so it keeps the capacity it reached. Each of those is a place a `Vec` could have gone, and this
+/// is the test that says none of them did.
+fn a_frame_of_clusters_allocates_nothing() {
+    let (mut screen, id) = screen();
+    let family = "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}";
+    let latin: String = std::iter::repeat_n('m', W as usize).collect();
+    let cjk: String = std::iter::repeat_n('漢', W as usize / 2).collect();
+    let combining = "e\u{301}a\u{308}o\u{302}u\u{308}i\u{301}";
+
+    let frame = |screen: &mut Screen, tint: u8| {
+        let style = Style::new().fg(vitui_engine::Color::indexed(tint));
+        let mut v = screen.layers().view(id).expect("the layer is still there");
+        v.fill(Rect::new(0, 0, W, H), " ", style);
+        for y in 0..H as i32 {
+            v.text(0, y, if y % 2 == 0 { &latin } else { &cjk }, style);
+        }
+        v.text(4, 2, family, style);
+        v.text(8, 2, combining, style);
+        // A box-drawn popup: four degenerate fills and four corners, which is what spec §4 says a
+        // box is instead of a primitive.
+        let (x, y, w, h) = (40i32, 10i32, 30i32, 8i32);
+        v.fill(Rect::new(x, y, w as u16, 1), "─", style);
+        v.fill(Rect::new(x, y + h - 1, w as u16, 1), "─", style);
+        v.fill(Rect::new(x, y, 1, h as u16), "│", style);
+        v.fill(Rect::new(x + w - 1, y, 1, h as u16), "│", style);
+        v.set(x, y, "┌", style);
+        v.set(x + w - 1, y, "┐", style);
+        v.set(x, y + h - 1, "└", style);
+        v.set(x + w - 1, y + h - 1, "┘", style);
+    };
+
+    // Two frames of warm-up: what is gated is the steady state, and every distinct cluster this
+    // scene contains has entered the interner and the packet's arena by the end of the first.
+    for tint in 0..2u8 {
+        frame(&mut screen, tint);
+        screen.present();
+    }
+
+    assert_no_alloc(|| {
+        for tint in 2..12u8 {
+            frame(&mut screen, tint);
+            assert!(
+                screen.present().submitted,
+                "frame {tint} had nothing to say"
+            );
         }
     });
 }

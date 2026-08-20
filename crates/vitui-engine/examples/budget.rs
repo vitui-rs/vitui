@@ -48,7 +48,7 @@ use std::io::{Result, Write};
 use std::time::Duration;
 
 use vitui_bench::{Bench, Report};
-use vitui_engine::{Config, Engine, Output, Screen};
+use vitui_engine::{Config, Engine, Output, Screen, Style, Surface};
 
 use register::{State, table};
 use scenes::{H, Scene, W, scenes, table_two_ways, virtualised_tree};
@@ -141,6 +141,7 @@ fn main() {
     the_two_budget_gates(&report);
     the_steady_state_share(&report);
     the_data_volume_invariant();
+    the_verb_granularity_rule();
 
     println!("\nspec §14's register:\n{}", table());
     print_what_is_red();
@@ -253,6 +254,68 @@ fn the_steady_state_share(report: &Report) {
 ///
 /// The band is wide on purpose. The claim is "the same time", the failure mode is a scan, and a
 /// scan of a thousand times more data is not a 2x. Provenance: impl 04, Apple M1 Max, rustc 1.97.1.
+/// Spec §4's granularity rule, and the claim that CJK is not a tax.
+///
+/// **A report, not a gate**, and the distinction is the backlog's rule rather than modesty: a
+/// timing is a gate only at cliff granularity. What *is* gated about these two claims is gated on
+/// the mechanism instead — `view::tests::a_full_row_of_cjk_interns_nothing` is an equality on the
+/// interner being untouched, which is what makes CJK cheap, and it cannot drift by 10% on a busy
+/// runner because it is not a stopwatch.
+///
+/// The rule this exists to keep visible, because it constrains every component ever written against
+/// this API: **the verbs are span-shaped by default, and a component that walks cell by cell is
+/// choosing to pay double.** Spec §4 measured 150.4 µs against 290.6 µs for the same 24 000 cells,
+/// which is 1.93x.
+fn the_verb_granularity_rule() {
+    let latin: String = std::iter::repeat_n('m', W as usize).collect();
+    let cjk: String = std::iter::repeat_n('漢', W as usize / 2).collect();
+    let mut span = Surface::new(W, H);
+    let mut per_cell = Surface::new(W, H);
+    let mut wide = Surface::new(W, H);
+
+    let report = Bench::new(40)
+        .case("text/80 verbs of 300", 200, || {
+            let mut v = span.root();
+            for y in 0..H as i32 {
+                v.text(0, y, &latin, Style::new());
+            }
+        })
+        .case("text/24 000 verbs of 1", 200, || {
+            let mut v = per_cell.root();
+            for y in 0..H as i32 {
+                for x in 0..W as i32 {
+                    v.text(x, y, "m", Style::new());
+                }
+            }
+        })
+        .case("text/80 verbs of 300, CJK", 200, || {
+            let mut v = wide.root();
+            for y in 0..H as i32 {
+                v.text(0, y, &cjk, Style::new());
+            }
+        })
+        .run();
+
+    println!("the verb granularity rule, minimum of 40 rounds:\n{report}");
+    let span = report.get("text/80 verbs of 300").expect("measured");
+    let per_cell = report.get("text/24 000 verbs of 1").expect("measured");
+    let cjk = report.get("text/80 verbs of 300, CJK").expect("measured");
+    println!(
+        "            per-cell / span = {:.2}x, spec §4 measured 1.93x — report, not a gate",
+        per_cell / span
+    );
+    println!(
+        "            CJK / Latin = {:.2}x over the same 24 000 columns — spec §4 measured 0.92x \n\
+         \x20           and that did not reproduce. The mechanism is intact: a wide scalar is still \n\
+         \x20           its own handle and a full row of CJK interns nothing, gated by equality in \n\
+         \x20           `view::tests::a_full_row_of_cjk_interns_nothing`. What costs is segmentation \n\
+         \x20           itself, at 14.3 ns a code point against 3.1 ns for one that takes the ASCII \n\
+         \x20           fast path. See impl ticket 06's Progress for the candidate and its owner.",
+        cjk / span
+    );
+    println!();
+}
+
 fn the_data_volume_invariant() {
     let mut arms = vec![
         Staged::new(virtualised_tree(1_000), "tree/1k", 200),

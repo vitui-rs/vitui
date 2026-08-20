@@ -11,8 +11,8 @@ not once per surface and not once per process. Drawing verbs reach them through 
 `Surface` does not hold them and no public signature names one.
 
 > **Amended 2026-08-20 — see the Amendment below.** "Once per engine" is once per **layer stack**, and
-> a surface that is not in one carries a local interner that compositing never reads. The decision
-> below and every number in it stand unchanged.
+> a surface that is not in one carries a local, usually empty, interner that compositing never reads.
+> The decision below and every number in it stand unchanged.
 
 When a frame is packed, every handle it carries is **resolved into a side table the packet owns** —
 cluster bytes into the packet's arena, extended styles into the packet's own list, hyperlink URIs
@@ -85,8 +85,9 @@ The amendment, in three sentences:
 - The tables live in the **layer stack**, which `attach` mints and of which there is one per `Screen`.
   Every layer surface speaks that stack's handle space, and compositing is the `copy_from_slice` this
   ADR bought.
-- A surface outside a stack carries an `Option<Interner>`, `None` until a multi-scalar cluster is
-  written through `Surface::root` — which Latin, CJK, box drawing and single-scalar emoji never do.
+- A surface outside a stack carries an interner of its own, empty until a multi-scalar cluster is
+  written through `Surface::root` — which Latin, CJK, box drawing and single-scalar emoji never do —
+  and an empty one holds no allocation.
 - `add_content_with` renumbers a donated surface's handles into the stack's table **once, at
   donation**, and skips entirely when there are none.
 

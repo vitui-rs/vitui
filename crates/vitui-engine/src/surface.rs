@@ -2,6 +2,8 @@
 
 use crate::cell::Cell;
 use crate::damage::RowBits;
+use crate::geom::Rect;
+use crate::intern::Interner;
 use crate::view::View;
 
 /// A rectangular grid of cells that can be drawn into.
@@ -30,6 +32,15 @@ pub struct Surface {
     height: u16,
     cells: Vec<Cell>,
     damage: RowBits,
+    /// The handle space of a surface **outside** a layer stack, and nothing else.
+    ///
+    /// `Surface::new` and `Surface::root` are public, and a `View` from that door has no engine to
+    /// reach through — so the standalone door brings its own table (spec §3, ticket 19). A surface
+    /// the stack minted never touches this one: `LayerStack::view` hands the *stack's* interner to
+    /// the `View`, which is what keeps one handle space per stack and compositing a
+    /// `copy_from_slice`. An untouched table holds no allocation, so the field costs a layer surface
+    /// nothing but its width.
+    interner: Interner,
 }
 
 impl std::fmt::Debug for Surface {
@@ -55,6 +66,7 @@ impl Surface {
             height: h,
             cells: vec![ground; w as usize * h as usize],
             damage: RowBits::new(w, h),
+            interner: Interner::new(),
         }
     }
 
@@ -63,9 +75,67 @@ impl Surface {
         (self.width, self.height)
     }
 
-    /// A view of the whole surface. The only way to get one.
+    /// A view of the whole surface, drawing into this surface's own handle space.
+    ///
+    /// The standalone door. A surface reached this way is not in a layer stack, so it interns into
+    /// the table it carries; `add_content_with` renumbers those handles into the stack's when the
+    /// surface is donated (ticket 10). The fields are taken apart here rather than passed as
+    /// `&mut self` because the verbs need the cells, the damage **and** the interner at once, and
+    /// they come from one struct.
     pub fn root(&mut self) -> View<'_> {
-        View::root(self)
+        let clip = Rect::new(0, 0, self.width, self.height);
+        View::new(
+            &mut self.cells,
+            &mut self.damage,
+            self.width,
+            clip,
+            &mut self.interner,
+        )
+    }
+
+    /// A view of the whole surface, drawing into a handle space that is not this surface's.
+    ///
+    /// What [`LayerStack::view`](crate::LayerStack::view) hands out: one table per stack, so a
+    /// handle crossing a surface boundary inside the stack needs no translation (ADR 0011).
+    pub(crate) fn draw<'a>(&'a mut self, interner: &'a mut Interner) -> View<'a> {
+        let clip = Rect::new(0, 0, self.width, self.height);
+        View::new(
+            &mut self.cells,
+            &mut self.damage,
+            self.width,
+            clip,
+            interner,
+        )
+    }
+
+    /// A view of part of this surface, in its own handle space.
+    ///
+    /// The mechanism `View::child` will be built on at ticket 09, reached early because the repair
+    /// rules hold at a *clip* edge as well as a surface edge (spec §3) and there is otherwise no way
+    /// to produce one.
+    #[cfg(test)]
+    pub(crate) fn clipped(&mut self, clip: Rect) -> View<'_> {
+        let clip = clip.intersect(Rect::new(0, 0, self.width, self.height));
+        View::new(
+            &mut self.cells,
+            &mut self.damage,
+            self.width,
+            clip,
+            &mut self.interner,
+        )
+    }
+
+    /// This surface's own handle space. Empty unless something was drawn through
+    /// [`Surface::root`](Surface::root).
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "ticket 10's `add_content_with` is the first caller outside the gates"
+        )
+    )]
+    pub(crate) fn interner(&self) -> &Interner {
+        &self.interner
     }
 
     pub(crate) fn width(&self) -> u16 {
@@ -84,11 +154,6 @@ impl Surface {
     pub(crate) fn row_mut(&mut self, y: u16) -> &mut [Cell] {
         let start = y as usize * self.width as usize;
         &mut self.cells[start..start + self.width as usize]
-    }
-
-    /// The cells and the damage at once, which every drawing verb needs together.
-    pub(crate) fn parts_mut(&mut self) -> (&mut [Cell], &mut RowBits, u16) {
-        (&mut self.cells, &mut self.damage, self.width)
     }
 
     /// How many cells this surface's damage reports.

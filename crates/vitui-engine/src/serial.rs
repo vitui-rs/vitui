@@ -61,6 +61,9 @@ pub(crate) struct Serializer {
     /// recorded — see [`Serializer::advance`].
     cursor: Option<(u16, u16)>,
     style: Style,
+    /// The cluster emitted last, when the next cell's bytes would follow it with nothing between.
+    /// See [`Serializer::joins_left`].
+    prev: Option<GraphemeId>,
 }
 
 impl Serializer {
@@ -72,6 +75,7 @@ impl Serializer {
             mirror: Mirror::new(width, height),
             cursor: None,
             style: Style::DEFAULT,
+            prev: None,
         }
     }
 
@@ -99,6 +103,7 @@ impl Serializer {
         self.out.extend_from_slice(b"\x1b[0m");
         self.style = Style::DEFAULT;
         self.cursor = None;
+        self.prev = None;
 
         let mut at = 0usize;
         for run in packet.runs() {
@@ -112,17 +117,37 @@ impl Serializer {
                 // rather than from an advance counter, which is what spec §8 records the first
                 // version getting wrong in the one case where a run *begins* on a continuation.
                 if cell.grapheme.is_continuation() {
+                    // The head already painted both columns, so nothing is emitted — but the mirror
+                    // still records the pair, because the mirror is what the terminal *shows* and
+                    // the terminal shows both halves. A run that *begins* on a continuation is the
+                    // case that made the column below come from the index rather than from an
+                    // advance counter: its head was not damaged, so it was not re-emitted, and the
+                    // mirror already agreed about it.
+                    self.mirror.set(run.lo + i as u16, run.y, cell);
                     continue;
                 }
                 let x = run.lo + i as u16;
+                // Two cells emitted back to back arrive with nothing between them, and UAX #29 does
+                // not know where one cell ended. Forcing a move breaks the adjacency, and a `CUP` is
+                // something every terminal has always treated as ending a run of text.
+                //
+                // An SGR landing between them would separate them too, and skipping the move when
+                // the style changes was written and then taken back out: *whether a terminal's own
+                // clustering survives an SGR is a claim about other people's software*, and the mode
+                // 2027 specification does not make it. The saving was six bytes on a case that needs
+                // two adjacent cells holding joinable clusters.
+                if self.cursor == Some((x, run.y)) && self.joins_left(cell.grapheme, packet) {
+                    self.cursor = None;
+                }
                 self.move_to(x, run.y);
                 if cell.style != self.style {
                     emit_sgr_delta(&mut self.out, self.style, cell.style);
                     self.style = cell.style;
                 }
-                emit_grapheme(&mut self.out, cell.grapheme);
+                emit_grapheme(&mut self.out, cell.grapheme, packet);
                 self.mirror.set(x, run.y, cell);
-                self.advance(x, run.y);
+                self.advance(x, run.y, cell.grapheme.columns());
+                self.prev = Some(cell.grapheme);
             }
         }
         &self.out
@@ -136,8 +161,47 @@ impl Serializer {
     /// ascending, so no later move on the same row ever targets a column already written. It starts
     /// mattering at ticket 13, where a relative `CUF` is priced against an absolute `CUP` and a
     /// cursor model that is off by one compounds along the row.
-    fn advance(&mut self, x: u16, y: u16) {
-        self.cursor = Some(((x + 1).min(self.mirror.width.saturating_sub(1)), y));
+    fn advance(&mut self, x: u16, y: u16, columns: u16) {
+        self.cursor = Some(((x + columns).min(self.mirror.width.saturating_sub(1)), y));
+    }
+
+    /// Whether the cluster about to be emitted would join the one before it into a single cluster.
+    ///
+    /// This is spec §10's rule — *a width disagreement is permanent once a mirror exists* — arriving
+    /// one ticket early and for the neighbouring reason. §10 states it as `CHA` rather than `CUF`
+    /// after a non-ASCII run, which is about the cursor *compounding* an error; this is about the
+    /// bytes themselves re-segmenting. Both are the same underlying fact: **what the engine put in
+    /// two cells is not what the terminal reads unless something separates them.**
+    ///
+    /// Found by the round trip, not by reading. A cluster ending in ZWJ followed by a pictograph
+    /// (GB11) and a lone regional indicator followed by another (GB12/13) both merge, and the frame
+    /// then holds two cells where the terminal shows one.
+    ///
+    /// The question is asked of the same tables the verbs segmented with, rather than of a list of
+    /// rules copied out of UAX #29 — a second list is a second thing to keep in step. Two ASCII
+    /// scalars can never join, which is the fast path and covers nearly every cell ever emitted.
+    fn joins_left(&self, next: GraphemeId, packet: &Packet) -> bool {
+        let Some(prev) = self.prev else {
+            return false;
+        };
+        if is_ascii_scalar(prev) && is_ascii_scalar(next) {
+            return false;
+        }
+        let (mut prev_buf, mut next_buf) = ([0u8; 4], [0u8; 4]);
+        let Some(prev_text) = text_of(prev, packet, &mut prev_buf) else {
+            return false;
+        };
+        let Some(next_text) = text_of(next, packet, &mut next_buf) else {
+            return false;
+        };
+        let Some(first) = next_text.chars().next() else {
+            return false;
+        };
+        let mut cursor = crate::ucd::Cursor::new();
+        for ch in prev_text.chars() {
+            cursor.is_break(ch);
+        }
+        !cursor.is_break(first)
     }
 
     fn move_to(&mut self, x: u16, y: u16) {
@@ -153,11 +217,29 @@ impl Serializer {
     }
 }
 
-fn emit_grapheme(out: &mut Vec<u8>, g: GraphemeId) {
-    // Ticket 06 is what makes this a lookup in the cluster arena for anything above a scalar.
-    let ch = g.as_scalar().unwrap_or(' ');
+/// Write one cell's cluster.
+///
+/// A scalar handle *is* its own bytes; anything above the scalars is a lookup in the packet's own
+/// arena, which is where the app thread put a copy at pack time. **The engine table is never
+/// reached from here** — that is the whole of ADR 0011's second sentence, and it is what lets the
+/// app thread sweep its interner while a frame is being written.
+fn emit_grapheme(out: &mut Vec<u8>, g: GraphemeId, packet: &Packet) {
     let mut buf = [0u8; 4];
-    out.extend_from_slice(ch.encode_utf8(&mut buf).as_bytes());
+    let cluster = text_of(g, packet, &mut buf).unwrap_or(" ");
+    out.extend_from_slice(cluster.as_bytes());
+}
+
+/// The bytes a handle names: the packet's copy for a cluster, the scalar itself for a scalar.
+fn text_of<'a>(g: GraphemeId, packet: &'a Packet, scratch: &'a mut [u8; 4]) -> Option<&'a str> {
+    if let Some(cluster) = packet.cluster(g) {
+        return Some(cluster);
+    }
+    Some(g.as_scalar()?.encode_utf8(scratch))
+}
+
+/// The cell that costs nothing to check: an ASCII scalar, which nothing can join to.
+fn is_ascii_scalar(g: GraphemeId) -> bool {
+    g.payload() < 0x80
 }
 
 /// Write the SGR that turns `old` into `new`.
@@ -312,7 +394,7 @@ mod tests {
         let mut runs = Vec::new();
         frame.damage().for_each_run(|r| runs.push(r));
         let mut packet = Packet::new();
-        packet.pack(&runs, frame);
+        packet.pack(&runs, frame, frame.interner());
         let (w, h) = frame.size();
         let mut s = Serializer::new(w, h);
         s.serialize(&packet).to_vec()
@@ -328,7 +410,10 @@ mod tests {
     fn replay(frame: &Surface) -> TermModel {
         let (w, h) = frame.size();
         let mut term = TermModel::new(w, h);
-        term.feed(&bytes_for(frame));
+        // A table of its own is enough here: every scene in this module is scalars, and a scalar
+        // handle is identity in any table. `Harness` is where a shared one is load-bearing.
+        let mut interner = crate::intern::Interner::new();
+        term.feed(&bytes_for(frame), &mut interner);
         assert_eq!(term.unrecognised(), 0);
         term
     }
@@ -518,7 +603,7 @@ mod tests {
         let mut runs = Vec::new();
         f.damage().for_each_run(|r| runs.push(r));
         let mut packet = Packet::new();
-        packet.pack(&runs, &f);
+        packet.pack(&runs, &f, f.interner());
         let mut s = Serializer::new(8, 2);
         s.serialize(&packet);
         assert_eq!(s.mirror().cell(3, 1), f.row(1)[3]);

@@ -33,16 +33,18 @@
 //! The architecture is decided — `.scratch/vitui-engine-architecture/spec.md` — and the
 //! implementation backlog is `.scratch/vitui-engine-impl/`. What exists so far is the Unicode layer
 //! everything stands on (ticket 02), the tracer bullet through every stage of the sequence above
-//! (ticket 03) in the deterministic single-thread mode, and the instruments that keep both honest
-//! (ticket 04): spec §14's twelve scenes as a normative list, a reference compositor that generates
+//! (ticket 03) in the deterministic single-thread mode, the instruments that keep both honest
+//! (ticket 04) — spec §14's twelve scenes as a normative list, a reference compositor that generates
 //! the damage gate rather than agreeing with it, and all twenty-seven register entries either wired
-//! or pinned red against the ticket that lights them.
+//! or pinned red against the ticket that lights them — and grapheme clusters in cells (ticket 06):
+//! the interner, the five repair rules, and [`graphemes`] and [`width_of`] over the same tables the
+//! verbs segment with.
 //!
-//! Not here yet, each with the ticket that brings it: grapheme clusters and the five repair rules
-//! (06), extended styles and `restyle` (07), `child` / `scrolled` / the visibility queries (09),
-//! operator layers and the `Mix` (11, 12), the `shortest` cursor encoding and the equality filter
-//! (13, 14), the scroll region (15), capability detection (16), the three threads and the frame
-//! clock (18, 19), and input (20, 21).
+//! Not here yet, each with the ticket that brings it: extended styles and `restyle` (07),
+//! `child` / `scrolled` / the visibility queries (09), the rest of the layer stack including
+//! `add_content_with` (10), operator layers and the `Mix` (11, 12), the `shortest` cursor encoding
+//! and the equality filter (13, 14), the scroll region (15), capability detection (16), the three
+//! threads and the frame clock (18, 19), and input (20, 21).
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]
@@ -55,21 +57,13 @@
 // could reach past the public surface would be defined by what this framework does.
 extern crate self as vitui_engine;
 
-// Ticket 06 is what exports `graphemes()` and `width_of()` over these tables; until it lands
-// nothing outside the module's own gates calls them.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "ticket 06 exports the public surface over this module"
-    )
-)]
 mod ucd;
 
 mod cell;
 mod damage;
 mod engine;
 mod geom;
+mod intern;
 mod layer;
 mod packet;
 mod serial;
@@ -97,6 +91,7 @@ mod testing;
 
 mod style;
 mod surface;
+mod text;
 mod view;
 
 #[cfg(test)]
@@ -107,4 +102,5 @@ pub use geom::Rect;
 pub use layer::{LayerId, LayerStack};
 pub use style::{Color, Style};
 pub use surface::Surface;
+pub use text::{graphemes, width_of};
 pub use view::{Stop, View, Written};

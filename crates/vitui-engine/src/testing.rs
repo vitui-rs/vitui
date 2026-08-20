@@ -142,7 +142,11 @@ impl Harness {
             r.bytes[self.replayed..].to_vec()
         };
         self.replayed += fresh.len();
-        self.term.feed(&fresh);
+        // The model interns into the engine's own table, so a handle it mints for a cluster the
+        // engine already knows *is* the engine's handle — which is what lets the assertion below
+        // compare whole cells rather than rendered text. A cluster the engine never wrote gets a
+        // handle nobody has, and the comparison fails, which is the point.
+        self.term.feed(&fresh, self.screen.interner_mut());
 
         assert_eq!(
             self.term.unrecognised(),

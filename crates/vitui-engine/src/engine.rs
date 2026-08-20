@@ -297,7 +297,8 @@ impl Screen {
             self.layers.composite_run(&mut self.frame, *run);
         }
 
-        self.packet.pack(&self.runs, &self.frame);
+        self.packet
+            .pack(&self.runs, &self.frame, self.layers.interner());
         let bytes = self.serializer.serialize(&self.packet);
         write_frame(&mut *self.sink, bytes);
 
@@ -309,6 +310,12 @@ impl Screen {
             coalesced: 0,
             discarded_for_resize: false,
         }
+    }
+
+    /// The handle space this screen's layers speak, for the terminal model to intern into.
+    #[cfg(test)]
+    pub(crate) fn interner_mut(&mut self) -> &mut crate::intern::Interner {
+        self.layers.interner_mut()
     }
 
     #[cfg(test)]
