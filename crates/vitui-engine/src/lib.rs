@@ -12,9 +12,20 @@
 //!
 //! # Status
 //!
-//! Nothing is implemented. The architecture is being decided on the wayfinder map at
-//! `.scratch/vitui-engine-architecture/map.md`; the next decision is the cell and buffer
-//! representation.
+//! Nothing is public yet. The architecture is decided — `.scratch/vitui-engine-architecture/spec.md`
+//! — and the implementation backlog is `.scratch/vitui-engine-impl/`. What exists so far is the
+//! Unicode layer everything above it stands on.
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]
+
+// Ticket 06 is what exports `graphemes()` and `width_of()` over these tables; until it lands
+// nothing outside the module's own gates calls them.
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "ticket 06 exports the public surface over this module"
+    )
+)]
+mod ucd;
