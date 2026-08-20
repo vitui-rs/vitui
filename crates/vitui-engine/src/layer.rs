@@ -25,6 +25,21 @@ use crate::view::View;
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub struct LayerId(u32);
 
+/// One layer, as the reference compositor and the gates need to see it.
+///
+/// `cfg(test)` because spec §12's public surface names none of it: a caller cannot read back what
+/// is already on screen (ADR 0023), and an oracle is not an exception to that — it is simply
+/// inside the crate.
+#[cfg(test)]
+pub(crate) struct LayerRef<'a> {
+    pub(crate) z: i32,
+    /// The tie-break among equal `z`. Handed out so the reference compositor can sort for itself.
+    pub(crate) seq: u32,
+    pub(crate) rect: Rect,
+    pub(crate) opaque: bool,
+    pub(crate) surface: &'a Surface,
+}
+
 struct Layer {
     id: LayerId,
     z: i32,
@@ -176,6 +191,34 @@ impl LayerStack {
                 }
             }
         }
+    }
+
+    /// Every layer, in **storage order**, each carrying its own `(z, seq)`.
+    ///
+    /// Deliberately not "bottom-up". Storage order happens to be bottom-up because `add_content`
+    /// sorts on insert, and handing that out as an ordering would make the reference compositor
+    /// take its stacking order from the fast path — so a defect in that insert would be invisible
+    /// to the gate generated from it. The oracle sorts for itself.
+    #[cfg(test)]
+    pub(crate) fn as_stored(&self) -> impl Iterator<Item = LayerRef<'_>> {
+        self.layers.iter().map(|l| LayerRef {
+            z: l.z,
+            seq: l.seq,
+            rect: l.rect,
+            opaque: l.opaque,
+            surface: &l.surface,
+        })
+    }
+
+    /// How many cells every layer's damage reports, summed.
+    ///
+    /// The denominator of gate #3 is the cells the verbs wrote; this is the numerator. Summed per
+    /// **layer** and never over the frame's union, because two popups that overlap on screen still
+    /// write into two separate surfaces and each surface's bitset is exact about its own — the
+    /// union is allowed to be smaller and that is occlusion, not under-reporting.
+    #[cfg(test)]
+    pub(crate) fn reported_cells(&self) -> usize {
+        self.layers.iter().map(|l| l.surface.damaged_cells()).sum()
     }
 
     /// Clear every layer's damage. `present` owns this; nothing above the engine can reach it.

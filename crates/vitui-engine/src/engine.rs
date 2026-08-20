@@ -316,6 +316,20 @@ impl Screen {
         &self.frame
     }
 
+    /// The damaged runs of the frame `present` last submitted.
+    ///
+    /// They survive `present` — `runs` is cleared at the *start* of the next one — which is what
+    /// lets a gate composite, present, and only then ask what the damage structure had reported.
+    #[cfg(test)]
+    pub(crate) fn runs(&self) -> &[Run] {
+        &self.runs
+    }
+
+    #[cfg(test)]
+    pub(crate) fn packet(&self) -> &Packet {
+        &self.packet
+    }
+
     #[cfg(test)]
     pub(crate) fn mirror(&self) -> &crate::serial::Mirror {
         self.serializer.mirror()

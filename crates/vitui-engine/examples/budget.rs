@@ -1,69 +1,57 @@
-//! The performance budget, expressed as the harness that will measure it.
+//! The performance budget and spec §14's register, both runnable.
 //!
 //! Run it: `cargo run --release --example budget -p vitui-engine`
 //!
-//! Ticket 03 filled this in: six scenes, each one a whole frame through the public surface, three
-//! of them gated. It exists so that both the budget and the **scene list** are visible in the
-//! repository rather than only on the map. The scene list is not decoration:
-//! ticket 07 found that the three scenes it had named itself scored identically on every candidate
-//! damage structure, and that the two which discriminated were not on the list. A scene list is
-//! part of a gate, and omitting a scene validates the wrong design while reporting success.
+//! # What this file is for
 //!
-//! # The budget
+//! Two things the map insisted must live in the repository rather than only in a document.
 //!
-//! | Scene                                        | Budget           |
-//! |----------------------------------------------|------------------|
-//! | Full-screen composition, 300x80 (~24k cells) | < 1 ms           |
-//! | Typical damage-tracked frame                 | < 100 us         |
-//! | Steady-state 60 fps animation                | < 5% of one core |
-//! | 1M elements against 1k elements              | the same time    |
-//! | In-loop overrun detector                     | < 50 ns          |
+//! **The scene list is normative, not an appendix** — the reason why is in `../src/scenes.rs`,
+//! where the list itself lives. This file owns, prints and times all twelve of them.
 //!
-//! Allocation gates and idle-cost gates are not measured here — they are assertions and process
-//! measurements respectively, and both live elsewhere. See the verification-strategy ticket.
+//! **The register had twenty-seven entries and nothing to run them against.** Every one of them is
+//! in `../src/register.rs` now, each either wired — naming where it runs — or pinned red, naming
+//! the implementation ticket that inverts it. No entry is silently absent, because an entry that
+//! quietly never arrives is indistinguishable from one that was decided against.
 //!
-//! # The scenes, and which ticket each one decided
+//! # What is gated here, and what is not
 //!
-//! | Scene                                     | What it caught                              |
-//! |-------------------------------------------|---------------------------------------------|
-//! | Caret blink, one cell                     | equality filter, 3.0x bytes (08)            |
-//! | Progress tick, one row                    | equality filter, 30.8x bytes (08)           |
-//! | Scrolling list, one row                   | scroll region, 1726 -> 60 bytes (08)        |
-//! | Three dialogs standing apart              | per-row spans, 2.53x overdraw (07)          |
-//! | Sparse sub-cell chart                     | 37.07x overdraw (07), 4.88x walk (09),      |
-//! |                                           | 166.76 us watchdog threshold (18)           |
-//! | Twenty stacked popups                     | depth cost, discriminates nothing (07)      |
-//! | Full-screen operator layer                | 78.2 us of the 107 us worst screen (06, 11) |
-//! | Virtualised 1M-row tree                   | the data-volume invariant (05, 14)          |
-//! | Hyperlinked page under an animating       | the only shape that grows a handle table    |
-//! | operator                                  | without bound (16)                          |
+//! Four entries: two timings **at the budget** rather than at a measurement (#23, #24), one ratio
+//! in a stated band (#20), and one report that is explicitly not load-bearing for anything (#25).
+//! `../src/register.rs` states the rule those shapes come from.
 //!
-//! The last one has no measurement behind it yet and is the one this file exists to make sure
-//! nobody forgets.
+//! The counts, the equalities and the per-scene overdraw ratios are inside the library, in
+//! `crate::gates`, because they need to see cells and spec §12's public surface deliberately does
+//! not show them.
 //!
-//! # What ticket 03 can measure, and what it cannot
-//!
-//! Everything here goes through the public surface, because the public surface is all an example
-//! has. That decides the shape of the report: spec §6's table separates mark, scan, union and
-//! clear, and from outside the engine those four are one call. So each case below names which of
-//! §6's numbers it contains rather than pretending to isolate one.
+//! # What one number here contains
 //!
 //! In the deterministic single-thread mode `present` also serialises and writes, which on the
-//! shipped three-thread path is the render thread's work and not the app thread's. The full-screen
-//! number is therefore the sum of two budgets, and it is gated against the larger of them.
-//!
-//! The gates are counts and cliff-granularity ceilings, per §14's register. A 10% timing regression
-//! is not detectable on a shared runner, and a gate that claims to detect one is a flaky test
-//! wearing a budget's clothes.
+//! shipped three-thread path is the render thread's work and not the app thread's. So every number
+//! below is the whole inline round measured against a budget written for the app thread's share,
+//! which is strictly harsher than the budget asks — and it is why three scenes are reported rather
+//! than gated, with impl 18 named as what gates them.
+
+// One definition, two consumers: the library compiles these under `cfg(test)` and drives them
+// against the reference compositor and the terminal model; this file times them. `dead_code` is
+// allowed because each consumer uses a different part — the register's `Red` reasons are read here,
+// the scenes' `step` return value is read there — and a lint that fires on the half you are not
+// looking at teaches people to delete the other half.
+#[allow(dead_code)]
+#[path = "../src/register.rs"]
+mod register;
+#[allow(dead_code)]
+#[path = "../src/scenes.rs"]
+mod scenes;
 
 use std::io::{Result, Write};
 use std::time::Duration;
 
-use vitui_bench::Bench;
-use vitui_engine::{Color, Config, Engine, LayerId, Output, Rect, Screen, Style};
+use vitui_bench::{Bench, Report};
+use vitui_engine::{Config, Engine, Output, Screen};
 
-const W: u16 = 300;
-const H: u16 = 80;
+use register::{State, table};
+use scenes::{H, Scene, W, scenes, table_two_ways, virtualised_tree};
 
 /// Takes everything, keeps none of it: a recording sink would measure a `Vec` growing.
 struct Discard;
@@ -78,136 +66,239 @@ impl Write for Discard {
     }
 }
 
-/// A screen with a full-screen base layer, plus however many popups the scene wants.
-struct Scene {
+/// A scene with its layers built, its birth frame gone, and the screen it draws into.
+///
+/// The pair travels together everywhere below — a scene without its screen cannot be stepped, and
+/// a screen without its scene has nothing to draw — so it is a type rather than a tuple.
+struct Staged {
+    scene: Box<dyn Scene>,
     screen: Screen,
-    /// `layers[0]` is the full-screen base; the rest are popups. Two fields rather than a tuple,
-    /// so that `scene.screen` and `scene.layers` are disjoint borrows and a case can draw into a
-    /// layer it names in the same expression.
-    layers: Vec<LayerId>,
+    /// The bench case name, which is the scene's own name unless an arm needs distinguishing.
+    case: String,
+    iters: u32,
 }
 
-fn scene(layers: u32) -> Scene {
-    let (mut screen, _wake) = Engine::new(Config {
-        size: (W, H),
-        output: Output::Sink(Box::new(Discard)),
-        ..Default::default()
-    })
-    .attach()
-    .expect("attaching to a sink cannot fail");
+impl Staged {
+    fn new(mut scene: Box<dyn Scene>, case: &str, iters: u32) -> Staged {
+        let (mut screen, _wake) = Engine::new(Config {
+            size: (W, H),
+            output: Output::Sink(Box::new(Discard)),
+            ..Default::default()
+        })
+        .attach()
+        .expect("attaching to a sink cannot fail");
+        scene.build(&mut screen);
+        // Adding a layer damages its whole rectangle. That is the design, and it is not what any of
+        // these cases is measuring.
+        screen.present();
+        Staged {
+            scene,
+            screen,
+            case: case.to_owned(),
+            iters,
+        }
+    }
 
-    let mut ids = vec![screen.layers().add_content(0, Rect::new(0, 0, W, H), true)];
-    for i in 0..layers {
-        // Twenty popups, ninety columns wide, walking down the screen.
-        let x = (i as i32 * 11) % (W as i32 - 90);
-        let y = (i as i32 * 3) % (H as i32 - 14);
-        ids.push(
-            screen
-                .layers()
-                .add_content(i as i32 + 1, Rect::new(x, y, 90, 14), true),
-        );
+    fn of(scene: Box<dyn Scene>) -> Staged {
+        let (case, iters) = (scene.name().to_owned(), scene.iters());
+        Staged::new(scene, &case, iters)
     }
-    Scene {
-        screen,
-        layers: ids,
+}
+
+/// Time every staged scene against the others, under the same interference.
+///
+/// Round-robin and minimum-of-forty, which is what makes a *ratio* between two of them mean
+/// something on a machine whose load average wanders: running `A x 40` then `B x 40` lets a
+/// background job land entirely inside one arm.
+fn measure(staged: &mut [Staged]) -> Report {
+    let mut bench = Bench::new(40);
+    for s in staged.iter_mut() {
+        let (case, iters) = (s.case.as_str(), s.iters);
+        let (scene, screen) = (&mut s.scene, &mut s.screen);
+        let mut t = 0u32;
+        bench = bench.case(case, iters, move || {
+            t = t.wrapping_add(1);
+            scene.step(screen, t);
+            std::hint::black_box(screen.present());
+        });
     }
+    bench.run()
 }
 
 fn main() {
-    let row: String = std::iter::repeat_n('x', W as usize).collect();
+    print_the_scene_list();
 
-    // Every case draws and presents, so the reported number is one whole frame: mark, union, scan,
-    // composite, pack, serialise, write and clear.
-    let mut idle = scene(0);
-    idle.screen
-        .layers()
-        .view(idle.layers[0])
-        .unwrap()
-        .text(0, 0, &row, Style::new());
-    idle.screen.present();
+    let mut staged: Vec<Staged> = scenes()
+        .into_iter()
+        .filter(|s| matches!(s.status(), State::Wired { .. }))
+        .map(Staged::of)
+        .collect();
+    let report = measure(&mut staged);
+    println!("the twelve scenes, minimum of 40 rounds:\n{report}");
 
-    let mut caret = scene(0);
-    let mut full = scene(0);
-    let mut chart = scene(0);
-    let mut dialogs = scene(0);
-    let mut popups = scene(20);
+    // Numbers are kept per scene and never summed: the 27x scroll-detector regression the map
+    // found was visible only that way, and summed across twelve scenes it is a rounding error.
+    the_two_budget_gates(&report);
+    the_steady_state_share(&report);
+    the_data_volume_invariant();
 
-    // One counter per case: the bench holds every closure at once, so a shared counter would be
-    // two mutable borrows of the same local.
-    let (mut t_caret, mut t_dialogs, mut t_chart, mut t_popups, mut t_full) =
-        (0u32, 0u32, 0u32, 0u32, 0u32);
+    println!("\nspec §14's register:\n{}", table());
+    print_what_is_red();
+}
 
-    let report = Bench::new(40)
-        .case("frame/idle", 1_000, || {
-            // Nothing damaged: the summary word says so and `clear` touches zero rows.
-            std::hint::black_box(idle.screen.present());
-        })
-        .case("frame/caret-blink", 1_000, || {
-            t_caret = t_caret.wrapping_add(1);
-            let style = if t_caret % 2 == 0 {
-                Style::new().reverse()
-            } else {
-                Style::new()
-            };
-            caret
-                .screen
-                .layers()
-                .view(caret.layers[0])
-                .unwrap()
-                .text(10, 5, " ", style);
-            std::hint::black_box(caret.screen.present());
-        })
-        .case("frame/three-dialogs-apart", 200, || {
-            t_dialogs = t_dialogs.wrapping_add(1);
-            let style = Style::new().fg(Color::indexed((t_dialogs % 16) as u8));
-            let mut view = dialogs.screen.layers().view(dialogs.layers[0]).unwrap();
-            for y in 4..18 {
-                view.text(2, y, "left dialog", style);
-                view.text(140, y, "middle dialog", style);
-                view.text(280, y, "right", style);
-            }
-            std::hint::black_box(dialogs.screen.present());
-        })
-        .case("frame/sparse-chart-400-points", 200, || {
-            t_chart = t_chart.wrapping_add(1);
-            let mut view = chart.screen.layers().view(chart.layers[0]).unwrap();
-            for i in 0..400i32 {
-                let x = (i * 7 + t_chart as i32) % W as i32;
-                let y = (i * 13) % H as i32;
-                view.text(x, y, "*", Style::new());
-            }
-            std::hint::black_box(chart.screen.present());
-        })
-        .case("frame/twenty-popups-union", 100, || {
-            t_popups = t_popups.wrapping_add(1);
-            let style = Style::new().fg(Color::indexed((t_popups % 16) as u8));
-            for i in 0..popups.layers.len() {
-                let id = popups.layers[i];
-                popups
-                    .screen
-                    .layers()
-                    .view(id)
-                    .unwrap()
-                    .text(0, 0, "popup", style);
-            }
-            std::hint::black_box(popups.screen.present());
-        })
-        .case("frame/full-screen-300x80", 20, || {
-            t_full = t_full.wrapping_add(1);
-            let style = Style::new().fg(Color::indexed((t_full % 16) as u8));
-            let mut view = full.screen.layers().view(full.layers[0]).unwrap();
-            for y in 0..H as i32 {
-                view.text(0, y, &row, style);
-            }
-            std::hint::black_box(full.screen.present());
-        })
-        .run();
+/// Which of §13's two budgets each scene's frame belongs under.
+///
+/// **The class decides the budget, not the number.** §13 budgets a *full-screen composition* at
+/// 1 ms and a *typical damage-tracked frame* at 100 us, and it names the frames that are
+/// deliberately outside the incremental budget — a full-screen composite at 40 layers, a
+/// row-clearing list scroll — as cliffs by construction rather than as failures. A scene sorted by
+/// its measurement instead of by its shape would let anything that grew past 100 us reclassify
+/// itself as a full screen, which is a gate that is edited rather than fixed.
+const FULL_SCREEN: [&str; 4] = [
+    "scrolling-list-rows-cleared",
+    "twenty-popups-with-shadows",
+    "full-screen-change",
+    "every-cell-a-distinct-style",
+];
 
-    println!("budget harness, minimum of 40 rounds:\n{report}");
+/// Scenes whose measurement on the machine below leaves under 5x, and are therefore reported rather
+/// than gated.
+///
+/// The reason is one line of spec §14 and it is not about these scenes being special: **in the
+/// deterministic mode `present` also serialises and writes**, which on the shipped three-thread
+/// path is the render thread's work and not the app thread's. So the numbers here are the whole
+/// inline round against a budget written for the app thread's share, and the headroom they appear
+/// to have left is not the headroom the shipped engine has. Gating at 1.0x of a budget on a shared
+/// runner materially slower than this one is a flaky test wearing a budget's clothes, and a flaky
+/// gate gets disabled within a month.
+///
+/// Each is reported with its budget named, and **impl 18 is what gates them** — it is the ticket
+/// that moves serialization off the app thread, and only then is there a number the budget is
+/// about. Nothing here is silently absent.
+const REPORTED_NOT_GATED: [(&str, &str); 3] = [
+    ("every-cell-a-distinct-style", "1 ms, full-screen: ~1.04x"),
+    ("table-as-list-and-bar-chart", "100 us, typical: ~1.8x"),
+    ("virtualised-tree", "100 us, typical: ~3.6x"),
+];
 
-    // Cliff-granularity gates, with the headroom stated rather than implied. Ticket 03 measured
-    // roughly 10 ns, 3 us and 250 us for these three in release on an unloaded aarch64 laptop.
-    report.assert_under("frame/idle", Duration::from_micros(10));
-    report.assert_under("frame/caret-blink", Duration::from_micros(100));
-    report.assert_under("frame/full-screen-300x80", Duration::from_millis(1));
+/// Gates #23 and #24: §13's two budget figures, over every scene of the class each one is about.
+///
+/// **Neither gate sits at a measurement.** Both sit at the budget, which is the only kind of timing
+/// gate the register allows: a 10% regression is not detectable on a shared runner, and every
+/// timing cliff this map actually met was 4.88x, 27x, 37x or 284x. A budget figure is also the one
+/// class of number that may not be moved without a new map decision.
+///
+/// Provenance: **impl 04**, 2026-08-20, Apple M1 Max, rustc 1.97.1, `--release`, unloaded, minimum
+/// of forty rounds. Impl 03's numbers are the lineage: 154 us for a full screen and 81 ns for a
+/// caret on a bare screen.
+///
+/// | gated at 1 ms                 |         | gated at 100 us              |          |
+/// |-------------------------------|---------|------------------------------|----------|
+/// | `scrolling-list-rows-cleared` | 127 us  | `caret-blink`, 40 layers     | 313 ns   |
+/// | `twenty-popups-with-shadows`  | 140 us  | `progress-bar-one-percent`   | 768 ns   |
+/// | `full-screen-change`          | 161 us  | `scrolling-list-label-only`  | 16.3 us  |
+/// |                               |         | `three-dialogs-apart`        | 16.6 us  |
+/// |                               |         | `sparse-chart-400-points`    | 18.0 us  |
+///
+/// The worst headroom gated here is 5.6x, on the sparse chart.
+fn the_two_budget_gates(report: &Report) {
+    for (case, _) in report.rows().collect::<Vec<_>>() {
+        if let Some((_, note)) = REPORTED_NOT_GATED.iter().find(|(n, _)| *n == case) {
+            println!("  reported, not gated: {case:<44} {note}, gated at impl 18");
+            continue;
+        }
+        let budget = if FULL_SCREEN.contains(&case) {
+            Duration::from_millis(1)
+        } else {
+            Duration::from_micros(100)
+        };
+        report.assert_under(case, budget);
+    }
+}
+
+/// Report #25: 60 fps steady state against 5% of a core.
+///
+/// **Derived, and a report may never be load-bearing for a gate** (§14's second refinement). The
+/// arithmetic is one animated frame's cost times sixty against one second of one core, which is an
+/// estimate of the app thread's share and not a process measurement — nothing parks yet, so there
+/// is no steady state to measure. Impl 26 carries this report in its own criteria and is where the
+/// arithmetic is replaced by a measured steady state; entry #17's idle gate arrives at impl 19.
+fn the_steady_state_share(report: &Report) {
+    let frame_ns = report
+        .get("caret-blink")
+        .expect("the caret scene was measured");
+    let share = frame_ns * 60.0 / 1e9 * 100.0;
+    println!(
+        "\nreport #25  60 fps steady state: {share:.4}% of one core, derived from a {frame_ns:.0} \
+         ns animated frame\n            budget is 5%; impl 26 replaces this with a measured steady \
+         state"
+    );
+}
+
+/// Gate #20: a scene holding 1M elements must paint in the same time as one holding 1k.
+///
+/// The invariant the whole engine exists to keep — **frame cost is proportional to visible cells,
+/// never to data volume** — and the one property here that has to be a ratio rather than a budget.
+/// A scanning implementation walks straight through a 100 us ceiling on a small enough screen:
+/// §14's third refinement is that the budget catches a cliff and a growth ratio catches a slope,
+/// and neither substitutes for the other.
+///
+/// Two scene shapes, not one. The tree draws one layer from one column of the data and the table
+/// draws two layers from the same rows, which is §14's own "22.35 / 22.97 us at 1k and 1M": a
+/// scan that only appears once the same data is walked twice would be invisible on the tree.
+///
+/// The band is wide on purpose. The claim is "the same time", the failure mode is a scan, and a
+/// scan of a thousand times more data is not a 2x. Provenance: impl 04, Apple M1 Max, rustc 1.97.1.
+fn the_data_volume_invariant() {
+    let mut arms = vec![
+        Staged::new(virtualised_tree(1_000), "tree/1k", 200),
+        Staged::new(virtualised_tree(100_000), "tree/100k", 200),
+        Staged::new(virtualised_tree(1_000_000), "tree/1m", 200),
+        Staged::new(table_two_ways(1_000), "table/1k", 200),
+        Staged::new(table_two_ways(1_000_000), "table/1m", 200),
+    ];
+    let report = measure(&mut arms);
+    println!("gate #20, the data-volume invariant:\n{report}");
+
+    for (small, large) in [("tree/1k", "tree/1m"), ("table/1k", "table/1m")] {
+        let ratio = report.get(large).expect("measured") / report.get(small).expect("measured");
+        assert!(
+            (0.5..2.5).contains(&ratio),
+            "gate #20: {large} costs {ratio:.2}x what {small} costs, band is 0.50x..2.50x. \
+             The engine never iterates application data; a ratio outside this band means \
+             something started to."
+        );
+        println!("            {large} / {small} = {ratio:.2}x, band is 0.50x..2.50x");
+    }
+    println!();
+}
+
+/// The list, with what each scene decided, so it is not decoration.
+fn print_the_scene_list() {
+    println!("spec §14's twelve scenes:");
+    for s in scenes() {
+        let mark = match s.status() {
+            State::Wired { .. } => "     ",
+            State::Red { .. } => " RED ",
+        };
+        println!("  {mark} {:<44} {}", s.name(), s.decided());
+    }
+    println!();
+}
+
+/// What is red, and who inverts it. Printed last, because it is the part that is meant to shrink.
+fn print_what_is_red() {
+    println!("red on purpose:");
+    for s in scenes() {
+        if let State::Red { inverted_by, why } = s.status() {
+            println!("  scene  {:<44} {inverted_by}", s.name());
+            println!("        {why}");
+        }
+    }
+    for e in register::REGISTER {
+        if let State::Red { inverted_by, why } = e.state {
+            println!("  #{:<4} {:<44} {inverted_by}", e.number, e.property);
+            println!("        {why}");
+        }
+    }
 }

@@ -1,10 +1,22 @@
-//! Sinks the engine's own tests write into.
+//! The primary instrument, and the sinks it writes into.
 //!
-//! A frame's bytes are the only thing `present` produces, so every gate in ticket 03 is a statement
-//! about what reached one of these.
+//! A frame's bytes are the only thing `present` produces, so every gate on this lineage is a
+//! statement about what reached one of these.
+//!
+//! [`Harness`] is the **round trip** itself (spec §8, §14): composite a frame, serialise it, replay
+//! the bytes through the terminal model, assert the replayed screen equals the frame. It stores
+//! nothing, so there is no file to review, nothing to bless and no maintenance — and a golden byte
+//! string would have pinned the encoding, which is exactly the part tickets 13, 14 and 15 are going
+//! to change. It lives here rather than in [`crate::roundtrip`] because
+//! [`crate::gates`] drives spec §14's twelve scenes through the same instrument, and a second copy
+//! of it was a second copy that could quietly assert less: the first draft of the scene gates
+//! checked the replayed screen and forgot the mirror.
 
 use std::io::{Error, ErrorKind, Result, Write};
 use std::sync::{Arc, Mutex};
+
+use crate::engine::{Clock, Config, Engine, Output, Presented, Screen};
+use crate::term_model::TermModel;
 
 /// What a [`Recorder`] saw.
 #[derive(Default, Debug)]
@@ -72,5 +84,127 @@ impl Write for Recorder {
 
     fn flush(&mut self) -> Result<()> {
         Ok(())
+    }
+}
+
+/// A screen, a sink, and the terminal model the sink's bytes are replayed through.
+///
+/// One harness, two callers: [`crate::roundtrip`] drives the shapes ticket 03 could express and
+/// [`crate::gates`] drives spec §14's normative twelve through it. Every `present` here closes the
+/// round trip, so a caller cannot accidentally get a weaker one by writing its own loop.
+pub(crate) struct Harness {
+    pub(crate) screen: Screen,
+    recording: Arc<Mutex<Recording>>,
+    term: TermModel,
+    replayed: usize,
+    /// Prefixes every failure message. A gate driving twelve scenes has to say which one failed;
+    /// a single-scene test has nothing useful to add and leaves it empty.
+    label: String,
+}
+
+impl Harness {
+    pub(crate) fn new(w: u16, h: u16) -> Harness {
+        Harness::with_sink(w, h, Recorder::new())
+    }
+
+    pub(crate) fn with_sink(w: u16, h: u16, sink: Recorder) -> Harness {
+        let recording = sink.handle();
+        let (screen, _wake) = Engine::new(Config {
+            size: (w, h),
+            output: Output::Sink(Box::new(sink)),
+            // The deterministic mode is public API, not a test fixture: `present` composites,
+            // packs, serialises and writes inline on this thread, so a test is a straight-line
+            // program with no condvar, no join, no timeout and no flake.
+            clock: Clock::Manual,
+        })
+        .attach()
+        .expect("attaching to a sink cannot fail");
+        Harness {
+            screen,
+            recording,
+            term: TermModel::new(w, h),
+            replayed: 0,
+            label: String::new(),
+        }
+    }
+
+    /// Name what this harness is driving, so a failure says which of twelve scenes it was.
+    pub(crate) fn labelled(mut self, label: &str) -> Harness {
+        self.label = format!("{label}: ");
+        self
+    }
+
+    /// Present, replay whatever is new in the sink, and assert the three things that must agree.
+    pub(crate) fn present(&mut self) -> Presented {
+        let presented = self.screen.present();
+        let fresh = {
+            let r = self.recording.lock().unwrap();
+            r.bytes[self.replayed..].to_vec()
+        };
+        self.replayed += fresh.len();
+        self.term.feed(&fresh);
+
+        assert_eq!(
+            self.term.unrecognised(),
+            0,
+            "{}the serializer emitted a sequence the terminal model does not parse",
+            self.label
+        );
+        self.assert_screen_matches_frame();
+        self.assert_mirror_matches_frame();
+        presented
+    }
+
+    fn assert_screen_matches_frame(&self) {
+        let (w, h) = self.screen.size();
+        let frame = self.screen.frame();
+        for y in 0..h {
+            for x in 0..w {
+                assert_eq!(
+                    self.term.cell(x, y),
+                    frame.row(y)[x as usize],
+                    "{}the replayed screen and the composited frame disagree at ({x}, {y})",
+                    self.label
+                );
+            }
+        }
+    }
+
+    /// The mirror must agree with the frame everywhere.
+    ///
+    /// What this buys is the cells the frame *wrote*: a mirror that missed an update, or recorded
+    /// the wrong style, fails here. What it does not buy is the cells nobody touched — a fresh
+    /// mirror and a fresh frame are both blank, so those match by construction.
+    ///
+    /// The mirror has no *unknown row* yet, which
+    /// `docs/adr/0006-the-render-thread-mirrors-what-the-terminal-shows.md` makes load-bearing at
+    /// startup and after a resize. Ticket 14's equality filter is the first thing that compares
+    /// against the mirror and therefore the first thing that can be wrong without one; ticket 22
+    /// brings the resize that makes a row untrustworthy.
+    fn assert_mirror_matches_frame(&self) {
+        let (w, h) = self.screen.size();
+        let frame = self.screen.frame();
+        for y in 0..h {
+            for x in 0..w {
+                assert_eq!(
+                    self.screen.mirror().cell(x, y),
+                    frame.row(y)[x as usize],
+                    "{}the mirror and the composited frame disagree at ({x}, {y})",
+                    self.label
+                );
+            }
+        }
+    }
+
+    pub(crate) fn bytes_written(&self) -> usize {
+        self.recording.lock().unwrap().bytes.len()
+    }
+
+    pub(crate) fn writes(&self) -> usize {
+        self.recording.lock().unwrap().writes
+    }
+
+    pub(crate) fn retries(&self) -> usize {
+        self.recording.lock().unwrap().retries
     }
 }

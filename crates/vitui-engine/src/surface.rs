@@ -91,6 +91,17 @@ impl Surface {
         (&mut self.cells, &mut self.damage, self.width)
     }
 
+    /// How many cells this surface's damage reports.
+    ///
+    /// Gate #3's numerator, and it lives here because the sum is over this surface's own bitset:
+    /// the layer stack adds them up, it does not compute them.
+    #[cfg(test)]
+    pub(crate) fn damaged_cells(&self) -> usize {
+        let mut total = 0;
+        self.damage.for_each_run(|r| total += r.len());
+        total
+    }
+
     pub(crate) fn damage(&self) -> &RowBits {
         &self.damage
     }

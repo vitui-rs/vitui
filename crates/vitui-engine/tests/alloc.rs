@@ -4,6 +4,25 @@
 //! this is exactly the kind of guarantee that decays silently: ratatui shipped a per-frame `Vec`
 //! allocation that was only noticed when it fragmented the heap on embedded devices.
 //!
+//! # The attribution window, which is a general rule and not a footnote
+//!
+//! **The probe counts `alloc` calls, not `alloc` calls by the app thread.** The counter is a
+//! process-global atomic inside a global allocator, and a global allocator has no idea who is
+//! calling it. So a window opened around a frame while a worker is running attributes the worker's
+//! growth to the frame, and the gate goes red for something the engine did not do — or, worse, a
+//! future version of it stays green because someone widened the window until it did.
+//!
+//! Spec §14 states the rule that follows, and it applies to every allocation gate this repository
+//! ever adds, not only to the three below: **an allocation gate with a background job in it runs on
+//! a deterministic spawner, or joins before it measures.** There is no third option, and "it
+//! probably finished by then" is not one of them.
+//!
+//! Nothing here has a background job, and that is not luck: the deterministic single-thread mode is
+//! what makes it true. `present` composites, packs, serialises and writes inline on the calling
+//! thread, so the window below contains exactly one thread's work. Ticket 18 brings the render
+//! thread, and it is the first ticket that has to obey the rule rather than satisfy it by
+//! construction — its gate is register entry #5, pinned red in `src/register.rs` until then.
+//!
 //! # Why this is one test and not three
 //!
 //! The probe's counter is process-global, so a test asserting on it must not run beside another
