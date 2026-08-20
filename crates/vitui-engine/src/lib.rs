@@ -49,12 +49,15 @@
 //! composite of the damaged runs themselves (ticket 11): the opaque `copy_from_slice` against the
 //! `EMPTY` skip, the four O(1) repairs per row that close the wide-glyph corruption bug at its
 //! third and last edge, the damage a repair leaves outside the layer that caused it, and a resize
-//! that repaints rather than patches.
+//! that repaints rather than patches — and what the terminal on the other end can do (ticket 16):
+//! [`Capabilities`] and [`Overrides`], a query batch fired at the live pty behind one DA1 sentinel
+//! rather than a terminfo lookup, and spec §10's seven levels of precedence resolved once at
+//! [`Engine::attach`] and immutable thereafter.
 //!
 //! Not here yet, each with the ticket that brings it:
 //! what a [`Mix`] does to a cell (12), the `shortest`
-//! cursor encoding and the equality filter (13, 14), the scroll region (15), capability detection
-//! (16), the three threads and the frame clock (18, 19), and input (20, 21).
+//! cursor encoding and the equality filter (13, 14), the scroll region (15), quantisation before
+//! the mirror (17), the three threads and the frame clock (18, 19), and input (20, 21).
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]
@@ -69,14 +72,17 @@ extern crate self as vitui_engine;
 
 mod ucd;
 
+mod caps;
 mod cell;
 mod damage;
+mod detect;
 mod engine;
 mod exts;
 mod geom;
 mod intern;
 mod layer;
 mod packet;
+mod quirks;
 mod serial;
 mod tables;
 
@@ -110,6 +116,7 @@ mod view;
 #[cfg(test)]
 mod roundtrip;
 
+pub use caps::{Capabilities, ColorDepth, GlyphSet, Overrides, Rgb, WidthSource};
 pub use engine::{AttachError, Clock, Config, Engine, Output, Presented, Screen, WakeHandle};
 pub use exts::LinkId;
 pub use geom::Rect;

@@ -15,6 +15,7 @@
 use std::io::{Error, ErrorKind, Result, Write};
 use std::sync::{Arc, Mutex};
 
+use crate::caps::Overrides;
 use crate::engine::{Clock, Config, Engine, Output, Presented, Screen};
 use crate::surface::Surface;
 use crate::term_model::TermModel;
@@ -150,6 +151,23 @@ impl Harness {
     }
 
     pub(crate) fn with_sink(w: u16, h: u16, sink: Recorder) -> Harness {
+        Harness::with_sink_and_overrides(w, h, sink, Overrides::default())
+    }
+
+    /// A harness on a **declared** tier: a caller-supplied sink detects nothing, so whatever these
+    /// overrides pin is what [`Screen::capabilities`](crate::Screen::capabilities) reports — up to
+    /// and including truecolor, which is what makes headless a declared tier rather than the lowest
+    /// one.
+    pub(crate) fn with_overrides(w: u16, h: u16, overrides: Overrides) -> Harness {
+        Harness::with_sink_and_overrides(w, h, Recorder::new(), overrides)
+    }
+
+    pub(crate) fn with_sink_and_overrides(
+        w: u16,
+        h: u16,
+        sink: Recorder,
+        overrides: Overrides,
+    ) -> Harness {
         let recording = sink.handle();
         let (screen, _wake) = Engine::new(Config {
             size: (w, h),
@@ -158,6 +176,7 @@ impl Harness {
             // packs, serialises and writes inline on this thread, so a test is a straight-line
             // program with no condvar, no join, no timeout and no flake.
             clock: Clock::Manual,
+            overrides,
         })
         .attach()
         .expect("attaching to a sink cannot fail");

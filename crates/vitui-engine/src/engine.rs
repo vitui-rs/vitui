@@ -9,18 +9,29 @@
 //! no condvar, no join, no timeout and no flake.
 //!
 //! The three-thread path arrives at ticket 18 and does not change a byte of what this asserts.
-//! `wait`, `next_event`, the frame clock, the caret and capability detection arrive with tickets
-//! 16, 19, 20 and 21.
+//! `wait`, `next_event`, the frame clock and the caret arrive with tickets 19, 20 and 21.
+//!
+//! # What `attach` now does before it hands anything back
+//!
+//! It asks. [`Engine::attach`] fires spec §10's whole query batch at the terminal behind one DA1
+//! sentinel, resolves the seven levels of precedence over the answers, and the result is immutable
+//! for the life of the [`Screen`] — [`Screen::capabilities`]. **Which of the three grounds it is
+//! on is decided by [`Output`]**: a caller-supplied sink is a fully declared tier and asks nothing,
+//! a standard output that is not a tty is a terminal nothing is known about and also asks nothing,
+//! and only a real terminal is queried.
 
 use std::io::{ErrorKind, Write};
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
+use crate::caps::{Capabilities, Env, Ground, Overrides, assemble};
 use crate::damage::Run;
+use crate::detect::{CEILING, Tty, detect};
 use crate::exts::LinkId;
 use crate::layer::LayerStack;
 use crate::packet::Packet;
+use crate::quirks::Quirks;
 use crate::serial::Serializer;
 use crate::surface::Surface;
 
@@ -60,10 +71,19 @@ pub enum Clock {
 #[derive(Default)]
 pub enum Output {
     /// The process's standard output. Ticket 22 is what puts a terminal into a state where that is
-    /// the right thing to do; ticket 16 is what asks the terminal what it can do.
+    /// the right thing to do.
+    ///
+    /// **This is what decides whether anything is detected.** A real terminal is queried; a
+    /// standard output that turns out to be a pipe or a file is not, because there is nobody to
+    /// answer and the sentinel would burn the whole ceiling for nothing.
     #[default]
     Terminal,
     /// Anywhere the caller likes.
+    ///
+    /// **Headless, and a fully *declared* tier rather than the lowest one**: detection is switched
+    /// off and every axis is pinned through [`Config::overrides`], so *any* tier is testable,
+    /// truecolor included. A floor tier could never have provided that, and spec §14's nine option
+    /// sets are what need it.
     Sink(Box<dyn Write + Send>),
 }
 
@@ -96,8 +116,14 @@ pub struct Config {
     pub clock: Clock,
     /// Where the frame's bytes go.
     pub output: Output,
-    /// The size to use when there is no terminal to ask. Ticket 16 is what asks a real one.
+    /// The size to use when there is no terminal to ask. A real one is asked, and answers.
     pub size: (u16, u16),
+    /// What was asked of the terminal, before anything was detected.
+    ///
+    /// This is where an application's own `--ascii` and `--no-color` land: **the engine parses no
+    /// argv**, and every field is an `Option` so that the environment can fill a `None` and can
+    /// never overrule a `Some`.
+    pub overrides: Overrides,
 }
 
 impl Config {
@@ -111,6 +137,7 @@ impl Default for Config {
             clock: Clock::default(),
             output: Output::default(),
             size: Config::DEFAULT_SIZE,
+            overrides: Overrides::default(),
         }
     }
 }
@@ -118,11 +145,15 @@ impl Default for Config {
 /// Why attaching failed.
 ///
 /// Not `std::io::Error`: "the terminal never answered the capability query" is not an I/O failure,
-/// and saying so in a signature is a lie a reader has to unlearn. Ticket 16 is what returns one.
-#[derive(Debug)]
+/// and saying so in a signature is a lie a reader has to unlearn.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[non_exhaustive]
 pub enum AttachError {
     /// The terminal did not answer the capability query inside the negotiation window.
+    ///
+    /// **Nothing at all came back**, which is the only case the numeric ceiling exists for. A
+    /// terminal that answered part of the batch and then went quiet is not this: what arrived is
+    /// kept and the rest falls through to conservative defaults.
     NoAnswer,
 }
 
@@ -155,13 +186,54 @@ impl Engine {
         Engine { config }
     }
 
-    /// Take the terminal and hand back the app thread's world.
+    /// Take the terminal, ask it what it can do, and hand back the app thread's world.
+    ///
+    /// # What is asked, and of whom
+    ///
+    /// Only a real terminal is queried, and [`Output`] is what says whether there is one. The batch
+    /// goes out in a single write behind a trailing DA1 and the loop reacts to the sentinel's
+    /// arrival rather than to a clock; the numeric ceiling exists for the one case where there is
+    /// no terminal at all.
+    ///
+    /// A terminal that answers is also asked its size, which is the one question with no escape
+    /// sequence in the batch because the kernel already knows. [`Config::size`] is what applies
+    /// when there is nobody to ask.
     ///
     /// # Errors
     ///
-    /// Never, yet. Ticket 16 is what can fail here.
+    /// [`AttachError::NoAnswer`] when standard output is a terminal and **nothing at all** came
+    /// back inside the ceiling.
     pub fn attach(self) -> Result<(Screen, WakeHandle), AttachError> {
-        let (w, h) = self.config.size;
+        let env = Env::from_process();
+        let headless = matches!(self.config.output, Output::Sink(_));
+        let mut tty = if headless { None } else { Tty::open() };
+        let ground = match (headless, &tty) {
+            (true, _) => Ground::Headless,
+            (false, None) => Ground::NotATty,
+            (false, Some(_)) => Ground::Tty,
+        };
+        // **`TERM=dumb` is asked nothing at all**, and that is not an optimisation. It sits at
+        // level 4 of spec §10's precedence, *above* detection, so every answer it could give is
+        // already overruled — and a terminal that says it speaks no escape sequences would answer
+        // no DA1 either, which would turn a legitimate `TERM=dumb` into `AttachError::NoAnswer`.
+        // The pty is still opened, because size and the single reader are not escape sequences.
+        let detected = match tty.as_mut() {
+            Some(tty) if !env.term_is_dumb() => detect(tty, CEILING)?,
+            _ => crate::caps::Detected::default(),
+        };
+        let quirks = Quirks::lookup(detected.version.as_deref(), &env);
+        let caps = assemble(self.config.overrides, &env, ground, &detected, quirks);
+
+        // A terminal that is there is asked its size, which is the one question with no escape
+        // sequence in the batch because the kernel already knows. A zero falls back rather than
+        // through: every buffer here is sized from this pair, and a zero-column screen is not a
+        // smaller screen, it is a different set of edge cases in every loop below.
+        let (w, h) = match ground {
+            Ground::Tty => Tty::size()
+                .filter(|(w, h)| *w > 0 && *h > 0)
+                .unwrap_or(self.config.size),
+            _ => self.config.size,
+        };
         let wakes = Arc::new(AtomicU32::new(0));
         let screen = Screen {
             size: (w, h),
@@ -174,6 +246,8 @@ impl Engine {
                 Output::Terminal => Box::new(std::io::stdout()),
                 Output::Sink(sink) => sink,
             },
+            caps,
+            tty,
             _not_send: PhantomData,
         };
         Ok((screen, WakeHandle { wakes }))
@@ -255,6 +329,13 @@ pub struct Screen {
     packet: Packet,
     serializer: Serializer,
     sink: Box<dyn Write + Send>,
+    /// What the terminal can do, sampled once during `attach` and never again.
+    caps: Capabilities,
+    /// The pty detection read its answers from, held rather than dropped so that **one thread ever
+    /// reads this file descriptor**. Ticket 20's input thread adopts this channel; a second reader
+    /// would steal bytes from the first. `None` whenever there is no terminal.
+    #[allow(dead_code)]
+    tty: Option<Tty>,
     _not_send: PhantomData<*const ()>,
 }
 
@@ -262,6 +343,17 @@ impl Screen {
     /// The screen's size in cells.
     pub fn size(&self) -> (u16, u16) {
         self.size
+    }
+
+    /// What the terminal on the other end can do.
+    ///
+    /// **Sampled once during `attach` and immutable for the life of this `Screen`**, which is why
+    /// this takes `&self` and why no component ever has to handle a capability changing between
+    /// frames. The price is explicit: a terminal that changed underneath the process — a
+    /// reconnected ssh session, a SIGTSTP/SIGCONT cycle — cannot be re-detected without a fresh
+    /// `attach`. That is spec §15's terminal lifecycle, not a degradation question.
+    pub fn capabilities(&self) -> &Capabilities {
+        &self.caps
     }
 
     /// The layer stack: add a layer, draw into one, move it, remove it, and ask which one is on
@@ -571,6 +663,59 @@ mod tests {
         );
     }
 
+    /// **Gate.** The engine substitutes no glyph, at any `GlyphSet`, anywhere.
+    ///
+    /// > **Choosing a glyph before drawing is legitimate; replacing one after it is drawn is
+    /// > forbidden.**
+    ///
+    /// The engine's behaviour on `--ascii` is **zero, and that is the point**: it emits no glyphs of
+    /// its own — spec §4 leaves it three verbs and no box-drawing primitive, and boxes are `fill`s —
+    /// so there is nothing for it to substitute even if it wanted to. The prohibition costs no
+    /// discipline; it is a property of the surface that already exists, and this is what keeps it
+    /// one.
+    ///
+    /// Braille is the cluster that makes it matter: 256 states per cell, exactly what a font lacks,
+    /// and a substitution table applied here would turn a chart into noise while every budget stayed
+    /// green. `Harness::present` closes the round trip, so the replayed terminal has to agree too.
+    #[test]
+    fn the_engine_substitutes_no_glyph_at_any_glyph_set() {
+        let drawn = "\u{28ff}\u{2500}\u{2502}\u{250c}\u{25cf}e\u{301}";
+        for overrides in [
+            crate::caps::Overrides::default(),
+            crate::caps::Overrides::plain(),
+            crate::caps::Overrides {
+                glyphs: Some(crate::caps::GlyphSet::Unicode),
+                ..Default::default()
+            },
+        ] {
+            let mut h = crate::testing::Harness::with_overrides(12, 1, overrides);
+            let id = h
+                .screen
+                .layers()
+                .add_content(0, crate::geom::Rect::new(0, 0, 12, 1), true);
+            h.screen
+                .layers()
+                .view(id)
+                .unwrap()
+                .text(0, 0, drawn, crate::style::Style::new());
+            h.present();
+
+            let cells = h.screen.frame().row(0).to_vec();
+            let glyphs = h.screen.capabilities().glyphs;
+            let interner = h.screen.interner_mut();
+            let mut seen = String::new();
+            for c in &cells {
+                if c.grapheme.is_continuation() {
+                    continue;
+                }
+                seen.push_str(&interner.resolve(c.grapheme).unwrap_or_default());
+            }
+            assert_eq!(seen.trim_end(), drawn, "a glyph was replaced at {glyphs:?}");
+        }
+    }
+
+    /// The size comes from the terminal when there is one to ask, and from `Config` when there is
+    /// not. A sink is the second case, and it is the one every test in this crate is on.
     #[test]
     fn a_default_config_is_the_declared_size() {
         let (screen, _wake) = Engine::new(Config::default()).attach().unwrap();
