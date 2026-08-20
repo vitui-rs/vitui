@@ -446,6 +446,22 @@ with box drawing and block elements, or everything including braille and emoji. 
 detected, and a component branches on it rather than the engine substituting behind its back. The
 type is `GlyphSet`, with the three levels `docs/adr/0010` names.
 
+**Glyph** — a character a component draws for structure rather than as content: an arrow, a box
+corner, a tee, a line, an ellipsis. **A glyph is a lookup with a spelling at every repertoire level,
+every spelling exactly one cell, and no spelling blank.** Anything failing either rule is not a
+glyph, it is a *branch* — the sub-cell ladders are the case, because the number of samples asked of
+the data changes with the rung and no table can carry that. The table is the **theme's**, reached
+through `Theme::glyph`; a component names no repertoire. Absence is not representable, and that is
+the point: a blank fallback is no slower, writes fewer cells and marks the same damage, so every
+counter approves of it and only the rendered surface does not.
+
+**Distinction** — a difference a component intends the user to see — a hover, a fade, a threshold —
+narrowed by the theme to **one bit at construction**, from the palette as it arrives at the terminal
+and the repertoire as it was declared. A component branches on the bool and names neither axis.
+**A distinction survives the whole matrix iff it is carried on both axes**: a component told that two
+roles do not differ on the wire owes a second axis — a glyph, a rule, a position — and never a darker
+colour.
+
 **Role** — what a component asks a theme for instead of asking for a colour. **A role names a paint,
 not a colour**, and that is the whole of why there are thirteen of them rather than twenty-six: a
 component handed a foreground and a background separately would have to pair them, and pairing is the
