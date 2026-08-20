@@ -168,9 +168,13 @@ const FULL_SCREEN: [&str; 4] = [
 /// deterministic mode `present` also serialises and writes**, which on the shipped three-thread
 /// path is the render thread's work and not the app thread's. So the numbers here are the whole
 /// inline round against a budget written for the app thread's share, and the headroom they appear
-/// to have left is not the headroom the shipped engine has. Gating at 1.0x of a budget on a shared
-/// runner materially slower than this one is a flaky test wearing a budget's clothes, and a flaky
-/// gate gets disabled within a month.
+/// to have left is not the headroom the shipped engine has.
+///
+/// The runner matters too, and the two this repository has differ: the local GitLab runner is this
+/// same machine in a container and reproduces these numbers within a few percent, while the GitHub
+/// workflow's `ubuntu-latest` is a shared runner nobody here has measured. Gating at 1.1x of a
+/// budget on the second one is a flaky test wearing a budget's clothes, and a flaky gate gets
+/// disabled within a month.
 ///
 /// Each is reported with its budget named, and **impl 18 is what gates them** — it is the ticket
 /// that moves serialization off the app thread, and only then is there a number the budget is
