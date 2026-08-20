@@ -1,6 +1,6 @@
 //! Surfaces: a rectangular grid of cells, and the damage that says which of them changed.
 
-use crate::cell::Cell;
+use crate::cell::{Cell, GraphemeId};
 use crate::damage::RowBits;
 use crate::geom::Rect;
 use crate::intern::Interner;
@@ -32,6 +32,11 @@ pub struct Surface {
     height: u16,
     cells: Vec<Cell>,
     damage: RowBits,
+    /// What an untouched cell of this surface holds: a blank for an opaque surface, `EMPTY` for a
+    /// non-opaque one. A repair blanks half a pair back to *this*, not to a space — blanking to a
+    /// space inside a non-opaque layer punches exactly the hole `opaque: false` exists to prevent
+    /// (spec §5), in a cell the caller never asked for.
+    ground: GraphemeId,
     /// The handle space of a surface **outside** a layer stack, and nothing else.
     ///
     /// `Surface::new` and `Surface::root` are public, and a `View` from that door has no engine to
@@ -66,6 +71,7 @@ impl Surface {
             height: h,
             cells: vec![ground; w as usize * h as usize],
             damage: RowBits::new(w, h),
+            ground: ground.grapheme,
             interner: Interner::new(),
         }
     }
@@ -89,6 +95,7 @@ impl Surface {
             &mut self.damage,
             self.width,
             clip,
+            self.ground,
             &mut self.interner,
         )
     }
@@ -104,6 +111,7 @@ impl Surface {
             &mut self.damage,
             self.width,
             clip,
+            self.ground,
             interner,
         )
     }
@@ -121,6 +129,7 @@ impl Surface {
             &mut self.damage,
             self.width,
             clip,
+            self.ground,
             &mut self.interner,
         )
     }

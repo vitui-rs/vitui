@@ -89,8 +89,15 @@ impl GraphemeId {
     }
 
     /// The columns this handle occupies: one, or two with a `CONTINUATION` after it.
+    ///
+    /// A `CONTINUATION` is **one**, not two, and it carries the same guard as
+    /// [`is_wide_head`](GraphemeId::is_wide_head) for the same reason: it has the wide bit set
+    /// because it is the second half of a pair, not because it occupies two columns of its own.
+    /// Every caller today filters continuations out before asking — the serializer does it one line
+    /// above the question — so this is latent rather than broken, and a guard on one of two
+    /// functions that read the same bit is a trap left for whoever adds the third.
     pub(crate) const fn columns(self) -> u16 {
-        if self.0 & GraphemeId::WIDE != 0 { 2 } else { 1 }
+        if self.is_wide_head() { 2 } else { 1 }
     }
 
     /// Whether this handle is the head of a double-width pair. `CONTINUATION` is not one, which is
@@ -193,6 +200,13 @@ mod tests {
         assert_eq!(narrow.columns(), 1);
         assert!(wide.is_wide_head());
         assert!(!narrow.is_wide_head());
+    }
+
+    #[test]
+    fn a_continuation_occupies_one_column_not_two() {
+        assert_eq!(GraphemeId::CONTINUATION.columns(), 1);
+        assert_eq!(GraphemeId::wide_scalar('漢').columns(), 2);
+        assert_eq!(GraphemeId::SPACE.columns(), 1);
     }
 
     #[test]

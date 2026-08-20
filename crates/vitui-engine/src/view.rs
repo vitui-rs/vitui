@@ -41,8 +41,13 @@ pub enum Stop {
 pub struct Written {
     /// How many **columns** were written.
     ///
-    /// Columns rather than clusters, because it is the number a caller adds to `x` to find where
-    /// the next verb goes — and a screen of CJK covers 300 columns with 150 clusters.
+    /// Columns rather than clusters, because a screen of CJK covers 300 columns with 150 clusters
+    /// and a caller measuring how far a verb got wants the former.
+    ///
+    /// It counts columns *written*, not columns *advanced over*: a verb starting left of the clip
+    /// consumed clusters that were discarded, so `x + cells` is not the next free column in that
+    /// case. That is ADR 0022's clamp-and-discard showing through — the verb reports what it did,
+    /// and a caller that needs to resume mid-string has [`bytes`](Written::bytes).
     pub cells: u16,
     /// How many bytes of the string were consumed.
     pub bytes: usize,
@@ -103,6 +108,8 @@ pub struct View<'a> {
     stride: u16,
     /// Absolute, in surface coordinates, already intersected with the surface itself.
     clip: Rect,
+    /// What an untouched cell of the surface holds; see [`Row::blank`].
+    ground: GraphemeId,
     interner: &'a mut Interner,
     /// `View: !Send`. Zero-sized, private, and the whole mechanism.
     _not_send: PhantomData<*const ()>,
@@ -119,6 +126,8 @@ struct Row<'r> {
     cells: &'r mut [Cell],
     lo: u16,
     hi: u16,
+    /// What a blanked half goes back to: a space, or `EMPTY` in a non-opaque layer.
+    ground: GraphemeId,
 }
 
 impl<'r> Row<'r> {
@@ -126,7 +135,13 @@ impl<'r> Row<'r> {
     ///
     /// A free constructor rather than a method on `View`, because a verb needs the row and the
     /// interner at the same time and they are two of the view's fields.
-    fn of(cells: &'r mut [Cell], stride: u16, clip: Rect, y: i32) -> Option<Row<'r>> {
+    fn of(
+        cells: &'r mut [Cell],
+        stride: u16,
+        clip: Rect,
+        ground: GraphemeId,
+        y: i32,
+    ) -> Option<Row<'r>> {
         // A clip with no columns has no `hi`, and a verb that reached one would write at `lo`
         // anyway — the left-edge half of rule 4 does exactly that. Zero-sized surfaces are legal
         // (spec §4) and a verb against one is discarded, not a panic (ADR 0022).
@@ -138,6 +153,7 @@ impl<'r> Row<'r> {
             cells: &mut cells[start..start + stride as usize],
             lo: clip.x as u16,
             hi: (clip.right() - 1) as u16,
+            ground,
         })
     }
 
@@ -145,9 +161,14 @@ impl<'r> Row<'r> {
     ///
     /// The background is what the eye notices; a half-erased glyph that also changes colour reads as
     /// a bug even when the text is right.
+    ///
+    /// It goes back to the surface's **ground**, not to a space. In a non-opaque layer those are
+    /// different cells and the difference is the whole of `opaque: false`: this is a cell the caller
+    /// never wrote, orphaned by a write next to it, and leaving an opaque space there erases what is
+    /// underneath. Rule 4's space is the other case — there the caller *did* ask for that column.
     fn blank(&mut self, x: u16) {
         let cell = &mut self.cells[x as usize];
-        *cell = Cell::new(GraphemeId::SPACE, cell.style);
+        *cell = Cell::new(self.ground, cell.style);
     }
 
     /// Rules 1 and 2: make column `x` safe to write into, and say which columns changed.
@@ -182,6 +203,7 @@ impl<'a> View<'a> {
         damage: &'a mut RowBits,
         stride: u16,
         clip: Rect,
+        ground: GraphemeId,
         interner: &'a mut Interner,
     ) -> View<'a> {
         View {
@@ -189,6 +211,7 @@ impl<'a> View<'a> {
             damage,
             stride,
             clip,
+            ground,
             interner,
             _not_send: PhantomData,
         }
@@ -230,11 +253,12 @@ impl<'a> View<'a> {
             damage,
             stride,
             clip,
+            ground,
             interner,
             ..
         } = self;
         let (left, right) = (clip.x, clip.right());
-        let Some(mut row) = Row::of(cells, *stride, *clip, y) else {
+        let Some(mut row) = Row::of(cells, *stride, *clip, *ground, y) else {
             return Written::NONE;
         };
 
@@ -245,10 +269,15 @@ impl<'a> View<'a> {
         let mut first = i32::MAX;
         let mut last = i32::MIN;
         let mut clipped = false;
+        // Whether anything was refused for being outside the clip, as opposed to for occupying no
+        // column. `Stop::Offscreen` is a statement about the clip and must not be returned for a
+        // string that never left it.
+        let mut discarded = false;
 
         for cluster in ucd::clusters(s) {
             if col >= right {
                 clipped = true;
+                discarded = true;
                 consumed = offset;
                 break;
             }
@@ -288,7 +317,9 @@ impl<'a> View<'a> {
                 continue;
             }
 
-            if col >= left {
+            if col < left {
+                discarded = true;
+            } else {
                 let at = col as u16;
                 // Rule 5: a wide glyph landing across an existing pair repairs at both ends.
                 let (lo, hi) = row.put(at, Cell::new(g, style));
@@ -312,7 +343,7 @@ impl<'a> View<'a> {
         Written {
             cells: written,
             bytes: consumed,
-            stop: if written == 0 {
+            stop: if written == 0 && discarded {
                 Stop::Offscreen
             } else if clipped {
                 Stop::Clipped
@@ -347,6 +378,7 @@ impl<'a> View<'a> {
             damage,
             stride,
             clip,
+            ground,
             interner,
             ..
         } = self;
@@ -361,7 +393,8 @@ impl<'a> View<'a> {
         let (lo, hi) = (area.x as u16, (area.right() - 1) as u16);
 
         for y in area.y..area.bottom() {
-            let mut row = Row::of(cells, *stride, *clip, y).expect("the area is in the clip");
+            let mut row =
+                Row::of(cells, *stride, *clip, *ground, y).expect("the area is in the clip");
             // The two edge repairs, before anything is written: a pair bisected by either edge of
             // the rectangle loses its other half here rather than being left in halves.
             let (dlo, _) = row.repair(lo);
@@ -389,6 +422,7 @@ impl<'a> View<'a> {
 mod tests {
     use super::*;
     use crate::damage::Run;
+    use crate::layer::LayerStack;
     use crate::style::Color;
     use crate::surface::Surface;
 
@@ -676,6 +710,17 @@ mod tests {
     }
 
     #[test]
+    fn cells_counts_columns_written_not_columns_advanced_over() {
+        // The half of the contract that is easy to misread: a verb clipped on the left discarded
+        // columns it still walked past, so `x + cells` is not where the next verb goes.
+        let mut s = Surface::new(8, 1);
+        let w = s.root().text(-4, 0, "漢字漢字", Style::new());
+        assert_eq!(w.cells, 4, "four columns landed; four were discarded");
+        assert_eq!(w.stop, Stop::Complete);
+        assert_eq!(rendered(&s, 0), "漢字    ");
+    }
+
+    #[test]
     fn text_starting_left_of_the_surface_writes_only_what_lands_on_it() {
         let mut s = Surface::new(4, 1);
         let w = s.root().text(-2, 0, "abcdef", Style::new());
@@ -708,6 +753,49 @@ mod tests {
         let w = s.root().text(10, 0, "ab", Style::new());
         assert_eq!(w.stop, Stop::Offscreen);
         assert!(s.damage().is_empty());
+    }
+
+    #[test]
+    fn a_string_that_occupies_no_columns_is_complete_rather_than_offscreen() {
+        // `Stop::Offscreen` says the verb fell outside the clip. A lone combining acute never left
+        // it — it simply has no column to be placed in — and a caller that reads `Offscreen` as
+        // "stop drawing this row" would abandon a row it should have kept.
+        let mut s = Surface::new(8, 1);
+        let w = s.root().text(0, 0, "\u{301}", Style::new());
+        assert_eq!(w.cells, 0);
+        assert_eq!(w.bytes, 2, "consumed, just not placed");
+        assert_eq!(w.stop, Stop::Complete);
+        assert!(s.damage().is_empty());
+    }
+
+    #[test]
+    fn a_repair_inside_a_non_opaque_layer_restores_transparency_not_a_space() {
+        // `opaque: false` exists so an overlay does not erase what is under it (spec §5). A repair
+        // that blanks half a pair to an opaque space punches exactly the hole the flag was added to
+        // prevent — and the caller never asked for that cell at all.
+        let mut stack = LayerStack::new();
+        let low = stack.add_content(0, Rect::new(0, 0, 6, 1), true);
+        let high = stack.add_content(1, Rect::new(0, 0, 6, 1), false);
+        stack
+            .view(low)
+            .unwrap()
+            .fill(Rect::new(0, 0, 6, 1), ".", Style::new());
+        let mut v = stack.view(high).unwrap();
+        v.text(0, 0, "漢", Style::new());
+        v.text(0, 0, "x", Style::new());
+
+        let mut frame = Surface::new(6, 1);
+        stack.union_damage_into(&mut frame);
+        let mut runs = Vec::new();
+        frame.damage().for_each_run(|r| runs.push(r));
+        for r in runs {
+            stack.composite_run(&mut frame, r);
+        }
+        assert_eq!(
+            glyphs(&frame, 0),
+            "x.....",
+            "the continuation's cell went back to transparent, not to an opaque space"
+        );
     }
 
     #[test]

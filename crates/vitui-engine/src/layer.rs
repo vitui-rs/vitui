@@ -168,6 +168,16 @@ impl LayerStack {
     ///
     /// Cost is damaged area times depth, which is the claim a flattened prefix cache would have
     /// existed to deliver — delivered by damage rectangles instead (ADR 0024).
+    ///
+    /// # This is not wide-glyph-aware yet, and it is reachable
+    ///
+    /// Ticket 06 put double-width pairs in cells and **did not** move the five repair rules to
+    /// composite time; spec §5 assigns that to ticket 11, as four O(1) fixes per row. Until then two
+    /// legal configurations put a broken pair in the composited frame: a layer clipped by the
+    /// frame's edge loses one half of a pair straddling the clamp, and the non-opaque `EMPTY` skip
+    /// below copies cell by cell with no width awareness. Both reproducers are written out in
+    /// ticket 11's acceptance criteria. **The hazard was vacuous before ticket 06 and is not any
+    /// more** — nothing minted a wide head, so nothing could be cut in half.
     pub(crate) fn composite_run(&self, frame: &mut Surface, run: Run) {
         let row = frame.row_mut(run.y);
         let target = &mut row[run.lo as usize..=run.hi as usize];
