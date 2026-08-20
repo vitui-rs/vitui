@@ -10,6 +10,10 @@ handle to the colours that did not fit inline. Both point into tables that live 
 not once per surface and not once per process. Drawing verbs reach them through the draw context; a
 `Surface` does not hold them and no public signature names one.
 
+> **Amended 2026-08-20 — see the Amendment below.** "Once per engine" is once per **layer stack**, and
+> a surface that is not in one carries a local interner that compositing never reads. The decision
+> below and every number in it stand unchanged.
+
 When a frame is packed, every handle it carries is **resolved into a side table the packet owns** —
 cluster bytes into the packet's arena, extended styles into the packet's own list, hyperlink URIs
 into the same arena — each keyed by the handle rather than written into the cell. The cell is copied
@@ -64,3 +68,34 @@ packet and that frame repaints in full.
 
 Evidence: `.scratch/vitui-engine-architecture/issues/16-handle-tables.md`, prototype branch
 `prototype/16-handle-tables`.
+
+## Amendment, 2026-08-20: the surface that is not in a stack
+
+Found while implementing the ticket this ADR names —
+`.scratch/vitui-engine-architecture/issues/19-the-standalone-surface-and-the-interner.md`.
+
+**"A `Surface` does not hold them" was true of every surface this ADR was reasoned about, and there is
+one it was not.** `Surface::new` and `Surface::root` are public, and a `View` obtained that way has no
+engine to reach through. The gap is not a routing problem: a worker drawing an off-screen surface
+cannot hold `&mut` to the app thread's interner, and that is the borrow checker rather than a
+convention, so the case needs a second table, a lock in the app thread's write path, or deletion.
+
+The amendment, in three sentences:
+
+- The tables live in the **layer stack**, which `attach` mints and of which there is one per `Screen`.
+  Every layer surface speaks that stack's handle space, and compositing is the `copy_from_slice` this
+  ADR bought.
+- A surface outside a stack carries an `Option<Interner>`, `None` until a multi-scalar cluster is
+  written through `Surface::root` — which Latin, CJK, box drawing and single-scalar emoji never do.
+- `add_content_with` renumbers a donated surface's handles into the stack's table **once, at
+  donation**, and skips entirely when there are none.
+
+**Nothing in the decision above changes, because the remap this ADR refused is a different one.** The
+4.9× and 46× were measured on a translation that runs per composite — per frame, per layer, for the
+life of the layer. A donation renumbering runs once, at a scene topology change, where allocation is
+already permitted and where the eviction sweep already lives. Its cost is *owed rather than measured*,
+and the layer-stack ticket pays it.
+
+The invariant is restated in the words that survive a donated surface: ***every surface in a layer
+stack speaks that stack's handle space*** — by construction for `add_content`, by renumbering for
+`add_content_with`.
