@@ -17,8 +17,11 @@ locals {
   gitlab_image = "gitlab/gitlab-ce:19.2.4-ce.0"
   runner_image = "gitlab/gitlab-runner:v19.3.0"
 
-  # What a job gets when `.gitlab-ci.yml` does not name an image.
-  runner_default_image = "rust:1-bookworm"
+  # What a job gets when `.gitlab-ci.yml` does not name an image. Pinned to a patch for the same
+  # reason as the two above, and with one more behind it: the runner is configured `pull_policy =
+  # ["if-not-present"]`, so a floating tag is never re-resolved once it is on the host. It would be
+  # frozen at whatever was first pulled here and current on any other machine.
+  runner_default_image = "rust:1.97.1-bookworm"
 
   # ───────────────────────────────────────────────
   # Names and ports

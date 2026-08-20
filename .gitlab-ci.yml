@@ -8,32 +8,83 @@
 # (ubuntu, macos, windows). A local Docker runner is one OS and one architecture — here,
 # linux/arm64. Green here means the gates pass; it does not mean they pass on Windows.
 
+workflow:
+  rules:
+    # Without this, a branch that also has a merge request open builds twice for one push — once as
+    # a branch pipeline and once as an MR pipeline. On a runner with three concurrent slots and
+    # three jobs per pipeline, the duplicate does not queue behind the original, it starves it.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH
+
 variables:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -D warnings
   # Keep the registry and the build inside the project directory so `cache:` can see them. The
   # default locations are under $HOME, which is thrown away with the job container.
   CARGO_HOME: $CI_PROJECT_DIR/.cargo
+  # Incremental compilation exists to make the *second* build in a working tree fast. A job
+  # container has no second build, so this is cache weight that is never read back.
+  CARGO_INCREMENTAL: "0"
+  CARGO_NET_RETRY: "3"
   GIT_DEPTH: "1"
 
 default:
-  image: rust:1-bookworm
+  # Pinned to an exact patch, not `rust:1-bookworm`.
+  #
+  # The floating tag was worse than it looked here: the runner is configured `pull_policy =
+  # ["if-not-present"]`, so it never re-resolves a tag it already has. This machine was therefore
+  # frozen at whatever `rust:1` happened to be on the day it was first pulled, while a second
+  # machine would get whatever is current — not reproducible and not up to date, which is the worst
+  # of both. Pinning makes the freeze deliberate and visible in a diff.
+  #
+  # The GitHub workflow deliberately does NOT match this: it uses `dtolnay/rust-toolchain@stable`,
+  # so it is the one that catches a new release breaking us. Two jobs, two purposes.
+  image: rust:1.97.1-bookworm
 
-cache:
-  key: $CI_COMMIT_REF_SLUG
-  paths:
-    - .cargo/registry/index
-    - .cargo/registry/cache
-    - target
+  # Only on runner system failure. NOT on `script_failure`, and NOT on
+  # `stuck_or_timeout_failure`: a retried flake is a hidden flake, and this repository's position is
+  # that a hang is worse than a failure — retrying one buys another twenty minutes of not knowing.
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+
+  # A superseded pipeline holds runner slots the current one needs. With three concurrent slots and
+  # three jobs, one stale pipeline blocks the next entirely.
+  interruptible: true
 
 stages:
   - check
+
+# The three gates are independent and share one stage on purpose, so they run concurrently and the
+# pipeline is as long as its slowest job rather than the sum of them.
 
 test:
   stage: check
   # `cargo test` has no per-test timeout of its own and a hang is worse than a failure.
   timeout: 20m
+  # Per-job cache key. A single shared key across three concurrent jobs is a race: all three upload
+  # at the end, last writer wins, and the two discarded archives were the ones with the build
+  # outputs in them — `test` builds the dev profile and `budget` builds release, so they write
+  # disjoint subtrees of `target/` and neither is a superset of the other.
+  #
+  # Keyed on `Cargo.lock` rather than the branch: the registry only changes when the lock file
+  # does, so the cache survives every commit that does not touch dependencies.
+  cache:
+    key:
+      files:
+        - Cargo.lock
+      prefix: test
+    paths:
+      - .cargo/registry/index
+      - .cargo/registry/cache
+      - target
   script:
+    # Not redundant, and do not delete it: the official `rust` images are built with rustup's
+    # `minimal` profile, so `cargo fmt` and `cargo clippy` are both absent and the next two lines
+    # fail with "is not installed for the toolchain".
     - rustup component add rustfmt clippy
     - cargo fmt --all --check
     # Runs under `RUSTFLAGS: -D warnings` above, so a lint is a build failure. Any custom `cfg`
@@ -56,6 +107,14 @@ deny:
   # A `wildcard` error is fixed by giving the path dependency a `version`, never by loosening
   # `wildcards = "deny"`. A `banned` error is fixed at its source, or the crate joins ADR 0001's
   # `wrappers` list in `deny.toml` with its reason on the same line.
+  variables:
+    CARGO_DENY_VERSION: "0.20.2"
+  # This job never builds the workspace, so it has no use for `target/` or the registry. What it
+  # does re-fetch every run is the RustSec advisory database, and that is what is cached.
+  cache:
+    key: deny-advisory-db
+    paths:
+      - .cargo/advisory-dbs
   script:
     # The prebuilt binary rather than `cargo install --locked`, which is four minutes of compiling
     # a linter on every run. The fallback exists because the asset naming is upstream's to change.
@@ -68,11 +127,17 @@ deny:
         install /tmp/cargo-deny /usr/local/bin/cargo-deny
       else
         echo "no prebuilt binary at $url; falling back to cargo install" >&2
-        cargo install cargo-deny --version "$CARGO_DENY_VERSION" --locked
+        # `RUSTFLAGS` is cleared for this one command. It is `-D warnings` for *this workspace*, and
+        # letting it escape into a third-party build means an upstream deprecation warning fails our
+        # dependency gate for a reason that has nothing to do with our dependencies.
+        RUSTFLAGS= cargo install cargo-deny --version "$CARGO_DENY_VERSION" --locked
       fi
+      # The download is an executable that is about to run in CI, fetched over a URL built by string
+      # concatenation. Asserting the version it reports is not a substitute for a checksum, but it
+      # does catch a truncated download, a redirect to an error page, and the wrong architecture —
+      # each of which would otherwise surface as a confusing failure inside `cargo deny check`.
+      cargo-deny --version | grep -q "${CARGO_DENY_VERSION}"
     - cargo deny check
-  variables:
-    CARGO_DENY_VERSION: "0.20.2"
 
 budget:
   stage: check
@@ -82,5 +147,14 @@ budget:
   #
   # The numbers this prints are worth what a laptop under load is worth. It is here as a gate on
   # the cliffs, not as a measurement anyone should quote.
+  cache:
+    key:
+      files:
+        - Cargo.lock
+      prefix: budget
+    paths:
+      - .cargo/registry/index
+      - .cargo/registry/cache
+      - target
   script:
     - cargo run --release --example budget -p vitui-engine
