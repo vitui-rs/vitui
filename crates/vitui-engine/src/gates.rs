@@ -7,6 +7,12 @@
 //! **Every gate runs over every scene**, never over one scene it likes. A gate that picks its own
 //! scenes tests the scenes, which is the failure [`crate::scenes`] exists to describe.
 //!
+//! One gate here is **not** a register entry and does not run over the scenes: ticket 11's pairing
+//! invariant over the composited frame. It is here rather than beside the compositor because it
+//! needs the same reference compositor and the same round trip the six above do, and it has a scene
+//! of its own because **none of §14's twelve produces the case** — which is exactly why it was
+//! filed rather than found.
+//!
 //! # The birth frame is presented and then left behind
 //!
 //! Adding a layer damages its whole rectangle, because nothing beneath it has been asked to repaint
@@ -14,10 +20,13 @@
 //! builds, presents once, and starts measuring at the frame after.
 
 use crate::damage::Run;
+use crate::geom::Rect;
 use crate::reference;
 use crate::register::State;
 use crate::scenes::{H, Scene, W, scenes, table_two_ways, virtualised_tree};
-use crate::testing::Harness;
+use crate::style::Style;
+use crate::testing::{Harness, assert_pairing_holds};
+use crate::text::width_of;
 
 /// How many steady-state frames each scene is driven for.
 ///
@@ -352,6 +361,169 @@ fn wire_bytes_per_scene() {
             "{name}: {bytes} bytes over {FRAMES} frames, bound is {budget}. \
              The bound is impl 04's own measurement, so this is a regression rather than drift."
         );
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Ticket 11 — the pairing invariant, over the composited frame rather than over one surface.
+// ---------------------------------------------------------------------------------------------
+
+/// How many rectangles bisect the screen of CJK below.
+const BISECTORS: i32 = 12;
+
+/// A row of mixed CJK, offset so that pairs do not all start on the same parity.
+///
+/// The offset is the point. Twelve rectangles at fixed columns over a screen where every pair began
+/// on an even column would bisect either all of them or none of them, and a repair that was right
+/// for one parity and wrong for the other would pass.
+fn mixed_cjk(y: u16) -> String {
+    let mut s = ".".repeat((y % 3) as usize);
+    while width_of(&s) < W {
+        s.push_str("漢字ab漢c");
+    }
+    s
+}
+
+/// Ticket 11's gate, and an equality against the reference compositor rather than a hand-written
+/// expectation.
+///
+/// **Every gate in this file stayed green while §3's pairing invariant was false of the frame**,
+/// which is the finding worth more than the case that produced it: the serializer emits nothing for
+/// a continuation and the terminal model consumes nothing for one, so the round trip cannot see a
+/// frame whose halves do not pair — *the model and the serializer are wrong in the same direction*.
+/// So the property is asserted of the frame directly, and the picture is asserted against the
+/// oracle, which does the same repair the other way round: a whole-screen scan of the finished
+/// picture rather than four O(1) fixes per row per layer.
+///
+/// Twelve rectangles, alternating opaque and non-opaque, overlapping each other and the screen of
+/// CJK underneath, plus one hanging off each edge — the case where a pair is bisected by the
+/// *frame's* clamp rather than by a layer. Then they all move one column a frame, so every
+/// bisection lands on the other parity by the next frame and every layer's own damage has to carry
+/// the repair with it.
+#[test]
+fn the_pairing_invariant_survives_twelve_bisecting_layers_over_cjk() {
+    let mut h = Harness::new(W, H).labelled("twelve-bisecting-layers");
+    let base = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, W, H), true);
+    for y in 0..H {
+        let row = mixed_cjk(y);
+        h.screen
+            .layers()
+            .view(base)
+            .unwrap()
+            .text(0, y as i32, &row, Style::new());
+    }
+
+    // Ten inside the frame, one hanging off the left edge and one off the right. The two edge
+    // layers are what exercise the clamp: their content is clipped mid-pair by the frame rather
+    // than by anything the layer stack decided.
+    let mut movers = Vec::new();
+    for i in 0..BISECTORS {
+        let rect = match i {
+            0 => Rect::new(-3, 40, 24, 9),
+            1 => Rect::new(W as i32 - 9, 52, 24, 9),
+            _ => Rect::new(5 + i * 22, i * 6, 31, 9),
+        };
+        let id = h.screen.layers().add_content(1 + i, rect, i % 2 == 0);
+        for y in 0..rect.h {
+            h.screen
+                .layers()
+                .view(id)
+                .unwrap()
+                .text(0, y as i32, &mixed_cjk(y), Style::new());
+        }
+        movers.push((id, rect));
+    }
+    h.present();
+    assert_pairing_holds(h.screen.frame());
+
+    for t in 1..=FRAMES {
+        let before = reference::composite(h.screen.layers(), W, H);
+        for (id, rect) in &mut movers {
+            rect.x += 1;
+            h.screen.layers().set_rect(*id, *rect);
+            for y in 0..rect.h {
+                h.screen
+                    .layers()
+                    .view(*id)
+                    .unwrap()
+                    .text(0, y as i32, &mixed_cjk(y), Style::new());
+            }
+        }
+        let after = reference::composite(h.screen.layers(), W, H);
+        h.present();
+
+        assert_pairing_holds(h.screen.frame());
+        for &(x, y) in &reference::differences(&before, &after) {
+            assert!(
+                covered(h.screen.runs(), x, y),
+                "frame {t}: ({x}, {y}) changed and no run reported it"
+            );
+        }
+        let frame = h.screen.frame();
+        for y in 0..H {
+            for x in 0..W {
+                assert_eq!(
+                    frame.row(y)[x as usize],
+                    after.row(y)[x as usize],
+                    "frame {t}: the damage-tracked frame and the reference compositor disagree \
+                     at ({x}, {y})"
+                );
+            }
+        }
+    }
+
+    // The other half, and the one a moving stack hides: the twelve stand still and a single cell
+    // walks across them, so every frame is a **one-column run** against a screen full of pairs that
+    // layer edges have already bisected. That is where a repair is measured against a cell no layer
+    // in the run repainted, and where a repair that reached one column too far would erase a half
+    // nothing was going to repaint.
+    let marker = h
+        .screen
+        .layers()
+        .add_content(BISECTORS + 1, Rect::new(59, 30, 1, 1), true);
+    h.screen
+        .layers()
+        .view(marker)
+        .unwrap()
+        .text(0, 0, "X", Style::new());
+    // Presented before it is measured, for the reason every gate here stages its birth frame:
+    // adding a layer damages its whole rectangle, and a reference taken before that frame is a
+    // reference of a picture the frame never held.
+    h.present();
+    for t in 0..40u32 {
+        let before = reference::composite(h.screen.layers(), W, H);
+        h.screen
+            .layers()
+            .set_rect(marker, Rect::new(60 + t as i32, 30, 1, 1));
+        h.screen
+            .layers()
+            .view(marker)
+            .unwrap()
+            .text(0, 0, "X", Style::new());
+        let after = reference::composite(h.screen.layers(), W, H);
+        h.present();
+
+        assert_pairing_holds(h.screen.frame());
+        for &(x, y) in &reference::differences(&before, &after) {
+            assert!(
+                covered(h.screen.runs(), x, y),
+                "marker frame {t}: ({x}, {y}) changed and no run reported it"
+            );
+        }
+        let frame = h.screen.frame();
+        for y in 0..H {
+            for x in 0..W {
+                assert_eq!(
+                    frame.row(y)[x as usize],
+                    after.row(y)[x as usize],
+                    "marker frame {t}: the damage-tracked frame and the reference compositor \
+                     disagree at ({x}, {y})"
+                );
+            }
+        }
     }
 }
 

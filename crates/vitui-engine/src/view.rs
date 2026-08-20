@@ -192,8 +192,11 @@ pub struct View<'a> {
 /// The repair rules reach one column either side of what is being written, and that reach stops at
 /// the clip: a view may not widen itself (spec §4), so a pair bisected by the clip edge keeps the
 /// half that is outside. With a root view the clip is the surface and the question does not arise;
-/// [`child`](View::child) is what makes it arise, and ticket 11 moves the same rules to composite
-/// time where a layer edge *does* reach outside.
+/// [`child`](View::child) is what makes it arise. Ticket 11 moved the same rules to composite time,
+/// where a layer edge *does* reach outside — see
+/// [`LayerStack::composite_run`](crate::LayerStack) — and left this one where it was, because the
+/// two edges are not the same question: a layer's neighbours are the frame's, and a child's are its
+/// parent's.
 ///
 /// **The cost is that §3's pairing invariant is false across a clip edge**, and §3 says the rules
 /// hold there. The two cannot both be right; architecture ticket 20 is where that is decided, and
@@ -763,6 +766,7 @@ mod tests {
     use crate::layer::LayerStack;
     use crate::style::Color;
     use crate::surface::Surface;
+    use crate::testing::assert_pairing_holds;
 
     fn runs(s: &Surface) -> Vec<Run> {
         let mut out = Vec::new();
@@ -824,35 +828,6 @@ mod tests {
         let row: String = std::iter::repeat_n('漢', 150).collect();
         s.root().text(0, 0, &row, Style::new());
         assert!(s.tables().interner.is_empty());
-    }
-
-    /// The invariant of spec §3, over a whole surface: a `CONTINUATION` never appears without a wide
-    /// head immediately to its left, and a wide head is always followed by a `CONTINUATION`.
-    fn assert_pairing_holds(s: &Surface) {
-        let (w, h) = s.size();
-        for y in 0..h {
-            let row = s.row(y);
-            for x in 0..w as usize {
-                let g = row[x].grapheme;
-                if g.is_continuation() {
-                    assert!(x > 0, "a continuation in column 0 at row {y}");
-                    assert!(
-                        row[x - 1].grapheme.is_wide_head(),
-                        "a continuation at ({x}, {y}) with no wide head to its left"
-                    );
-                }
-                if g.is_wide_head() {
-                    assert!(
-                        x + 1 < w as usize,
-                        "a wide head in the last column at row {y}"
-                    );
-                    assert!(
-                        row[x + 1].grapheme.is_continuation(),
-                        "a wide head at ({x}, {y}) with no continuation after it"
-                    );
-                }
-            }
-        }
     }
 
     #[test]

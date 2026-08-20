@@ -45,10 +45,14 @@
 //! inescapable and a 1M-row tree cost what a 1k-row one costs — and the whole of the layer stack
 //! (ticket 10): [`LayerStack::add_content_with`] with the renumbering that lets a surface drawn on
 //! a worker be donated, [`LayerStack::remove`], [`LayerStack::set_z`], [`LayerStack::set_rect`] and
-//! [`LayerStack::topmost_at`], the query that answers with a layer and never a widget.
+//! [`LayerStack::topmost_at`], the query that answers with a layer and never a widget — and the
+//! composite of the damaged runs themselves (ticket 11): the opaque `copy_from_slice` against the
+//! `EMPTY` skip, the four O(1) repairs per row that close the wide-glyph corruption bug at its
+//! third and last edge, the damage a repair leaves outside the layer that caused it, and a resize
+//! that repaints rather than patches.
 //!
 //! Not here yet, each with the ticket that brings it:
-//! the edge repairs at a layer boundary (11), what a [`Mix`] does to a cell (12), the `shortest`
+//! what a [`Mix`] does to a cell (12), the `shortest`
 //! cursor encoding and the equality filter (13, 14), the scroll region (15), capability detection
 //! (16), the three threads and the frame clock (18, 19), and input (20, 21).
 

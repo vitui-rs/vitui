@@ -133,7 +133,8 @@ one.
 
 **Lifting** — the visual cue that a layer sits above the others; a shadow is its most common form.
 
-**Composite** — to resolve the layer stack, bottom-up, into a single grid of cells.
+**Composite** — to resolve the layer stack, bottom-up, into a single grid of cells, repairing every
+[seam](#seam) it creates.
 
 **Exposure** — an area of the frame that has to be repainted although no layer's own damage says so,
 because the layer that owned it was removed, reordered or moved. Damage lives in a layer's surface,
@@ -143,6 +144,18 @@ stack and folded into the frame's damage once, at the start of the composite.
 **Ground** — what an untouched cell holds. A blank for an opaque surface, the `EMPTY` sentinel for a
 non-opaque one. A composited run falls back to the frame's ground where no layer covers it, which is
 what an exposure over bare screen resolves to.
+
+**Repair** — blanking the half of a double-width pair that has lost its partner, so that a
+continuation never appears without a wide head to its left and a wide head is always followed by one.
+Overwriting half a pair is what corrupts a terminal's own idea of where the columns are, and the
+repair is what forecloses it. A repaired half keeps its own style and goes back to the surface's
+[ground](#ground), not to an opaque space — it is a cell nobody asked to write.
+
+**Seam** — the boundary between a span that was just painted and the cell beside it. Every paint has
+exactly two, which is why a repair is a constant cost per span rather than a scan: a drawing verb
+repairs the seams of what it wrote, and a composite repairs the seams of what each layer copied. A
+repair at a composite seam damages cells **outside** the layer's own rectangle, and a repair that is
+not reported is a half the terminal goes on showing.
 
 **Frame** — one composited, immutable grid. It is produced on the application thread and stays
 there; what reaches the render thread is a snapshot of the part of it that changed.

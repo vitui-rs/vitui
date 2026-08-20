@@ -16,10 +16,12 @@
 //!
 //! # Scope
 //!
-//! The whole of spec §12's `LayerStack` is here (ticket 10). What is **not** here is the operator
-//! layer's compositing: [`add_operator`](LayerStack::add_operator) places one, orders it and lets
-//! it be moved and removed, and ticket 12 is what makes a `Mix` reach a cell. The edge repairs at a
-//! layer boundary are ticket 11's.
+//! The whole of spec §12's `LayerStack` is here (ticket 10), and the bottom-up composite of the
+//! damaged runs with the wide-glyph corruption bug closed at its third and last edge (ticket 11).
+//!
+//! What is **not** here is the operator layer's compositing:
+//! [`add_operator`](LayerStack::add_operator) places one, orders it and lets it be moved and
+//! removed, and ticket 12 is what makes a `Mix` reach a cell.
 
 use crate::cell::{Cell, GraphemeId};
 use crate::damage::Run;
@@ -572,6 +574,10 @@ impl LayerStack {
     /// damage what it does not cover, and a donated surface larger than the rectangle it was given
     /// is the case that makes the difference visible.
     pub(crate) fn take_damage_into(&mut self, frame: &mut Surface) {
+        debug_assert!(
+            self.speaks_one_handle_space(),
+            "a surface in this stack still carries a handle space of its own"
+        );
         let screen = Rect::new(0, 0, frame.width(), frame.height());
         for layer in &self.layers {
             let Some(surface) = layer.surface() else {
@@ -606,25 +612,87 @@ impl LayerStack {
     /// there. The two arms are one decision: the scan for that layer is what says whether a ground
     /// fill is needed, and finding one skips both the fill and every layer beneath it.
     ///
-    /// # This is not wide-glyph-aware yet, and it is reachable
+    /// # The wide-glyph hazard, at a layer edge
     ///
-    /// Ticket 06 put double-width pairs in cells and **did not** move the five repair rules to
-    /// composite time; spec §5 assigns that to ticket 11, as four O(1) fixes per row. Until then two
-    /// legal configurations put a broken pair in the composited frame: a layer clipped by the
-    /// frame's edge loses one half of a pair straddling the clamp, and the non-opaque `EMPTY` skip
-    /// below copies cell by cell with no width awareness. Both reproducers are written out in
-    /// ticket 11's acceptance criteria.
-    pub(crate) fn composite_run(&self, frame: &mut Surface, run: Run) {
+    /// A content layer overwrites, so ticket 06's five repair rules move from write time to
+    /// composite time (spec §5). Every paint below is a contiguous span, and a span has exactly two
+    /// seams — so the fixes are **four O(1) ones per row** rather than a scan: the copied content's
+    /// own halves at each end, a wide head left orphaned outside the left edge, and a continuation
+    /// left orphaned outside the right.
+    ///
+    /// The opaque arm needs only its two seams, because the interior of a `copy_from_slice` is a
+    /// span of one source row and the composite did not put those cells next to each other. The
+    /// `EMPTY` arm needs a seam wherever the **skip** put two cells together: it copies cell by
+    /// cell, so a skipped cell can strand a half inside the span it painted, and that costs nothing
+    /// because that arm is already per-cell. A boundary between two cells that arm wrote in one
+    /// pass is skipped, so both arms take the same position on what a layer hands over.
+    ///
+    /// A repair never writes outside the span it painted, which is `mend`'s own clamp and is what
+    /// keeps a lower layer's cell from being mistaken for a bisection before the layer that owns
+    /// the pair has painted its half.
+    ///
+    /// # One column of slop on each side, and it is not optional
+    ///
+    /// The painted span is the damaged run **widened by one column at each end**, and the run this
+    /// answers with is what actually changed. Both halves of that are load-bearing.
+    ///
+    /// A repair blanks a half, so the frame stops holding what the layers painted — and the frame is
+    /// the only record there is. When the layer that bisected a pair moves off it, the half outside
+    /// the exposed rectangle has to come *back*, and nothing has damaged it: the layers did not
+    /// change there, only the repair did. Repainting one column past the run is what restores it.
+    /// The gate found this rather than the reasoning — twelve rectangles walking one column a frame
+    /// across a screen of CJK.
+    ///
+    /// The column past *that* is only read, never written, and reading it is exactly right: a
+    /// repaired frame holds a wide head at `lo - 2` **if and only if** what the layers painted at
+    /// `lo - 1` is its continuation, because that is the one case the repair leaves the head alone.
+    /// So the neighbour the seam is measured against carries its own answer, and the composite never
+    /// has to walk a third column to ask.
+    ///
+    /// # The repair reaches outside the layer's rectangle
+    ///
+    /// The prototype ticket 07 measured did the repair and marked damage only over the layer's own
+    /// columns, so the terminal kept showing the half that had just been blanked. That is why this
+    /// answers with a `Run` rather than with `()`, and why a slop column is reported when — and only
+    /// when — it changed: reporting it always would put two more cells on the wire for every run,
+    /// which the sparse chart's four hundred of them would feel.
+    ///
+    /// # What arrives already broken is not this function's to mend
+    ///
+    /// The seams restored here are the ones **compositing creates**. A layer surface that already
+    /// violates the pairing invariant composites into a frame that does too, and there is exactly
+    /// one way to build one: [`View::child`](crate::View::child) may not widen its clip (spec §4),
+    /// so a pair the clip bisects keeps the half outside it. That is architecture ticket 20's to
+    /// decide, and mending it here would hide the case rather than answer it.
+    pub(crate) fn composite_run(&self, frame: &mut Surface, run: Run) -> Run {
+        let last = frame.width().saturating_sub(1);
+        // The target's own ground, not a space. The frame is opaque so the two are the same cell
+        // today, and taking it from the surface is what keeps that a fact rather than a coincidence
+        // — a repair that punched an opaque space into a non-opaque target would be the exact hole
+        // `opaque: false` exists to prevent, in a cell the caller never wrote (spec §5).
+        let ground = frame.ground();
+        let span = Run {
+            y: run.y,
+            lo: run.lo.saturating_sub(1),
+            hi: run.hi.saturating_add(1).min(last),
+        };
+        let bounds = (span.lo, span.hi);
         let row = frame.row_mut(run.y);
-        let target = &mut row[run.lo as usize..=run.hi as usize];
+        // What the two slop columns held before this run repainted them. A slop column is only
+        // damage if it moved.
+        let was = (row[span.lo as usize], row[span.hi as usize]);
 
-        let floor = self.layers.iter().rposition(|l| l.floors(run));
+        let floor = self.layers.iter().rposition(|l| l.floors(span));
         let from = match floor {
             Some(at) => at,
             None => {
                 // The frame is opaque, so its ground is a blank rather than the `EMPTY` a
-                // non-opaque layer is born as.
-                target.fill(Cell::BLANK);
+                // non-opaque layer is born as. It is a paint like any other and has the same two
+                // seams: a span whose left edge lands on the continuation of a pair painted last
+                // frame orphans that pair's head.
+                row[span.lo as usize..=span.hi as usize].fill(Cell::BLANK);
+                mend(row, span.lo as i32 - 1, bounds, ground);
+                mend(row, span.hi as i32, bounds, ground);
                 0
             }
         };
@@ -638,29 +706,51 @@ impl LayerStack {
             if y < 0 || y >= layer.rect.h as i32 {
                 continue;
             }
-            let lo = (run.lo as i32).max(layer.rect.x);
-            let hi = (run.hi as i32).min(layer.rect.right() - 1);
+            let lo = (span.lo as i32).max(layer.rect.x);
+            let hi = (span.hi as i32).min(layer.rect.right() - 1);
             if hi < lo {
                 continue;
             }
             let src = surface.row(y as u16);
             let src_lo = (lo - layer.rect.x) as usize;
             let src_hi = (hi - layer.rect.x) as usize;
-            let dst_lo = (lo - run.lo as i32) as usize;
-            let dst_hi = (hi - run.lo as i32) as usize;
 
             if *opaque {
-                target[dst_lo..=dst_hi].copy_from_slice(&src[src_lo..=src_hi]);
+                row[lo as usize..=hi as usize].copy_from_slice(&src[src_lo..=src_hi]);
+                mend(row, lo - 1, bounds, ground);
             } else {
-                for (d, s) in target[dst_lo..=dst_hi]
-                    .iter_mut()
-                    .zip(&src[src_lo..=src_hi])
-                {
-                    if !s.grapheme.is_empty() {
-                        *d = *s;
+                // Whether the cell to the left was written by *this* pass. A boundary between two
+                // cells one layer wrote at once is that layer's own business — the same rule the
+                // opaque arm gets for free, because a `copy_from_slice` cannot touch a boundary
+                // inside what it copied. Only a boundary the skip created is the composite's.
+                let mut wrote_left = false;
+                for (i, s) in src[src_lo..=src_hi].iter().enumerate() {
+                    let x = lo as usize + i;
+                    let wrote = !s.grapheme.is_empty();
+                    if wrote {
+                        row[x] = *s;
                     }
+                    if !(wrote && wrote_left) {
+                        mend(row, x as i32 - 1, bounds, ground);
+                    }
+                    wrote_left = wrote;
                 }
             }
+            mend(row, hi, bounds, ground);
+        }
+
+        Run {
+            y: run.y,
+            lo: if row[span.lo as usize] == was.0 {
+                run.lo
+            } else {
+                span.lo
+            },
+            hi: if row[span.hi as usize] == was.1 {
+                run.hi
+            } else {
+                span.hi
+            },
         }
     }
 
@@ -709,6 +799,38 @@ impl LayerStack {
             .sum()
     }
 
+    /// Whether every surface in this stack speaks **this stack's** handle space.
+    ///
+    /// §5's invariant is that *every surface in one layer stack belongs to one engine*, and it is
+    /// what replaces the per-cell remap the alternatives needed — 4.9x on a realistic layer and 46x
+    /// on a hostile one (ADR 0011). It holds by construction rather than by checking:
+    /// [`add_content`](LayerStack::add_content) mints a surface whose own tables are empty, and
+    /// [`add_content_with`](LayerStack::add_content_with) renumbers a donated surface into this
+    /// stack's space and empties the table it came with. So a surface still carrying a handle space
+    /// of its own arrived through a door nobody has built.
+    ///
+    /// Asked once a frame under `debug_assert!` and never in a release build, because the frame path
+    /// may not pay for an invariant construction already guarantees. The stack is tens of layers, so
+    /// the debug cost is a walk of tens of pointers.
+    fn speaks_one_handle_space(&self) -> bool {
+        self.layers
+            .iter()
+            .filter_map(Layer::surface)
+            .all(|s| s.tables().is_empty())
+    }
+
+    /// What a resize does to the stack: nothing but forget.
+    ///
+    /// A layer's rectangle and its cells are its own and do not change with the screen. What becomes
+    /// meaningless is the bookkeeping about *this* frame — the exposures, which are rectangles in a
+    /// coordinate space that has just been replaced, and the per-layer damage, which a frame that
+    /// marks everything is about to subsume. **There is no cache to invalidate, because §5 refused
+    /// the only one there would have been.**
+    pub(crate) fn forget_damage(&mut self) {
+        self.exposed.clear();
+        self.clear_damage();
+    }
+
     /// Clear every layer's damage. `present` owns this; nothing above the engine can reach it.
     pub(crate) fn clear_damage(&mut self) {
         for layer in &mut self.layers {
@@ -730,6 +852,50 @@ const fn ground(opaque: bool) -> Cell {
     } else {
         Cell::new(GraphemeId::EMPTY, Style::DEFAULT)
     }
+}
+
+/// Restore the pairing invariant across one boundary of a paint, **within `span`**.
+///
+/// `left` is the column on the left of the boundary, so `-1` is the boundary before the first
+/// column and `row.len() - 1` the one after the last. A wide head on the left demands a
+/// `CONTINUATION` on the right and nothing else may carry one; where the two disagree, the half
+/// that has lost its partner is blanked.
+///
+/// One boundary at a time and left to right, which is what makes a single pass enough: blanking a
+/// head cannot orphan the cell to its right, because it is blanked precisely when that cell is not
+/// its continuation, and blanking a continuation cannot orphan the cell to its left for the mirror
+/// image of the same reason.
+///
+/// # Why the clamp, and why it costs nothing
+///
+/// Layers paint bottom-up, so a seam is measured against a cell that is **not final** until the
+/// topmost layer covering it has painted. Inside `span` that corrects itself — whoever paints last
+/// mends last, over the same boundary. Outside it there is nobody to correct the guess, and the
+/// guess would be made against a lower layer's cell: a base painting a space under a non-opaque
+/// overlay's pair looks exactly like a bisection until the overlay's own half arrives.
+///
+/// Nothing is lost by declining. The column outside `span` is a column no layer repainted, and a
+/// repaired frame holds a wide head there **if and only if** what the layers paint one column in is
+/// its continuation — so the boundary already pairs, and there was nothing to mend.
+fn mend(row: &mut [Cell], left: i32, span: (u16, u16), ground: GraphemeId) {
+    let right = left + 1;
+    let head = left >= 0 && row[left as usize].grapheme.is_wide_head();
+    let cont = (right as usize) < row.len() && row[right as usize].grapheme.is_continuation();
+    let orphan = match (head, cont) {
+        (true, false) => left as u16,
+        (false, true) => right as u16,
+        _ => return,
+    };
+    if orphan < span.0 || orphan > span.1 {
+        return;
+    }
+    // The blanked half keeps its own style and goes back to the target's **ground**, for the two
+    // reasons `Row::blank` does one level down: the background is what the eye notices, and a
+    // half-erased glyph that also changes colour reads as a bug even when the text is right; and
+    // this is a cell nobody asked to write, so blanking it to an opaque space inside a non-opaque
+    // target would erase what is underneath.
+    let cell = &mut row[orphan as usize];
+    *cell = Cell::new(ground, cell.style);
 }
 
 /// `rect`, shrunk to the cells a surface of `size` actually has. Placement is the rectangle's;
@@ -780,6 +946,8 @@ mod tests {
     use super::*;
     use crate::restyle::Restyle;
     use crate::style::Style;
+    use crate::testing::{Harness, assert_pairing_holds};
+    use vitui_bench::Bench;
 
     /// One whole frame — take the damage, composite every run it reported, clear — with those runs
     /// handed back for the tests that are about *which* cells were repainted.
@@ -1701,5 +1869,486 @@ mod tests {
             "      ",
             "the second row is not the layer's"
         );
+    }
+
+    // --- ticket 11: the wide-glyph hazard at a layer edge -----------------------------------
+
+    #[test]
+    fn a_layer_hanging_off_the_left_edge_leaves_no_bare_continuation() {
+        let mut h = Harness::new(12, 1);
+        let id = h
+            .screen
+            .layers()
+            .add_content(0, Rect::new(-1, 0, 12, 1), true);
+        h.screen
+            .layers()
+            .view(id)
+            .unwrap()
+            .text(0, 0, "漢字", Style::new());
+        h.present();
+        assert_pairing_holds(h.screen.frame());
+    }
+
+    #[test]
+    fn a_non_opaque_overlay_half_covering_a_pair_leaves_no_two_adjacent_heads() {
+        let mut h = Harness::new(6, 1);
+        let low = h
+            .screen
+            .layers()
+            .add_content(0, Rect::new(0, 0, 4, 1), true);
+        let high = h
+            .screen
+            .layers()
+            .add_content(1, Rect::new(1, 0, 2, 1), false);
+        h.screen
+            .layers()
+            .view(low)
+            .unwrap()
+            .text(0, 0, "漢字", Style::new());
+        h.screen
+            .layers()
+            .view(high)
+            .unwrap()
+            .text(0, 0, "漢", Style::new());
+        h.present();
+        assert_pairing_holds(h.screen.frame());
+    }
+
+    /// The bug ticket 07 found in the prototype's `blit`, kept as a test rather than as a sentence.
+    ///
+    /// The repair was right and the damage was wrong: the blanked half lay one column outside the
+    /// layer's rectangle, the damage covered the rectangle only, and the terminal went on showing
+    /// the half that had just been erased — for as long as nothing else wrote there, which on an
+    /// idle screen is for ever. `Harness::present` is what makes the second half of that assertable:
+    /// it replays the bytes and compares the terminal's screen against the frame, so a repair
+    /// nobody packed fails here rather than in a screenshot.
+    #[test]
+    fn a_repair_outside_the_layers_rectangle_is_damaged_and_reaches_the_terminal() {
+        let mut h = Harness::new(8, 1);
+        let base = h
+            .screen
+            .layers()
+            .add_content(0, Rect::new(0, 0, 8, 1), true);
+        h.screen
+            .layers()
+            .view(base)
+            .unwrap()
+            .text(4, 0, "漢", Style::new());
+        h.present();
+
+        // One column wide, over the pair's **second** half only. Everything this layer knows about
+        // is column 5.
+        let over = h
+            .screen
+            .layers()
+            .add_content(1, Rect::new(5, 0, 1, 1), true);
+        h.screen
+            .layers()
+            .view(over)
+            .unwrap()
+            .text(0, 0, "x", Style::new());
+        h.present();
+
+        assert_eq!(
+            glyphs(h.screen.frame(), 0),
+            "     x  ",
+            "the orphaned head at column 4 is blanked"
+        );
+        assert_eq!(
+            h.screen.runs(),
+            [Run { y: 0, lo: 4, hi: 5 }],
+            "the damaged run reaches column 4, which no layer covers"
+        );
+        assert_pairing_holds(h.screen.frame());
+    }
+
+    /// The other direction: the layer moves off the pair and the half it had blanked comes back.
+    ///
+    /// Nothing has damaged that column — the layers painted exactly what they painted last frame —
+    /// so only the composite's own slop can restore it. This is the case the twelve-bisecting-layers
+    /// gate found; it is written out small here because a gate that fails over a screen of CJK says
+    /// very little about why.
+    #[test]
+    fn a_blanked_half_comes_back_when_the_layer_that_bisected_it_moves_away() {
+        let mut h = Harness::new(8, 1);
+        let base = h
+            .screen
+            .layers()
+            .add_content(0, Rect::new(0, 0, 8, 1), true);
+        h.screen
+            .layers()
+            .view(base)
+            .unwrap()
+            .text(4, 0, "漢", Style::new());
+        let over = h
+            .screen
+            .layers()
+            .add_content(1, Rect::new(5, 0, 1, 1), true);
+        h.screen
+            .layers()
+            .view(over)
+            .unwrap()
+            .text(0, 0, "x", Style::new());
+        h.present();
+        assert_eq!(glyphs(h.screen.frame(), 0), "     x  ");
+
+        h.screen.layers().set_rect(over, Rect::new(7, 0, 1, 1));
+        h.present();
+        assert_eq!(
+            glyphs(h.screen.frame(), 0),
+            "    漢? x",
+            "column 4 is the head again, and no layer damaged it"
+        );
+        assert_pairing_holds(h.screen.frame());
+    }
+
+    /// A repair may not reach past the columns the composite repainted.
+    ///
+    /// The layers are painted bottom-up, so a seam is measured against a cell that is not the final
+    /// one until the topmost layer covering it has painted. Inside the composited span that
+    /// resolves itself — whoever paints last mends last. **Outside it there is nobody to correct
+    /// the guess**, and the guess is made against a lower layer's cell.
+    ///
+    /// Here the base paints a space over column 4, the seam at (3, 4) looks orphaned, and the
+    /// non-opaque overlay that owns the pair has not painted its half yet. A repair that reached
+    /// column 3 would erase half a glyph nothing damaged, and nothing downstream would repaint it —
+    /// the run does not cover it, so the blanking would be invisible to the terminal and permanent
+    /// on the screen.
+    #[test]
+    fn a_repair_does_not_reach_past_the_columns_the_composite_repainted() {
+        let mut h = Harness::new(10, 1);
+        let base = h
+            .screen
+            .layers()
+            .add_content(0, Rect::new(0, 0, 10, 1), true);
+        h.screen
+            .layers()
+            .view(base)
+            .unwrap()
+            .fill(Rect::new(0, 0, 10, 1), ".", Style::new());
+        // Non-opaque, and its pair starts one column left of the span the run below composites —
+        // so the overlay's own half arrives *after* the base has painted over the other one.
+        let over = h
+            .screen
+            .layers()
+            .add_content(1, Rect::new(3, 0, 4, 1), false);
+        h.screen
+            .layers()
+            .view(over)
+            .unwrap()
+            .text(0, 0, "漢", Style::new());
+        h.present();
+        assert_eq!(glyphs(h.screen.frame(), 0), "...漢?.....");
+
+        // Damage column 5 only. The span is 4..=6, and column 3 is outside it.
+        let mark = h
+            .screen
+            .layers()
+            .add_content(2, Rect::new(5, 0, 1, 1), true);
+        h.screen
+            .layers()
+            .view(mark)
+            .unwrap()
+            .text(0, 0, "X", Style::new());
+        h.present();
+        assert_eq!(
+            glyphs(h.screen.frame(), 0),
+            "...漢?X....",
+            "the pair at columns 3 and 4 belongs to a layer the run never asked about"
+        );
+        assert_pairing_holds(h.screen.frame());
+    }
+
+    /// Two runs a repair made touch are one run.
+    ///
+    /// The gap between them is one column, and the right-hand run widens into it to blank a head its
+    /// own paint orphaned. Left as two runs it would cost a cursor move between adjacent cells and
+    /// break §14's gate #2, which reads *two runs that touch are one run*. They cannot **overlap**,
+    /// and the reason is worth keeping: a run widens right only by blanking an orphaned
+    /// `CONTINUATION` and left only by blanking an orphaned wide head, and one column cannot be
+    /// both.
+    #[test]
+    fn two_runs_a_repair_made_touch_are_folded_into_one() {
+        let mut h = Harness::new(12, 1);
+        let base = h
+            .screen
+            .layers()
+            .add_content(0, Rect::new(0, 0, 12, 1), true);
+        h.screen
+            .layers()
+            .view(base)
+            .unwrap()
+            .text(4, 0, "漢", Style::new());
+        h.present();
+
+        // Column 3 and column 5, with column 4 — the pair's head — undamaged between them.
+        for x in [3, 5] {
+            let id = h
+                .screen
+                .layers()
+                .add_content(1, Rect::new(x, 0, 1, 1), true);
+            h.screen
+                .layers()
+                .view(id)
+                .unwrap()
+                .text(0, 0, "x", Style::new());
+        }
+        h.present();
+
+        assert_eq!(
+            h.screen.runs(),
+            [Run { y: 0, lo: 3, hi: 5 }],
+            "the right-hand run widened onto column 4 and the two became one"
+        );
+        assert_eq!(glyphs(h.screen.frame(), 0), "   x x      ");
+        assert_pairing_holds(h.screen.frame());
+    }
+
+    /// A pair that arrives broken stays broken, and the oracle has to agree about that.
+    ///
+    /// `View::child` may not widen its clip (spec §4), so a pair the clip bisects keeps the half
+    /// outside it and the layer's own surface holds a bare `CONTINUATION`. Whether that is right is
+    /// architecture ticket 20's question and not this file's — but **the two compositors must take
+    /// the same position on it**, or gate #1's equality is false for a program nobody has written
+    /// yet and the failure points at the compositor instead of at the open question.
+    ///
+    /// The rule both of them follow: a boundary between two columns **one layer painted at once**
+    /// is that layer's own business. The composite repairs the seams it creates and nothing else.
+    #[test]
+    fn a_pair_a_child_clip_bisected_composites_as_it_is_and_the_oracle_says_so_too() {
+        let mut stack = LayerStack::new();
+        let id = stack.add_content(0, Rect::new(0, 0, 8, 1), true);
+        let mut view = stack.view(id).unwrap();
+        view.text(3, 0, "漢", Style::new());
+        // The child's clip ends at column 3, so rule 2 declines to blank the continuation at 4.
+        view.child(Rect::new(0, 0, 4, 1))
+            .text(3, 0, "x", Style::new());
+
+        let mut frame = Surface::new(8, 1);
+        composite(&mut stack, &mut frame);
+        let oracle = crate::reference::composite(&stack, 8, 1);
+        for x in 0..8 {
+            assert_eq!(
+                frame.row(0)[x],
+                oracle.row(0)[x],
+                "the damage-tracked frame and the reference compositor disagree at ({x}, 0)"
+            );
+        }
+    }
+
+    /// The same, through the `EMPTY` skip, which is where the two arms could disagree.
+    ///
+    /// The opaque arm is a `copy_from_slice` and cannot touch a boundary inside what it copied. The
+    /// non-opaque arm walks cell by cell and could, so it has to be told not to: a boundary between
+    /// two cells this layer wrote in one pass is the layer's, and only a boundary the skip created
+    /// is the composite's.
+    #[test]
+    fn a_bisected_pair_inside_a_non_opaque_layer_is_left_alone_by_both_compositors() {
+        let mut stack = LayerStack::new();
+        let base = stack.add_content(0, Rect::new(0, 0, 8, 1), true);
+        stack
+            .view(base)
+            .unwrap()
+            .fill(Rect::new(0, 0, 8, 1), ".", Style::new());
+        let over = stack.add_content(1, Rect::new(0, 0, 8, 1), false);
+        let mut view = stack.view(over).unwrap();
+        view.text(3, 0, "漢", Style::new());
+        view.child(Rect::new(0, 0, 4, 1))
+            .text(3, 0, "x", Style::new());
+
+        let mut frame = Surface::new(8, 1);
+        composite(&mut stack, &mut frame);
+        let oracle = crate::reference::composite(&stack, 8, 1);
+        for x in 0..8 {
+            assert_eq!(
+                frame.row(0)[x],
+                oracle.row(0)[x],
+                "the damage-tracked frame and the reference compositor disagree at ({x}, 0)"
+            );
+        }
+    }
+
+    #[test]
+    fn a_layers_damage_translates_into_the_frame_and_is_clipped_not_dropped() {
+        // Spec §6's two operations, at the level that has layers rather than bitsets: translate
+        // into the frame's coordinates, and clip a layer that hangs off an edge.
+        let mut stack = LayerStack::new();
+        let off = stack.add_content(0, Rect::new(-4, -1, 10, 3), true);
+        stack
+            .view(off)
+            .unwrap()
+            .fill(Rect::new(0, 0, 10, 3), "#", Style::new());
+        let mut frame = Surface::new(20, 4);
+        let runs = runs_of(&mut stack, &mut frame);
+        assert_eq!(
+            runs,
+            vec![Run { y: 0, lo: 0, hi: 5 }, Run { y: 1, lo: 0, hi: 5 }],
+            "row -1 is dropped, the columns left of zero are clipped, and the layer is not"
+        );
+    }
+
+    #[test]
+    fn two_popups_a_hundred_columns_apart_are_180_cells_and_not_280() {
+        // The case that chose the bitset over per-row spans (spec §6), driven through the stack
+        // rather than through `RowBits` directly: the gap between two layers survives the union.
+        let mut stack = LayerStack::new();
+        for x in [0, 190] {
+            let id = stack.add_content(0, Rect::new(x, 0, 90, 1), true);
+            stack
+                .view(id)
+                .unwrap()
+                .fill(Rect::new(0, 0, 90, 1), "#", Style::new());
+        }
+        let mut frame = Surface::new(300, 1);
+        let emitted: usize = runs_of(&mut stack, &mut frame)
+            .iter()
+            .map(|r| r.len())
+            .sum();
+        assert_eq!(emitted, 180, "per-row spans would emit 280");
+    }
+
+    /// Ticket 11's report: what a composite costs, by damaged area and by stack depth.
+    ///
+    /// **A report, not a gate.** §14's rule is that a timing is a gate only at cliff granularity
+    /// with the headroom written next to the number, and none of these is near one — the budget is
+    /// 1 ms for a full screen and 100 µs for a typical damage-tracked frame, and both are gated
+    /// where they belong, in `examples/budget.rs` over the twelve scenes.
+    ///
+    /// Per cell of the table and never summed, for the reason the register keeps everything per
+    /// scene: the 27x scroll-detector regression the map found was visible only that way.
+    ///
+    /// # Two shapes, because depth means two different things
+    ///
+    /// The matrix is spec §5's own arrangement — a full-screen opaque base under staggered 90x14
+    /// popups — and it is the shape in which depth costs anything: a popup covers part of a
+    /// full-width run, so every layer is visited.
+    ///
+    /// The four `stacked` cases are the shape §5's **content-layer column** was measured in, layers
+    /// that each cover the whole screen, and they are here because that column and this compositor
+    /// disagree by design. §5 recorded 6.28 / 20.2 / 133.5 / 372.3 µs at depths 1, 3, 20 and 50 —
+    /// linear, one full copy per layer. This one starts from the topmost **opaque layer that floors
+    /// the run** and never looks below it, so fifty full-screen layers cost what one does. The
+    /// column is not reproduced; it is the number the floor removed.
+    ///
+    /// **The operator column is not here and cannot be**: §5's 107.3 µs is the *popups with their
+    /// shadows* figure, 78.2 µs of it is the operator layer, and ticket 12 is what makes a `Mix`
+    /// reach a cell. Reporting a content-only number under that heading would be a report that
+    /// quietly measured something else.
+    ///
+    /// ```text
+    /// cargo test --release -p vitui-engine composite_costs -- --nocapture
+    /// ```
+    #[test]
+    fn composite_costs_by_damaged_area_and_depth() {
+        const W: u16 = 300;
+        const H: u16 = 80;
+        const DEPTHS: [usize; 4] = [1, 3, 20, 50];
+        /// One cell, one row, one popup, the whole screen — §5's four damaged areas.
+        const AREAS: [(&str, u16, u16); 4] = [
+            ("one-cell", 1, 1),
+            ("one-row", W, 1),
+            ("one-popup", 90, 14),
+            ("whole-screen", W, H),
+        ];
+
+        /// A full-screen opaque base under `depth - 1` layers, drawn so no cell is a sentinel the
+        /// copy could shortcut. `stacked` makes those layers cover the whole screen too, which is
+        /// what puts an opaque floor over every run.
+        fn stack_of(depth: usize, stacked: bool) -> LayerStack {
+            let mut stack = LayerStack::new();
+            let base = stack.add_content(0, Rect::new(0, 0, W, H), true);
+            stack
+                .view(base)
+                .unwrap()
+                .fill(Rect::new(0, 0, W, H), ".", Style::new());
+            for i in 1..depth as i32 {
+                let rect = if stacked {
+                    Rect::new(0, 0, W, H)
+                } else {
+                    Rect::new(
+                        (i * 11) % (W as i32 - 92),
+                        (i * 3) % (H as i32 - 15),
+                        90,
+                        14,
+                    )
+                };
+                let id = stack.add_content(i, rect, true);
+                stack
+                    .view(id)
+                    .unwrap()
+                    .fill(Rect::new(0, 0, rect.w, rect.h), "#", Style::new());
+            }
+            stack
+        }
+
+        let mut plan: Vec<(String, u16, u16, usize, bool)> = Vec::new();
+        for (area, aw, ah) in AREAS {
+            for depth in DEPTHS {
+                plan.push((format!("{area}/depth-{depth}"), aw, ah, depth, false));
+            }
+        }
+        for depth in DEPTHS {
+            plan.push((format!("stacked/depth-{depth}"), W, H, depth, true));
+        }
+
+        let mut bench = Bench::new(20);
+        for (name, aw, ah, depth, stacked) in &plan {
+            let stack = stack_of(*depth, *stacked);
+            let mut frame = Surface::new(W, H);
+            let runs: Vec<Run> = (0..*ah)
+                .map(|y| Run {
+                    y: y + (H - ah) / 2,
+                    lo: (W - aw) / 2,
+                    hi: (W - aw) / 2 + aw - 1,
+                })
+                .collect();
+            // Fewer iterations for the expensive cells, so a round stays a round rather than a
+            // coffee break: the reported duration is per iteration either way.
+            let iters = if *aw as u32 * *ah as u32 > 10_000 {
+                20
+            } else {
+                200
+            };
+            bench = bench.case(name, iters, move || {
+                for r in &runs {
+                    std::hint::black_box(stack.composite_run(&mut frame, *r));
+                }
+            });
+        }
+        let report = bench.run();
+
+        if cfg!(debug_assertions) {
+            println!(
+                "these numbers are a debug build and are not comparable to the figures below; \
+                 rerun with --release"
+            );
+        }
+        println!(
+            "composite cost, minimum of 20 rounds:\n{report}\n\
+             spec §5 recorded, for content layers covering the whole screen at depths \
+             1 / 3 / 20 / 50: 6.28 / 20.2 / 133.5 / 372.3 us — which is what the `stacked` rows \
+             cost before an opaque floor was allowed to end the walk. And at 20 popups with their \
+             shadows — 40 layers, half of them operators ticket 12 has yet to build — \
+             171 ns for one cell, 2.02 us for one row, 16.7 us for one popup, 100.7 us for the \
+             whole screen"
+        );
+    }
+
+    #[test]
+    fn the_union_across_twenty_layers_is_exact() {
+        // Twenty layers, each one column wide, one gap column apart. Every gap has to survive, and
+        // an `OR` is the only union that keeps all nineteen of them.
+        let mut stack = LayerStack::new();
+        for i in 0..20 {
+            let id = stack.add_content(i, Rect::new(i * 2, 0, 1, 1), true);
+            stack
+                .view(id)
+                .unwrap()
+                .fill(Rect::new(0, 0, 1, 1), "#", Style::new());
+        }
+        let mut frame = Surface::new(64, 1);
+        let runs = runs_of(&mut stack, &mut frame);
+        assert_eq!(runs.len(), 20, "nineteen gaps, twenty runs");
+        assert_eq!(runs.iter().map(|r| r.len()).sum::<usize>(), 20);
     }
 }

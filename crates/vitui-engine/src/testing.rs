@@ -16,7 +16,49 @@ use std::io::{Error, ErrorKind, Result, Write};
 use std::sync::{Arc, Mutex};
 
 use crate::engine::{Clock, Config, Engine, Output, Presented, Screen};
+use crate::surface::Surface;
 use crate::term_model::TermModel;
+
+/// The invariant of spec §3, over a whole surface: a `CONTINUATION` never appears without a wide
+/// head immediately to its left, and a wide head is always followed by a `CONTINUATION`.
+///
+/// **It is asserted of two different things and that is the point.** Ticket 06 established it over
+/// one [`Surface`] — what a sequence of drawing verbs leaves behind — and ticket 11 establishes it
+/// over the **composited frame**, which is where it has to hold, because the frame is what the
+/// serializer reads. The round trip cannot see this class of defect: the serializer emits nothing
+/// for a continuation and the terminal model consumes nothing for one, so a frame with a bare
+/// continuation in it round-trips green while a real terminal would show something else. One
+/// definition, so that neither caller can quietly assert less than the other.
+///
+/// The one place it is deliberately *not* asserted is a pair bisected by a
+/// [`View::child`](crate::View::child) clip: a child may not widen its clip (spec §4), so the half
+/// outside stays. That is architecture ticket 20's to decide and not this instrument's to hide.
+pub(crate) fn assert_pairing_holds(s: &Surface) {
+    let (w, h) = s.size();
+    for y in 0..h {
+        let row = s.row(y);
+        for x in 0..w as usize {
+            let g = row[x].grapheme;
+            if g.is_continuation() {
+                assert!(x > 0, "a continuation in column 0 at row {y}");
+                assert!(
+                    row[x - 1].grapheme.is_wide_head(),
+                    "a continuation at ({x}, {y}) with no wide head to its left"
+                );
+            }
+            if g.is_wide_head() {
+                assert!(
+                    x + 1 < w as usize,
+                    "a wide head in the last column at row {y}"
+                );
+                assert!(
+                    row[x + 1].grapheme.is_continuation(),
+                    "a wide head at ({x}, {y}) with no continuation after it"
+                );
+            }
+        }
+    }
+}
 
 /// What a [`Recorder`] saw.
 #[derive(Default, Debug)]
@@ -126,6 +168,19 @@ impl Harness {
             replayed: 0,
             label: String::new(),
         }
+    }
+
+    /// Resize the screen, and the terminal with it.
+    ///
+    /// A real terminal that changes size clears itself, and the model is replaced for the same
+    /// reason the mirror is: a resized screen is showing something nobody recorded. Everything the
+    /// round trip asserts still has to hold on the first frame after, which is the point of driving
+    /// a resize through the harness rather than through `Screen` alone.
+    pub(crate) fn resize(&mut self, w: u16, h: u16) {
+        self.screen.resize(w, h);
+        self.term = TermModel::new(w, h);
+        // The bytes already written described the old screen; nothing after this replays them.
+        self.replayed = self.recording.lock().unwrap().bytes.len();
     }
 
     /// Name what this harness is driving, so a failure says which of twelve scenes it was.

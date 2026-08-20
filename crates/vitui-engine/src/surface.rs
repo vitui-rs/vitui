@@ -133,6 +133,12 @@ impl Surface {
         &mut self.tables
     }
 
+    /// What an untouched cell of this surface holds, and what a repaired half of a pair goes back
+    /// to: a blank for an opaque surface, `EMPTY` for a non-opaque one.
+    pub(crate) fn ground(&self) -> GraphemeId {
+        self.ground
+    }
+
     pub(crate) fn width(&self) -> u16 {
         self.width
     }

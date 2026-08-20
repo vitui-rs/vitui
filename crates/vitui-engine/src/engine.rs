@@ -294,9 +294,14 @@ impl Screen {
         let runs = &mut self.runs;
         self.frame.damage().for_each_run(|r| runs.push(r));
 
-        for run in &self.runs {
-            self.layers.composite_run(&mut self.frame, *run);
+        // The composite answers with the run it actually repainted, which is the damaged one
+        // widened by whatever a wide-glyph repair had to reach — a repair damages cells outside the
+        // layer's own rectangle (spec §5), and a repair that is not packed is a blanked half the
+        // terminal goes on showing.
+        for run in &mut self.runs {
+            *run = self.layers.composite_run(&mut self.frame, *run);
         }
+        merge_touching(&mut self.runs);
 
         self.packet
             .pack(&self.runs, &self.frame, self.layers.tables());
@@ -311,6 +316,47 @@ impl Screen {
             coalesced: 0,
             discarded_for_resize: false,
         }
+    }
+
+    /// Start again at a new size.
+    ///
+    /// **Resize damages everything and is simply correct, not clever** (spec §6): mark the whole
+    /// screen, clear every structure, reallocate the surfaces. A resized frame is composited from
+    /// the layers rather than patched out of the one before it.
+    ///
+    /// # The mirror starts blank, and that is a debt rather than a claim
+    ///
+    /// A terminal that has just changed size is showing something nobody recorded — it reflows on
+    /// `SIGWINCH`, it does not clear — and the honest value for the mirror is ADR 0006's **unknown
+    /// row**, which does not exist yet. A fresh `Mirror` says *blank* instead, which is a claim
+    /// about the terminal that is not true.
+    ///
+    /// It is harmless here only because every cell of the new screen is damaged and therefore
+    /// written unconditionally. **Ticket 14 is what ends that** — the equality filter skips a cell
+    /// whose composited value equals the mirror's, so the first blank cell of a resized screen would
+    /// be skipped and the reflowed content under it would stay — and ticket 14 carries the unknown
+    /// row in its own criteria, pointed at this function.
+    ///
+    /// There is nothing to invalidate beyond that, and the reason is §5's: the flattened prefix
+    /// cache that would have had to be invalidated was refused, on a budget the damage rectangles
+    /// deliver instead.
+    ///
+    /// The layers keep their rectangles and their cells. The runtime brings a rectangle and a draw
+    /// for every layer every frame (spec §12), so a layer whose shape must change is
+    /// [`set_rect`](crate::LayerStack::set_rect)'s business and not this one's.
+    ///
+    /// **Nothing outside this crate calls it yet.** §12's public surface has no `resize` on
+    /// `Screen`: the authoritative size is one packed atomic written by the input thread, and a
+    /// resize reaches the application as an `Event`. Ticket 22 is what brings both, and this is what
+    /// it will call.
+    #[allow(dead_code)]
+    pub(crate) fn resize(&mut self, w: u16, h: u16) {
+        self.size = (w, h);
+        self.frame = Surface::new(w, h);
+        self.frame.damage_mut().mark_all();
+        self.runs = Vec::with_capacity(h as usize * 4);
+        self.serializer = Serializer::new(w, h);
+        self.layers.forget_damage();
     }
 
     /// Mint a hyperlink id for `uri`, or return the one this screen already minted for it.
@@ -374,6 +420,35 @@ impl Screen {
     }
 }
 
+/// Fold runs that a repair widened into each other back into one.
+///
+/// Two runs on a row arrive with at least one undamaged column between them, and each can widen by
+/// one column — so the gap can close, and a gap that closed is one run rather than two. Leaving them
+/// apart would cost a cursor move between adjacent cells and break §14's gate #2, which reads
+/// exactly that: *two runs that touch are one run*.
+///
+/// They cannot **overlap**, and the reason is worth keeping: a run widens to its right only by
+/// blanking an orphaned `CONTINUATION` there, and its neighbour widens to its left only by blanking
+/// an orphaned wide head — and one column cannot be both.
+///
+/// In place, because the steady state allocates nothing (`tests/alloc.rs`).
+fn merge_touching(runs: &mut Vec<Run>) {
+    if runs.is_empty() {
+        return;
+    }
+    let mut kept = 0;
+    for at in 1..runs.len() {
+        let next = runs[at];
+        if next.y == runs[kept].y && next.lo <= runs[kept].hi.saturating_add(1) {
+            runs[kept].hi = runs[kept].hi.max(next.hi);
+        } else {
+            kept += 1;
+            runs[kept] = next;
+        }
+    }
+    runs.truncate(kept + 1);
+}
+
 /// Write the whole frame, retrying what the kernel would not take.
 ///
 /// **The frame is never split on purpose.** A synchronised-output block spanning two `write` calls
@@ -425,6 +500,75 @@ mod tests {
         };
         let (screen, _wake) = Engine::new(config).attach().unwrap();
         assert_eq!(screen.size(), (120, 40));
+    }
+
+    /// A resized frame is composited, not patched.
+    ///
+    /// The assertion that says so is the one about the cell at (11, 5): it is inside the *new*
+    /// screen and outside the old one, so a frame that carried anything across would either hold a
+    /// stale cell there or hold nothing. `Harness::present` closes the round trip on the frame
+    /// after, so the mirror and the replayed screen have to agree with it too — which is the half
+    /// that would fail if the serializer kept writing against a mirror of the old size.
+    #[test]
+    fn a_resized_frame_is_composited_rather_than_patched() {
+        let mut h = crate::testing::Harness::new(8, 3);
+        let id = h
+            .screen
+            .layers()
+            .add_content(0, crate::geom::Rect::new(0, 0, 20, 8), true);
+        h.screen.layers().view(id).unwrap().fill(
+            crate::geom::Rect::new(0, 0, 20, 8),
+            "#",
+            crate::style::Style::new(),
+        );
+        h.present();
+        assert_eq!(h.screen.size(), (8, 3));
+
+        h.resize(16, 6);
+        assert_eq!(h.screen.size(), (16, 6));
+        let presented = h.present();
+        assert!(presented.submitted, "a resize repaints the whole screen");
+        assert_eq!(
+            h.screen.runs().len(),
+            6,
+            "every row of the new screen is one run"
+        );
+        let frame = h.screen.frame();
+        assert_eq!(frame.size(), (16, 6));
+        for y in 0..6u16 {
+            for x in 0..16u16 {
+                assert_eq!(
+                    frame.row(y)[x as usize].grapheme.as_scalar(),
+                    Some('#'),
+                    "({x}, {y}) was not composited from the layer"
+                );
+            }
+        }
+    }
+
+    /// The other half of "clears every structure": a resize does not leave last frame's exposures
+    /// or last frame's per-layer damage behind, and the frame after a repainted one is idle again.
+    #[test]
+    fn the_frame_after_a_resize_is_idle() {
+        let mut h = crate::testing::Harness::new(8, 3);
+        let id = h
+            .screen
+            .layers()
+            .add_content(0, crate::geom::Rect::new(0, 0, 8, 3), true);
+        h.screen.layers().view(id).unwrap().fill(
+            crate::geom::Rect::new(0, 0, 8, 3),
+            ".",
+            crate::style::Style::new(),
+        );
+        h.present();
+        // A topology change whose exposure would otherwise survive the resize.
+        h.screen.layers().remove(id);
+        h.resize(20, 5);
+        assert!(h.present().submitted);
+        assert!(
+            !h.present().submitted,
+            "the frame after a resize has nothing left to say"
+        );
     }
 
     #[test]

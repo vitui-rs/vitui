@@ -30,7 +30,7 @@
 //! Operator layers are absent from both, and that is a real gap rather than an agreement: ticket 12
 //! is what makes a `Mix` reach a cell, and it is what puts one here.
 
-use crate::cell::Cell;
+use crate::cell::{Cell, GraphemeId};
 use crate::layer::LayerStack;
 use crate::surface::Surface;
 
@@ -45,10 +45,14 @@ pub(crate) fn composite(stack: &LayerStack, w: u16, h: u16) -> Surface {
     layers.sort_by_key(|l| (l.z, l.seq));
 
     let mut out = Surface::new(w, h);
+    // Which layer each cell of the row came from, or `None` where none covered it. It is what lets
+    // `repair` tell a pair the **composite** broke from one that arrived broken.
+    let mut painter = vec![None; w as usize];
     for y in 0..h {
         for x in 0..w {
             let mut cell = Cell::BLANK;
-            for layer in &layers {
+            let mut from = None;
+            for (i, layer) in layers.iter().enumerate() {
                 let lx = x as i32 - layer.rect.x;
                 let ly = y as i32 - layer.rect.y;
                 if lx < 0 || ly < 0 || lx >= layer.rect.w as i32 || ly >= layer.rect.h as i32 {
@@ -61,12 +65,56 @@ pub(crate) fn composite(stack: &LayerStack, w: u16, h: u16) -> Surface {
                 // right that they were identical.
                 if layer.opaque || !src.grapheme.is_empty() {
                     cell = src;
+                    from = Some(i);
                 }
             }
             out.row_mut(y)[x as usize] = cell;
+            painter[x as usize] = from;
         }
+        repair(out.row_mut(y), &painter);
     }
     out
+}
+
+/// Blank every half of a double-width pair that the **composite** left without its partner.
+///
+/// The fast path does this as four O(1) fixes per row per layer, at the two seams each paint
+/// creates, while the picture is being built. This is the same property stated the other way round:
+/// look at the finished picture, ask of every boundary whether the composite is what put those two
+/// cells next to each other, and blank whatever does not pair. It is far less clever and cannot miss
+/// a seam, which is the division of labour the whole file is written to — the oracle is allowed to
+/// be slow and is not allowed to be clever.
+///
+/// **A boundary between two columns one layer painted at once is that layer's own business.** The
+/// composite repairs what compositing broke and nothing else, and there is exactly one way for a
+/// layer to hand it a pair that is already broken: [`View::child`](crate::View::child) may not widen
+/// its clip (spec §4), so a pair the clip bisects keeps the half outside it. Whether *that* is right
+/// is architecture ticket 20's, and an oracle that quietly repaired it would make gate #1 fail
+/// against the compositor instead.
+///
+/// One left-to-right pass is enough. Blanking a head cannot orphan the cell to its right, because it
+/// is blanked precisely when that cell is not its continuation; blanking a continuation cannot orphan
+/// the cell to its left for the mirror image of the same reason.
+fn repair(row: &mut [Cell], painter: &[Option<usize>]) {
+    let w = row.len();
+    // One boundary per gap between columns, plus the one before the first column and the one after
+    // the last: a continuation in column zero and a wide head in the last column are both orphans,
+    // and neither has a neighbour to be measured against.
+    for b in 0..=w {
+        let left = if b == 0 { None } else { painter[b - 1] };
+        let right = if b == w { None } else { painter[b] };
+        if left.is_some() && left == right {
+            continue;
+        }
+        let head = b > 0 && row[b - 1].grapheme.is_wide_head();
+        let cont = b < w && row[b].grapheme.is_continuation();
+        let orphan = match (head, cont) {
+            (true, false) => b - 1,
+            (false, true) => b,
+            _ => continue,
+        };
+        row[orphan] = Cell::new(GraphemeId::SPACE, row[orphan].style);
+    }
 }
 
 /// Every cell at which two surfaces of the same size disagree.
