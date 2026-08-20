@@ -108,6 +108,11 @@ deny:
   # `wildcards = "deny"`. A `banned` error is fixed at its source, or the crate joins ADR 0001's
   # `wrappers` list in `deny.toml` with its reason on the same line.
   variables:
+    # Pinned here and deliberately NOT pinned on GitHub, which uses
+    # `EmbarkStudios/cargo-deny-action@v2` and therefore whatever cargo-deny is current. The two
+    # are not meant to match: the floating one is the early warning that a new advisory or a new
+    # cargo-deny release has something to say about us, and this one is the reproducible gate. The
+    # split is the same one the toolchain makes above, for the same reason.
     CARGO_DENY_VERSION: "0.20.2"
   # This job never builds the workspace, so it has no use for `target/` or the registry. What it
   # does re-fetch every run is the RustSec advisory database, and that is what is cached.
@@ -136,7 +141,13 @@ deny:
       # concatenation. Asserting the version it reports is not a substitute for a checksum, but it
       # does catch a truncated download, a redirect to an error page, and the wrong architecture —
       # each of which would otherwise surface as a confusing failure inside `cargo deny check`.
-      cargo-deny --version | grep -q "${CARGO_DENY_VERSION}"
+      #
+      # `cargo deny`, not the bare `cargo-deny`. The two paths above put the binary in two different
+      # places: the download goes to /usr/local/bin, which is on PATH, but `cargo install` goes to
+      # $CARGO_HOME/bin — and CARGO_HOME is overridden to $CI_PROJECT_DIR/.cargo above, which is
+      # not. Cargo resolves its own subcommands from $CARGO_HOME/bin, so going through cargo is the
+      # form that works on both.
+      cargo deny --version | grep -q "${CARGO_DENY_VERSION}"
     - cargo deny check
 
 budget:

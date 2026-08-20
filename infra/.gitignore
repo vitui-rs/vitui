@@ -2,7 +2,9 @@
 .terragrunt-stack/
 .terragrunt-cache/
 
-# Local Terraform state and the provider mirror.
+# Local Terraform state. It lives in `live/<location>/<stack>/.state/`, deliberately outside
+# `.terragrunt-stack/` — see the `remote_state` block in any unit for why.
+.state/
 *.tfstate
 *.tfstate.*
 .terraform/

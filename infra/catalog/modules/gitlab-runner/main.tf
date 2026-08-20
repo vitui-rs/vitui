@@ -25,6 +25,16 @@ resource "null_resource" "authenticate" {
     gitlab_ready    = var.gitlab_ready
     description     = var.description
     config_template = local_file.config_template.content_md5
+
+    # Without this, deleting `.local/` by hand is unrecoverable while GitLab keeps running:
+    # `local_file` rewrites the template with byte-identical content, so its md5 does not move, no
+    # other trigger moves either, and Terraform reports no changes. The runner container then comes
+    # up with no `[[runners]]` block and every pipeline sits pending forever with nothing anywhere
+    # saying why. `fileexists` is evaluated at plan time, so the file going missing is a change.
+    #
+    # It costs one extra run: false on the first apply, true on the second, stable after that.
+    # Re-running is harmless here — the script finds the existing runner by description.
+    config_present = fileexists(local.config_path)
   }
 
   provisioner "local-exec" {
@@ -63,6 +73,14 @@ resource "docker_container" "runner" {
   restart = "unless-stopped"
 
   depends_on = [null_resource.authenticate]
+
+  lifecycle {
+    # `depends_on` orders the first creation and nothing after it: when the token is reissued, the
+    # container keeps running with the config it read at startup. gitlab-runner does watch
+    # `config.toml`, but recovering a deleted `.local/` needed a manual `docker restart` before this
+    # was here — and "it usually reloads" is not a property to leave a CI host resting on.
+    replace_triggered_by = [null_resource.authenticate]
+  }
 
   networks_advanced {
     name = var.network_name

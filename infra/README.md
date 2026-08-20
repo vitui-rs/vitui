@@ -86,16 +86,23 @@ anywhere says "bad password" until you read the migration log inside the contain
 
 The GitHub workflow's `test` job is a three-OS matrix. A local Docker runner is one OS and one
 architecture — here, linux/arm64. **Green here means the gates pass; it does not mean they pass on
-Windows.** `.github/workflows/ci.yml` remains the definition of record for that, and both files are
-kept in step by hand.
+Windows.** `.github/workflows/ci.yml` remains the definition of record for that.
+
+The two files run the same three gates, and that much is kept in step by hand. Their *versions* are
+deliberately not: GitHub tracks `dtolnay/rust-toolchain@stable` and a floating
+`cargo-deny-action@v2`, while this side pins the toolchain and cargo-deny to exact versions. The
+floating side is the early warning that a new release has something to say about us; the pinned side
+is the reproducible gate. Expecting them to agree would cost both properties.
 
 ## Targets
 
 | | |
 |---|---|
 | `make gitlab` | everything up, browser open |
-| `make plan` / `make apply` / `make destroy` | the stack |
-| `make clean` | destroy, drop the volumes and the generated stack — the next apply is a first boot again |
+| `make plan` / `make apply` | the stack |
+| `make stop` / `make start` | stop paying for the RAM, keep everything — seconds to come back |
+| `make destroy` | tear the stack down **including the volumes**; the next apply is a first boot |
+| `make clean` | destroy, plus the generated stack, the state and the bootstrap artifacts |
 | `make push` | push this repository and open the pipeline page |
 | `make status` | containers, and whether the runner is verified |
 | `make token` | print the push token |

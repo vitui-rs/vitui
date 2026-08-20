@@ -6,11 +6,19 @@ locals {
 resource "null_resource" "bootstrap" {
   triggers = {
     # Re-run when GitLab is replaced, and when either name changes. Not on every apply: this
-    # reissues a token, and reissuing one behind the user's back invalidates the remote they
-    # already configured.
+    # reissues a token.
     gitlab_ready = var.gitlab_ready
     project_path = var.project_path
     token_name   = var.token_name
+
+    # And re-run when the artifacts are gone, which is the case that is otherwise unrecoverable:
+    # nothing else here moves when `.local/` is deleted, so `make push` would fail with "run `make
+    # apply` first" in a loop that `make apply` does not break. Evaluated at plan time, so the file
+    # going missing is a change. Same shape as the runner's `config_present`.
+    #
+    # This is also the recovery path for the token simply expiring — `bootstrap.rb` issues it for
+    # 300 days — provided the file is deleted along with it.
+    token_present = fileexists(local.out_token)
   }
 
   provisioner "local-exec" {

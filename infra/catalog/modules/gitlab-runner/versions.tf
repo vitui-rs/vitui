@@ -1,18 +1,24 @@
 terraform {
+  # Providers are pinned to exact versions for the same reason the images in `env.hcl` are: a CI
+  # host that changes under you is not a gate. `.terraform.lock.hcl` cannot do this job here — it
+  # is generated inside `.terragrunt-stack/`, which is not tracked — so the constraint is the pin.
+  #
+  # This was not hypothetical. The constraint here read `>= 3.0` for kreuzwerker/docker and had
+  # already resolved to 4.5.0.
   required_version = ">= 1.5"
 
   required_providers {
     docker = {
       source  = "kreuzwerker/docker"
-      version = ">= 3.0"
+      version = "4.5.0"
     }
     local = {
       source  = "hashicorp/local"
-      version = ">= 2.4"
+      version = "2.9.0"
     }
     null = {
       source  = "hashicorp/null"
-      version = ">= 3.2"
+      version = "3.3.1"
     }
   }
 }

@@ -109,23 +109,23 @@ resource "null_resource" "wait_for_ready" {
     interpreter = ["/bin/sh", "-c"]
     command     = <<-EOT
       set -eu
-      deadline=$(( $(date +%s) + ${var.ready_timeout_seconds} ))
 
+      hints() {
+        printf 'look at: docker logs %s\n' '${var.container_name}' >&2
+        printf 'and at:  docker exec %s gitlab-ctl status\n' '${var.container_name}' >&2
+      }
+
+      deadline=$(( $(date +%s) + ${var.ready_timeout_seconds} ))
       printf 'waiting for %s to serve /-/readiness ' '${var.container_name}'
       while :; do
-        if docker exec '${var.container_name}'              curl -fsS -o /dev/null "http://localhost:${var.http_port}/-/readiness" 2>/dev/null; then
-          printf ' ok
-'
+        if docker exec '${var.container_name}' \
+             curl -fsS -o /dev/null "http://localhost:${var.http_port}/-/readiness" 2>/dev/null; then
+          printf ' ok\n'
           break
         fi
         if [ "$(date +%s)" -ge "$deadline" ]; then
-          printf '
-gave up after ${var.ready_timeout_seconds}s
-' >&2
-          printf 'look at: docker logs %s
-' '${var.container_name}' >&2
-          printf 'and at:  docker exec %s gitlab-ctl status
-' '${var.container_name}' >&2
+          printf '\n/-/readiness never answered within ${var.ready_timeout_seconds}s\n' >&2
+          hints
           exit 1
         fi
         printf '.'
@@ -134,17 +134,20 @@ gave up after ${var.ready_timeout_seconds}s
 
       # `gitlab-rails runner` is how the runner token and the project are created, and it loads the
       # whole Rails environment. If it cannot run, `/-/readiness` was optimistic.
+      #
+      # Its own budget, not the remainder of the first loop's. One shared deadline meant that a cold
+      # boot which spent most of it waiting on `/-/readiness` left this loop a single attempt and
+      # then reported "never became usable" — the wrong cause for what is plainly a timeout.
+      deadline=$(( $(date +%s) + ${var.ready_timeout_seconds} ))
       printf 'checking gitlab-rails is usable '
       while :; do
         if docker exec '${var.container_name}' gitlab-rails runner 'exit 0' >/dev/null 2>&1; then
-          printf ' ok
-'
+          printf ' ok\n'
           exit 0
         fi
         if [ "$(date +%s)" -ge "$deadline" ]; then
-          printf '
-gitlab-rails never became usable
-' >&2
+          printf '\ngitlab-rails did not run within a further ${var.ready_timeout_seconds}s\n' >&2
+          hints
           exit 1
         fi
         printf '.'
