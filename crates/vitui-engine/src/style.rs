@@ -14,8 +14,20 @@
 //! bits 25..0  bg  [tag:2][payload:24]
 //! ```
 //!
-//! Exactly 64 bits with nothing spare. Bit 63 is reserved here and given its meaning by ticket 07;
-//! until then no `Style` a caller can hold is extended.
+//! Exactly 64 bits with nothing spare. Bit 63 says where the two colours are: clear, and they are
+//! inline in bits 51..0; set, and bits 51..0 are a handle into the extended-style table, which
+//! carries the colours together with the underline colour and the OSC 8 hyperlink that did not fit
+//! (ticket 07). Nothing on this type can reach the bit — [`View::restyle`](crate::View::restyle) is
+//! the only verb that sets or clears it, because it is the only one that owns the table.
+
+/// Bit 63: set, and bits 51..0 are a handle into the extended-style table rather than two colours.
+pub(crate) const EXTENDED: u64 = 1 << 63;
+
+/// The eleven attribute bits, 62..52: the eight flags plus the three-bit underline style.
+pub(crate) const ATTR_MASK: u64 = 0x7FF0_0000_0000_0000;
+
+/// Bits 51..0: two inline colours, or one handle into the extended-style table.
+pub(crate) const EXT_MASK: u64 = (1 << 52) - 1;
 
 pub(crate) const BOLD: u64 = 1 << 62;
 pub(crate) const DIM: u64 = 1 << 61;
@@ -90,10 +102,42 @@ impl Color {
 
 /// How a cell is painted: eleven attributes and two colours.
 ///
-/// Built by naming what it is, never by editing what a cell already has — `Style::with_bg` and
-/// `Style::with_fg_bg` were removed from this API before it was implemented, because both were
-/// silently wrong on an extended style (spec §3). Changing what is already in a cell will be
-/// `restyle`'s job, and that verb will own the table; ticket 07 is what brings it.
+/// Built by naming what it is, never by editing what a cell already has. Changing what is already
+/// in a cell is [`View::restyle`](crate::View::restyle)'s job, because that verb owns the
+/// extended-style table and this type does not — `Style` stays `Copy`, self-contained and free of
+/// any table.
+///
+/// # The two methods that are absent, and why the compiler is the right place to say so
+///
+/// `Style::with_bg` and `Style::with_fg_bg` were **removed** rather than documented, because both
+/// were silently wrong on an extended style (spec §3). `with_bg` returned an extended style
+/// unchanged, so a selection would highlight everything except the hyperlink. `with_fg_bg` kept
+/// bits 62..52 and rewrote the rest, so it cleared bit 63 and overwrote the 52-bit handle with
+/// colours — **a shadow falling across a hyperlink deleted the hyperlink**, with no error and
+/// nothing to see.
+///
+/// Their absence is gated, not asserted in prose. Each `compile_fail` below is paired with a
+/// positive twin that names `Style` by path and calls the verb that replaced it: a `compile_fail`
+/// alone passes for any reason at all, including `Style` having been renamed out from under it.
+///
+/// ```compile_fail,E0599
+/// let _ = vitui_engine::Style::new().with_bg(vitui_engine::Color::indexed(4));
+/// ```
+///
+/// ```
+/// let _: vitui_engine::Style = vitui_engine::Style::new().bg(vitui_engine::Color::indexed(4));
+/// ```
+///
+/// ```compile_fail,E0599
+/// let _ = vitui_engine::Style::new()
+///     .with_fg_bg(vitui_engine::Color::indexed(1), vitui_engine::Color::indexed(4));
+/// ```
+///
+/// ```
+/// let _: vitui_engine::Style = vitui_engine::Style::new()
+///     .fg(vitui_engine::Color::indexed(1))
+///     .bg(vitui_engine::Color::indexed(4));
+/// ```
 ///
 /// # Layout
 ///
@@ -222,12 +266,62 @@ impl Style {
         ((self.bits() & UNDERLINE_MASK) >> UNDERLINE_SHIFT) as u8
     }
 
-    pub(crate) const fn foreground(self) -> Color {
+    /// The inline foreground.
+    ///
+    /// **Only meaningful on a style that is not extended**, because an extended word spends these
+    /// bits on a handle — and reading a handle as two colours is precisely the silent wrong answer
+    /// `Style::with_fg_bg` was removed for. The guard is a `debug_assert` rather than an `Option`
+    /// so that the serializer's inner loop keeps comparing colours rather than unwrapping them; a
+    /// caller that may hold either asks [`is_extended`](Style::is_extended) first.
+    pub(crate) fn foreground(self) -> Color {
+        debug_assert!(
+            !self.is_extended(),
+            "an extended style has no inline foreground"
+        );
         Color::from_bits(((self.bits() >> FG_SHIFT) & COLOR_MASK) as u32)
     }
 
-    pub(crate) const fn background(self) -> Color {
+    /// The inline background. The same guard as [`foreground`](Style::foreground).
+    pub(crate) fn background(self) -> Color {
+        debug_assert!(
+            !self.is_extended(),
+            "an extended style has no inline background"
+        );
         Color::from_bits((self.bits() & COLOR_MASK) as u32)
+    }
+
+    /// Whether bits 51..0 are a handle rather than two colours.
+    pub(crate) const fn is_extended(self) -> bool {
+        self.bits() & EXTENDED != 0
+    }
+
+    /// The extended-style handle this word carries, or `None` when its colours are inline.
+    pub(crate) const fn ext_handle(self) -> Option<u32> {
+        if self.is_extended() {
+            Some((self.bits() & EXT_MASK) as u32)
+        } else {
+            None
+        }
+    }
+
+    /// The eleven attribute bits, in place. The one field that means the same thing on either side
+    /// of the extended bit, which is why `restyle` can carry it across untouched.
+    pub(crate) const fn attr_word(self) -> u64 {
+        self.bits() & ATTR_MASK
+    }
+
+    /// An inline style word: attributes in place, two colours below them, bit 63 clear.
+    pub(crate) const fn inline(attrs: u64, fg: Color, bg: Color) -> Style {
+        Style::from_bits((attrs & ATTR_MASK) | ((fg.bits() as u64) << FG_SHIFT) | bg.bits() as u64)
+    }
+
+    /// An extended style word: attributes in place, a handle below them, bit 63 set.
+    ///
+    /// A `u32` handle always fits in the 52 bits available, which is asserted below rather than
+    /// argued: the table would have to hold 4.3 billion distinct extended styles to reach the
+    /// edge, and ticket 08's sweep exists because it will not get near it.
+    pub(crate) const fn extended(attrs: u64, handle: u32) -> Style {
+        Style::from_bits(EXTENDED | (attrs & ATTR_MASK) | handle as u64)
     }
 
     const fn set(self, bit: u64) -> Style {
@@ -259,10 +353,10 @@ mod tests {
     }
 
     #[test]
-    fn bit_63_is_reserved_and_no_builder_can_reach_it() {
-        // Ticket 07 is what gives the bit its meaning. What is pinned here is that until then
-        // nothing a caller can hold is extended, which is what makes `fg` and `bg` safe where
-        // `Style::with_bg` was not.
+    fn bit_63_is_the_extended_bit_and_no_builder_can_reach_it() {
+        // `restyle` is the only verb that sets it, because it is the only one that owns the table.
+        // What is pinned here is that nothing on `Style` itself can — which is what makes `fg` and
+        // `bg` safe where `Style::with_bg` was not.
         let everything = Style::new()
             .bold()
             .dim()
@@ -276,6 +370,53 @@ mod tests {
             .fg(Color::rgb(255, 255, 255))
             .bg(Color::rgb(255, 255, 255));
         assert_eq!(everything.bits() & (1 << 63), 0);
+        assert!(!everything.is_extended());
+        assert_eq!(everything.ext_handle(), None);
+    }
+
+    #[test]
+    fn an_extended_word_keeps_its_attributes_and_spends_the_rest_on_a_handle() {
+        let attrs = Style::new().bold().underline_curly().attr_word();
+        let s = Style::extended(attrs, 0x000F_FFFF);
+        assert!(s.is_extended());
+        assert_eq!(s.ext_handle(), Some(0x000F_FFFF));
+        assert_eq!(s.attrs(), BOLD);
+        assert_eq!(s.underline_style(), 3);
+    }
+
+    #[test]
+    fn the_widest_handle_a_u32_can_hold_still_fits_under_the_attributes() {
+        // The claim `Style::extended` rests on, asserted rather than argued: 52 bits is room for
+        // every `u32`, so the table can never mint a handle that collides with an attribute bit.
+        let s = Style::extended(Style::new().bold().attr_word(), u32::MAX);
+        assert_eq!(s.ext_handle(), Some(u32::MAX));
+        assert_eq!(s.attrs(), BOLD);
+        assert!((u32::MAX as u64) <= EXT_MASK);
+    }
+
+    #[test]
+    fn an_inline_word_is_exactly_what_the_builders_produce() {
+        // `inline` is `restyle`'s way back across the bit, so it must land on the same word a
+        // caller would have built by naming the style — otherwise two cells that look identical
+        // would compare unequal and be re-emitted for ever.
+        let built = Style::new()
+            .bold()
+            .underline_dotted()
+            .fg(Color::indexed(3))
+            .bg(Color::rgb(1, 2, 3));
+        let rebuilt = Style::inline(built.attr_word(), Color::indexed(3), Color::rgb(1, 2, 3));
+        assert_eq!(built, rebuilt);
+    }
+
+    #[test]
+    fn the_attribute_word_is_the_eleven_bits_and_nothing_below_them() {
+        let s = Style::new()
+            .bold()
+            .underline_dashed()
+            .fg(Color::rgb(255, 255, 255))
+            .bg(Color::rgb(255, 255, 255));
+        assert_eq!(s.attr_word(), BOLD | (5 << UNDERLINE_SHIFT));
+        assert_eq!(s.attr_word() & !ATTR_MASK, 0);
     }
 
     #[test]

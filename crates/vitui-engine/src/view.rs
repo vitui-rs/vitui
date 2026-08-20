@@ -7,17 +7,17 @@
 //!
 //! # Scope
 //!
-//! `text`, `set` and `fill` at absolute coordinates on the root view, over extended grapheme
-//! clusters. `child`, `scrolled` and the visibility queries arrive with ticket 09; `restyle` with
-//! ticket 07.
+//! `text`, `set`, `fill` and `restyle` at absolute coordinates on the root view, over extended
+//! grapheme clusters. `child`, `scrolled` and the visibility queries arrive with ticket 09.
 
 use std::marker::PhantomData;
 
 use crate::cell::{Cell, GraphemeId};
 use crate::damage::RowBits;
 use crate::geom::Rect;
-use crate::intern::Interner;
+use crate::restyle::{Restyle, apply};
 use crate::style::Style;
+use crate::tables::Tables;
 use crate::ucd;
 
 /// Why a drawing verb stopped.
@@ -68,7 +68,7 @@ impl Written {
 ///
 /// # What it holds
 ///
-/// The cells, the damage and the interner, taken apart rather than reached through a
+/// The cells, the damage and the handle tables, taken apart rather than reached through a
 /// `&mut Surface`. Every write verb needs all three at once and they do not come from one owner:
 /// a surface in a layer stack draws into the **stack's** handle space, while a standalone surface
 /// draws into its own (spec §3, ticket 19).
@@ -110,7 +110,7 @@ pub struct View<'a> {
     clip: Rect,
     /// What an untouched cell of the surface holds; see [`Row::blank`].
     ground: GraphemeId,
-    interner: &'a mut Interner,
+    tables: &'a mut Tables,
     /// `View: !Send`. Zero-sized, private, and the whole mechanism.
     _not_send: PhantomData<*const ()>,
 }
@@ -134,7 +134,7 @@ impl<'r> Row<'r> {
     /// The row `y` holds, clipped to what a view may touch. `None` when `y` is outside.
     ///
     /// A free constructor rather than a method on `View`, because a verb needs the row and the
-    /// interner at the same time and they are two of the view's fields.
+    /// tables at the same time and they are two of the view's fields.
     fn of(
         cells: &'r mut [Cell],
         stride: u16,
@@ -189,6 +189,33 @@ impl<'r> Row<'r> {
         (x, x)
     }
 
+    /// Widen `lo..=hi` so that no double-width pair is bisected, or shrink it where the clip
+    /// forbids widening. `None` when nothing is left to touch.
+    ///
+    /// The two edges are independent and each has the same two answers: reach the other half if it
+    /// is inside the clip, and give up this half if it is not. Giving up is what keeps a view from
+    /// widening itself — the head of a pair the clip starts inside belongs to whoever owns the
+    /// cells to the left.
+    fn whole_pairs(&self, mut lo: u16, mut hi: u16) -> Option<(u16, u16)> {
+        if self.cells[lo as usize].grapheme.is_continuation() {
+            if lo > self.lo {
+                lo -= 1;
+            } else {
+                lo += 1;
+            }
+        }
+        if hi >= lo && self.cells[hi as usize].grapheme.is_wide_head() {
+            if hi < self.hi {
+                hi += 1;
+            } else if hi == 0 {
+                return None;
+            } else {
+                hi -= 1;
+            }
+        }
+        if hi < lo { None } else { Some((lo, hi)) }
+    }
+
     /// Write one cell, repairing whatever it lands on first.
     fn put(&mut self, x: u16, cell: Cell) -> (u16, u16) {
         let (lo, hi) = self.repair(x);
@@ -204,7 +231,7 @@ impl<'a> View<'a> {
         stride: u16,
         clip: Rect,
         ground: GraphemeId,
-        interner: &'a mut Interner,
+        tables: &'a mut Tables,
     ) -> View<'a> {
         View {
             cells,
@@ -212,7 +239,7 @@ impl<'a> View<'a> {
             stride,
             clip,
             ground,
-            interner,
+            tables,
             _not_send: PhantomData,
         }
     }
@@ -254,7 +281,7 @@ impl<'a> View<'a> {
             stride,
             clip,
             ground,
-            interner,
+            tables,
             ..
         } = self;
         let (left, right) = (clip.x, clip.right());
@@ -281,7 +308,7 @@ impl<'a> View<'a> {
                 consumed = offset;
                 break;
             }
-            let Some(g) = interner.handle(cluster) else {
+            let Some(g) = tables.interner.handle(cluster) else {
                 // No column, so no cell — and the bytes are still consumed.
                 offset += cluster.len();
                 consumed = offset;
@@ -379,14 +406,14 @@ impl<'a> View<'a> {
             stride,
             clip,
             ground,
-            interner,
+            tables,
             ..
         } = self;
         let area = r.intersect(*clip);
         if area.is_empty() {
             return;
         }
-        let Some(g) = interner.handle(first) else {
+        let Some(g) = tables.interner.handle(first) else {
             return;
         };
         let cell = Cell::new(g, style);
@@ -414,6 +441,77 @@ impl<'a> View<'a> {
                 }
             }
             damage.mark(y, dlo as i32, dhi as i32);
+        }
+    }
+
+    /// Change how the cells in `r` are painted, without touching what is drawn there.
+    ///
+    /// Moving a selection bar one row costs **205 ns against 1.36 µs** for redrawing the same row,
+    /// 6.6x (spec §4). Without this verb, changing a background means re-segmenting UTF-8 and
+    /// re-interning every cluster on the row to write back the text that was already there.
+    ///
+    /// # What it promises
+    ///
+    /// **It rewrites what the descriptor names and preserves every channel it does not, on either
+    /// side of the extended bit** — so a shadow falling across a hyperlink darkens it instead of
+    /// deleting it. A descriptor that clears both extended channels puts the cell back inline:
+    /// *extended is a cost, not a state*.
+    ///
+    /// # The memo, which is the whole implementation
+    ///
+    /// Cells in a run are contiguous and share a `u64`, so one entry remembering the previous
+    /// style word turns a per-cell table round trip into a per-*distinct-style* one: 12.65 µs for a
+    /// full screen against 24.51 µs unmemoised, and 75.49 against 289.19 on a screen where every
+    /// cell is hyperlinked. **It is free where nothing is extended** — 12.65 against the 13.02 µs
+    /// of an inline mask that skips extended cells and is therefore wrong.
+    ///
+    /// Two fast paths were built beside it and both were refused, so that nobody re-derives them:
+    /// a per-cell branch taking the mask on inline cells (13.10 / 17.43 / 90.00 µs — it loses,
+    /// because the branch breaks the mask loop's vectorisation) and a surface-level *contains no
+    /// extended cell* gate (12.38 / 17.44 / 75.61 µs — indistinguishable from the memo alone).
+    ///
+    /// # Double-width pairs are restyled as units
+    ///
+    /// A continuation carries its head's style and nothing else: the serializer emits the head and
+    /// skips the continuation, so the terminal paints both columns from one SGR. Restyling one half
+    /// of a pair would leave the frame saying something the wire cannot express. A pair bisected by
+    /// the rectangle is therefore restyled whole — and left alone when its other half is outside
+    /// the clip, because a view may not widen itself (spec §4).
+    pub fn restyle(&mut self, r: Rect, d: &Restyle) {
+        let View {
+            cells,
+            damage,
+            stride,
+            clip,
+            ground,
+            tables,
+            ..
+        } = self;
+        let area = r.intersect(*clip);
+        if area.is_empty() {
+            return;
+        }
+        // One entry, on the *input* style word. Runs of equal style are what a drawing verb
+        // produces, so this hits on nearly every cell and misses once per distinct style.
+        let mut memo: Option<(Style, Style)> = None;
+
+        for y in area.y..area.bottom() {
+            let row = Row::of(cells, *stride, *clip, *ground, y).expect("the area is in the clip");
+            let Some((lo, hi)) = row.whole_pairs(area.x as u16, (area.right() - 1) as u16) else {
+                continue;
+            };
+            for cell in &mut row.cells[lo as usize..=hi as usize] {
+                let old = cell.style;
+                cell.style = match memo {
+                    Some((was, now)) if was == old => now,
+                    _ => {
+                        let now = apply(tables, d, old);
+                        memo = Some((old, now));
+                        now
+                    }
+                };
+            }
+            damage.mark(y, lo as i32, hi as i32);
         }
     }
 }
@@ -447,7 +545,8 @@ mod tests {
                 continue;
             }
             out.push_str(
-                &s.interner()
+                &s.tables()
+                    .interner
                     .resolve(c.grapheme)
                     .unwrap_or_else(|| "?".to_owned()),
             );
@@ -484,7 +583,7 @@ mod tests {
         let mut s = Surface::new(300, 1);
         let row: String = std::iter::repeat_n('漢', 150).collect();
         s.root().text(0, 0, &row, Style::new());
-        assert!(s.interner().is_empty());
+        assert!(s.tables().interner.is_empty());
     }
 
     /// The invariant of spec §3, over a whole surface: a `CONTINUATION` never appears without a wide
@@ -878,5 +977,260 @@ mod tests {
     fn a_root_view_is_the_whole_surface() {
         let mut s = Surface::new(300, 80);
         assert_eq!(s.root().size(), (300, 80));
+    }
+
+    // ---- restyle -----------------------------------------------------------------------------
+
+    fn styles(s: &Surface, y: u16) -> Vec<Style> {
+        s.row(y).iter().map(|c| c.style).collect()
+    }
+
+    #[test]
+    fn restyle_changes_how_cells_are_painted_and_not_what_is_drawn() {
+        let mut s = Surface::new(8, 1);
+        s.root().text(0, 0, "abcdefgh", Style::new());
+        s.damage_mut().clear();
+        s.root().restyle(
+            Rect::new(2, 0, 3, 1),
+            &Restyle {
+                bg: Some(Color::indexed(4)),
+                ..Default::default()
+            },
+        );
+        assert_eq!(glyphs(&s, 0), "abcdefgh", "nothing moved");
+        let want = Style::new().bg(Color::indexed(4));
+        assert_eq!(
+            styles(&s, 0),
+            vec![
+                Style::new(),
+                Style::new(),
+                want,
+                want,
+                want,
+                Style::new(),
+                Style::new(),
+                Style::new()
+            ]
+        );
+    }
+
+    #[test]
+    fn restyle_marks_damage_over_the_span_it_touched_and_no_further() {
+        let mut s = Surface::new(8, 2);
+        s.root().fill(Rect::new(0, 0, 8, 2), ".", Style::new());
+        s.damage_mut().clear();
+        s.root().restyle(
+            Rect::new(2, 1, 3, 1),
+            &Restyle {
+                set: Restyle::BOLD,
+                ..Default::default()
+            },
+        );
+        assert_eq!(runs(&s), vec![Run { y: 1, lo: 2, hi: 4 }]);
+    }
+
+    #[test]
+    fn restyle_is_clamped_to_the_clip_rather_than_refused() {
+        // ADR 0022: a verb reaching outside is ordinary traffic for a virtualised component.
+        let mut s = Surface::new(4, 1);
+        s.root().restyle(
+            Rect::new(-100, 0, 1000, 1),
+            &Restyle {
+                set: Restyle::BOLD,
+                ..Default::default()
+            },
+        );
+        assert_eq!(runs(&s), vec![Run { y: 0, lo: 0, hi: 3 }]);
+        assert!(styles(&s, 0).iter().all(|st| *st == Style::new().bold()));
+    }
+
+    #[test]
+    fn restyle_entirely_outside_the_clip_touches_nothing() {
+        let mut s = Surface::new(4, 1);
+        s.root().restyle(
+            Rect::new(100, 0, 4, 1),
+            &Restyle {
+                set: Restyle::BOLD,
+                ..Default::default()
+            },
+        );
+        assert!(s.damage().is_empty());
+    }
+
+    #[test]
+    fn restyle_takes_a_bisected_pair_whole_at_both_edges() {
+        // A continuation carries its head's style, because the serializer emits the head and skips
+        // the continuation. Half a restyled pair would be a frame saying something the wire cannot.
+        let mut s = Surface::new(8, 1);
+        s.root().text(0, 0, "漢字漢字", Style::new());
+        s.damage_mut().clear();
+        s.root().restyle(
+            Rect::new(1, 0, 4, 1),
+            &Restyle {
+                set: Restyle::BOLD,
+                ..Default::default()
+            },
+        );
+        let bold = Style::new().bold();
+        assert_eq!(
+            styles(&s, 0),
+            vec![
+                bold,
+                bold,
+                bold,
+                bold,
+                bold,
+                bold,
+                Style::new(),
+                Style::new()
+            ],
+            "the pair at 0..1 and the pair at 4..5 both came in whole"
+        );
+        assert_eq!(runs(&s), vec![Run { y: 0, lo: 0, hi: 5 }]);
+    }
+
+    #[test]
+    fn restyle_leaves_a_pair_alone_when_the_clip_forbids_reaching_its_other_half() {
+        // A view may not widen itself (spec §4): the head at column 1 belongs to whoever owns the
+        // cells left of the clip, so the continuation at column 2 is left as it is rather than
+        // restyled into a pair that disagrees with itself.
+        let mut s = Surface::new(8, 1);
+        s.root().text(0, 0, "a漢b", Style::new());
+        s.damage_mut().clear();
+        s.clipped(Rect::new(2, 0, 2, 1)).restyle(
+            Rect::new(0, 0, 8, 1),
+            &Restyle {
+                set: Restyle::BOLD,
+                ..Default::default()
+            },
+        );
+        assert_eq!(s.row(0)[1].style, Style::new(), "the head, out of reach");
+        assert_eq!(s.row(0)[2].style, Style::new(), "so its continuation too");
+        assert_eq!(
+            s.row(0)[3].style,
+            Style::new().bold(),
+            "and `b` is restyled"
+        );
+        assert_eq!(runs(&s), vec![Run { y: 0, lo: 3, hi: 3 }]);
+    }
+
+    #[test]
+    fn restyle_over_one_column_that_is_a_stranded_continuation_touches_nothing() {
+        let mut s = Surface::new(8, 1);
+        s.root().text(0, 0, "漢", Style::new());
+        s.damage_mut().clear();
+        s.clipped(Rect::new(1, 0, 1, 1)).restyle(
+            Rect::new(1, 0, 1, 1),
+            &Restyle {
+                set: Restyle::BOLD,
+                ..Default::default()
+            },
+        );
+        assert!(s.damage().is_empty());
+        assert_eq!(s.row(0)[1].style, Style::new());
+    }
+
+    #[test]
+    fn restyle_carries_a_hyperlink_across_a_shadow_falling_over_it() {
+        // The whole reason this verb exists rather than a `Style` method: `with_fg_bg` would have
+        // cleared bit 63 and overwritten the handle, deleting the hyperlink with nothing to see.
+        let mut stack = LayerStack::new();
+        let id = stack.add_content(0, Rect::new(0, 0, 4, 1), true);
+        let link = stack.tables_mut().link("https://example.com/");
+        {
+            let mut v = stack.view(id).unwrap();
+            v.text(0, 0, "abcd", Style::new());
+            v.restyle(
+                Rect::new(0, 0, 4, 1),
+                &Restyle {
+                    link: Some(link),
+                    ..Default::default()
+                },
+            );
+            v.restyle(
+                Rect::new(1, 0, 2, 1),
+                &Restyle {
+                    bg: Some(Color::indexed(0)),
+                    ..Default::default()
+                },
+            );
+        }
+        let mut frame = Surface::new(4, 1);
+        stack.union_damage_into(&mut frame);
+        let mut all = Vec::new();
+        frame.damage().for_each_run(|r| all.push(r));
+        for r in all {
+            stack.composite_run(&mut frame, r);
+        }
+        for x in 0..4usize {
+            let handle = frame.row(0)[x].style.ext_handle().expect("still extended");
+            let e = stack.tables().exts.get(handle).unwrap();
+            assert_eq!(e.link, link, "column {x} kept its hyperlink");
+        }
+        assert_eq!(
+            stack
+                .tables()
+                .exts
+                .get(frame.row(0)[1].style.ext_handle().unwrap())
+                .unwrap()
+                .bg,
+            Color::indexed(0),
+            "and the shadow still landed"
+        );
+    }
+
+    #[test]
+    fn restyle_mints_one_table_entry_per_distinct_style_and_not_one_per_cell() {
+        // The memo, as a count rather than as a stopwatch: a full row shares one style word, so the
+        // table is reached once however many cells the verb covers.
+        let mut stack = LayerStack::new();
+        let id = stack.add_content(0, Rect::new(0, 0, 300, 1), true);
+        let link = stack.tables_mut().link("https://example.com/");
+        {
+            let mut v = stack.view(id).unwrap();
+            v.fill(Rect::new(0, 0, 300, 1), ".", Style::new());
+            v.restyle(
+                Rect::new(0, 0, 300, 1),
+                &Restyle {
+                    link: Some(link),
+                    ..Default::default()
+                },
+            );
+        }
+        assert_eq!(stack.tables().exts.len(), 1);
+    }
+
+    #[test]
+    fn restyling_the_same_way_twice_mints_nothing_the_second_time() {
+        // What makes a settled operator converge after one frame.
+        let mut stack = LayerStack::new();
+        let id = stack.add_content(0, Rect::new(0, 0, 8, 1), true);
+        let link = stack.tables_mut().link("https://example.com/");
+        let d = Restyle {
+            link: Some(link),
+            ..Default::default()
+        };
+        for _ in 0..10 {
+            stack.view(id).unwrap().restyle(Rect::new(0, 0, 8, 1), &d);
+        }
+        assert_eq!(stack.tables().exts.len(), 1);
+    }
+
+    #[test]
+    fn a_restyle_that_names_nothing_extended_never_reaches_the_table() {
+        let mut s = Surface::new(300, 1);
+        s.root().fill(Rect::new(0, 0, 300, 1), ".", Style::new());
+        s.root().restyle(
+            Rect::new(0, 0, 300, 1),
+            &Restyle {
+                bg: Some(Color::indexed(4)),
+                set: Restyle::BOLD,
+                ..Default::default()
+            },
+        );
+        assert!(
+            s.tables().exts.is_empty(),
+            "extended is a cost, not a state"
+        );
     }
 }

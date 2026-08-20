@@ -35,7 +35,7 @@
 use std::io::{Result, Write};
 
 use vitui_alloc_probe::{CountingAllocator, assert_no_alloc};
-use vitui_engine::{Config, Engine, LayerId, Output, Rect, Screen, Style};
+use vitui_engine::{Color, Config, Engine, LayerId, Output, Rect, Restyle, Screen, Style};
 
 #[global_allocator]
 static ALLOC: CountingAllocator = CountingAllocator::new();
@@ -82,6 +82,51 @@ fn the_steady_state_allocates_nothing() {
     a_full_screen_frame_allocates_nothing();
     an_idle_frame_allocates_nothing();
     a_frame_of_clusters_allocates_nothing();
+    a_settled_restyle_over_a_hyperlinked_screen_allocates_nothing();
+}
+
+/// The memo's property, as an allocation count rather than as a stopwatch.
+///
+/// `restyle` reaches the extended-style table once per **distinct** style word, and the table is
+/// deduplicated — so once a descriptor has been applied, applying it again finds every entry it
+/// needs already there and mints nothing. That is what makes a settled operator converge after one
+/// frame, and it is why a permanently *changing* one is the case eviction exists for.
+///
+/// This is not register entry #7, which is about the operator layer and is red against impl 08. It
+/// is the half of that property `restyle` can be held to today.
+///
+/// It stops short of `present` on purpose: the serializer does not emit SGR 58/59 or OSC 8 yet
+/// (impl 13), and `Style`'s colour accessors carry a `debug_assert` that says so rather than
+/// reading a handle as two colours.
+fn a_settled_restyle_over_a_hyperlinked_screen_allocates_nothing() {
+    let (mut screen, id) = screen();
+    let row: String = std::iter::repeat_n('m', W as usize).collect();
+    full_screen(&mut screen, id, &row, Style::new());
+    let link = screen.link("https://example.com/vitui");
+    let all = Rect::new(0, 0, W, H);
+    let hyperlink = Restyle {
+        link: Some(link),
+        ..Default::default()
+    };
+    let shadow = Restyle {
+        bg: Some(Color::indexed(0)),
+        ..Default::default()
+    };
+
+    {
+        // Warm-up: the whole screen becomes extended, and then settles on the one style the loop
+        // below asks for over and over. Both entries exist by the end of this block.
+        let mut v = screen.layers().view(id).expect("the layer was just added");
+        v.restyle(all, &hyperlink);
+        v.restyle(all, &shadow);
+    }
+
+    assert_no_alloc(|| {
+        let mut v = screen.layers().view(id).expect("the layer is still there");
+        for _ in 0..1_000 {
+            v.restyle(all, &shadow);
+        }
+    });
 }
 
 fn a_thousand_compose_cycles_allocate_nothing() {

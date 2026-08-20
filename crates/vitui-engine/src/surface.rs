@@ -3,15 +3,16 @@
 use crate::cell::{Cell, GraphemeId};
 use crate::damage::RowBits;
 use crate::geom::Rect;
-use crate::intern::Interner;
+use crate::tables::Tables;
 use crate::view::View;
 
 /// A rectangular grid of cells that can be drawn into.
 ///
 /// The engine's central primitive. A layer usually owns one; a caller constructs one directly only
-/// to draw somewhere off-screen. A surface holds cells and damage and nothing else — in particular
-/// it does not hold the handle tables, which is what lets one layer be composited into another as a
-/// plain copy (spec §3).
+/// to draw somewhere off-screen. What a surface holds is cells and damage: the handle tables belong
+/// to the layer stack, and that is what lets one layer be composited into another as a plain copy
+/// (spec §3). The `tables` field below is the standalone door's exception and is empty for every
+/// surface the stack minted.
 ///
 /// # Threading
 ///
@@ -40,12 +41,12 @@ pub struct Surface {
     /// The handle space of a surface **outside** a layer stack, and nothing else.
     ///
     /// `Surface::new` and `Surface::root` are public, and a `View` from that door has no engine to
-    /// reach through — so the standalone door brings its own table (spec §3, ticket 19). A surface
-    /// the stack minted never touches this one: `LayerStack::view` hands the *stack's* interner to
-    /// the `View`, which is what keeps one handle space per stack and compositing a
-    /// `copy_from_slice`. An untouched table holds no allocation, so the field costs a layer surface
-    /// nothing but its width.
-    interner: Interner,
+    /// reach through — so the standalone door brings its own tables (spec §3, ticket 19). A surface
+    /// the stack minted never touches these: `LayerStack::view` hands the *stack's* tables to the
+    /// `View`, which is what keeps one handle space per stack and compositing a `copy_from_slice`.
+    /// An untouched table holds no allocation, so the field costs a layer surface nothing but its
+    /// width.
+    tables: Tables,
 }
 
 impl std::fmt::Debug for Surface {
@@ -72,7 +73,7 @@ impl Surface {
             cells: vec![ground; w as usize * h as usize],
             damage: RowBits::new(w, h),
             ground: ground.grapheme,
-            interner: Interner::new(),
+            tables: Tables::new(),
         }
     }
 
@@ -84,9 +85,9 @@ impl Surface {
     /// A view of the whole surface, drawing into this surface's own handle space.
     ///
     /// The standalone door. A surface reached this way is not in a layer stack, so it interns into
-    /// the table it carries; `add_content_with` renumbers those handles into the stack's when the
+    /// the tables it carries; `add_content_with` renumbers those handles into the stack's when the
     /// surface is donated (ticket 10). The fields are taken apart here rather than passed as
-    /// `&mut self` because the verbs need the cells, the damage **and** the interner at once, and
+    /// `&mut self` because the verbs need the cells, the damage **and** the tables at once, and
     /// they come from one struct.
     pub fn root(&mut self) -> View<'_> {
         let clip = Rect::new(0, 0, self.width, self.height);
@@ -96,15 +97,15 @@ impl Surface {
             self.width,
             clip,
             self.ground,
-            &mut self.interner,
+            &mut self.tables,
         )
     }
 
     /// A view of the whole surface, drawing into a handle space that is not this surface's.
     ///
-    /// What [`LayerStack::view`](crate::LayerStack::view) hands out: one table per stack, so a
-    /// handle crossing a surface boundary inside the stack needs no translation (ADR 0011).
-    pub(crate) fn draw<'a>(&'a mut self, interner: &'a mut Interner) -> View<'a> {
+    /// What [`LayerStack::view`](crate::LayerStack::view) hands out: one set of tables per stack,
+    /// so a handle crossing a surface boundary inside the stack needs no translation (ADR 0011).
+    pub(crate) fn draw<'a>(&'a mut self, tables: &'a mut Tables) -> View<'a> {
         let clip = Rect::new(0, 0, self.width, self.height);
         View::new(
             &mut self.cells,
@@ -112,7 +113,7 @@ impl Surface {
             self.width,
             clip,
             self.ground,
-            interner,
+            tables,
         )
     }
 
@@ -130,7 +131,7 @@ impl Surface {
             self.width,
             clip,
             self.ground,
-            &mut self.interner,
+            &mut self.tables,
         )
     }
 
@@ -143,8 +144,15 @@ impl Surface {
             reason = "ticket 10's `add_content_with` is the first caller outside the gates"
         )
     )]
-    pub(crate) fn interner(&self) -> &Interner {
-        &self.interner
+    pub(crate) fn tables(&self) -> &Tables {
+        &self.tables
+    }
+
+    /// This surface's own handle space, to mint into. Test-facing: outside the gates the only mint
+    /// is [`Screen::link`](crate::Screen::link), which reaches the *stack's* tables.
+    #[cfg(test)]
+    pub(crate) fn tables_mut(&mut self) -> &mut Tables {
+        &mut self.tables
     }
 
     pub(crate) fn width(&self) -> u16 {

@@ -7,6 +7,23 @@
 //! filter ticket 14, the scroll region ticket 15, and synchronised output arrives with the
 //! capability that gates it at ticket 16.
 //!
+//! # An extended style's two new channels do not reach the wire yet
+//!
+//! Ticket 07 put the extended bit in the style word and `restyle` on the `View`. SGR
+//! `58:2::r:g:b` / `59` and OSC 8 are spec §8's and belong to ticket 13, which is also what teaches
+//! the terminal model to read them back — so **the round trip cannot close on an extended cell
+//! until then**, and no gate here drives one.
+//!
+//! What does *not* wait is the two channels this loop already emits. An extended word spends bits
+//! 51..0 on a handle, so [`colors_of`] resolves the colours through `packet.ext` instead of reading
+//! the word — and reading that handle as a 26-bit foreground and a 26-bit background is exactly the
+//! silent wrong answer `Style::with_fg_bg` was deleted for, one layer down. The packet already
+//! carries both side tables; ticket 07 put them there rather than at ticket 18 precisely so this
+//! loop would not have to wait for the compositor.
+//!
+//! So a hyperlinked cell presented today is painted in the right colours and loses its hyperlink.
+//! That is degradation, which this engine has a model for; a handle emitted as a colour is not.
+//!
 //! # The frame's framing
 //!
 //! Every frame that has anything to say opens with SGR 0. That is tcell's "make no style
@@ -141,7 +158,7 @@ impl Serializer {
                 }
                 self.move_to(x, run.y);
                 if cell.style != self.style {
-                    emit_sgr_delta(&mut self.out, self.style, cell.style);
+                    emit_sgr_delta(&mut self.out, self.style, cell.style, packet);
                     self.style = cell.style;
                 }
                 emit_grapheme(&mut self.out, cell.grapheme, packet);
@@ -247,7 +264,7 @@ fn is_ascii_scalar(g: GraphemeId) -> bool {
 /// A differential SGR is worth it and costs nothing to decide, because the decision is one style
 /// compare and the decomposition is off the hot path by construction: a realistic full-screen frame
 /// emits **one** SGR sequence for 24 000 cells.
-fn emit_sgr_delta(out: &mut Vec<u8>, old: Style, new: Style) {
+fn emit_sgr_delta(out: &mut Vec<u8>, old: Style, new: Style, packet: &Packet) {
     let mark = out.len();
     out.extend_from_slice(b"\x1b[");
     let mut params = 0u32;
@@ -303,11 +320,13 @@ fn emit_sgr_delta(out: &mut Vec<u8>, old: Style, new: Style) {
         }
     }
 
-    if old.foreground() != new.foreground() {
-        emit_color(out, &mut params, new.foreground(), true);
+    let (old_fg, old_bg) = colors_of(old, packet);
+    let (new_fg, new_bg) = colors_of(new, packet);
+    if old_fg != new_fg {
+        emit_color(out, &mut params, new_fg, true);
     }
-    if old.background() != new.background() {
-        emit_color(out, &mut params, new.background(), false);
+    if old_bg != new_bg {
+        emit_color(out, &mut params, new_bg, false);
     }
 
     if params == 0 {
@@ -317,6 +336,25 @@ fn emit_sgr_delta(out: &mut Vec<u8>, old: Style, new: Style) {
         return;
     }
     out.push(b'm');
+}
+
+/// The two colours a style word paints with, whichever side of the extended bit it is on.
+///
+/// An extended word has no inline colours — bits 51..0 are the handle — so they come from the
+/// packet's own copy of the table, which is where the app thread put them at pack time. The engine
+/// table is never reached from here, and that is ADR 0011's second sentence again.
+///
+/// A handle the packet does not carry means `pack` and `serialize` disagree about which frame this
+/// is, and there is nothing truthful to paint: the terminal's own colours are the one answer that
+/// invents nothing.
+fn colors_of(style: Style, packet: &Packet) -> (Color, Color) {
+    let Some(handle) = style.ext_handle() else {
+        return (style.foreground(), style.background());
+    };
+    match packet.ext(handle) {
+        Some(e) => (e.fg, e.bg),
+        None => (Color::DEFAULT, Color::DEFAULT),
+    }
 }
 
 /// Colour emission, spec §8: default is 39/49; indices under 16 use 30-37 / 90-97 and their
@@ -394,7 +432,7 @@ mod tests {
         let mut runs = Vec::new();
         frame.damage().for_each_run(|r| runs.push(r));
         let mut packet = Packet::new();
-        packet.pack(&runs, frame, frame.interner());
+        packet.pack(&runs, frame, frame.tables());
         let (w, h) = frame.size();
         let mut s = Serializer::new(w, h);
         s.serialize(&packet).to_vec()
@@ -512,58 +550,103 @@ mod tests {
         // SGR 22 clears both, so the naive per-attribute loop drops dim here and nothing looks
         // wrong until a dim run silently turns normal.
         let mut out = Vec::new();
-        emit_sgr_delta(&mut out, Style::new().bold().dim(), Style::new().dim());
+        emit_sgr_delta(
+            &mut out,
+            Style::new().bold().dim(),
+            Style::new().dim(),
+            &Packet::new(),
+        );
         assert_eq!(text(&out), "ESC[22;2m");
     }
 
     #[test]
     fn removing_dim_reapplies_bold() {
         let mut out = Vec::new();
-        emit_sgr_delta(&mut out, Style::new().bold().dim(), Style::new().bold());
+        emit_sgr_delta(
+            &mut out,
+            Style::new().bold().dim(),
+            Style::new().bold(),
+            &Packet::new(),
+        );
         assert_eq!(text(&out), "ESC[22;1m");
     }
 
     #[test]
     fn adding_bold_alone_is_one_parameter() {
         let mut out = Vec::new();
-        emit_sgr_delta(&mut out, Style::new(), Style::new().bold());
+        emit_sgr_delta(&mut out, Style::new(), Style::new().bold(), &Packet::new());
         assert_eq!(text(&out), "ESC[1m");
     }
 
     #[test]
     fn sgr_21_is_never_emitted_for_a_double_underline() {
         let mut out = Vec::new();
-        emit_sgr_delta(&mut out, Style::new(), Style::new().underline_double());
+        emit_sgr_delta(
+            &mut out,
+            Style::new(),
+            Style::new().underline_double(),
+            &Packet::new(),
+        );
         assert_eq!(text(&out), "ESC[4:2m");
     }
 
     #[test]
     fn dropping_an_underline_emits_24() {
         let mut out = Vec::new();
-        emit_sgr_delta(&mut out, Style::new().underline_curly(), Style::new());
+        emit_sgr_delta(
+            &mut out,
+            Style::new().underline_curly(),
+            Style::new(),
+            &Packet::new(),
+        );
         assert_eq!(text(&out), "ESC[24m");
     }
 
     #[test]
     fn the_low_sixteen_palette_entries_are_spelled_short() {
         let mut out = Vec::new();
-        emit_sgr_delta(&mut out, Style::new(), Style::new().fg(Color::indexed(3)));
+        emit_sgr_delta(
+            &mut out,
+            Style::new(),
+            Style::new().fg(Color::indexed(3)),
+            &Packet::new(),
+        );
         assert_eq!(text(&out), "ESC[33m");
         out.clear();
-        emit_sgr_delta(&mut out, Style::new(), Style::new().fg(Color::indexed(9)));
+        emit_sgr_delta(
+            &mut out,
+            Style::new(),
+            Style::new().fg(Color::indexed(9)),
+            &Packet::new(),
+        );
         assert_eq!(text(&out), "ESC[91m");
         out.clear();
-        emit_sgr_delta(&mut out, Style::new(), Style::new().bg(Color::indexed(1)));
+        emit_sgr_delta(
+            &mut out,
+            Style::new(),
+            Style::new().bg(Color::indexed(1)),
+            &Packet::new(),
+        );
         assert_eq!(text(&out), "ESC[41m");
         out.clear();
-        emit_sgr_delta(&mut out, Style::new(), Style::new().bg(Color::indexed(15)));
+        emit_sgr_delta(
+            &mut out,
+            Style::new(),
+            Style::new().bg(Color::indexed(15)),
+            &Packet::new(),
+        );
         assert_eq!(text(&out), "ESC[107m");
     }
 
     #[test]
     fn a_palette_entry_above_fifteen_needs_the_long_form() {
         let mut out = Vec::new();
-        emit_sgr_delta(&mut out, Style::new(), Style::new().fg(Color::indexed(200)));
+        emit_sgr_delta(
+            &mut out,
+            Style::new(),
+            Style::new().fg(Color::indexed(200)),
+            &Packet::new(),
+        );
         assert_eq!(text(&out), "ESC[38;5;200m");
     }
 
@@ -574,6 +657,7 @@ mod tests {
             &mut out,
             Style::new(),
             Style::new().bg(Color::rgb(1, 2, 255)),
+            &Packet::new(),
         );
         assert_eq!(text(&out), "ESC[48;2;1;2;255m");
     }
@@ -585,14 +669,69 @@ mod tests {
             &mut out,
             Style::new().fg(Color::rgb(1, 2, 3)).bg(Color::indexed(4)),
             Style::new(),
+            &Packet::new(),
         );
         assert_eq!(text(&out), "ESC[39;49m");
     }
 
     #[test]
+    fn an_extended_cell_is_painted_in_the_colours_its_table_entry_names() {
+        // The defect this exists for: an extended word spends bits 51..0 on a handle, so reading
+        // them as a 26-bit foreground and a 26-bit background emits whatever the handle happens to
+        // look like. That is `Style::with_fg_bg`'s silent wrong answer one layer down, and it is a
+        // *release* failure — the `debug_assert` on `Style::foreground` only catches the debug half.
+        let mut frame = Surface::new(4, 1);
+        let link = frame.tables_mut().link("https://example.com/");
+        frame.root().text(0, 0, "ab", Style::new());
+        frame.root().restyle(
+            Rect::new(0, 0, 2, 1),
+            &crate::restyle::Restyle {
+                fg: Some(Color::indexed(3)),
+                bg: Some(Color::rgb(1, 2, 255)),
+                link: Some(link),
+                ..Default::default()
+            },
+        );
+        let out = text(&bytes_for(&frame));
+        assert_eq!(
+            out, "ESC[0mESC[1;1HESC[33;48;2;1;2;255mab",
+            "the entry's colours reached the wire, not its handle"
+        );
+    }
+
+    #[test]
+    fn a_hyperlink_is_dropped_rather_than_emitted_as_anything() {
+        // The honest half of the same sentence. SGR 58/59 and OSC 8 are ticket 13's, so a cell
+        // presented today loses its hyperlink — degradation, which this engine has a model for.
+        // A handle painted as a colour is not degradation, which is why the test above exists.
+        let mut frame = Surface::new(4, 1);
+        let link = frame.tables_mut().link("https://example.com/");
+        frame.root().text(0, 0, "ab", Style::new());
+        frame.root().restyle(
+            Rect::new(0, 0, 2, 1),
+            &crate::restyle::Restyle {
+                link: Some(link),
+                ..Default::default()
+            },
+        );
+        let out = text(&bytes_for(&frame));
+        assert!(!out.contains("]8;"), "no OSC 8 until ticket 13: {out}");
+        assert!(
+            !out.contains("58:"),
+            "and no underline colour either: {out}"
+        );
+        assert_eq!(replay(&frame).cell(0, 0).grapheme, GraphemeId::scalar('a'));
+    }
+
+    #[test]
     fn an_sgr_that_would_say_nothing_emits_nothing() {
         let mut out = Vec::new();
-        emit_sgr_delta(&mut out, Style::new().bold(), Style::new().bold());
+        emit_sgr_delta(
+            &mut out,
+            Style::new().bold(),
+            Style::new().bold(),
+            &Packet::new(),
+        );
         assert!(out.is_empty(), "an empty CSI m is a reset, not a no-op");
     }
 
@@ -603,7 +742,7 @@ mod tests {
         let mut runs = Vec::new();
         f.damage().for_each_run(|r| runs.push(r));
         let mut packet = Packet::new();
-        packet.pack(&runs, &f, f.interner());
+        packet.pack(&runs, &f, f.tables());
         let mut s = Serializer::new(8, 2);
         s.serialize(&packet);
         assert_eq!(s.mirror().cell(3, 1), f.row(1)[3]);

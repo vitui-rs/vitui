@@ -835,9 +835,10 @@ impl Scene for HyperlinkedPageUnderAnOperator {
     fn status(&self) -> State {
         State::Red {
             inverted_by: "impl 08",
-            why: "impl 08 owns this row and is where it gets its measurement; the mechanisms it \
-                  stands on are the extended-style bit and the link table (impl 07) and the \
-                  operator layer with its Mix (impl 12)",
+            why: "impl 08 owns this row and is where it gets its measurement; the extended-style \
+                  bit and the link table it stands on landed with impl 07, and what is still \
+                  missing is the operator layer with its Mix (impl 12) — which is what makes the \
+                  table grow without bound in the first place",
         }
     }
 

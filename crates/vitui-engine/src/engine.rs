@@ -18,6 +18,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::damage::Run;
+use crate::exts::LinkId;
 use crate::layer::LayerStack;
 use crate::packet::Packet;
 use crate::serial::Serializer;
@@ -298,7 +299,7 @@ impl Screen {
         }
 
         self.packet
-            .pack(&self.runs, &self.frame, self.layers.interner());
+            .pack(&self.runs, &self.frame, self.layers.tables());
         let bytes = self.serializer.serialize(&self.packet);
         write_frame(&mut *self.sink, bytes);
 
@@ -312,10 +313,40 @@ impl Screen {
         }
     }
 
+    /// Mint a hyperlink id for `uri`, or return the one this screen already minted for it.
+    ///
+    /// The only way to get a [`LinkId`], which is what makes the type opaque in the sense ADR 0023
+    /// asks for: a caller can say *this hyperlink again* without being able to say *entry 7*. Ids
+    /// are deduplicated, so a page of a hundred distinct links costs a hundred entries however many
+    /// cells carry them.
+    ///
+    /// The id is then handed to [`View::restyle`](crate::View::restyle) through
+    /// [`Restyle::link`](crate::Restyle::link).
+    ///
+    /// # It belongs to this screen's handle space
+    ///
+    /// Spec §3's invariant is that *every surface in a layer stack speaks that stack's handle
+    /// space*, and this id is part of that space. Using it on a **standalone** [`Surface`] — one
+    /// reached through [`Surface::root`](crate::Surface::root) rather than through
+    /// [`LayerStack::view`](crate::LayerStack::view) — puts a handle into a table that never minted
+    /// it, and the URI does not travel with the cell. `add_content_with` is what reconciles a
+    /// surface drawn off to one side, by renumbering it once at donation (ticket 10); until then,
+    /// a hyperlink belongs in a layer of the screen that minted it.
+    ///
+    /// ```
+    /// let (mut screen, _wake) = vitui_engine::Engine::new(Default::default()).attach().unwrap();
+    /// let a = screen.link("https://example.com/");
+    /// assert_eq!(a, screen.link("https://example.com/"));
+    /// assert_ne!(a, vitui_engine::LinkId::NONE);
+    /// ```
+    pub fn link(&mut self, uri: &str) -> LinkId {
+        self.layers.tables_mut().link(uri)
+    }
+
     /// The handle space this screen's layers speak, for the terminal model to intern into.
     #[cfg(test)]
     pub(crate) fn interner_mut(&mut self) -> &mut crate::intern::Interner {
-        self.layers.interner_mut()
+        &mut self.layers.tables_mut().interner
     }
 
     #[cfg(test)]

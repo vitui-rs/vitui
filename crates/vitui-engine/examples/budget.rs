@@ -48,7 +48,7 @@ use std::io::{Result, Write};
 use std::time::Duration;
 
 use vitui_bench::{Bench, Report};
-use vitui_engine::{Config, Engine, Output, Screen, Style, Surface};
+use vitui_engine::{Color, Config, Engine, LayerId, Output, Rect, Restyle, Screen, Style, Surface};
 
 use register::{State, table};
 use scenes::{H, Scene, W, scenes, table_two_ways, virtualised_tree};
@@ -127,6 +127,15 @@ fn measure(staged: &mut [Staged]) -> Report {
 
 fn main() {
     print_the_scene_list();
+
+    // Measured before the twelve scenes rather than after, and the reason is a number: the same
+    // 300-cell redraw reports 1.67 us here and 4.37 us if it is run at the end of this file, on the
+    // same machine in the same process. Nothing about the verb changed — what changed is where its
+    // two surfaces landed after several megabytes of scene screens had been allocated and dropped.
+    // A report that moves 2.6x with its position in the run is not comparable to spec §3's and
+    // §4's isolated prototypes, and comparing to those is the whole point of these two.
+    the_restyle_densities();
+    the_selection_bar();
 
     let mut staged: Vec<Staged> = scenes()
         .into_iter()
@@ -312,6 +321,167 @@ fn the_verb_granularity_rule() {
          \x20           itself, at 14.3 ns a code point against 3.1 ns for one that takes the ASCII \n\
          \x20           fast path. See impl ticket 06's Progress for the candidate and its owner.",
         cjk / span
+    );
+    println!();
+}
+
+/// A full-screen layer of text, with one column in `every` carrying a hyperlink.
+///
+/// `every == 0` leaves the screen entirely inline; `every == 1` hyperlinks all 24 000 cells, and
+/// does it in one verb per row rather than three hundred, because setting the scene up is not what
+/// is being measured.
+struct Linked {
+    screen: Screen,
+    layer: LayerId,
+    case: &'static str,
+}
+
+fn linked(case: &'static str, every: i32) -> Linked {
+    let (mut screen, _wake) = Engine::new(Config {
+        size: (W, H),
+        output: Output::Sink(Box::new(Discard)),
+        ..Default::default()
+    })
+    .attach()
+    .expect("attaching to a sink cannot fail");
+    let layer = screen.layers().add_content(0, Rect::new(0, 0, W, H), true);
+    let link = screen.link("https://example.com/vitui");
+    let row: String = std::iter::repeat_n('m', W as usize).collect();
+    let hyperlink = Restyle {
+        link: Some(link),
+        ..Default::default()
+    };
+    {
+        let mut v = screen
+            .layers()
+            .view(layer)
+            .expect("the layer was just added");
+        for y in 0..H as i32 {
+            v.text(0, y, &row, Style::new());
+        }
+    }
+    // The birth frame, which is not what any of this measures — and it goes out **before** the
+    // hyperlinks do, because the serializer does not emit SGR 58/59 or OSC 8 until impl 13, and
+    // `Style::foreground` carries a `debug_assert` that says so rather than reading a handle as two
+    // colours. Nothing below this line presents again.
+    screen.present();
+    {
+        let mut v = screen
+            .layers()
+            .view(layer)
+            .expect("the layer is still there");
+        if every == 1 {
+            v.restyle(Rect::new(0, 0, W, H), &hyperlink);
+        } else if every > 1 {
+            for y in 0..H as i32 {
+                let mut x = 0;
+                while x < W as i32 {
+                    v.restyle(Rect::new(x, y, 1, 1), &hyperlink);
+                    x += every;
+                }
+            }
+        }
+    }
+    Linked {
+        screen,
+        layer,
+        case,
+    }
+}
+
+/// The three densities spec §3 measured `restyle` at, re-measured on the shipped verb.
+///
+/// | `restyle`, full screen | plain | realistic 1% | linked 100% |
+/// |---|---|---|---|
+/// | inline mask that skips extended cells (*wrong*) | 13.02 us | 14.22 us | 16.30 us |
+/// | correct, per cell | 24.51 us | 28.42 us | 289.19 us |
+/// | **correct, memoised** | **12.65 us** | **17.47 us** | **75.49 us** |
+///
+/// **A report, not a gate**, by the backlog's own rule: a timing is a gate only at cliff
+/// granularity. What is gated about the memo is gated on the mechanism instead —
+/// `view::tests::restyle_mints_one_table_entry_per_distinct_style_and_not_one_per_cell` is a count,
+/// and it cannot drift by 10% on a busy runner because it is not a stopwatch.
+///
+/// **Two fast paths were built beside the memo and both were refused**, so that nobody re-derives
+/// them: a per-cell branch taking the mask on inline cells (13.10 / 17.43 / 90.00 us — it loses,
+/// because the branch breaks the mask loop's vectorisation) and a surface-level *contains no
+/// extended cell* gate (12.38 / 17.44 / 75.61 us — indistinguishable from the memo alone). The memo
+/// is the whole implementation.
+fn the_restyle_densities() {
+    let mut arms = [
+        linked("restyle/plain", 0),
+        linked("restyle/1% scattered", 100),
+        linked("restyle/100% linked", 1),
+    ];
+    let shadow = Restyle {
+        bg: Some(Color::indexed(0)),
+        ..Default::default()
+    };
+
+    let mut bench = Bench::new(40);
+    for arm in arms.iter_mut() {
+        let (case, layer) = (arm.case, arm.layer);
+        let screen = &mut arm.screen;
+        bench = bench.case(case, 200, move || {
+            let mut v = screen
+                .layers()
+                .view(layer)
+                .expect("the layer is still there");
+            v.restyle(Rect::new(0, 0, W, H), &shadow);
+        });
+    }
+    let report = bench.run();
+    println!("`restyle` at three densities, minimum of 40 rounds:\n{report}");
+    for (case, spec) in [
+        ("restyle/plain", 12.65),
+        ("restyle/1% scattered", 17.47),
+        ("restyle/100% linked", 75.49),
+    ] {
+        let us = report.get(case).expect("measured") / 1_000.0;
+        println!("            {case:<24} {us:>8.2} us   spec §3 measured {spec:.2} us");
+    }
+    println!(
+        "            report, not a gate. Plain reproduces; the linked arm does not, and the\n         \x20           direction is what makes it worth writing down: §3 has 100% linked as the\n         \x20           worst case at 75.49 us and here it is the *cheapest* of the two extended\n         \x20           arms. The memo's cost is per style **transition**, not per extended cell —\n         \x20           a uniformly hyperlinked screen is one style word and one miss, while one\n         \x20           linked column in a hundred is six transitions a row and some 480 misses.\n         \x20           Impl 08 owns the operator that makes this table grow, and that is where\n         \x20           the shape gets measured against something that moves."
+    );
+    println!();
+}
+
+/// The measurement that put this verb on the list: moving a selection bar one row.
+///
+/// Spec §4 measured **205 ns against 1.36 us, 6.6x**. Without `restyle`, changing a background
+/// means re-segmenting UTF-8 and re-interning every cluster on the row to write back text that was
+/// already there. A report rather than a gate, for the same reason as everything else timed here.
+fn the_selection_bar() {
+    let row: String = std::iter::repeat_n('m', W as usize).collect();
+    let selected = Style::new().bg(Color::indexed(4));
+    let bar = Restyle {
+        bg: Some(Color::indexed(4)),
+        ..Default::default()
+    };
+
+    let mut restyled = Surface::new(W, H);
+    let mut redrawn = Surface::new(W, H);
+    for s in [&mut restyled, &mut redrawn] {
+        let mut v = s.root();
+        for y in 0..H as i32 {
+            v.text(0, y, &row, Style::new());
+        }
+    }
+
+    let report = Bench::new(40)
+        .case("selection-bar/restyle", 2_000, || {
+            restyled.root().restyle(Rect::new(0, 0, W, 1), &bar);
+        })
+        .case("selection-bar/redraw", 2_000, || {
+            redrawn.root().text(0, 0, &row, selected);
+        })
+        .run();
+    println!("a selection bar over one 300-cell row, minimum of 40 rounds:\n{report}");
+    let a = report.get("selection-bar/restyle").expect("measured");
+    let b = report.get("selection-bar/redraw").expect("measured");
+    println!(
+        "            redraw / restyle = {:.2}x, spec §4 measured 6.6x — 205 ns against 1.36 us.\n         \x20           The verb reproduces ({a:.0} ns against 205); the arm it is compared with\n         \x20           is the one that moved, because a row of `text` costs {b:.0} ns here rather\n         \x20           than 1 360 — impl 06's segmentation cost showing through again.\n         \x20           report, not a gate",
+        b / a
     );
     println!();
 }

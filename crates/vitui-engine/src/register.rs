@@ -240,7 +240,8 @@ pub const REGISTER: [Entry; 27] = [
         source: "arch 16",
         state: State::Red {
             inverted_by: "impl 08",
-            why: "there is no table to sweep",
+            why: "impl 07 built the two tables and impl 06 the third, so there is something to \
+                  sweep now — what is missing is the sweep, and impl 08 owns it",
         },
     },
     Entry {

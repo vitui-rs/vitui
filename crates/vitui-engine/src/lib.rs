@@ -16,7 +16,7 @@
 //! Engine::new(Config) -> attach() -> (Screen, WakeHandle)
 //!   |
 //!   +- layers()                add layers; view(id) to draw into one
-//!   |   +- the verbs           text - fill, marking damage as they write
+//!   |   +- the verbs           text - fill - restyle, marking damage as they write
 //!   |
 //!   +- present() -> Presented  composite the damaged rectangles bottom-up
 //!                              pack runs and their cells into a packet
@@ -36,11 +36,12 @@
 //! (ticket 03) in the deterministic single-thread mode, the instruments that keep both honest
 //! (ticket 04) — spec §14's twelve scenes as a normative list, a reference compositor that generates
 //! the damage gate rather than agreeing with it, and all twenty-seven register entries either wired
-//! or pinned red against the ticket that lights them — and grapheme clusters in cells (ticket 06):
-//! the interner, the five repair rules, and [`graphemes`] and [`width_of`] over the same tables the
-//! verbs segment with.
+//! or pinned red against the ticket that lights them — grapheme clusters in cells (ticket 06): the
+//! interner, the five repair rules, and [`graphemes`] and [`width_of`] over the same tables the
+//! verbs segment with — and the extended-style bit with the verb that owns it (ticket 07):
+//! [`Restyle`], [`LinkId`] and the two side tables the packet now carries.
 //!
-//! Not here yet, each with the ticket that brings it: extended styles and `restyle` (07),
+//! Not here yet, each with the ticket that brings it:
 //! `child` / `scrolled` / the visibility queries (09), the rest of the layer stack including
 //! `add_content_with` (10), operator layers and the `Mix` (11, 12), the `shortest` cursor encoding
 //! and the equality filter (13, 14), the scroll region (15), capability detection (16), the three
@@ -62,11 +63,13 @@ mod ucd;
 mod cell;
 mod damage;
 mod engine;
+mod exts;
 mod geom;
 mod intern;
 mod layer;
 mod packet;
 mod serial;
+mod tables;
 
 // The scene list, the reference compositor and the register. All three are the instruments spec
 // §14 asks for rather than parts of the engine, and none of them is on the public surface: a
@@ -89,6 +92,7 @@ mod term_model;
 #[cfg(test)]
 mod testing;
 
+mod restyle;
 mod style;
 mod surface;
 mod text;
@@ -98,8 +102,10 @@ mod view;
 mod roundtrip;
 
 pub use engine::{AttachError, Clock, Config, Engine, Output, Presented, Screen, WakeHandle};
+pub use exts::LinkId;
 pub use geom::Rect;
 pub use layer::{LayerId, LayerStack};
+pub use restyle::Restyle;
 pub use style::{Color, Style};
 pub use surface::Surface;
 pub use text::{graphemes, width_of};
