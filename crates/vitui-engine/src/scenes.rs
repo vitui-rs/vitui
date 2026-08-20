@@ -550,10 +550,16 @@ impl Scene for ProgressBar {
 /// The data-volume invariant, which is the one the whole engine exists to keep.
 ///
 /// **Frame cost is proportional to visible cells, never to data volume.** The engine never iterates
-/// application data, so the scene does the culling — the component draws the `H` rows the viewport
-/// can show and nothing else, whether it is backed by a thousand rows or a million. Gate #20 is the
+/// application data, so the scene does the culling — the component draws the rows the viewport can
+/// show and nothing else, whether it is backed by a thousand rows or a million. Gate #20 is the
 /// ratio between the arms; the example is where it runs, because a ratio between timings is a
 /// timing.
+///
+/// **The bound on the loop is `scrolled` and `visible_rows`, not a hand-written `0..H`** (impl
+/// 09). The difference is not cosmetic: a hand-written bound gates the loop the scene wrote, while
+/// the query gates the loop every component written against this API will write. A scene that
+/// bounds its own loop would keep reporting 1.00x on a `visible_rows` that had started to iterate
+/// something.
 struct VirtualisedTree {
     layer: Option<LayerId>,
     rows: Vec<u32>,
@@ -590,12 +596,15 @@ impl Scene for VirtualisedTree {
     fn step(&mut self, screen: &mut Screen, t: u32) -> u32 {
         let id = self.layer.expect("build ran");
         let first = t as usize % (self.rows.len() - H as usize);
-        let mut view = screen.layers().view(id).expect("the layer is still there");
-        for y in 0..H as usize {
-            // The one line that keeps the invariant: an index, never a scan.
-            let value = self.rows[first + y];
+        let mut layer = screen.layers().view(id).expect("the layer is still there");
+        // The viewport, in content coordinates: row `first` is drawn at the top.
+        let mut view = layer.scrolled(0, -(first as i32));
+        for i in view.visible_rows() {
+            // The two lines that keep the invariant: a bounded range, and an index into it — never
+            // a scan, and never a loop over `self.rows`.
+            let value = self.rows[i as usize];
             label(&mut self.buf, "node ", value, VirtualisedTree::LABEL);
-            view.text(0, y as i32, &self.buf, Style::new());
+            view.text(0, i, &self.buf, Style::new());
         }
         VirtualisedTree::LABEL as u32 * H as u32
     }
@@ -676,25 +685,27 @@ impl Scene for TableTwoWays {
         );
         let first = t as usize % (self.rows.len() - H as usize);
 
-        let mut view = screen.layers().view(list).expect("still there");
-        for y in 0..H as usize {
+        let mut layer = screen.layers().view(list).expect("still there");
+        let mut view = layer.scrolled(0, -(first as i32));
+        for i in view.visible_rows() {
             label(
                 &mut self.buf,
                 "item ",
-                self.rows[first + y],
+                self.rows[i as usize],
                 TableTwoWays::LABEL,
             );
-            view.text(0, y as i32, &self.buf, Style::new());
+            view.text(0, i, &self.buf, Style::new());
         }
 
-        let mut view = screen.layers().view(chart).expect("still there");
-        for y in 0..H as usize {
-            let n = self.rows[first + y] % TableTwoWays::BAR;
+        let mut layer = screen.layers().view(chart).expect("still there");
+        let mut view = layer.scrolled(0, -(first as i32));
+        for i in view.visible_rows() {
+            let n = self.rows[i as usize] % TableTwoWays::BAR;
             self.buf.clear();
-            for i in 0..TableTwoWays::BAR {
-                self.buf.push(if i < n { '#' } else { ' ' });
+            for c in 0..TableTwoWays::BAR {
+                self.buf.push(if c < n { '#' } else { ' ' });
             }
-            view.text(0, y as i32, &self.buf, Style::new());
+            view.text(0, i, &self.buf, Style::new());
         }
 
         (TableTwoWays::LABEL as u32 + TableTwoWays::BAR) * H as u32

@@ -38,14 +38,17 @@
 //! the damage gate rather than agreeing with it, and all twenty-seven register entries either wired
 //! or pinned red against the ticket that lights them — grapheme clusters in cells (ticket 06): the
 //! interner, the five repair rules, and [`graphemes`] and [`width_of`] over the same tables the
-//! verbs segment with — and the extended-style bit with the verb that owns it (ticket 07):
-//! [`Restyle`], [`LinkId`] and the two side tables the packet now carries.
+//! verbs segment with — the extended-style bit with the verb that owns it (ticket 07):
+//! [`Restyle`], [`LinkId`] and the two side tables the packet now carries — and the clip, the
+//! viewport and the visibility query (ticket 09): [`View::child`], [`View::scrolled`],
+//! [`View::visible_rows`] and [`View::visible_cols`], which are what make a component's rectangle
+//! inescapable and a 1M-row tree cost what a 1k-row one costs.
 //!
 //! Not here yet, each with the ticket that brings it:
-//! `child` / `scrolled` / the visibility queries (09), the rest of the layer stack including
-//! `add_content_with` (10), operator layers and the `Mix` (11, 12), the `shortest` cursor encoding
-//! and the equality filter (13, 14), the scroll region (15), capability detection (16), the three
-//! threads and the frame clock (18, 19), and input (20, 21).
+//! the rest of the layer stack including `add_content_with` (10), operator layers and the `Mix`
+//! (11, 12), the `shortest` cursor encoding and the equality filter (13, 14), the scroll region
+//! (15), capability detection (16), the three threads and the frame clock (18, 19), and input
+//! (20, 21).
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]

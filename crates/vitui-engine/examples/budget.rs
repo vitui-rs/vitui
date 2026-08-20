@@ -150,6 +150,7 @@ fn main() {
     the_two_budget_gates(&report);
     the_steady_state_share(&report);
     the_data_volume_invariant();
+    the_price_of_a_free_discard();
     the_verb_granularity_rule();
 
     println!("\nspec §14's register:\n{}", table());
@@ -497,7 +498,14 @@ fn the_data_volume_invariant() {
     let report = measure(&mut arms);
     println!("gate #20, the data-volume invariant:\n{report}");
 
-    for (small, large) in [("tree/1k", "tree/1m"), ("table/1k", "table/1m")] {
+    // Every arm that is measured is also asserted. The 100k arm exists because a slope that a
+    // 1k-against-1M ratio absorbs is visible in the middle of the range, and an arm that is printed
+    // but never asserted is a number nobody has watched go green.
+    for (small, large) in [
+        ("tree/1k", "tree/100k"),
+        ("tree/1k", "tree/1m"),
+        ("table/1k", "table/1m"),
+    ] {
         let ratio = report.get(large).expect("measured") / report.get(small).expect("measured");
         assert!(
             (0.5..2.5).contains(&ratio),
@@ -507,6 +515,69 @@ fn the_data_volume_invariant() {
         );
         println!("            {large} / {small} = {ratio:.2}x, band is 0.50x..2.50x");
     }
+    println!();
+}
+
+/// The report ticket 09 owes: what 24 000 rejected verbs cost against 24 000 accepted ones.
+///
+/// **A discarded write is far cheaper than an accepted one, and that is categorically
+/// insufficient.** The number this exists to keep in the repository rather than only in spec §4 is
+/// the third line: at a few nanoseconds each, a component that draws all 1 000 000 rows of a tree
+/// burns **more than the entire frame budget in pure rejection, before it has formatted a single
+/// string** — which is why `View::visible_rows` exists and why a free discard could not have been
+/// the answer.
+///
+/// Spec §4's isolated prototype measured 87.0 us for the 24 000 rejected (3.6 ns each), 12.97 ms
+/// for the 24 000 accepted (540 ns each, a whole formatted row per verb), and **3.68 ms of pure
+/// rejection at 1M rows — 3.7x the 1 ms full-screen budget.** The arms below are the same shapes
+/// against the shipped verbs.
+///
+/// **A report, not a gate**, by the backlog's rule: it is a timing, and it is not at a cliff. What
+/// is gated about the same claim is gated on the mechanism instead — gate #20's ratio, and
+/// `view::tests::the_visibility_query_bounds_a_component_that_has_a_million_rows`, neither of
+/// which is a stopwatch.
+fn the_price_of_a_free_discard() {
+    const VERBS: u32 = W as u32 * H as u32;
+    let label: String = std::iter::repeat_n('m', 40).collect();
+
+    let mut rejected = Surface::new(W, H);
+    let mut accepted = Surface::new(W, H);
+
+    let report = Bench::new(40)
+        .case("discard/24 000 rejected", 20, || {
+            let mut v = rejected.root();
+            // Every verb a million rows below the surface: the row test rejects it, once.
+            for i in 0..VERBS as i32 {
+                v.text(0, 1_000_000 + i, &label, Style::new());
+            }
+        })
+        .case("discard/24 000 accepted", 20, || {
+            let mut v = accepted.root();
+            for i in 0..VERBS as i32 {
+                v.text(0, i % H as i32, &label, Style::new());
+            }
+        })
+        .run();
+    println!("a free discard, and why it is not enough:\n{report}");
+
+    /// The tree the spec's 3.68 ms figure is about: one verb per row, all of them rejected.
+    const ROWS: f64 = 1e6;
+    /// §13's full-screen budget, in the nanoseconds the measurement is in.
+    const FULL_SCREEN_NS: f64 = 1e6;
+
+    let reject_ns = report.get("discard/24 000 rejected").expect("measured") / VERBS as f64;
+    let accept_ns = report.get("discard/24 000 accepted").expect("measured") / VERBS as f64;
+    let rejecting_a_million_ns = reject_ns * ROWS;
+    println!(
+        "            {reject_ns:.2} ns per rejected verb against {accept_ns:.0} ns per accepted \
+         one, {:.0}x cheaper\n            1 000 000 rejected verbs = {:.2} ms of pure \
+         rejection, {:.1}x the 1 ms full-screen budget\n            spec §4 measured 3.6 ns, 540 \
+         ns and 3.68 ms. `View::visible_rows` is what deletes this cost, and gate #20 above is \
+         where that is gated\n            report, not a gate",
+        accept_ns / reject_ns,
+        rejecting_a_million_ns / 1e6,
+        rejecting_a_million_ns / FULL_SCREEN_NS,
+    );
     println!();
 }
 

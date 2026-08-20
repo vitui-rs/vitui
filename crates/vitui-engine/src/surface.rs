@@ -117,24 +117,6 @@ impl Surface {
         )
     }
 
-    /// A view of part of this surface, in its own handle space.
-    ///
-    /// The mechanism `View::child` will be built on at ticket 09, reached early because the repair
-    /// rules hold at a *clip* edge as well as a surface edge (spec §3) and there is otherwise no way
-    /// to produce one.
-    #[cfg(test)]
-    pub(crate) fn clipped(&mut self, clip: Rect) -> View<'_> {
-        let clip = clip.intersect(Rect::new(0, 0, self.width, self.height));
-        View::new(
-            &mut self.cells,
-            &mut self.damage,
-            self.width,
-            clip,
-            self.ground,
-            &mut self.tables,
-        )
-    }
-
     /// This surface's own handle space. Empty unless something was drawn through
     /// [`Surface::root`](Surface::root).
     #[cfg_attr(

@@ -339,8 +339,9 @@ pub const REGISTER: [Entry; 27] = [
         qualifier: "ratio in a stated band",
         source: "arch 05, 14",
         state: State::Wired {
-            at: "examples/budget.rs, the `tree/*` and `table/*` cases; impl 09 re-points it at \
-                 the culling query once `visible_rows` exists",
+            at: "examples/budget.rs, the `tree/*` and `table/*` cases — both scenes now cull \
+                 through `View::scrolled` and `visible_rows`, so the gate is over the loop every \
+                 component will write rather than over one the scene hand-bounded (impl 09)",
         },
     },
     Entry {
