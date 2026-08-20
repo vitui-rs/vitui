@@ -145,7 +145,10 @@ never to data volume.*
 
 **Run** — one damaged span on one row, inclusive at both ends. The unit damage is reported in and the
 only shape the serializer ever sees: runs arrive in row order, ascending by column within a row, and
-that order *is* the order bytes are written in.
+that order *is* the order bytes are written in. **The word is the engine's and is not available for
+anything else** — a contiguous interval of selected indices in a collection is a **`Span`**, never a
+run, and the components map's "run list" is a span list. Two meanings of one word, both carrying
+measurements, is the collision this glossary exists to prevent.
 
 **Serialize** — to turn a snapshot into the bytes that go to the terminal. The engine writes its own
 escape sequences; the backend crate is used for input and terminal mode, never for output.
@@ -222,10 +225,12 @@ against the base layout and text against what was produced, because on a non-US 
 disagree and binding to either alone loses one of them. **Knowable only where the terminal reports
 it**: below that, what arrives in its place is the keycap, and nothing distinguishes the two.
 
-**Key tier** — how much the terminal is willing to say about the keyboard, from bytes alone up to
-reporting which physical key was pressed. Ordered, each level containing the one below, in the same
-way a tracking level is. It decides whether a chord means what it says, and it is read and never
-edited: a binding is not rewritten because the terminal is poor, it simply does not fire.
+**Base layout reported** — whether the terminal says which physical key was pressed, rather than only
+what it printed. **One boolean, never a ladder.** It decides whether a chord means what it says, and
+it is read and never edited: a binding is not rewritten because the terminal is poor, it simply does
+not fire. *This entry replaces "Key tier", which was an ordered ladder over a detected axis and
+therefore refused twice over — by `docs/adr/0010` on principle, and by measurement, since which
+legacy terminal we are in is unobservable and only flag-4-present is separable from flag-4-absent.*
 
 **Chord** — a key together with the modifiers held with it, as a thing an application binds an
 action to. It names either a base-layout position or a printed character, and which of the two is
@@ -453,6 +458,12 @@ take a style are closed by their signature, and the seventh, `restyle`, is close
 descriptor rather than a function that could return a style it invented. A paint *is* a style once it
 is made, which is why the role a cell was painted with cannot be read back from the cell. See
 `docs/adr/0018`.
+
+The one constructor that takes colours, `Theme::custom(&self, fg, bg)`, is on the **theme** and needs
+a live `&Theme`, which is what keeps the rule intact: the thing a component may never mint is a
+**palette**, because a palette is what `resolve(tier)` narrows. A single colour that no role can
+promise — a chart's fifth series, a photograph's pixel, a test sentinel — is not a palette. A paint
+made that way **carries no tier guarantee** and its component owes its own branch on `caps()`.
 
 **Application palette** — the colours an application ships and a `Theme` is made of: thirteen roles,
 each a whole paint. A base16 YAML scheme or an opencode theme JSON is one of these. It is authored

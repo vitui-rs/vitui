@@ -1,0 +1,63 @@
+digraph G {
+  bgcolor="#12151c" rankdir=TB splines=spline nodesep=0.4 ranksep=0.55 pad=0.4
+  fontname="Helvetica Neue"
+  node [shape=box style="rounded,filled" fontname="Helvetica Neue" fontsize=15
+        penwidth=2.0 margin="0.24,0.16" height=0.62]
+  edge [fontname="Helvetica Neue" fontsize=13 color="#5b6472" fontcolor="#939dac"
+        penwidth=1.6 arrowsize=0.85]
+
+  root [label="THE CATALOGUE — 15 families · ~430 entries\n17 library inventories + the application vocabulary\nratatui · Textual · Bubbles · tview · FTXUI · notcurses · blessed-contrib\negui · JavaFX · Qt · GTK4 · Flutter · Ant · M3 · PrimeNG · ECharts · yazi\nbtop · k9s · lazygit · ranger · mc · zellij"
+        fillcolor="#22282f" color="#5c6675" fontcolor="#c3ccd8" fontsize=16]
+
+  subgraph cluster_p {
+    label="  PRESENT — cells out  " fontcolor="#6b7585" fontsize=14
+    color="#2b3040" style="rounded" penwidth=1.6 margin=16 labeljust="l"
+    node [fillcolor="#1e2f28" color="#3f8f6a" fontcolor="#9fe3c0"]
+    f1 [label="F1  text · typography\nlabel · paragraph · big · digits · link · tag\ncode · markdown · log · diff · hex · skeleton"]
+    f2 [label="F2  structure · ornament\nfill · rule · border · panel · card · fieldset\ntoolbar · status bar · shadow · scrim · gradient"]
+    f5 [label="F5  indicators · feedback\nprogress · gauge · meter group · spinner · sparkline\ntoast · alert · result · badge · help bar · which-key"]
+    f7 [label="F7  collections   ← the hard one\nlist · table · tree · tree table · tiles · timeline\nkanban · gantt · describe · inspector · paginator"]
+    f10 [label="F10  charts · diagrams\nline · area · bar · hist · scatter · ohlc · box · pie\nradar · heat · treemap · sankey · geo · axes · legend"]
+    f1 -> f2 -> f5 -> f7 -> f10 [style=invis]
+  }
+
+  subgraph cluster_a {
+    label="  ACT · MOVE  " fontcolor="#6b7585" fontsize=14
+    color="#2b3040" style="rounded" penwidth=1.6 margin=16 labeljust="l"
+    node [fillcolor="#2e2438" color="#8b5fb0" fontcolor="#d9bdf0"]
+    f3 [label="F3  scrolling · overflow      ⟵ was missing\nscroll area (v · h · both) · scrollbar · sticky\nfrozen rows/cols · chaining · into-view · minimap"
+        penwidth=2.8]
+    f4 [label="F4  expand · collapse        ⟵ was missing\ncollapsible · expander · accordion · titled pane\ntree node · group rows · code folding · inplace"
+        penwidth=2.8]
+    f6 [label="F6  input · selection\nbutton · checkbox · radio · switch · slider · knob\ninput · otp · mask · chips · textarea · editor · form"]
+    f6b [label="F6b  pickers — the overlay family\nselect · multi · combo · cascader · tree select\ntransfer · pick list · date · time · colour · file"]
+    f8 [label="F8  navigation\ntabs · menu bar · menu · context · tiered · mega\npalette · breadcrumb · sidebar · steps · find bar"]
+    f3 -> f4 -> f6 -> f6b -> f8 [style=invis]
+  }
+
+  subgraph cluster_s {
+    label="  ARRANGE · MEDIA · SYSTEM · BEHAVIOUR  " fontcolor="#6b7585" fontsize=14
+    color="#2b3040" style="rounded" penwidth=1.6 margin=16 labeljust="l"
+    node [fillcolor="#1b2a3f" color="#3d6ea8" fontcolor="#a8cdf5"]
+    f9 [label="F9  overlays · windows\nwindow · MDI · popup · dropdown · popover · modal\ndrawer · tooltip · toasts · dialogs · scrim · focus trap"]
+    f11 [label="F11  media                    ⟵ was missing\nimage · background image · video player · audio\nwaveform · spectrum · gallery · compare · QR · barcode\n⛔ sixel / kitty passthrough — engine finding §6.1"
+         penwidth=2.8]
+    f12 [label="F12  files · preview           ⟵ was missing\nbrowser · dual pane · preview pane · path bar · hex\narchive · metadata · tasks · du treemap · conflicts"
+         penwidth=2.8]
+    f13 [label="F13  system · monitoring       ⟵ was missing\ncore meters · throughput · process table · log stream\npods · manifests · git graph · diff · hunks · events"
+         penwidth=2.8]
+    f14 [label="F14  terminal-native\npty · scrollback · copy mode · which-key · braille\nblocks · sextants · art · globe   ⛔ OSC 52 · bell"]
+    f15 [label="F15  behavioural — NO CELLS\nkey map · focus scope · virtualiser · clipboard\ndrag & drop · undo · router · worker · theme · i18n"
+         fillcolor="#3a2a20" color="#b07b45" fontcolor="#f0cda0" style="rounded,filled,dashed"]
+    f9 -> f11 -> f12 -> f13 -> f14 -> f15 [style=invis]
+  }
+
+  root -> f1 [label="  emits cells  "]
+  root -> f3 [label="  takes intent\l  or moves content\l"]
+  root -> f9 [label="  owns a layer,\l  a device or a rule\l"]
+
+  note [label="F15 fails T2 — it emits no cells.\nIt is vitui-runtime, not a component.\n\nF3 and F4 were missed by the first draft:\nin CSS and retained frameworks they are container\nattributes, so no inventory lists them. In immediate\nmode there is no container to attribute them to."
+        shape=note fillcolor="#22282f" color="#5c6675" fontcolor="#c3ccd8" fontsize=13
+        style="filled"]
+  f15 -> note [style=dashed]
+}
