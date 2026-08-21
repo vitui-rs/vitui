@@ -595,3 +595,15 @@ it measures.
 gate rather than an appendix: three scenes that score identically on every candidate validate the
 wrong design while reporting success. A scene is removed only by a ticket naming the property it can
 no longer distinguish.
+
+**Round trip** — the primary instrument: composite a frame, serialise it, replay the bytes through the
+terminal model, assert the replayed screen equals the frame. It stores nothing, so there is nothing to
+review and nothing to maintain — and it cannot see a defect the serializer and the terminal model
+share, because they are then wrong in the same direction.
+
+**Golden frame** — the residue the round trip cannot reach: the composited **picture**, one file per
+frame, as two fixed-width planes — a glyph plane and a style plane — over a legend, with a row-number
+gutter and a header naming scene, frame, size and tier. Two planes because a cell's cluster and its
+style word change independently and one rendering can make only one of them diff legibly.
+Regenerated with `VITUI_BLESS=1`, and the review is the git diff. Never a golden **byte string**: the
+encoding is the part that is allowed to change.

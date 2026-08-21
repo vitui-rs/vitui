@@ -502,6 +502,14 @@ impl Screen {
         &mut self.layers.tables_mut().interner
     }
 
+    /// The handle space this screen's layers speak, for a golden to resolve a frame's handles
+    /// through. The frame surface carries tables of its own and they are empty: it is composited
+    /// into, never drawn into.
+    #[cfg(test)]
+    pub(crate) fn tables(&self) -> &crate::tables::Tables {
+        self.layers.tables()
+    }
+
     #[cfg(test)]
     pub(crate) fn frame(&self) -> &Surface {
         &self.frame

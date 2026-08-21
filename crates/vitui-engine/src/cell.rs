@@ -113,6 +113,15 @@ impl GraphemeId {
     pub(crate) const fn is_empty(self) -> bool {
         self.0 == GraphemeId::EMPTY.0
     }
+
+    /// The whole handle, wide flag included.
+    ///
+    /// A key, not a number to do arithmetic on: [`crate::golden`] indexes its legend by it, because
+    /// a wide head and its narrow twin are one bit apart and must not share a legend entry.
+    #[cfg(test)]
+    pub(crate) const fn bits(self) -> u32 {
+        self.0
+    }
 }
 
 /// One addressable position in the grid: what is drawn there, and how it is styled.

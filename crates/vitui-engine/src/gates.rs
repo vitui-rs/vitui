@@ -25,8 +25,7 @@ use crate::reference;
 use crate::register::State;
 use crate::scenes::{H, Scene, W, scenes, table_two_ways, virtualised_tree};
 use crate::style::Style;
-use crate::testing::{Harness, assert_pairing_holds};
-use crate::text::width_of;
+use crate::testing::{Harness, assert_pairing_holds, bisecting_cjk};
 
 /// How many steady-state frames each scene is driven for.
 ///
@@ -368,22 +367,6 @@ fn wire_bytes_per_scene() {
 // Ticket 11 — the pairing invariant, over the composited frame rather than over one surface.
 // ---------------------------------------------------------------------------------------------
 
-/// How many rectangles bisect the screen of CJK below.
-const BISECTORS: i32 = 12;
-
-/// A row of mixed CJK, offset so that pairs do not all start on the same parity.
-///
-/// The offset is the point. Twelve rectangles at fixed columns over a screen where every pair began
-/// on an even column would bisect either all of them or none of them, and a repair that was right
-/// for one parity and wrong for the other would pass.
-fn mixed_cjk(y: u16) -> String {
-    let mut s = ".".repeat((y % 3) as usize);
-    while width_of(&s) < W {
-        s.push_str("漢字ab漢c");
-    }
-    s
-}
-
 /// Ticket 11's gate, and an equality against the reference compositor rather than a hand-written
 /// expectation.
 ///
@@ -408,7 +391,7 @@ fn the_pairing_invariant_survives_twelve_bisecting_layers_over_cjk() {
         .layers()
         .add_content(0, Rect::new(0, 0, W, H), true);
     for y in 0..H {
-        let row = mixed_cjk(y);
+        let row = bisecting_cjk::row(y, W);
         h.screen
             .layers()
             .view(base)
@@ -416,23 +399,17 @@ fn the_pairing_invariant_survives_twelve_bisecting_layers_over_cjk() {
             .text(0, y as i32, &row, Style::new());
     }
 
-    // Ten inside the frame, one hanging off the left edge and one off the right. The two edge
-    // layers are what exercise the clamp: their content is clipped mid-pair by the frame rather
-    // than by anything the layer stack decided.
     let mut movers = Vec::new();
-    for i in 0..BISECTORS {
-        let rect = match i {
-            0 => Rect::new(-3, 40, 24, 9),
-            1 => Rect::new(W as i32 - 9, 52, 24, 9),
-            _ => Rect::new(5 + i * 22, i * 6, 31, 9),
-        };
+    for i in 0..bisecting_cjk::BISECTORS {
+        let rect = bisecting_cjk::rect(i, W);
         let id = h.screen.layers().add_content(1 + i, rect, i % 2 == 0);
         for y in 0..rect.h {
-            h.screen
-                .layers()
-                .view(id)
-                .unwrap()
-                .text(0, y as i32, &mixed_cjk(y), Style::new());
+            h.screen.layers().view(id).unwrap().text(
+                0,
+                y as i32,
+                &bisecting_cjk::row(y, W),
+                Style::new(),
+            );
         }
         movers.push((id, rect));
     }
@@ -445,11 +422,12 @@ fn the_pairing_invariant_survives_twelve_bisecting_layers_over_cjk() {
             rect.x += 1;
             h.screen.layers().set_rect(*id, *rect);
             for y in 0..rect.h {
-                h.screen
-                    .layers()
-                    .view(*id)
-                    .unwrap()
-                    .text(0, y as i32, &mixed_cjk(y), Style::new());
+                h.screen.layers().view(*id).unwrap().text(
+                    0,
+                    y as i32,
+                    &bisecting_cjk::row(y, W),
+                    Style::new(),
+                );
             }
         }
         let after = reference::composite(h.screen.layers(), W, H);
@@ -480,10 +458,10 @@ fn the_pairing_invariant_survives_twelve_bisecting_layers_over_cjk() {
     // layer edges have already bisected. That is where a repair is measured against a cell no layer
     // in the run repainted, and where a repair that reached one column too far would erase a half
     // nothing was going to repaint.
-    let marker = h
-        .screen
-        .layers()
-        .add_content(BISECTORS + 1, Rect::new(59, 30, 1, 1), true);
+    let marker =
+        h.screen
+            .layers()
+            .add_content(bisecting_cjk::BISECTORS + 1, Rect::new(59, 30, 1, 1), true);
     h.screen
         .layers()
         .view(marker)

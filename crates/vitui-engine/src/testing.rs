@@ -61,6 +61,50 @@ pub(crate) fn assert_pairing_holds(s: &Surface) {
     }
 }
 
+/// The twelve-bisecting-layers-over-CJK fixture: the rows, and the rectangles that cut them.
+///
+/// **Two callers and one definition, for the reason the second caller exists.**
+/// [`crate::gates::the_pairing_invariant_survives_twelve_bisecting_layers_over_cjk`] drives it to
+/// hold spec §3's pairing invariant over the composited frame, and [`crate::golden`] blesses the
+/// picture it makes — *the one frame in this crate whose correctness no other instrument makes
+/// visible to a human.* The round trip cannot see a frame whose halves do not pair, because the
+/// serializer emits nothing for a continuation and the terminal model consumes nothing for one; the
+/// reference compositor checks the picture against an oracle and produces nothing anybody reads.
+///
+/// The rects were duplicated into the golden at first, and that was the defect: change one of them
+/// and the golden goes on passing against its own blessed file while quietly no longer being the
+/// picture the gate exercises.
+pub(crate) mod bisecting_cjk {
+    /// How many rectangles bisect the screen of CJK.
+    pub(crate) const BISECTORS: i32 = 12;
+
+    /// One row of mixed CJK, offset so that pairs do not all start on the same parity.
+    ///
+    /// The offset is the point. Twelve rectangles at fixed columns over a screen where every pair
+    /// began on an even column would bisect either all of them or none of them, and a repair that
+    /// was right for one parity and wrong for the other would pass.
+    pub(crate) fn row(y: u16, width: u16) -> String {
+        let mut s = ".".repeat((y % 3) as usize);
+        while crate::text::width_of(&s) < width {
+            s.push_str("漢字ab漢c");
+        }
+        s
+    }
+
+    /// Rectangle `i` of [`BISECTORS`], over a screen `width` columns wide.
+    ///
+    /// Ten inside the frame, one hanging off the left edge and one off the right. The two edge
+    /// rectangles are what exercise the clamp: their content is clipped mid-pair by the frame rather
+    /// than by anything the layer stack decided.
+    pub(crate) fn rect(i: i32, width: u16) -> crate::geom::Rect {
+        match i {
+            0 => crate::geom::Rect::new(-3, 40, 24, 9),
+            1 => crate::geom::Rect::new(width as i32 - 9, 52, 24, 9),
+            _ => crate::geom::Rect::new(5 + i * 22, i * 6, 31, 9),
+        }
+    }
+}
+
 /// What a [`Recorder`] saw.
 #[derive(Default, Debug)]
 pub(crate) struct Recording {

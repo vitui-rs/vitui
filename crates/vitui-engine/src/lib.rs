@@ -52,7 +52,10 @@
 //! that repaints rather than patches — and what the terminal on the other end can do (ticket 16):
 //! [`Capabilities`] and [`Overrides`], a query batch fired at the live pty behind one DA1 sentinel
 //! rather than a terminfo lookup, and spec §10's seven levels of precedence resolved once at
-//! [`Engine::attach`] and immutable thereafter.
+//! [`Engine::attach`] and immutable thereafter — and the residue the round trip cannot reach
+//! (ticket 05): the two-plane golden frame with its legend and `VITUI_BLESS=1`, over three of §14's
+//! twelve scenes plus the one fixture that draws a wide cluster, whose format lost an argument with a
+//! real diff and came back with a row-number gutter and a cell count on every legend entry.
 //!
 //! Not here yet, each with the ticket that brings it:
 //! what a [`Mix`] does to a cell (12), the `shortest`
@@ -92,6 +95,8 @@ mod tables;
 // inside the crate. Ticket 25's fuzz targets are what will need `reference` outside `cfg(test)`.
 #[cfg(test)]
 mod gates;
+#[cfg(test)]
+mod golden;
 #[cfg(test)]
 mod reference;
 #[cfg(test)]
