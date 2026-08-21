@@ -191,12 +191,11 @@ pub const REGISTER: [Entry; 27] = [
         kind: Kind::Gate,
         qualifier: "shape",
         source: "arch 16",
-        state: State::Red {
-            inverted_by: "impl 08",
-            why: "impl 12 built the operator layer and its memo, so a *settled* operator is now \
-                  measurable and does converge after one frame — what is still missing is the \
-                  sweep and `repaint`, which bound a *fading* one, and impl 08 owns both and \
-                  carries the gate in its own criteria",
+        state: State::Wired {
+            at: "tests/alloc.rs's a_settled_operator_over_a_hyperlinked_screen_allocates_nothing \
+                 for the settled half, and \
+                 crate::gates::a_fading_operator_mints_per_distinct_style_and_never_per_cell for \
+                 the fading one",
         },
     },
     Entry {
@@ -240,10 +239,10 @@ pub const REGISTER: [Entry; 27] = [
         kind: Kind::Gate,
         qualifier: "equality",
         source: "arch 16",
-        state: State::Red {
-            inverted_by: "impl 08",
-            why: "impl 07 built the two tables and impl 06 the third, so there is something to \
-                  sweep now — what is missing is the sweep, and impl 08 owns it",
+        state: State::Wired {
+            at: "crate::gates::a_sweep_preserves_every_live_cells_channels and \
+                 a_sweep_that_frees_only_the_top_of_a_table_does_not_renumber, with the interner's \
+                 half in a_sweep_preserves_a_wide_clusters_channels_and_its_width",
         },
     },
     Entry {

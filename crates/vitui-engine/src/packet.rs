@@ -11,8 +11,30 @@
 //! Runs, cells, the size, and three side tables: clusters, extended styles and the OSC 8 URIs those
 //! name. All three are keyed by the handle the cell carries and all three are filled at pack time,
 //! so the render thread resolves everything inside the packet and holds nothing that points into an
-//! engine table. `repaint` and `generation` arrive with the sweep (ticket 08) and the mailbox
-//! (ticket 18).
+//! engine table. `generation` arrives with the mailbox (ticket 18).
+//!
+//! # The rule every future change to this struct has to pass
+//!
+//! > **Nothing the render thread compares across frames may be derived from a position.**
+//!
+//! It is the general form of two decisions this file already rests on, and it is written here rather
+//! than in a document because this is the struct that would break it.
+//!
+//! The first is [`Packet::repaint`]. A handle **is** a position — an index into a table — and the
+//! mirror is the one reader that compares handles across frames, so the mark-and-compact sweep that
+//! renumbers a table has to tell it (spec §3, [`crate::sweep`]). The flag is the whole of that
+//! telling, and it costs one full frame on the render thread at a moment when the engine is already
+//! doing topology work.
+//!
+//! The second is the keying of the three side tables. Writing a *position* into a packed cell — an
+//! arena offset instead of the handle — makes an unchanged cell pack differently whenever the
+//! frame's damage changes shape, and §7 measured that at **284× in bytes** over five steady frames
+//! of a page with nothing changing. Both defects are the same sentence read twice.
+//!
+//! A **content-keyed** packet, deriving each key from the entry's content so a sweep would be
+//! invisible to the mirror, was built and refused (§7): it buys a probability rather than a
+//! property, its cost lands on the app thread to save the render thread, and identity is simpler to
+//! reason about. The flag is what replaces it.
 //!
 //! # Why the cluster bytes are copied in rather than pointed at
 //!
@@ -56,6 +78,14 @@ pub(crate) struct Packet {
     exts: HashMap<u32, ExtStyle>,
     /// The URI each hyperlink names, in the same arena as the clusters.
     links: HashMap<LinkId, (u32, u32)>,
+    /// Set when a sweep renumbered a table since the last packet: **invalidate the mirror.**
+    ///
+    /// See the position rule in this module's documentation. It is a property of the *packet* rather
+    /// than of the sweep because the sweep and the frame are not the same event: the app thread may
+    /// sweep several times, or none, between two frames, and what the render thread has to know is
+    /// only whether the handles in the cells it is about to be given still mean what the ones it
+    /// last recorded meant.
+    repaint: bool,
 }
 
 impl Packet {
@@ -68,6 +98,7 @@ impl Packet {
             clusters: HashMap::new(),
             exts: HashMap::new(),
             links: HashMap::new(),
+            repaint: false,
         }
     }
 
@@ -76,7 +107,8 @@ impl Packet {
     /// The runs are passed in rather than rescanned, because `present` has already scanned them to
     /// know what to composite. `clear` keeps the capacity, which is what makes a steady stream of
     /// frames allocate nothing.
-    pub(crate) fn pack(&mut self, runs: &[Run], frame: &Surface, tables: &Tables) {
+    pub(crate) fn pack(&mut self, runs: &[Run], frame: &Surface, tables: &Tables, repaint: bool) {
+        self.repaint = repaint;
         self.runs.clear();
         self.cells.clear();
         self.arena.clear();
@@ -176,6 +208,15 @@ impl Packet {
         Some(&self.arena[start as usize..end as usize])
     }
 
+    /// Whether the mirror has to be thrown away before this packet is read.
+    ///
+    /// True when a sweep renumbered a table since the last packet went out. The serializer's answer
+    /// is to mark every mirror row unknown, which is how a full repaint expresses itself without a
+    /// separate mode (§8, ADR 0006).
+    pub(crate) fn repaint(&self) -> bool {
+        self.repaint
+    }
+
     pub(crate) fn is_empty(&self) -> bool {
         self.runs.is_empty()
     }
@@ -216,7 +257,7 @@ mod tests {
     fn a_packet_from_an_undamaged_frame_is_empty() {
         let mut p = Packet::new();
         let frame = Surface::new(8, 2);
-        p.pack(&runs_of(&frame), &frame, frame.tables());
+        p.pack(&runs_of(&frame), &frame, frame.tables(), false);
         assert!(p.is_empty());
         assert!(p.cells().is_empty());
     }
@@ -225,7 +266,7 @@ mod tests {
     fn a_packet_carries_the_damaged_cells_and_no_others() {
         let mut p = Packet::new();
         let frame = frame_with_two_spans();
-        p.pack(&runs_of(&frame), &frame, frame.tables());
+        p.pack(&runs_of(&frame), &frame, frame.tables(), false);
         assert_eq!(p.runs().len(), 2);
         assert_eq!(p.cells().len(), 4, "not the 300 cells of the row");
     }
@@ -234,7 +275,7 @@ mod tests {
     fn the_cells_are_concatenated_in_run_order() {
         let mut p = Packet::new();
         let frame = frame_with_two_spans();
-        p.pack(&runs_of(&frame), &frame, frame.tables());
+        p.pack(&runs_of(&frame), &frame, frame.tables(), false);
         let glyphs: String = p
             .cells()
             .iter()
@@ -247,7 +288,7 @@ mod tests {
     fn the_packet_carries_the_size_it_was_packed_at() {
         let mut p = Packet::new();
         let frame = Surface::new(300, 80);
-        p.pack(&runs_of(&frame), &frame, frame.tables());
+        p.pack(&runs_of(&frame), &frame, frame.tables(), false);
         assert_eq!(p.size(), (300, 80));
     }
 
@@ -274,7 +315,7 @@ mod tests {
         // never written into the cell.
         let mut p = Packet::new();
         let frame = hyperlinked_row();
-        p.pack(&runs_of(&frame), &frame, frame.tables());
+        p.pack(&runs_of(&frame), &frame, frame.tables(), false);
         let handle = p.cells()[0]
             .style
             .ext_handle()
@@ -288,7 +329,7 @@ mod tests {
     fn one_extended_style_is_copied_once_however_many_cells_carry_it() {
         let mut p = Packet::new();
         let frame = hyperlinked_row();
-        p.pack(&runs_of(&frame), &frame, frame.tables());
+        p.pack(&runs_of(&frame), &frame, frame.tables(), false);
         assert_eq!(p.cells().len(), 8);
         assert_eq!(p.exts.len(), 1);
         assert_eq!(p.links.len(), 1);
@@ -298,7 +339,7 @@ mod tests {
     fn a_packet_of_inline_cells_carries_no_extended_tables() {
         let mut p = Packet::new();
         let frame = frame_with_two_spans();
-        p.pack(&runs_of(&frame), &frame, frame.tables());
+        p.pack(&runs_of(&frame), &frame, frame.tables(), false);
         assert!(
             p.exts.is_empty(),
             "under 1% of cells are extended, and these are not"
@@ -311,10 +352,10 @@ mod tests {
     fn packing_twice_replaces_rather_than_appends() {
         let mut p = Packet::new();
         let frame = frame_with_two_spans();
-        p.pack(&runs_of(&frame), &frame, frame.tables());
+        p.pack(&runs_of(&frame), &frame, frame.tables(), false);
         let mut second = Surface::new(300, 4);
         second.root().fill(Rect::new(0, 1, 3, 1), "#", Style::new());
-        p.pack(&runs_of(&second), &second, second.tables());
+        p.pack(&runs_of(&second), &second, second.tables(), false);
         assert_eq!(p.runs().len(), 1);
         assert_eq!(p.cells().len(), 3);
     }
@@ -323,10 +364,10 @@ mod tests {
     fn packing_a_plain_frame_after_an_extended_one_clears_the_side_tables() {
         let mut p = Packet::new();
         let extended = hyperlinked_row();
-        p.pack(&runs_of(&extended), &extended, extended.tables());
+        p.pack(&runs_of(&extended), &extended, extended.tables(), false);
         assert_eq!(p.exts.len(), 1);
         let plain = frame_with_two_spans();
-        p.pack(&runs_of(&plain), &plain, plain.tables());
+        p.pack(&runs_of(&plain), &plain, plain.tables(), false);
         assert!(
             p.exts.is_empty(),
             "a stale entry would outlive the cell that named it"

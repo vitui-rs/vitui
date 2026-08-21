@@ -28,13 +28,15 @@
 use std::collections::HashMap;
 
 use crate::cell::GraphemeId;
+use crate::sweep;
 use crate::ucd;
 
 /// The clusters one handle space knows about.
 #[derive(Debug, Default)]
 pub(crate) struct Interner {
-    /// Indexed by cluster id. Never shrinks: a handle is stable for the life of the table, and the
-    /// mark-and-compact sweep that renumbers it is spec §3's, not this ticket's.
+    /// Indexed by cluster id. A handle is stable until [`compact`](Interner::compact) renumbers
+    /// it, which is spec §3's mark-and-compact sweep and happens where allocation is already
+    /// permitted, never inside a frame.
     clusters: Vec<Box<str>>,
     index: HashMap<Box<str>, u32>,
 }
@@ -118,6 +120,46 @@ impl Interner {
         }
         let ch = g.as_scalar()?;
         Some(ch.encode_utf8(scratch))
+    }
+
+    /// How many clusters this table holds.
+    ///
+    /// The marker slot count the sweep allocates, and the number its high-water mark is compared
+    /// against (spec §3, [`crate::sweep`]).
+    pub(crate) fn len(&self) -> usize {
+        self.clusters.len()
+    }
+
+    /// Drop every cluster `live` does not mark, keeping the survivors **in table order**.
+    ///
+    /// Returns the new id for each old id, with [`sweep::DEAD`](crate::sweep::DEAD) where the entry
+    /// was dropped — or `None` when no survivor moved, which is the case a sweep does not have to
+    /// rewrite a single cell for. Spec §3: *a sweep that frees nothing below a live entry does not
+    /// renumber at all.*
+    pub(crate) fn compact(&mut self, live: &[bool]) -> Option<Vec<u32>> {
+        debug_assert_eq!(
+            live.len(),
+            self.clusters.len(),
+            "the marker has one slot per table entry"
+        );
+        let sweep::Remap { map, renumbered } = sweep::remap(live)?;
+        // `swap` rather than `remove`: everything below `kept` is already final, so the entry
+        // swapped up to `old` is always one that is about to be truncated away.
+        let mut kept = 0;
+        for (old, &alive) in live.iter().enumerate() {
+            if alive {
+                self.clusters.swap(kept, old);
+                kept += 1;
+            }
+        }
+        self.clusters.truncate(kept);
+        // The keys are unchanged, so the index is rewritten in place rather than rebuilt: the bytes
+        // that hashed to a bucket still hash to it, and only the id beside them moved.
+        self.index.retain(|_, id| {
+            *id = map[*id as usize];
+            *id != sweep::DEAD
+        });
+        renumbered.then_some(map)
     }
 
     /// The bytes a handle names, for a handle that names a cluster or a scalar that is already

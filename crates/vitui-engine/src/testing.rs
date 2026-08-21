@@ -214,6 +214,43 @@ impl Write for Recorder {
     }
 }
 
+/// A screen writing into nothing, with **no round trip closed on it**.
+///
+/// [`Harness`] is what every test should reach for, because it closes the round trip on every
+/// `present`. This exists for the tests that cannot have one, and there is exactly one class of
+/// those: **a frame carrying an extended cell.** SGR 58/59 and OSC 8 are impl 13's, so the
+/// serializer paints a hyperlinked or underline-coloured cell in the right colours and drops the
+/// channel that made it extended (`crate::serial`'s module documentation). The terminal model then
+/// holds an inline cell where the frame holds a handle, and comparing the two compares one screen
+/// against a different spelling of it.
+///
+/// Every caller is a test about a **handle table**, and an extended cell is what a handle table is
+/// for. So the round trip is not being skipped here, it is unavailable — and what is lost is stated
+/// rather than assumed: a caller of this gets no assertion that bytes reached a terminal.
+pub(crate) fn screen_without_a_round_trip(w: u16, h: u16, overrides: Overrides) -> Screen {
+    let (screen, _wake) = Engine::new(Config {
+        size: (w, h),
+        output: Output::Sink(Box::new(std::io::sink())),
+        clock: Clock::Manual,
+        overrides,
+    })
+    .attach()
+    .expect("attaching to a sink cannot fail");
+    screen
+}
+
+/// A truecolor terminal, silent on both default colours: what a compositing test needs pinned.
+///
+/// §5 skips an operator layer **outright** at [`ColorDepth::None`](crate::ColorDepth), which is what
+/// a headless screen is unless something says otherwise (architecture ticket 22) — so a test about
+/// an operator that does not pin this measures the depth instead of the operator.
+pub(crate) fn pinned_truecolor() -> Overrides {
+    Overrides {
+        colors: Some(crate::caps::ColorDepth::TrueColor),
+        ..Overrides::default()
+    }
+}
+
 /// A screen, a sink, and the terminal model the sink's bytes are replayed through.
 ///
 /// One harness, two callers: [`crate::roundtrip`] drives the shapes ticket 03 could express and
@@ -227,6 +264,12 @@ pub(crate) struct Harness {
     /// Prefixes every failure message. A gate driving twelve scenes has to say which one failed;
     /// a single-scene test has nothing useful to add and leaves it empty.
     label: String,
+    /// Rows a sweep's `repaint` invalidated and no frame has re-established since.
+    ///
+    /// **All false until a `repaint` actually crosses**, which is what separates this from the
+    /// mirror's own unknown row — see
+    /// [`assert_screen_matches_frame`](Harness::assert_screen_matches_frame).
+    stale: Vec<bool>,
 }
 
 impl Harness {
@@ -270,6 +313,7 @@ impl Harness {
             term: TermModel::new(w, h),
             replayed: 0,
             label: String::new(),
+            stale: vec![false; h as usize],
         }
     }
 
@@ -282,6 +326,8 @@ impl Harness {
     pub(crate) fn resize(&mut self, w: u16, h: u16) {
         self.screen.resize(w, h);
         self.term = TermModel::new(w, h);
+        // A fresh model beside a fresh mirror: they agree by construction, so nothing is stale.
+        self.stale = vec![false; h as usize];
         // The bytes already written described the old screen; nothing after this replays them.
         self.replayed = self.recording.lock().unwrap().bytes.len();
     }
@@ -305,6 +351,7 @@ impl Harness {
         // compare whole cells rather than rendered text. A cluster the engine never wrote gets a
         // handle nobody has, and the comparison fails, which is the point.
         self.term.feed(&fresh, self.screen.interner_mut());
+        self.note_what_a_sweep_invalidated();
 
         assert_eq!(
             self.term.unrecognised(),
@@ -317,10 +364,55 @@ impl Harness {
         presented
     }
 
+    /// Carry [`stale`](Harness::stale) forward across the frame that has just gone out.
+    ///
+    /// A `repaint` packet invalidates every row; a row is re-established when the serializer records
+    /// it as known, which is the same condition — one frame having written every column of it — and
+    /// is read off the mirror rather than recomputed here so the two cannot drift apart.
+    fn note_what_a_sweep_invalidated(&mut self) {
+        if self.screen.packet().repaint() {
+            self.stale.fill(true);
+        }
+        for y in 0..self.screen.size().1 {
+            if self.screen.mirror().is_known(y) {
+                self.stale[y as usize] = false;
+            }
+        }
+    }
+
+    /// The replayed screen must agree with the frame everywhere a sweep has not moved the handles.
+    ///
+    /// **A sweep is the one thing the round trip cannot see across.** A renumbered handle names the
+    /// same text in the same colours, so the terminal goes on showing the right thing — but the model
+    /// records a *cell*, and the cell it recorded carries the handle that was current when the bytes
+    /// went out. Comparing it against a frame whose handles have since moved compares two spellings
+    /// of one screen.
+    ///
+    /// # It skips [`stale`](Harness::stale) rows and **not** unknown ones, and the difference is the
+    /// whole of this method's coverage
+    ///
+    /// `Mirror`'s own flag starts *unknown* at construction, because ADR 0006 is about a real
+    /// terminal and a real terminal at startup is showing something nobody recorded. **That is not
+    /// true of this harness**, where the model is constructed blank beside a mirror constructed
+    /// blank and the two agree by construction — the note on
+    /// [`assert_mirror_matches_frame`](Harness::assert_mirror_matches_frame) has said so since
+    /// ticket 03.
+    ///
+    /// Keying the skip off `is_known` therefore looked right and was a silent hole: a row only
+    /// becomes known when one frame writes **every column** of it, so any harness whose layers never
+    /// span the screen has every row unknown for ever. `crate::roundtrip`'s
+    /// `a_layer_hanging_off_an_edge_survives_the_round_trip` is twenty columns wide with a layer that
+    /// clips to seven of them and **contains no assertion of its own** — it would have asserted
+    /// literally nothing. So the harness tracks the narrower fact itself: a row is stale from the
+    /// frame a `repaint` reaches the mirror until some frame re-establishes it, and before the first
+    /// sweep nothing is stale and every cell is compared exactly as it was.
     fn assert_screen_matches_frame(&self) {
         let (w, h) = self.screen.size();
         let frame = self.screen.frame();
         for y in 0..h {
+            if self.stale[y as usize] {
+                continue;
+            }
             for x in 0..w {
                 assert_eq!(
                     self.term.cell(x, y),
@@ -338,15 +430,18 @@ impl Harness {
     /// the wrong style, fails here. What it does not buy is the cells nobody touched — a fresh
     /// mirror and a fresh frame are both blank, so those match by construction.
     ///
-    /// The mirror has no *unknown row* yet, which
-    /// `docs/adr/0006-the-render-thread-mirrors-what-the-terminal-shows.md` makes load-bearing at
-    /// startup and after a resize. Ticket 14's equality filter is the first thing that compares
-    /// against the mirror and therefore the first thing that can be wrong without one; ticket 22
-    /// brings the resize that makes a row untrustworthy.
+    /// [`stale`](Harness::stale) rows are skipped, for the reason
+    /// [`assert_screen_matches_frame`](Harness::assert_screen_matches_frame) states at length: after
+    /// a sweep the mirror holds handles that have moved, which is the whole of what `Packet::repaint`
+    /// is about. Before the first sweep on a harness nothing is stale and this walk covers everything
+    /// unconditionally, exactly as it did before ticket 08.
     fn assert_mirror_matches_frame(&self) {
         let (w, h) = self.screen.size();
         let frame = self.screen.frame();
         for y in 0..h {
+            if self.stale[y as usize] {
+                continue;
+            }
             for x in 0..w {
                 assert_eq!(
                     self.screen.mirror().cell(x, y),

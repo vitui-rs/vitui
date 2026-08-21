@@ -60,7 +60,7 @@
 
 use std::fmt::Write as _;
 
-use vitui_engine::{Color, LayerId, Rect, Screen, Style};
+use vitui_engine::{Color, ColorDepth, LayerId, Mix, Overrides, Rect, Restyle, Screen, Style};
 
 use crate::register::State;
 
@@ -101,6 +101,21 @@ pub trait Scene {
     /// and the adversarial page is most of a millisecond — so a number that suits one of them suits
     /// none of the others, and a default would be a wrong answer that nobody had to type.
     fn iters(&self) -> u32;
+
+    /// What this scene needs pinned about the terminal it is measured against.
+    ///
+    /// Default: nothing, which is a headless screen — and **a headless screen is at
+    /// [`ColorDepth::None`]**, because a caller-supplied sink is asked nothing and spec §10 will not
+    /// invent a colour for one. Eleven of the twelve are indifferent to that.
+    ///
+    /// The twelfth is not. §5 skips an operator layer **outright** at that depth, so a scene whose
+    /// subject is an operator would report the cost of the content layers under it and grow no table
+    /// at all. It is on the trait rather than passed in by each driver so that the pin travels with
+    /// the scene: `crate::gates` and `examples/budget.rs` build their own screens, and a scene that
+    /// only one of them pinned correctly would be measured on two different terminals.
+    fn overrides(&self) -> Overrides {
+        Overrides::default()
+    }
 }
 
 /// The twelve scenes, in spec §14's own order.
@@ -117,7 +132,7 @@ pub fn scenes() -> Vec<Box<dyn Scene>> {
         Box::new(TableTwoWays::new(1_000_000)),
         Box::new(FullScreenChange::new()),
         Box::new(EveryCellADistinctStyle::new()),
-        Box::new(HyperlinkedPageUnderAnOperator),
+        Box::new(HyperlinkedPageUnderAnOperator::new()),
     ]
 }
 
@@ -846,13 +861,170 @@ impl Scene for EveryCellADistinctStyle {
 // 12. A hyperlinked page under an animating operator
 // ---------------------------------------------------------------------------------------------
 
-/// **Red on purpose.** The one scene with no measurement behind it.
+/// A full screen of hyperlinked text under an operator whose `amount` moves every frame.
 ///
-/// It is the only measured shape that grows a handle table without bound, and it decides table
-/// lifetime the way the sparse chart decided damage: table growth, the sweep, `repaint` and the
-/// memo, all at once. It needs two mechanisms that do not exist yet, and it is on the list anyway —
-/// a scene quietly dropped until its mechanism arrives is a scene nobody puts back.
-struct HyperlinkedPageUnderAnOperator;
+/// # What this row is for
+///
+/// **It is the only measured shape that grows a handle table without bound**, and it decides table
+/// lifetime the way the sparse chart decided damage: table growth, the sweep, `repaint` and the memo,
+/// all at once (spec §3, §14). Impl 08 is what gave it a number; before that it was the one row on
+/// §14's normative list with nothing behind it.
+///
+/// Three things make it measure something rather than nothing, and each of them was a way to get a
+/// beautiful zero:
+///
+/// - **The depth is pinned to truecolor.** A headless screen is at `ColorDepth::None`, and §5 skips
+///   an operator layer outright there — see [`Scene::overrides`].
+/// - **The page has explicit colours.** A cell with a *default* background is left unmixed on a
+///   terminal silent on OSC 11 (§5), and every headless screen is silent, so a default-coloured page
+///   would put an operator over cells the operator declines to touch.
+/// - **The page is hyperlinked**, which is what makes the mix's *result* need a table entry at all.
+///   An inline cell mixes to an inline word and reaches no table; a hyperlinked one produces a style
+///   that has never existed, every frame, for ever.
+///
+/// # Why it animates by removing and re-adding the operator
+///
+/// **There is no `set_mix`**, so a moving `amount` is a `remove` and an `add_operator`. That is not a
+/// workaround: it is why [`Screen::layers`] is the right door for the sweep's high-water check, since
+/// the one shape that grows a table without bound passes through it on every frame it animates.
+///
+/// # Why it is still red, and against impl 13 rather than impl 08
+///
+/// `crate::gates` drives every wired scene through the round trip, and **an extended cell cannot
+/// close it**: SGR 58/59 and OSC 8 are impl 13's, so the serializer paints a hyperlinked cell in the
+/// right colours and drops the channel that made it extended. The terminal model then holds an
+/// inline cell where the frame holds a handle. That is a fact about the wire, not about this scene —
+/// `crate::serial`'s module documentation states it and impl 13 is what ends it.
+///
+/// So the numbers this row exists for are taken in `examples/budget.rs`'s
+/// `the_hyperlinked_page_under_an_animating_operator`, which drives this scene directly, and the
+/// per-frame timing that would put it in the twelve-scene report waits for impl 13.
+pub struct HyperlinkedPageUnderAnOperator {
+    page: Option<LayerId>,
+    operator: Option<LayerId>,
+    /// The row buffer, so a step allocates nothing after the first.
+    row: String,
+    /// The page's hyperlinks, minted once and re-applied every frame.
+    links: Vec<vitui_engine::LinkId>,
+}
+
+impl HyperlinkedPageUnderAnOperator {
+    /// How many distinct hyperlinks the page carries, and therefore how many distinct extended
+    /// styles it holds and how many entries one frame of a fade mints.
+    ///
+    /// Spec §3's measurement is 96 distinct extended styles on 300×80, so 96 it is. It is a count of
+    /// **links** rather than of underline colours because `Mix` blends an underline colour along with
+    /// the other two and a hyperlink is the one channel it never names — ninety-six underline colours
+    /// a few units apart collapse into fewer than ninety-six after blending, and the growth reported
+    /// would be `blend`'s truncation rather than the table's.
+    const LINKS: u16 = 96;
+
+    fn new() -> HyperlinkedPageUnderAnOperator {
+        HyperlinkedPageUnderAnOperator {
+            page: None,
+            operator: None,
+            row: String::new(),
+            links: Vec::new(),
+        }
+    }
+
+    /// The same page under an operator that **does not move**, which is the arm every fading number
+    /// is a ratio against.
+    ///
+    /// Spec §3's two rows are the same scene twice — 0.8 entries a frame settled against 95.7
+    /// fading — so the settled arm is not a control that could be left out. It is half the
+    /// measurement, and it is here rather than in a second scene so that the two arms cannot drift
+    /// apart in anything but the `amount`.
+    pub fn step_settled(&mut self, screen: &mut Screen, _t: u32) -> u32 {
+        let written = self.draw_page(screen);
+        self.set_mix(screen, HyperlinkedPageUnderAnOperator::settled());
+        written
+    }
+
+    /// How many distinct extended styles the page holds, which is what one fading frame mints.
+    pub fn distinct_styles() -> usize {
+        HyperlinkedPageUnderAnOperator::LINKS as usize
+    }
+
+    /// The `amount` for frame `t` of a fade: a full sweep of the range every 64 frames.
+    ///
+    /// Distinct on consecutive frames, which is the whole property — a settled operator converges
+    /// after one frame and is measured by holding this still instead.
+    pub fn fading(t: u32) -> Mix {
+        Mix::darken((t % 64) as u16 * 4 + 4)
+    }
+
+    /// The `amount` a settled modal dim holds, whatever the frame.
+    pub fn settled() -> Mix {
+        Mix::darken(Mix::FULL / 2)
+    }
+
+    /// Where band `b` of [`LINKS`](HyperlinkedPageUnderAnOperator::LINKS) starts and ends.
+    ///
+    /// Computed from the edges rather than from a width, because a width of `W / bands + 1` runs the
+    /// last bands off the right of the screen and the verbs clamp and discard them (ADR 0022) — which
+    /// is silent, and cost this scene twenty-one of its ninety-six links on the first run.
+    fn band(b: u16) -> (i32, u16) {
+        let bands = u32::from(HyperlinkedPageUnderAnOperator::LINKS);
+        let lo = u32::from(b) * u32::from(W) / bands;
+        let hi = (u32::from(b) + 1) * u32::from(W) / bands;
+        (lo as i32, (hi - lo) as u16)
+    }
+
+    /// Redraw the page, which is what a scene declaring 24 000 written cells has to actually do.
+    ///
+    /// **The links are re-applied, and that is not decoration.** `text` writes a whole cell, style
+    /// included, so a redraw that only wrote text would leave the page *inline* from the second frame
+    /// onward — and an inline cell mixes to an inline word and reaches no table, so the scene would
+    /// report a fade that grows nothing. It is also what a real application does: the runtime brings
+    /// a draw for every layer every frame (spec §12), hyperlinks included.
+    fn draw_page(&mut self, screen: &mut Screen) -> u32 {
+        let page = self.page.expect("built");
+        // **The page's own style does not move**, and that is load-bearing rather than lazy. The one
+        // thing animating in this scene is the operator's `amount`, and a page whose colours also
+        // moved would mint entries of its own every frame — which is a second variable in a
+        // two-row table, and it makes the *settled* arm animate too. The first draft varied the
+        // background with the frame and both arms reported 192 entries a frame, sweeping 119 times
+        // in 120 frames, which is a picture of the fixture rather than of the operator.
+        let ink = Style::new().fg(Color::indexed(15)).bg(Color::indexed(17));
+        let mut view = screen.layers().view(page).expect("the page is still there");
+        for y in 0..H as i32 {
+            view.text(0, y, &self.row, ink);
+        }
+        // One verb per band over the full height rather than one per band per row: ninety-six calls
+        // against seven thousand, for the same ninety-six distinct styles, because the memo is what
+        // makes the per-row cost a per-distinct-style one either way.
+        for (b, &link) in self.links.iter().enumerate() {
+            let (x, w) = HyperlinkedPageUnderAnOperator::band(b as u16);
+            view.restyle(
+                Rect::new(x, 0, w, H),
+                &Restyle {
+                    link: Some(link),
+                    ..Default::default()
+                },
+            );
+        }
+        u32::from(W) * u32::from(H)
+    }
+
+    /// Move the operator to `mix`, the only way this API allows: remove it and add it again.
+    fn set_mix(&mut self, screen: &mut Screen, mix: Mix) {
+        if let Some(old) = self.operator.take() {
+            screen.layers().remove(old);
+        }
+        self.operator = Some(screen.layers().add_operator(1, Rect::new(0, 0, W, H), mix));
+    }
+}
+
+/// §14's twelfth scene, for the two consumers that drive it directly rather than off the list.
+///
+/// It is not on `scenes()`' happy path because it is red for the round trip (see
+/// [`HyperlinkedPageUnderAnOperator`]'s own documentation) while being perfectly measurable, so both
+/// `crate::sweep`'s report and `examples/budget.rs` reach for it by name — the same door
+/// [`virtualised_tree`] and [`table_two_ways`] already use for their two sizes.
+pub fn hyperlinked_page() -> Box<HyperlinkedPageUnderAnOperator> {
+    Box::new(HyperlinkedPageUnderAnOperator::new())
+}
 
 impl Scene for HyperlinkedPageUnderAnOperator {
     fn name(&self) -> &'static str {
@@ -860,30 +1032,51 @@ impl Scene for HyperlinkedPageUnderAnOperator {
     }
 
     fn decided(&self) -> &'static str {
-        "table growth, the sweep, `repaint` and the memo, all at once — nothing yet (arch 16)"
+        "table growth, the sweep, `repaint` and the memo, all at once (arch 16) — measured by \
+         impl 08 in the_hyperlinked_page_under_an_animating_operator"
     }
 
     fn status(&self) -> State {
         State::Red {
-            inverted_by: "impl 08",
-            why: "impl 08 owns this row and is where it gets its measurement. Everything it \
-                  stands on now exists — the extended-style bit and the link table with impl 07, \
-                  the operator layer and its Mix with impl 12 — so the shape is expressible \
-                  today: an operator whose amount moves every frame over a hyperlinked page mints \
-                  one extended-style entry per distinct result, for ever. What is missing is the \
-                  half that makes the number mean something, the sweep that bounds the growth and \
-                  the `repaint` that follows it",
+            inverted_by: "impl 13",
+            why: "impl 08 built the scene and took the numbers this row exists for — entries \
+                  created per frame settled and fading, and the sweep's cost at one screen and at \
+                  twenty layers — in examples/budget.rs's \
+                  the_hyperlinked_page_under_an_animating_operator. What keeps it off the gate list \
+                  is the wire rather than the scene: every gate in crate::gates drives its scenes \
+                  through the round trip, and an *extended* cell cannot close one, because SGR 58/59 \
+                  and OSC 8 are impl 13's and the terminal model cannot read back what the \
+                  serializer does not emit. Impl 13 is also where architecture ticket 22's second \
+                  half lands, so it is the ticket that has to decide whether a headless round trip \
+                  over a hyperlink is reachable at all",
         }
     }
 
-    fn build(&mut self, _screen: &mut Screen) {}
-
-    fn step(&mut self, _screen: &mut Screen, _t: u32) -> u32 {
-        0
+    /// A truecolor terminal, because §5 skips an operator layer outright at [`ColorDepth::None`].
+    fn overrides(&self) -> Overrides {
+        Overrides {
+            colors: Some(ColorDepth::TrueColor),
+            ..Overrides::default()
+        }
     }
 
-    /// Never read: nothing drives a red scene. It is here because the trait is the list's shape,
-    /// and a scene that could opt out of part of it would be half on the list.
+    fn build(&mut self, screen: &mut Screen) {
+        let page = base(screen);
+        self.page = Some(page);
+        self.row = std::iter::repeat_n('m', W as usize).collect();
+        self.links = (0..HyperlinkedPageUnderAnOperator::LINKS)
+            .map(|i| screen.link(&format!("https://example.com/vitui#{i}")))
+            .collect();
+        self.draw_page(screen);
+        self.set_mix(screen, HyperlinkedPageUnderAnOperator::settled());
+    }
+
+    fn step(&mut self, screen: &mut Screen, t: u32) -> u32 {
+        let written = self.draw_page(screen);
+        self.set_mix(screen, HyperlinkedPageUnderAnOperator::fading(t));
+        written
+    }
+
     fn iters(&self) -> u32 {
         1
     }

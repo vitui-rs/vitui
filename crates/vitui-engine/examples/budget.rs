@@ -45,7 +45,7 @@ mod register;
 mod scenes;
 
 use std::io::{Result, Write};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use vitui_bench::{Bench, Report};
 use vitui_engine::{Color, Config, Engine, LayerId, Output, Rect, Restyle, Screen, Style, Surface};
@@ -148,6 +148,7 @@ fn main() {
     // its position in the run.
     the_layer_stack_operations();
     the_donation_renumbering();
+    the_hyperlinked_page_under_an_animating_operator();
 
     let mut staged: Vec<Staged> = scenes()
         .into_iter()
@@ -334,6 +335,122 @@ fn the_verb_granularity_rule() {
          \x20           itself, at 14.3 ns a code point against 3.1 ns for one that takes the ASCII \n\
          \x20           fast path. See impl ticket 06's Progress for the candidate and its owner.",
         cjk / span
+    );
+    println!();
+}
+
+/// §14's twelfth scene, timed: what a frame of it costs settled and fading.
+///
+/// # This row had no measurement behind it until impl 08, and this is half of what it now has
+///
+/// The other half is a pair of **counts**, and it is not here — it is in
+/// `crate::sweep::tests::the_hyperlinked_page_under_an_animating_operator_grows_only_while_it_animates`,
+/// which reports 96 entries created over 120 settled frames against 11 520 over 120 fading ones
+/// (spec §3 measured 96 and 11 484), and in `crate::sweep::tests::the_sweep_costs_what_spec_3_recorded`,
+/// which reports the sweep at 82.5 µs for one screen and 897 µs for twenty layers (spec §3 measured
+/// 58.88 µs and 1.17 ms).
+///
+/// **They are inside the library for the same reason the scene definitions are** (`../src/scenes.rs`
+/// says it): an example has only the public API, ADR 0023 keeps cells off it, and a count of handle
+/// table entries is one step behind a cell. What an example can take is a stopwatch, so that is what
+/// this takes.
+///
+/// # Why the scene is driven by name rather than off the twelve-scene list
+///
+/// It is red, and against impl 13 rather than impl 08: every gate in `crate::gates` drives its
+/// scenes through the round trip and an **extended** cell cannot close one, because SGR 58/59 and
+/// OSC 8 are impl 13's. `measure` filters on that status, so this reaches for the scene directly —
+/// the same door `virtualised_tree` and `table_two_ways` already use for their two sizes.
+///
+/// # Why this is not `Bench`, and what two drafts got wrong before this one
+///
+/// `Bench` keeps the **minimum** of forty rounds, which is the right statistic for a frame cost and
+/// the wrong one here. The sweep fires inside the fading arm's own `step` — through
+/// `Screen::layers`, on roughly every other frame once the water mark settles, 59 times in 120
+/// frames by `crate::sweep`'s count — so a minimum systematically selects the frames that did
+/// **not** sweep. The first draft reported *fading / settled = 0.99×* from that minimum and
+/// concluded an animating operator costs what a still one costs: it had priced the growth and hidden
+/// the reclamation.
+///
+/// The second draft reported the worst frame of each arm expecting to find the sweep in it, and
+/// found the settled arm's worst frame **88 µs slower** than the fading arm's. That is the honest
+/// answer and it is not the expected one: a frame here is about a millisecond with a run-to-run
+/// spread of a couple of hundred microseconds, and the sweep is 82 µs. **It does not fit through
+/// the noise floor, and neither does the growth.**
+///
+/// So what this prints is the whole shape — minimum, mean and worst of a hundred and twenty frames,
+/// for both arms — and the conclusion it supports is the one §14 put this row on the list for:
+/// *table lifetime is not a stopwatch question.* The measurement of the row is the pair of counts,
+/// and this is the evidence that a clock could not have produced them.
+fn the_hyperlinked_page_under_an_animating_operator() {
+    const FRAMES: u32 = 120;
+
+    /// Every frame's duration, in microseconds, over one arm of the scene.
+    fn frames(fading: bool) -> Vec<f64> {
+        let mut scene = scenes::hyperlinked_page();
+        let (mut screen, _wake) = Engine::new(Config {
+            size: (W, H),
+            output: Output::Sink(Box::new(Discard)),
+            // The scene says what it needs pinned: §5 skips an operator layer outright at
+            // `ColorDepth::None`, which is what a headless screen is unless something says
+            // otherwise.
+            overrides: scene.overrides(),
+            ..Default::default()
+        })
+        .attach()
+        .expect("attaching to a sink cannot fail");
+        scene.build(&mut screen);
+        screen.present();
+        (1..=FRAMES)
+            .map(|t| {
+                let at = Instant::now();
+                if fading {
+                    scene.step(&mut screen, t);
+                } else {
+                    scene.step_settled(&mut screen, t);
+                }
+                std::hint::black_box(screen.present());
+                at.elapsed().as_secs_f64() * 1e6
+            })
+            .collect()
+    }
+
+    /// The minimum, the mean and the worst of a series.
+    fn shape(us: &[f64]) -> (f64, f64, f64) {
+        let min = us.iter().copied().fold(f64::INFINITY, f64::min);
+        let max = us.iter().copied().fold(0.0, f64::max);
+        (min, us.iter().sum::<f64>() / us.len() as f64, max)
+    }
+
+    let (settled, fading) = (frames(false), frames(true));
+    let (smin, smean, smax) = shape(&settled);
+    let (fmin, fmean, fmax) = shape(&fading);
+    println!(
+        "§14's twelfth scene, {FRAMES} frames each, microseconds:\n  \
+         a settled modal dim   min {smin:>8.1}   mean {smean:>8.1}   worst {smax:>8.1}\n  \
+         a fading operator     min {fmin:>8.1}   mean {fmean:>8.1}   worst {fmax:>8.1}"
+    );
+    println!(
+        "            fading / settled = {:.2}x at the minimum, {:.2}x at the mean, {:.2}x at the \n\
+         \x20           worst frame. Both arms are a full-screen composition against a 1 ms budget, \n\
+         \x20           and this is the whole inline round — 96 restyle verbs and 80 text verbs over \n\
+         \x20           a full screen, a full-screen Mix, then 24 000 cells packed and serialised on \n\
+         \x20           one thread. §13's 200.22 us for a Mix over entirely hyperlinked content is \n\
+         \x20           the composite alone.\n\
+         \x20           **Neither the growth nor the sweep is separable from this frame, and that \n\
+         \x20           is the finding.** The fading arm creates 96 table entries a frame where the \n\
+         \x20           settled arm creates none, and sweeps 59 times in these 120 frames; a table \n\
+         \x20           insert is amortised and one screen's sweep is 82.5 us by crate::sweep's own \n\
+         \x20           isolated report, against a {:.0} us spread between the fastest and slowest \n\
+         \x20           frame of the *settled* arm alone. §14 put this row on the list as a table \n\
+         \x20           lifetime question and this is why: a clock could not have answered it. The \n\
+         \x20           counts are the measurement, in crate::sweep's report.\n\
+         \x20           Reported, not gated: the scene is red for the round trip (impl 13), and \n\
+         \x20           impl 18 is what moves serialisation off this thread.",
+        fmin / smin,
+        fmean / smean,
+        fmax / smax,
+        smax - smin,
     );
     println!();
 }

@@ -33,9 +33,13 @@
 //! separate processes and do not interfere.
 
 use std::io::{Result, Write};
+use std::sync::{Arc, Mutex};
 
 use vitui_alloc_probe::{CountingAllocator, assert_no_alloc};
-use vitui_engine::{Color, Config, Engine, LayerId, Mix, Output, Rect, Restyle, Screen, Style};
+use vitui_engine::{
+    Color, ColorDepth, Config, Engine, LayerId, Mix, Output, Overrides, Rect, Restyle, Screen,
+    Style,
+};
 
 #[global_allocator]
 static ALLOC: CountingAllocator = CountingAllocator::new();
@@ -58,9 +62,25 @@ const W: u16 = 300;
 const H: u16 = 80;
 
 fn screen() -> (Screen, LayerId) {
+    screen_with(Overrides::default())
+}
+
+/// The same screen, on a terminal with whatever `overrides` pins.
+///
+/// **A headless screen is at `ColorDepth::None`**, because a caller-supplied sink is asked nothing
+/// and spec §10 will not invent a colour for one — and §5 skips an operator layer **outright** at
+/// that depth. So a gate about an operator that does not pin a depth is a gate about the depth: it
+/// asserts that a layer which was never visited allocated nothing, which is true of every layer that
+/// was never visited.
+///
+/// That is not hypothetical. `a_settled_operator_over_a_hyperlinked_screen_allocates_nothing` shipped
+/// with impl 12 without the pin and was green for exactly that reason; impl 08 found it while writing
+/// the fading half of the same register entry, and the pin is what makes both halves about the mix.
+fn screen_with(overrides: Overrides) -> (Screen, LayerId) {
     let (mut screen, _wake) = Engine::new(Config {
         size: (W, H),
         output: Output::Sink(Box::new(Discard)),
+        overrides,
         ..Default::default()
     })
     .attach()
@@ -69,6 +89,20 @@ fn screen() -> (Screen, LayerId) {
     (screen, id)
 }
 
+/// Draw the whole screen through one layer.
+///
+/// # This reaches a door that is allowed to allocate, and that is not an accident here
+///
+/// `Screen::layers` is where the mark-and-compact sweep runs (impl 08), and a sweep allocates —
+/// two marker vectors and one of surface pointers. It cannot fire in any window below, because the
+/// high-water mark's floor is 256 table entries and the heaviest fixture here holds two: one
+/// extended style for the hyperlink and one for the mix's result.
+///
+/// **It is worth saying out loud rather than relying on**, because the failure mode is confusing:
+/// a future fixture that crossed the floor would fail *this* gate, whose subject is frame
+/// composition, for something that is neither in a frame nor composition. The fix if that ever
+/// happens is to widen the fixture's warm-up until the mark has moved past it, not to widen the
+/// window until the gate goes green.
 fn full_screen(screen: &mut Screen, id: LayerId, row: &str, style: Style) {
     let mut view = screen.layers().view(id).expect("the layer was just added");
     for y in 0..H as i32 {
@@ -84,6 +118,7 @@ fn the_steady_state_allocates_nothing() {
     a_frame_of_clusters_allocates_nothing();
     a_settled_restyle_over_a_hyperlinked_screen_allocates_nothing();
     a_settled_operator_over_a_hyperlinked_screen_allocates_nothing();
+    the_operator_reaches_the_wire_at_the_depth_the_gate_pins();
 }
 
 /// Ticket 12 puts the **first** intern on the frame path, and this is what bounds it.
@@ -103,7 +138,12 @@ fn the_steady_state_allocates_nothing() {
 /// cell mixes to an inline word and reaches no table, so a screen of those would pass whatever
 /// `recolour` did.
 fn a_settled_operator_over_a_hyperlinked_screen_allocates_nothing() {
-    let (mut screen, id) = screen();
+    // Truecolor, or §5 skips the operator layer outright and this gate is about the depth. See
+    // `screen_with`.
+    let (mut screen, id) = screen_with(Overrides {
+        colors: Some(ColorDepth::TrueColor),
+        ..Default::default()
+    });
     let row: String = std::iter::repeat_n('m', W as usize).collect();
     // Explicit colours: a cell with a default background is left unmixed on a terminal silent on
     // OSC 11 (spec §5), and a sink is silent — so a default-coloured screen would measure an
@@ -152,6 +192,74 @@ fn a_settled_operator_over_a_hyperlinked_screen_allocates_nothing() {
             screen.present();
         }
     });
+}
+
+/// A sink that keeps what it is given, so a test can prove the operator changed the wire.
+#[derive(Clone)]
+struct Tap(Arc<Mutex<Vec<u8>>>);
+
+impl Write for Tap {
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
+        self.0
+            .lock()
+            .expect("never poisoned")
+            .extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> Result<()> {
+        Ok(())
+    }
+}
+
+/// **Assert the operator moved a cell before asserting anything about which ones.**
+///
+/// A gate that says an operator allocated nothing is worthless if the operator was skipped, and §5
+/// skips one outright at `ColorDepth::None` — which is what a headless screen is by default. This is
+/// the positive half, from outside the crate, where cells are not visible (ADR 0023): the same frame
+/// with and without the operator layer has to reach the wire as **different bytes**.
+///
+/// It is here rather than folded into the gate above because the gate's window may not contain a
+/// growing `Vec`, and a sink that keeps its bytes is one.
+fn the_operator_reaches_the_wire_at_the_depth_the_gate_pins() {
+    fn one_frame(operator: bool) -> Vec<u8> {
+        let tap = Tap(Arc::new(Mutex::new(Vec::new())));
+        let bytes = Arc::clone(&tap.0);
+        let (mut screen, _wake) = Engine::new(Config {
+            size: (W, H),
+            output: Output::Sink(Box::new(tap)),
+            overrides: Overrides {
+                colors: Some(ColorDepth::TrueColor),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .attach()
+        .expect("attaching to a sink cannot fail");
+        let id = screen.layers().add_content(0, Rect::new(0, 0, W, H), true);
+        let row: String = std::iter::repeat_n('m', W as usize).collect();
+        full_screen(
+            &mut screen,
+            id,
+            &row,
+            Style::new().fg(Color::indexed(15)).bg(Color::indexed(8)),
+        );
+        if operator {
+            screen
+                .layers()
+                .add_operator(1, Rect::new(0, 0, W, H), Mix::darken(Mix::FULL / 2));
+        }
+        screen.present();
+        let out = bytes.lock().expect("never poisoned").clone();
+        assert!(!out.is_empty(), "the frame wrote nothing at all");
+        out
+    }
+
+    assert_ne!(
+        one_frame(false),
+        one_frame(true),
+        "the operator layer changed no byte, so the gate above is about the colour depth"
+    );
 }
 
 /// The memo's property, as an allocation count rather than as a stopwatch.

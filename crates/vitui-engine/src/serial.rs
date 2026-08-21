@@ -43,11 +43,49 @@ use crate::style::{Color, Style, TAG_DEFAULT, TAG_INDEXED, TAG_RGB};
 ///
 /// Ticket 14 is what reads it — the equality filter is the first consumer. Here it is written and
 /// asserted against the terminal model, which is the gate that says the two agree at all.
+///
+/// # The unknown row
+///
+/// A row of the mirror that cannot be trusted is **unknown**, and that is how a full repaint
+/// expresses itself without a separate mode (ADR 0006, §8). Three things make a row unknown, and
+/// only the third is new:
+///
+/// - **at startup**, because the mirror records what the terminal shows and nobody recorded that;
+/// - **after a resize**, for the same reason — a terminal reflows on `SIGWINCH`, it does not clear;
+/// - **after a sweep renumbered a handle table**, which is [`Packet::repaint`].
+///
+/// A row leaves the unknown state when one frame has written **every column of it**, because that is
+/// the point at which every cell of the row was put there by this serializer.
+///
+/// # What an unknown row means for ticket 14's filter, in the one case §8 does not cover
+///
+/// ADR 0006's words are *written whole rather than compared*, and they are exactly right for the two
+/// cases it names: at startup and after a resize every cell is damaged, so the packet carries the
+/// whole row and *whole* is achievable. **After a sweep it is not** — the sweep marks no damage, so
+/// the packet carries only what actually changed.
+///
+/// The property the filter has to keep is nevertheless the same one, and it survives the difference:
+/// **on an unknown row, do not compare — emit every cell the packet carries.** That is safe for the
+/// reason the comparison is unsafe. A stale mirror cell holds an old handle naming text that is
+/// still on the screen; the danger is not the false *inequality* (which re-emits, and is merely
+/// bytes) but the false *equality* — a later frame whose new handle happens to equal the recorded
+/// old one, compared equal, skipped, and the terminal left showing the wrong text. Never skipping on
+/// an unknown row makes that unreachable.
+///
+/// What it costs is bytes: rows that a sweep marked unknown stay unfiltered until some frame writes
+/// one whole, and on a screen whose damage is always narrow that can be a long time. That is the
+/// *one full frame on the render thread* spec §3 prices the sweep at, spread out. Ticket 14 owns the
+/// filter and is where a tighter answer — per-cell rather than per-row knowledge — would be paid for
+/// or refused.
 #[derive(Clone, Debug)]
 pub(crate) struct Mirror {
     width: u16,
     height: u16,
     cells: Vec<Cell>,
+    /// One flag per row: whether this serializer has written every column of it since the row was
+    /// last invalidated. A `Vec<bool>` of eighty bytes rather than a bitset, because it is read once
+    /// per row and never per cell.
+    known: Vec<bool>,
 }
 
 impl Mirror {
@@ -56,12 +94,33 @@ impl Mirror {
             width,
             height,
             cells: vec![Cell::BLANK; width as usize * height as usize],
+            // Unknown, not blank. The cells say blank because they have to say something, and the
+            // flag is what stops anybody believing them.
+            known: vec![false; height as usize],
         }
     }
 
     #[cfg(test)]
     pub(crate) fn cell(&self, x: u16, y: u16) -> Cell {
         self.cells[y as usize * self.width as usize + x as usize]
+    }
+
+    /// Whether row `y` records what the terminal is showing.
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "ticket 14's equality filter is the first thing that branches on this; \
+                      ticket 08 is what makes the state correct for it to read"
+        )
+    )]
+    pub(crate) fn is_known(&self, y: u16) -> bool {
+        self.known[y as usize]
+    }
+
+    /// Mark every row unknown: what [`Packet::repaint`] asks for.
+    fn forget(&mut self) {
+        self.known.fill(false);
     }
 
     fn set(&mut self, x: u16, y: u16, c: Cell) {
@@ -117,6 +176,14 @@ impl Serializer {
             "a packet packed at one size is being written into a mirror of another"
         );
 
+        // Before anything is emitted: a sweep renumbered a table, so every handle this mirror
+        // recorded names an entry that has moved. Nothing about the *screen* changed — the cells
+        // still say the same thing — which is exactly why there is no damage to go with it and a
+        // flag is what carries it (spec §3).
+        if packet.repaint() {
+            self.mirror.forget();
+        }
+
         self.out.extend_from_slice(b"\x1b[0m");
         self.style = Style::DEFAULT;
         self.cursor = None;
@@ -167,7 +234,28 @@ impl Serializer {
                 self.prev = Some(cell.grapheme);
             }
         }
+        self.note_whole_rows(packet);
         &self.out
+    }
+
+    /// Mark known every row this frame wrote every column of.
+    ///
+    /// Runs are disjoint and arrive in row order (§14's gate #2), so a row's columns are the sum of
+    /// its runs' lengths and consecutive runs with the same `y` are all of that row's. A row written
+    /// in pieces across several frames stays unknown, which is conservative in the safe direction:
+    /// unknown costs bytes and known costs correctness.
+    fn note_whole_rows(&mut self, packet: &Packet) {
+        let mut runs = packet.runs().iter().peekable();
+        while let Some(first) = runs.next() {
+            let mut columns = first.len();
+            while let Some(next) = runs.peek().filter(|r| r.y == first.y) {
+                columns += next.len();
+                runs.next();
+            }
+            if columns == self.mirror.width as usize {
+                self.mirror.known[first.y as usize] = true;
+            }
+        }
     }
 
     /// Where the terminal's cursor ends up after printing one cell at `(x, y)`.
@@ -432,7 +520,7 @@ mod tests {
         let mut runs = Vec::new();
         frame.damage().for_each_run(|r| runs.push(r));
         let mut packet = Packet::new();
-        packet.pack(&runs, frame, frame.tables());
+        packet.pack(&runs, frame, frame.tables(), false);
         let (w, h) = frame.size();
         let mut s = Serializer::new(w, h);
         s.serialize(&packet).to_vec()
@@ -742,7 +830,7 @@ mod tests {
         let mut runs = Vec::new();
         f.damage().for_each_run(|r| runs.push(r));
         let mut packet = Packet::new();
-        packet.pack(&runs, &f, f.tables());
+        packet.pack(&runs, &f, f.tables(), false);
         let mut s = Serializer::new(8, 2);
         s.serialize(&packet);
         assert_eq!(s.mirror().cell(3, 1), f.row(1)[3]);

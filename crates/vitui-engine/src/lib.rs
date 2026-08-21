@@ -59,10 +59,14 @@
 //! operator layer (ticket 12): [`Mix`] as the only operator, colour resolved at composite time
 //! against what the terminal answered, the memo that makes the correct form 3.2x cheaper than the
 //! prototype that deleted a hyperlink, and the atomic-glyph rule that gives a darkened `漢` one
-//! colour rather than two.
+//! colour rather than two — and the bound on the one table that can grow without one (ticket 08):
+//! the mark-and-compact sweep, run at [`Screen::layers`] on a high-water mark and never inside a
+//! frame, the mirror's **unknown row** and the `repaint` flag that is the only thing a renumbering
+//! breaks, and §14's twelfth scene with the numbers it was put on the list for — 96 entries created
+//! over 120 settled frames against 11 520 over 120 fading ones, bounded thereafter by the sweep.
 //!
 //! Not here yet, each with the ticket that brings it:
-//! the sweep and `repaint` (08), the `shortest`
+//! the `shortest`
 //! cursor encoding and the equality filter (13, 14), the scroll region (15), quantisation before
 //! the mirror (17), the three threads and the frame clock (18, 19), and input (20, 21).
 
@@ -120,6 +124,7 @@ mod testing;
 mod restyle;
 mod style;
 mod surface;
+mod sweep;
 mod text;
 mod view;
 

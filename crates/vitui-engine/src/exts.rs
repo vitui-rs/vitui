@@ -23,6 +23,7 @@
 use std::collections::HashMap;
 
 use crate::style::Color;
+use crate::sweep;
 
 /// A hyperlink's identity, stable for the life of the table that minted it.
 ///
@@ -150,18 +151,26 @@ impl ExtStyle {
 /// The extended styles one handle space knows about.
 #[derive(Debug, Default)]
 pub(crate) struct ExtStyles {
-    /// Indexed by handle. Never shrinks: a handle is stable for the life of the table, and the
-    /// mark-and-compact sweep that renumbers it is spec §3's, owned by ticket 08.
+    /// Indexed by handle. A handle is stable until [`compact`](ExtStyles::compact) renumbers it,
+    /// which is spec §3's mark-and-compact sweep and happens where allocation is already permitted,
+    /// never inside a frame.
     ///
-    /// **Ticket 07 is what makes the growth reachable from public API, one ticket ahead of the
-    /// sweep that bounds it.** A caller whose descriptor names a *changing* colour over hyperlinked
-    /// cells mints one entry per distinct result per frame, for the life of the process — a fade is
-    /// about 1 700 entries and a pulsing dim about 5 700 a second (spec §3). A settled one converges
-    /// after a single frame, which is the common case and what `tests/alloc.rs` gates. Register
-    /// entry #7 and the `hyperlinked-page-under-an-animating-operator` scene are red against ticket
-    /// 08 for exactly this, so it is a deferral rather than an oversight.
+    /// **This is the table that can grow without bound**, and the only one: a caller whose
+    /// descriptor names a *changing* colour over hyperlinked cells — or a [`Mix`](crate::Mix) whose
+    /// `amount` moves — mints one entry per distinct result per frame. A fade is about 1 700 entries
+    /// and a pulsing dim about 5 700 a second (spec §3). A settled one converges after a single
+    /// frame, which is the common case and what `tests/alloc.rs` gates; [`crate::sweep`] is what
+    /// bounds the other.
     entries: Vec<ExtStyle>,
     index: HashMap<ExtStyle, u32>,
+    /// How many entries this table has ever minted, **never reset by a sweep**.
+    ///
+    /// [`len`](ExtStyles::len) answers how much the table holds *now*, which after a sweep is a
+    /// different question — and *entries created* is the number spec §3's growth table is made of:
+    /// 96 over 120 settled frames against 11 484 fading. Measuring that as a length delta measures
+    /// the sweep instead, because a table that grows by 96 a frame and is swept back every third
+    /// frame has a length delta of about nothing while creating 96 a frame.
+    minted: u64,
 }
 
 impl ExtStyles {
@@ -181,6 +190,7 @@ impl ExtStyles {
         let h = u32::try_from(self.entries.len()).expect("an extended-style handle fits in a u32");
         self.entries.push(e);
         self.index.insert(e, h);
+        self.minted += 1;
         h
     }
 
@@ -191,16 +201,49 @@ impl ExtStyles {
 
     /// How many distinct extended styles this table holds.
     ///
-    /// What ticket 08's growth measurement counts, and what the gates here assert converges.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "ticket 08 owns the growth measurement this is the counter for"
-        )
-    )]
+    /// The growth this table is the only one capable of, as a number: the marker slot count the
+    /// sweep allocates, and what its high-water mark is compared against.
     pub(crate) fn len(&self) -> usize {
         self.entries.len()
+    }
+
+    /// How many entries this table has ever minted, however many it holds now.
+    ///
+    /// What spec §3's growth table counts. See [`ExtStyles::minted`].
+    #[cfg(test)]
+    pub(crate) fn minted(&self) -> u64 {
+        self.minted
+    }
+
+    /// Drop every entry `live` does not mark, keeping the survivors **in handle order**.
+    ///
+    /// Returns the new handle for each old one, with [`sweep::DEAD`](crate::sweep::DEAD) where the
+    /// entry was dropped — or `None` when no survivor moved, which is the case a sweep does not have
+    /// to rewrite a single cell for.
+    ///
+    /// **The `link` inside a surviving entry is left alone**, because the URI table is not swept
+    /// (spec §3): an application holds [`LinkId`]s across frames, so renumbering them would
+    /// invalidate values a caller is still holding. See [`crate::sweep`].
+    pub(crate) fn compact(&mut self, live: &[bool]) -> Option<Vec<u32>> {
+        debug_assert_eq!(
+            live.len(),
+            self.entries.len(),
+            "the marker has one slot per table entry"
+        );
+        let sweep::Remap { map, renumbered } = sweep::remap(live)?;
+        let mut kept = 0;
+        for (old, &alive) in live.iter().enumerate() {
+            if alive {
+                self.entries[kept] = self.entries[old];
+                kept += 1;
+            }
+        }
+        self.entries.truncate(kept);
+        self.index.retain(|_, handle| {
+            *handle = map[*handle as usize];
+            *handle != sweep::DEAD
+        });
+        renumbered.then_some(map)
     }
 
     /// Whether this table has never been reached.

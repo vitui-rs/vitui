@@ -87,6 +87,14 @@ compacting. Runs where allocation is already permitted, never inside a frame, an
 the cells still say the same thing. When it renumbers, the next packet repaints in full, because
 handle identity is the one thing the mirror compares across frames.
 
+The composited frame is one of the live surfaces: its cells were copied out of the layers and name
+the same tables, and only its damaged runs are recomposited. The **URI table is not swept**, because
+an application holds link ids across frames.
+
+**High-water mark** — the table size at which the next sweep is due, and the trigger for one. It is
+twice the live count at the last sweep, with a floor — *a starting value and not a decision*: the
+mechanism is measured and nothing measured discriminates between candidate policies.
+
 **View** — a borrowed rectangle of a surface: an origin, a clip region and a content offset, with no
 cells of its own. A view can be narrowed into a child view and can never be widened. It is what the
 runtime wraps in a draw context; a component reaches it through that, not directly.
@@ -194,9 +202,15 @@ Named a mirror rather than a shadow because a shadow is already a kind of layer.
 serializer skip a cell the frame rewrote without changing, and what lets a scroll be proved before it
 is emitted. See `docs/adr/0006`.
 
-**Unknown row** — a row of the mirror that cannot be trusted: at startup, and after a resize. An
-unknown row is written whole rather than compared, which is how a full repaint expresses itself
-without a separate mode.
+**Unknown row** — a row of the mirror that cannot be trusted: at startup, after a resize, and after
+a **sweep** renumbered a handle table. An unknown row is written whole rather than compared, which is
+how a full repaint expresses itself without a separate mode. A row becomes known again once one frame
+has written every column of it.
+
+The first two cases damage the whole screen, so *whole* is achievable. The third does not — a sweep
+marks no damage — and there the rule that carries the property is the same one seen from the other
+side: **on an unknown row, never compare.** The danger is not the false inequality, which costs
+bytes; it is the false equality, which leaves the terminal showing the wrong text.
 
 **Scroll region** — the terminal's own ability to move a band of rows, addressed as top and bottom
 margins plus a count. Cheaper than repainting the band by two orders of magnitude, applicable only

@@ -46,6 +46,7 @@ use crate::geom::Rect;
 use crate::mix::{Mix, Mixer};
 use crate::style::Style;
 use crate::surface::Surface;
+use crate::sweep::Swept;
 use crate::tables::Tables;
 use crate::view::View;
 
@@ -133,6 +134,14 @@ impl Layer {
         }
     }
 
+    /// The same cells, to be written into: what the mark-and-compact sweep rewrites handles in.
+    fn surface_mut(&mut self) -> Option<&mut Surface> {
+        match &mut self.kind {
+            Kind::Content { surface, .. } => Some(surface),
+            Kind::Operator(_) => None,
+        }
+    }
+
     /// Whether this layer can change a composited cell at all.
     ///
     /// False for an operator whose `Mix` is the identity, which is §5's rule that `amount == 0` is
@@ -188,6 +197,49 @@ pub struct LayerStack {
     exposed: Vec<Rect>,
     next_id: u32,
     next_seq: u32,
+    /// The table sizes at which the next sweep is due. See [`Water`].
+    water: Water,
+}
+
+/// The table sizes at which [`crate::sweep`] runs — **a starting value, not a decision.**
+///
+/// Spec §15 lists the sweep's high-water policy among the questions it deliberately leaves open:
+/// the *mechanism* is measured (58.88 µs for one screen, 1.17 ms for twenty layers) and **nothing
+/// measured discriminates between candidate policies.** Two times the live count at the last sweep,
+/// with a floor, is what ships. It is here rather than tuned so that a future session tuning it has
+/// a number to move rather than a mechanism to write.
+///
+/// The floor exists because doubling from zero never fires, and it is a number of *entries* rather
+/// than of bytes: an extended-style entry is sixteen bytes and a cluster is a `Box<str>`, so 256 of
+/// either is single-digit kilobytes — cheap enough that a screen which legitimately holds that many
+/// never sweeps twice for it, because the first sweep frees nothing and doubles the mark.
+#[derive(Clone, Copy, Debug)]
+struct Water {
+    exts: usize,
+    clusters: usize,
+}
+
+impl Water {
+    /// **A starting value, not a decision** — spec §15 is where the question is still open.
+    const FLOOR: usize = 256;
+
+    /// **A starting value, not a decision** — spec §15 is where the question is still open.
+    const FACTOR: usize = 2;
+
+    const fn floor() -> Water {
+        Water {
+            exts: Water::FLOOR,
+            clusters: Water::FLOOR,
+        }
+    }
+
+    /// Where the mark goes after a sweep that found `live` entries in each table.
+    fn after(swept: &Swept) -> Water {
+        Water {
+            exts: Water::FLOOR.max(swept.live_exts * Water::FACTOR),
+            clusters: Water::FLOOR.max(swept.live_clusters * Water::FACTOR),
+        }
+    }
 }
 
 impl LayerStack {
@@ -198,6 +250,7 @@ impl LayerStack {
             exposed: Vec::new(),
             next_id: 0,
             next_seq: 0,
+            water: Water::floor(),
         }
     }
 
@@ -443,6 +496,39 @@ impl LayerStack {
                     && y < l.rect.bottom()
             })
             .map(|l| l.id)
+    }
+
+    /// Whether either swept table has reached its high-water mark.
+    ///
+    /// Asked at [`Screen::layers`](crate::Screen::layers) and nowhere else, which is what keeps the
+    /// 1.17 ms of a twenty-layer sweep out of a frame. It is two loads and two compares, so asking
+    /// it on every door through which a topology change arrives costs nothing.
+    ///
+    /// The link table is not among the two, because it is not swept (spec §3, [`crate::sweep`]).
+    pub(crate) fn sweep_due(&self) -> bool {
+        self.tables.exts.len() >= self.water.exts
+            || self.tables.interner.len() >= self.water.clusters
+    }
+
+    /// Reclaim every table entry no live cell points at, and move the high-water mark.
+    ///
+    /// `frame` is the composited frame, and it is swept with the layers rather than beside them:
+    /// its cells were copied out of these surfaces and name these tables, and only its damaged runs
+    /// are recomposited each frame — so a sweep that left it alone would leave every undamaged cell
+    /// of it naming an entry that had moved. [`crate::sweep`] has the rest of the reasoning.
+    ///
+    /// **It marks no damage**, because the cells still say the same thing. What it can invalidate is
+    /// the mirror, and [`Swept::renumbered`] is how the caller finds out.
+    pub(crate) fn sweep_with(&mut self, frame: &mut Surface) -> Swept {
+        // Destructured rather than borrowed through `self`, because the tables and the surfaces the
+        // sweep rewrites are two fields of the same struct.
+        let LayerStack { layers, tables, .. } = self;
+        let mut surfaces: Vec<&mut Surface> =
+            layers.iter_mut().filter_map(Layer::surface_mut).collect();
+        surfaces.push(frame);
+        let swept = crate::sweep::sweep(tables, &mut surfaces);
+        self.water = Water::after(&swept);
+        swept
     }
 
     /// The handle space every surface in this stack speaks.

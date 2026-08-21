@@ -247,7 +247,10 @@ impl Engine {
                 Output::Sink(sink) => sink,
             },
             caps,
+            repaint: false,
             tty,
+            #[cfg(test)]
+            sweeps: 0,
             _not_send: PhantomData,
         };
         Ok((screen, WakeHandle { wakes }))
@@ -341,11 +344,22 @@ pub struct Screen {
     sink: Box<dyn Write + Send>,
     /// What the terminal can do, sampled once during `attach` and never again.
     caps: Capabilities,
+    /// Whether a sweep has renumbered a handle table since the last packet went out.
+    ///
+    /// Latched here rather than passed straight through, because the sweep and the frame are not the
+    /// same event: the app thread may sweep twice, or not at all, between two `present` calls, and
+    /// what the render thread has to be told is only that the handles moved at some point since it
+    /// last recorded any. Cleared when a packet carrying it is actually submitted — an idle
+    /// `present` submits nothing and must not consume it.
+    repaint: bool,
     /// The pty detection read its answers from, held rather than dropped so that **one thread ever
     /// reads this file descriptor**. Ticket 20's input thread adopts this channel; a second reader
     /// would steal bytes from the first. `None` whenever there is no terminal.
     #[allow(dead_code)]
     tty: Option<Tty>,
+    /// How many times [`Screen::layers`] has swept. Read by the gate that says `present` never does.
+    #[cfg(test)]
+    sweeps: u32,
     _not_send: PhantomData<*const ()>,
 }
 
@@ -368,7 +382,52 @@ impl Screen {
 
     /// The layer stack: add a layer, draw into one, move it, remove it, and ask which one is on
     /// top at a point.
+    ///
+    /// # This is also where the handle tables are swept, and it is the only such place
+    ///
+    /// Spec §3 puts eviction *where allocation is already permitted — a scene topology change, or a
+    /// high-water mark on the table — and **never inside a frame***. This door is that place, and
+    /// the reason it is the right one is that it is the only door those two things arrive through:
+    /// every topology change is a method on [`LayerStack`], every drawing verb is reached through
+    /// [`LayerStack::view`], and **there is no way to change an operator's `Mix` except to remove
+    /// the layer and add it again** — so an animating operator, which is the one shape that grows a
+    /// table without bound, passes through here on every frame it animates.
+    ///
+    /// What is checked is the high-water mark, not the topology change: sweeping on every
+    /// `add_content` would spend 82.5 µs of a screen, or 897 µs of twenty layers, to reclaim
+    /// whatever one layer's arrival happened to orphan. The mark is
+    /// [`LayerStack::sweep_due`](LayerStack) — two loads and two compares — and this door is where
+    /// it is legal to answer yes.
+    ///
+    /// # What "never inside a frame" does and does not mean here
+    ///
+    /// **`present` does not call this**, and that is the property rather than an accident: a future
+    /// change that reached the stack from inside `present` would have to route around this method,
+    /// and `crate::gates::the_sweep_never_runs_inside_present` says so as a count.
+    ///
+    /// It is worth being exact about what that buys, because this door is not only the topology
+    /// door — it is the **drawing** door, `layers().view(id)`, and spec §12 has the runtime bring a
+    /// draw for every layer every frame. So the sweep does land inside the application's frame loop.
+    /// What it never lands inside is `present`, which is the composite-pack-serialise path §13's
+    /// 100 µs and 1 ms budgets are taken around and the path that becomes the *render thread's* at
+    /// ticket 18.
+    ///
+    /// That is the whole of what §3 asks for, and §3 says so itself one line further on: *the app
+    /// thread may sweep while the render thread is inside a 200 ms `write`.* A sweep on the app
+    /// thread, concurrent with the render thread's frame, is the shipped design rather than a
+    /// concession — and while there is one thread there is no moment that is outside a frame in any
+    /// stronger sense than this one.
     pub fn layers(&mut self) -> &mut LayerStack {
+        if self.layers.sweep_due() {
+            // The frame goes in with the layers: its cells were copied out of them and name the
+            // same tables. See `crate::sweep`.
+            let swept = self.layers.sweep_with(&mut self.frame);
+            self.repaint |= swept.renumbered;
+            #[cfg(test)]
+            {
+                self.sweeps += 1;
+            }
+        }
         &mut self.layers
     }
 
@@ -405,8 +464,15 @@ impl Screen {
         }
         merge_touching(&mut self.runs);
 
-        self.packet
-            .pack(&self.runs, &self.frame, self.layers.tables());
+        // Spent here and nowhere else, which is the whole of why the flag is latched on the screen
+        // rather than passed down from the sweep: everything above this line can return early, and a
+        // `repaint` spent on a frame that never went out is a mirror that is never told.
+        self.packet.pack(
+            &self.runs,
+            &self.frame,
+            self.layers.tables(),
+            std::mem::take(&mut self.repaint),
+        );
         let bytes = self.serializer.serialize(&self.packet);
         write_frame(&mut *self.sink, bytes);
 
@@ -426,18 +492,17 @@ impl Screen {
     /// screen, clear every structure, reallocate the surfaces. A resized frame is composited from
     /// the layers rather than patched out of the one before it.
     ///
-    /// # The mirror starts blank, and that is a debt rather than a claim
+    /// # The mirror starts unknown, which is what the debt here used to be
     ///
     /// A terminal that has just changed size is showing something nobody recorded — it reflows on
-    /// `SIGWINCH`, it does not clear — and the honest value for the mirror is ADR 0006's **unknown
-    /// row**, which does not exist yet. A fresh `Mirror` says *blank* instead, which is a claim
-    /// about the terminal that is not true.
+    /// `SIGWINCH`, it does not clear — so the honest value for the mirror is ADR 0006's **unknown
+    /// row**. Until ticket 08 there was no such thing and a fresh `Mirror` said *blank* instead,
+    /// which was a claim about the terminal that is not true; it was harmless only because every
+    /// cell of the new screen is damaged and therefore written unconditionally.
     ///
-    /// It is harmless here only because every cell of the new screen is damaged and therefore
-    /// written unconditionally. **Ticket 14 is what ends that** — the equality filter skips a cell
-    /// whose composited value equals the mirror's, so the first blank cell of a resized screen would
-    /// be skipped and the reflowed content under it would stay — and ticket 14 carries the unknown
-    /// row in its own criteria, pointed at this function.
+    /// A fresh `Mirror` now says *unknown* for every row, and this function makes a fresh one. So
+    /// there is no separate resize mode and nothing here to remember: **ticket 14's equality filter
+    /// has the flag it needs already set**, and what remains its own is the branch that reads it.
     ///
     /// There is nothing to invalidate beyond that, and the reason is §5's: the flattened prefix
     /// cache that would have had to be invalidated was refused, on a budget the damage rectangles
@@ -527,6 +592,80 @@ impl Screen {
     #[cfg(test)]
     pub(crate) fn packet(&self) -> &Packet {
         &self.packet
+    }
+
+    /// How many mark-and-compact sweeps this screen has run.
+    #[cfg(test)]
+    pub(crate) fn sweeps(&self) -> u32 {
+        self.sweeps
+    }
+
+    /// Sweep now, whether or not the high-water mark says to.
+    ///
+    /// The gates' door, and it is the same one [`Screen::layers`] uses: a gate about what a sweep
+    /// does to a *screen* must not have to grow a table past a threshold first, because then it
+    /// would be a test of the threshold. The threshold has tests of its own.
+    #[cfg(test)]
+    pub(crate) fn sweep_now(&mut self) -> crate::sweep::Swept {
+        let swept = self.layers.sweep_with(&mut self.frame);
+        self.repaint |= swept.renumbered;
+        self.sweeps += 1;
+        swept
+    }
+
+    /// How many entries each swept table holds, clusters first.
+    #[cfg(test)]
+    pub(crate) fn table_lengths(&self) -> (usize, usize) {
+        let tables = self.layers.tables();
+        (tables.interner.len(), tables.exts.len())
+    }
+
+    /// How many rows of the mirror record what the terminal is showing.
+    ///
+    /// The count `Packet::repaint` is about: a full repaint expresses itself as *every row unknown*
+    /// rather than as a mode, so the gate on it is this number reaching zero.
+    #[cfg(test)]
+    pub(crate) fn known_rows(&self) -> usize {
+        (0..self.size.1)
+            .filter(|&y| self.serializer.mirror().is_known(y))
+            .count()
+    }
+
+    /// How many extended-style entries this screen has ever created, sweeps included.
+    ///
+    /// Not the same question as [`Screen::table_lengths`], and spec §3's growth table is made of this
+    /// one: a table that gains 96 entries a frame and is swept back to size every third frame has a
+    /// length delta of about nothing while creating 96 a frame.
+    #[cfg(test)]
+    pub(crate) fn extended_styles_minted(&self) -> u64 {
+        self.layers.tables().exts.minted()
+    }
+
+    /// Whether a sweep would run at the next [`Screen::layers`].
+    ///
+    /// Read by the gate that says `present` never sweeps, so that the gate is about `present`
+    /// refusing rather than about the mark not having been reached.
+    #[cfg(test)]
+    pub(crate) fn sweep_due(&self) -> bool {
+        self.layers.sweep_due()
+    }
+
+    /// Every cell of the frame and of every layer surface, with every handle resolved.
+    ///
+    /// Register entry #11's oracle. It takes `&self` deliberately: reaching the layers through
+    /// [`Screen::layers`] would run a sweep on the way past, and a snapshot that swept before
+    /// snapshotting is not a *before*.
+    #[cfg(test)]
+    pub(crate) fn channels(&self) -> Vec<crate::sweep::Channels> {
+        let tables = self.layers.tables();
+        let mut out = Vec::new();
+        crate::sweep::channels_of(&self.frame, tables, &mut out);
+        for layer in self.layers.as_stored() {
+            if let Some(surface) = layer.surface() {
+                crate::sweep::channels_of(surface, tables, &mut out);
+            }
+        }
+        out
     }
 
     #[cfg(test)]
