@@ -17,11 +17,26 @@ members = [
 # the job. The general form is the one engine ticket 16 met twice: *a check that is weaker than the
 # gate is not a check.*
 #
-# `[lints]` rather than a committed `RUSTFLAGS` in `.cargo/config.toml`, and the difference is not
-# cosmetic: `RUSTFLAGS` applies to **every** crate in the graph including dependencies, so an
-# upstream deprecation would fail our build for a reason that is not ours. `deny.toml`'s own comment
-# records that trap being hit from the other direction. A `[lints]` table applies only to the crates
-# in this workspace, which is exactly the set whose warnings are ours to fix.
+# `[lints]` rather than a committed `RUSTFLAGS` in `.cargo/config.toml`, and the reason is not the one
+# first written here. That one said `RUSTFLAGS` reaches dependencies, so an upstream deprecation would
+# fail our build; it does not. **Cargo passes `--cap-lints allow` to every registry dependency**, which
+# caps a `deny` back to `allow` — measured, not argued: `RUSTFLAGS="-D unsafe_code" cargo build` builds
+# `crossterm` and `mio` clean, and both are full of `unsafe`. The escape is real only for path and git
+# dependencies, and in this workspace those are our own crates, whose warnings are ours anyway.
+#
+# The reason that stands is worse than the one it replaces, and it is the same failure this table
+# exists to prevent. **A `RUSTFLAGS` environment variable does not merge with `build.rustflags` — it
+# replaces it, silently.** So a developer with `RUSTFLAGS="-C target-cpu=native"` set for any unrelated
+# reason loses the deny outright and gets a warning where CI gets an error: *a check that is weaker
+# than the gate is not a check*, arriving through the very mechanism meant to enforce it. Verified both
+# directions on a throwaway crate — an unused import is an error with no variable set and a warning
+# with one. A `[lints]` table cannot be switched off from a shell.
+#
+# It also covers **clippy**, which is easy to doubt and was doubted in review: `warnings` is not a
+# rustc-only group, it names every lint currently at warn level, and clippy-driver applies it to its
+# own. Measured: a `clippy::ptr_arg` is an `error` under `cargo clippy` with no `RUSTFLAGS` set. No
+# `[workspace.lints.clippy]` table is needed, and adding one would only be for naming individual
+# clippy lints at a level other than their default.
 #
 # It reaches a crate only if that crate says `[lints] workspace = true`, so every manifest here does,
 # including the dev-only ones. A new crate that forgets the line is silently exempt — that is the one

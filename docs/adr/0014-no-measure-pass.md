@@ -18,10 +18,10 @@ surprising, and both alternatives were built and priced before it was decided.
 
 ## Why
 
-The working note this decision started from named two exits, and the second was a strawman: it argued
-against a measure pass by arguing against a *trait*. A component is already a function and a function can be
-called twice, so a **dry run** into a discard surface gives intrinsic sizing with no trait, no node
-and no retained tree. That was the opponent this decision actually had to beat.
+There are two exits from *no measure pass*, and the weaker one is the trap: it argues against a measure
+pass by arguing against a *trait*. A component is already a function and a function can be called
+twice, so a **dry run** into a discard surface gives intrinsic sizing with no trait, no node and no
+retained tree. That is the opponent this decision actually had to beat, and both are priced below.
 
 **The trait form does not die of cost** — same rectangles at 1.03×, and 0 allocations against 2 once
 it takes the caller's buffers. It dies of `E0499`: a fit-container holds every child alive across its

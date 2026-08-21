@@ -134,9 +134,10 @@ this design sits on is written down rather than remembered.
 ## Progress
 
 - 2026-08-17 — opened. Working analysis in `COMPONENT-HIERARCHY.md`, with a component-library graph
-  rendered at `docs/img/component-hierarchy.png`. **The note was deleted on 2026-08-21**, superseded
-  by the two architecture specs; the entries below are the record of what it produced, not a pointer
-  to something still there.
+  rendered beside it. **Both were deleted on 2026-08-20**, superseded by the two architecture specs;
+  the entries below are the record of what they produced, not a pointer to something still there.
+  The `component-families` and `runtime-stack` diagrams named further down are a different pair and
+  are still here.
 - 2026-08-17 — research and two proposals written, ahead of claiming the ticket. The ticket is
   confirmed to be map-shaped: it produced two maps rather than one answer.
   - `.scratch/vitui-components-architecture/research/01-component-library-survey.md` — fourteen
@@ -163,8 +164,9 @@ this design sits on is written down rather than remembered.
   Flutter, PrimeNG and yazi as sources plus the *application* vocabulary (btop, k9s, lazygit,
   ranger, mc, zellij). Catalogue is now **15 families, ~430 entries**.
   Consequences that changed a design conclusion, not just a list:
-  - `scroll_area` is a **component** (L3), correcting the note's "scroll is not a component". It is *not* `list`: a scroll area costs its content,
-    a virtualised list costs its visible window. New requirement C21 keeps them apart.
+  - `scroll_area` is a **component** (L3), correcting the note's "scroll is not a component". It is
+    *not* `list`: a scroll area costs its content, a virtualised list costs its visible window. New
+    requirement C21 keeps them apart.
   - Expand/collapse is **one state machine** behind thirteen catalogue entries, so it ships as
     one helper (`collapsible`) rather than thirteen implementations.
   - The graphics-passthrough finding is **upgraded**: it blocks two families at full fidelity,
