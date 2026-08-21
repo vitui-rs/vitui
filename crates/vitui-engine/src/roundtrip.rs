@@ -1033,3 +1033,77 @@ fn a_band_narrower_than_the_screen_sets_the_region_and_puts_it_back() {
         "and the row below the band is untouched by a scroll of it"
     );
 }
+
+/// **The scroll region has to survive narrowing, and for three frames it did not.**
+///
+/// The pre-pass proves a scroll by comparing what the frame wants against what the mirror holds, and
+/// since impl 17 the mirror holds what the terminal was **sent** — narrowed. A comparison that read
+/// the packet's own cells against it made every colour below truecolor look like a change, so
+/// obligation 1 failed on the first row and **every scroll on every terminal that narrows anything**
+/// was forfeited: correct output, 32x the bytes, and nothing red.
+///
+/// It was invisible to the whole suite for one reason worth keeping in view: impl 17 also made
+/// `Scene::overrides` pin **truecolor**, which is the arm where narrowing is the identity. That was
+/// the right default — it preserves every byte count on §14's register — and it moved the twelve
+/// scenes off the only depth that could see this. So the gate is here, at the depth, and it is a
+/// **relation between arms** rather than a count: a scroll taken at truecolor must still be taken
+/// when the terminal has less colour, because narrowing is about what a cell *looks like* and a
+/// scroll is about where it *is*.
+#[test]
+fn a_scroll_is_taken_at_every_depth_and_not_only_where_nothing_narrows() {
+    fn scrolls(depth: crate::caps::ColorDepth) -> (usize, usize) {
+        let mut h = Harness::with_overrides(
+            SW,
+            SH,
+            crate::caps::Overrides {
+                colors: Some(depth),
+                ..Default::default()
+            },
+        );
+        let id = h
+            .screen
+            .layers()
+            .add_content(0, Rect::new(0, 0, SW, SH), true);
+        // **An RGB ink, which is the whole fixture.** `draw_list` above paints in the default
+        // colours, and a default colour is the one thing no depth narrows — so the shipped scroll
+        // tests could not have caught this and neither could a copy of them.
+        let ink = Style::new().fg(Color::rgb(0xcc, 0x02, 0x01));
+        let paint = |h: &mut Harness, top: u32| {
+            let mut v = h
+                .screen
+                .layers()
+                .view(id)
+                .expect("the layer is still there");
+            for y in 0..SH {
+                v.fill(Rect::new(0, y as i32, SW, 1), " ", ink);
+                v.text(0, y as i32, &format!("row {}", top + u32::from(y)), ink);
+            }
+        };
+        paint(&mut h, 0);
+        h.present();
+        for t in 1..=3 {
+            paint(&mut h, t);
+            h.present();
+        }
+        h.scrolls()
+    }
+
+    let reference = scrolls(crate::caps::ColorDepth::TrueColor);
+    assert_eq!(
+        reference,
+        (3, 3),
+        "the fixture stopped scrolling at all, so the arms below compare nothing"
+    );
+    for depth in [
+        crate::caps::ColorDepth::Indexed256,
+        crate::caps::ColorDepth::Ansi16,
+        crate::caps::ColorDepth::None,
+    ] {
+        assert_eq!(
+            scrolls(depth),
+            reference,
+            "{depth:?} did not take the scroll truecolor took — the pre-pass is comparing what the \
+             application asked for against what the terminal was sent"
+        );
+    }
+}

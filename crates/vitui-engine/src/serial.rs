@@ -816,14 +816,40 @@ impl Serializer {
         let y = row.y();
         let mut base = 0usize;
         for r in row.runs {
-            for (i, &cell) in row.cells[base..base + r.len()].iter().enumerate() {
-                if cell != self.mirror.cell(r.lo + i as u16, y) {
-                    return true;
-                }
+            let cells = &row.cells[base..base + r.len()];
+            if !self.damaged_span_is_on_the_terminal(cells, y, r.lo) {
+                return true;
             }
             base += r.len();
         }
         false
+    }
+
+    /// Whether a span of the packet's **own** cells is what the mirror is already showing at
+    /// `(from, y)`.
+    ///
+    /// **The one place the pre-pass reads a packet cell against a narrowed mirror, and it is a
+    /// function because it was two loops that disagreed.** The mirror holds what the terminal was
+    /// *sent*, which since impl 17 is narrowed; a packet holds what the application asked for. So the
+    /// two are comparable only through [`Quantiser`], and a comparison that forgot it was not merely
+    /// approximate — it made every colour below truecolor look like a change, which forfeited **every
+    /// scroll on every terminal that narrows anything**. Measured: three scrolls over three frames of
+    /// a scrolling list at truecolor, and zero at `Indexed256` and `Ansi16`.
+    ///
+    /// The slice compare survives where nothing narrows, which is the case
+    /// [`Mirror::span`]'s 2.4x was measured on, and the walk is what the other depths pay. It is
+    /// bounded by a band and stops at the first disagreement, and it cannot use the emit loop's memo
+    /// because this side of the pre-pass is `&self` — which is the right trade for a pass that exists
+    /// to reject cheaply.
+    fn damaged_span_is_on_the_terminal(&self, cells: &[Cell], y: u16, from: u16) -> bool {
+        let mirrored = self.mirror.span(y, from, from + cells.len() as u16);
+        if !self.quant.narrows() {
+            return cells == mirrored;
+        }
+        cells
+            .iter()
+            .zip(mirrored)
+            .all(|(want, shown)| self.quant.cell(*want) == *shown)
     }
 
     /// The next candidate at or after `from`, and its own index so a caller can ask for the one after
@@ -908,8 +934,12 @@ impl Serializer {
                 }
                 // A damaged span is the packet's own cells against the mirror's, and the packet's
                 // cells are a frame's: nothing here can be `Cell::UNKNOWN`, so an unknown source
-                // cell fails this comparison rather than passing it.
-                if row.cells[base..base + r.len()] != *self.mirror.span(src, r.lo, r.hi + 1) {
+                // cell fails this comparison rather than passing it. Narrowed, because the mirror
+                // holds what was sent — see
+                // [`damaged_span_is_on_the_terminal`](Serializer::damaged_span_is_on_the_terminal),
+                // which is where forgetting it cost every scroll below truecolor.
+                let cells = &row.cells[base..base + r.len()];
+                if !self.damaged_span_is_on_the_terminal(cells, src, r.lo) {
                     return false;
                 }
                 base += r.len();
@@ -1123,13 +1153,13 @@ impl Serializer {
                 return Cell::new(cell.grapheme, to);
             }
         }
-        let to = self.quant.style(cell.style);
+        let narrowed = self.quant.cell(cell);
         #[cfg(test)]
         {
             self.narrowings += 1;
         }
-        self.memo = Some((cell.style, to));
-        Cell::new(cell.grapheme, to)
+        self.memo = Some((cell.style, narrowed.style));
+        narrowed
     }
 
     /// Put one cell on the wire, and record it in the mirror.

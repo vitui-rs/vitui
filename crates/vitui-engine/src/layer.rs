@@ -2831,6 +2831,84 @@ mod tests {
     }
 
     #[test]
+    fn a_donated_link_only_cell_comes_back_inline_where_the_terminal_has_no_osc_8() {
+        // **The other half of `renumber`'s intern, and the reason it answers a `Reborn` rather than
+        // a handle.** A donor surface knows no terminal (architecture ticket 19), so it interned its
+        // entry with the hyperlink in the key; this stack's terminal has no OSC 8, so the link leaves
+        // the key — and the entry then has *no extended channel left*, which puts the cell back
+        // inline. *Extended is a cost, not a state*, one axis further along than `restyle` says it.
+        //
+        // Nothing in the suite reached this arm before it was written: every other donation test is
+        // on a stack that keeps links in the key, so `renumber` always answered with a handle.
+        const URI: &str = "https://example.com/donated";
+
+        fn donated() -> Surface {
+            let mut off = Surface::new(2, 1);
+            let link = off.tables_mut().link(URI);
+            {
+                let mut view = off.root();
+                // Explicit colours, so the inline word this must become is distinguishable from a
+                // blank — an assertion that the cell went inline is worth nothing if its colours
+                // went with it.
+                view.text(
+                    0,
+                    0,
+                    "ab",
+                    Style::new().fg(Color::indexed(15)).bg(Color::indexed(4)),
+                );
+                view.restyle(
+                    Rect::new(0, 0, 2, 1),
+                    &Restyle {
+                        link: Some(link),
+                        ..Default::default()
+                    },
+                );
+            }
+            assert!(
+                off.row(0)[0].style.is_extended(),
+                "the donor interned it, because a donor knows no terminal"
+            );
+            off
+        }
+
+        let mut stack = LayerStack::new();
+        stack.tables_mut().set_links_in_key(false);
+        stack.add_content_with(0, Rect::new(0, 0, 2, 1), true, donated());
+
+        let mut frame = Surface::new(2, 1);
+        composite(&mut stack, &mut frame);
+        let landed = frame.row(0)[0].style;
+        assert!(
+            !landed.is_extended(),
+            "a link the terminal cannot express is not a reason to hold a table entry"
+        );
+        assert_eq!(landed.foreground(), Color::indexed(15));
+        assert_eq!(landed.background(), Color::indexed(4));
+        assert!(
+            stack.tables().exts.is_empty(),
+            "and nothing was interned at all"
+        );
+
+        // The arm that makes the above a statement about the collapse rather than about donation:
+        // the same surface into a stack that keeps links in the key stays extended.
+        let mut expressible = LayerStack::new();
+        expressible.add_content_with(0, Rect::new(0, 0, 2, 1), true, donated());
+        let mut frame = Surface::new(2, 1);
+        composite(&mut expressible, &mut frame);
+        let handle = frame.row(0)[0]
+            .style
+            .ext_handle()
+            .expect("OSC 8 is expressible here, so the link is part of the identity");
+        assert_eq!(
+            expressible
+                .tables()
+                .links
+                .uri(expressible.tables().exts.get(handle).unwrap().link),
+            Some(URI)
+        );
+    }
+
+    #[test]
     fn a_screen_minted_link_survives_a_donation_it_was_not_minted_for() {
         // The only publicly reachable hyperlink-plus-donation flow, because `Screen::link` is the
         // only mint: the id is already in this stack's space and arrives on a surface whose own

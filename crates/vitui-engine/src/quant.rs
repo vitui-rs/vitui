@@ -66,7 +66,6 @@
 //! See [`Quantiser::color`], which is where somebody would add it.
 
 use crate::caps::{Capabilities, ColorDepth, Rgb};
-#[cfg(test)]
 use crate::cell::Cell;
 use crate::exts::ExtStyle;
 use crate::style::{Color, Style, TAG_DEFAULT, TAG_INDEXED, TAG_RGB};
@@ -231,6 +230,17 @@ impl Quantiser {
         }
     }
 
+    /// Whether this terminal narrows anything at all.
+    ///
+    /// **The fast path for a comparison that has to be against the wire.** Where this is false,
+    /// [`style`](Quantiser::style) is the identity on every word, so a caller comparing a packet's
+    /// cells against the mirror's may compare the two **slices** — which is what
+    /// `Serializer::row_lands_on` is built on and measured at 2.4x a per-column walk. Where it is
+    /// true the walk is the only correct form, and it is bounded by a band rather than by a screen.
+    pub(crate) fn narrows(self) -> bool {
+        self.depth != ColorDepth::TrueColor
+    }
+
     /// The quantiser for one terminal.
     pub(crate) fn for_terminal(caps: &Capabilities) -> Quantiser {
         let mut palette = ANSI16;
@@ -300,6 +310,21 @@ impl Quantiser {
         }
         let (fg, bg) = (self.color(s.foreground()), self.color(s.background()));
         Style::inline(s.attr_word(), fg, bg)
+    }
+
+    /// One cell, narrowed.
+    ///
+    /// The grapheme is never touched — the engine substitutes no glyph anywhere (spec §10), and a
+    /// glyph set is not a colour depth.
+    ///
+    /// **It exists so that two comparisons are provably the same predicate.**
+    /// `Serializer::damaged_span_is_on_the_terminal` compares a packet's cells against the mirror's
+    /// with a slice `==` where nothing narrows and a walk where something does, and a walk written
+    /// over *fields* is a walk that silently stops covering a field somebody adds — `Cell::_reserved`
+    /// is zero in every cell today and is documented as not being slack to reclaim. Narrowing to a
+    /// whole `Cell` keeps both arms total.
+    pub(crate) fn cell(self, c: Cell) -> Cell {
+        Cell::new(c.grapheme, self.style(c.style))
     }
 
     /// The four channels of an extended entry, narrowed — and the link dropped where the terminal
