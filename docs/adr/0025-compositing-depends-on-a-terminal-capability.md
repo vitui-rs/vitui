@@ -55,3 +55,38 @@ At `ColorDepth::None` the whole question disappears, because operator layers are
 colour reaches the wire, so `Mix` provably changes nothing. That is worth 78.2 µs of the 107 µs
 worst-case screen, and it is the one place where a degradation tier changes compositing rather than
 serialisation.
+
+## Amendment, 2026-08-21 — the refusal is the engine's, not the operator's
+
+Amended by [architecture ticket 22](../../.scratch/vitui-engine-architecture/issues/22-headless-cannot-declare-a-hyperlink.md).
+Every decision and every number above stands. What was missing is who the refusal binds.
+
+**`Overrides` gains `default_fg: Option<Rgb>` and `default_bg: Option<Rgb>`.** They are the only fields
+on that type whose reader is the *compositor* rather than the serializer, which is this ADR's own
+sentence — *the only place in the engine where a rendering decision depends on what the terminal told
+us* — arriving on the write side.
+
+This does not weaken the refusal. **The engine still refuses to guess**: silence on OSC 11 still leaves
+default-background cells unmixed, and there is still no dark-theme default anywhere. What a declaration
+is, is a different actor: *guessing* is the engine inventing a value nobody supplied, and *declaring* is
+the person who configured that background saying what they configured. §10 already draws exactly this
+line for the font, where `--ascii` is an operator's promise and not a discovery; this is the same line one
+axis along, and it is the reason the field is a lever rather than a loophole.
+
+Two consequences worth writing down rather than leaving to be found:
+
+- **Silence is not declarable, only an answer is.** The field is `Option<Rgb>`, not
+  `Option<Option<Rgb>>`. Silence is what a caller-supplied sink gets by default and what every unanswered
+  terminal falls through to, so it never needed a door; the arm that did is the answered one. An
+  application therefore cannot force a terminal that *did* answer OSC 11 to be treated as silent, and
+  nothing wants to — `NO_COLOR` covers the case where the colour machinery should be out of the way
+  entirely.
+- **The field case this closes had been carried silently.** A terminal that does not answer OSC 11 gives
+  its user shadows clipped to the explicitly-coloured area for ever, with no lever at all.
+  `VITUI_DEFAULT_BG` is that lever, and the value it needs is the one that user already typed into their
+  own terminal profile.
+
+**The companion case is unchanged and is now the case that draws the boundary.** OSC 4's sixteen palette
+entries get **no** `Overrides` field, and the reason is this ADR's own rule read the other way: silence
+there has a *defined* answer — the xterm table — so both arms already run and a declaration would move
+values rather than reach a path nothing else can. Same rule, opposite answer, a third time.

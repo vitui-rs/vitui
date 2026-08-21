@@ -483,12 +483,15 @@ not over-trusting: it saves nothing at all while the work finishes faster than t
 **Backend** — the seam behind which the terminal library lives. `crossterm` sits here and is not
 visible in any public type.
 
-**Capability** — something the attached terminal can do. A capability is either *detected* by querying
-the live pty — colour depth, synchronised output, the keyboard protocol flags — or *declared* by the
-operator, which is the only way the glyph repertoire can be known, since no query asks whether a font
-contains a character. The distinction decides the shape of the answer: a detected axis is exposed as
-independent booleans, because the world does not sort; a declared axis may be an ordered ladder,
-because a promise is downward-closed by whoever makes it. See `docs/adr/0010`.
+**Capability** — something the attached terminal can do. A capability is *detected* by querying the live
+pty — colour depth, synchronised output, the keyboard protocol flags — *declared* by the operator, which
+is the only way the glyph repertoire can be known, since no query asks whether a font contains a
+character — or **inferred**, which is the engine guessing on the world's behalf and is the case OSC 8
+hyperlinks fall into, because no query asks that either and nobody was asked to promise it. The
+distinction decides the shape of the answer: a detected axis is exposed as independent booleans, because
+the world does not sort; a declared axis may be an ordered ladder, because a promise is downward-closed
+by whoever makes it; and an inferred axis must be **correctable by a declaration**, because there is no
+second query to ask more carefully. See `docs/adr/0010`.
 
 **Repertoire** — the set of characters the operator promises their font can show: ASCII only, Unicode
 with box drawing and block elements, or everything including braille and emoji. Declared, never
@@ -556,10 +559,19 @@ a pair count taken at sixteen colours is a lower bound rather than a measurement
 then misbehaves anyway. Where the per-terminal facts live: legacy SGR on ConPTY, and which text
 attributes actually work.
 
-**Override** — a capability pinned or lowered by the caller instead of being detected. Overrides are
+**Override** — a capability **pinned** by the caller instead of being detected, in either direction: a
+pin may raise as well as lower, which is what makes a truecolor headless tier reachable. Overrides are
 where `--ascii` and `--no-color` land, and they sit at the top of one stated precedence order: the
 explicit API, then `VITUI_*` environment variables, then `NO_COLOR`, then `TERM=dumb` or a non-tty,
-then the quirk table, then detection, then conservative defaults.
+then the quirk table, then detection, then conservative defaults. Every field has a `VITUI_*` twin,
+because level 2 exists to be the same lever without a new release.
+
+**Which axes are overridable** is a rule and not a list, and it is not the same set as the *capabilities*
+a caller can read: **an axis is overridable iff nothing measured it — nothing can, or the engine inferred
+it — or the engine's own output depends on it and the value is one the person at the terminal knows.**
+`Capabilities` is what someone above can act on; `Overrides` is what someone below can be told. Two
+questions, two field sets, and the input axes are on neither side of the second: a declaration cannot
+make an event arrive. See `docs/adr/0010`.
 
 **Degradation** — rendering the same scene against a weaker terminal without the caller writing it
 twice. The engine degrades *presentation* — colour is quantised, an unsupported attribute is dropped,

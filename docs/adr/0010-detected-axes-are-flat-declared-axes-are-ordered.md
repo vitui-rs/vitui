@@ -64,3 +64,46 @@ then `VITUI_*` environment variables, then `NO_COLOR`, then `TERM=dumb` or a non
 per-terminal quirk table applied *after* detection, then live detection, then conservative defaults.
 The API sits above the environment, and the conflict that would otherwise create is removed by the
 `Option` shape: the environment fills only fields left `None`, and never overrides a `Some`.
+
+## Amendment, 2026-08-21 — a third category, and the write-side test
+
+Amended by [architecture ticket 22](../../.scratch/vitui-engine-architecture/issues/22-headless-cannot-declare-a-hyperlink.md).
+The decision above stands unchanged; what it did not have is a name for a fact that is neither detected
+nor declared, and a test for the *write* side to match the one it gives the read side.
+
+**A third category: inferred.** `Capabilities::hyperlinks` was written as though it were detected. **OSC
+8 has no query** — none of DA1, XTVERSION, DA2, DECRQM, XTGETTCAP, OSC 10/11 or OSC 4 asks it and none
+could — and it is not something an operator was ever asked to promise either, the way the font is. So it
+is *inferred*: matched against an allow-list of terminal identities. The first implementation of that
+inference read *answered XTVERSION* as *implements OSC 8*, which is wrong because XTVERSION is xterm's
+own and xterm has no OSC 8, and the corrected form still ships a known residual — VTE implements OSC 8,
+answers no XTVERSION, and gets a wrong `false`.
+
+An inference is the engine guessing on the world's behalf, which
+[ADR 0025](0025-compositing-depends-on-a-terminal-capability.md) governs. What follows is one rule:
+
+> **An inferred axis must be declarable**, because a declaration is the only thing that can correct it.
+> There is no second query to ask more carefully, and a quirk-table entry is a new release.
+
+**The write-side test.** This ADR's consequence — *every public field on `Capabilities` must pass one
+test: someone above can act on it* — decides the read side, and `Overrides` was left to be a subset of
+whatever that produced. It is not one and never was: `legacy_sgr` and `width` pin **private** facts, so
+the type was never *fourteen facts mirrored as fourteen `Option`s* and the stopping line was never a
+count. The test is:
+
+> **An axis belongs on `Overrides` iff (a) nothing measured it — nothing can, or nothing did and the
+> engine inferred it — or (b) the engine's own output depends on it *and* the value is one the person at
+> the terminal knows.**
+
+Seven fields satisfy it: `colors`, `glyphs`, `default_fg`, `default_bg`, `hyperlinks`, `legacy_sgr`,
+`width`. The eight input facts fail (b) twice, and the second time re-admits a defect this repository
+already decided against: nothing on the output path reads an input fact, and *a declaration cannot make
+an event arrive*, so `key_release: Some(true)` on a terminal that sends no releases would leave a
+component drawing a key it believes still held — the exact failure
+[ADR 0007](0007-the-input-model-is-honest-about-the-terminal.md) refused the uniform keyboard model for.
+`grapheme_clusters` fails (b) because the engine's own tables stay authoritative either way, so nothing
+in the engine reads it; a component reading it is not the engine.
+
+The two tests are deliberately different questions, and the fields moving apart is the answer rather than
+a drift to be corrected: **`Capabilities` is what someone above can act on; `Overrides` is what someone
+below can be told.**
