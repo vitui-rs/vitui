@@ -157,9 +157,9 @@ fn the_steady_state_allocates_nothing() {
 /// asks for nothing new: the table deduplicates, so once the entries its result needs exist, every
 /// later frame finds them.
 ///
-/// This is not register entry #7, which is about a *fading* operator and is red against impl 08 with
-/// the sweep. It is the half impl 12 can be held to, and it is the same shape as
-/// `a_settled_restyle_over_a_hyperlinked_screen_allocates_nothing` one layer up.
+/// This **is** register entry #7's settled half — impl 08 wired the fading one, in
+/// `crate::gates::a_fading_operator_mints_per_distinct_style_and_never_per_cell` — and it is the same
+/// shape as `a_settled_restyle_over_a_hyperlinked_screen_allocates_nothing` one layer up.
 ///
 /// Hyperlinked, because that is what makes the mix's result need a table entry at all: an inline
 /// cell mixes to an inline word and reaches no table, so a screen of those would pass whatever
@@ -290,8 +290,8 @@ fn the_operator_reaches_the_wire_at_the_depth_the_gate_pins() {
 /// needs already there and mints nothing. That is what makes a settled operator converge after one
 /// frame, and it is why a permanently *changing* one is the case eviction exists for.
 ///
-/// This is not register entry #7, which is about the operator layer and is red against impl 08. It
-/// is the half of that property `restyle` can be held to today.
+/// This is not register entry #7, which is about the operator layer and lives one file across in
+/// `crate::gates`. It is the half of that property `restyle` can be held to on its own.
 ///
 /// It stops short of `present` on purpose, and the reason changed at impl 13: the serializer emits
 /// SGR 58/59 and OSC 8 now, so the frame path is no longer what is unavailable. What this gate is

@@ -798,7 +798,7 @@ fn gate_20s_arms_are_one_scene_at_two_sizes() {
 
 /// A screen whose cells are extended, on a tier that has colour, **on the round trip**.
 ///
-/// # The seven gates below used to be unable to close it, and impl 13 is what ended that
+/// # Every gate in this section used to be unable to close it, and impl 13 is what ended that
 ///
 /// `Harness::present` closes the round trip on every frame, and until impl 13 an extended cell could
 /// not close it: SGR 58/59 and OSC 8 did not reach the wire, so the serializer emitted a hyperlinked,
