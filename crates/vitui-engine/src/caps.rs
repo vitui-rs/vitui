@@ -362,7 +362,7 @@ impl Ground {
 /// What the live queries came back with. Everything here is an answer or an absence, never a guess.
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub(crate) struct Detected {
-    /// Whether the DA1 sentinel arrived, which is the only proof there is a terminal at all.
+    /// Whether the DA1 sentinel arrived, which is what ends the exchange early.
     pub(crate) answered: bool,
     /// The identity string XTVERSION reported, if it did.
     pub(crate) version: Option<String>,
@@ -386,6 +386,28 @@ pub(crate) struct Detected {
 }
 
 impl Detected {
+    /// Whether **anything** came back, sentinel or not.
+    ///
+    /// Distinct from [`answered`](Detected::answered) on purpose, and the distinction is a defect
+    /// that was fixed here. A terminal can answer OSC 10, OSC 11, sixteen palette entries and every
+    /// DECRQM and still lose its DA1 — the *answers and then goes quiet* row detection already
+    /// handles. Keying the ambiguous colour case off the sentinel put such a terminal at
+    /// `ColorDepth::None`, which is *no colour at all*, on the strength of one missing reply while
+    /// it was demonstrably speaking escape sequences and had just reported its real default
+    /// foreground. The rule is that what arrived is kept; this is what makes the colour ladder obey
+    /// it too.
+    pub(crate) fn heard_anything(&self) -> bool {
+        self.answered
+            || self.version.is_some()
+            || self.da2.is_some()
+            || self.rgb.is_some()
+            || self.default_fg.is_some()
+            || self.default_bg.is_some()
+            || self.kitty_flags.is_some()
+            || !self.modes.is_empty()
+            || self.palette.iter().any(Option::is_some)
+    }
+
     /// Whether a DEC private mode is available on this terminal.
     ///
     /// DECRQM answers with five states and only two of them are *no*. `0` is **not recognised** —
@@ -450,7 +472,12 @@ pub(crate) struct Private {
 /// question.
 ///
 /// ```
-/// let (screen, _wake) = vitui_engine::Engine::new(Default::default()).attach().unwrap();
+/// let config = vitui_engine::Config {
+///     // Headless, because a doctest must not reach for the developer's terminal.
+///     output: vitui_engine::Output::Sink(Box::new(Vec::new())),
+///     ..Default::default()
+/// };
+/// let (screen, _wake) = vitui_engine::Engine::new(config).attach().unwrap();
 /// // A caller-supplied sink is a declared tier, and nothing was detected.
 /// assert_eq!(screen.capabilities().colors, vitui_engine::ColorDepth::None);
 /// assert_eq!(screen.capabilities().glyphs, vitui_engine::GlyphSet::Extended);
@@ -463,12 +490,22 @@ pub(crate) struct Private {
 /// all, including the type having been renamed out from under it.
 ///
 /// ```compile_fail,E0609
-/// let (screen, _wake) = vitui_engine::Engine::new(Default::default()).attach().unwrap();
+/// let config = vitui_engine::Config {
+///     // Headless, because a doctest must not reach for the developer's terminal.
+///     output: vitui_engine::Output::Sink(Box::new(Vec::new())),
+///     ..Default::default()
+/// };
+/// let (screen, _wake) = vitui_engine::Engine::new(config).attach().unwrap();
 /// let _ = screen.capabilities().italic;
 /// ```
 ///
 /// ```
-/// let (screen, _wake) = vitui_engine::Engine::new(Default::default()).attach().unwrap();
+/// let config = vitui_engine::Config {
+///     // Headless, because a doctest must not reach for the developer's terminal.
+///     output: vitui_engine::Output::Sink(Box::new(Vec::new())),
+///     ..Default::default()
+/// };
+/// let (screen, _wake) = vitui_engine::Engine::new(config).attach().unwrap();
 /// let _: bool = screen.capabilities().hyperlinks;
 /// ```
 ///
@@ -699,11 +736,8 @@ pub(crate) fn assemble(
         default_fg: detected.default_fg,
         default_bg: detected.default_bg,
         // OSC 8 has no query, so this is the one inference in the whole file and it is written down
-        // rather than buried: a terminal that answers XTVERSION is one of the four that introduced
-        // it — kitty, WezTerm, foot, Ghostty — and all four implement OSC 8. Everything else is
-        // false until the quirk table says otherwise, because a wrong `true` is a capability a
-        // component acts on and a hyperlink nobody can click is a wasted escape.
-        hyperlinks: detected.version.is_some(),
+        // rather than buried. See `implements_osc8`.
+        hyperlinks: implements_osc8(detected.version.as_deref()),
         grapheme_clusters: detected.mode(MODE_GRAPHEME_CLUSTERS),
         key_release: kitty(detected, KITTY_EVENT_TYPES),
         key_repeat: kitty(detected, KITTY_EVENT_TYPES),
@@ -794,6 +828,41 @@ pub(crate) const KITTY_ALL: u32 = KITTY_DISAMBIGUATE
     | KITTY_ALL_AS_ESCAPES
     | KITTY_ASSOCIATED_TEXT;
 
+/// Whether this terminal implements OSC 8, inferred from what XTVERSION reported.
+///
+/// **The one inference in this file, and the first draft of it was wrong.** It read *answered
+/// XTVERSION at all* as *implements OSC 8*, on the belief that the sequence belongs to the four
+/// terminals that popularised it. It does not: **XTVERSION is xterm's own** — patch #359 — and xterm
+/// answers `DCS > | XTerm(NNN) ST` while having no OSC 8 support at all. So the rule produced
+/// exactly the wrong `true` its own comment forbade, on the one terminal most likely to be behind a
+/// bug report.
+///
+/// So it is an allow-list of identities rather than a test of whether anything replied, and the
+/// failure it can still have is the safe one: a terminal that implements OSC 8 and is not on the
+/// list gets a wrong `false`. VTE — gnome-terminal, Tilix — is that case today and answers no
+/// XTVERSION to be recognised by, which is what the quirk table is for.
+///
+/// A wrong `false` costs a hyperlink that is not offered. A wrong `true` costs a component branching
+/// on a capability it does not have, and an escape sent every frame that the terminal ignores every
+/// frame. The two are not symmetric, and the list leans accordingly.
+fn implements_osc8(version: Option<&str>) -> bool {
+    let Some(version) = version else {
+        return false;
+    };
+    // XTVERSION answers with a name and a parenthesised version. Match on the name only: the
+    // version moves and the name does not.
+    let name = version
+        .split(['(', ' '])
+        .next()
+        .unwrap_or(version)
+        .trim()
+        .to_ascii_lowercase();
+    matches!(
+        name.as_str(),
+        "kitty" | "wezterm" | "foot" | "ghostty" | "rio" | "contour" | "iterm2" | "mintty"
+    )
+}
+
 fn kitty(detected: &Detected, flag: u32) -> bool {
     detected.kitty_flags.is_some_and(|f| f & flag != 0)
 }
@@ -813,8 +882,8 @@ fn detect_depth(detected: &Detected, env: &Env) -> ColorDepth {
         (Some(false), _) => ColorDepth::Indexed256,
         // Silent, but the variable claims it and nothing contradicts it.
         (None, true) => ColorDepth::TrueColor,
-        // Genuinely ambiguous, and something answered: 256, which every such terminal speaks.
-        (None, false) if detected.answered => ColorDepth::Indexed256,
+        // Genuinely ambiguous, and something came back: 256, which every such terminal speaks.
+        (None, false) if detected.heard_anything() => ColorDepth::Indexed256,
         // Nothing answered at all.
         (None, false) => ColorDepth::None,
     }
@@ -1136,6 +1205,113 @@ mod tests {
             depth(None, &Env::default()),
             ColorDepth::Indexed256,
             "genuinely ambiguous, and 256 is what every such terminal speaks"
+        );
+    }
+
+    /// **XTVERSION is xterm's own sequence, and the first draft of this inference forgot it.**
+    ///
+    /// Reading *answered XTVERSION at all* as *implements OSC 8* produced the wrong `true` its own
+    /// comment forbade, on xterm — the terminal most likely to be behind a bug report about it. The
+    /// list leans the safe way: a wrong `false` costs a hyperlink that is not offered, a wrong `true`
+    /// costs a component branching on a capability it does not have.
+    #[test]
+    fn osc8_is_an_allow_list_and_xterm_is_not_on_it() {
+        let asked = |version: &str| {
+            let detected = Detected {
+                version: Some(version.to_string()),
+                ..modern()
+            };
+            assemble(
+                Overrides::default(),
+                &Env::default(),
+                Ground::Tty,
+                &detected,
+                Quirks::default(),
+            )
+            .hyperlinks
+        };
+        assert!(
+            !asked("XTerm(390)"),
+            "xterm answers XTVERSION and has no OSC 8"
+        );
+        assert!(
+            !asked("xterm(370)"),
+            "and the match is on the name, case-insensitively"
+        );
+        for yes in [
+            "kitty(0.32.2)",
+            "WezTerm(20240203)",
+            "foot(1.16.2)",
+            "ghostty 1.0.0",
+            "iTerm2(3.5)",
+        ] {
+            assert!(asked(yes), "{yes} implements OSC 8 and was not recognised");
+        }
+        assert!(
+            !asked("SomeTerminalNobodyHasHeardOf(1)"),
+            "an unknown identity gets the safe answer"
+        );
+
+        // And silence is false, which is the same safe answer reached from the other side.
+        let silent = Detected {
+            version: None,
+            ..modern()
+        };
+        assert!(
+            !assemble(
+                Overrides::default(),
+                &Env::default(),
+                Ground::Tty,
+                &silent,
+                Quirks::default()
+            )
+            .hyperlinks
+        );
+    }
+
+    /// **A lost DA1 must not cost a terminal its colour.**
+    ///
+    /// Keying the ambiguous arm of the colour ladder off the *sentinel* meant a terminal that
+    /// answered OSC 10, OSC 11, sixteen palette entries and every DECRQM — but whose DA1 went
+    /// missing, which is the *answers and then goes quiet* row detection already handles — landed on
+    /// `ColorDepth::None`. No colour at all, on the strength of one missing reply, from something
+    /// demonstrably speaking escape sequences. The rule is that what arrived is kept.
+    #[test]
+    fn a_terminal_that_answered_everything_but_da1_still_has_colour() {
+        let no_sentinel = Detected {
+            answered: false,
+            rgb: None,
+            ..modern()
+        };
+        assert!(
+            no_sentinel.heard_anything(),
+            "it plainly said several things"
+        );
+        assert_eq!(
+            assemble(
+                Overrides::default(),
+                &Env::default(),
+                Ground::Tty,
+                &no_sentinel,
+                Quirks::default()
+            )
+            .colors,
+            ColorDepth::Indexed256,
+        );
+
+        // And a terminal that said nothing at all is still `None`, which is what the arm is for.
+        let mute = Detected::default();
+        assert!(!mute.heard_anything());
+        assert_eq!(
+            assemble(
+                Overrides::default(),
+                &Env::default(),
+                Ground::Tty,
+                &mute,
+                Quirks::default()
+            )
+            .colors,
+            ColorDepth::None,
         );
     }
 

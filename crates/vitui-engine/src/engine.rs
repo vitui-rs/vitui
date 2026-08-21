@@ -310,13 +310,23 @@ impl WakeHandle {
 /// that must never block.
 ///
 /// ```compile_fail,E0277
-/// let (screen, _wake) = vitui_engine::Engine::new(Default::default()).attach().unwrap();
+/// let config = vitui_engine::Config {
+///     // Headless, because a doctest must not reach for the developer's terminal.
+///     output: vitui_engine::Output::Sink(Box::new(Vec::new())),
+///     ..Default::default()
+/// };
+/// let (screen, _wake) = vitui_engine::Engine::new(config).attach().unwrap();
 /// std::thread::spawn(move || screen.size());
 /// ```
 ///
 /// ```
 /// let (screen, _wake): (vitui_engine::Screen, vitui_engine::WakeHandle) =
-///     vitui_engine::Engine::new(Default::default()).attach().unwrap();
+///     vitui_engine::Engine::new(vitui_engine::Config {
+///         output: vitui_engine::Output::Sink(Box::new(Vec::new())),
+///         ..Default::default()
+///     })
+///     .attach()
+///     .unwrap();
 /// assert_eq!(screen.size(), (80, 24));
 /// ```
 pub struct Screen {
@@ -472,7 +482,12 @@ impl Screen {
     /// a hyperlink belongs in a layer of the screen that minted it.
     ///
     /// ```
-    /// let (mut screen, _wake) = vitui_engine::Engine::new(Default::default()).attach().unwrap();
+    /// let config = vitui_engine::Config {
+    ///     // Headless, because a doctest must not reach for the developer's terminal.
+    ///     output: vitui_engine::Output::Sink(Box::new(Vec::new())),
+    ///     ..Default::default()
+    /// };
+    /// let (mut screen, _wake) = vitui_engine::Engine::new(config).attach().unwrap();
     /// let a = screen.link("https://example.com/");
     /// assert_eq!(a, screen.link("https://example.com/"));
     /// assert_ne!(a, vitui_engine::LinkId::NONE);
@@ -566,9 +581,27 @@ fn write_frame(sink: &mut (dyn Write + Send), bytes: &[u8]) {
 mod tests {
     use super::*;
 
+    /// A `Config` that is the default in every way **except that it reaches for no terminal**.
+    ///
+    /// This exists because of a real defect, and the defect is worth stating so nobody puts
+    /// `Config::default()` back. `Output::Terminal` is the default, and `attach` on it now performs
+    /// live detection against the process's own tty — so three tests here were doing exactly that:
+    /// under `cargo test` in a real terminal they enabled raw mode, wrote the 277-byte batch onto
+    /// the developer's screen, ate their keystrokes, and failed with `NoAnswer`. **CI has no tty, so
+    /// the pipeline stayed green and only humans saw it.**
+    ///
+    /// The general rule this is an instance of: *a test that reaches for real I/O passes in the
+    /// environment that has none.*
+    fn headless() -> Config {
+        Config {
+            output: Output::Sink(Box::new(Vec::new())),
+            ..Config::default()
+        }
+    }
+
     #[test]
     fn a_wake_handle_records_a_post_and_a_quit_separately() {
-        let (_screen, wake) = Engine::new(Config::default()).attach().unwrap();
+        let (_screen, wake) = Engine::new(headless()).attach().unwrap();
         assert_eq!(wake.pending(), 0);
         wake.post();
         assert_eq!(wake.pending(), WakeHandle::POSTED);
@@ -578,7 +611,7 @@ mod tests {
 
     #[test]
     fn a_wake_handle_clone_shares_the_same_flags() {
-        let (_screen, wake) = Engine::new(Config::default()).attach().unwrap();
+        let (_screen, wake) = Engine::new(headless()).attach().unwrap();
         let other = wake.clone();
         other.post();
         assert_eq!(wake.pending(), WakeHandle::POSTED);
@@ -588,7 +621,7 @@ mod tests {
     fn a_screen_takes_its_size_from_the_config() {
         let config = Config {
             size: (120, 40),
-            ..Default::default()
+            ..headless()
         };
         let (screen, _wake) = Engine::new(config).attach().unwrap();
         assert_eq!(screen.size(), (120, 40));
@@ -718,7 +751,7 @@ mod tests {
     /// not. A sink is the second case, and it is the one every test in this crate is on.
     #[test]
     fn a_default_config_is_the_declared_size() {
-        let (screen, _wake) = Engine::new(Config::default()).attach().unwrap();
+        let (screen, _wake) = Engine::new(headless()).attach().unwrap();
         assert_eq!(screen.size(), Config::DEFAULT_SIZE);
     }
 }

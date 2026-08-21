@@ -328,8 +328,9 @@ pub const REGISTER: [Entry; 27] = [
         qualifier: "compile outcome, paired doctests",
         source: "arch 18, 13",
         state: State::Wired {
-            at: "the paired doctests on Screen and View — two compile_fail cases and their \
-                 positive twins; impl 24 completes the corpus",
+            at: "the paired doctests on Screen, View, Style and Capabilities — nine compile_fail \
+                 cases, each with a positive twin, because a compile_fail alone passes for any \
+                 reason including the type having been renamed; impl 24 completes the corpus",
         },
     },
     Entry {

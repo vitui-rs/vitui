@@ -136,6 +136,9 @@ pub(crate) fn detect(probe: &mut dyn Probe, ceiling: Duration) -> Result<Detecte
     let mut parser = Parser::default();
     let mut buf = [0u8; 4096];
     let mut heard = false;
+    // The tail of the read the sentinel arrived in. Empty on every other exit, because a timeout and
+    // a broken pty both leave nothing after the last byte read.
+    let mut tail: Vec<u8> = Vec::new();
     loop {
         match probe.read(&mut buf, ceiling) {
             Ok(0) | Err(_) if !heard => return Err(AttachError::NoAnswer),
@@ -145,12 +148,20 @@ pub(crate) fn detect(probe: &mut dyn Probe, ceiling: Duration) -> Result<Detecte
             Ok(n) => {
                 heard = true;
                 if let Some(used) = parser.feed(&buf[..n], &mut out) {
-                    probe.unread(&buf[used..n]);
+                    tail.extend_from_slice(&buf[used..n]);
                     break;
                 }
             }
         }
     }
+
+    // **One hand-back, on every exit.** The first draft did it twice on the sentinel path — once
+    // inside the loop and once after it — which pushed the type-ahead in front of itself and lost
+    // the tail behind the duplicate. Everything the parser set aside, then the tail, in that order:
+    // the tail is later in the stream, and a hand-back out of order reorders somebody's keystrokes.
+    let mut back = parser.type_ahead().to_vec();
+    back.append(&mut tail);
+    probe.unread(&back);
     Ok(out)
 }
 
@@ -178,6 +189,15 @@ struct Parser {
     state: State,
     buf: Vec<u8>,
     string_is_dcs: bool,
+    /// Bytes that were never an answer to anything: **the user's own input**, arriving interleaved
+    /// with the replies because a pty has one input stream and the person at the keyboard does not
+    /// wait to be asked.
+    ///
+    /// The reader thread is spawned before the batch goes out, so a key pressed at the shell prompt
+    /// is already in the channel when detection starts. Parsing it as an answer and dropping it is
+    /// the same hole `unread` closes on the other side of the sentinel, and it is the more likely
+    /// one: type-ahead at startup is ordinary, and bytes after DA1 need the user to be quick.
+    spill: Vec<u8>,
 }
 
 impl Parser {
@@ -192,11 +212,19 @@ impl Parser {
         None
     }
 
+    /// Everything read that was the user's rather than the terminal's, in arrival order.
+    fn type_ahead(&self) -> &[u8] {
+        &self.spill
+    }
+
     fn step(&mut self, b: u8, out: &mut Detected) -> bool {
         match self.state {
             State::Ground => {
                 if b == ESC {
                     self.state = State::Esc;
+                } else {
+                    // Nothing in the batch is answered with a bare byte, so this is the user.
+                    self.spill.push(b);
                 }
             }
             State::Esc => {
@@ -212,7 +240,13 @@ impl Parser {
                         self.state = State::Dcs;
                     }
                     ESC => {}
-                    _ => self.state = State::Ground,
+                    _ => {
+                        // `ESC O P` is F1 on every terminal there is. Not an answer to anything in
+                        // the batch, so both bytes go back to whoever typed them.
+                        self.spill.push(ESC);
+                        self.spill.push(b);
+                        self.state = State::Ground;
+                    }
                 }
             }
             State::Csi => {
@@ -222,7 +256,19 @@ impl Parser {
                 if (0x40..=0x7e).contains(&b) {
                     self.state = State::Ground;
                     let payload = std::mem::take(&mut self.buf);
-                    return csi(&payload, b, out);
+                    match csi(&payload, b, out) {
+                        Reply::Sentinel => return true,
+                        Reply::Ours => {}
+                        // An arrow key is `ESC [ A`, and it is indistinguishable from a reply by
+                        // shape alone — only by not being one of the four the batch asked for.
+                        Reply::Theirs => {
+                            self.spill.push(ESC);
+                            self.spill.push(b'[');
+                            self.spill.extend_from_slice(&payload);
+                            self.spill.push(b);
+                        }
+                    }
+                    return false;
                 }
                 self.buf.push(b);
             }
@@ -241,13 +287,18 @@ impl Parser {
                     let payload = std::mem::take(&mut self.buf);
                     string(&payload, self.string_is_dcs, out);
                 } else {
-                    self.buf.push(ESC);
-                    self.buf.push(b);
-                    self.state = if self.string_is_dcs {
-                        State::Dcs
-                    } else {
-                        State::Osc
-                    };
+                    // **`ESC` aborts a string; it is not content.** Absorbing it was the bug: one
+                    // arrow key pressed while an OSC 11 reply was in flight would push `ESC [` into
+                    // the payload, and every byte after it — the DA1 sentinel included — would be
+                    // eaten as OSC content until the next terminator. Detection would then wait out
+                    // the whole idle ceiling and lose the rest of the batch.
+                    //
+                    // The truncated payload is **discarded** rather than dispatched: half an OSC 11
+                    // colour that happens to parse is a wrong default background, which §5 says is
+                    // wrong in *direction*.
+                    self.buf.clear();
+                    self.state = State::Ground;
+                    return self.step(b, out);
                 }
             }
         }
@@ -255,8 +306,18 @@ impl Parser {
     }
 }
 
-/// A finished control sequence. Returns true for DA1, which is the sentinel and ends the loop.
-fn csi(payload: &[u8], final_byte: u8, out: &mut Detected) -> bool {
+/// Whose a finished sequence turned out to be.
+enum Reply {
+    /// DA1: the sentinel, and the end of the exchange.
+    Sentinel,
+    /// An answer to something the batch asked.
+    Ours,
+    /// Not an answer to anything. The user typed it, and it is theirs to keep.
+    Theirs,
+}
+
+/// A finished control sequence, and who it belongs to.
+fn csi(payload: &[u8], final_byte: u8, out: &mut Detected) -> Reply {
     let text = String::from_utf8_lossy(payload).into_owned();
     match final_byte {
         b'c' if text.starts_with('>') => {
@@ -271,7 +332,7 @@ fn csi(payload: &[u8], final_byte: u8, out: &mut Detected) -> bool {
         // terminal at all.
         b'c' => {
             out.answered = true;
-            return true;
+            return Reply::Sentinel;
         }
         // The kitty keyboard flags. The last answer wins, and the batch asks twice on purpose.
         b'u' if text.starts_with('?') => {
@@ -286,11 +347,13 @@ fn csi(payload: &[u8], final_byte: u8, out: &mut Detected) -> bool {
                 .map(|p| p.trim().parse::<u32>().unwrap_or(0));
             if let (Some(mode), Some(state)) = (it.next(), it.next()) {
                 out.modes.push((mode, state));
+            } else {
+                return Reply::Theirs;
             }
         }
-        _ => {}
+        _ => return Reply::Theirs,
     }
-    false
+    Reply::Ours
 }
 
 /// A finished OSC or DCS string.
@@ -395,6 +458,8 @@ pub(crate) struct Tty {
     rx: Receiver<Vec<u8>>,
     pending: Vec<u8>,
     at: usize,
+    /// Whether the batch went out, and therefore whether mode 2027 has to be given back.
+    requested_2027: bool,
 }
 
 impl Tty {
@@ -406,7 +471,18 @@ impl Tty {
     pub(crate) fn open() -> Option<Tty> {
         use crossterm::tty::IsTty;
 
-        if !std::io::stdout().is_tty() {
+        // **Both ends, and the first draft asked only about stdout.** Detection writes to stdout and
+        // reads the answers from stdin, so a tty on one side and a redirect on the other is not a
+        // terminal for this purpose — and it was failing in the worst available way. With
+        // `app < /dev/null` or a supervisor holding stdin, the reader thread saw EOF at once, the
+        // channel disconnected, and `attach` answered `NoAnswer` on a perfectly good terminal. With
+        // stdin redirected from a *non-empty* file it was worse than an error: the file's bytes were
+        // fed to the parser as though the terminal had said them.
+        //
+        // Asking about both is the conservative half of the trade, and it is the right half: a
+        // terminal that is only half connected falls through to declared defaults, which is exactly
+        // where a terminal nothing is known about belongs.
+        if !std::io::stdout().is_tty() || !std::io::stdin().is_tty() {
             return None;
         }
         if crossterm::terminal::enable_raw_mode().is_err() {
@@ -439,6 +515,7 @@ impl Tty {
             rx,
             pending: Vec::new(),
             at: 0,
+            requested_2027: false,
         })
     }
 
@@ -450,7 +527,24 @@ impl Tty {
 }
 
 impl Drop for Tty {
+    /// Give back the two things the batch changed.
+    ///
+    /// **Mode 2027 was being set and never reset**, which is a real asymmetry rather than a tidiness
+    /// one: the batch pops the kitty flag stack in the same write it pushes it, and left 2027 on. A
+    /// process that set it and exited — including one whose `attach` failed with `NoAnswer` and fell
+    /// back to plain output — left the user's shell in grapheme-cluster mode it did not have before,
+    /// with nothing on screen to say so.
+    ///
+    /// This is a floor and not the design: **ticket 22 owns shutdown** — the alt screen, the panic
+    /// hook, and a restoration that is idempotent under both. It lives here because `Tty` is what
+    /// changed these two things, and a `Drop` that restores less than its constructor took is the
+    /// bug this is.
     fn drop(&mut self) {
+        if self.requested_2027 {
+            let mut out = std::io::stdout();
+            let _ = out.write_all(b"\x1b[?2027l");
+            let _ = out.flush();
+        }
         let _ = crossterm::terminal::disable_raw_mode();
     }
 }
@@ -459,7 +553,10 @@ impl Probe for Tty {
     fn write_batch(&mut self, bytes: &[u8]) -> std::io::Result<()> {
         let mut out = std::io::stdout();
         out.write_all(bytes)?;
-        out.flush()
+        out.flush()?;
+        // The batch sets mode 2027, so from here on this `Tty` owes it back on drop.
+        self.requested_2027 = true;
+        Ok(())
     }
 
     fn unread(&mut self, bytes: &[u8]) {
@@ -651,6 +748,29 @@ mod tests {
         }
     }
 
+    /// **Gate.** Mode 2027 is given back.
+    ///
+    /// The batch pops the kitty flag stack in the same write it pushes it, and the first draft set
+    /// mode 2027 and never reset it. A process that set it and exited — including one whose `attach`
+    /// failed with `NoAnswer` and fell back to plain output — left the user's shell in
+    /// grapheme-cluster mode it did not have before, with nothing on screen to say so.
+    #[test]
+    fn every_mode_the_batch_changes_is_given_back() {
+        let sent = String::from_utf8(batch()).expect("the batch is text");
+        assert!(sent.contains("\x1b[?2027h"), "2027 is set");
+        assert!(sent.contains("\x1b[>31u"), "the kitty stack is pushed");
+        assert!(
+            sent.contains("\x1b[<u"),
+            "and popped in the same write, which is what 2027's reset is modelled on"
+        );
+        // 2027's reset cannot be in the batch — it has to outlive detection — so it is `Drop`'s,
+        // and `Tty::requested_2027` is what makes it conditional on the batch having gone out.
+        assert!(
+            !sent.contains("\x1b[?2027l"),
+            "the reset belongs to Drop, not the batch"
+        );
+    }
+
     /// **Gate.** Mode 2027 is *requested* once, and only once.
     #[test]
     fn mode_2027_is_requested_exactly_once() {
@@ -825,6 +945,89 @@ mod tests {
         assert_eq!(ask("\x1bP1+r524742=54727565\x1b\\"), Some(true));
         assert_eq!(ask("\x1bP0+r524742\x1b\\"), Some(false));
         assert_eq!(ask(""), None);
+    }
+
+    /// **The user's own keystrokes survive detection.**
+    ///
+    /// A pty has one input stream and the person at the keyboard does not wait to be asked, so
+    /// type-ahead arrives interleaved with the replies — and the reader thread starts *before* the
+    /// batch goes out, so a key pressed at the shell prompt is already in the channel. The first
+    /// draft parsed those bytes as answers and dropped them, which is the same hole `unread` closes
+    /// on the far side of the sentinel and the likelier one: type-ahead at startup is ordinary.
+    #[test]
+    fn type_ahead_before_the_sentinel_is_handed_back_not_eaten() {
+        let mut answer = String::from("q");
+        answer.push_str("\x1b]11;rgb:1d1d/1f1f/2121\x1b\\");
+        answer.push_str("\x1b[A"); // an arrow key, shaped exactly like a reply
+        answer.push_str("\x1b[?64;1;9c");
+        answer.push('Z'); // and one after the sentinel
+        let mut pty = Scripted::at_once(&answer);
+
+        let out = detect(&mut pty, CEILING).expect("it answered");
+        assert_eq!(
+            out.default_bg,
+            Some(Rgb::new(0x1d, 0x1f, 0x21)),
+            "the reply between two keystrokes was still read"
+        );
+
+        let mut left = [0u8; 64];
+        let n = pty
+            .read(&mut left, CEILING)
+            .expect("the input was handed back");
+        assert_eq!(
+            &left[..n],
+            b"q\x1b[AZ",
+            "a keystroke was eaten: detection kept bytes that were never an answer"
+        );
+    }
+
+    /// Type-ahead is handed back even when the sentinel never arrives, because the bytes are the
+    /// user's whether or not the terminal finished talking.
+    #[test]
+    fn type_ahead_survives_an_exchange_that_times_out() {
+        let mut pty = Scripted::at_once("hello");
+        let out = detect(&mut pty, CEILING).expect("something arrived");
+        assert!(!out.answered);
+
+        let mut left = [0u8; 16];
+        let n = pty.read(&mut left, CEILING).expect("handed back");
+        assert_eq!(&left[..n], b"hello");
+    }
+
+    /// **`ESC` aborts a string; it is not content.**
+    ///
+    /// Absorbing it was a bug with a wide blast radius: one arrow key pressed while an OSC 11 reply
+    /// was in flight pushed `ESC [` into the payload, and every byte after it — **the sentinel
+    /// included** — was eaten as OSC content until the next terminator. Detection then waited out
+    /// the whole idle ceiling and lost the rest of the batch.
+    #[test]
+    fn an_escape_inside_a_string_aborts_it_rather_than_swallowing_the_batch() {
+        // An OSC 11 cut in half by an arrow key, then the rest of the batch behind it.
+        let mut answer = String::from("\x1b]11;rgb:1d1d/1f");
+        answer.push_str("\x1b[A");
+        answer.push_str("\x1bP>|kitty(0.32.2)\x1b\\");
+        answer.push_str("\x1b[?64;1;9c");
+        let mut pty = Scripted::at_once(&answer);
+
+        let out = detect(&mut pty, CEILING).expect("the sentinel was reached");
+        assert!(
+            out.answered,
+            "the sentinel was swallowed by the aborted string"
+        );
+        assert_eq!(
+            out.version.as_deref(),
+            Some("kitty(0.32.2)"),
+            "the reply after the aborted string was lost"
+        );
+        assert_eq!(
+            out.default_bg, None,
+            "half an OSC 11 colour must be discarded, not parsed — a wrong background is wrong in \
+             direction, not degree"
+        );
+        assert_eq!(
+            pty.timeouts, 0,
+            "nothing waited on a string that never ended"
+        );
     }
 
     #[test]

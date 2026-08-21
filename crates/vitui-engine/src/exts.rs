@@ -40,7 +40,12 @@ use crate::style::Color;
 /// ```
 ///
 /// ```
-/// let (mut screen, _wake) = vitui_engine::Engine::new(Default::default()).attach().unwrap();
+/// let config = vitui_engine::Config {
+///     // Headless, because a doctest must not reach for the developer's terminal.
+///     output: vitui_engine::Output::Sink(Box::new(Vec::new())),
+///     ..Default::default()
+/// };
+/// let (mut screen, _wake) = vitui_engine::Engine::new(config).attach().unwrap();
 /// let _: vitui_engine::LinkId = screen.link("https://example.com/");
 /// ```
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Default)]
