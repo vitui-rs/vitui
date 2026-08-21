@@ -471,52 +471,74 @@ impl Tty {
     pub(crate) fn open() -> Option<Tty> {
         use crossterm::tty::IsTty;
 
-        // **Both ends, and the first draft asked only about stdout.** Detection writes to stdout and
-        // reads the answers from stdin, so a tty on one side and a redirect on the other is not a
-        // terminal for this purpose — and it was failing in the worst available way. With
-        // `app < /dev/null` or a supervisor holding stdin, the reader thread saw EOF at once, the
-        // channel disconnected, and `attach` answered `NoAnswer` on a perfectly good terminal. With
-        // stdin redirected from a *non-empty* file it was worse than an error: the file's bytes were
-        // fed to the parser as though the terminal had said them.
+        // **A unit test may not reach for the developer's terminal, and this is what makes that
+        // structural rather than remembered.**
         //
-        // Asking about both is the conservative half of the trade, and it is the right half: a
-        // terminal that is only half connected falls through to declared defaults, which is exactly
-        // where a terminal nothing is known about belongs.
-        if !std::io::stdout().is_tty() || !std::io::stdin().is_tty() {
-            return None;
-        }
-        if crossterm::terminal::enable_raw_mode().is_err() {
-            return None;
-        }
-        let (tx, rx) = std::sync::mpsc::channel();
-        let spawned = std::thread::Builder::new()
-            .name("vitui-pty".to_string())
-            .spawn(move || {
-                let mut stdin = std::io::stdin();
-                let mut buf = [0u8; 4096];
-                loop {
-                    match stdin.read(&mut buf) {
-                        Ok(0) => break,
-                        Ok(n) => {
-                            if tx.send(buf[..n].to_vec()).is_err() {
-                                break;
+        // The defect it closes was live: `Config::default()` is `Output::Terminal`, three tests used
+        // it, and `cargo test` in a real terminal enabled raw mode, wrote the query batch onto the
+        // screen, ate the developer's keystrokes and failed. **CI has no tty, so it was green there
+        // and broken only for humans** — a test that reaches for real I/O passes in the environment
+        // that has none.
+        //
+        // A guard beats a second test environment because it cannot rot and costs nothing. What it
+        // cannot cover is a **doctest**: those compile against the crate as a dependency, without
+        // `cfg(test)`, so this line is invisible to them. `.gitlab-ci.yml` runs the suite a second
+        // time under a pty for exactly that half, and says so.
+        #[cfg(test)]
+        panic!(
+            "a test called Tty::open, which would query the developer's real terminal — use \
+             Output::Sink (see engine::tests::headless) instead of Output::Terminal"
+        );
+
+        #[cfg(not(test))]
+        {
+            // **Both ends, and the first draft asked only about stdout.** Detection writes to stdout and
+            // reads the answers from stdin, so a tty on one side and a redirect on the other is not a
+            // terminal for this purpose — and it was failing in the worst available way. With
+            // `app < /dev/null` or a supervisor holding stdin, the reader thread saw EOF at once, the
+            // channel disconnected, and `attach` answered `NoAnswer` on a perfectly good terminal. With
+            // stdin redirected from a *non-empty* file it was worse than an error: the file's bytes were
+            // fed to the parser as though the terminal had said them.
+            //
+            // Asking about both is the conservative half of the trade, and it is the right half: a
+            // terminal that is only half connected falls through to declared defaults, which is exactly
+            // where a terminal nothing is known about belongs.
+            if !std::io::stdout().is_tty() || !std::io::stdin().is_tty() {
+                return None;
+            }
+            if crossterm::terminal::enable_raw_mode().is_err() {
+                return None;
+            }
+            let (tx, rx) = std::sync::mpsc::channel();
+            let spawned = std::thread::Builder::new()
+                .name("vitui-pty".to_string())
+                .spawn(move || {
+                    let mut stdin = std::io::stdin();
+                    let mut buf = [0u8; 4096];
+                    loop {
+                        match stdin.read(&mut buf) {
+                            Ok(0) => break,
+                            Ok(n) => {
+                                if tx.send(buf[..n].to_vec()).is_err() {
+                                    break;
+                                }
                             }
+                            Err(e) if e.kind() == ErrorKind::Interrupted => {}
+                            Err(_) => break,
                         }
-                        Err(e) if e.kind() == ErrorKind::Interrupted => {}
-                        Err(_) => break,
                     }
-                }
-            });
-        if spawned.is_err() {
-            let _ = crossterm::terminal::disable_raw_mode();
-            return None;
+                });
+            if spawned.is_err() {
+                let _ = crossterm::terminal::disable_raw_mode();
+                return None;
+            }
+            Some(Tty {
+                rx,
+                pending: Vec::new(),
+                at: 0,
+                requested_2027: false,
+            })
         }
-        Some(Tty {
-            rx,
-            pending: Vec::new(),
-            at: 0,
-            requested_2027: false,
-        })
     }
 
     /// What the terminal says its size is, which is the one thing there is no escape sequence for

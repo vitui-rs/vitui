@@ -49,6 +49,15 @@ jobs:
       # positive direction does not compile under this workflow's flags at all, and a
       # `RUSTFLAGS="--cfg ..."` *replaces* `-D warnings` rather than composing with it. See the
       # verification-strategy ticket.
+      #
+      # **The pty pass is deliberately GitLab-only, and the asymmetry is stated in both files.**
+      # `.gitlab-ci.yml` runs this same command a second time under `script -q -e -c`, because a
+      # doctest compiles against the crate as a dependency and therefore cannot see the `cfg(test)`
+      # guard in `Tty::open` that stops a *unit* test querying the real terminal. It is not
+      # duplicated here because this job is a three-OS matrix: `script` takes different arguments on
+      # macOS than on Linux and does not exist on Windows, so the portable form would be three
+      # branches of shell to gate one property that one runner already gates. The guard itself does
+      # run on all three, and it is the half that covers most of the sites.
       - run: cargo test --workspace -- --test-threads=1
 
   # The dependency policy is a decision, not a preference: the engine takes crossterm and nothing

@@ -599,6 +599,22 @@ mod tests {
         }
     }
 
+    /// The guard that makes the defect above structural rather than remembered.
+    ///
+    /// `Tty::open` panics under `cfg(test)`, so a unit test that reaches for the real terminal fails
+    /// with a message naming the fix instead of quietly working on the machine with no tty. This is
+    /// the positive twin of that: it proves the guard is armed, because a guard nothing exercises is
+    /// indistinguishable from one that was removed.
+    ///
+    /// What it cannot cover is a **doctest** — those compile against the crate as a dependency,
+    /// without `cfg(test)`, so the guard is invisible to them. `.gitlab-ci.yml` runs the whole suite
+    /// a second time under a pty for that half.
+    #[test]
+    #[should_panic(expected = "would query the developer's real terminal")]
+    fn a_test_that_reaches_for_the_real_terminal_fails_loudly() {
+        let _ = Engine::new(Config::default()).attach();
+    }
+
     #[test]
     fn a_wake_handle_records_a_post_and_a_quit_separately() {
         let (_screen, wake) = Engine::new(headless()).attach().unwrap();

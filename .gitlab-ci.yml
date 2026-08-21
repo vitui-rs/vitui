@@ -97,6 +97,27 @@ test:
     # buys nothing back and only adds a way to be flaky. This also runs the doctests, and the
     # doctests are where the negative gates live.
     - cargo test --workspace -- --test-threads=1
+    # And once more with a terminal on the other end, which is a **different environment and not a
+    # second roll of the same dice** — the distinction the unserialised pass above fails to make and
+    # this one does.
+    #
+    # Engine ticket 16 is the evidence. `attach` performs live capability detection when
+    # `Config::output` is `Output::Terminal`, which is the default, and three tests plus seven
+    # doctests were using it. libtest does not redirect fd 1, so in a real terminal they enabled raw
+    # mode, wrote a 277-byte query batch onto the developer's screen, ate their keystrokes and failed
+    # with `NoAnswer`. **A job container has no tty, so this file said green while every human was
+    # broken** — the same shape as "a CI job nobody has watched go green is not a gate", arriving
+    # from the other side: *a test that reaches for real I/O passes in the environment that has
+    # none.*
+    #
+    # `Tty::open` now panics under `cfg(test)`, which covers the unit tests structurally and costs
+    # nothing. It cannot cover a **doctest**: those compile against the crate as a dependency,
+    # without `cfg(test)`, and seven of the ten sites were doctests. This line is that half.
+    #
+    # `-e` is load-bearing. Without it `script` exits 0 whatever the child did, and this becomes a
+    # gate that cannot fail — a flaky test wearing a budget's clothes, which §14 names exactly.
+    # Verified against this image: `script -q -e -c false /dev/null` exits 1.
+    - script -q -e -c "cargo test --workspace -- --test-threads=1" /dev/null
 
 deny:
   stage: check
