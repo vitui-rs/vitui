@@ -401,6 +401,35 @@ fn every_frame_is_one_write() {
     assert_eq!(h.writes(), 5, "five frames, five writes");
 }
 
+/// **And a frame the equality filter emptied is no write at all.**
+///
+/// The same fixture with the colour held still, so every cell of every frame after the first equals
+/// what the mirror already holds. Four frames of twenty-four thousand damaged cells reach the sink as
+/// nothing — not as the four bytes of a style reset announcing that they have nothing to say, which is
+/// what a serializer that wrote its framing up front would have to send.
+///
+/// `submitted` stays true, and the distinction is deliberate: `present` submitted a frame, because
+/// damage existed and the composite ran. What the *wire* got is a separate question, and this is where
+/// it is asked.
+#[test]
+fn a_frame_the_filter_emptied_is_no_write_at_all() {
+    let mut h = Harness::new(300, 80);
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, 300, 80), true);
+    let row: String = std::iter::repeat_n('x', 300).collect();
+    for _ in 0..5 {
+        let mut v = h.screen.layers().view(id).unwrap();
+        for y in 0..80 {
+            v.text(0, y, &row, Style::new().fg(Color::indexed(3)));
+        }
+        assert!(h.present().submitted, "the cells were damaged either way");
+    }
+    assert_eq!(h.writes(), 1, "the birth frame, and silence after it");
+    assert!(h.bytes_written() > 0, "the birth frame did write");
+}
+
 #[test]
 fn a_frame_reassembles_through_a_sink_that_takes_seven_bytes_at_a_time() {
     // Spec §8's honest partial-write test: the fragmentation is deterministic, because whether a

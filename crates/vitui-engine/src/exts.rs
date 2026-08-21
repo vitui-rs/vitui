@@ -10,7 +10,7 @@
 //!
 //! Because both tables are deduplicated, two cells carrying the same hyperlink hold the same handle
 //! and still compare correctly with one `u64` compare. That is what keeps the equality the mirror
-//! and ticket 14's filter rest on exact.
+//! and the equality filter rest on exact.
 //!
 //! # Where they live
 //!

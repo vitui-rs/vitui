@@ -145,6 +145,16 @@ impl Cell {
     /// A space in the terminal's own colours: what an untouched cell holds.
     pub(crate) const BLANK: Cell = Cell::new(GraphemeId::SPACE, Style::DEFAULT);
 
+    /// What the **mirror** holds where it does not know what the terminal is showing.
+    ///
+    /// `EMPTY` is *there is nothing here*, which is exactly the statement — and it is a value **no
+    /// composited frame can hold**, because the frame is opaque and its ground is a blank, while a
+    /// non-opaque layer's `EMPTY` cells are skipped rather than copied (spec §5). That is what makes
+    /// this sound rather than convenient: the equality filter's danger is the false *equality*, and a
+    /// sentinel no frame cell can equal makes one unreachable with no flag to consult and no branch
+    /// to forget. See [`crate::serial::Mirror`].
+    pub(crate) const UNKNOWN: Cell = Cell::new(GraphemeId::EMPTY, Style::DEFAULT);
+
     pub(crate) const fn new(grapheme: GraphemeId, style: Style) -> Cell {
         Cell {
             grapheme,

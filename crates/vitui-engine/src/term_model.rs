@@ -160,6 +160,36 @@ impl TermModel {
         self.cells[y as usize * self.width as usize + x as usize]
     }
 
+    /// Change size the way a terminal does on `SIGWINCH`: **keep the cells.**
+    ///
+    /// A real terminal reflows, it does not clear, and this method exists because the harness used to
+    /// pretend otherwise — it replaced the model with a fresh one, which asserted a blank screen that
+    /// no terminal produces. That was harmless only while every cell of a resized screen was written
+    /// unconditionally, and the equality filter is what ends that: the first cell whose composited
+    /// value equals the blank a fresh `Mirror` believes in would be skipped, and the content the
+    /// terminal never cleared would stay on it. **A test written against a model that cleared itself
+    /// cannot catch that**, which is why this arrives with the filter and in the same commit.
+    ///
+    /// Content is anchored at the top left and the overflow is dropped, which is what a terminal with
+    /// no scrollback in the alternate screen does. Nothing here reflows a line across the new width:
+    /// auto-wrap is off for the lifetime of the alt screen (§8), so no line on this screen was ever a
+    /// continuation of another one, and there is nothing to rejoin.
+    pub(crate) fn resize(&mut self, width: u16, height: u16) {
+        let mut cells = vec![Cell::BLANK; width as usize * height as usize];
+        for y in 0..self.height.min(height) {
+            for x in 0..self.width.min(width) {
+                cells[y as usize * width as usize + x as usize] = self.cell(x, y);
+            }
+        }
+        self.cells = cells;
+        self.width = width;
+        self.height = height;
+        self.cursor = (
+            self.cursor.0.min(width.saturating_sub(1)),
+            self.cursor.1.min(height.saturating_sub(1)),
+        );
+    }
+
     pub(crate) fn unrecognised(&self) -> usize {
         self.unrecognised
     }

@@ -3,8 +3,39 @@
 //! # Scope
 //!
 //! Spec §8 in full: the `shortest` cursor encoding, a differential SGR with its three traps, the
-//! two extended channels, synchronised output, and the mirror updated as bytes go out. The equality
-//! filter is ticket 14 and the scroll region ticket 15; **nothing else about §8 is deferred.**
+//! two extended channels, synchronised output, the mirror updated as bytes go out, and the equality
+//! filter with the gap merge that needs no threshold. The scroll region is ticket 15;
+//! **nothing else about §8 is deferred.**
+//!
+//! # The equality filter, always on, and a gap priced in bytes
+//!
+//! Damage says which cells a frame *wrote*; the mirror says which of them actually **changed**. The
+//! comparison sits inside the run scan — the scan was already reading every cell — and costs 0.9 ns
+//! a damaged cell to buy between 1% and 30x.
+//!
+//! **It runs always, and the intuition about when to switch it off is exactly inverted.** A
+//! full-screen change damages 24 000 cells and the filter buys 1%; a cleared-row list scroll damages
+//! the same 24 000 cells and buys 14x. An area heuristic would switch the filter off precisely where
+//! it is worth most, so there is no heuristic and no switch.
+//!
+//! Skipping a cell leaves a **gap**, and the cursor has to step over it — which is a move, and a
+//! move costs bytes too. **A fixed gap threshold is in the wrong unit and there is no right value
+//! for one:** a cell is one byte of ASCII, three of braille and four of an emoji, so six cells is
+//! six bytes on a chart of `*` and eighteen on a chart of braille. §8 swept it and the two scenes
+//! want opposite thresholds — the chart gets monotonically worse from 0 to 24 while the dialogs get
+//! better and then flat.
+//!
+//! So the gap is priced in the unit the wire is measured in: the clusters' UTF-8 lengths plus
+//! [`SGR_FLOOR`] for each style change inside, against the digit-counted cost of the cheapest
+//! encoding of the move it would avoid. No constant is tuned, because none is a threshold — see
+//! [`Serializer::price_gap`], and [`Filter`] for the configurations that lost, which are how the
+//! conclusion stays reproducible rather than quoted.
+//!
+//! **The same rule bridges two runs.** Damage produces genuinely separate runs on one row and the
+//! columns between them are not in the packet — but they are in the mirror, so they can be repainted
+//! out of it and priced the same way. That is the one place this file emits a cell the packet does
+//! not carry, and it is fenced by two conditions rather than one: the row must be **known**, and
+//! every handle the mirror's cell carries must be in *this* packet.
 //!
 //! # The serializer has no knobs
 //!
@@ -49,6 +80,7 @@
 
 use crate::caps::Capabilities;
 use crate::cell::{Cell, GraphemeId};
+use crate::damage::Run;
 use crate::exts::LinkId;
 use crate::packet::Packet;
 use crate::quirks::Underlines;
@@ -61,51 +93,67 @@ use crate::style::{Color, Style, TAG_DEFAULT, TAG_INDEXED, TAG_RGB};
 /// before it is emitted (ADR 0006). It holds no application state and no handle, which is why it
 /// does not reopen "the render thread holds no screen-sized state".
 ///
-/// Ticket 14 is what reads it — the equality filter is the first consumer. Here it is written and
-/// asserted against the terminal model, which is the gate that says the two agree at all.
+/// Read by the equality filter, which is what it was built for, and written as bytes go out. It is
+/// also asserted against the terminal model on every `present` of every test that uses
+/// [`Harness`](crate::testing::Harness), which is the gate that says the two agree at all.
 ///
-/// # The unknown row
+/// # Unknown, and why it is per cell rather than per row
 ///
-/// A row of the mirror that cannot be trusted is **unknown**, and that is how a full repaint
-/// expresses itself without a separate mode (ADR 0006, §8). Three things make a row unknown, and
-/// only the third is new:
+/// A part of the mirror that cannot be trusted is **unknown**, and that is how a full repaint
+/// expresses itself without a separate mode (ADR 0006, §8). Three things make it unknown, and only
+/// the third is new:
 ///
 /// - **at startup**, because the mirror records what the terminal shows and nobody recorded that;
 /// - **after a resize**, for the same reason — a terminal reflows on `SIGWINCH`, it does not clear;
 /// - **after a sweep renumbered a handle table**, which is [`Packet::repaint`].
 ///
-/// A row leaves the unknown state when one frame has written **every column of it**, because that is
-/// the point at which every cell of the row was put there by this serializer.
+/// A cell leaves the unknown state when this serializer emits it, and nothing else does it.
 ///
-/// # What an unknown row means for ticket 14's filter, in the one case §8 does not cover
+/// **ADR 0006 and §8 both say *row*, and impl 08 built the row: a flag per row, set when one frame
+/// had written every column of it. Impl 14 measured what that costs and replaced it, which is the
+/// decision this ticket was told to make** — impl 13 left the question here in as many words, *ticket
+/// 14 owns the filter and is where a tighter answer, per-cell rather than per-row knowledge, would be
+/// paid for or refused.
 ///
-/// ADR 0006's words are *written whole rather than compared*, and they are exactly right for the two
-/// cases it names: at startup and after a resize every cell is damaged, so the packet carries the
-/// whole row and *whole* is achievable. **After a sweep it is not** — the sweep marks no damage, so
-/// the packet carries only what actually changed.
+/// It is paid for, and the measurement is not close. A row becomes known only when **one** frame
+/// writes all of it, and at 300 columns almost nothing ever does: a dialog is sixty columns wide, a
+/// chart plots four hundred points across eighty rows, a list draws its rows and not the gutter beside
+/// them. Driven over spec §14's twelve scenes, per-row knowledge left **every row of eleven of them
+/// unknown for ever**, and the filter measured byte for byte identical to no filter at all. That is
+/// not the *cost in bytes on the frames after a sweep* the row flag was priced as; it is the filter
+/// not existing.
 ///
-/// The property the filter has to keep is nevertheless the same one, and it survives the difference:
-/// **on an unknown row, do not compare — emit every cell the packet carries.** That is safe for the
-/// reason the comparison is unsafe. A stale mirror cell holds an old handle naming text that is
-/// still on the screen; the danger is not the false *inequality* (which re-emits, and is merely
-/// bytes) but the false *equality* — a later frame whose new handle happens to equal the recorded
-/// old one, compared equal, skipped, and the terminal left showing the wrong text. Never skipping on
-/// an unknown row makes that unreachable.
+/// # What it costs, which is nothing, and why that is not too good to be true
 ///
-/// What it costs is bytes: rows that a sweep marked unknown stay unfiltered until some frame writes
-/// one whole, and on a screen whose damage is always narrow that can be a long time. That is the
-/// *one full frame on the render thread* spec §3 prices the sweep at, spread out. Ticket 14 owns the
-/// filter and is where a tighter answer — per-cell rather than per-row knowledge — would be paid for
-/// or refused.
+/// There is no bitset and no branch. The unknown state is a **value**: [`Cell::UNKNOWN`], whose
+/// grapheme is the `EMPTY` sentinel, and **no composited frame can hold one** — the frame is opaque so
+/// its ground is a blank, and a non-opaque layer's `EMPTY` cells are skipped rather than copied
+/// (spec §5). So `frame_cell == mirror_cell` is *already* false wherever the mirror does not know, for
+/// the same reason `1 != NaN`, and the filter's comparison needs nothing added to it.
+///
+/// That is what makes it sound rather than convenient. The danger the unknown state exists for is not
+/// the false *inequality* — which re-emits, and is merely bytes — but the false *equality*: a stale
+/// mirror cell holding an old handle, a later frame whose new handle happens to equal it, compared
+/// equal, skipped, and the terminal left showing the wrong text. A sentinel no frame cell can equal
+/// makes that unreachable **by construction**, where a flag makes it unreachable only while everybody
+/// remembers to consult the flag.
+///
+/// Two consequences, both wanted:
+///
+/// - [`forget`](Mirror::forget) is now a 384 KiB fill rather than an eighty-byte one. It runs on a
+///   sweep that renumbered, which spec §3 already prices at *one full frame on the render thread*, and
+///   this is a fraction of that.
+/// - The mirror no longer reads as a screen of blanks before anything is drawn. That was never true of
+///   the terminal and the flag existed to say so; now the cells say it themselves.
+///
+/// [`is_known`](Mirror::is_known) survives as a **row** query over the cells, because two readers ask
+/// about rows: `Screen::known_rows`, which is the gate on `Packet::repaint`, and ticket 15's scroll
+/// region, which records an exposed row whole.
 #[derive(Clone, Debug)]
 pub(crate) struct Mirror {
     width: u16,
     height: u16,
     cells: Vec<Cell>,
-    /// One flag per row: whether this serializer has written every column of it since the row was
-    /// last invalidated. A `Vec<bool>` of eighty bytes rather than a bitset, because it is read once
-    /// per row and never per cell.
-    known: Vec<bool>,
 }
 
 impl Mirror {
@@ -113,34 +161,55 @@ impl Mirror {
         Mirror {
             width,
             height,
-            cells: vec![Cell::BLANK; width as usize * height as usize],
-            // Unknown, not blank. The cells say blank because they have to say something, and the
-            // flag is what stops anybody believing them.
-            known: vec![false; height as usize],
+            // Unknown, not blank, and the cells say so themselves rather than a flag saying it for
+            // them. A terminal at startup is showing whatever it was showing.
+            cells: vec![Cell::UNKNOWN; width as usize * height as usize],
         }
     }
 
-    #[cfg(test)]
+    /// What the terminal is showing at `(x, y)`, or [`Cell::UNKNOWN`] where this mirror does not know.
+    ///
+    /// **The read the equality filter is built on.** No flag has to be consulted first, which is the
+    /// whole of the previous section: an unknown cell is a value no frame cell equals.
     pub(crate) fn cell(&self, x: u16, y: u16) -> Cell {
         self.cells[y as usize * self.width as usize + x as usize]
     }
 
-    /// Whether row `y` records what the terminal is showing.
+    /// What the terminal is showing at `(x, y)`, or `None` where this mirror does not know.
+    ///
+    /// The same read, in the shape the **gap merge** needs: repainting a column out of the mirror is
+    /// only legitimate where the mirror is a fact, so the one caller that emits a cell the packet
+    /// never carried asks in a form it cannot forget to check.
+    pub(crate) fn known_cell(&self, x: u16, y: u16) -> Option<Cell> {
+        let cell = self.cell(x, y);
+        (cell != Cell::UNKNOWN).then_some(cell)
+    }
+
+    /// Whether **every cell** of row `y` records what the terminal is showing.
+    ///
+    /// A row query over per-cell state, and a walk rather than a flag because the two readers are
+    /// rare: `Screen::known_rows` is the gate on [`Packet::repaint`], and ticket 15's scroll region
+    /// records an exposed row whole. The filter itself asks nothing per row — see the type's own
+    /// documentation.
     #[cfg_attr(
         not(test),
         expect(
             dead_code,
-            reason = "ticket 14's equality filter is the first thing that branches on this; \
-                      ticket 08 is what makes the state correct for it to read"
+            reason = "the scroll region (ticket 15) is the shipping reader: it records an exposed \
+                      row whole and has to know the band it moves. Until then the row question is \
+                      only asked by `Screen::known_rows`, which is the gate on `Packet::repaint`"
         )
     )]
     pub(crate) fn is_known(&self, y: u16) -> bool {
-        self.known[y as usize]
+        let row = y as usize * self.width as usize;
+        self.cells[row..row + self.width as usize]
+            .iter()
+            .all(|c| *c != Cell::UNKNOWN)
     }
 
-    /// Mark every row unknown: what [`Packet::repaint`] asks for.
+    /// Forget the whole screen: what [`Packet::repaint`] asks for.
     fn forget(&mut self) {
-        self.known.fill(false);
+        self.cells.fill(Cell::UNKNOWN);
     }
 
     fn set(&mut self, x: u16, y: u16, c: Cell) {
@@ -176,6 +245,20 @@ pub(crate) struct Serializer {
     ///
     /// Cleared whenever the cursor's row changes, because the fact is about a row.
     non_ascii_on_row: bool,
+    /// Whether this frame's opening bytes have gone out.
+    ///
+    /// §8's *every frame that has anything to say opens with SGR 0*, read strictly: the framing is
+    /// written by [`open_frame`](Serializer::open_frame) on the first cell that actually reaches the
+    /// wire, so **a frame the filter emptied says nothing at all** rather than spending twenty bytes
+    /// announcing it. It is not only a byte count: the reset is what lets the emit loop start from a
+    /// style it knows rather than one it inherited, so a serializer that wrote it eagerly and then
+    /// found nothing to emit would have to choose between sending it for nothing and claiming a reset
+    /// the terminal never saw. Deferring it makes both wrong answers unreachable.
+    frame_open: bool,
+    /// Which configuration of the filter this serializer is running. **One value ships**; the rest
+    /// exist so §8's *there is no threshold* is reproducible. See [`Filter`].
+    #[cfg(test)]
+    filter: Filter,
     /// What §10's rule has cost, in bytes, since this serializer was built.
     ///
     /// **A report, and spec §15's second owed measurement.** The rule refuses `CUF` on a row that has
@@ -199,8 +282,71 @@ impl Serializer {
             link: LinkId::NONE,
             prev: None,
             non_ascii_on_row: false,
+            frame_open: false,
+            #[cfg(test)]
+            filter: Filter::default(),
             #[cfg(test)]
             cha_rule_bytes: 0,
+        }
+    }
+
+    /// Serialise under one of the configurations that lost, which is how §8's sweep is reproduced
+    /// rather than quoted. See [`Filter`].
+    #[cfg(test)]
+    pub(crate) fn set_filter(&mut self, filter: Filter) {
+        self.filter = filter;
+    }
+
+    /// Whether the mirror is compared at all. **Always, in a shipping build** — §8's *run it
+    /// always*, and the reason is that damage area does not predict whether it pays.
+    #[cfg(not(test))]
+    fn compares(&self) -> bool {
+        true
+    }
+
+    /// See the shipping arm above; [`Filter::Off`] is §8's `span` column and reachable from tests.
+    #[cfg(test)]
+    fn compares(&self) -> bool {
+        self.filter != Filter::Off
+    }
+
+    /// How many bytes a gap may cost before [`price_gap`](Serializer::price_gap) stops walking it:
+    /// the move it would avoid, because a gap that already costs more than the move has lost.
+    #[cfg(not(test))]
+    fn gap_budget(&self, move_cost: usize) -> usize {
+        move_cost
+    }
+
+    /// See the shipping arm above. A cell-counted threshold does not care what a gap costs, so its
+    /// walk has to reach the end of the gap — where the only thing left to refuse is a handle this
+    /// packet cannot resolve.
+    #[cfg(test)]
+    fn gap_budget(&self, move_cost: usize) -> usize {
+        match self.filter {
+            Filter::Cells(_) => usize::MAX,
+            _ => move_cost,
+        }
+    }
+
+    /// Whether to paint through a gap priced at `price` bytes, against the `move_cost` bytes of the
+    /// move it would avoid. `None` is a gap that may not be painted through at any price.
+    ///
+    /// **A tie goes to the move**, for `shortest`'s own reason one level down: where the price is
+    /// equal, take the answer that gives the terminal fewer cells to render.
+    #[cfg(not(test))]
+    fn merges(&self, price: Option<usize>, move_cost: usize, _cols: u16) -> bool {
+        price.is_some_and(|p| p < move_cost)
+    }
+
+    /// See the shipping arm above, which is [`Filter::Bytes`].
+    #[cfg(test)]
+    fn merges(&self, price: Option<usize>, move_cost: usize, cols: u16) -> bool {
+        match self.filter {
+            Filter::Bytes => price.is_some_and(|p| p < move_cost),
+            // `Cells(0)` is `Strict`, which is what makes the sweep's first point the same
+            // configuration as its own control.
+            Filter::Cells(n) => price.is_some() && cols <= n,
+            Filter::Strict | Filter::Off => false,
         }
     }
 
@@ -223,6 +369,10 @@ impl Serializer {
     /// in mode 2026 are all read from it and from nowhere else.
     pub(crate) fn serialize(&mut self, packet: &Packet, caps: &Capabilities) -> &[u8] {
         self.out.clear();
+        // Before the early return, not after it: an empty packet is a frame that opened nothing, and
+        // a flag left standing from the frame before would make the next one inherit a style it never
+        // reset. See [`open_frame`](Serializer::open_frame).
+        self.frame_open = false;
         if packet.is_empty() {
             return &self.out;
         }
@@ -244,11 +394,61 @@ impl Serializer {
             self.mirror.forget();
         }
 
-        // Mode 2026 where the terminal has it, outside the reset: `?2026h` + `0m` + `?2026l` is
-        // §8's twenty bytes of fixed framing. **The frame is never split on purpose** — a
-        // synchronised-output block spanning two `write` calls is still one block to the terminal,
-        // and a frame split into two blocks tears — so `write_frame`'s partial-write loop is about
-        // the kernel's buffer being smaller than the frame and about nothing else.
+        // **Rows, not runs.** A gap between two runs on one row can be bridged out of the mirror
+        // and a gap between two rows cannot, so the row is the unit the filter plans in. Runs
+        // arrive in ascending row order and are disjoint (§14's gate #2), so a row's runs are a
+        // contiguous slice of the packet and finding one is a walk rather than a sort.
+        let runs = packet.runs();
+        let cells = packet.cells();
+        let mut first = 0usize;
+        let mut at = 0usize;
+        while first < runs.len() {
+            let mut last = first;
+            let mut end = at + runs[first].len();
+            while last + 1 < runs.len() && runs[last + 1].y == runs[first].y {
+                last += 1;
+                end += runs[last].len();
+            }
+            let row = Row {
+                runs: &runs[first..=last],
+                cells: &cells[at..end],
+            };
+            self.emit_row(&row, packet, caps);
+            first = last + 1;
+            at = end;
+        }
+
+        if self.frame_open {
+            // An open hyperlink outlives the frame that opened it, and SGR 0 is not what closes one.
+            if !self.link.is_none() {
+                emit_osc8(&mut self.out, None);
+                self.link = LinkId::NONE;
+            }
+            if caps.sync_output() {
+                self.out.extend_from_slice(SYNC_END);
+            }
+        }
+        &self.out
+    }
+
+    /// Write the bytes every frame opens with, once, on the first cell that actually goes out.
+    ///
+    /// Mode 2026 where the terminal has it, outside the reset: `?2026h` + `0m` + `?2026l` is §8's
+    /// twenty bytes of fixed framing. **The frame is never split on purpose** — a
+    /// synchronised-output block spanning two `write` calls is still one block to the terminal, and
+    /// a frame split into two blocks tears — so `write_frame`'s partial-write loop is about the
+    /// kernel's buffer being smaller than the frame and about nothing else.
+    ///
+    /// SGR 0 does not close an OSC 8, so the link is cleared here because the frame's own close at
+    /// the bottom put it back rather than because the reset does.
+    ///
+    /// See [`frame_open`](Serializer::frame_open) for why this is deferred rather than written at
+    /// the top of `serialize`.
+    fn open_frame(&mut self, caps: &Capabilities) {
+        if self.frame_open {
+            return;
+        }
+        self.frame_open = true;
         if caps.sync_output() {
             self.out.extend_from_slice(SYNC_BEGIN);
         }
@@ -257,72 +457,212 @@ impl Serializer {
         self.cursor = None;
         self.prev = None;
         self.non_ascii_on_row = false;
-        // SGR 0 does not close an OSC 8, so the frame's own close at the bottom is what makes this
-        // true rather than the reset above.
         self.link = LinkId::NONE;
+    }
 
-        let mut at = 0usize;
-        for run in packet.runs() {
-            let cells = &packet.cells()[at..at + run.len()];
-            at += run.len();
+    /// One row: the equality filter, the gap merge, and the emit loop.
+    ///
+    /// **The filter is one `continue` and nothing else.** What surrounds it is the gap it opens: a
+    /// cell the comparison skipped leaves the cursor behind, and stepping over it costs bytes too, so
+    /// skipping a cell and stepping over it are one decision and are taken in one place rather than in
+    /// two that could disagree.
+    fn emit_row(&mut self, row: &Row<'_>, packet: &Packet, caps: &Capabilities) {
+        let y = row.y();
+        // Whether the mirror is consulted at all, which is a shipping constant and a `cfg(test)`
+        // question — [`Filter::Off`] is §8's `span` column. **What the mirror does not know needs no
+        // branch here**: it holds `Cell::UNKNOWN`, which no composited frame cell can equal, so the
+        // comparison below fails on it exactly as it should. See [`Mirror`].
+        let compare = self.compares();
+        let mut base = 0usize;
+        // Where this row last put a cell, which is where a gap would begin.
+        let mut emitted: Option<u16> = None;
+        for r in row.runs {
+            let cells = &row.cells[base..base + r.len()];
+            base += r.len();
             for (i, &cell) in cells.iter().enumerate() {
-                // The head of a wide pair already painted both columns, so its continuation is
-                // skipped. Nothing in the engine mints one yet — ticket 06 is what writes a wide
-                // glyph, and it is also what teaches the cursor to advance two columns over one —
-                // but the skip is here because it is free: the column below comes from the index
-                // rather than from an advance counter, which is what spec §8 records the first
-                // version getting wrong in the one case where a run *begins* on a continuation.
+                // The column comes from the index, not from an advance counter. That is what makes
+                // skipping a `CONTINUATION` free of bookkeeping, and spec §8 records the first
+                // version getting it wrong in the one case where a run *begins* on a continuation.
+                let x = r.lo + i as u16;
                 if cell.grapheme.is_continuation() {
-                    // The head already painted both columns, so nothing is emitted — but the mirror
-                    // still records the pair, because the mirror is what the terminal *shows* and
-                    // the terminal shows both halves. A run that *begins* on a continuation is the
-                    // case that made the column below come from the index rather than from an
-                    // advance counter: its head was not damaged, so it was not re-emitted, and the
-                    // mirror already agreed about it.
-                    self.mirror.set(run.lo + i as u16, run.y, cell);
+                    // Before the comparison, and unconditionally. The head already painted both
+                    // columns so there is nothing to emit and nothing to decide — but the mirror
+                    // records the pair, because the mirror is what the terminal *shows* and the
+                    // terminal shows both halves. `emitted` is deliberately not moved: the cursor is
+                    // past this column already, and a gap measured from the head is the same gap.
+                    self.mirror.set(x, y, cell);
                     continue;
                 }
-                let x = run.lo + i as u16;
-                // Two cells emitted back to back arrive with nothing between them, and UAX #29 does
-                // not know where one cell ended. Forcing a move breaks the adjacency, and a `CUP` is
-                // something every terminal has always treated as ending a run of text.
-                //
-                // An SGR landing between them would separate them too, and skipping the move when
-                // the style changes was written and then taken back out: *whether a terminal's own
-                // clustering survives an SGR is a claim about other people's software*, and the mode
-                // 2027 specification does not make it. The saving was six bytes on a case that needs
-                // two adjacent cells holding joinable clusters.
-                //
-                // **The forced move is the cheapest one that is not nothing, not a `CUP`.** The
-                // first draft of `shortest` expressed the force by clearing the cursor, which is
-                // what ticket 03 did when `CUP` was the only encoding — and that quietly spent
-                // eight bytes where `CR` spends one. The flag says *move*, and the encoder still
-                // says *how*.
-                let force =
-                    self.cursor == Some((x, run.y)) && self.joins_left(cell.grapheme, packet);
-                self.move_to(x, run.y, force);
-                if cell.style != self.style {
-                    emit_sgr_delta(&mut self.out, self.style, cell.style, packet, caps);
-                    self.style = cell.style;
-                    self.retarget_link(cell.style, packet, caps);
+                // The half of the sentinel argument that is a claim about the *frame* rather than
+                // about the mirror, so it is asserted where a future compositor would break it.
+                debug_assert!(
+                    !cell.grapheme.is_empty(),
+                    "a composited frame holds no `EMPTY`, which is what lets `Cell::UNKNOWN` be one"
+                );
+                if compare && cell == self.mirror.cell(x, y) {
+                    continue;
                 }
-                emit_grapheme(&mut self.out, cell.grapheme, packet);
-                self.mirror.set(x, run.y, cell);
-                self.advance(x, run.y, cell.grapheme.columns());
-                self.prev = Some(cell.grapheme);
-                self.non_ascii_on_row |= !is_ascii_scalar(cell.grapheme);
+                if let Some(from) = emitted {
+                    if x > from + 1 {
+                        self.consider_gap(row, from, x, packet, caps);
+                    }
+                }
+                self.emit_cell(x, y, cell, packet, caps);
+                emitted = Some(x);
             }
         }
-        // An open hyperlink outlives the frame that opened it, and SGR 0 is not what closes one.
-        if !self.link.is_none() {
-            emit_osc8(&mut self.out, None);
-            self.link = LinkId::NONE;
+    }
+
+    /// Put one cell on the wire, and record it in the mirror.
+    ///
+    /// Called for a damaged cell the filter kept and for a gap cell the merge decided to paint
+    /// through, which is why it is a function: the two arrive by different routes and must not be
+    /// two loops that drift.
+    fn emit_cell(&mut self, x: u16, y: u16, cell: Cell, packet: &Packet, caps: &Capabilities) {
+        if cell.grapheme.is_continuation() {
+            // Reachable only from the gap merge, which walks columns rather than a run's cells. The
+            // head painted both, and `emit_grapheme` would put a space here: `text_of` cannot render
+            // the sentinel and falls back to one.
+            self.mirror.set(x, y, cell);
+            return;
         }
-        if caps.sync_output() {
-            self.out.extend_from_slice(SYNC_END);
+        self.open_frame(caps);
+        // Two cells emitted back to back arrive with nothing between them, and UAX #29 does not know
+        // where one cell ended. Forcing a move breaks the adjacency, and a `CUP` is something every
+        // terminal has always treated as ending a run of text.
+        //
+        // An SGR landing between them would separate them too, and skipping the move when the style
+        // changes was written and then taken back out: *whether a terminal's own clustering survives
+        // an SGR is a claim about other people's software*, and the mode 2027 specification does not
+        // make it. The saving was six bytes on a case that needs two adjacent cells holding joinable
+        // clusters.
+        //
+        // **The forced move is the cheapest one that is not nothing, not a `CUP`.** The first draft
+        // of `shortest` expressed the force by clearing the cursor, which is what ticket 03 did when
+        // `CUP` was the only encoding — and that quietly spent eight bytes where `CR` spends one. The
+        // flag says *move*, and the encoder still says *how*.
+        let force = self.cursor == Some((x, y)) && self.joins_left(cell.grapheme, packet);
+        self.move_to(x, y, force);
+        if cell.style != self.style {
+            emit_sgr_delta(&mut self.out, self.style, cell.style, packet, caps);
+            self.style = cell.style;
+            self.retarget_link(cell.style, packet, caps);
         }
-        self.note_whole_rows(packet);
-        &self.out
+        emit_grapheme(&mut self.out, cell.grapheme, packet);
+        self.mirror.set(x, y, cell);
+        self.advance(x, y, cell.grapheme.columns());
+        self.prev = Some(cell.grapheme);
+        self.non_ascii_on_row |= !is_ascii_scalar(cell.grapheme);
+    }
+
+    /// Price the columns strictly between `from` and `to` against the move that skipping them needs,
+    /// and paint through them where they are cheaper.
+    ///
+    /// Both halves of §8's gap merge, because they are one mechanism seen twice: the columns inside a
+    /// run that the filter skipped, and the columns between two runs that the packet never carried.
+    /// The second is what takes the three dialogs from 1 491 bytes to 1 203, and it is the only place
+    /// this file emits a cell the packet does not carry — see [`price_gap`](Serializer::price_gap)
+    /// for the two conditions that fence it.
+    fn consider_gap(
+        &mut self,
+        row: &Row<'_>,
+        from: u16,
+        to: u16,
+        packet: &Packet,
+        caps: &Capabilities,
+    ) {
+        let y = row.y();
+        // What the move would cost is what the gap is being priced against, so it is asked of the
+        // same function that will spell it. `force` is not a candidate here: a forced move happens
+        // because two clusters would join, and this cursor is not where the next cell goes.
+        let (_, move_cost) = self.price_move(to, y);
+        let price = self.price_gap(row, from + 1, to, packet, self.gap_budget(move_cost));
+        if !self.merges(price, move_cost, to - from - 1) {
+            return;
+        }
+        for x in from + 1..to {
+            // `price_gap` said yes, so every column here is either the packet's or one the mirror
+            // knows. Asked in the same shape it was priced in, because the two answering differently
+            // is the only way this could emit a cell nobody has.
+            let cell = row
+                .at(x)
+                .or_else(|| self.mirror.known_cell(x, y))
+                .expect("`price_gap` refuses a gap it cannot source every column of");
+            self.emit_cell(x, y, cell, packet, caps);
+        }
+    }
+
+    /// What repainting the columns `from..to` would cost on the wire, or `None` when it may not be
+    /// done at all or would cost at least `budget`.
+    ///
+    /// **The budget is what keeps this proportional to damage rather than to the screen.** A move is
+    /// at most eight bytes and every cluster that is not a continuation costs at least one, so the
+    /// walk stops after a handful of columns however far apart two runs are — which is what lets the
+    /// three dialogs be priced without anybody scanning the two hundred blank columns between them.
+    ///
+    /// # The two conditions on a column the packet does not carry
+    ///
+    /// Such a column is repainted out of the mirror, and the mirror is only a fact about the terminal
+    /// where it says so — hence [`Mirror::known_cell`], which is the shape that cannot be forgotten.
+    ///
+    /// **That check is deliberately redundant today and is kept anyway.** `Cell::UNKNOWN`'s grapheme
+    /// is the `EMPTY` sentinel, and `text_of` cannot render one, so the `?` two lines below refuses an
+    /// unknown column on its own. What `known_cell` buys is that the refusal does not *depend* on how
+    /// the unknown state happens to be spelled: a future `Cell::UNKNOWN` whose grapheme were a real
+    /// scalar would walk straight past `text_of` and be painted onto the screen. A mutation that
+    /// deletes it therefore breaks no test, which is exactly why the reason is written here.
+    ///
+    /// The second condition is the handles. A mirror cell records what was emitted, and what was
+    /// emitted may name a cluster, an extended style or a URI that **this** packet's side tables do
+    /// not carry: a frame only resolves the handles its own damaged cells name (`Packet::pack`). Sent
+    /// anyway, that cell would go out as a space in the terminal's own colours with no hyperlink —
+    /// `emit_grapheme` and `channels_of` both answer that way rather than inventing — and the mirror
+    /// would then record a cell the screen does not show. **That is the one way this optimisation
+    /// could put something on screen no frame asked for**, so an unresolvable handle refuses the
+    /// whole gap rather than being painted approximately.
+    fn price_gap(
+        &self,
+        row: &Row<'_>,
+        from: u16,
+        to: u16,
+        packet: &Packet,
+        budget: usize,
+    ) -> Option<usize> {
+        let y = row.y();
+        let mut price = 0usize;
+        let mut style = self.style;
+        let mut scratch = [0u8; 4];
+        for x in from..to {
+            let cell = match row.at(x) {
+                Some(cell) => cell,
+                None => self.mirror.known_cell(x, y)?,
+            };
+            // Free, because nothing is emitted for one. It is also why the bound above is two
+            // columns per byte rather than one.
+            if cell.grapheme.is_continuation() {
+                continue;
+            }
+            price += text_of(cell.grapheme, packet, &mut scratch)?.len();
+            // The same refusal as the cluster's, on the other three channels a cell can name. An
+            // extended word spends bits 51..0 on a handle, so a cell whose handle this packet did not
+            // resolve would be painted in `Color::DEFAULT` with no hyperlink — `channels_of` answers
+            // that way rather than inventing — and the mirror would then record an extended cell the
+            // screen shows plain. Unlike the cluster's, this one is **not** redundant with anything.
+            if let Some(handle) = cell.style.ext_handle() {
+                let ext = packet.ext(handle)?;
+                if !ext.link.is_none() && packet.link(ext.link).is_none() {
+                    return None;
+                }
+            }
+            if cell.style != style {
+                price += SGR_FLOOR;
+                style = cell.style;
+            }
+            if price >= budget {
+                return None;
+            }
+        }
+        Some(price)
     }
 
     /// Open, change or close the terminal's hyperlink to match the style just emitted.
@@ -346,26 +686,6 @@ impl Serializer {
         let uri = packet.link(want).filter(|_| !want.is_none());
         emit_osc8(&mut self.out, uri);
         self.link = if uri.is_some() { want } else { LinkId::NONE };
-    }
-
-    /// Mark known every row this frame wrote every column of.
-    ///
-    /// Runs are disjoint and arrive in row order (§14's gate #2), so a row's columns are the sum of
-    /// its runs' lengths and consecutive runs with the same `y` are all of that row's. A row written
-    /// in pieces across several frames stays unknown, which is conservative in the safe direction:
-    /// unknown costs bytes and known costs correctness.
-    fn note_whole_rows(&mut self, packet: &Packet) {
-        let mut runs = packet.runs().iter().peekable();
-        while let Some(first) = runs.next() {
-            let mut columns = first.len();
-            while let Some(next) = runs.peek().filter(|r| r.y == first.y) {
-                columns += next.len();
-                runs.next();
-            }
-            if columns == self.mirror.width as usize {
-                self.mirror.known[first.y as usize] = true;
-            }
-        }
     }
 
     /// Where the terminal's cursor ends up after printing one cell at `(x, y)`.
@@ -424,7 +744,7 @@ impl Serializer {
     /// `CUP`, `CHA`, `CUF`, `CR`, `CR`+`LF`s — **priced by digit count, with no lookup table.**
     /// Every candidate's cost is a small sum and the cheapest wins; there is no per-move search over
     /// five encodings including content overwrite, which is cellbuf's version and is refused along
-    /// with its `ICH`/`DCH` line editing that ticket 14's filter subsumes.
+    /// with its `ICH`/`DCH` line editing that the equality filter subsumes.
     ///
     /// It is worth **0.2% to 15%**, and the largest win is the chart — the scene with the most runs.
     /// Even there the win is not the *encoding*: absolute and natural tie, because a chart's runs are
@@ -452,49 +772,20 @@ impl Serializer {
         if !force && self.cursor == Some((x, y)) {
             return;
         }
-        let Some((cx, cy)) = self.cursor else {
-            // Nothing is known about where the cursor is — the first move of a frame — so the only
-            // truthful encoding is the absolute one.
-            self.cup(x, y);
-            self.cursor = Some((x, y));
-            self.non_ascii_on_row = false;
-            return;
-        };
-
-        // Every candidate priced, then the cheapest taken. Written as a list rather than as nested
-        // branches because the price is a sum over candidates and the winner is only known at the
-        // end — and because a branch that emits as it prices is how the first version of this ended
-        // up spending eight bytes on a forced move.
-        let same_row = y == cy;
-        let candidates = [
-            // One byte, and nothing beats it. `CR` is absolute in the column, so §10's rule has no
-            // objection to it.
-            (same_row && x == 0).then_some((Move::Cr, 1)),
-            same_row.then(|| (Move::Cha, 3 + omissible(x as u32 + 1))),
-            (same_row && x > cx && !self.non_ascii_on_row)
-                .then(|| (Move::Cuf(x - cx), 3 + omissible((x - cx) as u32))),
-            // `CR` then one `LF` per row, or the feeds alone when the cursor is already in column
-            // zero. One-byte controls against a parameterised CSI, which is where §8's "fewest
-            // bytes" and "fewest sequences" stop pulling in opposite directions.
-            (!same_row && x == 0 && y > cy)
-                .then(|| (Move::Feed, usize::from(cx != 0) + (y - cy) as usize)),
-        ];
-        let mut best = Move::Cup;
-        let mut cost = 4 + digits(y as u32 + 1) + digits(x as u32 + 1);
-        for (candidate, priced) in candidates.into_iter().flatten() {
-            if priced < cost {
-                best = candidate;
-                cost = priced;
-            }
-        }
+        let was = self.cursor;
+        let (best, cost) = self.price_move(x, y);
 
         // The report §15 is owed: what the rule cost on this move, which is the gap between what
         // was chosen and the `CUF` that was refused. Zero on every move where `CUF` would not have
         // won anyway, which is most of them.
         #[cfg(test)]
-        if same_row && x > cx && self.non_ascii_on_row {
-            self.cha_rule_bytes += cost.saturating_sub(3 + omissible((x - cx) as u32));
+        if let Some((cx, cy)) = was {
+            if y == cy && x > cx && self.non_ascii_on_row {
+                self.cha_rule_bytes += cost.saturating_sub(3 + omissible((x - cx) as u32));
+            }
         }
+        #[cfg(not(test))]
+        let _ = cost;
 
         match best {
             Move::Cup => self.cup(x, y),
@@ -514,6 +805,7 @@ impl Serializer {
             }
             Move::Cr => self.out.push(b'\r'),
             Move::Feed => {
+                let (cx, cy) = was.expect("`Feed` is only a candidate against a known cursor");
                 if cx != 0 {
                     self.out.push(b'\r');
                 }
@@ -522,10 +814,50 @@ impl Serializer {
                 }
             }
         }
-        if y != cy {
+        if was.is_none_or(|(_, cy)| y != cy) {
             self.non_ascii_on_row = false;
         }
         self.cursor = Some((x, y));
+    }
+
+    /// The cheapest spelling of a move to `(x, y)`, and what it costs in bytes.
+    ///
+    /// Every candidate priced, then the cheapest taken. Written as a list rather than as nested
+    /// branches because the price is a sum over candidates and the winner is only known at the end —
+    /// and because a branch that emits as it prices is how the first version of this ended up
+    /// spending eight bytes on a forced move.
+    ///
+    /// **Separated from the emission because the gap merge has to ask the price of a move it may not
+    /// make.** Which also means this answers for a cursor that is already at `(x, y)`: the caller
+    /// owns the early return that makes a no-op free, and `consider_gap` wants the real number.
+    fn price_move(&self, x: u16, y: u16) -> (Move, usize) {
+        let cup = (Move::Cup, 4 + digits(y as u32 + 1) + digits(x as u32 + 1));
+        let Some((cx, cy)) = self.cursor else {
+            // Nothing is known about where the cursor is — the first move of a frame — so the only
+            // truthful encoding is the absolute one.
+            return cup;
+        };
+        let same_row = y == cy;
+        let candidates = [
+            // One byte, and nothing beats it. `CR` is absolute in the column, so §10's rule has no
+            // objection to it.
+            (same_row && x == 0).then_some((Move::Cr, 1)),
+            same_row.then(|| (Move::Cha, 3 + omissible(x as u32 + 1))),
+            (same_row && x > cx && !self.non_ascii_on_row)
+                .then(|| (Move::Cuf(x - cx), 3 + omissible((x - cx) as u32))),
+            // `CR` then one `LF` per row, or the feeds alone when the cursor is already in column
+            // zero. One-byte controls against a parameterised CSI, which is where §8's "fewest
+            // bytes" and "fewest sequences" stop pulling in opposite directions.
+            (!same_row && x == 0 && y > cy)
+                .then(|| (Move::Feed, usize::from(cx != 0) + (y - cy) as usize)),
+        ];
+        let mut best = cup;
+        for candidate in candidates.into_iter().flatten() {
+            if candidate.1 < best.1 {
+                best = candidate;
+            }
+        }
+        best
     }
 
     /// `CSI y;x H`, and nothing else: the cursor and §10's row flag are the caller's to update, so
@@ -557,6 +889,83 @@ enum Move {
     /// `\r` where needed, then one `\n` per row.
     Feed,
 }
+
+/// One row of a packet: the runs that damaged it, and the cells they carry.
+///
+/// The filter plans in rows because a gap between two runs on one row is bridgeable and a gap
+/// between two rows is not. Runs are disjoint and arrive in row order, so this is a borrowed slice
+/// of the packet rather than anything gathered — which is what keeps the filter allocating nothing.
+struct Row<'a> {
+    runs: &'a [Run],
+    /// Every run's cells, concatenated in run order: the packet's own layout, narrowed.
+    cells: &'a [Cell],
+}
+
+impl Row<'_> {
+    fn y(&self) -> u16 {
+        self.runs[0].y
+    }
+
+    /// The packet's cell at column `x`, or `None` when no run of this row covers it.
+    ///
+    /// A walk over the row's runs rather than a lookup table: it is asked only about the columns of a
+    /// gap, a gap is bounded by the bytes of the move it is priced against, and a row has a handful
+    /// of runs. Building an index per row would cost the screen's width on a frame that damaged one
+    /// cell, which is exactly the shape the engine's own invariant forbids.
+    fn at(&self, x: u16) -> Option<Cell> {
+        let mut base = 0usize;
+        for r in self.runs {
+            if x >= r.lo && x <= r.hi {
+                return Some(self.cells[base + (x - r.lo) as usize]);
+            }
+            base += r.len();
+        }
+        None
+    }
+}
+
+/// How the mirror is consulted. **One value ships**; the other three are the instrument.
+///
+/// §8's conclusion about the gap merge is that *there is no threshold*, and the sweep behind it is
+/// the evidence rather than the claim: the chart gets monotonically worse as a cell-count threshold
+/// climbs 0 → 24 while the dialogs get better and then flat, so the two scenes want opposite
+/// thresholds. **A conclusion of that shape cannot be reproduced by the configuration that won** —
+/// it needs the ones that lost. So they are here, reachable from tests and from nowhere else:
+/// `Serializer` carries no field for them outside `cfg(test)`, and
+/// `crate::gates::the_equality_filter_needs_no_threshold` is what runs the sweep.
+///
+/// This is the same shape spec §8 refuses for the serializer itself — *the prototype was `Options`-
+/// shaped only so the variants could be measured* — and the difference is where it lives: a variant
+/// that no shipping build can construct is an instrument, and a variant a caller can select is a
+/// knob.
+#[cfg(test)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub(crate) enum Filter {
+    /// What ships: compare every cell against the mirror, and price a gap in bytes.
+    #[default]
+    Bytes,
+    /// Compare, and never merge a gap: §8's `strict` column.
+    Strict,
+    /// Compare, and merge any gap of at most `n` columns: §8's `gap 6 cells` column, and every point
+    /// of its sweep.
+    Cells(u16),
+    /// Do not compare at all: §8's `span` column, which is what impl 13 shipped.
+    Off,
+}
+
+/// The fewest bytes an SGR that says anything can take: `CSI`, one digit, `m`.
+///
+/// Charged once per style change inside a gap, and **deliberately a floor rather than the cost**: the
+/// real one is a function of which channels moved, and it is computed nowhere but inside
+/// `emit_sgr_delta`, which writes as it computes. Pricing a gap therefore uses a lower bound, and
+/// where the bound is wrong it is wrong in the direction of painting through — by at most four bytes
+/// per style change inside the gap.
+///
+/// §8 calibrated it there and its own table is the evidence: the byte-priced rule lands at 4 623
+/// bytes on the chart against `strict`'s 4 581 — forty-two bytes **worse** — and at 1 203 on the
+/// dialogs against `strict`'s 1 491. A rule that never overshot could not have produced the first
+/// number, and a rule that always overshot could not have produced the second.
+const SGR_FLOOR: usize = 4;
 
 /// DEC mode 2026 on: the terminal holds the frame back until the block closes.
 const SYNC_BEGIN: &[u8] = b"\x1b[?2026h";
@@ -910,7 +1319,7 @@ mod tests {
 
     /// Replay the bytes and read the screen back. The round trip is the instrument for anything
     /// about *where a glyph lands*; a byte string would pin the encoding, which is the part
-    /// tickets 14 and 15 are still allowed to change.
+    /// ticket 15 is still allowed to change.
     fn replay(frame: &Surface) -> TermModel {
         let (w, h) = frame.size();
         let mut term = TermModel::new(w, h);
@@ -1333,7 +1742,12 @@ mod tests {
         let mut s = Serializer::new(8, 2);
         s.serialize(&packet, &modern());
         assert_eq!(s.mirror().cell(3, 1), f.row(1)[3]);
-        assert_eq!(s.mirror().cell(0, 0), Cell::BLANK, "nothing else moved");
+        assert_eq!(
+            s.mirror().cell(0, 0),
+            Cell::UNKNOWN,
+            "nothing else was emitted, so nothing else is known — and `UNKNOWN` rather than a blank \
+             is what stops the filter believing a cell nobody wrote"
+        );
     }
 
     #[test]
@@ -1365,6 +1779,507 @@ mod tests {
             "skipping the first cell of a run must not shift what follows"
         );
         assert_eq!(term.cell(2, 0), Cell::BLANK);
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // The equality filter, and the gap merge that needs no threshold.
+    // -----------------------------------------------------------------------------------------
+
+    /// A serializer driven over more than one frame of one surface.
+    ///
+    /// Every test about the filter needs at least two frames and **the same serializer across
+    /// them**: on the first, every row of the mirror is unknown and the filter is inert by design.
+    /// [`bytes_for`] builds a fresh serializer per call and is therefore always measuring a birth
+    /// frame, which is why it cannot be used here.
+    struct Frames {
+        serializer: Serializer,
+        packet: Packet,
+        caps: Capabilities,
+    }
+
+    impl Frames {
+        fn new(w: u16, h: u16) -> Frames {
+            Frames {
+                serializer: Serializer::new(w, h),
+                packet: Packet::new(),
+                caps: modern(),
+            }
+        }
+
+        fn with_filter(w: u16, h: u16, filter: Filter) -> Frames {
+            let mut f = Frames::new(w, h);
+            f.serializer.set_filter(filter);
+            f
+        }
+
+        /// Pack and serialise whatever `frame` has damaged, then clear its damage the way `present`
+        /// does. Everything the engine puts between those two steps is above this file.
+        fn present(&mut self, frame: &mut Surface) -> Vec<u8> {
+            let mut runs = Vec::new();
+            frame.damage().for_each_run(|r| runs.push(r));
+            self.packet.pack(&runs, frame, frame.tables(), false);
+            let out = self.serializer.serialize(&self.packet, &self.caps).to_vec();
+            frame.damage_mut().clear();
+            out
+        }
+    }
+
+    /// **The one configuration that ships.**
+    ///
+    /// Everything else on [`Filter`] is the instrument §8's sweep is reproduced with, and a default
+    /// that drifted would quietly make every byte count in this crate a measurement of something
+    /// nobody chose. Spec §8's *the serializer has no knobs* is what this asserts.
+    #[test]
+    fn the_filter_that_ships_is_priced_in_bytes() {
+        assert_eq!(Serializer::new(8, 2).filter, Filter::Bytes);
+    }
+
+    /// The filter, at its simplest: a frame that rewrites a row without changing it says nothing.
+    ///
+    /// **And it says nothing *at all*** — not twenty bytes of framing announcing that it has nothing
+    /// to say. §8's *every frame that has anything to say opens with SGR 0*, read strictly.
+    #[test]
+    fn a_frame_that_changes_nothing_emits_no_bytes_at_all() {
+        let mut frame = Surface::new(8, 2);
+        let mut f = Frames::new(8, 2);
+        frame.root().text(0, 0, "abcdefgh", Style::new());
+        assert!(
+            !f.present(&mut frame).is_empty(),
+            "the birth frame writes the row: its mirror row is unknown"
+        );
+        frame.root().text(0, 0, "abcdefgh", Style::new());
+        let second = f.present(&mut frame);
+        assert!(
+            second.is_empty(),
+            "eight cells were damaged and none of them changed: {}",
+            text(&second)
+        );
+    }
+
+    /// **The defect the unknown state exists for, at its smallest.**
+    ///
+    /// A fresh mirror used to *say* blank, so a frame whose cell is a blank compared equal to it and
+    /// was skipped — and the terminal, which nobody had cleared, went on showing whatever was there.
+    /// `Cell::UNKNOWN` is what makes the comparison fail instead, and this is the whole of the resize
+    /// hazard in four columns. `crate::engine::tests::a_resize_does_not_let_the_filter_trust_a_fresh_mirror`
+    /// is the same fact through the round trip.
+    #[test]
+    fn a_blank_the_mirror_never_wrote_is_still_written() {
+        let mut frame = Surface::new(4, 1);
+        let mut f = Frames::new(4, 1);
+        frame.root().fill(Rect::new(0, 0, 4, 1), " ", Style::new());
+        let out = f.present(&mut frame);
+        assert!(
+            out.ends_with(b"    "),
+            "four blanks nobody has written are four blanks to write: {}",
+            text(&out)
+        );
+    }
+
+    /// A cell is known only while the mirror has not been told to forget, which is
+    /// [`Packet::repaint`] — the flag a renumbering sweep sets.
+    ///
+    /// The row question survives as a query over the cells, and this is what asks it: every column of
+    /// the row emitted is a known row, and a `repaint` puts it back to none of them. §14's gate on the
+    /// count is `crate::gates::a_renumbering_sweep_marks_every_mirror_row_unknown`.
+    #[test]
+    fn a_repaint_forgets_every_cell_and_the_next_frame_emits_them_all() {
+        let mut frame = Surface::new(8, 1);
+        let mut f = Frames::new(8, 1);
+        frame.root().text(0, 0, "abcdefgh", Style::new());
+        f.present(&mut frame);
+        assert!(
+            f.serializer.mirror().is_known(0),
+            "one frame wrote all of it"
+        );
+        frame.root().text(0, 0, "abcdefgh", Style::new());
+        assert!(
+            f.present(&mut frame).is_empty(),
+            "nothing changed, so nothing goes out"
+        );
+
+        frame.root().text(0, 0, "abcdefgh", Style::new());
+        let mut runs = Vec::new();
+        frame.damage().for_each_run(|r| runs.push(r));
+        f.packet.pack(&runs, &frame, frame.tables(), true);
+        let after = f.serializer.serialize(&f.packet, &f.caps).to_vec();
+        assert!(
+            after.ends_with(b"abcdefgh"),
+            "a repaint is every cell again: {}",
+            text(&after)
+        );
+    }
+
+    /// A row of eight, made known, then two of its cells changed with `gap` ASCII columns between.
+    ///
+    /// The fixture the gap merge is decided on: the two changed cells are damaged along with
+    /// everything between them, so the columns in between are cells the filter skipped rather than
+    /// cells the packet never carried.
+    fn changed_ends(gap: usize) -> (Surface, Frames) {
+        let width = gap as u16 + 2;
+        let mut frame = Surface::new(width, 1);
+        let mut f = Frames::new(width, 1);
+        let settled: String = std::iter::repeat_n('.', width as usize).collect();
+        frame.root().text(0, 0, &settled, Style::new());
+        f.present(&mut frame);
+        let changed = format!("X{}Y", ".".repeat(gap));
+        frame.root().text(0, 0, &changed, Style::new());
+        (frame, f)
+    }
+
+    /// The gap merge, in the direction it pays: two ASCII columns are cheaper than the move over
+    /// them.
+    ///
+    /// Two bytes of `.` against a four-byte `CUF`, so the serializer repaints cells it knows are
+    /// already right — which is §8's *the gap merge removes escapes at the cost of cells the terminal
+    /// was going to parse as a run anyway.*
+    #[test]
+    fn a_cheap_gap_is_painted_through_rather_than_moved_over() {
+        let (mut frame, mut f) = changed_ends(2);
+        let merged = f.present(&mut frame);
+        assert_eq!(
+            moves(&merged),
+            1,
+            "one move for the frame: {}",
+            text(&merged)
+        );
+        assert!(
+            merged.ends_with(b"X..Y"),
+            "the two unchanged columns went out between the two changed ones: {}",
+            text(&merged)
+        );
+
+        let (mut frame, mut f) = changed_ends(2);
+        f.serializer.set_filter(Filter::Strict);
+        let strict = f.present(&mut frame);
+        assert_eq!(
+            moves(&strict),
+            2,
+            "strict pays for the move: {}",
+            text(&strict)
+        );
+        assert!(
+            merged.len() < strict.len(),
+            "merged {} bytes, strict {}",
+            merged.len(),
+            strict.len()
+        );
+    }
+
+    /// The same geometry, and the gap merge in the direction it refuses — **because a cell is not a
+    /// byte, which is the whole of why there is no threshold.**
+    ///
+    /// Two columns of braille are six bytes against the same four-byte move, so the merge that paid
+    /// above loses here. A six-cell threshold cannot tell the two fixtures apart: it is in the wrong
+    /// unit, and the second half of this test executes that rather than quoting it — `Cells(6)` spends
+    /// six bytes to save four on the very fixture the byte price refuses.
+    #[test]
+    fn a_gap_of_braille_is_moved_over_and_a_cell_threshold_cannot_tell() {
+        let mut frame = Surface::new(4, 1);
+        let mut f = Frames::new(4, 1);
+        frame.root().text(0, 0, ".⠿⠿.", Style::new());
+        f.present(&mut frame);
+        frame.root().text(0, 0, "X⠿⠿Y", Style::new());
+        let priced = f.present(&mut frame);
+        assert_eq!(
+            moves(&priced),
+            2,
+            "six bytes of braille lose to a four-byte move: {}",
+            text(&priced)
+        );
+
+        let mut frame = Surface::new(4, 1);
+        let mut f = Frames::with_filter(4, 1, Filter::Cells(6));
+        frame.root().text(0, 0, ".⠿⠿.", Style::new());
+        f.present(&mut frame);
+        frame.root().text(0, 0, "X⠿⠿Y", Style::new());
+        let counted = f.present(&mut frame);
+        assert_eq!(moves(&counted), 1, "a cell count sees two cells and merges");
+        assert!(
+            counted.len() > priced.len(),
+            "the threshold spent bytes to save an escape: {} against {}",
+            counted.len(),
+            priced.len()
+        );
+    }
+
+    /// A 300-column row whose changed cells stand 1, 2, 3, … columns apart, everything else `filler`.
+    ///
+    /// **Triangular gaps are the whole design.** Every gap width from one column up appears exactly
+    /// once, so a threshold that merges gaps of at most `n` columns merges exactly the first `n` of
+    /// them and a sweep over `n` walks the space one gap at a time. One `text` call a frame, so the
+    /// row is one run and every gap is a gap the filter opened rather than one damage left.
+    fn triangular_gaps(filler: char, filter: Filter) -> usize {
+        const WIDTH: u16 = 300;
+        let mut changed = vec![0usize];
+        let mut gap = 1usize;
+        while changed.last().expect("seeded") + gap + 1 < WIDTH as usize {
+            changed.push(changed.last().expect("seeded") + gap + 1);
+            gap += 1;
+        }
+        let settled: String = std::iter::repeat_n(filler, WIDTH as usize).collect();
+        let mut frame = Surface::new(WIDTH, 1);
+        let mut f = Frames::with_filter(WIDTH, 1, filter);
+        frame.root().text(0, 0, &settled, Style::new());
+        f.present(&mut frame);
+        let mut next: Vec<char> = settled.chars().collect();
+        for &at in &changed {
+            next[at] = 'X';
+        }
+        let next: String = next.into_iter().collect();
+        frame.root().text(0, 0, &next, Style::new());
+        f.present(&mut frame).len()
+    }
+
+    /// **§8's sweep, and its conclusion: there is no threshold.**
+    ///
+    /// > A sweep shows it: the chart goes 4 581 → 4 735 → 5 135 → 5 276 → 5 507 → 5 909 → 7 611 as
+    /// > the threshold climbs 0 → 24, monotonically worse, while the dialogs go 1 491 → 1 203 and then
+    /// > flat. **The two scenes want opposite thresholds, so there is no threshold.**
+    ///
+    /// The same shape, over one geometry in two glyph widths, because **§14's twelve cannot produce
+    /// it and that is worth knowing rather than working around.** `crate::gates`'s sweep over the
+    /// twelve is flat past four columns on every one of them: the scenes that filter at all are label
+    /// rows where a counter changes, so their gaps are a handful of ASCII columns and every threshold
+    /// above four behaves identically. §8's chart is braille and ours plots `*`; §8's dialogs have a
+    /// live status bar and ours rewrite every cell of all three every frame. Neither is a defect in
+    /// the scene — both are §14's list as it was settled — but a conclusion about the *unit* a
+    /// threshold is in cannot be drawn from scenes whose gaps are all one byte wide.
+    ///
+    /// So the fixture is a row whose gaps are one, two, three, … columns wide, filled once with a
+    /// one-byte cluster and once with a three-byte one. The two sweeps disagree about where the
+    /// optimum is, and the byte price finds both without being told either.
+    #[test]
+    fn a_fixed_gap_threshold_is_in_the_wrong_unit_and_the_two_fillers_want_opposite_ones() {
+        const THRESHOLDS: [u16; 7] = [0, 4, 8, 12, 16, 20, 24];
+        let mut best = Vec::new();
+        for (what, filler) in [("one-byte cluster", '.'), ("three-byte cluster", '⠿')] {
+            let swept: Vec<usize> = THRESHOLDS
+                .iter()
+                .map(|&n| triangular_gaps(filler, Filter::Cells(n)))
+                .collect();
+            let priced = triangular_gaps(filler, Filter::Bytes);
+            let at = swept
+                .iter()
+                .enumerate()
+                .min_by_key(|(_, b)| **b)
+                .map(|(i, _)| i)
+                .expect("seven points");
+            println!(
+                "\n  a row of triangular gaps in a {what}, thresholds {THRESHOLDS:?}:\n  \
+                 {swept:?}\n  \
+                 cheapest threshold {} columns; priced in bytes {priced}",
+                THRESHOLDS[at]
+            );
+            assert!(
+                priced <= swept[at],
+                "pricing each gap on its own can never lose to the best single threshold: \
+                 {priced} against {}",
+                swept[at]
+            );
+            best.push(THRESHOLDS[at]);
+        }
+        assert_ne!(
+            best[0], best[1],
+            "the two fillers want the same threshold, so this fixture no longer says why there \
+             is none: {best:?}"
+        );
+        assert_eq!(
+            best[1], 0,
+            "a three-byte cluster is never worth painting through: every gap costs three times \
+             the columns and a move costs three or four bytes whatever the distance"
+        );
+    }
+
+    /// **The second win the same mirror pays for**: two runs on one row, bridged through columns the
+    /// packet never carried.
+    ///
+    /// §6 produces genuinely separate runs on a row and the gap between them is not in the packet —
+    /// but it *is* in the mirror, so it can be repainted out of it and priced by the same rule. This
+    /// is where §8's three dialogs go from 1 491 bytes to 1 203.
+    ///
+    /// The assertion that says the bytes came from the mirror is the `abc` in the middle: `b` and `c`
+    /// are columns this frame did not damage, so nothing in the packet holds them.
+    #[test]
+    fn two_runs_on_one_row_are_bridged_out_of_the_mirror() {
+        let mut frame = Surface::new(8, 1);
+        let mut f = Frames::new(8, 1);
+        frame.root().text(0, 0, "abcdefgh", Style::new());
+        f.present(&mut frame);
+        frame.root().text(0, 0, "X", Style::new());
+        frame.root().text(3, 0, "Y", Style::new());
+        let bridged = f.present(&mut frame);
+        assert_eq!(moves(&bridged), 1, "one move, not two: {}", text(&bridged));
+        assert!(
+            bridged.ends_with(b"XbcY"),
+            "the untouched columns were repainted out of the mirror: {}",
+            text(&bridged)
+        );
+    }
+
+    /// The bridge's first condition: **the mirror has to know the column.**
+    ///
+    /// The same two runs, over a screen where the columns between them have never been written. There
+    /// is nothing to skip, because nothing was compared equal — and nothing to bridge either, because
+    /// what the mirror says about a cell it never wrote is what it says about a screen it never
+    /// recorded.
+    #[test]
+    fn a_gap_the_mirror_has_never_written_is_never_bridged() {
+        let mut frame = Surface::new(8, 1);
+        let mut f = Frames::new(8, 1);
+        frame.root().text(0, 0, "a", Style::new());
+        frame.root().text(3, 0, "d", Style::new());
+        f.present(&mut frame);
+        frame.root().text(0, 0, "X", Style::new());
+        frame.root().text(3, 0, "Y", Style::new());
+        let out = f.present(&mut frame);
+        assert_eq!(moves(&out), 2, "two runs, two moves: {}", text(&out));
+        assert!(
+            !out.contains(&b'b') && !out.contains(&b'c'),
+            "an unknown row's mirror is not a fact about the terminal: {}",
+            text(&out)
+        );
+    }
+
+    /// The bridge's second condition, and **the one way this optimisation could put something on
+    /// screen that no frame asked for.**
+    ///
+    /// A mirror cell records what was emitted, and what was emitted may name a cluster that *this*
+    /// packet's side tables do not carry: a frame resolves only the handles its own damaged cells
+    /// name. Sent anyway it would go out as a space — `emit_grapheme` falls back to one rather than
+    /// inventing — and the mirror would then record a cell the screen does not show.
+    ///
+    /// Three fixtures, and the middle one is what makes the third's refusal mean something. All three
+    /// have the same one-column gap and the same five-byte move, refused `CUF` included, because the
+    /// changed cell before the gap is non-ASCII (§10). The gap is one byte, then three, then three
+    /// again — so the third is refused for its **handle** and not for its price.
+    #[test]
+    fn a_bridge_is_refused_where_the_packet_cannot_resolve_the_mirrors_handle() {
+        /// A twelve-column row is written whole to make it known, then columns 0 and 2 are changed.
+        /// Column 1 is the gap: one column, held only by the mirror, whose content is `gap`.
+        fn bridged(gap: &str) -> (usize, String) {
+            let mut frame = Surface::new(12, 1);
+            let mut f = Frames::new(12, 1);
+            let settled = format!(".{gap}{}", ".".repeat(10));
+            frame.root().text(0, 0, &settled, Style::new());
+            f.present(&mut frame);
+            // Non-ASCII, so §10's rule refuses `CUF` for the rest of the row and the move the gap is
+            // priced against is a four-byte `CHA` rather than a three-byte `CUF`. A **scalar** rather
+            // than a cluster, so that this packet carries no cluster at all and the third fixture's
+            // refusal cannot be confused with the packet happening to hold its handle.
+            frame.root().text(0, 0, "⠿", Style::new());
+            frame.root().text(2, 0, "Z", Style::new());
+            let out = f.present(&mut frame);
+            (moves(&out), text(&out))
+        }
+
+        let (ascii, bytes) = bridged(".");
+        assert_eq!(ascii, 1, "one ASCII byte beats the four-byte move: {bytes}");
+
+        let (scalar, bytes) = bridged("⠿");
+        assert_eq!(
+            scalar, 1,
+            "three bytes still beat it, and a scalar handle *is* its own bytes: {bytes}"
+        );
+
+        let (cluster, bytes) = bridged("a\u{300}");
+        assert_eq!(
+            cluster, 2,
+            "the same three bytes, in a handle this packet does not carry: {bytes}"
+        );
+    }
+
+    /// The same refusal, on the **other three channels a cell can name.**
+    ///
+    /// An extended word spends its low fifty-two bits on a handle into a side table, so a mirror cell
+    /// carrying one is unpaintable for exactly the same reason a cluster is — and for a worse
+    /// consequence, because `channels_of` answers a handle it cannot resolve with the terminal's own
+    /// colours and no hyperlink. That is a cell that goes out looking plain while the mirror records it
+    /// extended, which is a disagreement no later frame repairs.
+    ///
+    /// The pair is the point: the same geometry, the same one-byte gap, and the only difference is
+    /// whether the column between the two runs was ever restyled.
+    #[test]
+    fn a_bridge_is_refused_where_the_packet_cannot_resolve_the_mirrors_extended_style() {
+        /// The gap is one column, at 98 of a 300-column row. **The column number is the fixture.** An
+        /// extended gap cell costs its one byte plus `SGR_FLOOR`, so the move it is priced against has
+        /// to cost more than five bytes for the handle to be the only thing left to refuse it — and a
+        /// `CHA` past column ninety-nine is the first one that does, at six.
+        fn bridged(extend: bool) -> (usize, String) {
+            let mut frame = Surface::new(300, 1);
+            let mut f = Frames::new(300, 1);
+            frame.root().text(0, 0, &".".repeat(300), Style::new());
+            if extend {
+                frame.root().restyle(
+                    Rect::new(98, 0, 1, 1),
+                    &crate::restyle::Restyle {
+                        ul: Some(Color::rgb(1, 2, 3)),
+                        ..Default::default()
+                    },
+                );
+            }
+            f.present(&mut frame);
+            // Non-ASCII first, so §10's rule refuses `CUF` and the move is the absolute form.
+            frame.root().text(97, 0, "⠿", Style::new());
+            frame.root().text(99, 0, "Z", Style::new());
+            let out = f.present(&mut frame);
+            (moves(&out), text(&out))
+        }
+
+        let (inline, bytes) = bridged(false);
+        assert_eq!(
+            inline, 1,
+            "one inline byte beats the six-byte move: {bytes}"
+        );
+
+        let (extended, bytes) = bridged(true);
+        assert_eq!(
+            extended, 2,
+            "the same byte, in a style word whose handle this packet does not carry: {bytes}"
+        );
+    }
+
+    /// A gap inside a run is never refused for its handle, and this is why: its cells are damaged, so
+    /// the packet resolved them at pack time whatever they name.
+    ///
+    /// Two runs would refuse this row; one run merges it. That difference is the whole of the fence
+    /// above, and stating it as a test is what keeps somebody from "simplifying" the two conditions
+    /// into one.
+    #[test]
+    fn a_gap_inside_a_run_carries_its_own_handles() {
+        let mut frame = Surface::new(3, 1);
+        let mut f = Frames::new(3, 1);
+        frame.root().text(0, 0, ".a\u{300}.", Style::new());
+        f.present(&mut frame);
+        // One verb, so one run: the cluster in the middle is damaged and therefore in the packet. The
+        // first column is non-ASCII so that §10's rule refuses `CUF` and the move the gap is priced
+        // against is a four-byte `CHA`, which is the same geometry the refusal test uses.
+        frame.root().text(0, 0, "⠿a\u{300}Y", Style::new());
+        let out = f.present(&mut frame);
+        assert_eq!(
+            moves(&out),
+            1,
+            "three bytes beat a four-byte move: {}",
+            text(&out)
+        );
+    }
+
+    /// The filter is exact, and this is the property that makes it so: a skipped cell is skipped on a
+    /// **whole-cell** comparison, style word and handle included.
+    ///
+    /// A frame that changes only the style of a cell whose glyph is unchanged must still emit it.
+    /// Comparing glyphs alone would pass every test in this file that looks at a picture, and put the
+    /// wrong colours on the screen.
+    #[test]
+    fn a_style_change_alone_is_a_change() {
+        let mut frame = Surface::new(4, 1);
+        let mut f = Frames::new(4, 1);
+        frame.root().text(0, 0, "abcd", Style::new());
+        f.present(&mut frame);
+        frame.root().text(0, 0, "abcd", Style::new().bold());
+        let out = f.present(&mut frame);
+        assert_eq!(style_changes(&out), 1, "{}", text(&out));
+        assert!(out.ends_with(b"abcd"), "{}", text(&out));
     }
 
     // -----------------------------------------------------------------------------------------

@@ -27,6 +27,7 @@ use crate::reference;
 use crate::register::State;
 use crate::restyle::Restyle;
 use crate::scenes::{H, Scene, W, scenes, table_two_ways, virtualised_tree};
+use crate::serial::Filter;
 use crate::style::{Color, Style};
 use crate::testing::{Harness, assert_pairing_holds, bisecting_cjk};
 
@@ -46,13 +47,39 @@ const FRAMES: u32 = 3;
 /// one thing fewer — the replayed screen but not the mirror — which is exactly how a normative
 /// scene list ends up with weaker coverage than the ad-hoc tests beside it.
 fn staged(scene: &mut dyn Scene) -> Harness {
+    staged_with(scene, Filter::default())
+}
+
+/// The same, serialising under one of the filter configurations that lost.
+///
+/// The filter is set **before** the birth frame, which costs nothing and says something: every row of
+/// a fresh mirror is unknown, so the birth frame is the same bytes under all four configurations, and
+/// a harness that had to be told afterwards would have a window where it was measuring two.
+fn staged_with(scene: &mut dyn Scene, filter: Filter) -> Harness {
     // The scene says what it needs pinned about the terminal, and both drivers ask. Eleven of the
     // twelve need nothing; the twelfth is about an operator, and an operator layer is skipped
     // outright at the `ColorDepth::None` a headless screen otherwise has.
-    let mut h = Harness::with_overrides(W, H, scene.overrides()).labelled(scene.name());
+    let mut h = Harness::with_overrides(W, H, scene.overrides())
+        .labelled(scene.name())
+        .with_filter(filter);
     scene.build(&mut h.screen);
     h.present();
     h
+}
+
+/// What [`FRAMES`] steady frames of one scene cost on the wire under one filter configuration.
+///
+/// Through [`Harness`], so every configuration of the instrument is also driven through the round
+/// trip: a variant that skipped a cell it may not have skipped fails as a wrong screen here rather
+/// than as a suspiciously small number in a report.
+fn steady_bytes(scene: &mut dyn Scene, filter: Filter) -> usize {
+    let mut h = staged_with(scene, filter);
+    let before = h.bytes_written();
+    for t in 1..=FRAMES {
+        scene.step(&mut h.screen, t);
+        h.present();
+    }
+    h.bytes_written() - before
 }
 
 /// Every scene whose mechanism exists today.
@@ -273,7 +300,7 @@ fn a_packed_cell_is_byte_identical_to_the_surface_cell() {
 /// [`crate::roundtrip`] drives the shapes ticket 03 could express one at a time; this drives the
 /// normative list. It stores nothing: composite, serialise, replay the bytes through the terminal
 /// model, assert the replayed screen equals the frame. A golden byte string would have pinned the
-/// encoding, and the encoding is exactly the part tickets 13, 14 and 15 are going to change.
+/// encoding, and the encoding is exactly the part ticket 15 has still to change.
 #[test]
 fn the_round_trip_closes_on_every_scene() {
     for mut scene in wired() {
@@ -299,53 +326,62 @@ fn the_round_trip_closes_on_every_scene() {
 /// count on any machine, which is the whole argument for the register's shape — so there is no
 /// headroom to add and nothing to be flaky about. An improvement passes; a regression fails; and
 /// the numbers are meant to fall, because tickets 13, 14 and 15 exist to make every one of them
-/// smaller.
+/// smaller, and only 15 is left — and the one that ends up gating the *filter's* own arithmetic is
+/// [`the_equality_filter_reproduces_spec_8s_table`], which is a relation rather than these counts.
 ///
 /// Moving a number up is allowed and costs a commit that does three things: states the new number,
 /// states the measurement it came from, and replaces the provenance line below. What may **not**
 /// move without a new map decision is a budget figure, and none of these is one.
 ///
-/// Provenance: measured by **impl 13** on 2026-08-21, Apple M1 Max, rustc 1.97.1, over
+/// Provenance: measured by **impl 14** on 2026-08-21, Apple M1 Max, rustc 1.97.1, over
 /// [`FRAMES`] steady frames after the birth frame, at 300x80, with the full §8 encoding set —
-/// `shortest`, the differential SGR, SGR 58/59 and OSC 8 — and with no equality filter (impl 14) and
-/// no scroll region (impl 15) yet. It replaces impl 04's line, which was taken on a `CUP`-only loop.
+/// `shortest`, the differential SGR, SGR 58/59, OSC 8 — **and the equality filter with its gap
+/// merge**. The scroll region (impl 15) is still to come. It replaces impl 13's line, which was taken
+/// with no filter at all.
 ///
-/// **Ten of the twelve fell and one rose, and the one that rose is the finding.** `shortest` takes
-/// between 0.4% and 30% off every scene with more than one run — the sparse chart goes 11 417 → 8 009,
-/// which is §8's *the largest win is the chart* as a byte count. `every-cell-a-distinct-style` goes
-/// 1 296 592 → 1 367 431, **+5.5%**, and every byte of that is the modern SGR spelling: T.416's
-/// colon form carries an empty colour-space id that xterm's semicolon form does not, so a
-/// parameterised colour is one byte longer and the adversarial page is 24 000 of them a frame.
+/// **Six of the twelve fell, by between 1.4x and 37.7x, and six did not move at all.** The per-scene
+/// four-column breakdown is [`the_equality_filter_reproduces_spec_8s_table`], and the split between
+/// the two halves is the result worth reading:
 ///
-/// That trade is a compatibility decision and not an optimisation, it is reversible per terminal
-/// through `Overrides::legacy_sgr` and `VITUI_FORCE_LEGACY_SGR`, and §8's own byte tables were
-/// measured on the semicolon form — which is why moving this number up is the honest thing to do
-/// rather than a regression to fix. `crate::serial::emit_color` carries the argument.
+/// | | |
+/// |---|---|
+/// | `scrolling-list-rows-cleared` | 72 504 → **1 925**, 37.7x |
+/// | `virtualised-tree` | 10 104 → **2 005**, 5.0x |
+/// | `table-as-list-and-bar-chart` | 18 744 → **6 118**, 3.1x |
+/// | `scrolling-list-label-only` | 5 304 → **1 925**, 2.8x |
+/// | `progress-bar-one-percent` | 336 → **138**, 2.4x |
+/// | `caret-blink` | 43 → **30**, 1.4x |
+///
+/// The other six are **1.00x, and every one of them is a scene in which every damaged cell genuinely
+/// changes every frame.** `full-screen-change` and `every-cell-a-distinct-style` say so in their
+/// names. `three-dialogs-apart` and `twenty-popups-with-shadows` write a frame counter into their
+/// labels *and* cycle a foreground colour, so no cell survives a frame unchanged.
+/// `sparse-chart-400-points` moves all four hundred points every frame.
+///
+/// **And `hyperlinked-page-under-an-animating-operator` is 876 624 bytes still, which refutes what
+/// impl 13 wrote about it.** That ticket's Progress says *impl 14 is where it comes back — the page's
+/// text does not change between frames, so nearly every one of those bytes is a re-emission of a cell
+/// the mirror already holds.* The text does not change and the **style word does**: the scene's own
+/// subject is a *fading* operator, so every cell of every frame resolves to a different colour, and
+/// the filter compares whole cells because §3's cell is what the terminal shows. A filter that
+/// compared glyphs alone would have "brought this row back" by putting the wrong colours on the
+/// screen. The row stays `REPORTED_NOT_GATED` in `examples/budget.rs` at the ratio impl 13 measured,
+/// and what would actually reduce it is the scroll region or nothing.
 ///
 /// Two entries are the reason the gate exists at all. **`every-cell-a-distinct-style` is 1.4 MB for
 /// three frames** — the adversarial page, which is what set the synchronised-output time limit — and
 /// **`sparse-chart-400-points` is 8 009 bytes for 1 200 cells**, which is the ratio a serializer
 /// walking the grid instead of the runs would blow up by 284x without changing a pixel.
-///
-/// The twelfth row is new here and its number says what the scene is: **876 624 bytes for three
-/// frames**, second only to the adversarial page, because a fading operator over a hyperlinked page
-/// mints a distinct style per band per frame and each one carries an OSC 8 with a URI in it. That is
-/// the *cost side* of what the row was put on §14's list to decide, and it is on the wire rather than
-/// in a table — which is why it belongs to this gate and the entry counts belong to `crate::sweep`.
-///
-/// The equality filter (impl 14) is what this row is waiting for and the reason is visible in the
-/// number: the page's text does not change, so all but the first of the three frames is re-emitting
-/// cells whose glyph and whose colours a mirror already holds.
 const WIRE_BUDGET: [(&str, usize); 12] = [
-    ("caret-blink", 43),
-    ("scrolling-list-label-only", 5_304),
-    ("scrolling-list-rows-cleared", 72_504),
+    ("caret-blink", 30),
+    ("scrolling-list-label-only", 1_925),
+    ("scrolling-list-rows-cleared", 1_925),
     ("twenty-popups-with-shadows", 30_354),
     ("three-dialogs-apart", 6_564),
     ("sparse-chart-400-points", 8_009),
-    ("progress-bar-one-percent", 336),
-    ("virtualised-tree", 10_104),
-    ("table-as-list-and-bar-chart", 18_744),
+    ("progress-bar-one-percent", 138),
+    ("virtualised-tree", 2_005),
+    ("table-as-list-and-bar-chart", 6_118),
     ("full-screen-change", 72_519),
     ("every-cell-a-distinct-style", 1_367_431),
     ("hyperlinked-page-under-an-animating-operator", 876_624),
@@ -391,6 +427,187 @@ fn wire_bytes_per_scene() {
              The bound is impl 13's own measurement, so this is a regression rather than drift."
         );
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Impl 14 — what the equality filter is worth, and why it carries no threshold.
+// ---------------------------------------------------------------------------------------------
+
+/// **Report.** §8's own table, reproduced over the twelve scenes rather than quoted.
+///
+/// Four columns and one relation. `span` is no filter at all, which is what impl 13 shipped;
+/// `strict` compares and never merges a gap; `gap 6` merges any gap of at most six columns, which is
+/// the fixed threshold §8 swept; `chosen` is the byte-priced rule that ships.
+///
+/// The relation is §8's claim about the rule: **it lands within one per cent of the better of the two
+/// fixed thresholds on every scene.** That is the shape §14 asks of a number belonging to the data
+/// rather than to the mechanism — a ratio, not an equality — and it is what makes this a gate rather
+/// than a paragraph. The absolute numbers are the report beside it, and the per-scene bound they are
+/// gated against is `WIRE_BUDGET`.
+///
+/// **Never summed.** The chart is 400 cells against the full screen's 24 000, so a total would hide
+/// the very row it exists to show.
+#[test]
+fn the_equality_filter_reproduces_spec_8s_table() {
+    /// How far over the better fixed threshold the byte-priced rule may land, in per cent.
+    ///
+    /// §8 says one. Measured on this implementation the worst scene is the sub-cell chart, for the
+    /// reason `SGR_FLOOR` states: the floor underestimates the SGR a merged gap really costs, so a
+    /// gap merge can overshoot, and the chart is the scene with the most gaps.
+    const SLACK_PERCENT: usize = 1;
+    const COLUMNS: [(&str, Filter); 4] = [
+        ("span", Filter::Off),
+        ("strict", Filter::Strict),
+        ("gap 6", Filter::Cells(6)),
+        ("chosen", Filter::Bytes),
+    ];
+
+    let names: Vec<&'static str> = wired().iter().map(|s| s.name()).collect();
+    let mut rows = vec![[0usize; COLUMNS.len()]; names.len()];
+    for (c, (_, filter)) in COLUMNS.iter().enumerate() {
+        // A fresh scene per column, and this is not tidiness. `step` advances the scene's own
+        // animation, so four columns measured off one object would be four different frames of it.
+        for (i, mut scene) in wired().into_iter().enumerate() {
+            rows[i][c] = steady_bytes(&mut *scene, *filter);
+        }
+    }
+
+    println!(
+        "\n  {:<44} {:>9} {:>9} {:>9} {:>9}   win",
+        "scene", "span", "strict", "gap 6", "chosen"
+    );
+    for (i, name) in names.iter().enumerate() {
+        let [span, strict, gap6, chosen] = rows[i];
+        println!(
+            "  {name:<44} {span:>9} {strict:>9} {gap6:>9} {chosen:>9}   {:.2}x",
+            span as f64 / chosen.max(1) as f64
+        );
+    }
+
+    for (i, name) in names.iter().enumerate() {
+        let [_, strict, gap6, chosen] = rows[i];
+        let better = strict.min(gap6);
+        assert!(
+            chosen * 100 <= better * (100 + SLACK_PERCENT),
+            "{name}: the byte-priced rule spent {chosen} bytes where the better of the two fixed \
+             thresholds spent {better}, which is over {SLACK_PERCENT}%. §8's claim is that pricing \
+             a gap in bytes lands within that of whichever threshold happens to suit the scene — \
+             the point being that no threshold suits them all."
+        );
+    }
+}
+
+/// **Report.** §8's threshold sweep, over §14's twelve — **and the finding is that they are flat.**
+///
+/// §8 swept a fixed cell-count threshold 0 → 24 and concluded there is no right value for one,
+/// because two of its scenes wanted opposite ones. Run over the twelve as this repo writes them the
+/// sweep is flat from four columns on, on every single scene, and the byte-priced rule matches every
+/// row. So **the twelve do not discriminate on this axis**, and that is a fact about the scene list
+/// rather than about the filter: the six that filter at all are label rows where a counter changes,
+/// so their gaps are a handful of one-byte columns and every threshold above four merges the same set.
+///
+/// It is reported rather than fixed, for §14's own reason — a scene list is normative and adding a
+/// thirteenth to make a sweep interesting would be measuring the fixture. The conclusion is executed
+/// where the mechanism lives instead:
+/// `crate::serial::tests::a_fixed_gap_threshold_is_in_the_wrong_unit_and_the_two_fillers_want_opposite_ones`
+/// puts the same triangular-gap row through a one-byte and a three-byte cluster and gets §8's two
+/// opposite optima out of it. What that test cannot say, and this one can, is that no scene on §14's
+/// list is harmed by the rule.
+///
+/// **The prior art for reporting this rather than burying it is §14's own damage ticket, which had
+/// three scenes that discriminated nothing and said so.**
+#[test]
+fn the_equality_filters_threshold_sweep_is_flat_on_every_scene() {
+    const THRESHOLDS: [u16; 7] = [0, 4, 8, 12, 16, 20, 24];
+    /// Where the sweep is expected to have stopped moving, in columns. Past this a threshold merges
+    /// no gap any of the twelve produces.
+    const FLAT_FROM: u16 = 4;
+
+    let names: Vec<&'static str> = wired().iter().map(|s| s.name()).collect();
+    let mut rows = vec![Vec::new(); names.len()];
+    for n in THRESHOLDS {
+        // A fresh scene per point, for the reason the four-column table states: `step` advances the
+        // scene's own animation.
+        for (i, mut scene) in wired().into_iter().enumerate() {
+            rows[i].push(steady_bytes(&mut *scene, Filter::Cells(n)));
+        }
+    }
+
+    println!("\n  a fixed gap threshold, swept over §14's twelve, columns {THRESHOLDS:?}:");
+    for (i, name) in names.iter().enumerate() {
+        let counts: Vec<String> = rows[i].iter().map(|b| b.to_string()).collect();
+        println!("  {name:<44} {}", counts.join(" → "));
+    }
+
+    let flat = THRESHOLDS
+        .iter()
+        .position(|n| *n >= FLAT_FROM)
+        .expect("the sweep reaches the flat point");
+    for (i, name) in names.iter().enumerate() {
+        let tail = &rows[i][flat..];
+        assert!(
+            tail.iter().all(|b| *b == tail[0]),
+            "{name}: the sweep is no longer flat past {FLAT_FROM} columns — {:?}. That is not a \
+             failure of the filter: it means this scene has grown a gap wide enough for a threshold \
+             to argue about, and the sweep is now worth reading rather than only worth recording.",
+            rows[i]
+        );
+    }
+}
+
+/// **Report.** What the filter costs in time, per damaged cell.
+///
+/// §8's number is 0.9 ns, from 88.94 µs against 112.83 µs on a full-screen 24 000-cell frame —
+/// *under half the estimate, because the comparison rides inside a scan that was already reading
+/// every cell*. The arms are the same scene under `Off` and under `Bytes`, so everything but the
+/// comparison and the gap merge is identical between them and the difference is attributable.
+///
+/// **A report and not a gate**, for the register's own reason: a timing is a gate only at cliff
+/// granularity. The cliff this is nowhere near is written next to the number — 24 µs against a
+/// 16.6 ms frame interval — and §8's argument for *always* is that the price is that ratio while the
+/// win is between 1% and 400x.
+///
+/// `Screen::present` is called directly rather than through the harness: the round trip's two
+/// full-screen comparisons are an order of magnitude more work than the frame they check.
+#[test]
+fn what_the_equality_filter_costs_per_damaged_cell() {
+    /// Frames timed after the warm-up, per arm.
+    const SAMPLES: u32 = 20;
+    /// One frame of a 16.6 ms interval, in microseconds: the number the cost is a fraction of.
+    const INTERVAL_US: f64 = 16_600.0;
+
+    let arm = |filter: Filter| {
+        let mut scene = wired()
+            .into_iter()
+            .find(|s| s.name() == "full-screen-change")
+            .expect("§14's twelve are the wired list");
+        let mut h = staged_with(&mut *scene, filter);
+        // Warm: the first steady frame reallocates nothing but does touch every page of the mirror
+        // for the first time.
+        for t in 1..=2 {
+            scene.step(&mut h.screen, t);
+            h.screen.present();
+        }
+        let at = std::time::Instant::now();
+        for t in 3..3 + SAMPLES {
+            scene.step(&mut h.screen, t);
+            h.screen.present();
+        }
+        at.elapsed().as_secs_f64() * 1e6 / f64::from(SAMPLES)
+    };
+
+    let unfiltered = arm(Filter::Off);
+    let filtered = arm(Filter::Bytes);
+    let cells = f64::from(u32::from(W) * u32::from(H));
+    println!(
+        "\n  the filter on a full-screen {W}x{H} change, {SAMPLES} frames an arm:\n  \
+         {unfiltered:.2} us unfiltered, {filtered:.2} us filtered, {:+.2} us the difference\n  \
+         {:+.2} ns a damaged cell (spec §8: 0.9 ns, from 88.94 against 112.83 us)\n  \
+         {:.3}% of a 16.6 ms interval. Report, not a gate.",
+        filtered - unfiltered,
+        (filtered - unfiltered) * 1000.0 / cells,
+        (filtered - unfiltered) / INTERVAL_US * 100.0,
+    );
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1099,10 +1316,10 @@ fn a_renumbering_sweep_marks_every_mirror_row_unknown() {
     assert!(h.present().submitted);
     assert_eq!(h.screen.known_rows(), ROWS as usize);
 
-    // A narrow frame after a renumbering sweep leaves the rows it did not write whole unknown, which
-    // is the half ADR 0006's *written whole rather than compared* does not reach: the sweep marks no
-    // damage, so there is no whole row to write. `crate::serial::Mirror` states what ticket 14's
-    // filter has to do about it.
+    // A narrow frame after a renumbering sweep leaves every cell it did not write unknown, which is
+    // the half ADR 0006's *written whole rather than compared* does not reach: the sweep marks no
+    // damage, so there is no whole row to write. What impl 14's filter does about it is the reason
+    // the granularity is the cell — see `crate::serial::Mirror` and ADR 0006's amendment.
     underline_each_row(&mut h.screen, id, ROWS, |y| Color::rgb(y as u8 + 1, 0, 0));
     h.present();
     {

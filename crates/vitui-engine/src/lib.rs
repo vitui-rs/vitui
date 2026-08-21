@@ -61,13 +61,17 @@
 //! prototype that deleted a hyperlink, and the atomic-glyph rule that gives a darkened `漢` one
 //! colour rather than two — and the bound on the one table that can grow without one (ticket 08):
 //! the mark-and-compact sweep, run at [`Screen::layers`] on a high-water mark and never inside a
-//! frame, the mirror's **unknown row** and the `repaint` flag that is the only thing a renumbering
+//! frame, the mirror's **unknown** state and the `repaint` flag that is the only thing a renumbering
 //! breaks, and §14's twelfth scene with the numbers it was put on the list for — 96 entries created
-//! over 120 settled frames against 11 520 over 120 fading ones, bounded thereafter by the sweep.
+//! over 120 settled frames against 11 520 over 120 fading ones, bounded thereafter by the
+//! sweep — and the whole of §8 bar one thing (tickets 13 and 14): `shortest`, the
+//! differential SGR, the two extended channels, synchronised output, and **the equality filter with
+//! the gap merge that needs no threshold** — which takes six of §14's twelve scenes down by between
+//! 1.4x and 37.7x, leaves the six in which every damaged cell genuinely changes exactly where they
+//! were, and made one decision on the way: *unknown* is per **cell** rather than per row, because per
+//! row left eleven of the twelve scenes unfilterable for ever.
 //!
-//! Not here yet, each with the ticket that brings it:
-//! the `shortest`
-//! cursor encoding and the equality filter (13, 14), the scroll region (15), quantisation before
+//! Not here yet, each with the ticket that brings it: the scroll region (15), quantisation before
 //! the mirror (17), the three threads and the frame clock (18, 19), and input (20, 21).
 
 #![forbid(unsafe_op_in_unsafe_fn)]

@@ -141,6 +141,7 @@ fn full_screen(screen: &mut Screen, id: LayerId, row: &str, style: Style) {
 fn the_steady_state_allocates_nothing() {
     a_thousand_compose_cycles_allocate_nothing();
     a_full_screen_frame_allocates_nothing();
+    a_filtered_frame_with_gaps_allocates_nothing();
     an_idle_frame_allocates_nothing();
     a_frame_of_clusters_allocates_nothing();
     a_settled_restyle_over_a_hyperlinked_screen_allocates_nothing();
@@ -332,6 +333,17 @@ fn a_settled_restyle_over_a_hyperlinked_screen_allocates_nothing() {
     });
 }
 
+/// **Composition, and since impl 14 that is all it is**, which is worth saying rather than leaving
+/// for somebody to discover.
+///
+/// Every frame below writes the same row with the same style, so the equality filter finds nothing
+/// changed and the frame reaches the wire as zero bytes. What is still measured is what the name says
+/// — a thousand damage-mark, composite and pack cycles — and the serializer's own path is measured by
+/// [`a_full_screen_frame_allocates_nothing`], which varies the style, and by
+/// [`a_filtered_frame_with_gaps_allocates_nothing`], which varies a quarter of it.
+///
+/// The rotation over rows is what this one has that the others do not: a thousand frames each
+/// damaging a different row, which is a thousand different run shapes through `pack`.
 fn a_thousand_compose_cycles_allocate_nothing() {
     let (mut screen, id) = screen();
     let row: String = std::iter::repeat_n('x', W as usize).collect();
@@ -374,6 +386,48 @@ fn a_full_screen_frame_allocates_nothing() {
                 Style::new().fg(vitui_engine::Color::indexed(i)),
             );
             assert!(screen.present().submitted);
+        }
+    });
+}
+
+/// The filter's own path, **with gaps in it.**
+///
+/// The two full-screen gates vary the style every frame, so every cell changes and the filter skips
+/// nothing: the comparison runs and the gap merge never does. This is the frame shape that exercises
+/// it — every fourth column changes and the three columns between them are priced against the move
+/// they would avoid, at three bytes against four, so the merge fires on every gap of every row.
+///
+/// The property is that pricing a gap and painting through it reaches no allocator, and it has none
+/// to reach by construction: the plan *is* the run, and the walk that prices a gap stops after the
+/// bytes of the move it is priced against. There is no per-row scratch buffer, which is the thing
+/// this gate would have caught somebody adding.
+fn a_filtered_frame_with_gaps_allocates_nothing() {
+    let (mut screen, id) = screen();
+    // Built **before** the window: building a `String` allocates, and the gate would be measuring
+    // the fixture rather than the frame.
+    let rows: Vec<String> = (0..10u8)
+        .map(|i| {
+            (0..W as u32)
+                .map(|x| {
+                    if x % 4 == 0 {
+                        char::from(b'a' + i)
+                    } else {
+                        '.'
+                    }
+                })
+                .collect()
+        })
+        .collect();
+
+    for row in &rows[..2] {
+        full_screen(&mut screen, id, row, Style::new());
+        screen.present();
+    }
+
+    assert_no_alloc(|| {
+        for row in &rows[2..] {
+            full_screen(&mut screen, id, row, Style::new());
+            assert!(screen.present().submitted, "the frame had nothing to say");
         }
     });
 }

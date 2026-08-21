@@ -202,15 +202,34 @@ Named a mirror rather than a shadow because a shadow is already a kind of layer.
 serializer skip a cell the frame rewrote without changing, and what lets a scroll be proved before it
 is emitted. See `docs/adr/0006`.
 
-**Unknown row** — a row of the mirror that cannot be trusted: at startup, after a resize, and after
-a **sweep** renumbered a handle table. An unknown row is written whole rather than compared, which is
-how a full repaint expresses itself without a separate mode. A row becomes known again once one frame
-has written every column of it.
+**Unknown** — a part of the mirror that cannot be trusted: at startup, after a resize, and after a
+**sweep** renumbered a handle table. What is unknown is written rather than compared, which is how a
+full repaint expresses itself without a separate mode. A cell becomes known when the serializer emits
+it, and nothing else makes it known.
 
-The first two cases damage the whole screen, so *whole* is achievable. The third does not — a sweep
-marks no damage — and there the rule that carries the property is the same one seen from the other
-side: **on an unknown row, never compare.** The danger is not the false inequality, which costs
-bytes; it is the false equality, which leaves the terminal showing the wrong text.
+The rule that carries the property is one sentence: **never compare against what the mirror does not
+know.** The danger is not the false inequality, which costs bytes; it is the false equality, which
+leaves the terminal showing the wrong text.
+
+The unit is the **cell**, and it was the row until it was measured: a row became known only when one
+frame wrote every column of it, and at three hundred columns almost nothing does — over spec §14's
+twelve scenes that left eleven of them with every row unknown for ever and the **equality filter**
+worth nothing at all. It costs no flag and no branch, because unknown is a *value*: the `EMPTY`
+sentinel, which no composited frame cell can hold, so a frame cell never compares equal to one. *Row*
+survives as a question asked of the cells, and the **scroll region** is what asks it.
+
+**Equality filter** — comparing each damaged cell against the **mirror** inside the run scan, and
+emitting only what actually changed. Always on: damage area does not predict whether it pays, and the
+intuition is inverted — a full-screen change damages 24 000 cells and buys nothing, a cleared-row list
+scroll damages the same 24 000 and buys 37x.
+
+**Gap merge** — repainting the cells between two changes rather than moving the cursor over them,
+**priced in bytes** because that is the unit the wire is measured in: the clusters' UTF-8 lengths plus
+a floor for a style change inside, against the digit-counted cheapest encoding of the move it would
+avoid. A cell-counted threshold is in the wrong unit and no value of one is right — a cell is one byte
+of ASCII and three of braille, so six cells is six bytes on one row and eighteen on the next. The same
+rule bridges two **runs** on one row through the columns between them, which are not in the **packet**
+but are in the mirror.
 
 **Scroll region** — the terminal's own ability to move a band of rows, addressed as top and bottom
 margins plus a count. Cheaper than repainting the band by two orders of magnitude, applicable only
@@ -227,7 +246,9 @@ for the rest of its row.
 **Session framing** — bytes that hold for the whole attachment rather than for one frame, written once
 on entry and given back on leaving: auto-wrap off, and the alternate screen. Distinct from **frame
 framing**, which is the style reset every frame opens with, the synchronised-output block it may be
-wrapped in, and the hyperlink it must close — a frame is self-contained, a session is not.
+wrapped in, and the hyperlink it must close — a frame is self-contained, a session is not. Frame
+framing is written on the first cell that actually reaches the wire, so **a frame the equality filter
+emptied says nothing at all** rather than spending twenty bytes announcing it.
 
 **The two SGR spellings** — one colour, two encodings that no capability query separates. The
 **modern** one is ITU-T T.416's, with colons and an empty colour-space id; the **legacy** one is

@@ -28,6 +28,24 @@ use crate::view::View;
 /// fn assert_send_sync_static<T: Send + Sync + 'static>() {}
 /// assert_send_sync_static::<vitui_engine::Surface>();
 /// ```
+///
+/// # There is no `set_eq_filter`, and the reason is `clear`-then-draw
+///
+/// A write-time equality filter — *do not mark damage for a write whose value is already there* —
+/// is free in time and was measured and refused (spec §4, §8). **It is defeated by the idiom every
+/// component library uses:** immediate mode blanks a region before it draws into it, so the filter
+/// sees blank-over-text and then text-over-blank, and both of those are changes. It strips nothing on
+/// the frames that matter.
+///
+/// The same idea one layer down, at pack time against the mirror, is worth between 1.4x and 37.7x on
+/// spec §14's twelve — see [`crate::serial`]. That is not the same optimisation implemented better;
+/// it is a different one, because by then the two writes have already collapsed into the one cell the
+/// frame ends up holding.
+///
+/// The consequence runs the other way too and is stated in §8: **`clear`-then-draw is load-bearing
+/// rather than a wart to be optimised away.** A list that clears its rows before drawing them makes
+/// the unfiltered case 9x worse and the filtered case 24x better, and it is what lets the scroll
+/// region apply at all.
 pub struct Surface {
     width: u16,
     height: u16,

@@ -529,14 +529,16 @@ impl Screen {
     /// # The mirror starts unknown, which is what the debt here used to be
     ///
     /// A terminal that has just changed size is showing something nobody recorded — it reflows on
-    /// `SIGWINCH`, it does not clear — so the honest value for the mirror is ADR 0006's **unknown
-    /// row**. Until ticket 08 there was no such thing and a fresh `Mirror` said *blank* instead,
-    /// which was a claim about the terminal that is not true; it was harmless only because every
-    /// cell of the new screen is damaged and therefore written unconditionally.
+    /// `SIGWINCH`, it does not clear — so the honest value for the mirror is ADR 0006's **unknown**
+    /// state. Until ticket 08 there was no such thing and a fresh `Mirror` said *blank* instead, which
+    /// was a claim about the terminal that is not true; it was harmless only because every cell of the
+    /// new screen is damaged and therefore written unconditionally, and impl 14's equality filter is
+    /// what ended that.
     ///
-    /// A fresh `Mirror` now says *unknown* for every row, and this function makes a fresh one. So
-    /// there is no separate resize mode and nothing here to remember: **ticket 14's equality filter
-    /// has the flag it needs already set**, and what remains its own is the branch that reads it.
+    /// A fresh `Mirror` knows nothing, and this function makes a fresh one. So there is no separate
+    /// resize mode and nothing here to remember. What that is worth is pinned by
+    /// [`a_resize_does_not_let_the_filter_trust_a_fresh_mirror`](tests::a_resize_does_not_let_the_filter_trust_a_fresh_mirror),
+    /// whose terminal model keeps its cells the way a real terminal keeps them.
     ///
     /// There is nothing to invalidate beyond that, and the reason is §5's: the flattened prefix
     /// cache that would have had to be invalidated was refused, on a budget the damage rectangles
@@ -728,6 +730,17 @@ impl Screen {
         out
     }
 
+    /// Serialise this screen's frames under one of the filter configurations that lost.
+    ///
+    /// The instrument spec §8's *there is no threshold* is reproduced with, and it is on `Screen`
+    /// because the scenes are driven through `present`: a sweep over thresholds has to be a sweep
+    /// over the same twelve scenes the byte budget is measured on, or it is a sweep over a fixture
+    /// somebody chose. See [`crate::serial::Filter`].
+    #[cfg(test)]
+    pub(crate) fn set_filter(&mut self, filter: crate::serial::Filter) {
+        self.serializer.set_filter(filter);
+    }
+
     #[cfg(test)]
     pub(crate) fn mirror(&self) -> &crate::serial::Mirror {
         self.serializer.mirror()
@@ -916,6 +929,75 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// **The resize the equality filter has to reach, and the pretence that used to hide it.**
+    ///
+    /// A terminal reflows on `SIGWINCH`; it does not clear. So after a resize the screen is showing
+    /// content nobody recorded, a fresh `Mirror` knows nothing, and **every cell of the new frame has
+    /// to go out even where the frame's own value is a blank.** Before impl 14 that happened for a
+    /// reason that was about to stop being true — every cell of a resized screen was written
+    /// unconditionally because nothing compared anything — and the mirror said *blank* where it should
+    /// have said *unknown*.
+    ///
+    /// The fixture is the smallest one that can tell the two apart. A layer covers the whole 8x3
+    /// screen and paints it; then the layer shrinks to four columns and the terminal grows a row. The
+    /// new frame wants columns 4..8 blank, a fresh mirror believes they are blank, and the terminal is
+    /// still showing `#` in them. A filter that trusted the mirror would skip all twelve of those
+    /// cells and leave them on screen.
+    ///
+    /// **`Harness::resize` is the other half of this test.** It used to replace the terminal model
+    /// with a fresh blank one, which agreed with a fresh mirror by construction — so this fixture
+    /// would have passed whatever the serializer did. The model keeps its cells now, and the
+    /// assertions inside `Harness::present` are what fail.
+    #[test]
+    fn a_resize_does_not_let_the_filter_trust_a_fresh_mirror() {
+        let mut h = crate::testing::Harness::new(8, 3);
+        let id = h
+            .screen
+            .layers()
+            .add_content(0, crate::geom::Rect::new(0, 0, 8, 3), true);
+        let paint = |screen: &mut Screen, w: u16| {
+            screen
+                .layers()
+                .view(id)
+                .expect("the layer is still there")
+                .fill(
+                    crate::geom::Rect::new(0, 0, w, 3),
+                    "#",
+                    crate::style::Style::new(),
+                );
+        };
+        paint(&mut h.screen, 8);
+        h.present();
+        assert_eq!(
+            h.terminal_glyph(5, 0),
+            Some('#'),
+            "the fixture needs the terminal to be showing something at (5, 0)"
+        );
+
+        // The layer keeps its cells across a resize and **not** across a `set_rect`, which
+        // reallocates at the new size (ticket 10) — so this is a shrink and a repaint, which is what
+        // a component whose window narrowed actually does.
+        h.screen
+            .layers()
+            .set_rect(id, crate::geom::Rect::new(0, 0, 4, 3));
+        paint(&mut h.screen, 4);
+        h.resize(8, 4);
+
+        // `Harness::present` is the assertion: it replays the frame's bytes into a terminal model that
+        // still holds the old `#`s and requires the result to equal the composited frame.
+        assert!(h.present().submitted, "a resize repaints the whole screen");
+        assert_eq!(
+            h.terminal_glyph(5, 0),
+            Some(' '),
+            "the column the layer gave up was never cleared on the terminal"
+        );
+        assert_eq!(
+            h.terminal_glyph(3, 0),
+            Some('#'),
+            "and the layer still paints"
+        );
     }
 
     /// The other half of "clears every structure": a resize does not leave last frame's exposures

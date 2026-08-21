@@ -229,7 +229,10 @@ pub const REGISTER: [Entry; 27] = [
         qualifier: "equality",
         source: "arch 16",
         state: State::Wired {
-            at: "crate::gates::a_packed_cell_is_byte_identical_to_the_surface_cell",
+            at: "crate::gates::a_packed_cell_is_byte_identical_to_the_surface_cell — and since \
+                 impl 14 the equality filter is what rests on it: the filter compares a packed cell \
+                 against the mirror, so a cell that packed differently from the surface it came from \
+                 compares unequal for ever and the wire is 284x fatter with the screen still correct",
         },
     },
     Entry {
@@ -256,7 +259,10 @@ pub const REGISTER: [Entry; 27] = [
                  scenes since impl 13 took the twelfth off red — and \
                  crate::serial::tests::the_round_trip_closes_under_every_wire_configuration, which \
                  is the sixteen combinations of the two SGR spellings, the two underline-colour \
-                 spellings, mode 2026 and OSC 8",
+                 spellings, mode 2026 and OSC 8. Impl 14 puts every scene through it four more \
+                 times: crate::gates::steady_bytes drives the filter's four configurations through \
+                 the same Harness, so a variant that skipped a cell it may not have skipped fails as \
+                 a wrong screen rather than as a small number in a report",
         },
     },
     Entry {
@@ -357,8 +363,11 @@ pub const REGISTER: [Entry; 27] = [
         qualifier: "count, an upper bound per scene",
         source: "arch 08, 16",
         state: State::Wired {
-            at: "crate::gates::wire_bytes_per_scene, twelve rows since impl 13 and re-measured on \
-                 the full §8 encoding set",
+            at: "crate::gates::wire_bytes_per_scene, twelve rows re-measured by impl 14 with the \
+                 equality filter on — six of them fell, by 1.4x to 37.7x, and the per-scene \
+                 four-column breakdown against §8's own table is \
+                 crate::gates::the_equality_filter_reproduces_spec_8s_table, which gates the one \
+                 claim that is a relation rather than a count",
         },
     },
     Entry {

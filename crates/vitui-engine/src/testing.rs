@@ -6,8 +6,7 @@
 //! [`Harness`] is the **round trip** itself (spec §8, §14): composite a frame, serialise it, replay
 //! the bytes through the terminal model, assert the replayed screen equals the frame. It stores
 //! nothing, so there is no file to review, nothing to bless and no maintenance — and a golden byte
-//! string would have pinned the encoding, which is exactly the part tickets 13, 14 and 15 are going
-//! to change. It lives here rather than in [`crate::roundtrip`] because
+//! string would have pinned the encoding, which is exactly the part ticket 15 has still to change. It lives here rather than in [`crate::roundtrip`] because
 //! [`crate::gates`] drives spec §14's twelve scenes through the same instrument, and a second copy
 //! of it was a second copy that could quietly assert less: the first draft of the scene gates
 //! checked the replayed screen and forgot the mirror.
@@ -339,17 +338,37 @@ impl Harness {
 
     /// Resize the screen, and the terminal with it.
     ///
-    /// A real terminal that changes size clears itself, and the model is replaced for the same
-    /// reason the mirror is: a resized screen is showing something nobody recorded. Everything the
-    /// round trip asserts still has to hold on the first frame after, which is the point of driving
-    /// a resize through the harness rather than through `Screen` alone.
+    /// **The terminal keeps its cells, because a real one does.** It reflows on `SIGWINCH`, it does
+    /// not clear, and this harness used to assert the opposite: it replaced the model with a fresh
+    /// blank one, which agreed with a fresh `Mirror` by construction. That agreement was the
+    /// pretence, and it was harmless only while every cell of a resized screen was written
+    /// unconditionally — which is exactly what the equality filter ends. A cell the new frame wants
+    /// blank, that a fresh mirror also believes blank, and that the terminal is still showing content
+    /// in, is the one shape the whole *unknown row* rule exists for, and a model that cleared itself
+    /// could not express it. See [`TermModel::resize`](crate::term_model::TermModel::resize) and
+    /// `crate::engine::tests::a_resize_does_not_let_the_filter_trust_a_fresh_mirror`.
+    ///
+    /// Everything the round trip asserts still has to hold on the first frame after, which is the
+    /// point of driving a resize through the harness rather than through `Screen` alone.
     pub(crate) fn resize(&mut self, w: u16, h: u16) {
         self.screen.resize(w, h);
-        self.term = TermModel::new(w, h);
-        // A fresh model beside a fresh mirror: they agree by construction, so nothing is stale.
+        self.term.resize(w, h);
+        // Nothing is stale: `stale` is about a sweep having moved the handles under the model, and a
+        // resize moves no handle. The mirror's own rows are all unknown, which is a different fact
+        // and is the serializer's to act on rather than this instrument's to skip.
         self.stale = vec![false; h as usize];
         // The bytes already written described the old screen; nothing after this replays them.
         self.replayed = self.recording.lock().unwrap().bytes.len();
+    }
+
+    /// Drive this harness's frames through one of the filter configurations that lost.
+    ///
+    /// See [`crate::serial::Filter`]. It goes through the harness rather than around it so that
+    /// every configuration of the instrument is still driven through the round trip: a variant that
+    /// merged a gap it may not have merged fails here rather than in a byte count nobody reads.
+    pub(crate) fn with_filter(mut self, filter: crate::serial::Filter) -> Harness {
+        self.screen.set_filter(filter);
+        self
     }
 
     /// Name what this harness is driving, so a failure says which of twelve scenes it was.
@@ -462,33 +481,57 @@ impl Harness {
         }
     }
 
-    /// The mirror must agree with the frame everywhere.
+    /// **Everything the mirror claims to know must be what the frame says.**
     ///
-    /// What this buys is the cells the frame *wrote*: a mirror that missed an update, or recorded
-    /// the wrong style, fails here. What it does not buy is the cells nobody touched — a fresh
-    /// mirror and a fresh frame are both blank, so those match by construction.
+    /// What this buys is the cells the frame *wrote*: a mirror that missed an update, or recorded the
+    /// wrong style, fails here. What it cannot buy is the cells nobody has written, and since impl 14
+    /// it says so rather than passing them vacuously — a mirror that does not know a cell holds
+    /// `Cell::UNKNOWN`, which is not the blank the frame holds there, so an unconditional walk would
+    /// fail on every screen whose layers do not cover it.
     ///
-    /// [`stale`](Harness::stale) rows are skipped, for the reason
-    /// [`assert_screen_matches_frame`](Harness::assert_screen_matches_frame) states at length: after
-    /// a sweep the mirror holds handles that have moved, which is the whole of what `Packet::repaint`
-    /// is about. Before the first sweep on a harness nothing is stale and this walk covers everything
-    /// unconditionally, exactly as it did before ticket 08.
+    /// The skip is therefore **per cell and not per row**, and it replaces what
+    /// [`stale`](Harness::stale) used to do here: a sweep marks the whole mirror unknown, so after one
+    /// every cell is skipped until the serializer writes it again. The difference is not cosmetic — a
+    /// stale row was skipped *whole*, and a cell the serializer re-emitted after a sweep is checked
+    /// now.
+    ///
+    /// # The one window where nothing can be said, and it is not the same window as `stale`
+    ///
+    /// Between a sweep running and the frame that carries its flag, the handles have already moved and
+    /// the mirror has not been told: it says it knows cells whose handles name entries that have gone
+    /// somewhere else. Nothing about it can be compared to the frame, per cell or otherwise — so the
+    /// guard is the flag itself rather than a per-row record of it. It is exactly `repaint_pending`,
+    /// and it closes on the next `pack`, which is the same event `Mirror::forget` hangs off.
     fn assert_mirror_matches_frame(&self) {
+        if self.screen.repaint_pending() {
+            return;
+        }
         let (w, h) = self.screen.size();
         let frame = self.screen.frame();
         for y in 0..h {
-            if self.stale[y as usize] {
-                continue;
-            }
             for x in 0..w {
+                let Some(mirrored) = self.screen.mirror().known_cell(x, y) else {
+                    continue;
+                };
                 assert_eq!(
-                    self.screen.mirror().cell(x, y),
+                    mirrored,
                     frame.row(y)[x as usize],
                     "{}the mirror and the composited frame disagree at ({x}, {y})",
                     self.label
                 );
             }
         }
+    }
+
+    /// What the replayed terminal is showing at `(x, y)`, for a test that wants to name one cell
+    /// rather than compare a screen.
+    ///
+    /// `None` for a cell holding a cluster rather than a scalar, which is every caller's cue that it
+    /// is asking the wrong question: the round trip inside [`present`](Harness::present) compares
+    /// whole cells and is the assertion that matters. This is for saying out loud what a fixture
+    /// depends on.
+    pub(crate) fn terminal_glyph(&self, x: u16, y: u16) -> Option<char> {
+        self.term.cell(x, y).grapheme.as_scalar()
     }
 
     /// Bytes the **frames** have written, which is the session's total less the prologue.

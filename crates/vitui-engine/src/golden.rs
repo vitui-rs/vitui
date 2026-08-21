@@ -3,7 +3,7 @@
 //! The round trip ([`crate::testing::Harness`]) checks that the bytes replay to the frame. It
 //! cannot check that the frame was the **right picture**, and that is a golden's whole job — which
 //! is also why goldens are secondary here rather than primary: a golden byte string would pin the
-//! encoding, and the encoding is exactly the part tickets 13, 14 and 15 are going to change.
+//! encoding, and the encoding is exactly the part ticket 15 has still to change.
 //!
 //! Four properties of the format are load-bearing (spec §14):
 //!

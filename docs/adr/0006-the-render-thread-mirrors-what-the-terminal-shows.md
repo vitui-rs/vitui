@@ -60,3 +60,28 @@ every candidate that matches the probe, because a screen with repeating rows tur
 
 **Memory is 384 KiB against a surface's 375 KiB.** It doubles what the engine holds per screen. That
 is the price and it is stated here so it is not rediscovered as a regression.
+
+## Amendment — 2026-08-21, engine impl 14
+
+**Unknown is per cell, not per row.** This document said *rows are marked unknown at startup and after
+a resize, and a row marked unknown is emitted whole rather than filtered*, and engine impl 08 built
+exactly that: a flag per row, set when one frame had written every column of it. Impl 14 built the
+filter the flag exists for, measured it over spec §14's twelve scenes, and found the filter **worth
+nothing at all on eleven of them** — a row at three hundred columns is almost never written whole by
+one frame, because a dialog is sixty columns wide and a list draws its rows and not the gutter beside
+them, so every row stayed unknown for ever.
+
+Nothing above changes except the granularity. The property is the same sentence with a smaller subject:
+*never compare against what the mirror does not know*, and a cell becomes known when the serializer
+emits it.
+
+It costs no bitset and no branch, because the unknown state is a **value** rather than a flag: a cell
+whose grapheme is the `EMPTY` sentinel, which no composited frame cell can hold — the frame is opaque
+so its ground is a blank, and a non-opaque layer's `EMPTY` cells are skipped rather than copied. So the
+comparison the filter already makes is false wherever the mirror does not know, and the false
+*equality* this document warns about is unreachable by construction rather than by remembering to
+consult a flag.
+
+Two consequences: invalidating the whole mirror is now a 384 KiB fill rather than an eighty-byte one,
+which is a fraction of the one full frame spec §3 already prices a renumbering sweep at; and *row*
+survives as a question asked of the cells, for the scroll region, which records an exposed row whole.

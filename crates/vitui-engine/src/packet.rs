@@ -41,8 +41,7 @@
 //! The render thread must hold no handle into an engine table (ADR 0011), so at pack time every
 //! handle a cell carries is resolved into a side table **the packet owns**, keyed by the handle
 //! rather than written into the cell. The cell is copied byte for byte, which is what keeps a packed
-//! cell byte-identical to the surface cell — and that is what makes ticket 14's equality filter
-//! exact. Writing an arena offset into the cell instead would make an unchanged cell compare unequal
+//! cell byte-identical to the surface cell — and that is what makes the equality filter exact. Writing an arena offset into the cell instead would make an unchanged cell compare unequal
 //! whenever the frame's damage changes shape, measured at **284x in bytes** on five steady frames.
 //!
 //! The dedup is a `HashMap` reused across frames, which is not the shape ADR 0011 measured: it names
