@@ -424,7 +424,7 @@ fn wire_bytes_per_scene() {
         assert!(
             bytes <= *budget,
             "{name}: {bytes} bytes over {FRAMES} frames, bound is {budget}. \
-             The bound is impl 13's own measurement, so this is a regression rather than drift."
+             The bound is impl 14's own measurement, so this is a regression rather than drift."
         );
     }
 }
@@ -433,7 +433,8 @@ fn wire_bytes_per_scene() {
 // Impl 14 — what the equality filter is worth, and why it carries no threshold.
 // ---------------------------------------------------------------------------------------------
 
-/// **Report.** §8's own table, reproduced over the twelve scenes rather than quoted.
+/// **Gate, and the report beside it.** §8's own table, reproduced over the twelve scenes rather than
+/// quoted.
 ///
 /// Four columns and one relation. `span` is no filter at all, which is what impl 13 shipped;
 /// `strict` compares and never merges a gap; `gap 6` merges any gap of at most six columns, which is
@@ -451,9 +452,13 @@ fn wire_bytes_per_scene() {
 fn the_equality_filter_reproduces_spec_8s_table() {
     /// How far over the better fixed threshold the byte-priced rule may land, in per cent.
     ///
-    /// §8 says one. Measured on this implementation the worst scene is the sub-cell chart, for the
-    /// reason `SGR_FLOOR` states: the floor underestimates the SGR a merged gap really costs, so a
-    /// gap merge can overshoot, and the chart is the scene with the most gaps.
+    /// **§8 says one, and measured here the rule needs none of it**: `chosen` equals
+    /// `min(strict, gap 6)` exactly on all twelve scenes, because none of them produces a gap the two
+    /// rules disagree about. The one is kept rather than tightened to zero, because overshooting *is*
+    /// possible and the direction is written at `SGR_FLOOR`: the floor underestimates the SGR a merged
+    /// gap really costs, so a scene with expensive gaps can pay a few bytes for one — §8's own chart
+    /// lands 42 bytes over `strict` for exactly that reason. Tightening this to an equality would make
+    /// it a gate about §14's scene list rather than about the rule.
     const SLACK_PERCENT: usize = 1;
     const COLUMNS: [(&str, Filter); 4] = [
         ("span", Filter::Off),

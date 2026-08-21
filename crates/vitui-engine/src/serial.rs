@@ -560,9 +560,15 @@ impl Serializer {
     ///
     /// Both halves of §8's gap merge, because they are one mechanism seen twice: the columns inside a
     /// run that the filter skipped, and the columns between two runs that the packet never carried.
-    /// The second is what takes the three dialogs from 1 491 bytes to 1 203, and it is the only place
-    /// this file emits a cell the packet does not carry — see [`price_gap`](Serializer::price_gap)
-    /// for the two conditions that fence it.
+    /// The second is the only place this file emits a cell the packet does not carry — see
+    /// [`price_gap`](Serializer::price_gap) for the two conditions that fence it.
+    ///
+    /// §8 credits it with taking the three dialogs from 1 491 bytes to 1 203. **That scene cannot show
+    /// it here**, because §14's `three-dialogs-apart` rewrites every cell of all three dialogs with a
+    /// new counter and a new colour every frame and so has no unchanged column to bridge; §8's dialogs
+    /// had a live status bar. What it is worth on §14's list is 160 bytes a scene on the three rows
+    /// that do produce gaps, and the mechanism is pinned directly by
+    /// `tests::two_runs_on_one_row_are_bridged_out_of_the_mirror`.
     fn consider_gap(
         &mut self,
         row: &Row<'_>,
