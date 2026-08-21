@@ -216,12 +216,18 @@ frame wrote every column of it, and at three hundred columns almost nothing does
 twelve scenes that left eleven of them with every row unknown for ever and the **equality filter**
 worth nothing at all. It costs no flag and no branch, because unknown is a *value*: the `EMPTY`
 sentinel, which no composited frame cell can hold, so a frame cell never compares equal to one. *Row*
-survives as a question asked of the cells, and the **scroll region** is what asks it.
+survives as a question asked of the cells, and what asks it is an **invariant** rather than a
+precondition: after a verified scroll the mirror knows every row of the band it moved. The **scroll
+region** was expected to ask it as a precondition and does not — its two obligations need the cell, for
+the same reason the filter does, and a row query over the row a scroll *exposes* is stricter than the
+obligation and forfeits the scroll it was meant to guard.
 
 **Equality filter** — comparing each damaged cell against the **mirror** inside the run scan, and
 emitting only what actually changed. Always on: damage area does not predict whether it pays, and the
 intuition is inverted — a full-screen change damages 24 000 cells and buys nothing, a cleared-row list
-scroll damages the same 24 000 and buys 37x.
+scroll damages the same 24 000 and buys 37x. It is the **same comparison** the scroll region's first
+obligation makes, which is why a frame that takes the scroll path pays for the pass once: the pre-pass
+hands the filter the rows it has already proved.
 
 **Gap merge** — repainting the cells between two changes rather than moving the cursor over them,
 **priced in bytes** because that is the unit the wire is measured in: the clusters' UTF-8 lengths plus
@@ -232,9 +238,24 @@ rule bridges two **runs** on one row through the columns between them, which are
 but are in the mirror.
 
 **Scroll region** — the terminal's own ability to move a band of rows, addressed as top and bottom
-margins plus a count. Cheaper than repainting the band by two orders of magnitude, applicable only
-when moving *every* column of the band produces what the frame asked for, and therefore emitted only
-after that has been checked against the mirror.
+margins plus a count. Cheaper than repainting the band by an order of magnitude or two — a steady frame
+of a scrolling list is 20 bytes against 643 — applicable only when moving *every* column of the band
+produces what the frame asked for, and therefore emitted only after that has been **verified** against
+the mirror. Not guessed: the filter behind the pre-pass can only emit cells the **packet** carries, and
+the packet carries damaged cells only, so a wrong guess loses exactly the columns nothing can put back.
+
+**Band** — the rows a scroll moves and the rows it exposes, taken as the first and last rows on which
+the frame differs from the **mirror**. One band and one shift are verified per frame, never every
+candidate a probe matched: a screen whose rows repeat matches many times over, and verifying each of
+them was a 27x regression. The two things verified are called **obligations** — that every row the
+scroll moves already holds, in the mirror, what the frame wants where it lands, and that every row the
+scroll exposes is blank in every column the frame does not repaint. The second is checked first,
+because it is a handful of rows against the whole band and it is the one that fails.
+
+Where the band is the whole screen the margins are not set at all, because the region a terminal starts
+in *is* the screen. **Horizontal** margins are a different matter and are deliberately not used: they
+are not in tier 1's confirmed set, and the verification above would turn an unsupported margin into
+silent corruption rather than a wasted escape.
 
 **Shortest** — the cursor encoding the engine ships, and the only one: absolute positioning, absolute
 column, relative forward, carriage return, and carriage return plus line feeds, **priced by digit

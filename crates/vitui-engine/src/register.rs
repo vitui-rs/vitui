@@ -363,11 +363,14 @@ pub const REGISTER: [Entry; 27] = [
         qualifier: "count, an upper bound per scene",
         source: "arch 08, 16",
         state: State::Wired {
-            at: "crate::gates::wire_bytes_per_scene, twelve rows re-measured by impl 14 with the \
-                 equality filter on — six of them fell, by 1.4x to 37.7x, and the per-scene \
-                 four-column breakdown against §8's own table is \
-                 crate::gates::the_equality_filter_reproduces_spec_8s_table, which gates the one \
-                 claim that is a relation rather than a count",
+            at: "crate::gates::wire_bytes_per_scene, twelve rows re-measured by impl 15 with the \
+                 scroll region on — four fell again, by 2.2x to 2.6x over three frames and by 30x \
+                 to 85x on the one frame of the three that is a steady scroll, and two of the four \
+                 are scenes §8 did not name. The per-scene four-column breakdown against §8's own \
+                 table is crate::gates::the_equality_filter_reproduces_spec_8s_table, measured with \
+                 the pre-pass off so that it stays a claim about the filter, and \
+                 crate::gates::which_of_spec_14s_twelve_the_scroll_region_reaches is the same twelve \
+                 with it on",
         },
     },
     Entry {

@@ -85,3 +85,42 @@ consult a flag.
 Two consequences: invalidating the whole mirror is now a 384 KiB fill rather than an eighty-byte one,
 which is a fraction of the one full frame spec §3 already prices a renumbering sweep at; and *row*
 survives as a question asked of the cells, for the scroll region, which records an exposed row whole.
+
+## Amendment — 2026-08-21, engine impl 15
+
+**The scroll region is not the reader the amendment above predicted, and it is the reader of something
+else.** That amendment kept `is_known` as a row query on the strength of two callers, one of them *the
+scroll region, which records an exposed row whole*. Impl 15 built it and half of that is right: an
+exposed row **is** recorded whole, in `Mirror::scroll`, because `SU` has no horizontal margins and the
+terminal therefore erases every column of what it exposes. What is wrong is that the scroll region
+**asks** the row question. It does not, and it must not:
+
+- **Obligation 1**, over the rows a scroll moves, needs per-cell knowledge for the same reason the
+  filter does. What the frame wants in an undamaged column is what the mirror holds there, so the
+  question is asked through `known_cell` per column, fused into the comparison the obligation was
+  already making. A row query over the band would be a second pass over a screen for a fact the first
+  pass already carries.
+- **Obligation 2**, over the rows a scroll exposes, would be *made wrong* by it. `is_known` over the
+  row demands that the columns the frame **repaints** be known too, and the obligation does not: the
+  terminal is about to erase them and the frame is about to write them. On the scene this optimisation
+  exists for, the frame repaints every column of the exposed row — so a row query there forfeits
+  exactly the scroll it is guarding. That is the amendment above arriving a second time, from the
+  other side: *the row is the wrong granularity for a screen no single frame writes whole.*
+
+So the row question survives with a different shipping reader, and it is a better one because it is an
+**invariant rather than a precondition**. After a verified scroll the mirror knows *every row of the
+band*: obligation 1 held over every column of every row moved, so each destination row inherits
+knowledge rather than a hole, and each exposed row is a blank the terminal wrote. That is what keeps
+the *next* frame's filter sound, it is not trivially true — a narrower obligation 1 would break it
+without breaking any other test — and it is asked as a `debug_assert!` in `Serializer::emit_scroll`.
+`Screen::known_rows` remains the other reader, gating `Packet::repaint`.
+
+Nothing above changes. The mirror is still per-cell, unknown is still a value rather than a flag, and
+the sentence this document is named for is untouched.
+
+**And the ordering the scroll rests on is now checked rather than argued.** The paragraph above says a
+terminal erases what it exposes with the *current* background and that the frame has already reset SGR
+by then, so background-colour-erase and erase-to-default agree. The terminal model erases with the
+style it is actually holding, so a serializer that ever emitted `SU` under a live SGR would produce a
+cell the mirror records as blank and the model records as coloured, and the round trip would fail. The
+argument did not need a capability query; it does need an instrument, and it has one.

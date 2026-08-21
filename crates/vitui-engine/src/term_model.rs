@@ -21,11 +21,17 @@
 //! | `CHA` — `CSI x G`, `CUF` — `CSI n C`, `CR`, `LF` | ticket 13 |
 //! | `SGR 58`/`59`, in both spellings, and `OSC 8` | ticket 13 |
 //! | `DECAWM` — `CSI ?7 h`/`l`, and mode 2026 — `CSI ?2026 h`/`l` | ticket 13 |
+//! | `DECSTBM` — `CSI t;b r`, `SU` — `CSI n S`, `SD` — `CSI n T` | ticket 15 |
 //!
-//! Not parsed yet, each with the ticket that adds it: `DECSTBM`, `SU`, `SD` (15); the pending-wrap
-//! state (15, and only reachable if auto-wrap is ever switched back on inside a session). An
-//! unrecognised sequence is counted rather than ignored, so a serializer that starts emitting one
-//! before this model understands it fails the round trip instead of passing it silently.
+//! Not parsed yet, with the ticket that adds it: the pending-wrap state (only reachable if auto-wrap
+//! is ever switched back on inside a session, which nothing plans to do). An unrecognised sequence is
+//! counted rather than ignored, so a serializer that starts emitting one before this model
+//! understands it fails the round trip instead of passing it silently.
+//!
+//! **`DECSLRM` (mode 69) is deliberately absent from both sides.** The serializer does not query it
+//! and does not use it — spec §15 is where that question lives — and a model that quietly accepted it
+//! would let a serializer start relying on horizontal margins without anything saying so. `CSI ?69 h`
+//! is therefore an unrecognised private mode here, and the round trip fails on it.
 //!
 //! Auto-wrap is off for the lifetime of the alt screen, so this model does not wrap: a print in the
 //! last column leaves the cursor in the last column. The state is **tracked** rather than assumed
@@ -104,6 +110,13 @@ pub(crate) struct TermModel {
     /// is a defect and is counted.
     sync_open: bool,
     sync_blocks: usize,
+    /// The `DECSTBM` band, inclusive and zero-based. The whole screen until something says otherwise,
+    /// which is what a terminal starts in and what `CSI r` puts it back to.
+    ///
+    /// **Tracked rather than assumed**, because the serializer omits the two escapes when the band it
+    /// wants is the screen: a model that took the whole screen for granted would agree with a
+    /// serializer that had set a region and forgotten to reset it.
+    region: (u16, u16),
     /// Bytes of a sequence that was cut in half by a partial write.
     buf: Vec<u8>,
     /// Sequences this model does not understand. The round trip asserts it is zero.
@@ -126,6 +139,7 @@ impl TermModel {
             autowrap: true,
             sync_open: false,
             sync_blocks: 0,
+            region: (0, height.saturating_sub(1)),
             buf: Vec::new(),
             unrecognised: 0,
             widths: WidthOpinion::default(),
@@ -184,6 +198,9 @@ impl TermModel {
         self.cells = cells;
         self.width = width;
         self.height = height;
+        // A terminal resets the scrolling region on a resize, and so does this: a band that named
+        // rows the screen no longer has is not a band.
+        self.region = (0, height.saturating_sub(1));
         self.cursor = (
             self.cursor.0.min(width.saturating_sub(1)),
             self.cursor.1.min(height.saturating_sub(1)),
@@ -289,6 +306,10 @@ impl TermModel {
             // The DEC private modes: `?7` is auto-wrap and `?2026` is synchronised output. Both are
             // parsed so that the serializer cannot emit one this model silently accepts.
             b'h' | b'l' => self.private_mode(params, final_byte == b'h'),
+            // `DECSTBM`, and the scroll the region exists for.
+            b'r' => self.decstbm(params),
+            b'S' => self.scroll(true, first(params).max(1)),
+            b'T' => self.scroll(false, first(params).max(1)),
             _ => self.unrecognised += 1,
         }
         Some(end + 1)
@@ -373,6 +394,69 @@ impl TermModel {
             (x.max(1) - 1).min(self.width.saturating_sub(1) as u32) as u16,
             (y.max(1) - 1).min(self.height.saturating_sub(1) as u32) as u16,
         );
+    }
+
+    /// `CSI Pt ; Pb r` — the scrolling region, one-based and inclusive, and `CSI r` to put it back.
+    ///
+    /// **Homes the cursor**, which is what a real `DECSTBM` does and what the serializer therefore
+    /// may not assume anything after. A band with no room to scroll is refused rather than applied,
+    /// and counted: it is not a sequence anything should be emitting.
+    fn decstbm(&mut self, params: &[u8]) {
+        let p = split_params(params);
+        let at = |i: usize| p.get(i).and_then(|v| v.first().copied()).unwrap_or(0);
+        let top = if at(0) == 0 { 1 } else { at(0) };
+        let bot = if at(1) == 0 {
+            u32::from(self.height)
+        } else {
+            at(1)
+        };
+        if top >= bot || bot > u32::from(self.height) {
+            self.unrecognised += 1;
+            return;
+        }
+        self.region = ((top - 1) as u16, (bot - 1) as u16);
+        self.cursor = (0, 0);
+    }
+
+    /// `SU` and `SD`: move the region's rows and erase what that exposes.
+    ///
+    /// **Erased with the style the terminal is currently holding**, which is background-colour-erase
+    /// and is the honest model of it. The serializer emits a scroll only after the frame's own
+    /// `SGR 0`, so the cells this writes are `Cell::BLANK` and agree with what the mirror records —
+    /// and a serializer that ever emitted one under a live SGR would disagree with the mirror by a
+    /// background colour and fail the round trip. That ordering is the whole of why the scroll
+    /// pre-pass needs no capability query.
+    fn scroll(&mut self, up: bool, by: u32) {
+        let (top, bot) = self.region;
+        let w = self.width as usize;
+        if w == 0 || bot < top {
+            return;
+        }
+        let band = bot - top + 1;
+        // Clamped rather than refused: a scroll of more than the region is a region full of blanks on
+        // any terminal, and `by` is a parameter off the wire rather than something this file chose.
+        let by = by.min(u32::from(band)) as u16;
+        let row = |y: u16| y as usize * w;
+        if by < band {
+            if up {
+                for y in top..=bot - by {
+                    self.cells.copy_within(row(y + by)..row(y + by) + w, row(y));
+                }
+            } else {
+                for y in (top + by..=bot).rev() {
+                    self.cells.copy_within(row(y - by)..row(y - by) + w, row(y));
+                }
+            }
+        }
+        let erased = Cell::new(GraphemeId::SPACE, self.style);
+        let exposed = if up {
+            bot + 1 - by..=bot
+        } else {
+            top..=top + by - 1
+        };
+        for y in exposed {
+            self.cells[row(y)..row(y) + w].fill(erased);
+        }
     }
 
     fn sgr(&mut self, params: &[u8]) {

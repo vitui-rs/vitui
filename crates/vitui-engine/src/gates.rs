@@ -19,6 +19,7 @@
 //! what it now covers. That is the design and not something to gate against, so every gate below
 //! builds, presents once, and starts measuring at the frame after.
 
+use crate::caps::Overrides;
 use crate::damage::Run;
 use crate::engine::Screen;
 use crate::geom::Rect;
@@ -73,7 +74,7 @@ fn staged_with(scene: &mut dyn Scene, filter: Filter) -> Harness {
 /// trip: a variant that skipped a cell it may not have skipped fails as a wrong screen here rather
 /// than as a suspiciously small number in a report.
 fn steady_bytes(scene: &mut dyn Scene, filter: Filter) -> usize {
-    let mut h = staged_with(scene, filter);
+    let mut h = staged_with(scene, filter).without_scroll_region();
     let before = h.bytes_written();
     for t in 1..=FRAMES {
         scene.step(&mut h.screen, t);
@@ -325,48 +326,58 @@ fn the_round_trip_closes_on_every_scene() {
 /// **An upper bound, and the bound is the measurement.** A byte count has no noise — it is a byte
 /// count on any machine, which is the whole argument for the register's shape — so there is no
 /// headroom to add and nothing to be flaky about. An improvement passes; a regression fails; and
-/// the numbers are meant to fall, because tickets 13, 14 and 15 exist to make every one of them
-/// smaller, and only 15 is left — and the one that ends up gating the *filter's* own arithmetic is
-/// [`the_equality_filter_reproduces_spec_8s_table`], which is a relation rather than these counts.
+/// the numbers were meant to fall, because tickets 13, 14 and 15 existed to make every one of them
+/// smaller. **All three have now run, and §8 is on the wire in full.** The one that gates the
+/// *filter's* own arithmetic is [`the_equality_filter_reproduces_spec_8s_table`], which is a relation
+/// rather than these counts, and it is measured with the scroll pre-pass **off** so that it stays a
+/// statement about the filter.
 ///
 /// Moving a number up is allowed and costs a commit that does three things: states the new number,
 /// states the measurement it came from, and replaces the provenance line below. What may **not**
 /// move without a new map decision is a budget figure, and none of these is one.
 ///
-/// Provenance: measured by **impl 14** on 2026-08-21, Apple M1 Max, rustc 1.97.1, over
+/// Provenance: measured by **impl 15** on 2026-08-21, Apple M1 Max, rustc 1.97.1, over
 /// [`FRAMES`] steady frames after the birth frame, at 300x80, with the full §8 encoding set —
-/// `shortest`, the differential SGR, SGR 58/59, OSC 8 — **and the equality filter with its gap
-/// merge**. The scroll region (impl 15) is still to come. It replaces impl 13's line, which was taken
-/// with no filter at all.
+/// `shortest`, the differential SGR, SGR 58/59, OSC 8 — the equality filter with its gap merge, **and
+/// the scroll region.** Nothing about §8 is deferred now. It replaces impl 14's line, which was taken
+/// without the scroll region.
 ///
-/// **Six of the twelve fell, by between 1.4x and 37.7x, and six did not move at all.** The per-scene
-/// four-column breakdown is [`the_equality_filter_reproduces_spec_8s_table`], and the split between
-/// the two halves is the result worth reading:
+/// **Four of the twelve fell again, by between 2.2x and 2.6x over the three frames, and eight did not
+/// move at all** — the pre-pass emits nothing it has not verified, so a screen with no shift in it
+/// pays the probe and nothing else.
 ///
-/// | | |
-/// |---|---|
-/// | `scrolling-list-rows-cleared` | 72 504 → **1 925**, 37.7x |
-/// | `virtualised-tree` | 10 104 → **2 005**, 5.0x |
-/// | `table-as-list-and-bar-chart` | 18 744 → **6 118**, 3.1x |
-/// | `scrolling-list-label-only` | 5 304 → **1 925**, 2.8x |
-/// | `progress-bar-one-percent` | 336 → **138**, 2.4x |
-/// | `caret-blink` | 43 → **30**, 1.4x |
+/// | | three frames | the last frame, which is the only steady scroll |
+/// |---|---|---|
+/// | `table-as-list-and-bar-chart` | 6 118 → **2 778** | 1 695 → **20**, 84.8x |
+/// | `virtualised-tree` | 2 005 → **761** | 643 → **21**, 30.6x |
+/// | `scrolling-list-rows-cleared` | 1 925 → **679** | 643 → **20**, 32.1x |
+/// | `scrolling-list-label-only` | 1 925 → **679** | 643 → **20**, 32.1x |
 ///
-/// The other six are **1.00x, and every one of them is a scene in which every damaged cell genuinely
-/// changes every frame.** `full-screen-change` and `every-cell-a-distinct-style` say so in their
-/// names. `three-dialogs-apart` and `twenty-popups-with-shadows` write a frame counter into their
-/// labels *and* cycle a foreground colour, so no cell survives a frame unchanged.
-/// `sparse-chart-400-points` moves all four hundred points every frame.
+/// **The three-frame column understates it by more than an order of magnitude, and that is the whole
+/// of §8's two-figures problem.** `step(1)` paints eighty labels onto the blank screen the scene's
+/// `build` left behind, so the first of the three frames is a second birth frame with no scroll in it
+/// and it is most of what the row costs. The per-frame figure is the one the optimisation is about;
+/// the three-frame figure is the one this budget gates, because every other row here is counted the
+/// same way. Both are printed by [`which_of_spec_14s_twelve_the_scroll_region_reaches`].
 ///
-/// **And `hyperlinked-page-under-an-animating-operator` is 876 624 bytes still, which refutes what
-/// impl 13 wrote about it.** That ticket's Progress says *impl 14 is where it comes back — the page's
-/// text does not change between frames, so nearly every one of those bytes is a re-emission of a cell
-/// the mirror already holds.* The text does not change and the **style word does**: the scene's own
-/// subject is a *fading* operator, so every cell of every frame resolves to a different colour, and
-/// the filter compares whole cells because §3's cell is what the terminal shows. A filter that
-/// compared glyphs alone would have "brought this row back" by putting the wrong colours on the
-/// screen. The row stays `REPORTED_NOT_GATED` in `examples/budget.rs` at the ratio impl 13 measured,
-/// and what would actually reduce it is the scroll region or nothing.
+/// Impl 14's split still holds for the rest of the list. The six that the filter moved were
+/// `scrolling-list-rows-cleared` (37.7x), `virtualised-tree` (5.0x), `table-as-list-and-bar-chart`
+/// (3.1x), `scrolling-list-label-only` (2.8x), `progress-bar-one-percent` (2.4x) and `caret-blink`
+/// (1.4x); the other six are **1.00x under the filter and 1.00x under the scroll region too**, and
+/// every one of them is a scene in which every damaged cell genuinely changes every frame.
+/// `full-screen-change` and `every-cell-a-distinct-style` say so in their names. `three-dialogs-apart`
+/// and `twenty-popups-with-shadows` write a frame counter into their labels *and* cycle a foreground
+/// colour, so no cell survives a frame unchanged. `sparse-chart-400-points` moves all four hundred
+/// points every frame.
+///
+/// **And `hyperlinked-page-under-an-animating-operator` is 876 624 bytes still, which closes what impl
+/// 13 wrote about it and impl 14 half-answered.** Impl 13's Progress said *impl 14 is where it comes
+/// back*; impl 14 found that the text does not change and the **style word does**, because the scene's
+/// own subject is a *fading* operator, so every cell of every frame resolves to a different colour.
+/// Impl 14 then wrote that *what would actually reduce it is the scroll region or nothing*, and the
+/// answer is **nothing**: a fade changes every row, so no row lands where another one was and the
+/// probe finds nothing to verify. The row stays `REPORTED_NOT_GATED` in `examples/budget.rs` at the
+/// ratio impl 13 measured.
 ///
 /// Two entries are the reason the gate exists at all. **`every-cell-a-distinct-style` is 1.4 MB for
 /// three frames** — the adversarial page, which is what set the synchronised-output time limit — and
@@ -374,14 +385,14 @@ fn the_round_trip_closes_on_every_scene() {
 /// walking the grid instead of the runs would blow up by 284x without changing a pixel.
 const WIRE_BUDGET: [(&str, usize); 12] = [
     ("caret-blink", 30),
-    ("scrolling-list-label-only", 1_925),
-    ("scrolling-list-rows-cleared", 1_925),
+    ("scrolling-list-label-only", 679),
+    ("scrolling-list-rows-cleared", 679),
     ("twenty-popups-with-shadows", 30_354),
     ("three-dialogs-apart", 6_564),
     ("sparse-chart-400-points", 8_009),
     ("progress-bar-one-percent", 138),
-    ("virtualised-tree", 2_005),
-    ("table-as-list-and-bar-chart", 6_118),
+    ("virtualised-tree", 761),
+    ("table-as-list-and-bar-chart", 2_778),
     ("full-screen-change", 72_519),
     ("every-cell-a-distinct-style", 1_367_431),
     ("hyperlinked-page-under-an-animating-operator", 876_624),
@@ -427,6 +438,374 @@ fn wire_bytes_per_scene() {
              The bound is impl 14's own measurement, so this is a regression rather than drift."
         );
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Impl 15 — the scroll region, verified before a byte is emitted.
+// ---------------------------------------------------------------------------------------------
+
+/// **Gate, and the finding beside it.** §8's two arms of the same list, at the numbers this round
+/// trip actually produces.
+///
+/// §8's table is *label only* refused at 4 305 bytes against *rows cleared, as a widget must* at 180,
+/// and calls the difference a performance contract on the component library. **Both halves of that
+/// come out differently here, and only one of them is about the mechanism.**
+///
+/// The ratio is real and larger than §8's, once it is asked of the right frame. §8's *180* and its
+/// *1 726 → 60* are the same claim counted over three frames and over one, and neither is the number
+/// [`WIRE_BUDGET`] holds: the first steady frame of these scenes is a **second birth frame** — the
+/// scene's `build` adds a layer and draws nothing, so `step(1)` paints eighty labels onto a blank
+/// screen and no scroll exists yet. So this gate reports the three-frame total that the budget gates
+/// and asserts the ratio on **the last frame**, which is the only one of the three that is a steady
+/// scroll. See the ticket's own resolution of §8's two figures, filed as a finding against §8.
+///
+/// What is **not** reproducible on §14's list is the refusal. `scrolling-list-label-only` writes a
+/// twenty-column label onto a row that is *blank past it*, so what the frame wants on row `y`
+/// genuinely is what the mirror holds on row `y + 1` — the scroll is legitimate and is taken. §8's
+/// label-only arm was a list whose rows had content past the label, and that content belongs to the
+/// screen row rather than to the item. The two arms differ here in **damage** and not in what the
+/// pre-pass may do with them, and both scroll.
+///
+/// That is filed rather than fixed, for §14's own reason — adding a thirteenth scene to make an arm
+/// refuse is measuring the fixture — and the conclusion is executed one level down instead:
+/// `crate::roundtrip::a_list_whose_tail_does_not_scroll_with_its_labels_is_refused` is §8's label-only
+/// arm as §8 wrote it, and it is refused.
+#[test]
+fn the_scroll_region_over_spec_8s_two_arms() {
+    /// What the pre-pass has to be worth on the one frame of the three that is a steady scroll.
+    /// §8's own ratio is 5 160 → 180 counted over three frames, which is 28.7x.
+    const WORTH: usize = 20;
+
+    /// Three steady frames of one scene, and the last of them on its own.
+    fn arms(scene: &mut dyn Scene, scroll: bool) -> (usize, usize, (usize, usize)) {
+        let mut h = staged(scene);
+        if !scroll {
+            h = h.without_scroll_region();
+        }
+        let before = h.bytes_written();
+        let mut last_at = before;
+        for t in 1..=FRAMES {
+            last_at = h.bytes_written();
+            scene.step(&mut h.screen, t);
+            h.present();
+        }
+        (
+            h.bytes_written() - before,
+            h.bytes_written() - last_at,
+            h.scrolls(),
+        )
+    }
+
+    println!(
+        "\n  {:<32} {:>18} {:>18}   win",
+        "scene", "filtered (3f, last)", "+ scroll (3f, last)"
+    );
+    let mut arm_totals = Vec::new();
+    for name in ["scrolling-list-rows-cleared", "scrolling-list-label-only"] {
+        let pick = || {
+            wired()
+                .into_iter()
+                .find(|s| s.name() == name)
+                .expect("§14's twelve are the wired list")
+        };
+        let (flat, flat_last, _) = arms(&mut *pick(), false);
+        let (total, last, (scrolls, verifies)) = arms(&mut *pick(), true);
+        println!(
+            "  {name:<32} {:>18} {:>18}   {:.1}x on the last frame  ({scrolls} scrolls, \
+             {verifies} verified)",
+            format!("{flat}, {flat_last}"),
+            format!("{total}, {last}"),
+            flat_last as f64 / last.max(1) as f64
+        );
+        // FRAMES - 1: `step(1)` paints a blank screen and there is no scroll to find in it.
+        assert_eq!(
+            scrolls,
+            FRAMES as usize - 1,
+            "{name}: every steady frame of a one-row scroll is a scroll, and the frame that paints \
+             the list onto a blank screen is not one"
+        );
+        assert_eq!(
+            verifies,
+            FRAMES as usize - 1,
+            "{name}: one candidate a frame and never more — §8's 27x regression was verifying every \
+             candidate that matched the probe"
+        );
+        assert!(
+            last * WORTH <= flat_last,
+            "{name}: the scroll region took the last frame from {flat_last} bytes to {last}, under \
+             {WORTH}x. What it buys is a band of rows moved instead of rewritten."
+        );
+        arm_totals.push((flat, total));
+    }
+
+    // **The finding, as a gate.** §8 has the two arms 24x apart after the filter and one of them
+    // refused by the pre-pass. Here they are *equal* on both, and that is not a defect: the two arms
+    // of a list that is blank past its label produce the same screen and leave the same mirror, so
+    // nothing distinguishes them for either mechanism — only for the damage structure, where the
+    // cleared arm is 13.7x more span bytes (72 504 against 5 304, printed by
+    // `the_equality_filter_reproduces_spec_8s_table`) and 15x more damaged cells. Filed against §8,
+    // and what the contract on `Surface` says had to change with it.
+    assert_eq!(
+        arm_totals[0], arm_totals[1],
+        "the two arms differ in damage and in nothing the filter or the pre-pass can see. If they \
+         have come apart, one of the two scenes has changed what it draws rather than only how."
+    );
+}
+
+/// **Report.** Which of §14's twelve the scroll region reaches, and what it is worth on the one frame
+/// of the three that is a steady scroll.
+///
+/// **Four of the twelve, and two of them are a surprise.** The two list arms are what §8 named. The
+/// **virtualised tree** and the **table as a list and a bar chart** both scroll too, and neither is
+/// on §8's list of what this optimisation is for — a tree that scrolls its rows and a table that
+/// scrolls its body are the same shape as a log pane, and the pre-pass finds them without being told.
+/// That is the result worth reading here: the mechanism generalises past the scene it was cut for.
+///
+/// The other eight take nothing, and every one of them is a screen with no shift in it: a caret does
+/// not move a row, a progress bar does not, twenty popups do not, and a full-screen churn has no row
+/// that lands where another one was. **Not one of them is made worse on the wire** — the pre-pass
+/// emits nothing it has not verified — and in time they pay the probe and nothing else: measured
+/// against the same run without the pre-pass, `full-screen-change` moves 393.8 µs to 395.4 µs and
+/// `twenty-popups-with-shadows` 321.1 to 322.2. What the pre-pass does cost, it costs on the four
+/// scenes it *finds* something on, and the figures for those are in
+/// `examples/budget.rs`'s `REPORTED_NOT_GATED`.
+///
+/// A report rather than a gate, for [`WIRE_BUDGET`]'s own reason inverted: the counts *are* gated,
+/// there, per scene. What is not gated is which scenes they belong to, because that is a fact about
+/// §14's list rather than about the pre-pass.
+#[test]
+fn which_of_spec_14s_twelve_the_scroll_region_reaches() {
+    println!(
+        "\n  {:<44} {:>10} {:>10} {:>7}   scrolls",
+        "scene", "filtered", "+ scroll", "win"
+    );
+    for name in wired().iter().map(|s| s.name()) {
+        let pick = || {
+            wired()
+                .into_iter()
+                .find(|s| s.name() == name)
+                .expect("the name came from this list")
+        };
+        let last = |scroll: bool| {
+            let mut scene = pick();
+            let mut h = staged(&mut *scene);
+            if !scroll {
+                h = h.without_scroll_region();
+            }
+            let mut at = h.bytes_written();
+            for t in 1..=FRAMES {
+                at = h.bytes_written();
+                scene.step(&mut h.screen, t);
+                h.present();
+            }
+            (h.bytes_written() - at, h.scrolls().0)
+        };
+        let (flat, _) = last(false);
+        let (scrolled, scrolls) = last(true);
+        println!(
+            "  {name:<44} {flat:>10} {scrolled:>10} {:>6.1}x   {scrolls}",
+            flat as f64 / scrolled.max(1) as f64
+        );
+    }
+}
+
+/// **Gate, and it reproduces §8's 27x rather than quoting it.** A screen whose rows repeat matches the
+/// probe many times over, and verifying each of them turned a 38 µs frame into 1.03 ms.
+///
+/// The fixture is two full-width row patterns that swap places every frame, with **one row pinned by a
+/// layer the frame never redraws**, so that the shift the band's edge row attests to is not the shift
+/// the band actually took. The probe matches at every odd distance in both directions — some eighty
+/// candidates — and every one of them is refused: the pinned row is inside the rows a short scroll
+/// *moves*, where obligation 1 refuses it after walking half the band, and inside the rows a long one
+/// *exposes*, where obligation 2 refuses it because an undamaged row holding content is not one the
+/// terminal may erase.
+///
+/// **Pinned by an undamaged row, and that is what makes the two arms comparable.** The first draft
+/// pinned it by redrawing it, and the rejected arm then *found a real scroll* at a distance of 41 —
+/// legitimately, because at that distance the pinned row falls among the exposed ones and every
+/// exposed row was being repainted. §8 says as much in a clause that is easy to read past: *taking the
+/// first match forfeits a scroll that could in principle have been found.* It also emits, which moves
+/// the mirror, which makes the two arms diverge in state and the count ratio between them meaningless.
+/// So the fixture forfeits nothing and the arms differ only in **work**.
+///
+/// **Two arms, and the second one is the version that lost.** `Harness::verifying_every_match` is §8's
+/// rejected pre-pass, reachable from a test and from nowhere else — the same argument [`Filter`] makes
+/// for the three gap rules that lost. Without it this gate could only assert that the shipping
+/// version is *fast*, and the first draft did exactly that and was **vacuous**: this fixture's frame is
+/// a full-screen change, so the pre-pass is 15 µs of 400 and any headroom that survives a shared
+/// runner's noise also survives a forty-candidate loop. §8's 27x was measured on a 38 µs frame. A
+/// cliff you cannot construct is a cliff you cannot gate.
+///
+/// So the property is gated as a **count ratio between the two arms**, which is exact, and the frame
+/// time is reported beside it with both arms' numbers. That is this backlog's own rule — *a gate is a
+/// count, a ratio, an equality or a compile outcome; a timing is a report* — applied to the one
+/// acceptance line that asked for a timing.
+///
+/// **Measured: 10 candidates against 800, and 410 µs against 967 µs a frame in release.** The ratio is
+/// 2.4x rather than §8's 27x and the reason is the denominator, not the mechanism: this fixture
+/// rewrites its whole screen every frame, so the frame the pre-pass sits inside is 410 µs where §8's
+/// was 38. The numerator is the number worth reading — §8 measured the rejected version at **1.03 ms**
+/// and this measures it at **967 µs**, both of which are a full-screen frame budget spent on candidates
+/// that were all going to be refused.
+///
+/// It is not one of §14's twelve and does not belong on that list: it discriminates nothing about
+/// damage, compositing or the wire, and exists only because this mechanism has a cliff. Prior art is
+/// impl 11's pairing invariant, two sections up, for the same reason.
+#[test]
+fn a_repeating_rows_screen_verifies_one_candidate_a_frame() {
+    /// How many more candidates §8's rejected version must be caught verifying before this gate is
+    /// satisfied. It verifies one per *matching* distance and the fixture matches at every odd one,
+    /// so the real figure is around forty; the bound is where a version that had quietly gone back to
+    /// verifying a handful would still fail.
+    const CLIFF: usize = 10;
+    /// Frames timed per arm, after the warm-up.
+    const SAMPLES: u32 = 8;
+    /// The row that does not join in, which is what makes every matching candidate a wrong one.
+    const PINNED: u16 = H / 2;
+
+    let patterns: [String; 2] = [
+        std::iter::repeat_n('-', W as usize).collect(),
+        std::iter::repeat_n('=', W as usize).collect(),
+    ];
+    let arm = |every: bool| {
+        let h = Harness::with_overrides(W, H, Overrides::default()).labelled("repeating-rows");
+        let mut h = if every { h.verifying_every_match() } else { h };
+        let id = h
+            .screen
+            .layers()
+            .add_content(0, Rect::new(0, 0, W, H), true);
+        // The pinned row, on a layer of its own so that the frame below can leave it alone. Painted
+        // once: it is damaged on the birth frame and never again, which is what puts it beyond both
+        // obligations rather than only one.
+        let pin = h
+            .screen
+            .layers()
+            .add_content(1, Rect::new(0, i32::from(PINNED), W, 1), true);
+        h.screen
+            .layers()
+            .view(pin)
+            .expect("the layer is still there")
+            .text(0, 0, &patterns[0], Style::new());
+        let draw = |h: &mut Harness, t: u32| {
+            let mut v = h
+                .screen
+                .layers()
+                .view(id)
+                .expect("the layer is still there");
+            for y in (0..H).filter(|y| *y != PINNED) {
+                v.text(
+                    0,
+                    i32::from(y),
+                    &patterns[(u32::from(y) + t) as usize % 2],
+                    Style::new(),
+                );
+            }
+        };
+        draw(&mut h, 0);
+        h.present();
+        // Warm: the first steady frame is the one that touches every page of the mirror.
+        for t in 1..=2 {
+            draw(&mut h, t);
+            h.present();
+        }
+        let at = std::time::Instant::now();
+        for t in 3..3 + SAMPLES {
+            draw(&mut h, t);
+            // `Screen::present` rather than the harness's: the round trip's two full-screen
+            // comparisons are an order of magnitude more work than the frame they check, and this
+            // arm is a stopwatch. The round trip over the same fixture is the `present` calls above.
+            h.screen.present();
+        }
+        let us = at.elapsed().as_secs_f64() * 1e6 / f64::from(SAMPLES);
+        (us, h.scrolls())
+    };
+
+    let (ours, (scrolls, verifies)) = arm(false);
+    let (theirs, (also_none, every)) = arm(true);
+    // One candidate a frame, on every frame after the birth one — a fresh mirror knows nothing, so
+    // there is no candidate in the first frame at all.
+    let frames = (SAMPLES + 2) as usize;
+    println!(
+        "\n  a repeating-rows screen, {SAMPLES} frames an arm:\n  \
+         one candidate: {verifies} verified over {} frames, {ours:.1} us a frame\n  \
+         every match  (§8's rejected version): {every} verified, {theirs:.1} us a frame, \
+         {:.2}x\n  Report on the times; the count ratio is the gate.",
+        SAMPLES + 3,
+        theirs / ours,
+    );
+    assert_eq!(
+        scrolls, 0,
+        "the pinned row means no shift is the shift, so nothing may go out"
+    );
+    assert_eq!(
+        also_none, 0,
+        "and the rejected version does not find one either — it only pays more to say so, which is \
+         what makes this a pure regression rather than a trade"
+    );
+    assert_eq!(
+        verifies, frames,
+        "one candidate a frame. This is the property: the probe returns an `Option`, so there is one \
+         candidate to verify or none"
+    );
+    assert!(
+        every >= verifies * CLIFF,
+        "the arm that verifies every match got through {every} candidates against {verifies}, under \
+         {CLIFF}x. That arm is §8's rejected version, and if it is no longer expensive then this \
+         fixture has stopped being a repeating-rows screen and the gate is measuring nothing."
+    );
+}
+
+/// **Gate, absence — with the positive half that makes the absence mean something.** `DECSLRM` is not
+/// queried and not used.
+///
+/// Mode 69 would lift `SU`'s lack of horizontal margins and let a pane scroll without owning the
+/// columns beside it. It is deliberately not taken: it is not in tier-1's confirmed set, and the
+/// verification the pre-pass rests on would turn an unsupported margin into **silent corruption**
+/// rather than into a wasted escape — the terminal would apply `SU` to the whole width while the
+/// pre-pass had proved something about a band of it. **Spec §15 is where the question lives**, and
+/// nothing in the serializer depends on the answer.
+///
+/// **The first draft of this gate was two absences and nothing else, which is vacuous** in exactly the
+/// shape this backlog has a section about: it was green with the pre-pass switched off, green over an
+/// empty wire, and green with `emit_scroll` deleted. An absence is only worth asserting over a wire
+/// that had the chance to carry the thing. So the positive half is here: the scrolls the serializer
+/// counts and the `SU`/`SD` finals on the wire must agree per scene, and some scene must have put one
+/// there — which also gates the counter every other test in this section reads against the bytes it
+/// claims to be counting.
+#[test]
+fn a_scroll_reaches_the_wire_and_never_asks_for_horizontal_margins() {
+    let mut total = 0usize;
+    for mut scene in wired() {
+        let name = scene.name();
+        let mut h = staged(&mut *scene);
+        for t in 1..=FRAMES {
+            scene.step(&mut h.screen, t);
+            h.present();
+        }
+        let wire = h.wire();
+        assert!(
+            !wire.windows(6).any(|w| w == b"\x1b[?69h"),
+            "{name}: something asked for mode 69"
+        );
+        let finals: Vec<u8> = crate::serial::csi_finals(&wire).collect();
+        assert!(
+            !finals.contains(&b's'),
+            "{name}: something set horizontal margins"
+        );
+        // The positive half, per scene: what the serializer says it did is what is on the wire.
+        let (scrolls, _) = h.scrolls();
+        assert_eq!(
+            finals.iter().filter(|b| matches!(b, b'S' | b'T')).count(),
+            scrolls,
+            "{name}: the scroll count and the wire disagree"
+        );
+        total += scrolls;
+    }
+    assert!(
+        total > 0,
+        "no scene put a scroll on the wire at all, so the two absences above were asserted over a \
+         wire that never had the chance to carry a margin"
+    );
 }
 
 // ---------------------------------------------------------------------------------------------

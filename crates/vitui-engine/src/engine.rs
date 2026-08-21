@@ -741,6 +741,29 @@ impl Screen {
         self.serializer.set_filter(filter);
     }
 
+    /// Serialise this screen's frames with the scroll pre-pass off: §8's *filtered* column, which is
+    /// the arm its *+ scroll region* column is a ratio against. See
+    /// [`Serializer::set_scroll_region`](crate::serial::Serializer::set_scroll_region).
+    #[cfg(test)]
+    pub(crate) fn set_scroll_region(&mut self, on: bool) {
+        self.serializer.set_scroll_region(on);
+    }
+
+    /// Serialise the way §8 rejected: verify every candidate the probe matches rather than the first.
+    /// The instrument its 27x is reproduced with. See
+    /// [`Serializer::set_verify_every_match`](crate::serial::Serializer::set_verify_every_match).
+    #[cfg(test)]
+    pub(crate) fn set_verify_every_match(&mut self, on: bool) {
+        self.serializer.set_verify_every_match(on);
+    }
+
+    /// How many of this screen's frames put a scroll on the wire, and how many candidates were
+    /// verified to get there. The second is the count §8's 27x regression is gated by.
+    #[cfg(test)]
+    pub(crate) fn scrolls(&self) -> (usize, usize) {
+        (self.serializer.scrolls(), self.serializer.verifies())
+    }
+
     #[cfg(test)]
     pub(crate) fn mirror(&self) -> &crate::serial::Mirror {
         self.serializer.mirror()

@@ -229,6 +229,22 @@ const FULL_SCREEN: [&str; 5] = [
 /// inline round against a budget written for the app thread's share, and the headroom they appear
 /// to have left is not the headroom the shipped engine has.
 ///
+/// **Impl 15 is what makes that sentence load-bearing rather than cautious, and it added a fourth
+/// row.** The scroll region reads the band it is about to move — twice, once for what the frame wants
+/// and once for what the terminal shows — so it is *screen*-proportional on a frame that damaged very
+/// little, and all of it is render-thread work by construction: the mirror is render-thread state
+/// (ADR 0006) and nothing above the packet can see it. Measured on this machine, the pre-pass costs
+/// **+0.6 µs on `scrolling-list-rows-cleared`** and **+41 µs on `scrolling-list-label-only`** for the
+/// same 623 bytes removed from the wire, and the difference between those two figures is the whole of
+/// it: where the damage is dense, obligation 1 and the equality filter are the *same* comparison and
+/// the frame pays for it once, because the pre-pass hands the filter the rows it has already proved.
+/// Where the damage is sparse there is nothing to hand over and the band is read for its own sake.
+///
+/// That is the right trade and it is not a close one, in either direction. 623 bytes on a 4 MB/s link
+/// is 156 µs of transmission against 41 µs of a thread that has 16.6 ms and nothing else to do —
+/// and on anything slower than a local pty it is not 4x but a hundred. It is the same argument §8
+/// makes for running the equality filter always, with the same shape of number.
+///
 /// The runner matters too, and the two this repository has differ: the local GitLab runner is this
 /// same machine in a container and reproduces these numbers within a few percent, while the GitHub
 /// workflow's `ubuntu-latest` is a shared runner nobody here has measured. Gating at 1.1x of a
@@ -239,9 +255,15 @@ const FULL_SCREEN: [&str; 5] = [
 /// that moves serialization off the app thread, and only then is there a number the budget is
 /// about. Nothing here is silently absent.
 const REPORTED_NOT_GATED: [(&str, &str); 4] = [
-    ("every-cell-a-distinct-style", "1 ms, full-screen: ~1.04x"),
-    ("table-as-list-and-bar-chart", "100 us, typical: ~1.8x"),
-    ("virtualised-tree", "100 us, typical: ~3.6x"),
+    ("every-cell-a-distinct-style", "1 ms, full-screen: ~1.2x"),
+    (
+        "table-as-list-and-bar-chart",
+        "100 us, typical: over budget at ~1.05x — impl 15's scroll pre-pass reads the band",
+    ),
+    (
+        "virtualised-tree",
+        "100 us, typical: over budget at ~1.14x — impl 15's scroll pre-pass reads the band",
+    ),
     (
         "hyperlinked-page-under-an-animating-operator",
         "1 ms, full-screen: over budget at ~1.3x — impl 13's own OSC 8 is why",
@@ -255,19 +277,31 @@ const REPORTED_NOT_GATED: [(&str, &str); 4] = [
 /// timing cliff this map actually met was 4.88x, 27x, 37x or 284x. A budget figure is also the one
 /// class of number that may not be moved without a new map decision.
 ///
-/// Provenance: **impl 04**, 2026-08-20, Apple M1 Max, rustc 1.97.1, `--release`, unloaded, minimum
-/// of forty rounds. Impl 03's numbers are the lineage: 154 us for a full screen and 81 ns for a
-/// caret on a bare screen.
+/// Provenance: **impl 15**, 2026-08-21, Apple M1 Max, rustc 1.97.1, `--release`, unloaded, minimum
+/// of forty rounds. It replaces impl 04's line, which was taken before the equality filter and the
+/// scroll region put the serializer's real work inside `present`. Impl 03's numbers are the lineage:
+/// 154 us for a full screen and 81 ns for a caret on a bare screen.
 ///
 /// | gated at 1 ms                 |         | gated at 100 us              |          |
 /// |-------------------------------|---------|------------------------------|----------|
-/// | `scrolling-list-rows-cleared` | 127 us  | `caret-blink`, 40 layers     | 313 ns   |
-/// | `twenty-popups-with-shadows`  | 140 us  | `progress-bar-one-percent`   | 768 ns   |
-/// | `full-screen-change`          | 161 us  | `scrolling-list-label-only`  | 16.3 us  |
-/// |                               |         | `three-dialogs-apart`        | 16.6 us  |
-/// |                               |         | `sparse-chart-400-points`    | 18.0 us  |
+/// | `scrolling-list-rows-cleared` |  87 us  | `caret-blink`, 40 layers     | 422 ns   |
+/// | `twenty-popups-with-shadows`  | 322 us  | `progress-bar-one-percent`   | 1.01 us  |
+/// | `full-screen-change`          | 395 us  | `sparse-chart-400-points`    | 23.3 us  |
+/// |                               |         | `three-dialogs-apart`        | 36.7 us  |
+/// |                               |         | `scrolling-list-label-only`  | 61.7 us  |
 ///
-/// The worst headroom gated here is 5.6x, on the sparse chart.
+/// The worst headroom gated here is **1.6x, on `scrolling-list-label-only`**, and it is the thinnest
+/// this list has ever been. Impl 15 took that scene from 21.0 µs to 61.7 µs: the scroll pre-pass reads
+/// the band it is about to move, which is *screen*-proportional on a frame that damaged 1 600 cells of
+/// 24 000. **It stays gated.** The number passes, and a scene moved onto [`REPORTED_NOT_GATED`] because
+/// its author expects a shared runner to be slower is a gate switched off in advance — which is the
+/// failure §14 names, arriving through the door marked *exemption* rather than the one marked
+/// *budget figure*. If a runner does fail it, that is a measurement and not a surprise, and the answer
+/// is impl 18 rather than this list.
+///
+/// Every figure above is the whole inline round — composite, pack, serialise and write — against a
+/// budget written for the app thread's share of it, which is why [`REPORTED_NOT_GATED`] exists at all
+/// and why impl 18 is what turns these into numbers the budget is actually about.
 fn the_two_budget_gates(report: &Report) {
     for (case, _) in report.rows().collect::<Vec<_>>() {
         if let Some((_, note)) = REPORTED_NOT_GATED.iter().find(|(n, _)| *n == case) {

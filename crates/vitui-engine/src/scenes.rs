@@ -286,7 +286,15 @@ impl Scene for CaretBlink {
 ///
 /// Two scenes, one implementation, because the difference between them **is** the property: the
 /// label-only arm rewrites a 20-column label and nothing else; the cleared arm blanks the whole row
-/// first, which is what makes the scroll region worth having.
+/// first.
+///
+/// **What that difference turned out to discriminate is damage and only damage.** §8 expected the
+/// cleared arm to be the one the scroll region could use; impl 15 measured both taking it, and taking
+/// it to the same byte — because the two arms draw the *same screen* and leave the same mirror, and
+/// neither the equality filter nor the scroll pre-pass can see how the damage was marked. What the
+/// pair still discriminates, and nothing else on the list does as sharply, is the span-damage cliff:
+/// 5 304 bytes against 72 504 with no filter, which is 13.7x for an identical picture. The trade a
+/// component author reads is on `Surface`.
 struct ScrollingList {
     layer: Option<LayerId>,
     clear_rows: bool,
@@ -324,7 +332,7 @@ impl Scene for ScrollingList {
 
     fn decided(&self) -> &'static str {
         if self.clear_rows {
-            "the scroll region: 1 726 -> 60 bytes; 34.5 us of packing (arch 08)"
+            "the scroll region: 643 -> 20 bytes a steady frame; 34.5 us of packing (arch 08)"
         } else {
             "span damage against the equality filter, 1.84x (arch 08)"
         }

@@ -42,10 +42,40 @@ use crate::view::View;
 /// it is a different one, because by then the two writes have already collapsed into the one cell the
 /// frame ends up holding.
 ///
-/// The consequence runs the other way too and is stated in §8: **`clear`-then-draw is load-bearing
-/// rather than a wart to be optimised away.** A list that clears its rows before drawing them makes
-/// the unfiltered case 9x worse and the filtered case 24x better, and it is what lets the scroll
-/// region apply at all.
+/// # `clear`-then-draw is load-bearing, and what it buys is not what §8 thought
+///
+/// The consequence runs the other way too: **a component that repaints whole rows is not committing a
+/// wart to be optimised away.** §8 priced it as *9x worse unfiltered and 24x better filtered*, and
+/// measured over spec §14's own two arms of one scrolling list — one that rewrites a twenty-column
+/// label, one that blanks the whole row first — the trade is this instead:
+///
+/// | the same list, scrolled one row | damaged cells | span bytes | filtered | + scroll region |
+/// |---|---|---|---|---|
+/// | label only | 1 600 | 5 304 | 1 925 | **679** |
+/// | rows cleared, as a widget must | 24 000 | 72 504 | 1 925 | **679** |
+///
+/// So the cost is real and the benefit is not where §8 put it. Clearing the rows is **15x the damaged
+/// cells and 13.7x the span bytes**, and on the wire it is worth **nothing at all** — the equality
+/// filter and the scroll region both take the two arms to the same byte. The read for a component
+/// author is therefore not *clear your rows and win 24x*:
+///
+/// - **On the wire, either idiom is fine** for a list whose rows are blank past what it draws. The
+///   filter compares against what the terminal is showing, and the scroll region proves a shift
+///   against it; neither can see how the damage was marked.
+/// - **What clearing buys is that the guarantee holds unconditionally.** The row a scroll exposes is
+///   one the terminal *erases*, so every column of it the component does not repaint has to be a
+///   column the component wanted blank. A component that repaints its whole rectangle satisfies that
+///   always; one that repaints a label inside it satisfies it only while the rest of the row happens
+///   to be blank, and the frame it stops being blank is the frame the scroll silently stops being
+///   available. `crate::roundtrip::two_text_verbs_with_a_one_column_gap_do_not_take_the_scroll_path`
+///   is that frame.
+/// - **What it costs is app-thread time**, which is the thread under budget pressure — 34 µs of
+///   packing against 1.9 µs in §8's measurement — while the render thread has 16.6 ms and nothing
+///   else to do with it.
+///
+/// The numbers above are produced rather than quoted: `crate::gates::the_scroll_region_over_spec_8s_two_arms`
+/// and `crate::gates::the_equality_filter_reproduces_spec_8s_table` print all four columns, and the
+/// first of them gates the two arms being *equal* so that this table cannot go stale quietly.
 pub struct Surface {
     width: u16,
     height: u16,

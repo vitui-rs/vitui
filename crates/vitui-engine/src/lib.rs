@@ -64,15 +64,18 @@
 //! frame, the mirror's **unknown** state and the `repaint` flag that is the only thing a renumbering
 //! breaks, and §14's twelfth scene with the numbers it was put on the list for — 96 entries created
 //! over 120 settled frames against 11 520 over 120 fading ones, bounded thereafter by the
-//! sweep — and the whole of §8 bar one thing (tickets 13 and 14): `shortest`, the
-//! differential SGR, the two extended channels, synchronised output, and **the equality filter with
+//! sweep — and **the whole of §8** (tickets 13, 14 and 15): `shortest`, the
+//! differential SGR, the two extended channels, synchronised output, **the equality filter with
 //! the gap merge that needs no threshold** — which takes six of §14's twelve scenes down by between
 //! 1.4x and 37.7x, leaves the six in which every damaged cell genuinely changes exactly where they
 //! were, and made one decision on the way: *unknown* is per **cell** rather than per row, because per
-//! row left eleven of the twelve scenes unfilterable for ever.
+//! row left eleven of the twelve scenes unfilterable for ever — and **the scroll region, verified
+//! before a byte is emitted**, which takes a steady frame of a scrolling list from 643 bytes to 20,
+//! reaches four of the twelve rather than the two §8 named, and verifies exactly one candidate
+//! because verifying every one that matched the probe was a 27x regression.
 //!
-//! Not here yet, each with the ticket that brings it: the scroll region (15), quantisation before
-//! the mirror (17), the three threads and the frame clock (18, 19), and input (20, 21).
+//! Not here yet, each with the ticket that brings it: quantisation before the mirror (17), the three
+//! threads and the frame clock (18, 19), and input (20, 21).
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]

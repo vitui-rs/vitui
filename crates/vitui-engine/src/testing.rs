@@ -371,6 +371,30 @@ impl Harness {
         self
     }
 
+    /// Drive this harness's frames with the scroll pre-pass off.
+    ///
+    /// §8's byte table has a *filtered* column and a *+ scroll region* column, and a harness with one
+    /// arm cannot reproduce a claim about two. It goes through the harness for the reason
+    /// [`with_filter`](Harness::with_filter) does: every configuration of the instrument is still
+    /// driven through the round trip.
+    pub(crate) fn without_scroll_region(mut self) -> Harness {
+        self.screen.set_scroll_region(false);
+        self
+    }
+
+    /// Drive this harness's frames the way §8 rejected: every candidate the probe matches is
+    /// verified, not the first. **The arm its 27x is measured against**, which is what makes the
+    /// number reproducible rather than quoted.
+    pub(crate) fn verifying_every_match(mut self) -> Harness {
+        self.screen.set_verify_every_match(true);
+        self
+    }
+
+    /// How many frames took the scroll path, and how many candidates were verified to get there.
+    pub(crate) fn scrolls(&self) -> (usize, usize) {
+        self.screen.scrolls()
+    }
+
     /// Name what this harness is driving, so a failure says which of twelve scenes it was.
     pub(crate) fn labelled(mut self, label: &str) -> Harness {
         self.label = format!("{label}: ");
@@ -532,6 +556,15 @@ impl Harness {
     /// depends on.
     pub(crate) fn terminal_glyph(&self, x: u16, y: u16) -> Option<char> {
         self.term.cell(x, y).grapheme.as_scalar()
+    }
+
+    /// Every byte the **frames** have written, in order. See [`bytes_written`](Harness::bytes_written)
+    /// for why the prologue is dropped.
+    ///
+    /// For the gates that are about a sequence being *absent* from the wire — nothing else in this
+    /// crate reads the bytes back, because the terminal model is what reads them.
+    pub(crate) fn wire(&self) -> Vec<u8> {
+        self.recording.lock().unwrap().bytes[self.prologue.0..].to_vec()
     }
 
     /// Bytes the **frames** have written, which is the session's total less the prologue.

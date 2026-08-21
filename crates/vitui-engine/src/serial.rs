@@ -1,11 +1,23 @@
-//! Bytes on the wire: the mirror, the emit loop, and the differential SGR.
+//! Bytes on the wire: the mirror, the emit loop, the differential SGR, and the scroll region.
 //!
 //! # Scope
 //!
-//! Spec §8 in full: the `shortest` cursor encoding, a differential SGR with its three traps, the
-//! two extended channels, synchronised output, the mirror updated as bytes go out, and the equality
-//! filter with the gap merge that needs no threshold. The scroll region is ticket 15;
-//! **nothing else about §8 is deferred.**
+//! Spec §8 in full and **nothing about it deferred**: the `shortest` cursor encoding, a differential
+//! SGR with its three traps, the two extended channels, synchronised output, the mirror updated as
+//! bytes go out, the equality filter with the gap merge that needs no threshold, and the scroll region
+//! verified before a byte is emitted.
+//!
+//! # The scroll region, and the mirror it needs
+//!
+//! `DECSTBM` + `SU`/`SD` takes a steady frame of a scrolling list from **643 bytes to 20** — a band of
+//! rows moved instead of rewritten. It is a pre-pass and it is **verified rather than guessed**,
+//! because the filter behind it can only emit cells the packet carries and `SU` moves every column of
+//! every row in the band. See [`Serializer::scroll_prepass`], which is also where §8's rejected
+//! speculative version and its 27x candidate-verification regression are written down.
+//!
+//! It reaches four of §14's twelve — the two list arms, the virtualised tree and the table — and
+//! **two of those four are not on §8's list of what it is for.** The other eight are screens with no
+//! shift in them and pay the probe and nothing else.
 //!
 //! # The equality filter, always on, and a gap priced in bytes
 //!
@@ -78,6 +90,8 @@
 //! see [`crate::engine`]. It deletes two of cellbuf's bug-driven workarounds outright, and neither
 //! is ported: with no wrap there is no pending-wrap state and no bottom-right corner that scrolls.
 
+use std::ops::RangeInclusive;
+
 use crate::caps::Capabilities;
 use crate::cell::{Cell, GraphemeId};
 use crate::damage::Run;
@@ -146,9 +160,16 @@ use crate::style::{Color, Style, TAG_DEFAULT, TAG_INDEXED, TAG_RGB};
 /// - The mirror no longer reads as a screen of blanks before anything is drawn. That was never true of
 ///   the terminal and the flag existed to say so; now the cells say it themselves.
 ///
-/// [`is_known`](Mirror::is_known) survives as a **row** query over the cells, because two readers ask
-/// about rows: `Screen::known_rows`, which is the gate on `Packet::repaint`, and ticket 15's scroll
-/// region, which records an exposed row whole.
+/// [`is_known`](Mirror::is_known) survives as a **row** query over the cells, and impl 15 corrected
+/// which readers ask it. The amendment named the scroll region as the shipping one, and the scroll
+/// region turned out not to *ask* it: both of its obligations need per-cell knowledge, for exactly
+/// the reason the filter does — a row is the wrong granularity for a screen no single frame writes
+/// whole — and asking it of an exposed row is *stricter than the obligation*, which forfeits the
+/// scroll rather than proving it. What does ask it is the invariant on the far side: after a verified
+/// scroll the mirror knows **every row of the band**, because obligation 1 held over every column of
+/// every row moved and the terminal erased every column of every row exposed. That is a row question,
+/// it is not trivially true, and it is what keeps the next frame's filter sound. The other reader is
+/// `Screen::known_rows`, which is the gate on `Packet::repaint`.
 #[derive(Clone, Debug)]
 pub(crate) struct Mirror {
     width: u16,
@@ -188,18 +209,16 @@ impl Mirror {
     /// Whether **every cell** of row `y` records what the terminal is showing.
     ///
     /// A row query over per-cell state, and a walk rather than a flag because the two readers are
-    /// rare: `Screen::known_rows` is the gate on [`Packet::repaint`], and ticket 15's scroll region
-    /// records an exposed row whole. The filter itself asks nothing per row — see the type's own
-    /// documentation.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "the scroll region (ticket 15) is the shipping reader: it records an exposed \
-                      row whole and has to know the band it moves. Until then the row question is \
-                      only asked by `Screen::known_rows`, which is the gate on `Packet::repaint`"
-        )
-    )]
+    /// rare: `Screen::known_rows` is the gate on [`Packet::repaint`], and the scroll region asks it
+    /// of the rows a scroll would **expose** — obligation 2 of
+    /// [`Serializer::scroll_prepass`], where nothing can be said about a row the mirror does not
+    /// know. The filter itself asks nothing per row — see the type's own documentation.
+    ///
+    /// **Obligation 1 does not ask it, and that is deliberate rather than an omission.** The rows a
+    /// scroll *moves* are the whole band, so a row query over them would be a second pass over a
+    /// screen for a fact the comparison already carries: what the frame wants is read through
+    /// [`known_cell`](Mirror::known_cell), and a cell the frame wants can never equal a
+    /// [`Cell::UNKNOWN`] source. See [`Serializer::row_lands_on`].
     pub(crate) fn is_known(&self, y: u16) -> bool {
         let row = y as usize * self.width as usize;
         self.cells[row..row + self.width as usize]
@@ -207,13 +226,117 @@ impl Mirror {
             .all(|c| *c != Cell::UNKNOWN)
     }
 
+    /// The columns `lo..hi` of row `y`, as a slice.
+    ///
+    /// **The shape the scroll region's two obligations are asked in**, and the reason they are asked
+    /// in it is cost: both walk a band against a band, so a per-column accessor puts an index
+    /// calculation and a bounds check on every cell of a screen. A slice compares in one call and
+    /// vectorises; the same walk through [`cell`](Mirror::cell) measured 2.4x the frame it was
+    /// guarding.
+    fn span(&self, y: u16, lo: u16, hi: u16) -> &[Cell] {
+        let row = y as usize * self.width as usize;
+        &self.cells[row + lo as usize..row + hi as usize]
+    }
+
     /// Forget the whole screen: what [`Packet::repaint`] asks for.
     fn forget(&mut self) {
         self.cells.fill(Cell::UNKNOWN);
     }
 
+    /// Move the rows of the band `top..=bot` the way `SU`/`SD` is about to move them on the terminal,
+    /// and record the rows it exposes as **blank**.
+    ///
+    /// Blank rather than unknown, and that is exact rather than optimistic (spec §8, ADR 0006): a
+    /// terminal erases what it exposes with the *current* background, and the scroll is emitted after
+    /// the frame's own `SGR 0`, so background-colour-erase and erase-to-default agree. **The
+    /// correctness of this line is an ordering, not a capability** — and the terminal model erases
+    /// with the style it is actually holding, so a serializer that ever emitted the scroll under a
+    /// live SGR would fail the round trip rather than quietly disagree by a background colour.
+    ///
+    /// An exposed row is recorded **whole**, which is the one place the mirror gains knowledge of a
+    /// cell no byte named. That is sound for the same reason: the terminal wrote every column of it,
+    /// because `SU` has no horizontal margins.
+    /// A scroll is at least one row and always fewer than its band, which is
+    /// [`Serializer::probe`]'s own range and is what makes the arithmetic below total. There is no
+    /// clamp: [`TermModel::scroll`](crate::term_model) has one because its count arrives off the wire,
+    /// and copying that here would be a branch the caller cannot reach, documented as one it can.
+    fn scroll(&mut self, s: Scroll) {
+        let (top, bot) = s.band;
+        debug_assert!(
+            s.by >= 1 && s.by <= bot - top,
+            "a scroll of its own whole band"
+        );
+        let w = self.width as usize;
+        let row = |y: u16| y as usize * w;
+        // **Downwards runs backwards**, because a row is copied over the one below it and a forward
+        // walk would copy the row it has just written. Upwards is the mirror image and runs forwards.
+        // One `Scroll::moved` for both, reversed rather than a second range, so the range the filter
+        // is later told to skip cannot be a different one.
+        if s.up {
+            for y in s.moved() {
+                let src = row(s.source(y));
+                self.cells.copy_within(src..src + w, row(y));
+            }
+        } else {
+            for y in s.moved().rev() {
+                let src = row(s.source(y));
+                self.cells.copy_within(src..src + w, row(y));
+            }
+        }
+        for y in s.exposed() {
+            self.cells[row(y)..row(y) + w].fill(Cell::BLANK);
+        }
+    }
+
     fn set(&mut self, x: u16, y: u16, c: Cell) {
         self.cells[y as usize * self.width as usize + x as usize] = c;
+    }
+}
+
+/// A candidate scroll: the band, the direction and the distance.
+///
+/// One value rather than four arguments that travelled together through the probe, the verification,
+/// the emission and the mirror — and, while they did, **the range each of them is about was computed
+/// twice**: once where obligation 2 was checked and once where the mirror recorded it. Two
+/// computations of one range is precisely the shape a scroll optimisation gets wrong, so there is one
+/// of each here and every caller asks.
+#[derive(Clone, Copy, Debug)]
+struct Scroll {
+    /// The first and last rows of the band, inclusive.
+    band: (u16, u16),
+    /// `SU`: content moves toward the top of the band and the bottom of it is exposed. `SD` is the
+    /// mirror image.
+    up: bool,
+    /// Rows. At least one, and always fewer than the band's height — see [`Serializer::probe`].
+    by: u16,
+}
+
+impl Scroll {
+    /// The rows the scroll **moves**: what obligation 1 is about, and what the equality filter may
+    /// then skip, because obligation 1 having held over every column of them *is* the filter's answer.
+    fn moved(self) -> RangeInclusive<u16> {
+        let (top, bot) = self.band;
+        if self.up {
+            top..=bot - self.by
+        } else {
+            top + self.by..=bot
+        }
+    }
+
+    /// The rows the scroll **exposes** for the terminal to erase: what obligation 2 is about, and what
+    /// the mirror records blank.
+    fn exposed(self) -> RangeInclusive<u16> {
+        let (top, bot) = self.band;
+        if self.up {
+            bot + 1 - self.by..=bot
+        } else {
+            top..=top + self.by - 1
+        }
+    }
+
+    /// The row `y` is about to hold what this row holds now.
+    fn source(self, y: u16) -> u16 {
+        if self.up { y + self.by } else { y - self.by }
     }
 }
 
@@ -259,6 +382,26 @@ pub(crate) struct Serializer {
     /// exist so §8's *there is no threshold* is reproducible. See [`Filter`].
     #[cfg(test)]
     filter: Filter,
+    /// Whether the scroll region pre-pass runs at all. **True in a shipping build**, and switchable
+    /// from a test for the same reason [`Filter`] has three variants that lost: §8's byte table has a
+    /// *filtered* column and a *+ scroll region* column, and a table with one arm cannot reproduce a
+    /// claim about two.
+    #[cfg(test)]
+    scroll_region: bool,
+    /// Whether to keep verifying candidates after one has been refused: **§8's 27x regression**, and
+    /// the reason it is a field rather than a paragraph. See
+    /// [`verifies_every_match`](Serializer::verifies_every_match).
+    #[cfg(test)]
+    verify_every_match: bool,
+    /// How many frames took the scroll path, and how many candidates were verified to get there.
+    ///
+    /// **The second number is the gate.** §8's 27x regression was verifying every candidate that
+    /// matched the probe, and the shape of the fix is *one*, so the property is a count and not a
+    /// stopwatch — see `crate::gates::a_repeating_rows_screen_verifies_one_candidate_a_frame`.
+    #[cfg(test)]
+    scrolls: usize,
+    #[cfg(test)]
+    verifies: usize,
     /// What §10's rule has cost, in bytes, since this serializer was built.
     ///
     /// **A report, and spec §15's second owed measurement.** The rule refuses `CUF` on a row that has
@@ -286,6 +429,14 @@ impl Serializer {
             #[cfg(test)]
             filter: Filter::default(),
             #[cfg(test)]
+            scroll_region: true,
+            #[cfg(test)]
+            verify_every_match: false,
+            #[cfg(test)]
+            scrolls: 0,
+            #[cfg(test)]
+            verifies: 0,
+            #[cfg(test)]
             cha_rule_bytes: 0,
         }
     }
@@ -295,6 +446,31 @@ impl Serializer {
     #[cfg(test)]
     pub(crate) fn set_filter(&mut self, filter: Filter) {
         self.filter = filter;
+    }
+
+    /// Serialise with the scroll pre-pass off: §8's *filtered* column, which is the arm its
+    /// *+ scroll region* column is a ratio against.
+    #[cfg(test)]
+    pub(crate) fn set_scroll_region(&mut self, on: bool) {
+        self.scroll_region = on;
+    }
+
+    /// Serialise the way §8 rejected: verify every candidate the probe matches, not the first.
+    #[cfg(test)]
+    pub(crate) fn set_verify_every_match(&mut self, on: bool) {
+        self.verify_every_match = on;
+    }
+
+    /// How many frames this serializer has put a scroll on the wire for.
+    #[cfg(test)]
+    pub(crate) fn scrolls(&self) -> usize {
+        self.scrolls
+    }
+
+    /// How many candidates this serializer has verified. **One a frame at most, by construction.**
+    #[cfg(test)]
+    pub(crate) fn verifies(&self) -> usize {
+        self.verifies
     }
 
     /// Whether the mirror is compared at all. **Always, in a shipping build** — §8's *run it
@@ -308,6 +484,37 @@ impl Serializer {
     #[cfg(test)]
     fn compares(&self) -> bool {
         self.filter != Filter::Off
+    }
+
+    /// Whether the scroll pre-pass runs. **Always, in a shipping build** — it is not a capability
+    /// question: `DECSTBM` and `SU` are VT100 and VT420, everything in tier 1 has them, and what
+    /// makes the optimisation safe is the verification rather than an answer from the other end.
+    #[cfg(not(test))]
+    fn scrolls_at_all(&self) -> bool {
+        true
+    }
+
+    /// See the shipping arm above. Off is §8's *filtered* column.
+    #[cfg(test)]
+    fn scrolls_at_all(&self) -> bool {
+        self.scroll_region
+    }
+
+    /// Whether a candidate the probe matched but the obligations refused is followed by the next one.
+    ///
+    /// **Never, in a shipping build.** This is §8's 27x regression, and it is here rather than
+    /// described because a cliff quoted is a cliff nobody can re-measure: `Filter` carries the three
+    /// gap rules that lost for the same reason, and the argument is the same one — a variant no
+    /// shipping build can construct is an instrument, and a variant a caller can select is a knob.
+    #[cfg(not(test))]
+    fn verifies_every_match(&self) -> bool {
+        false
+    }
+
+    /// See the shipping arm above, which is what ships. `true` is the version §8 rejected.
+    #[cfg(test)]
+    fn verifies_every_match(&self) -> bool {
+        self.verify_every_match
     }
 
     /// How many bytes a gap may cost before [`price_gap`](Serializer::price_gap) stops walking it:
@@ -394,28 +601,24 @@ impl Serializer {
             self.mirror.forget();
         }
 
+        // The scroll region, before a cell is considered: it moves the mirror, so the filter below
+        // is comparing against where the terminal will be rather than against where it was. Nothing
+        // is emitted unless both obligations hold — see [`scroll_prepass`](Serializer::scroll_prepass).
+        //
+        // What it hands back is the rows it **settled**: obligation 1 proved every column of them
+        // equal to the mirror it has just shifted, so the filter over them is a walk that provably
+        // emits nothing. Skipping it is not an optimisation bolted on afterwards — it is what makes
+        // the pre-pass close to free, because obligation 1 and the filter are the same comparison and
+        // this is the frame paying for it once.
+        let settled = self.scroll_prepass(packet, caps);
+
         // **Rows, not runs.** A gap between two runs on one row can be bridged out of the mirror
-        // and a gap between two rows cannot, so the row is the unit the filter plans in. Runs
-        // arrive in ascending row order and are disjoint (§14's gate #2), so a row's runs are a
-        // contiguous slice of the packet and finding one is a walk rather than a sort.
-        let runs = packet.runs();
-        let cells = packet.cells();
-        let mut first = 0usize;
-        let mut at = 0usize;
-        while first < runs.len() {
-            let mut last = first;
-            let mut end = at + runs[first].len();
-            while last + 1 < runs.len() && runs[last + 1].y == runs[first].y {
-                last += 1;
-                end += runs[last].len();
+        // and a gap between two rows cannot, so the row is the unit the filter plans in.
+        for row in PacketRows::new(packet) {
+            if settled.as_ref().is_some_and(|s| s.contains(&row.y())) {
+                continue;
             }
-            let row = Row {
-                runs: &runs[first..=last],
-                cells: &cells[at..end],
-            };
             self.emit_row(&row, packet, caps);
-            first = last + 1;
-            at = end;
         }
 
         if self.frame_open {
@@ -429,6 +632,318 @@ impl Serializer {
             }
         }
         &self.out
+    }
+
+    /// The scroll region: `DECSTBM` + `SU`/`SD`, **verified before a byte is emitted**.
+    ///
+    /// A cleared-row list scroll is what this is for — `less`, `tail -f`, a file manager, every log
+    /// pane — and it is the difference between moving eighty rows and rewriting them.
+    ///
+    /// # The reasoning that was wrong, because it is the attractive one
+    ///
+    /// The first version §8 wrote was **speculative**: guess cheaply, because the filter behind the
+    /// guess compares against the mirror and repairs whatever the guess got wrong. **That is false,
+    /// and the round trip caught it within a minute.** The filter can only emit cells the packet
+    /// carries, and the packet carries damaged cells only. `SU` moves every column of every row in
+    /// the region — including the columns this frame never touched, which are exactly the ones no
+    /// later pass can put back. A screen with two text verbs and a one-column gap between them loses
+    /// that column.
+    ///
+    /// So the guess is verified, against two obligations:
+    ///
+    /// 1. Every row the scroll **moves** must already hold, in the mirror, what this frame wants on
+    ///    the row it lands on — undamaged columns included. [`row_lands_on`](Serializer::row_lands_on).
+    /// 2. Every row the scroll **exposes** must be blank in every column this frame does not
+    ///    repaint. [`exposed_row_is_clear`](Serializer::exposed_row_is_clear).
+    ///
+    /// **Obligation 2 is checked first**, because it is a handful of rows against the whole band and
+    /// it is the one that actually fails.
+    ///
+    /// # Exactly one candidate is verified
+    ///
+    /// A screen whose rows repeat — an alternating pattern, a ruled table — matches a probe many
+    /// times over, and §8 measured verifying each of them turning a 38 µs frame into **1.03 ms**: a
+    /// 27x regression that only appeared because numbers were kept per scene. Taking the first match
+    /// forfeits a scroll that could in principle have been found, and that is not worth 27x.
+    ///
+    /// The rule is structural here rather than remembered: [`probe`](Serializer::probe) returns an
+    /// `Option`, so there is one candidate to verify or none. The probe *is* obligation 1 asked of
+    /// one row — the band's own edge — which is what makes the candidate cheap to reject and means
+    /// the verification never re-derives what the probe established.
+    ///
+    /// # `SU` has no horizontal margins
+    ///
+    /// So a pane that is not the full width can only use this when the columns it does not own hold
+    /// the same thing after the shift as before it — which blank-in-both-frames is the ordinary case
+    /// of. That falls out of obligation 1 rather than being tested for: the obligation is over every
+    /// column of the row, not over the pane's.
+    ///
+    /// **`DECSLRM` (mode 69) would lift the restriction and is deliberately neither queried nor
+    /// used.** It is not in tier-1's confirmed set, and the verification above turns an unsupported
+    /// margin into *silent corruption* rather than into a wasted escape — the terminal would apply
+    /// `SU` to the whole width while this pre-pass had proved something about a band of it. Spec §15
+    /// is where that question lives, and nothing in this file depends on the answer.
+    fn scroll_prepass(
+        &mut self,
+        packet: &Packet,
+        caps: &Capabilities,
+    ) -> Option<RangeInclusive<u16>> {
+        if !self.scrolls_at_all() {
+            return None;
+        }
+        let rows = PacketRows::new(packet);
+        let (top, bot) = self.changed_band(rows)?;
+        // **One candidate, expressed as a loop that runs once.** `from` is where the probe resumes,
+        // and in a shipping build nothing resumes it: `verifies_every_match` is a constant `false`, so
+        // this compiles to a probe, a verification and a return. The loop exists because §8's
+        // rejected version is reachable from a test, which is how its 27x is *reproduced* rather than
+        // quoted — see [`Filter`] for the same argument about the gap merge.
+        let mut from = 0;
+        loop {
+            let (k, scroll) = self.probe(rows, top, bot, from)?;
+            #[cfg(test)]
+            {
+                self.verifies += 1;
+            }
+            if self.both_obligations_hold(rows, scroll) {
+                self.emit_scroll(scroll, caps);
+                return Some(scroll.moved());
+            }
+            if !self.verifies_every_match() {
+                return None;
+            }
+            from = k + 1;
+        }
+    }
+
+    /// The band a scroll could be in: the first and last rows on which this frame wants something
+    /// other than what the mirror is showing.
+    ///
+    /// `None` when fewer than two rows changed, because a band of one row has nothing to move.
+    ///
+    /// **Only a damaged row can differ**, which is what keeps this proportional to damage: an
+    /// undamaged cell is one an earlier frame left in the mirror, so what the frame wants there *is*
+    /// what the mirror says. The walk stops at the first differing cell of each row, so a scrolling
+    /// list costs a handful of comparisons a row; the worst case is a frame that damages the screen
+    /// and changes one row of it, which costs the pass the filter is about to make anyway.
+    ///
+    /// **The band is one band and it is not searched for.** A frame that scrolls a log pane *and*
+    /// changes an unrelated cell below it has a band spanning both, obligation 1 fails on the row
+    /// between them, and the scroll is forfeited where a band of the pane alone would have worked.
+    /// Narrowing it by search is verifying more than one candidate under another name, which is the
+    /// 27x this file is built around, so it is not done.
+    fn changed_band(&self, rows: PacketRows<'_>) -> Option<(u16, u16)> {
+        let mut top = None;
+        let mut bot = 0;
+        for row in rows {
+            if self.row_changed(&row) {
+                top.get_or_insert(row.y());
+                bot = row.y();
+            }
+        }
+        let top = top?;
+        (bot > top).then_some((top, bot))
+    }
+
+    /// Whether any cell this row damaged is not already on the terminal.
+    fn row_changed(&self, row: &Row<'_>) -> bool {
+        let y = row.y();
+        let mut base = 0usize;
+        for r in row.runs {
+            for (i, &cell) in row.cells[base..base + r.len()].iter().enumerate() {
+                if cell != self.mirror.cell(r.lo + i as u16, y) {
+                    return true;
+                }
+            }
+            base += r.len();
+        }
+        false
+    }
+
+    /// The next candidate at or after `from`, and its own index so a caller can ask for the one after
+    /// it.
+    ///
+    /// Candidates are numbered rather than nested, so that *resume from here* is one integer: index
+    /// `k` is a distance of `k / 2 + 1` rows, upwards on the even indices and downwards on the odd.
+    /// A distance is at least one row and at most one less than the band's height, which is what makes
+    /// [`Scroll::moved`] and [`Scroll::exposed`] total.
+    ///
+    /// Both directions at every distance, smallest first, because the common scroll is one row and
+    /// which way it went is not knowable more cheaply than asking. The edge differs per direction and
+    /// that is the whole of the asymmetry: `SU` leaves the band's **top** row holding content that was
+    /// below it, `SD` leaves the **bottom** row holding content that was above it.
+    ///
+    /// A candidate is obligation 1 asked of that one row, so a match is a fact rather than a guess and
+    /// rejecting one is cheap. Its cost is bounded by the band against the screen's width — the same
+    /// order as the verification it guards — because each candidate stops at the first column that
+    /// disagrees.
+    fn probe(&self, rows: PacketRows<'_>, top: u16, bot: u16, from: u16) -> Option<(u16, Scroll)> {
+        // Hoisted, because [`PacketRows::row`] is a walk from the front of the packet: asked inside
+        // the loop this was the band squared, and on a full-screen frame that is the whole of what a
+        // probe finding nothing costs.
+        let (top_row, bot_row) = (rows.row(top), rows.row(bot));
+        for k in from..2 * (bot - top) {
+            let scroll = Scroll {
+                band: (top, bot),
+                up: k % 2 == 0,
+                by: k / 2 + 1,
+            };
+            let edge = if scroll.up { top } else { bot };
+            let row = if scroll.up { &top_row } else { &bot_row };
+            if self.row_lands_on(row.as_ref(), edge, scroll.source(edge)) {
+                return Some((k, scroll));
+            }
+        }
+        None
+    }
+
+    /// Both obligations, in the order §8 puts them in.
+    ///
+    /// Obligation 1 walks the moved rows against a **forward cursor** over the packet rather than
+    /// looking each row up, for the reason [`probe`](Serializer::probe) hoists its two: a lookup is a
+    /// walk from the front, and one per row of a band is the band squared.
+    fn both_obligations_hold(&self, rows: PacketRows<'_>, scroll: Scroll) -> bool {
+        // Obligation 2 first: a handful of rows, and the one that actually fails.
+        for y in scroll.exposed() {
+            if !self.exposed_row_is_clear(rows, y) {
+                return false;
+            }
+        }
+        // Obligation 1, over every row the scroll moves — the probe's own row included, because
+        // skipping one row of a band is not worth a cursor that can be wrong about which.
+        let mut cursor = rows.peekable();
+        for y in scroll.moved() {
+            while cursor.peek().is_some_and(|r| r.y() < y) {
+                cursor.next();
+            }
+            let row = cursor.next_if(|r| r.y() == y);
+            if !self.row_lands_on(row.as_ref(), y, scroll.source(y)) {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// **Obligation 1.** Whether what this frame wants on row `y` is what the mirror is already
+    /// showing on row `src` — in every column, undamaged ones included.
+    ///
+    /// What the frame wants at a column is the packet's cell where the frame damaged it and the
+    /// mirror's where it did not, which is the same read the gap merge makes and for the same reason:
+    /// a cell nobody has damaged is one an earlier frame put there. So the row is walked as the
+    /// alternating spans the runs cut it into rather than column by column — see
+    /// [`Mirror::span`] for what that is worth.
+    fn row_lands_on(&self, row: Option<&Row<'_>>, y: u16, src: u16) -> bool {
+        let mut x = 0u16;
+        if let Some(row) = row {
+            let mut base = 0usize;
+            for r in row.runs {
+                if !self.undamaged_span_lands_on(y, src, x, r.lo) {
+                    return false;
+                }
+                // A damaged span is the packet's own cells against the mirror's, and the packet's
+                // cells are a frame's: nothing here can be `Cell::UNKNOWN`, so an unknown source
+                // cell fails this comparison rather than passing it.
+                if row.cells[base..base + r.len()] != *self.mirror.span(src, r.lo, r.hi + 1) {
+                    return false;
+                }
+                base += r.len();
+                x = r.hi + 1;
+            }
+        }
+        self.undamaged_span_lands_on(y, src, x, self.mirror.width)
+    }
+
+    /// The columns `lo..hi` that this frame did not damage: what it wants there is what the mirror
+    /// holds, so they land where the scroll puts them only if the two rows already agree.
+    ///
+    /// **A column the mirror does not know refuses the scroll, and it is refused explicitly.** Two
+    /// unknown cells compare *equal*, so leaving this to the comparison alone is exactly the false
+    /// equality ADR 0006 exists to make unreachable — and here it would move eighty rows of a screen
+    /// to the wrong place rather than leave one cell stale.
+    fn undamaged_span_lands_on(&self, y: u16, src: u16, lo: u16, hi: u16) -> bool {
+        let want = self.mirror.span(y, lo, hi);
+        !want.contains(&Cell::UNKNOWN) && want == self.mirror.span(src, lo, hi)
+    }
+
+    /// **Obligation 2.** Whether row `y` is one the scroll may leave the terminal to erase.
+    ///
+    /// The terminal blanks what it exposes, so every column this frame does not repaint has to be a
+    /// column the frame wants blank — and what the frame wants in an undamaged column is what the
+    /// mirror holds. A column the mirror does not know is therefore refused, by the same comparison
+    /// that refuses a column holding something: `Cell::UNKNOWN` is not `Cell::BLANK`.
+    ///
+    /// **The row question is deliberately not asked here.** [`Mirror::is_known`] over the whole row
+    /// would be cheaper to write and is *stricter than the obligation*: the columns this frame
+    /// repaints need not be known at all, and on the scene this optimisation exists for the frame
+    /// repaints every one of them. That is ADR 0006's amendment arriving a second time — the row is
+    /// the wrong granularity for a screen no single frame writes whole — and forfeiting the scroll it
+    /// is the whole point of is a worse answer than a per-cell walk.
+    fn exposed_row_is_clear(&self, rows: PacketRows<'_>, y: u16) -> bool {
+        let mut x = 0u16;
+        if let Some(row) = rows.row(y) {
+            for r in row.runs {
+                if !self.span_is_blank(y, x, r.lo) {
+                    return false;
+                }
+                x = r.hi + 1;
+            }
+        }
+        self.span_is_blank(y, x, self.mirror.width)
+    }
+
+    fn span_is_blank(&self, y: u16, lo: u16, hi: u16) -> bool {
+        self.mirror
+            .span(y, lo, hi)
+            .iter()
+            .all(|c| *c == Cell::BLANK)
+    }
+
+    /// Put the scroll on the wire and move the mirror the same way.
+    ///
+    /// **The band's escapes are skipped where the band is the screen**, because the scrolling region a
+    /// terminal starts in *is* the whole screen: `SU` alone then says exactly what `DECSTBM` + `SU` +
+    /// `DECSTBM` reset says, eleven bytes cheaper, and a scroll that is worth taking at all is usually
+    /// the whole screen. Where the band is narrower the region is set and put straight back, so
+    /// nothing outside this function ever runs against a region that is not the screen — which is what
+    /// lets `shortest` go on pricing an `LF` as a move rather than as a scroll.
+    fn emit_scroll(&mut self, scroll: Scroll, caps: &Capabilities) {
+        let (top, bot) = scroll.band;
+        self.open_frame(caps);
+        let whole_screen = top == 0 && bot == self.mirror.height - 1;
+        if !whole_screen {
+            self.out.extend_from_slice(b"\x1b[");
+            push_num(&mut self.out, u32::from(top) + 1);
+            self.out.push(b';');
+            push_num(&mut self.out, u32::from(bot) + 1);
+            self.out.push(b'r');
+        }
+        self.out.extend_from_slice(b"\x1b[");
+        if scroll.by > 1 {
+            push_num(&mut self.out, u32::from(scroll.by));
+        }
+        self.out.push(if scroll.up { b'S' } else { b'T' });
+        if !whole_screen {
+            self.out.extend_from_slice(b"\x1b[r");
+        }
+        self.mirror.scroll(scroll);
+        // **The band is fully known afterwards, and that is not free — it is obligation 1 cashed
+        // in.** Every column of every row the scroll moved had a *known* want equal to its source, so
+        // every destination row inherits knowledge rather than a hole; every row it exposed is a
+        // blank the terminal wrote. A destination row that inherited a `Cell::UNKNOWN` would be a
+        // false equality for the next frame's filter to skip, which is the one failure ADR 0006 is
+        // written to make unreachable — so the row question is asked here, where it is a row.
+        debug_assert!(
+            (top..=bot).all(|y| self.mirror.is_known(y)),
+            "a scroll left the mirror not knowing a row of the band it had just shifted"
+        );
+        // `DECSTBM` homes the cursor and `SU` does not move it, so the honest record is that nothing
+        // is known about it. It costs nothing: `open_frame` has just said the same thing, and the
+        // first cell of the frame was going to be an absolute move either way.
+        self.cursor = None;
+        #[cfg(test)]
+        {
+            self.scrolls += 1;
+        }
     }
 
     /// Write the bytes every frame opens with, once, on the first cell that actually goes out.
@@ -896,6 +1411,58 @@ enum Move {
     Feed,
 }
 
+/// A packet's damaged rows, in the shape both the filter and the scroll pre-pass need.
+///
+/// Runs arrive in ascending row order and are disjoint (§14's gate #2), so a row's runs are a
+/// contiguous slice of the packet and finding one is a walk rather than a sort. `Copy`, because the
+/// pre-pass asks the same packet three questions and each of them wants its own cursor.
+#[derive(Clone, Copy)]
+struct PacketRows<'a> {
+    runs: &'a [Run],
+    /// Every remaining run's cells, concatenated in run order: the packet's own layout.
+    cells: &'a [Cell],
+}
+
+impl<'a> PacketRows<'a> {
+    fn new(packet: &'a Packet) -> PacketRows<'a> {
+        PacketRows {
+            runs: packet.runs(),
+            cells: packet.cells(),
+        }
+    }
+
+    /// The one row `y`, or `None` where this frame damaged nothing on it.
+    ///
+    /// A walk from the front rather than a search, for the reason [`Row::at`] is a walk: the index
+    /// that would make this a lookup costs the screen's height on a frame that damaged one cell,
+    /// which is the shape the engine's own invariant forbids. Asked only by the scroll pre-pass, and
+    /// only about the rows of a band it is already walking.
+    fn row(self, y: u16) -> Option<Row<'a>> {
+        self.take_while(|r| r.y() <= y).find(|r| r.y() == y)
+    }
+}
+
+impl<'a> Iterator for PacketRows<'a> {
+    type Item = Row<'a>;
+
+    fn next(&mut self) -> Option<Row<'a>> {
+        let y = self.runs.first()?.y;
+        let mut last = 0usize;
+        let mut end = self.runs[0].len();
+        while last + 1 < self.runs.len() && self.runs[last + 1].y == y {
+            last += 1;
+            end += self.runs[last].len();
+        }
+        let row = Row {
+            runs: &self.runs[..=last],
+            cells: &self.cells[..end],
+        };
+        self.runs = &self.runs[last + 1..];
+        self.cells = &self.cells[end..];
+        Some(row)
+    }
+}
+
 /// One row of a packet: the runs that damaged it, and the cells they carry.
 ///
 /// The filter plans in rows because a gap between two runs on one row is bridgeable and a gap
@@ -1279,6 +1846,32 @@ fn push_num(out: &mut Vec<u8>, n: u32) {
     out.extend_from_slice(&buf[i..]);
 }
 
+/// The final byte of every CSI in `out`, which is what a property about *which sequences a frame
+/// spent* is counted from.
+///
+/// At module level rather than inside `tests` because two files ask: this one counts moves and style
+/// changes with it, and `crate::gates` asserts an **absence** with it — `DECSLRM` is neither queried
+/// nor used, and a second copy of this could quietly answer differently.
+#[cfg(test)]
+pub(crate) fn csi_finals(out: &[u8]) -> impl Iterator<Item = u8> {
+    let mut in_csi = false;
+    out.iter().enumerate().filter_map(move |(i, b)| {
+        if *b == 0x1b {
+            in_csi = false;
+            return None;
+        }
+        if i > 0 && out[i - 1] == 0x1b && *b == b'[' {
+            in_csi = true;
+            return None;
+        }
+        if in_csi && (0x40..=0x7E).contains(b) {
+            in_csi = false;
+            return Some(*b);
+        }
+        None
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1354,25 +1947,6 @@ mod tests {
     /// How many SGR sequences the frame spent, not counting the reset it opens with.
     fn style_changes(out: &[u8]) -> usize {
         csi_finals(out).filter(|b| *b == b'm').count() - 1
-    }
-
-    fn csi_finals(out: &[u8]) -> impl Iterator<Item = u8> {
-        let mut in_csi = false;
-        out.iter().enumerate().filter_map(move |(i, b)| {
-            if *b == 0x1b {
-                in_csi = false;
-                return None;
-            }
-            if i > 0 && out[i - 1] == 0x1b && *b == b'[' {
-                in_csi = true;
-                return None;
-            }
-            if in_csi && (0x40..=0x7E).contains(b) {
-                in_csi = false;
-                return Some(*b);
-            }
-            None
-        })
     }
 
     #[test]

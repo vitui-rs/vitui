@@ -673,3 +673,363 @@ fn a_donated_surface_of_clusters_survives_the_round_trip() {
         "the donated cell has to be extended, or the extended half is not being driven"
     );
 }
+
+// -------------------------------------------------------------------------------------------------
+// The scroll region (impl 15). Every one of these closes the round trip, which is the point: the
+// defect a scroll optimisation ships is a column nobody put back, and only a replayed screen sees it.
+// -------------------------------------------------------------------------------------------------
+
+/// The screen the scroll fixtures are written at. Small enough to read a failure, tall enough that a
+/// band has rows to move.
+const SW: u16 = 40;
+const SH: u16 = 8;
+
+/// A list whose item `n` is drawn on row `y`, blanking the row first — the idiom §8 found to be
+/// load-bearing rather than a wart.
+fn draw_list(h: &mut Harness, id: crate::layer::LayerId, top_item: u32, clear: bool) {
+    let mut v = h.screen.layers().view(id).unwrap();
+    for y in 0..SH {
+        if clear {
+            v.fill(Rect::new(0, y as i32, SW, 1), " ", Style::new());
+        }
+        v.text(
+            0,
+            y as i32,
+            &format!("row {}", top_item + u32::from(y)),
+            Style::new(),
+        );
+    }
+}
+
+/// The whole point, at its smallest: a list that scrolls one row a frame becomes one `SU` and the row
+/// it exposes.
+///
+/// Three properties in one fixture, because they are one mechanism: the pre-pass runs on every steady
+/// frame, the round trip closes on all of them, and the frame costs what a scroll costs rather than
+/// what eighty rows cost.
+#[test]
+fn a_cleared_row_list_scroll_is_one_scroll_and_the_row_it_exposes() {
+    let mut h = Harness::new(SW, SH);
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, SW, SH), true);
+    draw_list(&mut h, id, 0, true);
+    h.present();
+    let birth = h.bytes_written();
+
+    let mut frames = Vec::new();
+    for t in 1..=3 {
+        let at = h.bytes_written();
+        draw_list(&mut h, id, t, true);
+        h.present();
+        frames.push(h.bytes_written() - at);
+    }
+    let (scrolls, verifies) = h.scrolls();
+    assert_eq!(
+        scrolls, 3,
+        "every steady frame of a scrolling list is a scroll"
+    );
+    assert_eq!(verifies, 3, "one candidate a frame, never more");
+
+    // The whole band, so no `DECSTBM` and no reset: `SGR 0`, `SU`, one move, and the label of the
+    // row the scroll exposed. Against a birth frame that wrote every one of the 320 cells.
+    assert!(
+        frames.iter().all(|f| *f < 24),
+        "a scrolled frame is a scroll and one label; these cost {frames:?} bytes against a birth \
+         frame's {birth}"
+    );
+}
+
+/// **The bug that nearly shipped**, as the spec describes it: two text verbs with a one-column gap
+/// between them, and the gap is a column no later pass could put back.
+///
+/// The gap column is painted once and never repainted. A *speculative* scroll would move it up with
+/// everything else and leave the bottom one blank, and the filter behind it could not repair that
+/// because the packet does not carry the column. **Obligation 2 is what refuses it** — the row the
+/// scroll would expose is not blank in a column this frame does not repaint — which is why that
+/// obligation is checked first.
+#[test]
+fn two_text_verbs_with_a_one_column_gap_do_not_take_the_scroll_path() {
+    const GAP: u16 = 12;
+    let mut h = Harness::new(SW, SH);
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, SW, SH), true);
+    {
+        let mut v = h.screen.layers().view(id).unwrap();
+        for y in 0..SH {
+            v.text(GAP as i32, y as i32, "|", Style::new());
+        }
+    }
+    let draw = |h: &mut Harness, t: u32| {
+        let mut v = h.screen.layers().view(id).unwrap();
+        for y in 0..SH {
+            let n = t + u32::from(y);
+            v.text(0, y as i32, &format!("row {n:<7}"), Style::new());
+            v.text(
+                GAP as i32 + 1,
+                y as i32,
+                &format!("item {n:<10}"),
+                Style::new(),
+            );
+        }
+    };
+    draw(&mut h, 0);
+    h.present();
+    for t in 1..=3 {
+        draw(&mut h, t);
+        h.present();
+    }
+
+    assert_eq!(
+        h.scrolls().0,
+        0,
+        "the column between the two verbs is one no later pass could put back"
+    );
+    assert_eq!(
+        h.terminal_glyph(GAP, SH - 1),
+        Some('|'),
+        "and it is still on the terminal, on the row a scroll would have exposed"
+    );
+}
+
+/// The same list, with content past the label that the label-only idiom leaves in place.
+///
+/// **This is §8's *label only* arm and the reason it is refused**: the tail belongs to the screen row
+/// rather than to the item, so what the frame wants on row `y` is not what the mirror holds on row
+/// `y + 1`, and obligation 1 says so. §14's own `scrolling-list-label-only` is blank past its label
+/// and therefore *is* scrollable — see `crate::gates::the_scroll_region_over_spec_8s_two_arms`.
+#[test]
+fn a_list_whose_tail_does_not_scroll_with_its_labels_is_refused() {
+    let mut h = Harness::new(SW, SH);
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, SW, SH), true);
+    {
+        let mut v = h.screen.layers().view(id).unwrap();
+        for y in 0..SH {
+            v.text(10, y as i32, &format!("lane {y}"), Style::new());
+        }
+    }
+    for t in 0..=3 {
+        {
+            let mut v = h.screen.layers().view(id).unwrap();
+            for y in 0..SH {
+                v.text(
+                    0,
+                    y as i32,
+                    &format!("row {:<5}", t + u32::from(y)),
+                    Style::new(),
+                );
+            }
+        }
+        h.present();
+    }
+    assert_eq!(
+        h.scrolls().0,
+        0,
+        "the tail is the screen row's, so nothing lands where the mirror has it"
+    );
+}
+
+/// A pane narrower than the screen: the case that scrolls and the case that must not, **each of them
+/// scrolling each way.**
+///
+/// `SU` has no horizontal margins, so a scroll of a band moves every column of it. The pane may
+/// therefore scroll only where the columns it does not own hold the same thing after the shift as
+/// before it — blank in both frames being the ordinary case of that.
+///
+/// Four arms rather than two, because the two axes are independent: whether the columns beside the
+/// pane are blank decides obligation 1, and which way the list moves decides which edge of the band
+/// the probe reads and which end of it the terminal erases. A pane that scrolled forwards and not
+/// back would pass a two-arm version of this.
+#[test]
+fn a_pane_narrower_than_the_screen_scrolls_only_where_the_columns_beside_it_are_blank() {
+    const PANE: Rect = Rect::new(6, 0, 16, SH);
+
+    let run = |decorate: bool, forwards: bool| {
+        let mut h = Harness::new(SW, SH);
+        let base = h
+            .screen
+            .layers()
+            .add_content(0, Rect::new(0, 0, SW, SH), true);
+        if decorate {
+            let mut v = h.screen.layers().view(base).unwrap();
+            for y in 0..SH {
+                v.text(30, y as i32, &format!("#{y}"), Style::new());
+            }
+        }
+        let pane = h.screen.layers().add_content(1, PANE, true);
+        // Forwards is `SU` and backwards is `SD`. The same four item numbers either way, so the two
+        // arms differ in direction and in nothing else.
+        let steps: Vec<u32> = if forwards {
+            (0..=3).collect()
+        } else {
+            (0..=3).rev().collect()
+        };
+        for t in steps {
+            {
+                let mut v = h.screen.layers().view(pane).unwrap();
+                for y in 0..SH {
+                    v.fill(Rect::new(0, y as i32, 16, 1), " ", Style::new());
+                    v.text(
+                        0,
+                        y as i32,
+                        &format!("row {}", t + u32::from(y)),
+                        Style::new(),
+                    );
+                }
+            }
+            h.present();
+        }
+        h.scrolls().0
+    };
+
+    for (forwards, way) in [(true, "forwards, `SU`"), (false, "backwards, `SD`")] {
+        assert_eq!(
+            run(false, forwards),
+            3,
+            "{way}: the columns beside the pane are blank in both frames"
+        );
+        assert_eq!(
+            run(true, forwards),
+            0,
+            "{way}: the columns beside the pane belong to the screen row rather than to the item, \
+             and a scroll of the band would move them"
+        );
+    }
+}
+
+/// The other direction: a list scrolled backwards is `SD`, and it is the same mechanism.
+///
+/// The band's edge is the other one — `SD` leaves the **bottom** row holding what was above it — so
+/// this is the half of the probe the forward case never reaches.
+#[test]
+fn a_list_scrolled_backwards_takes_the_scroll_path_the_other_way() {
+    let mut h = Harness::new(SW, SH);
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, SW, SH), true);
+    for t in (0..=3).rev() {
+        draw_list(&mut h, id, t, true);
+        h.present();
+    }
+    assert_eq!(
+        h.scrolls(),
+        (3, 3),
+        "three frames back up the list, three scrolls"
+    );
+    assert_eq!(
+        h.terminal_glyph(4, 0),
+        Some('0'),
+        "and the row the scroll exposed at the top carries item 0"
+    );
+}
+
+/// The exposed row is recorded as **blank**, not as unknown, and both halves of that are asserted.
+///
+/// *Whole*, because the mirror knows every column of it afterwards even though the frame repainted
+/// only the label — a row the terminal erased is a row the terminal erased. And *blank* rather than
+/// unknown, because the blanks the frame wants beside the label then compare equal and cost nothing:
+/// recorded unknown they would all be re-emitted, which is the whole row again and is what the
+/// optimisation was for.
+#[test]
+fn the_row_a_scroll_exposes_is_recorded_blank_and_recorded_whole() {
+    let mut h = Harness::new(SW, SH);
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, SW, SH), true);
+    draw_list(&mut h, id, 0, true);
+    h.present();
+    let before = h.bytes_written();
+
+    draw_list(&mut h, id, 1, true);
+    h.present();
+    assert_eq!(h.scrolls().0, 1);
+    assert!(
+        h.screen.mirror().is_known(SH - 1),
+        "the terminal erased every column of the row it exposed, so the mirror knows every column"
+    );
+    let frame = h.bytes_written() - before;
+    assert!(
+        frame < SW as usize,
+        "the exposed row was damaged in all {SW} columns and only its label changed; the frame cost \
+         {frame} bytes"
+    );
+}
+
+/// A band narrower than the screen: `DECSTBM`, the scroll, and `DECSTBM` reset — one of each.
+///
+/// The full-screen case omits both region escapes, because the region a terminal starts in *is* the
+/// screen, so this is the only fixture that puts them on the wire at all. It is also the one that says
+/// the region is put **back**: a serializer that left it set would change what an `LF` means for every
+/// frame after, and `shortest` prices an `LF` as a move rather than as a scroll.
+#[test]
+fn a_band_narrower_than_the_screen_sets_the_region_and_puts_it_back() {
+    const TOP: u16 = 2;
+    const ROWS: u16 = 4;
+
+    let mut h = Harness::new(SW, SH);
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, SW, SH), true);
+    {
+        // Rows outside the band, painted once and never again: they are what keeps the band a band.
+        let mut v = h.screen.layers().view(id).unwrap();
+        for y in 0..SH {
+            if !(TOP..TOP + ROWS).contains(&y) {
+                v.text(0, y as i32, "static", Style::new());
+            }
+        }
+    }
+    let draw = |h: &mut Harness, t: u32| {
+        let mut v = h.screen.layers().view(id).unwrap();
+        for y in TOP..TOP + ROWS {
+            v.fill(Rect::new(0, y as i32, SW, 1), " ", Style::new());
+            v.text(
+                0,
+                y as i32,
+                &format!("row {}", t + u32::from(y)),
+                Style::new(),
+            );
+        }
+    };
+    draw(&mut h, 0);
+    h.present();
+    let before = h.wire().len();
+
+    draw(&mut h, 1);
+    h.present();
+    assert_eq!(h.scrolls(), (1, 1));
+
+    let frame = h.wire()[before..].to_vec();
+    let finals: Vec<u8> = crate::serial::csi_finals(&frame).collect();
+    assert_eq!(
+        finals.iter().filter(|b| **b == b'r').count(),
+        2,
+        "one `DECSTBM` and one reset: {:?}",
+        String::from_utf8_lossy(&frame)
+    );
+    assert_eq!(
+        finals.iter().filter(|b| **b == b'S').count(),
+        1,
+        "one scroll: {:?}",
+        String::from_utf8_lossy(&frame)
+    );
+    assert!(
+        frame.windows(3).any(|w| w == b"\x1b[r"),
+        "the region is put back, not left set: {:?}",
+        String::from_utf8_lossy(&frame)
+    );
+    assert_eq!(
+        h.terminal_glyph(0, TOP + ROWS),
+        Some('s'),
+        "and the row below the band is untouched by a scroll of it"
+    );
+}
