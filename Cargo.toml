@@ -9,6 +9,27 @@ members = [
     "crates/vitui-bench",
 ]
 
+# Every warning is a build failure, in a local `cargo build` exactly as in CI.
+#
+# **This exists because a weaker local check let a defect reach the pipeline.** CI runs under
+# `RUSTFLAGS: -D warnings`, and a plain `cargo clippy --workspace --all-targets` on a developer's
+# machine does not — so a `cfg(test)`-gated guard that orphaned two imports passed locally and failed
+# the job. The general form is the one engine ticket 16 met twice: *a check that is weaker than the
+# gate is not a check.*
+#
+# `[lints]` rather than a committed `RUSTFLAGS` in `.cargo/config.toml`, and the difference is not
+# cosmetic: `RUSTFLAGS` applies to **every** crate in the graph including dependencies, so an
+# upstream deprecation would fail our build for a reason that is not ours. `deny.toml`'s own comment
+# records that trap being hit from the other direction. A `[lints]` table applies only to the crates
+# in this workspace, which is exactly the set whose warnings are ours to fix.
+#
+# It reaches a crate only if that crate says `[lints] workspace = true`, so every manifest here does,
+# including the dev-only ones. A new crate that forgets the line is silently exempt — that is the one
+# maintenance cost, and it is why the line is in all six rather than in the ones that seemed to
+# matter.
+[workspace.lints.rust]
+warnings = "deny"
+
 [workspace.package]
 version = "0.0.0"
 edition = "2024"

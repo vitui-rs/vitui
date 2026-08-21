@@ -18,8 +18,8 @@ surprising, and both alternatives were built and priced before it was decided.
 
 ## Why
 
-`COMPONENT-HIERARCHY.md` §6 named two exits and the second was a strawman: it argued against a
-measure pass by arguing against a *trait*. A component is already a function and a function can be
+The working note this decision started from named two exits, and the second was a strawman: it argued
+against a measure pass by arguing against a *trait*. A component is already a function and a function can be
 called twice, so a **dry run** into a discard surface gives intrinsic sizing with no trait, no node
 and no retained tree. That was the opponent this decision actually had to beat.
 

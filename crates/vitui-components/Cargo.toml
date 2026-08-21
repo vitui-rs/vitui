@@ -9,3 +9,6 @@ rust-version.workspace = true
 
 [dependencies]
 vitui-runtime.workspace = true
+
+[lints]
+workspace = true

@@ -13,8 +13,13 @@ The engine is not in question. Its abstractions are the lowest in the system, ei
 wayfinder map settled them, and nothing here should reopen one. What *is* in question is everything
 above the seam, which was deliberately left as fog while the engine was being decided.
 
-The working analysis this ticket starts from is [`COMPONENT-HIERARCHY.md`](../COMPONENT-HIERARCHY.md)
-(2026-08-17). It is a note, not a decision — every claim in it is fair game.
+The working analysis this ticket started from was a note, `COMPONENT-HIERARCHY.md` (2026-08-17),
+written to find out where to dig before there was a spec to dig against. **It has been deleted, and
+what replaced it is authoritative**: the runtime's architecture is
+[`.scratch/vitui-runtime-architecture/spec.md`](../.scratch/vitui-runtime-architecture/spec.md) and
+the components' is [`.scratch/vitui-components-architecture/spec.md`](../.scratch/vitui-components-architecture/spec.md),
+with the map beside each. Nothing in the note survived that those two do not say better; where it was
+wrong, they say so and say why.
 
 This ticket is likely to produce a **wayfinder map** rather than a single answer, the way the engine
 effort did. The map's own Notes already say `vitui-runtime` and `vitui-components` are separate
@@ -129,7 +134,9 @@ this design sits on is written down rather than remembered.
 ## Progress
 
 - 2026-08-17 — opened. Working analysis in `COMPONENT-HIERARCHY.md`, with a component-library graph
-  rendered at `docs/img/component-hierarchy.png`.
+  rendered at `docs/img/component-hierarchy.png`. **The note was deleted on 2026-08-21**, superseded
+  by the two architecture specs; the entries below are the record of what it produced, not a pointer
+  to something still there.
 - 2026-08-17 — research and two proposals written, ahead of claiming the ticket. The ticket is
   confirmed to be map-shaped: it produced two maps rather than one answer.
   - `.scratch/vitui-components-architecture/research/01-component-library-survey.md` — fourteen
@@ -156,8 +163,7 @@ this design sits on is written down rather than remembered.
   Flutter, PrimeNG and yazi as sources plus the *application* vocabulary (btop, k9s, lazygit,
   ranger, mc, zellij). Catalogue is now **15 families, ~430 entries**.
   Consequences that changed a design conclusion, not just a list:
-  - `scroll_area` is a **component** (L3), and `COMPONENT-HIERARCHY.md` §2's "scroll is not a
-    component" is corrected in its new §8. It is *not* `list`: a scroll area costs its content,
+  - `scroll_area` is a **component** (L3), correcting the note's "scroll is not a component". It is *not* `list`: a scroll area costs its content,
     a virtualised list costs its visible window. New requirement C21 keeps them apart.
   - Expand/collapse is **one state machine** behind thirteen catalogue entries, so it ships as
     one helper (`collapsible`) rather than thirteen implementations.

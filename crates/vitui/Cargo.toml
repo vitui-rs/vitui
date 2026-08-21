@@ -11,3 +11,6 @@ rust-version.workspace = true
 vitui-engine.workspace = true
 vitui-runtime.workspace = true
 vitui-components.workspace = true
+
+[lints]
+workspace = true

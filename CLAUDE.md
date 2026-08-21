@@ -69,8 +69,3 @@ One ticket per session, claimed by setting `Status: claimed` before any work. Ti
 `.scratch/vitui-engine-architecture/research/`.
 
 `docs/agents/issue-tracker.md` describes the tracker conventions in full.
-
-## Language
-
-Conversation with the user is in **Russian**. Every artifact — code, comments, tickets, specs, ADRs,
-commit messages — is in **English**.

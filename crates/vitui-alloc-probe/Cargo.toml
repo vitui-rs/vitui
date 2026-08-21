@@ -9,3 +9,6 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
+
+[lints]
+workspace = true
