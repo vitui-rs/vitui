@@ -262,7 +262,7 @@ const REPORTED_NOT_GATED: [(&str, &str); 4] = [
     ),
     (
         "virtualised-tree",
-        "100 us, typical: over budget at ~1.14x — impl 15's scroll pre-pass reads the band",
+        "100 us, typical: 1.14x over on the M1, 1.3x under on the runner — the widest spread here",
     ),
     (
         "hyperlinked-page-under-an-animating-operator",
@@ -278,7 +278,10 @@ const REPORTED_NOT_GATED: [(&str, &str); 4] = [
 /// class of number that may not be moved without a new map decision.
 ///
 /// Provenance: **impl 15**, 2026-08-21, Apple M1 Max, rustc 1.97.1, `--release`, unloaded, minimum
-/// of forty rounds. It replaces impl 04's line, which was taken before the equality filter and the
+/// of forty rounds, and **confirmed on the GitLab runner by pipeline 41** — which reproduces every
+/// figure here within a few percent, except `virtualised-tree`: 113.9 µs on the M1 against 75.7 µs in
+/// the container, the widest spread on this list and the reason that row is reported with both numbers
+/// rather than one. It replaces impl 04's line, which was taken before the equality filter and the
 /// scroll region put the serializer's real work inside `present`. Impl 03's numbers are the lineage:
 /// 154 us for a full screen and 81 ns for a caret on a bare screen.
 ///
