@@ -2,14 +2,47 @@
 //!
 //! # Scope
 //!
-//! `present` composites, packs, serialises and writes into the caller's sink inline on the calling
-//! thread. That is the deterministic mode of spec §14, and it is **public API rather than test
-//! scaffolding**: an application author testing their own UI needs the same determinism the
-//! engine's tests need. A test is a straight-line program — draw, present, assert on the sink — with
-//! no condvar, no join, no timeout and no flake.
+//! [`Config::clock`] decides which of two paths `present` takes, and **only who runs the
+//! serializer differs**:
 //!
-//! The three-thread path arrives at ticket 18 and does not change a byte of what this asserts.
-//! `wait`, `next_event`, the frame clock and the caret arrive with tickets 19, 20 and 21.
+//! | | composite and pack | serialise and write |
+//! |---|---|---|
+//! | [`Clock::Manual`] | the calling thread | the calling thread, inline, before `present` returns |
+//! | [`Clock::System`] | the calling thread | the render thread, out of the mailbox |
+//!
+//! Both go through the same mailbox, the same pool of two packets and the same [`Renderer`]. That is
+//! not a tidiness: it is what makes the deterministic mode exercise the handoff rather than bypass
+//! it, and it is why nothing this ticket added can change a byte the deterministic mode asserts.
+//!
+//! The deterministic mode is **public API rather than test scaffolding** (spec §14): an application
+//! author testing their own UI needs the same determinism the engine's tests need. A test is a
+//! straight-line program — draw, present, assert on the sink — with no condvar, no join, no timeout
+//! and no flake.
+//!
+//! `wait`, `next_event`, the frame clock and the caret arrive with tickets 19, 20 and 21. Until
+//! `wait` exists there is no multiplexed parking point, so the only waiter on *the renderer is free*
+//! is [`Mailbox::wait_until_free`](crate::handoff::Mailbox::wait_until_free).
+//!
+//! # The three threads, and what each one owns
+//!
+//! | thread | blocks in | owns |
+//! |---|---|---|
+//! | **app** | one condvar | the layer stack, the canonical composite, the handle tables, the pool |
+//! | **render** | the mailbox condvar | the terminal's **write** direction, exclusively, and the mirror |
+//! | **input** | `read` on the tty | the terminal's **read** direction; writes the authoritative size |
+//!
+//! **No timer thread.** An animation is a `wait_timeout` on a condvar the app thread already owns.
+//!
+//! Terminal setup — raw mode, the alt screen and §10's capability queries, which are the only place
+//! the engine both writes *and* reads — happens entirely inside [`Engine::attach`] and **before the
+//! render thread exists**, where no concurrency does.
+//!
+//! The input thread is the one this crate had first: [`Tty::open`] spawns it, because detection has
+//! to read raw bytes with a deadline and **one thread ever reads that file descriptor**. It is held
+//! on the `Screen` rather than detached for exactly that reason. What it does not do yet is write
+//! [`TerminalSize`] — a resize arrives there as a `SIGWINCH` and reaches the application as an
+//! `Event::Resize`, and **ticket 20 owns both**. What this ticket owes and pays is the other end: the
+//! sample at frame start, the re-check at submit, and the discard.
 //!
 //! # What `attach` now does before it hands anything back
 //!
@@ -24,11 +57,13 @@ use std::io::{ErrorKind, Write};
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::thread::JoinHandle;
 
 use crate::caps::{Capabilities, Env, Ground, Overrides, assemble};
 use crate::damage::Run;
 use crate::detect::{CEILING, Tty, detect};
 use crate::exts::LinkId;
+use crate::handoff::{Lease, Mailbox, TerminalSize};
 use crate::layer::LayerStack;
 use crate::packet::Packet;
 use crate::quirks::Quirks;
@@ -43,18 +78,23 @@ use crate::surface::Surface;
 /// `Instant` plus an offset, which is why no public signature changes and why nobody needs a
 /// `vitui::Timestamp` newtype to make testing possible.
 ///
-/// **Nothing reads this yet, and that is the honest state rather than an oversight.** `present`
-/// composites, packs, serialises and writes inline on the calling thread whichever value is set,
-/// because there is no second thread for `System` to differ by and no `wait` for a deadline to
-/// gate. It is declared now because the ticket that decided it insisted the deterministic mode is
-/// public API and not a test fixture, and because a knob that appears later is a breaking change to
-/// every `Config` literal. Ticket 19 is its first reader.
+/// **This is what decides whether a render thread exists.** [`Engine::attach`] spawns one on
+/// [`Clock::System`] and none on [`Clock::Manual`], where `present` runs the whole round inline
+/// before it returns. The two paths share the mailbox, the pool and the serializer, so the bytes are
+/// the same bytes; what differs is which thread produced them and when.
+///
+/// A test therefore pins `Clock::Manual`, and so does anything measuring the inline round — a timing
+/// taken on the threaded path is the app thread's share of a frame, which is a different number and
+/// a better one.
+///
+/// Ticket 19 is the second reader: `wait` is where a deadline is gated, and `Manual` is what makes
+/// *time* reproducible once *interleaving* already is.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum Clock {
-    /// Real time.
+    /// Real time, and a render thread that owns the write direction.
     #[default]
     System,
-    /// Time only moves when the caller moves it.
+    /// Time only moves when the caller moves it, and there is no thread to interleave with.
     Manual,
 }
 
@@ -235,22 +275,37 @@ impl Engine {
             _ => self.config.size,
         };
         let wakes = Arc::new(AtomicU32::new(0));
+        let renderer = Renderer {
+            serializer: Serializer::new(w, h),
+            size: (w, h),
+            sink: match self.config.output {
+                Output::Terminal => Box::new(std::io::stdout()),
+                Output::Sink(sink) => sink,
+            },
+            caps: caps.clone(),
+        };
         let mut screen = Screen {
             size: (w, h),
             layers: LayerStack::new(),
             frame: Surface::new(w, h),
             runs: Vec::with_capacity(h as usize * 4),
-            packet: Packet::new(),
-            serializer: Serializer::new(w, h),
-            sink: match self.config.output {
-                Output::Terminal => Box::new(std::io::stdout()),
-                Output::Sink(sink) => sink,
-            },
+            mailbox: Arc::new(Mailbox::new()),
+            // Nothing is spawned here. The prologue below writes through this sink, and the render
+            // thread cannot exist before the terminal is set up — that is the whole of why setup
+            // happens where no concurrency does.
+            renderer: Some(renderer),
+            render: None,
+            clock: self.config.clock,
+            terminal_size: TerminalSize::new((w, h)),
+            generation: 0,
+            coalesced: 0,
             caps,
             repaint: false,
             tty,
             #[cfg(test)]
             sweeps: 0,
+            #[cfg(test)]
+            resize_before_submit: None,
             _not_send: PhantomData,
         };
         // The one thing the handle space has to be told about the terminal, and it is told once:
@@ -261,6 +316,10 @@ impl Engine {
         let hyperlinks = screen.caps.hyperlinks;
         screen.layers.tables_mut().set_links_in_key(hyperlinks);
         screen.begin_session();
+        // **Last, and after every byte of setup has gone out.** Raw mode, the query batch and the
+        // prologue are the one place the engine both writes and reads, and they are finished before
+        // a second thread exists.
+        screen.spawn_render_thread();
         Ok((screen, WakeHandle { wakes }))
     }
 }
@@ -273,12 +332,21 @@ impl Engine {
 pub struct Presented {
     /// Whether a frame was handed on. False when nothing was damaged.
     pub submitted: bool,
-    /// How many frames were folded into this one because the render thread was busy. Always zero
-    /// while there is one thread; ticket 18 is what makes it move.
+    /// How many `present` calls were folded into this one because the render thread was busy.
+    ///
+    /// A frame the renderer has not asked for is **not composited**: damage stays in the damage
+    /// structure, which is already the coalescing mechanism, and the next frame that does composite
+    /// paints all of it. So this counts calls that returned without doing any work, and the frame
+    /// that submits is the one that reports and clears the count. Always zero on [`Clock::Manual`],
+    /// where the renderer is the calling thread and is never busy.
     pub coalesced: u32,
-    /// Whether the frame was thrown away because the terminal resized under it. Writing a 300x80
-    /// frame into a terminal that is now 120x40 wraps and scrolls, which is worse than a missing
-    /// frame. Ticket 22 is what brings the size atomic this reads.
+    /// Whether the frame was thrown away because the terminal resized under it.
+    ///
+    /// Writing a 300x80 frame into a terminal that is now 120x40 wraps and scrolls, which is worse
+    /// than a missing frame. The size is sampled at frame start and re-checked at submit, so this is
+    /// true **once** per resize and not on every frame after one: the frame that follows samples the
+    /// size the discarded one was refused for. The composite is lost; the lease is not — a leased
+    /// surface never changes size under a drawing caller.
     pub discarded_for_resize: bool,
 }
 
@@ -347,9 +415,24 @@ pub struct Screen {
     frame: Surface,
     /// The frame's damaged runs, reused every frame so the steady state allocates nothing.
     runs: Vec<Run>,
-    packet: Packet,
-    serializer: Serializer,
-    sink: Box<dyn Write + Send>,
+    /// The handoff: the slot, the pool of two, and the two condvars. Shared with the render thread
+    /// when there is one, and used by both paths so that the deterministic mode exercises it.
+    mailbox: Arc<Mailbox>,
+    /// The renderer, while this thread is the one that runs it. `None` once a render thread owns it,
+    /// and the reason it comes back is [`Screen::drop`]: the sink is in there, and the epilogue has
+    /// to be written through it.
+    renderer: Option<Renderer>,
+    /// The render thread, which answers with the renderer when it is joined.
+    render: Option<JoinHandle<Renderer>>,
+    /// Which path `present` takes. Immutable for the life of this screen.
+    clock: Clock,
+    /// The authoritative size of the terminal: sampled at frame start, re-checked at submit.
+    terminal_size: TerminalSize,
+    /// How many packs have happened. Stamped into every packet, and never reused.
+    generation: u64,
+    /// How many `present` calls have been folded into the next frame because the renderer was busy.
+    /// Reported by the one that submits, and reset by it.
+    coalesced: u32,
     /// What the terminal can do, sampled once during `attach` and never again.
     caps: Capabilities,
     /// Whether a sweep has renumbered a handle table since the last packet went out.
@@ -368,6 +451,18 @@ pub struct Screen {
     /// How many times [`Screen::layers`] has swept. Read by the gate that says `present` never does.
     #[cfg(test)]
     sweeps: u32,
+    /// A size for the *next* frame to find moved under it, applied between the pack and the submit.
+    ///
+    /// **The interleaving this exists for cannot be produced from outside the frame.** `present`
+    /// samples the size as its first statement and re-checks it at submit, and there is no instant
+    /// between those two at which a caller of this crate is running: the drawing verbs are before,
+    /// the sink is after. A second thread can be made to land in the window nearly always and never
+    /// certainly, and *nearly always* in a gate is a flake with a budget's clothes on.
+    ///
+    /// So the input thread's one write is simulated where the input thread would have made it. Two
+    /// lines in the frame path, in the same shape as [`Screen::sweeps`] beside it.
+    #[cfg(test)]
+    resize_before_submit: Option<(u16, u16)>,
     _not_send: PhantomData<*const ()>,
 }
 
@@ -417,8 +512,8 @@ impl Screen {
     /// door — it is the **drawing** door, `layers().view(id)`, and spec §12 has the runtime bring a
     /// draw for every layer every frame. So the sweep does land inside the application's frame loop.
     /// What it never lands inside is `present`, which is the composite-pack-serialise path §13's
-    /// 100 µs and 1 ms budgets are taken around and the path that becomes the *render thread's* at
-    /// ticket 18.
+    /// 100 µs and 1 ms budgets are taken around — and the serialise half of that is the **render
+    /// thread's** since ticket 18.
     ///
     /// That is the whole of what §3 asks for, and §3 says so itself one line further on: *the app
     /// thread may sweep while the render thread is inside a 200 ms `write`.* A sweep on the app
@@ -458,7 +553,8 @@ impl Screen {
     /// assumption that nothing wrapped, and a serializer that assumed it without asking for it would
     /// be right on most terminals and silently wrong on one.
     fn begin_session(&mut self) {
-        write_frame(&mut *self.sink, DISABLE_AUTO_WRAP);
+        let sink = &mut self.inline_renderer_mut().sink;
+        write_frame(&mut **sink, DISABLE_AUTO_WRAP);
     }
 
     /// Give back what [`begin_session`](Screen::begin_session) took.
@@ -468,8 +564,91 @@ impl Screen {
     /// `attach` fails, when a `?` propagates, or when the process is unwinding. This is the floor and
     /// not the design — **ticket 22 owns shutdown** — and it lives here because this is what changed
     /// the mode.
+    /// Nothing at all when the render thread panicked and took the sink with it. **Ticket 22 owns
+    /// what the terminal is left in** after that; here there is no longer anywhere to write.
     fn end_session(&mut self) {
-        write_frame(&mut *self.sink, ENABLE_AUTO_WRAP);
+        if let Some(renderer) = self.renderer.as_mut() {
+            write_frame(&mut *renderer.sink, ENABLE_AUTO_WRAP);
+        }
+    }
+
+    /// Hand the renderer to a thread of its own, if the clock says there is one.
+    ///
+    /// Called once, at the end of `attach`, after every byte of terminal setup has gone out.
+    fn spawn_render_thread(&mut self) {
+        if self.clock == Clock::Manual {
+            return;
+        }
+        let renderer = self
+            .renderer
+            .take()
+            .expect("attach has not handed the renderer anywhere yet");
+        let mailbox = Arc::clone(&self.mailbox);
+        // **The renderer is handed over after the spawn succeeded, not moved into the closure.**
+        // `Builder::spawn` does not give a failed closure back, and a renderer lost that way takes
+        // the sink with it — so the thread waits for it on a channel that carries exactly one
+        // message. A thread that cannot be spawned is then not a reason to fail `attach`, and not
+        // silently ignored either: the renderer stays on this thread, every frame takes the inline
+        // path, and that is a slower engine rather than a broken one. `AttachError` names the
+        // terminal not answering; a resource limit at spawn time is the process's, not the
+        // terminal's.
+        let (tx, rx) = std::sync::mpsc::channel();
+        match std::thread::Builder::new()
+            .name("vitui-render".to_string())
+            .spawn(move || {
+                let mut renderer: Renderer = rx.recv().expect("attach sends before it returns");
+                render_loop(&mailbox, &mut renderer);
+                renderer
+            }) {
+            Ok(handle) => {
+                let _ = tx.send(renderer);
+                self.render = Some(handle);
+            }
+            Err(_) => self.renderer = Some(renderer),
+        }
+    }
+
+    /// The renderer, for the two writes that are not a frame and for the `cfg(test)` doors.
+    ///
+    /// It is `Some` on the deterministic path and `None` once a render thread owns it, so this
+    /// panics rather than lying: **the mirror, the byte counters and the filter switches are the
+    /// render thread's**, and a test that reaches for them from the threaded path is asking a
+    /// question about a thread it is not on. Pin [`Clock::Manual`].
+    fn inline_renderer_mut(&mut self) -> &mut Renderer {
+        self.renderer.as_mut().expect(
+            "the render thread owns the serializer, the mirror and the sink — pin Clock::Manual",
+        )
+    }
+
+    /// Bring the renderer back from the render thread, so that the epilogue has a sink to go to.
+    ///
+    /// **The render thread is joined; the input thread never is** (spec §7). This one is either
+    /// parked on a condvar or inside a bounded `write`, both finite. The input thread sits in a
+    /// blocking `read` with nothing to wake it short of a signal, so it dies with the process — and
+    /// that asymmetry is here rather than in a document because this is the function where the second
+    /// join would go.
+    ///
+    /// **Ticket 22 owns shutdown**, and what it adds is the alt screen, the input state and a
+    /// restoration that is idempotent from any thread under a panic. This is the floor: without the
+    /// quit the render thread parks for ever and the process does not exit.
+    fn reclaim_renderer(&mut self) {
+        let Some(handle) = self.render.take() else {
+            return;
+        };
+        self.mailbox.quit();
+        // A panicked render thread has already dropped the sink. There is nothing to recover and
+        // nothing to write through, and `end_session` is what handles that.
+        if let Ok(renderer) = handle.join() {
+            self.renderer = Some(renderer);
+        }
+    }
+
+    /// The same door, immutably.
+    #[cfg(test)]
+    fn inline_renderer(&self) -> &Renderer {
+        self.renderer.as_ref().expect(
+            "the render thread owns the serializer, the mirror and the sink — pin Clock::Manual",
+        )
     }
 
     /// Composite the damaged rectangles, pack them, serialise them, and write once.
@@ -479,18 +658,50 @@ impl Screen {
     /// an invariant rather than a chore, and it is also why nothing above the engine can force a
     /// full repaint.
     pub fn present(&mut self) -> Presented {
+        // **Sampled here and re-checked at submit** (spec §2's sixth invariant). One load, and what
+        // it buys is that a frame composited at 300x80 is never written into a terminal that became
+        // 120x40 while it was being composited — which wraps and scrolls, and is worse than a
+        // missing frame.
+        let sampled = self.terminal_size.get();
         self.layers.take_damage_into(&mut self.frame);
 
         // The idle path, and it is one scan of a couple of summary words rather than of the bitset:
         // an idle frame costs nanoseconds and clears nothing. This is the question ticket 19's
         // condvar path will interrogate, asked here first.
         if self.frame.damage().is_empty() {
-            return Presented {
-                submitted: false,
-                coalesced: 0,
-                discarded_for_resize: false,
-            };
+            return self.not_submitted(false);
         }
+
+        // **The pacing gate, before the 107 µs composite rather than after it.** While the render
+        // thread has not taken the last packet, this frame is not composited at all: damage stays in
+        // §6's structure, which is already the coalescing mechanism and costs 6.6 ns to interrogate,
+        // and the next frame that does composite paints all of it at once. That is the whole of the
+        // backpressure design — there is no queue to grow and no frame to drop, because a frame that
+        // would have been dropped was never composed.
+        //
+        // On the deterministic path this cannot answer anything but `Ready`: the renderer is this
+        // thread and it finished before `present` returned.
+        let mut packet = match self.mailbox.lease() {
+            Lease::Ready(packet) => packet,
+            Lease::Busy => {
+                self.coalesced += 1;
+                return self.not_submitted(false);
+            }
+            // Unreachable at a pool of two, and register entry #8 is the count that says so over
+            // 10 000 cycles. Answering with a frame nobody asked for would be worse than answering
+            // with nothing — but a caller retrying an unsubmitted frame would then turn on the spot,
+            // and a hang is worse than a failure. So a debug build says which invariant broke and a
+            // release build answers with a missing frame.
+            Lease::Starved => {
+                debug_assert!(
+                    false,
+                    "the pool starved with the renderer free, which the ready gate makes \
+                     unreachable: one packet is being filled and one is in the renderer's hands, \
+                     and there is no third"
+                );
+                return self.not_submitted(false);
+            }
+        };
 
         self.runs.clear();
         let runs = &mut self.runs;
@@ -508,23 +719,80 @@ impl Screen {
         // Spent here and nowhere else, which is the whole of why the flag is latched on the screen
         // rather than passed down from the sweep: everything above this line can return early, and a
         // `repaint` spent on a frame that never went out is a mirror that is never told.
-        self.packet.pack(
+        self.generation += 1;
+        packet.pack(
             &self.runs,
             &self.frame,
             self.layers.tables(),
             std::mem::take(&mut self.repaint),
+            self.generation,
         );
-        let bytes = self.serializer.serialize(&self.packet, &self.caps);
-        write_frame(&mut *self.sink, bytes);
+
+        // The input thread's write, at the one instant no caller of this crate can reach. See
+        // `Screen::resize_before_submit`.
+        #[cfg(test)]
+        if let Some(size) = self.resize_before_submit.take() {
+            self.terminal_size.set(size);
+        }
+
+        // **The re-check.** A lease is never invalidated — the surfaces are untouched and the caller
+        // that drew into them is long gone — but the frame it produced is discarded, because its
+        // cells describe a screen that no longer exists. Once per resize, not once per frame after
+        // one: the comparison is against the value this frame *started* at, so the next frame samples
+        // the new size and agrees with itself.
+        if self.terminal_size.get() != sampled {
+            self.mailbox.give_back(packet);
+            // Two things at once, and they are the same thing: the `repaint` this frame took out of
+            // the latch goes back in, and a resize needs one anyway — the mirror is describing a
+            // terminal that has just reflowed under it.
+            self.repaint = true;
+            self.frame.damage_mut().mark_all();
+            return self.not_submitted(true);
+        }
+
+        self.mailbox.submit(packet);
+        // The deterministic path: this thread is the render thread, so it does the render thread's
+        // work here, through the same mailbox and the same renderer. `take_now` cannot answer `None`
+        // — the submit above put a packet in the slot and nothing else can take it.
+        if let Some(renderer) = self.renderer.as_mut() {
+            if let Some(packet) = self.mailbox.take_now() {
+                renderer.render(&packet);
+                self.mailbox.finish(packet);
+            }
+        }
 
         self.frame.damage_mut().clear();
         self.layers.clear_damage();
 
         Presented {
             submitted: true,
-            coalesced: 0,
+            coalesced: std::mem::take(&mut self.coalesced),
             discarded_for_resize: false,
         }
+    }
+
+    /// What every early return out of `present` answers with.
+    ///
+    /// `coalesced` is reported rather than reset: the frames folded so far are folded into the frame
+    /// that eventually submits, and that is the one that clears the count.
+    fn not_submitted(&self, discarded_for_resize: bool) -> Presented {
+        Presented {
+            submitted: false,
+            coalesced: self.coalesced,
+            discarded_for_resize,
+        }
+    }
+
+    /// Block until the render thread has taken the last packet.
+    ///
+    /// **Ticket 19 is what makes this public**, as one arm of `wait() -> Wake` with the frame clock
+    /// on it. Until then it is what a caller on the threaded path has instead of a parking point,
+    /// and what keeps *the renderer is free* from being a condvar nobody blocks on.
+    ///
+    /// Returns at once on the deterministic path, where the renderer is never busy.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn wait_for_renderer(&self) {
+        self.mailbox.wait_until_free();
     }
 
     /// Start again at a new size.
@@ -565,7 +833,18 @@ impl Screen {
         self.frame = Surface::new(w, h);
         self.frame.damage_mut().mark_all();
         self.runs = Vec::with_capacity(h as usize * 4);
-        self.serializer = Serializer::new(w, h);
+        // The mirror is the render thread's, so on the threaded path this is the packet's job: the
+        // size travels with it and [`Renderer::render`] rebuilds when it moves. Here it is done
+        // eagerly as well, because on the deterministic path a caller may read the mirror between a
+        // resize and the next frame, and a mirror of the old size would answer about rows that no
+        // longer exist.
+        if let Some(renderer) = self.renderer.as_mut() {
+            renderer.resize(w, h);
+        }
+        // The app agreeing with what the input thread already recorded. Writing it keeps the pair
+        // consistent when a caller drives `resize` directly, and is a no-op when a resize event is
+        // what brought us here.
+        self.terminal_size.set((w, h));
         self.layers.forget_damage();
     }
 
@@ -638,16 +917,51 @@ impl Screen {
         &self.runs
     }
 
+    /// The packet the renderer finished last, for register entry #10's equality.
+    ///
+    /// A closure, because the packet lives in the pool behind the mailbox's lock. Deterministic path
+    /// only: on the threaded path the renderer may still be holding the frame being asked about.
     #[cfg(test)]
-    pub(crate) fn packet(&self) -> &Packet {
-        &self.packet
+    pub(crate) fn with_packet<R>(&self, f: impl FnOnce(&Packet) -> R) -> R {
+        self.mailbox.with_last_finished(f)
+    }
+
+    /// How many packets a submit dropped on the floor, how many leases found the pool empty, and how
+    /// many frames the renderer has finished. Register entries #9 and #8, and the count that says the
+    /// render thread is doing the work.
+    #[cfg(test)]
+    pub(crate) fn handoff_counts(&self) -> (u32, u32, u64) {
+        (
+            self.mailbox.superseded(),
+            self.mailbox.starved(),
+            self.mailbox.painted(),
+        )
+    }
+
+    /// Move the authoritative size **inside** the next frame — between its pack and its submit.
+    ///
+    /// The write ticket 20's input thread will make, at the one instant it matters: a `SIGWINCH`
+    /// arrives on the input thread and reaches the application as an `Event::Resize`, and ticket 20
+    /// owns both. What is gated here is the sample, the re-check and the discard.
+    ///
+    /// See [`Screen::resize_before_submit`] for why the window is not reachable from outside a
+    /// frame.
+    #[cfg(test)]
+    pub(crate) fn resize_during_next_frame(&mut self, w: u16, h: u16) {
+        self.resize_before_submit = Some((w, h));
+    }
+
+    /// What the app thread believes the terminal's size is, which is not what the surfaces are.
+    #[cfg(test)]
+    pub(crate) fn terminal_size(&self) -> (u16, u16) {
+        self.terminal_size.get()
     }
 
     /// What §10's `CHA`-after-non-ASCII rule has cost this screen in bytes, for the report that pays
     /// spec §15's second owed measurement. See `crate::serial::Serializer::cha_rule_bytes`.
     #[cfg(test)]
     pub(crate) fn cha_rule_bytes(&self) -> usize {
-        self.serializer.cha_rule_bytes()
+        self.inline_renderer().serializer.cha_rule_bytes()
     }
 
     /// How many mark-and-compact sweeps this screen has run.
@@ -696,7 +1010,7 @@ impl Screen {
     #[cfg(test)]
     pub(crate) fn known_rows(&self) -> usize {
         (0..self.size.1)
-            .filter(|&y| self.serializer.mirror().is_known(y))
+            .filter(|&y| self.inline_renderer().serializer.mirror().is_known(y))
             .count()
     }
 
@@ -745,7 +1059,7 @@ impl Screen {
     /// somebody chose. See [`crate::serial::Filter`].
     #[cfg(test)]
     pub(crate) fn set_filter(&mut self, filter: crate::serial::Filter) {
-        self.serializer.set_filter(filter);
+        self.inline_renderer_mut().serializer.set_filter(filter);
     }
 
     /// Serialise this screen's frames with the scroll pre-pass off: §8's *filtered* column, which is
@@ -753,7 +1067,7 @@ impl Screen {
     /// [`Serializer::set_scroll_region`](crate::serial::Serializer::set_scroll_region).
     #[cfg(test)]
     pub(crate) fn set_scroll_region(&mut self, on: bool) {
-        self.serializer.set_scroll_region(on);
+        self.inline_renderer_mut().serializer.set_scroll_region(on);
     }
 
     /// Serialise the way §8 rejected: verify every candidate the probe matches rather than the first.
@@ -761,25 +1075,28 @@ impl Screen {
     /// [`Serializer::set_verify_every_match`](crate::serial::Serializer::set_verify_every_match).
     #[cfg(test)]
     pub(crate) fn set_verify_every_match(&mut self, on: bool) {
-        self.serializer.set_verify_every_match(on);
+        self.inline_renderer_mut()
+            .serializer
+            .set_verify_every_match(on);
     }
 
     /// How many of this screen's frames put a scroll on the wire, and how many candidates were
     /// verified to get there. The second is the count §8's 27x regression is gated by.
     #[cfg(test)]
     pub(crate) fn scrolls(&self) -> (usize, usize) {
-        (self.serializer.scrolls(), self.serializer.verifies())
+        let serializer = &self.inline_renderer().serializer;
+        (serializer.scrolls(), serializer.verifies())
     }
 
     #[cfg(test)]
     pub(crate) fn mirror(&self) -> &crate::serial::Mirror {
-        self.serializer.mirror()
+        self.inline_renderer().serializer.mirror()
     }
 
     /// How many style words the serializer has narrowed rather than answered from its memo.
     #[cfg(test)]
     pub(crate) fn narrowings(&self) -> usize {
-        self.serializer.narrowings()
+        self.inline_renderer().serializer.narrowings()
     }
 
     /// The whole stack, composited the slow obvious way: gate #1's oracle, over this screen.
@@ -840,7 +1157,50 @@ const ENABLE_AUTO_WRAP: &[u8] = b"\x1b[?7h";
 
 impl Drop for Screen {
     fn drop(&mut self) {
+        self.reclaim_renderer();
         self.end_session();
+    }
+}
+
+/// The render thread's whole life: take a packet, write it, give it back.
+///
+/// It holds **no application state and no handle at all** (ADR 0011). Everything a cell names was
+/// resolved into the packet's own side tables at pack time, so nothing here points into a table the
+/// app thread is free to sweep — which is what keeps resize, shutdown and panic small.
+pub(crate) struct Renderer {
+    serializer: Serializer,
+    /// What the serializer's mirror is sized for. Compared against every packet, because a resize
+    /// reaches this thread as a packet of a different size and nothing else.
+    size: (u16, u16),
+    sink: Box<dyn Write + Send>,
+    /// A clone of what the terminal answered at `attach`, which is immutable for the life of the
+    /// screen — so this is a copy of a constant rather than shared state.
+    caps: Capabilities,
+}
+
+impl Renderer {
+    /// Serialise one packet against the mirror and write it, in one write.
+    fn render(&mut self, packet: &Packet) {
+        if packet.size() != self.size {
+            self.resize(packet.size().0, packet.size().1);
+        }
+        let bytes = self.serializer.serialize(packet, &self.caps);
+        write_frame(&mut *self.sink, bytes);
+    }
+
+    /// Start again at a new size: a fresh mirror, which knows nothing, which is the honest state for
+    /// a terminal that has just reflowed (ADR 0006).
+    fn resize(&mut self, w: u16, h: u16) {
+        self.serializer = Serializer::new(w, h);
+        self.size = (w, h);
+    }
+}
+
+/// Block, write, repeat, until the app thread says stop.
+fn render_loop(mailbox: &Mailbox, renderer: &mut Renderer) {
+    while let Some(packet) = mailbox.take() {
+        renderer.render(&packet);
+        mailbox.finish(packet);
     }
 }
 

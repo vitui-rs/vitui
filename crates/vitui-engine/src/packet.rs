@@ -8,10 +8,10 @@
 //!
 //! # Scope
 //!
-//! Runs, cells, the size, and three side tables: clusters, extended styles and the OSC 8 URIs those
-//! name. All three are keyed by the handle the cell carries and all three are filled at pack time,
-//! so the render thread resolves everything inside the packet and holds nothing that points into an
-//! engine table. `generation` arrives with the mailbox (ticket 18).
+//! Runs, cells, the size, the generation, and three side tables: clusters, extended styles and the
+//! OSC 8 URIs those name. All three are keyed by the handle the cell carries and all three are
+//! filled at pack time, so the render thread resolves everything inside the packet and holds
+//! nothing that points into an engine table.
 //!
 //! # The rule every future change to this struct has to pass
 //!
@@ -41,17 +41,26 @@
 //! The render thread must hold no handle into an engine table (ADR 0011), so at pack time every
 //! handle a cell carries is resolved into a side table **the packet owns**, keyed by the handle
 //! rather than written into the cell. The cell is copied byte for byte, which is what keeps a packed
-//! cell byte-identical to the surface cell — and that is what makes the equality filter exact. Writing an arena offset into the cell instead would make an unchanged cell compare unequal
+//! cell byte-identical to the surface cell — and that is what makes the equality filter exact.
+//! Writing an arena offset into the cell instead would make an unchanged cell compare unequal
 //! whenever the frame's damage changes shape, measured at **284x in bytes** on five steady frames.
 //!
-//! The dedup is a `HashMap` reused across frames, which is not the shape ADR 0011 measured: it names
-//! a generation-stamped marker per handle, O(1) against the 166 µs the scan version cost. The marker
-//! needs a slot per interner entry and a generation counter, and the number that justified it was
-//! taken at pack time on a full screen — so it belongs with the ticket that measures pack, not with
-//! the one that first puts a cluster in a cell. Recorded here so it is a deferral rather than an
-//! omission.
-
-use std::collections::HashMap;
+//! # The dedup is a generation stamp per handle, and the generation is the frame's own
+//!
+//! ADR 0011 names it: a marker per handle, O(1), against the 166 µs the scan version cost — 31 µs
+//! where the scan was 166. [`Marks`] is that marker, one slot per handle rather than a hash probe
+//! per cell, and it needs no clearing between frames because a slot stamped with an older
+//! generation is already invisible.
+//!
+//! The generation it is stamped with is [`Packet::generation`], the frame's own, and that is one
+//! counter doing both jobs rather than a coincidence worth noting: *was this handle already copied*
+//! and *which frame is this* are the same question asked of one number. It counts **packs** rather
+//! than submissions, because a frame discarded for a resize consumed one and the next pack of the
+//! same packet must not collide with it.
+//!
+//! The vectors grow to the handle tables' high-water mark and never shrink, which is what makes
+//! `pack` allocation-free on warm tables at every density (register entry #6). §3's mark-and-compact
+//! sweep is what bounds that mark; a table that could grow without one would grow these with it.
 
 use crate::cell::{Cell, GraphemeId};
 use crate::damage::Run;
@@ -71,12 +80,14 @@ pub(crate) struct Packet {
     /// steady stream of frames allocates nothing once it has reached its high-water mark.
     arena: String,
     /// Handle to `(start, end)` in the arena. Keyed by the handle, never by position.
-    clusters: HashMap<GraphemeId, (u32, u32)>,
+    clusters: Marks<(u32, u32)>,
     /// Every extended style this packet's cells name: the two colours that are not inline on an
     /// extended word, the underline colour and the hyperlink. Keyed by the handle in bits 51..0.
-    exts: HashMap<u32, ExtStyle>,
+    exts: Marks<ExtStyle>,
     /// The URI each hyperlink names, in the same arena as the clusters.
-    links: HashMap<LinkId, (u32, u32)>,
+    links: Marks<(u32, u32)>,
+    /// Which pack filled this packet, and the stamp every side table above is marked with.
+    generation: u64,
     /// Set when a sweep renumbered a table since the last packet: **invalidate the mirror.**
     ///
     /// See the position rule in this module's documentation. It is a property of the *packet* rather
@@ -94,9 +105,15 @@ impl Packet {
             cells: Vec::new(),
             size: (0, 0),
             arena: String::new(),
-            clusters: HashMap::new(),
-            exts: HashMap::new(),
-            links: HashMap::new(),
+            clusters: Marks::new((0, 0)),
+            exts: Marks::new(ExtStyle {
+                fg: crate::style::Color::DEFAULT,
+                bg: crate::style::Color::DEFAULT,
+                ul: crate::style::Color::DEFAULT,
+                link: LinkId::NONE,
+            }),
+            links: Marks::new((0, 0)),
+            generation: 0,
             repaint: false,
         }
     }
@@ -105,15 +122,28 @@ impl Packet {
     ///
     /// The runs are passed in rather than rescanned, because `present` has already scanned them to
     /// know what to composite. `clear` keeps the capacity, which is what makes a steady stream of
-    /// frames allocate nothing.
-    pub(crate) fn pack(&mut self, runs: &[Run], frame: &Surface, tables: &Tables, repaint: bool) {
+    /// frames allocate nothing — and the three side tables are not cleared at all, because
+    /// `generation` is what makes last frame's entries invisible.
+    ///
+    /// `generation` must be higher than any this packet has been packed with before; the app thread
+    /// counts packs and never reuses one.
+    pub(crate) fn pack(
+        &mut self,
+        runs: &[Run],
+        frame: &Surface,
+        tables: &Tables,
+        repaint: bool,
+        generation: u64,
+    ) {
+        debug_assert!(
+            generation > self.generation,
+            "a reused generation makes last frame's side tables answer for this one"
+        );
         self.repaint = repaint;
+        self.generation = generation;
         self.runs.clear();
         self.cells.clear();
         self.arena.clear();
-        self.clusters.clear();
-        self.exts.clear();
-        self.links.clear();
         self.size = frame.size();
         self.runs.extend_from_slice(runs);
         for r in runs {
@@ -132,7 +162,11 @@ impl Packet {
     /// keeps the interner empty on a screen of CJK — so the map only ever holds the handles that
     /// point into one.
     fn resolve(&mut self, g: GraphemeId, tables: &Tables) {
-        if g.cluster_id().is_none() || self.clusters.contains_key(&g) {
+        let Some(id) = g.cluster_id() else {
+            return;
+        };
+        let at = id as usize;
+        if self.clusters.get(at, self.generation).is_some() {
             return;
         }
         let mut scratch = [0u8; 4];
@@ -141,33 +175,37 @@ impl Packet {
         };
         let start = self.arena.len() as u32;
         self.arena.push_str(text);
-        self.clusters.insert(g, (start, self.arena.len() as u32));
+        self.clusters
+            .set(at, self.generation, (start, self.arena.len() as u32));
     }
 
     /// Copy one extended style, and the URI it names, into this packet.
     ///
     /// An inline style word carries its own colours and needs no table, which is the same property
-    /// that keeps the cluster map holding only the handles that point into one: under 1% of the
+    /// that keeps the cluster marks holding only the handles that point into one: under 1% of the
     /// cells on a realistic screen are extended.
     ///
-    /// **The memo belongs to ticket 18**, not here. Cells in a run share a style word, so one entry
-    /// on the previous word would turn this per-cell hash probe into a per-distinct-style one — the
-    /// same trick `restyle` uses — and ADR 0011 names something sharper still, a generation-stamped
-    /// marker per handle at O(1) against the 166 µs the scan version cost. Both numbers were taken
-    /// at pack time on a full screen, so they belong with the ticket that measures pack. Recorded
-    /// here so it is a deferral rather than an omission.
+    /// The probe is an indexed load and a compare rather than a hash, which is what the memo
+    /// `restyle` uses would have bought and cheaper: cells in a run share a style word, so a
+    /// one-entry memo would answer most of these — and a stamp per handle answers *all* of them at
+    /// the same cost, including the alternating pair a one-entry memo recognises neither of. See
+    /// [`Marks`].
     fn resolve_style(&mut self, style: Style, tables: &Tables) {
         let Some(h) = style.ext_handle() else {
             return;
         };
-        if self.exts.contains_key(&h) {
+        let at = h as usize;
+        if self.exts.get(at, self.generation).is_some() {
             return;
         }
         let Some(e) = tables.exts.get(h) else {
             return;
         };
-        self.exts.insert(h, e);
-        if e.link.is_none() || self.links.contains_key(&e.link) {
+        self.exts.set(at, self.generation, e);
+        let Some(link) = e.link.index() else {
+            return;
+        };
+        if self.links.get(link, self.generation).is_some() {
             return;
         }
         let Some(uri) = tables.links.uri(e.link) else {
@@ -175,13 +213,16 @@ impl Packet {
         };
         let start = self.arena.len() as u32;
         self.arena.push_str(uri);
-        self.links.insert(e.link, (start, self.arena.len() as u32));
+        self.links
+            .set(link, self.generation, (start, self.arena.len() as u32));
     }
 
     /// The bytes a handle names, for a handle that names a cluster. `None` for a scalar, which
     /// names its own.
     pub(crate) fn cluster(&self, g: GraphemeId) -> Option<&str> {
-        let (start, end) = *self.clusters.get(&g)?;
+        let (start, end) = self
+            .clusters
+            .get(g.cluster_id()? as usize, self.generation)?;
         Some(&self.arena[start as usize..end as usize])
     }
 
@@ -192,13 +233,24 @@ impl Packet {
     /// `SGR 38`/`48`, the underline colour as `SGR 58`/`59`, and the hyperlink as OSC 8 where the
     /// terminal has it.
     pub(crate) fn ext(&self, handle: u32) -> Option<ExtStyle> {
-        self.exts.get(&handle).copied()
+        self.exts.get(handle as usize, self.generation)
     }
 
     /// The URI a hyperlink names. `None` for [`LinkId::NONE`].
     pub(crate) fn link(&self, id: LinkId) -> Option<&str> {
-        let (start, end) = *self.links.get(&id)?;
+        let (start, end) = self.links.get(id.index()?, self.generation)?;
         Some(&self.arena[start as usize..end as usize])
+    }
+
+    /// Which pack filled this packet.
+    ///
+    /// A frame number that counts packs rather than submissions, and the stamp the three side tables
+    /// are keyed by. Nothing on the render thread compares it across frames — see the position rule
+    /// at the top of this module, of which that is an instance — and it is what a diagnostic names a
+    /// frame by.
+    #[cfg(test)]
+    pub(crate) fn generation(&self) -> u64 {
+        self.generation
     }
 
     /// Whether the mirror has to be thrown away before this packet is read.
@@ -227,6 +279,57 @@ impl Packet {
     }
 }
 
+/// A side table keyed by the handle, with a generation stamp per slot instead of a clear.
+///
+/// One slot per handle, stamped with the generation of the pack that filled it, so *is this handle
+/// already in this packet* is an indexed load and one compare — ADR 0011's marker, at O(1) against
+/// the 166 µs the scan version cost. Nothing is cleared between frames: a slot stamped with an older
+/// generation is invisible, which is the whole trick.
+///
+/// Generation zero is never a valid stamp, so a freshly grown slot is empty without being written.
+#[derive(Debug)]
+struct Marks<T: Copy> {
+    /// Stamp and value interleaved, so a probe is one cache line rather than two.
+    slots: Vec<(u64, T)>,
+    /// What a grown slot holds until something stamps it. Never read — the stamp is what says so.
+    blank: T,
+}
+
+impl<T: Copy> Marks<T> {
+    fn new(blank: T) -> Marks<T> {
+        Marks {
+            slots: Vec::new(),
+            blank,
+        }
+    }
+
+    /// What this handle names in this generation, or `None` if this pack has not copied it in.
+    fn get(&self, at: usize, generation: u64) -> Option<T> {
+        match self.slots.get(at) {
+            Some(&(stamp, value)) if stamp == generation => Some(value),
+            _ => None,
+        }
+    }
+
+    /// Record what this handle names, growing to the handle tables' high-water mark.
+    ///
+    /// The growth is the one allocation in `pack`, it happens once per table high-water mark rather
+    /// than once per frame, and `Vec`'s own geometric growth is what keeps a screen of fresh handles
+    /// from being quadratic.
+    fn set(&mut self, at: usize, generation: u64, value: T) {
+        if at >= self.slots.len() {
+            self.slots.resize(at + 1, (0, self.blank));
+        }
+        self.slots[at] = (generation, value);
+    }
+
+    /// How many handles this generation copied in. Linear, and for tests only.
+    #[cfg(test)]
+    fn len(&self, generation: u64) -> usize {
+        self.slots.iter().filter(|(s, _)| *s == generation).count()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -250,7 +353,7 @@ mod tests {
     fn a_packet_from_an_undamaged_frame_is_empty() {
         let mut p = Packet::new();
         let frame = Surface::new(8, 2);
-        p.pack(&runs_of(&frame), &frame, frame.tables(), false);
+        p.pack(&runs_of(&frame), &frame, frame.tables(), false, 1);
         assert!(p.is_empty());
         assert!(p.cells().is_empty());
     }
@@ -259,7 +362,7 @@ mod tests {
     fn a_packet_carries_the_damaged_cells_and_no_others() {
         let mut p = Packet::new();
         let frame = frame_with_two_spans();
-        p.pack(&runs_of(&frame), &frame, frame.tables(), false);
+        p.pack(&runs_of(&frame), &frame, frame.tables(), false, 1);
         assert_eq!(p.runs().len(), 2);
         assert_eq!(p.cells().len(), 4, "not the 300 cells of the row");
     }
@@ -268,7 +371,7 @@ mod tests {
     fn the_cells_are_concatenated_in_run_order() {
         let mut p = Packet::new();
         let frame = frame_with_two_spans();
-        p.pack(&runs_of(&frame), &frame, frame.tables(), false);
+        p.pack(&runs_of(&frame), &frame, frame.tables(), false, 1);
         let glyphs: String = p
             .cells()
             .iter()
@@ -281,7 +384,7 @@ mod tests {
     fn the_packet_carries_the_size_it_was_packed_at() {
         let mut p = Packet::new();
         let frame = Surface::new(300, 80);
-        p.pack(&runs_of(&frame), &frame, frame.tables(), false);
+        p.pack(&runs_of(&frame), &frame, frame.tables(), false, 1);
         assert_eq!(p.size(), (300, 80));
     }
 
@@ -308,7 +411,7 @@ mod tests {
         // never written into the cell.
         let mut p = Packet::new();
         let frame = hyperlinked_row();
-        p.pack(&runs_of(&frame), &frame, frame.tables(), false);
+        p.pack(&runs_of(&frame), &frame, frame.tables(), false, 1);
         let handle = p.cells()[0]
             .style
             .ext_handle()
@@ -322,22 +425,23 @@ mod tests {
     fn one_extended_style_is_copied_once_however_many_cells_carry_it() {
         let mut p = Packet::new();
         let frame = hyperlinked_row();
-        p.pack(&runs_of(&frame), &frame, frame.tables(), false);
+        p.pack(&runs_of(&frame), &frame, frame.tables(), false, 1);
         assert_eq!(p.cells().len(), 8);
-        assert_eq!(p.exts.len(), 1);
-        assert_eq!(p.links.len(), 1);
+        assert_eq!(p.exts.len(p.generation), 1);
+        assert_eq!(p.links.len(p.generation), 1);
     }
 
     #[test]
     fn a_packet_of_inline_cells_carries_no_extended_tables() {
         let mut p = Packet::new();
         let frame = frame_with_two_spans();
-        p.pack(&runs_of(&frame), &frame, frame.tables(), false);
-        assert!(
-            p.exts.is_empty(),
+        p.pack(&runs_of(&frame), &frame, frame.tables(), false, 1);
+        assert_eq!(
+            p.exts.len(p.generation),
+            0,
             "under 1% of cells are extended, and these are not"
         );
-        assert!(p.links.is_empty());
+        assert_eq!(p.links.len(p.generation), 0);
         assert_eq!(p.ext(0), None);
     }
 
@@ -345,10 +449,10 @@ mod tests {
     fn packing_twice_replaces_rather_than_appends() {
         let mut p = Packet::new();
         let frame = frame_with_two_spans();
-        p.pack(&runs_of(&frame), &frame, frame.tables(), false);
+        p.pack(&runs_of(&frame), &frame, frame.tables(), false, 1);
         let mut second = Surface::new(300, 4);
         second.root().fill(Rect::new(0, 1, 3, 1), "#", Style::new());
-        p.pack(&runs_of(&second), &second, second.tables(), false);
+        p.pack(&runs_of(&second), &second, second.tables(), false, 2);
         assert_eq!(p.runs().len(), 1);
         assert_eq!(p.cells().len(), 3);
     }
@@ -357,14 +461,15 @@ mod tests {
     fn packing_a_plain_frame_after_an_extended_one_clears_the_side_tables() {
         let mut p = Packet::new();
         let extended = hyperlinked_row();
-        p.pack(&runs_of(&extended), &extended, extended.tables(), false);
-        assert_eq!(p.exts.len(), 1);
+        p.pack(&runs_of(&extended), &extended, extended.tables(), false, 1);
+        assert_eq!(p.exts.len(p.generation), 1);
         let plain = frame_with_two_spans();
-        p.pack(&runs_of(&plain), &plain, plain.tables(), false);
-        assert!(
-            p.exts.is_empty(),
+        p.pack(&runs_of(&plain), &plain, plain.tables(), false, 2);
+        assert_eq!(
+            p.exts.len(p.generation),
+            0,
             "a stale entry would outlive the cell that named it"
         );
-        assert!(p.links.is_empty());
+        assert_eq!(p.links.len(p.generation), 0);
     }
 }

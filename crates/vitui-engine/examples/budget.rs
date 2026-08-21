@@ -49,8 +49,8 @@ use std::time::{Duration, Instant};
 
 use vitui_bench::{Bench, Report};
 use vitui_engine::{
-    Color, ColorDepth, Config, Engine, LayerId, Output, Overrides, Rect, Restyle, Screen, Style,
-    Surface,
+    Clock, Color, ColorDepth, Config, Engine, LayerId, Output, Overrides, Rect, Restyle, Screen,
+    Style, Surface,
 };
 
 use register::{State, table};
@@ -85,7 +85,12 @@ fn sink_screen_with(overrides: Overrides) -> Screen {
         size: (W, H),
         output: Output::Sink(Box::new(Discard)),
         overrides,
-        ..Default::default()
+        // **Every figure in this file is the inline round** — composite, pack, serialise and write
+        // on one thread — so the clock is pinned rather than defaulted. `Clock::System` would move
+        // serialisation onto the render thread and every number here would silently become the app
+        // thread's share of a frame: a different measurement, and a better one, which is what
+        // [`the_app_threads_share`] reports on purpose.
+        clock: Clock::Manual,
     })
     .attach()
     .expect("attaching to a sink cannot fail");
@@ -165,6 +170,104 @@ fn measure(staged: &mut [Staged]) -> Report {
     bench.run()
 }
 
+/// What the **app thread's own share** of a frame costs, on the real three-thread path.
+///
+/// This is the number spec §13's budgets are written about — *the app thread's share of a frame* —
+/// and until ticket 18 there was no such thing to measure: every figure in the table above is the
+/// inline round, composite and pack and serialise and write on one thread, which is why four scenes
+/// are reported rather than gated and named this ticket.
+///
+/// # What is timed, and what the sink has to be for that to be true
+///
+/// One iteration is *draw, then `present`*, with a sink that discards. `present` on the threaded path
+/// composites, packs and submits, and returns; the serializer runs on the render thread. So what is
+/// timed is the app thread's own work plus one lock acquisition — **plus, occasionally, a wait**: a
+/// `present` that finds the renderer still holding the last packet composites nothing and answers at
+/// once, and the loop below simply presents again. With a discarding sink that is rare, because the
+/// render thread's frame is shorter than the app thread's; on a real 4 MB/s link it would be the
+/// common case, and then this number would be a measurement of the link.
+///
+/// A parking point is what makes that exact rather than rare, and it is ticket 19's `wait`. Until it
+/// exists this is a report and could not honestly be a gate.
+fn the_app_threads_share() {
+    // `staged` first, so that it outlives the bench that borrows it: locals drop in reverse
+    // declaration order.
+    let mut staged: Vec<(String, u32, Box<dyn Scene>, Screen)> = scenes()
+        .into_iter()
+        .filter(|s| matches!(s.status(), State::Wired { .. }))
+        .map(|mut scene| {
+            let (case, iters) = (scene.name().to_owned(), scene.iters());
+            let (mut screen, _wake) = Engine::new(Config {
+                size: (W, H),
+                output: Output::Sink(Box::new(Discard)),
+                // The whole point of this report: `attach` spawns a render thread, and it is the one
+                // that serialises.
+                clock: Clock::System,
+                overrides: scene.overrides(),
+            })
+            .attach()
+            .expect("attaching to a sink cannot fail");
+            scene.build(&mut screen);
+            while !screen.present().submitted {
+                std::hint::spin_loop();
+            }
+            (case, iters, scene, screen)
+        })
+        .collect();
+    let mut bench = Bench::new(40);
+    for (case, iters, scene, screen) in staged.iter_mut() {
+        let mut t = 0u32;
+        bench = bench.case(case.as_str(), *iters, move || {
+            t = t.wrapping_add(1);
+            scene.step(screen, t);
+            while !std::hint::black_box(screen.present()).submitted {
+                std::hint::spin_loop();
+            }
+        });
+    }
+    let report = bench.run();
+    println!("the app thread's share, three threads, minimum of 40 rounds:\n{report}");
+    println!("  the four scenes REPORTED_NOT_GATED, against the budget their class is gated at:");
+    for (case, _) in REPORTED_NOT_GATED {
+        let Some(ns) = report.get(case) else {
+            continue;
+        };
+        let budget = if FULL_SCREEN.contains(&case) {
+            Duration::from_millis(1)
+        } else {
+            Duration::from_micros(100)
+        };
+        let budget_ns = budget.as_secs_f64() * 1e9;
+        let (verb, ratio) = if ns < budget_ns {
+            ("under, headroom", budget_ns / ns)
+        } else {
+            ("OVER by", ns / budget_ns)
+        };
+        println!(
+            "    {case:<44} {:>9.2} us  {verb} {ratio:.2}x of {:.0} us",
+            ns / 1e3,
+            budget_ns / 1e3,
+        );
+    }
+    println!(
+        "  Report, not a gate. Every figure above is `present` on the threaded path: composite,\n\
+         \x20 pack, submit — the serializer is on the other thread. Two things to read, in this\n\
+         \x20 order:\n\
+         \x20 **The four come under their budgets once serialisation leaves the app thread**, which\n\
+         \x20 is what impl 18 was named for on REPORTED_NOT_GATED. They stay reported anyway, and\n\
+         \x20 the reason is on that constant: a sample here can contain a wait, because there is no\n\
+         \x20 parking point until impl 19, and a budget gate has to hold on a runner somebody has\n\
+         \x20 measured, which is impl 26's ledger. A row promoted on one machine's report is the\n\
+         \x20 same mistake as a row exempted on one machine's expectation.\n\
+         \x20 **A small frame is dearer here than inline, not cheaper**, and that is the handoff\n\
+         \x20 rather than a defect: on a caret the composite is nanoseconds and what is left is a\n\
+         \x20 lock, a notify and — when the renderer has not come back round yet — a spin. §7's\n\
+         \x20 wake-up latency is 4.58 us p50 for the same reason. It buys nothing on a frame that\n\
+         \x20 was already 468 ns and everything on one that was a millisecond."
+    );
+    println!();
+}
+
 fn main() {
     print_the_scene_list();
 
@@ -195,6 +298,7 @@ fn main() {
     // Numbers are kept per scene and never summed: the 27x scroll-detector regression the map
     // found was visible only that way, and summed across twelve scenes it is a rounding error.
     the_two_budget_gates(&report);
+    the_app_threads_share();
     the_steady_state_share(&report);
     the_data_volume_invariant();
     the_price_of_a_free_discard();
@@ -254,6 +358,16 @@ const FULL_SCREEN: [&str; 5] = [
 /// Each is reported with its budget named, and **impl 18 is what gates them** — it is the ticket
 /// that moves serialization off the app thread, and only then is there a number the budget is
 /// about. Nothing here is silently absent.
+///
+/// **Impl 18 has landed and these four are still reported**, which is a decision rather than an
+/// oversight. What that ticket delivered is the number: [`the_app_threads_share`] measures `present`
+/// with serialisation on the render thread, which is what §13's budgets are written about. What it
+/// did not deliver is a *gate*, and two things are missing for one. A sample on the threaded path can
+/// contain a wait — `present` answers at once when the renderer is still holding the last packet, and
+/// there is no parking point until impl 19's `wait` — so the distribution has a tail that is the
+/// scheduler's rather than the engine's. And a budget gate has to hold on a runner somebody has
+/// measured, which is impl 26's ledger. Promoting a row on the strength of one machine's report is
+/// the same mistake as exempting one on the strength of an expectation.
 const REPORTED_NOT_GATED: [(&str, &str); 4] = [
     ("every-cell-a-distinct-style", "1 ms, full-screen: ~1.2x"),
     (
@@ -480,7 +594,8 @@ fn the_hyperlinked_page_under_an_animating_operator() {
                 hyperlinks: Some(osc8),
                 ..scene.overrides()
             },
-            ..Default::default()
+            // The inline round, as everywhere else here. See `sink_screen_with`.
+            clock: Clock::Manual,
         })
         .attach()
         .expect("attaching to a sink cannot fail");

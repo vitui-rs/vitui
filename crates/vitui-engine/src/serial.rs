@@ -2066,7 +2066,7 @@ mod tests {
         let mut runs = Vec::new();
         frame.damage().for_each_run(|r| runs.push(r));
         let mut packet = Packet::new();
-        packet.pack(&runs, frame, frame.tables(), false);
+        packet.pack(&runs, frame, frame.tables(), false, 1);
         let (w, h) = frame.size();
         let mut s = Serializer::new(w, h);
         s.serialize(&packet, caps).to_vec()
@@ -2416,7 +2416,7 @@ mod tests {
         let mut packet = Packet::new();
         let mut runs = Vec::new();
         frame.damage().for_each_run(|r| runs.push(r));
-        packet.pack(&runs, &frame, frame.tables(), false);
+        packet.pack(&runs, &frame, frame.tables(), false, 1);
         let mut out = Vec::new();
         emit_sgr_delta(
             &mut out,
@@ -2503,7 +2503,7 @@ mod tests {
         let mut runs = Vec::new();
         f.damage().for_each_run(|r| runs.push(r));
         let mut packet = Packet::new();
-        packet.pack(&runs, &f, f.tables(), false);
+        packet.pack(&runs, &f, f.tables(), false, 1);
         let mut s = Serializer::new(8, 2);
         s.serialize(&packet, &modern());
         assert_eq!(s.mirror().cell(3, 1), f.row(1)[3]);
@@ -2560,6 +2560,8 @@ mod tests {
         serializer: Serializer,
         packet: Packet,
         caps: Capabilities,
+        /// One packet across many frames, so the stamp has to move the way `Screen`'s does.
+        generation: u64,
     }
 
     impl Frames {
@@ -2568,7 +2570,14 @@ mod tests {
                 serializer: Serializer::new(w, h),
                 packet: Packet::new(),
                 caps: modern(),
+                generation: 0,
             }
+        }
+
+        /// The next stamp, never reused. `Screen` counts packs; so does this.
+        fn next_generation(&mut self) -> u64 {
+            self.generation += 1;
+            self.generation
         }
 
         fn with_filter(w: u16, h: u16, filter: Filter) -> Frames {
@@ -2582,7 +2591,9 @@ mod tests {
         fn present(&mut self, frame: &mut Surface) -> Vec<u8> {
             let mut runs = Vec::new();
             frame.damage().for_each_run(|r| runs.push(r));
-            self.packet.pack(&runs, frame, frame.tables(), false);
+            let generation = self.next_generation();
+            self.packet
+                .pack(&runs, frame, frame.tables(), false, generation);
             let out = self.serializer.serialize(&self.packet, &self.caps).to_vec();
             frame.damage_mut().clear();
             out
@@ -2666,7 +2677,9 @@ mod tests {
         frame.root().text(0, 0, "abcdefgh", Style::new());
         let mut runs = Vec::new();
         frame.damage().for_each_run(|r| runs.push(r));
-        f.packet.pack(&runs, &frame, frame.tables(), true);
+        let generation = f.next_generation();
+        f.packet
+            .pack(&runs, &frame, frame.tables(), true, generation);
         let after = f.serializer.serialize(&f.packet, &f.caps).to_vec();
         assert!(
             after.ends_with(b"abcdefgh"),
@@ -3261,7 +3274,7 @@ mod tests {
             let mut runs = Vec::new();
             f.damage().for_each_run(|r| runs.push(r));
             let mut packet = Packet::new();
-            packet.pack(&runs, f, f.tables(), false);
+            packet.pack(&runs, f, f.tables(), false, 1);
             let (w, h) = f.size();
             let mut s = Serializer::new(w, h);
             let bytes = s.serialize(&packet, &modern()).len();
@@ -3562,7 +3575,7 @@ mod tests {
         let mut runs = Vec::new();
         f.damage().for_each_run(|r| runs.push(r));
         let mut packet = Packet::new();
-        packet.pack(&runs, &f, f.tables(), false);
+        packet.pack(&runs, &f, f.tables(), false, 1);
         let mut s = Serializer::new(W, H);
         let caps = modern();
         let at = std::time::Instant::now();

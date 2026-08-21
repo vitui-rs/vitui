@@ -463,7 +463,7 @@ impl Harness {
         // `present` calls, then the frame that carries it. Found the moment the extended gates came
         // back onto this harness at impl 13, which is the first time a sweep and a round trip were in
         // the same test.
-        if self.screen.packet().repaint() {
+        if self.screen.with_packet(|p| p.repaint()) {
             self.stale.fill(true);
         }
         for y in 0..self.screen.size().1 {
@@ -597,6 +597,16 @@ impl Harness {
     /// crate reads the bytes back, because the terminal model is what reads them.
     pub(crate) fn wire(&self) -> Vec<u8> {
         self.recording.lock().unwrap().bytes[self.prologue.0..].to_vec()
+    }
+
+    /// Every byte of the session, prologue included.
+    ///
+    /// The one gate that needs all of them is
+    /// [`the_threaded_path_writes_the_bytes_the_deterministic_path_writes`](crate::gates), which
+    /// compares two whole recordings: a prologue written on a different thread would be a difference
+    /// worth failing over.
+    pub(crate) fn bytes(&self) -> Vec<u8> {
+        self.recording.lock().unwrap().bytes.clone()
     }
 
     /// Bytes the **frames** have written, which is the session's total less the prologue.

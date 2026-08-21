@@ -17,11 +17,17 @@
 //! a deterministic spawner, or joins before it measures.** There is no third option, and "it
 //! probably finished by then" is not one of them.
 //!
-//! Nothing here has a background job, and that is not luck: the deterministic single-thread mode is
-//! what makes it true. `present` composites, packs, serialises and writes inline on the calling
-//! thread, so the window below contains exactly one thread's work. Ticket 18 brings the render
-//! thread, and it is the first ticket that has to obey the rule rather than satisfy it by
-//! construction — its gate is register entry #5, pinned red in `src/register.rs` until then.
+//! Nothing here has a background job, and that is not luck: **every screen in this file pins
+//! [`Clock::Manual`]**, which is what says there is no render thread. `present` then composites,
+//! packs, serialises and writes inline on the calling thread and the window below contains exactly
+//! one thread's work.
+//!
+//! The pin is load-bearing rather than tidy, and it became so at ticket 18: `Clock::System` is the
+//! default, and `attach` on it spawns a render thread that would be inside every window here — which
+//! is the rule's own case, and it would have been *green*, because the handoff's steady state
+//! allocates nothing either. A gate that passes for a reason it does not state is a gate that stops
+//! being about what its name says. The gate that *is* about the threaded path is register entry #5,
+//! in `tests/handoff.rs`, and it argues the rule rather than avoiding it.
 //!
 //! # Why this is one test and not three
 //!
@@ -37,8 +43,8 @@ use std::sync::{Arc, Mutex};
 
 use vitui_alloc_probe::{CountingAllocator, assert_no_alloc};
 use vitui_engine::{
-    Color, ColorDepth, Config, Engine, LayerId, Mix, Output, Overrides, Rect, Restyle, Screen,
-    Style,
+    Clock, Color, ColorDepth, Config, Engine, LayerId, Mix, Output, Overrides, Rect, Restyle,
+    Screen, Style,
 };
 
 #[global_allocator]
@@ -108,7 +114,9 @@ fn screen_with(overrides: Overrides) -> (Screen, LayerId) {
         size: (W, H),
         output: Output::Sink(Box::new(Discard)),
         overrides,
-        ..Default::default()
+        // See the attribution window at the top of this file: the default clock spawns a render
+        // thread, and a render thread inside these windows is the case the rule is about.
+        clock: Clock::Manual,
     })
     .attach()
     .expect("attaching to a sink cannot fail");
@@ -254,7 +262,8 @@ fn the_operator_reaches_the_wire_at_the_depth_the_gate_pins() {
             size: (W, H),
             output: Output::Sink(Box::new(tap)),
             overrides: hyperlinks_and_truecolor(),
-            ..Default::default()
+            // Inline, so the bytes are in the tap by the time `present` returns.
+            clock: Clock::Manual,
         })
         .attach()
         .expect("attaching to a sink cannot fail");

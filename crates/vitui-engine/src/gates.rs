@@ -259,36 +259,40 @@ fn a_packed_cell_is_byte_identical_to_the_surface_cell() {
             scene.step(&mut h.screen, t);
             h.present();
 
-            let packet = h.screen.packet();
             let frame = h.screen.frame();
-            assert_eq!(
-                packet.size(),
-                h.screen.size(),
-                "{name}, frame {t}: the packet carries the wrong size"
-            );
-            let cells = packet.cells();
-            let mut at = 0;
-            for r in packet.runs() {
-                for x in r.lo..=r.hi {
-                    assert_eq!(
-                        cells[at],
-                        frame.row(r.y)[x as usize],
-                        "{name}, frame {t}: the packed cell at ({x}, {}) is not the surface cell",
-                        r.y
-                    );
-                    at += 1;
+            let size = h.screen.size();
+            let runs = h.screen.runs();
+            h.screen.with_packet(|packet| {
+                assert_eq!(
+                    packet.size(),
+                    size,
+                    "{name}, frame {t}: the packet carries the wrong size"
+                );
+                let cells = packet.cells();
+                let mut at = 0;
+                for r in packet.runs() {
+                    for x in r.lo..=r.hi {
+                        assert_eq!(
+                            cells[at],
+                            frame.row(r.y)[x as usize],
+                            "{name}, frame {t}: the packed cell at ({x}, {}) is not the surface \
+                             cell",
+                            r.y
+                        );
+                        at += 1;
+                    }
                 }
-            }
-            assert_eq!(
-                at,
-                cells.len(),
-                "{name}, frame {t}: the packet carries cells no run describes"
-            );
-            assert_eq!(
-                packet.runs(),
-                h.screen.runs(),
-                "{name}, frame {t}: the packet's runs are not the frame's"
-            );
+                assert_eq!(
+                    at,
+                    cells.len(),
+                    "{name}, frame {t}: the packet carries cells no run describes"
+                );
+                assert_eq!(
+                    packet.runs(),
+                    runs,
+                    "{name}, frame {t}: the packet's runs are not the frame's"
+                );
+            });
         }
     }
 }
@@ -2541,5 +2545,676 @@ fn a_frame_narrows_once_a_distinct_style_word_and_never_twice_a_cell() {
     assert_eq!(
         narrowings, CELLS,
         "{narrowings} narrowings for {CELLS} distinct style words"
+    );
+}
+
+// ---------------------------------------------------------------------------------------------
+// #8, #9 — the pool does not starve, and a packet is never superseded.
+// ---------------------------------------------------------------------------------------------
+
+/// A sink that takes everything and keeps a count.
+///
+/// A [`Recorder`](crate::testing::Recorder) would grow a `Vec` by ten thousand frames, and a gate
+/// whose window contains that is measuring its own instrument.
+#[derive(Clone, Default)]
+struct Counting(std::sync::Arc<std::sync::atomic::AtomicUsize>);
+
+impl std::io::Write for Counting {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0
+            .fetch_add(buf.len(), std::sync::atomic::Ordering::Relaxed);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+impl Counting {
+    fn bytes(&self) -> usize {
+        self.0.load(std::sync::atomic::Ordering::Relaxed)
+    }
+}
+
+/// A screen on the **real three-thread path**: `Clock::System`, so `attach` spawns a render thread
+/// that owns the write direction and the mirror.
+///
+/// Everything else in this file is deterministic on purpose. These three gates cannot be: they are
+/// about the handoff, and §14's own note says so — *the properties that are about threads cannot be
+/// tested in the mode that removes them.*
+fn threaded(sink: Box<dyn std::io::Write + Send>) -> Screen {
+    let (screen, _wake) = crate::engine::Engine::new(crate::engine::Config {
+        size: (W, H),
+        output: crate::engine::Output::Sink(sink),
+        clock: crate::engine::Clock::System,
+        overrides: crate::testing::pinned_truecolor(),
+    })
+    .attach()
+    .expect("attaching to a sink cannot fail");
+    screen
+}
+
+/// Wait until the render thread has finished `want` frames, or give up and let the caller's
+/// assertion say what was short.
+///
+/// A spin rather than a condvar, because `finish` signals nothing: the app thread is released at
+/// *take*, which is what makes the pool two, and nothing in the design waits for a write to end.
+/// Adding a notification for a test's benefit would put a wakeup in the frame path that ticket 19's
+/// idle gate would then have to explain.
+fn drained(screen: &Screen, want: u64) -> (u32, u32, u64) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    loop {
+        let counts = screen.handoff_counts();
+        if counts.2 >= want || std::time::Instant::now() > deadline {
+            return counts;
+        }
+        std::hint::spin_loop();
+    }
+}
+
+/// **Gates #9 and #8, and #9 is the backpressure decision rather than a health check.**
+///
+/// > With one producer and the ready gate, the slot is always empty at submit, so a packet can never
+/// > be superseded — which fixes the pool at two packets, provably rather than empirically.
+///
+/// If the superseded counter ever leaves zero, the pacing gate has moved off the app thread and
+/// frames are being composed in order to be thrown away. That is not a leak and not a crash: the
+/// screen stays correct and the engine quietly does 107 µs of work per frame for nothing, which is
+/// exactly the class of defect a count catches and a stopwatch does not.
+///
+/// Ten thousand cycles, on one cell a frame, because what is being counted is the handoff and not
+/// the composite: a full-screen frame would spend a minute of CI to exercise the same four lock
+/// acquisitions ten thousand times.
+#[test]
+fn a_packet_is_never_superseded_and_the_pool_of_two_does_not_starve() {
+    const CYCLES: u64 = 10_000;
+    let sink = Counting::default();
+    let mut screen = threaded(Box::new(sink.clone()));
+    let id = screen.layers().add_content(0, Rect::new(0, 0, W, H), true);
+
+    let mut submitted = 0u64;
+    for i in 0..CYCLES {
+        {
+            let mut view = screen.layers().view(id).expect("the layer was just added");
+            // Alternating, so the equality filter has something to emit and the renderer has
+            // something to write. A steady glyph would make every frame after the first zero bytes,
+            // and then the pool would be cycling with no write to overlap.
+            view.text(
+                0,
+                (i % u64::from(H)) as i32,
+                if i % 2 == 0 { "x" } else { "y" },
+                Style::new(),
+            );
+        }
+        loop {
+            if screen.present().submitted {
+                submitted += 1;
+                break;
+            }
+            // The only reason a frame with damage in it does not submit: the renderer has not taken
+            // the last one. This is where ticket 19's `wait` goes.
+            screen.wait_for_renderer();
+        }
+    }
+    assert_eq!(submitted, CYCLES, "every frame was eventually handed on");
+
+    let (superseded, starved, painted) = drained(&screen, CYCLES);
+    assert_eq!(
+        superseded, 0,
+        "a packet was superseded, so frames are being composed to be thrown away"
+    );
+    assert_eq!(
+        starved,
+        0,
+        "the pool of {} starved, which the ready gate is supposed to make unreachable",
+        crate::handoff::POOL
+    );
+    assert_eq!(painted, CYCLES, "the render thread wrote every frame");
+    assert!(sink.bytes() > 0, "nothing reached the wire at all");
+}
+
+/// **The threaded path writes the byte the deterministic path writes, and this is what says so.**
+///
+/// Ticket 18's own constraint is that nothing it adds may change a byte the deterministic mode
+/// asserts, and the twelve scenes are what assert those bytes. So the same scene is driven through
+/// both paths and the two recordings are compared whole — prologue, frames and all.
+///
+/// It is exact rather than approximate because the two paths share the serializer, the mirror and
+/// the packet pool: what differs is which thread runs the renderer. A frame is waited for before the
+/// next one is drawn, so no frame coalesces into another — coalescing is a different property and
+/// [`a_busy_renderer_coalesces_rather_than_dropping_a_frame`] is where it is checked.
+#[test]
+fn the_threaded_path_writes_the_bytes_the_deterministic_path_writes() {
+    for mut scene in wired() {
+        let name = scene.name();
+
+        let inline = {
+            let mut h = Harness::with_overrides(W, H, scene.overrides());
+            scene.build(&mut h.screen);
+            h.present();
+            for t in 1..=FRAMES {
+                scene.step(&mut h.screen, t);
+                h.present();
+            }
+            h.bytes()
+        };
+
+        let recorder = crate::testing::Recorder::new();
+        let recording = recorder.handle();
+        let threaded = {
+            let (mut screen, _wake) = crate::engine::Engine::new(crate::engine::Config {
+                size: (W, H),
+                output: crate::engine::Output::Sink(Box::new(recorder)),
+                clock: crate::engine::Clock::System,
+                overrides: scene.overrides(),
+            })
+            .attach()
+            .expect("attaching to a sink cannot fail");
+            scene.build(&mut screen);
+            /// One frame, waited for: the next one is not drawn until the renderer has taken this
+            /// one, so nothing coalesces and the byte streams stay comparable frame for frame.
+            fn present(screen: &mut Screen) {
+                while !screen.present().submitted {
+                    screen.wait_for_renderer();
+                }
+            }
+            let mut frames = 0;
+            present(&mut screen);
+            frames += 1;
+            for t in 1..=FRAMES {
+                scene.step(&mut screen, t);
+                present(&mut screen);
+                frames += 1;
+            }
+            let (_, _, painted) = drained(&screen, frames);
+            assert_eq!(painted, frames, "{name}: the render thread fell behind");
+            // Read before the `Screen` is dropped: the epilogue goes out on the way past, and the
+            // inline arm's is not in its recording either.
+            recording
+                .lock()
+                .expect("the recorder is never poisoned")
+                .bytes
+                .clone()
+        };
+
+        assert_eq!(
+            threaded, inline,
+            "{name}: the render thread wrote different bytes from the inline round"
+        );
+    }
+}
+
+/// **The backpressure decision, from the other side: a frame that would have been dropped is never
+/// composed.**
+///
+/// The renderer is held inside a write by a sink that blocks on a channel, so *the render thread is
+/// busy* is a state this test puts it in rather than one it waits to observe. What is then asserted
+/// is the whole of §7's answer to backpressure:
+///
+/// - `present` returns without compositing, and says `submitted: false`;
+/// - the damage is **still there** afterwards, which is what makes coalescing free — §6's structure
+///   is already the coalescing mechanism and costs 6.6 ns to interrogate;
+/// - the frame that eventually submits reports how many were folded into it, and clears the count.
+///
+/// The pool is what makes the second frame submit at all: the renderer holds one packet while the
+/// app fills the other, which is exactly *one being filled, one in the renderer's hands*.
+#[test]
+fn a_busy_renderer_coalesces_rather_than_dropping_a_frame() {
+    /// A sink that will not take a frame until the test lets it.
+    ///
+    /// One `recv` per write, and a dropped sender is what releases it for ever — which is how the
+    /// epilogue gets out at the end without the test having to count the writes it did not make.
+    struct Gated(std::sync::mpsc::Receiver<()>);
+
+    impl std::io::Write for Gated {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            let _ = self.0.recv();
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    let (tx, rx) = std::sync::mpsc::channel();
+    // The prologue, which `attach` writes on this thread before any second thread exists. Gating it
+    // would deadlock the constructor.
+    tx.send(()).expect("the receiver is alive");
+    let mut screen = threaded(Box::new(Gated(rx)));
+    let id = screen.layers().add_content(0, Rect::new(0, 0, W, H), true);
+    let row: String = std::iter::repeat_n('m', W as usize).collect();
+    let paint = |screen: &mut Screen, y: i32, style: Style| {
+        let mut view = screen.layers().view(id).expect("the layer was just added");
+        view.text(0, y, &row, style);
+    };
+
+    // Frame one goes in and the renderer takes it: `wait_for_renderer` is what makes that an
+    // ordering rather than a hope. It is now blocked inside the write.
+    paint(&mut screen, 0, Style::new());
+    assert!(screen.present().submitted);
+    screen.wait_for_renderer();
+
+    // Frame two fills the second packet of the pool and lands in the slot. The renderer is still
+    // inside frame one's write, so it has not taken it.
+    paint(&mut screen, 1, Style::new());
+    let second = screen.present();
+    assert!(
+        second.submitted,
+        "the pool's second packet was there to fill"
+    );
+    assert_eq!(second.coalesced, 0);
+
+    // Frames three and four are not composited at all.
+    for expected in 1..=2 {
+        paint(&mut screen, 2, Style::new().bold());
+        let folded = screen.present();
+        assert!(
+            !folded.submitted,
+            "a frame was composed for a renderer that had not asked for one"
+        );
+        assert_eq!(folded.coalesced, expected);
+        assert!(
+            !screen.frame().damage().is_empty(),
+            "the folded frame's damage was thrown away rather than accumulated"
+        );
+    }
+
+    // Let both writes through, and the frame that follows carries the two that were folded.
+    tx.send(()).expect("the receiver is alive");
+    tx.send(()).expect("the receiver is alive");
+    drained(&screen, 2);
+    screen.wait_for_renderer();
+    let caught_up = screen.present();
+    assert!(caught_up.submitted);
+    assert_eq!(
+        caught_up.coalesced, 2,
+        "the frame that paints reports what was folded into it"
+    );
+    assert_eq!(
+        screen.present().coalesced,
+        0,
+        "the count is cleared by the frame that carried it"
+    );
+    drop(tx);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Resize: sampled at frame start, re-checked at submit.
+// ---------------------------------------------------------------------------------------------
+
+/// **A lease is never invalidated; the frame it produced may be discarded** (spec §2's sixth
+/// invariant).
+///
+/// Writing a 300x80 frame into a terminal that is now 120x40 wraps and scrolls, which is worse than
+/// a missing frame — so the frame goes back to the pool unsent. Four things are asserted, and the
+/// last two are what make it a discard rather than a loss:
+///
+/// - `Presented::discarded_for_resize` says so;
+/// - not one byte went out;
+/// - the damage is still marked, so the next frame composites it again;
+/// - a full repaint is scheduled, because the mirror is describing a terminal that has reflowed.
+///
+/// And then it happens **once**: the next frame samples the size the last one was refused for, so a
+/// terminal that resizes and stays resized costs one composite rather than every composite after it.
+#[test]
+fn a_frame_whose_size_moved_under_it_is_discarded_and_repaints() {
+    let mut h = Harness::truecolor(W, H);
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, W, H), true);
+    let row: String = std::iter::repeat_n('m', W as usize).collect();
+    {
+        let mut view = h.screen.layers().view(id).expect("just added");
+        view.text(0, 0, &row, Style::new());
+    }
+    h.present();
+
+    let before = h.bytes_written();
+    {
+        let mut view = h.screen.layers().view(id).expect("still there");
+        view.text(0, 1, &row, Style::new().bold());
+    }
+    h.screen.resize_during_next_frame(120, 40);
+    let discarded = h.screen.present();
+
+    assert!(
+        discarded.discarded_for_resize,
+        "the frame was written into a terminal of a different size"
+    );
+    assert!(!discarded.submitted);
+    assert_eq!(
+        h.bytes_written(),
+        before,
+        "a frame composited for a screen that no longer exists reached the wire"
+    );
+    assert!(
+        !h.screen.frame().damage().is_empty(),
+        "the discarded frame's damage went with it"
+    );
+    assert!(
+        h.screen.repaint_pending(),
+        "the mirror was left describing a terminal that has reflowed"
+    );
+    assert_eq!(h.screen.terminal_size(), (120, 40));
+
+    // Once, not once per frame after one.
+    let next = h.screen.present();
+    assert!(next.submitted, "the frame after a resize is not discarded");
+    assert!(!next.discarded_for_resize);
+    assert!(h.bytes_written() > before);
+}
+
+/// The generation is what the three side tables are stamped with, so a repeated one would make last
+/// frame's clusters answer for this frame's handles.
+///
+/// It counts **packs** and not submissions, which is the whole of why a discarded frame consumes
+/// one: the packet it was packed into goes back to the pool with its marks still stamped.
+#[test]
+fn every_pack_stamps_a_generation_of_its_own() {
+    let mut h = Harness::truecolor(8, 2);
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, 8, 2), true);
+    let mut seen = Vec::new();
+    for t in 0..6u32 {
+        {
+            let mut view = h.screen.layers().view(id).expect("just added");
+            view.text(0, 0, if t % 2 == 0 { "ab" } else { "cd" }, Style::new());
+        }
+        if t == 3 {
+            h.screen.resize_during_next_frame(4, 2);
+            assert!(h.screen.present().discarded_for_resize);
+            h.screen.resize(4, 2);
+            continue;
+        }
+        h.present();
+        seen.push(h.screen.with_packet(|p| p.generation()));
+    }
+    let mut sorted = seen.clone();
+    sorted.sort_unstable();
+    sorted.dedup();
+    assert_eq!(
+        sorted.len(),
+        seen.len(),
+        "a generation was reused: {seen:?}"
+    );
+    assert!(
+        seen.windows(2).all(|w| w[0] < w[1]),
+        "generations must increase, not merely differ: {seen:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Reports: what the handoff costs, what `pack` costs, and the walk the packet was chosen for.
+// ---------------------------------------------------------------------------------------------
+
+/// Report: the mailbox's critical section, against §7's **47 ns** on submit and **80 ns** for a full
+/// uncontended `lease → submit → take → finish`.
+///
+/// # Why the submit figure is a difference rather than a direct reading
+///
+/// A 47 ns critical section cannot be bracketed by two `Instant::now()` calls: on this machine the
+/// pair costs about as much as the thing between them, so the number would be mostly clock. What is
+/// measured instead is two cycles that differ by exactly two lock acquisitions — the full round
+/// against `lease → give_back`, which is the discard path and takes two — and the difference divided
+/// by two is what one acquisition of the mailbox costs with its critical section inside it.
+///
+/// Round-robin through [`Bench`](vitui_bench::Bench), because the whole value here is a difference
+/// between two arms and a background job that lands inside one of them would be the difference.
+#[test]
+fn what_the_handoff_costs() {
+    use crate::handoff::{Lease, Mailbox};
+
+    const ITERS: u32 = 5_000;
+    let full = Mailbox::new();
+    let half = Mailbox::new();
+    let report = vitui_bench::Bench::new(24)
+        .case("lease-submit-take-finish", ITERS, || {
+            let Lease::Ready(packet) = full.lease() else {
+                unreachable!("the renderer is this thread and it is never busy")
+            };
+            full.submit(packet);
+            let packet = full.take().expect("the slot was just filled");
+            full.finish(packet);
+        })
+        .case("lease-give-back", ITERS, || {
+            let Lease::Ready(packet) = half.lease() else {
+                unreachable!("nothing else holds a packet")
+            };
+            half.give_back(packet);
+        })
+        .run();
+
+    let cycle = report
+        .get("lease-submit-take-finish")
+        .expect("the case ran");
+    let discard = report.get("lease-give-back").expect("the case ran");
+    println!(
+        "\n  the mailbox, uncontended, {ITERS} iterations a sample:\n    \
+         {cycle:.1} ns  lease -> submit -> take -> finish, four acquisitions (spec §7: 80 ns)\n    \
+         {discard:.1} ns  lease -> give_back, two acquisitions (the resize discard path)\n    \
+         {:.1} ns  one acquisition with its critical section (spec §7: 47 ns on submit)\n  \
+         Report, not a gate: §14 allows a timing as a gate only at cliff granularity, and this is a \
+         difference of two nanosecond-scale arms.",
+        (cycle - discard) / 2.0,
+    );
+    assert!(
+        cycle > discard,
+        "four lock acquisitions cost less than two, so this is measuring the clock"
+    );
+}
+
+/// The four densities of §7's `pack` table, built through the drawing verbs.
+///
+/// The names are §7's own. What varies is how many of the 24 000 cells carry a handle the packet has
+/// to resolve into a side table — none, one in a hundred, all of them naming one entry, and all of
+/// them naming a distinct entry, which is the adversarial page.
+///
+/// **Two passes, and the second one is what is measured over.** The first mints every handle so the
+/// tables are warm, and the second changes every cell so the whole screen is damaged with the
+/// density's handles still on it. One pass would have measured a `pack` over whatever the birth frame
+/// happened to leave damaged, and a density applied *before* a full-screen `text` would have measured
+/// a plain screen four times — `text` writes the style word it is given, so it takes an extended cell
+/// back to inline.
+fn packing_density(which: &str) -> Screen {
+    let mut h = Harness::with_overrides(
+        W,
+        H,
+        Overrides {
+            hyperlinks: Some(true),
+            ..crate::testing::pinned_truecolor()
+        },
+    );
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, W, H), true);
+    let row: String = std::iter::repeat_n('m', W as usize).collect();
+    let link = if which == "linked 100%" {
+        Some(h.screen.link("https://example.com/vitui"))
+    } else {
+        None
+    };
+    for pass in 0..2u32 {
+        // A different ink each pass, so every one of the 24 000 cells changes and the second pass
+        // damages the whole screen.
+        let ink = if pass == 0 {
+            opaque_ink()
+        } else {
+            opaque_ink().bold()
+        };
+        let mut view = h.screen.layers().view(id).expect("just added");
+        for y in 0..H as i32 {
+            view.text(0, y, &row, ink);
+        }
+        match which {
+            "plain" => {}
+            // One cell in a hundred carries a cluster and an underline colour: §7's *realistic*.
+            "realistic 1%" => {
+                for y in (0..H as i32).step_by(4) {
+                    for x in (0..W as i32).step_by(25) {
+                        view.text(x, y, "e\u{301}", ink);
+                        view.restyle(
+                            Rect::new(x, y, 1, 1),
+                            &Restyle {
+                                ul: Some(Color::rgb(1, 2, 3)),
+                                ..Default::default()
+                            },
+                        );
+                    }
+                }
+            }
+            // Every cell hyperlinked, and one table entry between them.
+            "linked 100%" => view.restyle(
+                Rect::new(0, 0, W, H),
+                &Restyle {
+                    link,
+                    ..Default::default()
+                },
+            ),
+            // Every cell a distinct extended style, which is a table of thousands and a probe per
+            // cell that cannot be answered from the one before it.
+            "hostile 100%" => {
+                for y in 0..H {
+                    for x in 0..W {
+                        let n = u32::from(y) * u32::from(W) + u32::from(x);
+                        view.restyle(
+                            Rect::new(x as i32, y as i32, 1, 1),
+                            &Restyle {
+                                ul: Some(Color::rgb((n >> 16) as u8, (n >> 8) as u8, n as u8)),
+                                ..Default::default()
+                            },
+                        );
+                    }
+                }
+            }
+            other => unreachable!("no such density: {other}"),
+        }
+        h.present();
+    }
+    h.screen
+}
+
+/// Report: what `pack` costs on the app thread at §7's four densities.
+///
+/// > | pack, 300x80, on the app thread | plain | realistic 1% | linked 100% | hostile 100% |
+/// > |---|---|---|---|---|
+/// > | position-rewriting | 50.00 µs | 51.05 µs | 49.95 µs | 98.99 µs |
+/// > | **keyed** | **21.99 µs** | **28.13 µs** | **31.02 µs** | **38.42 µs** |
+///
+/// Only the keyed row is reproducible here, because the position-rewriting packet is the one that
+/// was refused and there is nothing left of it to run — its cost is recorded above and its *defect*
+/// is what gate #10 keeps out. What the four numbers below are for is the shape: `pack` is
+/// proportional to the damage and to the handles inside it, and the adversarial page is under twice
+/// the plain one rather than an order of magnitude over it.
+///
+/// **This is the app thread's frame budget**, which is the scarce one — the render thread has 16.6 ms
+/// and nothing else to do — so a change that made the render thread cheaper by making this dearer
+/// would be a regression this report is where anyone would see.
+///
+/// §7's figures are from a release build, so read this one from a release build too:
+///
+/// ```text
+/// cargo test --release -p vitui-engine what_pack_costs -- --nocapture
+/// ```
+#[test]
+fn what_pack_costs_at_four_densities() {
+    const DENSITIES: [&str; 4] = ["plain", "realistic 1%", "linked 100%", "hostile 100%"];
+
+    let mut out = String::new();
+    for density in DENSITIES {
+        let screen = packing_density(density);
+        let mut packet = crate::packet::Packet::new();
+        let mut generation = 0u64;
+        // A pack of the whole screen per iteration, and the tables are warm: every handle the cells
+        // name already exists, which is the state register entry #6 is about.
+        let mut once = || {
+            generation += 1;
+            packet.pack(
+                screen.runs(),
+                screen.frame(),
+                screen.tables(),
+                false,
+                generation,
+            );
+            std::hint::black_box(packet.cells().len());
+        };
+        // Warm the marker vectors to the tables' high-water mark before timing, because their one
+        // growth is the allocation the density gate is about and it happens once.
+        once();
+        let report = vitui_bench::Bench::new(16).case(density, 4, once).run();
+        let us = report.get(density).expect("the case ran") / 1e3;
+        out.push_str(&format!("    {us:>7.2} us  {density}\n"));
+    }
+    println!(
+        "\n  pack, {W}x{H}, whole screen damaged, on the app thread:\n{out}  \
+              spec §7's keyed row: 21.99 / 28.13 / 31.02 / 38.42 us.\n  Report, not a gate."
+    );
+}
+
+/// Report: the walk the packet was chosen for, contiguous against indexed by runs.
+///
+/// > | scene | packet (contiguous) | grid indexed by runs | x |
+/// > |---|---|---|---|
+/// > | **sparse chart (584 runs)** | **179.6 ns** | **875.7 ns** | **4.88** |
+///
+/// This is what decided §7, because *cost did not discriminate* on the copy: the buffer-age area
+/// multiplier of the ownership-transfer alternative is real but its absolute worst case is 0.4 µs
+/// against a 100 µs budget. What separates the two is the **serializer's** walk afterwards, and on
+/// scattered runs the packet walks its cells contiguously where a grid jumps a row stride per run
+/// across 384 KB.
+///
+/// Both arms read the same cells in the same order and do the same arithmetic on them; the only
+/// difference is where those cells live. Round-robin, because the ratio is the whole point and it is
+/// only meaningful if both arms saw the same interference.
+#[test]
+fn what_the_serializers_walk_costs_contiguous_against_indexed() {
+    let mut rows = String::new();
+    for mut scene in wired() {
+        let name = scene.name();
+        let mut h = staged(&mut *scene);
+        scene.step(&mut h.screen, 1);
+        h.present();
+        let screen = &h.screen;
+        let runs = screen.runs();
+        let frame = screen.frame();
+        let cells: Vec<crate::cell::Cell> = screen.with_packet(|p| p.cells().to_vec());
+        assert!(!cells.is_empty(), "{name}: nothing was packed to walk");
+
+        let report = vitui_bench::Bench::new(24)
+            .case("contiguous", 64, || {
+                let mut acc = 0u32;
+                for c in &cells {
+                    acc ^= c.grapheme.bits();
+                }
+                std::hint::black_box(acc);
+            })
+            .case("indexed", 64, || {
+                let mut acc = 0u32;
+                for r in runs {
+                    for c in &frame.row(r.y)[r.lo as usize..=r.hi as usize] {
+                        acc ^= c.grapheme.bits();
+                    }
+                }
+                std::hint::black_box(acc);
+            })
+            .run();
+        let contiguous = report.get("contiguous").expect("ran");
+        let indexed = report.get("indexed").expect("ran");
+        rows.push_str(&format!(
+            "    {name:<44} {contiguous:>9.1} ns {indexed:>9.1} ns  {:>5.2}x  ({} runs, {} cells)\n",
+            indexed / contiguous,
+            runs.len(),
+            cells.len(),
+        ));
+    }
+    println!(
+        "\n  the serializer's walk, per scene: packet (contiguous) against grid indexed by runs\n\
+         {rows}  spec §7: 4.88x on the sparse chart, 0.99x-1.12x on the contiguous scenes.\n  \
+         Report, not a gate."
     );
 }

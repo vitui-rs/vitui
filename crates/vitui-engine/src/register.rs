@@ -166,9 +166,14 @@ pub const REGISTER: [Entry; 27] = [
         kind: Kind::Gate,
         qualifier: "count",
         source: "arch 09",
-        state: State::Red {
-            inverted_by: "impl 18",
-            why: "there is no mailbox and no pool while there is one thread",
+        state: State::Wired {
+            at: "tests/handoff.rs::the_steady_state_of_the_handoff_allocates_nothing, first \
+                 phase — on the real three-thread path, because that is the only place all five \
+                 of those words exist: lease, pack and submit on the app thread and take and \
+                 finish on the render thread. It is also the one allocation gate in this \
+                 repository with a thread inside its window, and its module documentation argues \
+                 §14's attribution rule rather than avoiding it: what the rule forbids is work \
+                 the gate is not about, and here both threads are the subject",
         },
     },
     Entry {
@@ -177,11 +182,14 @@ pub const REGISTER: [Entry; 27] = [
         kind: Kind::Gate,
         qualifier: "count",
         source: "arch 16",
-        state: State::Red {
-            inverted_by: "impl 18",
-            why: "impl 06 mints the handle tables, but the gate is on `pack`, which only becomes \
-                  a thing to measure once there is a packet crossing a mailbox — impl 18 carries \
-                  it in its own criteria",
+        state: State::Wired {
+            at: "tests/handoff.rs::the_steady_state_of_the_handoff_allocates_nothing, second \
+                 phase — §7's four densities, none of the 24 000 cells carrying a handle through \
+                 to every one of them naming a distinct entry. What it is about is impl 18's \
+                 generation-stamped marker, whose slots grow to the handle tables' high-water \
+                 mark and never again; the `HashMap` it replaced would have passed the plain arm \
+                 and failed the dense ones. Asserted over the whole frame rather than over `pack` \
+                 alone, which is stronger and is the only shape reachable from outside the crate",
         },
     },
     Entry {
@@ -204,9 +212,11 @@ pub const REGISTER: [Entry; 27] = [
         kind: Kind::Gate,
         qualifier: "count",
         source: "arch 09",
-        state: State::Red {
-            inverted_by: "impl 18",
-            why: "there is no pool while there is one thread",
+        state: State::Wired {
+            at: "crate::gates::a_packet_is_never_superseded_and_the_pool_of_two_does_not_starve, \
+                 10 000 cycles on the real three-thread path. Two is provably enough rather than \
+                 empirically: the app may fill one while the renderer holds the other, and the \
+                 ready gate is what stops a third ever being wanted",
         },
     },
     Entry {
@@ -215,11 +225,14 @@ pub const REGISTER: [Entry; 27] = [
         kind: Kind::Gate,
         qualifier: "count",
         source: "arch 09",
-        state: State::Red {
-            inverted_by: "impl 18",
-            why: "nothing can supersede a packet that is consumed inline. This is the \
-                  backpressure decision, not a health check: if it ever trips, the pacing gate has \
-                  moved off the app thread and frames are being composed to be thrown away",
+        state: State::Wired {
+            at: "crate::gates::a_packet_is_never_superseded_and_the_pool_of_two_does_not_starve, \
+                 the same 10 000 cycles. **This is the backpressure decision and not a health \
+                 check**: if the counter ever leaves zero, the pacing gate has moved off the app \
+                 thread and frames are being composed in order to be thrown away — a defect that \
+                 costs 107 us a frame with the screen still correct, which is why it is a count \
+                 and not a stopwatch. crate::handoff::Mailbox::submit is where the path it counts \
+                 lives, reachable only by ignoring the lease's answer",
         },
     },
     Entry {
@@ -318,7 +331,10 @@ pub const REGISTER: [Entry; 27] = [
         source: "arch 09, 18",
         state: State::Red {
             inverted_by: "impl 19",
-            why: "there is no frame clock and nothing parks, so there is no idle to measure",
+            why: "the render thread parks on the mailbox since impl 18, and it is the app thread \
+                  that cannot: there is no `wait` to park in, so an idle process still turns in \
+                  whatever loop its caller wrote. An idle measured against that is a measurement of \
+                  the caller",
         },
     },
     Entry {
@@ -391,8 +407,13 @@ pub const REGISTER: [Entry; 27] = [
         qualifier: "timing, at the budget",
         source: "budget",
         state: State::Wired {
-            at: "examples/budget.rs, every scene of the full-screen class; three scenes are \
-                 reported rather than gated and name impl 18",
+            at: "examples/budget.rs, every scene of the full-screen class. The scenes on \
+                 REPORTED_NOT_GATED named impl 18, and impl 18 delivered the number rather than \
+                 the gate: `the_app_threads_share` measures `present` with serialisation on the \
+                 render thread, which is what §13's budget is written about, and all four come \
+                 under their budgets there. They stay reported because a sample on that path can \
+                 contain a wait until impl 19's parking point, and because a budget gate has to \
+                 hold on a runner somebody has measured — impl 26's ledger",
         },
     },
     Entry {
@@ -425,7 +446,10 @@ pub const REGISTER: [Entry; 27] = [
         source: "arch 09",
         state: State::Red {
             inverted_by: "impl 19",
-            why: "nothing parks, so there is no wake-up to time",
+            why: "there is a wake-up to time since impl 18 — app submit to the render thread \
+                  holding the packet — and no instrument on the render thread to stamp it, because \
+                  the distribution §7 reports is taken with the app thread genuinely parked and \
+                  impl 19 is what parks it",
         },
     },
     Entry {

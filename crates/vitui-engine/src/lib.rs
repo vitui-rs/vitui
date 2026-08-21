@@ -14,15 +14,25 @@
 //!
 //! ```text
 //! Engine::new(Config) -> attach() -> (Screen, WakeHandle)
+//!   |                                 raw mode, the capability queries, the prologue -- and only
+//!   |                                 then the render thread, where no concurrency existed yet
 //!   |
 //!   +- layers()                add layers; view(id) to draw into one
 //!   |   +- the verbs           text - fill - restyle, marking damage as they write
 //!   |
-//!   +- present() -> Presented  composite the damaged rectangles bottom-up
-//!                              pack runs and their cells into a packet
-//!                              serialise against the mirror, one write into the sink
-//!                              clear damage
+//!   +- present() -> Presented  the app thread:
+//!                                lease a packet, or fold this frame into the next one
+//!                                composite the damaged rectangles bottom-up
+//!                                pack runs and their cells into the packet
+//!                                submit, clear damage, return
+//!                              the render thread:
+//!                                take the packet, serialise against the mirror,
+//!                                one write into the sink, give the packet back
 //! ```
+//!
+//! On `Clock::Manual` both halves run on the calling thread, in that order, before `present`
+//! returns — same mailbox, same packet, same bytes. That is spec §14's deterministic mode and it is
+//! public API rather than test scaffolding.
 //!
 //! **The engine does not own the loop.** It hands out the verbs and `present`, and the runtime
 //! drives. Damage is marked by the verbs and cleared by `present`, and neither is reachable from
@@ -82,8 +92,23 @@
 //! quantisation *target* because they are the user's own theme, and contrast preservation is refused
 //! because a context-aware choice would break the style run that collected the whole win.
 //!
-//! Not here yet, each with the ticket that brings it: the three threads and the frame clock (18,
-//! 19), and input (20, 21).
+//! And **the three threads** (ticket 18): one mailbox — a `Mutex<Shared>` and two condvars, so one
+//! synchronisation primitive exists in the whole design — a pool of exactly two packets, and a
+//! render thread that owns the write direction and the mirror and holds no application state and no
+//! handle at all. What crosses is a packet keyed by the handle, never by a position: writing an
+//! arena offset into a packed cell makes an unchanged cell pack differently whenever the damage
+//! changes shape, which §7 measured at **284x in bytes** over five steady frames of a page with
+//! nothing changing. There is **no backpressure and the drop path is unreachable**, because
+//! dropping an intermediate frame is implemented as never composing it — the app composites only
+//! after the renderer has signalled it is free, and damage coalesces in the structure that already
+//! does that for 6.6 ns. The consequence is stronger than intended: the slot is always empty at
+//! submit, so a packet can never be superseded, which fixes the pool at two provably rather than
+//! empirically. `Config::clock` chooses the path and **the deterministic mode still asserts every
+//! byte it did**, which is a gate rather than a claim: the same scene through both paths is compared
+//! recording against recording.
+//!
+//! Not here yet, each with the ticket that brings it: the frame clock and `wait` (19), and input
+//! (20, 21).
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]
@@ -105,6 +130,7 @@ mod detect;
 mod engine;
 mod exts;
 mod geom;
+mod handoff;
 mod intern;
 mod layer;
 mod mix;
