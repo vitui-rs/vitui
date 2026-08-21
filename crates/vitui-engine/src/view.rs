@@ -766,7 +766,7 @@ mod tests {
     use crate::layer::LayerStack;
     use crate::style::Color;
     use crate::surface::Surface;
-    use crate::testing::assert_pairing_holds;
+    use crate::testing::{assert_pairing_holds, terminal};
 
     fn runs(s: &Surface) -> Vec<Run> {
         let mut out = Vec::new();
@@ -1105,7 +1105,7 @@ mod tests {
         let mut runs = Vec::new();
         frame.damage().for_each_run(|r| runs.push(r));
         for r in runs {
-            stack.composite_run(&mut frame, r);
+            stack.composite_run(&mut frame, r, &terminal::silent());
         }
         assert_eq!(
             glyphs(&frame, 0),
@@ -1377,7 +1377,7 @@ mod tests {
         let mut all = Vec::new();
         frame.damage().for_each_run(|r| all.push(r));
         for r in all {
-            stack.composite_run(&mut frame, r);
+            stack.composite_run(&mut frame, r, &terminal::silent());
         }
         for x in 0..4usize {
             let handle = frame.row(0)[x].style.ext_handle().expect("still extended");

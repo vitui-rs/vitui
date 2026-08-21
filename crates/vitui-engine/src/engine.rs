@@ -401,7 +401,7 @@ impl Screen {
         // layer's own rectangle (spec §5), and a repair that is not packed is a blanked half the
         // terminal goes on showing.
         for run in &mut self.runs {
-            *run = self.layers.composite_run(&mut self.frame, *run);
+            *run = self.layers.composite_run(&mut self.frame, *run, &self.caps);
         }
         merge_touching(&mut self.runs);
 
@@ -532,6 +532,19 @@ impl Screen {
     #[cfg(test)]
     pub(crate) fn mirror(&self) -> &crate::serial::Mirror {
         self.serializer.mirror()
+    }
+
+    /// The whole stack, composited the slow obvious way: gate #1's oracle, over this screen.
+    ///
+    /// It lives here rather than being called on [`Screen::layers`] because the oracle needs the
+    /// layer stack **and** the capabilities — an operator resolves colour against what the terminal
+    /// answered (ADR 0025) — and those are two fields of this struct. A caller that reached for both
+    /// itself would be holding one borrow of `self` mutably and another immutably; the split belongs
+    /// where the fields are.
+    #[cfg(test)]
+    pub(crate) fn reference(&mut self) -> Surface {
+        let (w, h) = self.size;
+        crate::reference::composite(&mut self.layers, &self.caps, w, h)
     }
 }
 

@@ -55,10 +55,14 @@
 //! [`Engine::attach`] and immutable thereafter — and the residue the round trip cannot reach
 //! (ticket 05): the two-plane golden frame with its legend and `VITUI_BLESS=1`, over three of §14's
 //! twelve scenes plus the one fixture that draws a wide cluster, whose format lost an argument with a
-//! real diff and came back with a row-number gutter and a cell count on every legend entry.
+//! real diff and came back with a row-number gutter and a cell count on every legend entry — and the
+//! operator layer (ticket 12): [`Mix`] as the only operator, colour resolved at composite time
+//! against what the terminal answered, the memo that makes the correct form 3.2x cheaper than the
+//! prototype that deleted a hyperlink, and the atomic-glyph rule that gives a darkened `漢` one
+//! colour rather than two.
 //!
 //! Not here yet, each with the ticket that brings it:
-//! what a [`Mix`] does to a cell (12), the `shortest`
+//! the sweep and `repaint` (08), the `shortest`
 //! cursor encoding and the equality filter (13, 14), the scroll region (15), quantisation before
 //! the mirror (17), the three threads and the frame clock (18, 19), and input (20, 21).
 
@@ -84,6 +88,7 @@ mod exts;
 mod geom;
 mod intern;
 mod layer;
+mod mix;
 mod packet;
 mod quirks;
 mod serial;
@@ -125,7 +130,8 @@ pub use caps::{Capabilities, ColorDepth, GlyphSet, Overrides, Rgb, WidthSource};
 pub use engine::{AttachError, Clock, Config, Engine, Output, Presented, Screen, WakeHandle};
 pub use exts::LinkId;
 pub use geom::Rect;
-pub use layer::{LayerId, LayerStack, Mix};
+pub use layer::{LayerId, LayerStack};
+pub use mix::Mix;
 pub use restyle::Restyle;
 pub use style::{Color, Style};
 pub use surface::Surface;

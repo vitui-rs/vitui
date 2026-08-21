@@ -193,8 +193,10 @@ pub const REGISTER: [Entry; 27] = [
         source: "arch 16",
         state: State::Red {
             inverted_by: "impl 08",
-            why: "impl 12 builds the operator layer; impl 08 owns the sweep and the memo this \
-                  measures, and carries the gate in its own criteria",
+            why: "impl 12 built the operator layer and its memo, so a *settled* operator is now \
+                  measurable and does converge after one frame — what is still missing is the \
+                  sweep and `repaint`, which bound a *fading* one, and impl 08 owns both and \
+                  carries the gate in its own criteria",
         },
     },
     Entry {

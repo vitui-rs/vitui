@@ -105,6 +105,46 @@ pub(crate) mod bisecting_cjk {
     }
 }
 
+/// The two terminals the compositor is driven against, and why there are exactly two.
+///
+/// Spec §5's colour resolution depends on an answer from the other end (ADR 0025), so a test about
+/// an operator has to say which terminal it is on. One definition of each, because the *silent* one
+/// is the default state of every headless test in this crate and a second copy of it could quietly
+/// answer something.
+pub(crate) mod terminal {
+    use crate::caps::{Capabilities, ColorDepth, Rgb};
+
+    /// **Silent on OSC 10 and OSC 11, at a depth that has colour.**
+    ///
+    /// Both halves are deliberate. Silent about the two default colours is spec §5's silent path,
+    /// which is load-bearing rather than a limitation: a cell with a default colour is left unmixed
+    /// rather than mixed against a guess, because the guess is a dark theme and on a light-theme
+    /// terminal it draws a shadow backwards. And **truecolor**, because at [`ColorDepth::None`] §5
+    /// skips operator layers outright and a test would then be about the depth instead — which is
+    /// exactly the trap a headless `Harness` falls into by default, since a caller-supplied sink is
+    /// asked nothing and §10 will not invent a colour for one.
+    ///
+    /// This tier *is* reachable through [`Overrides`](crate::Overrides) — it is what
+    /// `Harness::with_overrides` with `colors: TrueColor` produces — and it is built here the same
+    /// way [`mixing`] is so that the two read as a pair.
+    pub(crate) fn silent() -> Capabilities {
+        Capabilities::answering(ColorDepth::TrueColor, None, None)
+    }
+
+    /// A terminal that answered both default colours, in white.
+    ///
+    /// **Not reachable through `Overrides`** — that is architecture ticket 22's question and the
+    /// reason `Capabilities::answering` exists.
+    ///
+    /// White because it is the far end from a darkening: a `Mix` toward black over a default-coloured
+    /// cell then moves as far as it can, so the picture says which cells were touched rather than
+    /// leaving that to a two-value comparison.
+    pub(crate) fn mixing() -> Capabilities {
+        let white = Rgb::new(0xff, 0xff, 0xff);
+        Capabilities::answering(ColorDepth::TrueColor, Some(white), Some(white))
+    }
+}
+
 /// What a [`Recorder`] saw.
 #[derive(Default, Debug)]
 pub(crate) struct Recording {

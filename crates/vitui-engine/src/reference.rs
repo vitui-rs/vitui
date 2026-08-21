@@ -27,53 +27,130 @@
 //! starts there — where this one does it unconditionally, for every cell, every time. That is the
 //! shape of the whole file: the oracle is allowed to be slow and is not allowed to be clever.
 //!
-//! Operator layers are absent from both, and that is a real gap rather than an agreement: ticket 12
-//! is what makes a `Mix` reach a cell, and it is what puts one here.
+//! # Where the line is drawn for an operator layer, and why it is drawn there
+//!
+//! An operator's **placement** is written here from scratch and its **arithmetic** is not, and that
+//! division is deliberate.
+//!
+//! Placement is the mechanism, and it is where every defect in this area has lived: a shadow one
+//! column too wide is invisible while a modal dim one column too wide floods a column of the modal.
+//! So the atomic-glyph rule is stated here the other way round from
+//! [`recolour`](crate::layer) — that walks glyphs left to right and steps a head over its
+//! continuation; this asks of every cell, independently, *where is this glyph's head, and is it
+//! inside the rectangle* — and the occlusion, the stacking order and the picture each operator acts
+//! on are all recomputed rather than tracked.
+//!
+//! The arithmetic is [`crate::mix`]'s, shared. `blend` and the colour resolution are a *definition* —
+//! what "half way toward black" means, and what `default` resolves to on a terminal that answered —
+//! not a mechanism, and two copies of a definition disagree in the last bit with no way to say which
+//! copy is right. Interning is shared for a harder reason: an extended style word **is** a handle
+//! into this stack's table, so an oracle that minted its own would produce cells that compare
+//! unequal for no reason but the handle.
+//!
+//! # The picture an operator acts on is the one the layers below it make
+//!
+//! Layers paint bottom-up, so an operator cannot see what paints over it afterwards, and the glyph
+//! plane its atomic-glyph decision reads is the composite of the **content layers below it** — seams
+//! and all. The fast path gets that for free by running the operator in its turn. This rebuilds that
+//! plane per operator, from scratch, which is exactly the kind of thing the oracle is allowed to do.
 
+use crate::caps::Capabilities;
 use crate::cell::{Cell, GraphemeId};
-use crate::layer::LayerStack;
+use crate::layer::{LayerRef, LayerStack, Paint};
+use crate::mix::Mixer;
 use crate::surface::Surface;
 
 /// Composite the whole stack into a fresh `w` by `h` surface, bottom-up, one cell at a time.
-pub(crate) fn composite(stack: &LayerStack, w: u16, h: u16) -> Surface {
+pub(crate) fn composite(stack: &mut LayerStack, caps: &Capabilities, w: u16, h: u16) -> Surface {
+    let (mut layers, tables) = stack.parts();
     // Sorted here rather than taken from the stack's storage order. Spec §5 says the stacking order
     // is `(z, seq)` — z first, insertion order breaking ties, so that raising a layer and dropping
     // it back restores the exact original order — and the oracle applies that rule itself. Reading
     // the fast path's order back would make a defect in `add_content`'s insert invisible to the
     // gate this compositor generates.
-    let mut layers: Vec<_> = stack.as_stored().collect();
     layers.sort_by_key(|l| (l.z, l.seq));
 
     let mut out = Surface::new(w, h);
     // Which layer each cell of the row came from, or `None` where none covered it. It is what lets
-    // `repair` tell a pair the **composite** broke from one that arrived broken.
+    // `repair` tell a pair the **composite** broke from one that arrived broken, and what says which
+    // operators a cell is out of reach of.
     let mut painter = vec![None; w as usize];
+    // The glyph plane one operator sees, rebuilt for each of them, and the painter map that comes
+    // with it — read by `repair` inside `paint_row` and by nothing here, because which layer painted
+    // a cell *below* the operator does not change whether the operator acts on it.
+    let mut below: Vec<Cell> = vec![Cell::BLANK; w as usize];
+    let mut below_painter = vec![None; w as usize];
     for y in 0..h {
-        for x in 0..w {
-            let mut cell = Cell::BLANK;
-            let mut from = None;
-            for (i, layer) in layers.iter().enumerate() {
-                let lx = x as i32 - layer.rect.x;
-                let ly = y as i32 - layer.rect.y;
-                if lx < 0 || ly < 0 || lx >= layer.rect.w as i32 || ly >= layer.rect.h as i32 {
+        paint_row(&layers, out.row_mut(y), &mut painter, y);
+
+        for (j, layer) in layers.iter().enumerate() {
+            let Paint::Operator(mix) = layer.paint else {
+                continue;
+            };
+            let Some(mixer) = Mixer::new(mix, caps) else {
+                continue;
+            };
+            let row_inside = y as i32 >= layer.rect.y && (y as i32) < layer.rect.bottom();
+            if !row_inside || layer.rect.is_empty() {
+                continue;
+            }
+            paint_row(&layers[..j], &mut below, &mut below_painter, y);
+            let row = out.row_mut(y);
+            for x in 0..w as usize {
+                // Anything a content layer above this operator painted is out of its reach: the
+                // operator ran first and was overwritten.
+                if painter[x].is_some_and(|i| i > j) {
                     continue;
                 }
-                let src = layer.surface.row(ly as u16)[lx as usize];
-                // An opaque layer paints every cell it covers; a non-opaque one paints only the
-                // cells its caller actually wrote, and `EMPTY` is the sentinel for "skip this one"
-                // (spec §5). One condition rather than two identical branches, because clippy is
-                // right that they were identical.
-                if layer.opaque || !src.grapheme.is_empty() {
-                    cell = src;
-                    from = Some(i);
+                // **A glyph is atomic and belongs to its head cell: an operator acts on it if and
+                // only if the head is inside the rectangle.** One condition, and it is the whole
+                // rule — it lets the operator reach one column past a right edge that cut a head,
+                // and it keeps it off a glyph whose head lies left of the rectangle.
+                let head = if below[x].grapheme.is_continuation() {
+                    x as i32 - 1
+                } else {
+                    x as i32
+                };
+                if head < layer.rect.x || head >= layer.rect.right() {
+                    continue;
                 }
+                row[x].style = mixer.style(tables, row[x].style);
             }
-            out.row_mut(y)[x as usize] = cell;
-            painter[x as usize] = from;
         }
-        repair(out.row_mut(y), &painter);
     }
     out
+}
+
+/// One row of the picture `layers` make, and which layer painted each cell of it.
+///
+/// Content layers only, because an operator changes no glyph — and this is called both for the
+/// finished row and for the partial plane an operator sees, which is the same function of a shorter
+/// slice of the stack.
+fn paint_row(layers: &[LayerRef<'_>], row: &mut [Cell], painter: &mut [Option<usize>], y: u16) {
+    for (x, cell) in row.iter_mut().enumerate() {
+        *cell = Cell::BLANK;
+        painter[x] = None;
+        for (i, layer) in layers.iter().enumerate() {
+            let Paint::Content { opaque, surface } = layer.paint else {
+                continue;
+            };
+            let lx = x as i32 - layer.rect.x;
+            let ly = y as i32 - layer.rect.y;
+            if lx < 0 || ly < 0 || lx >= layer.rect.w as i32 || ly >= layer.rect.h as i32 {
+                continue;
+            }
+            let src = surface.row(ly as u16)[lx as usize];
+            // An opaque layer paints every cell it covers; a non-opaque one paints only the
+            // cells its caller actually wrote, and `EMPTY` is the sentinel for "skip this one"
+            // (spec §5). One condition rather than two identical branches, because clippy is
+            // right that they were identical.
+            if opaque || !src.grapheme.is_empty() {
+                *cell = src;
+                painter[x] = Some(i);
+            }
+        }
+    }
+    repair(row, painter);
 }
 
 /// Blank every half of a double-width pair that the **composite** left without its partner.
@@ -137,6 +214,7 @@ mod tests {
     use super::*;
     use crate::geom::Rect;
     use crate::style::Style;
+    use crate::testing::terminal;
 
     fn glyphs(s: &Surface, y: u16) -> String {
         s.row(y)
@@ -147,8 +225,8 @@ mod tests {
 
     #[test]
     fn an_empty_stack_composites_to_blanks() {
-        let stack = LayerStack::new();
-        let out = composite(&stack, 4, 1);
+        let mut stack = LayerStack::new();
+        let out = composite(&mut stack, &terminal::silent(), 4, 1);
         assert_eq!(glyphs(&out, 0), "    ");
     }
 
@@ -165,7 +243,10 @@ mod tests {
             .view(high)
             .unwrap()
             .fill(Rect::new(0, 0, 3, 1), "#", Style::new());
-        assert_eq!(glyphs(&composite(&stack, 8, 1), 0), "..###...");
+        assert_eq!(
+            glyphs(&composite(&mut stack, &terminal::silent(), 8, 1), 0),
+            "..###..."
+        );
     }
 
     #[test]
@@ -178,7 +259,10 @@ mod tests {
             .unwrap()
             .fill(Rect::new(0, 0, 4, 1), ".", Style::new());
         stack.view(high).unwrap().text(1, 0, "ab", Style::new());
-        assert_eq!(glyphs(&composite(&stack, 4, 1), 0), ".ab.");
+        assert_eq!(
+            glyphs(&composite(&mut stack, &terminal::silent(), 4, 1), 0),
+            ".ab."
+        );
     }
 
     #[test]
@@ -196,7 +280,10 @@ mod tests {
             .view(low)
             .unwrap()
             .fill(Rect::new(0, 0, 4, 1), ".", Style::new());
-        assert_eq!(glyphs(&composite(&stack, 4, 1), 0), "####");
+        assert_eq!(
+            glyphs(&composite(&mut stack, &terminal::silent(), 4, 1), 0),
+            "####"
+        );
 
         // And `seq` breaks a tie in insertion order, never the other way round.
         let mut stack = LayerStack::new();
@@ -210,7 +297,10 @@ mod tests {
             .view(second)
             .unwrap()
             .fill(Rect::new(0, 0, 4, 1), "2", Style::new());
-        assert_eq!(glyphs(&composite(&stack, 4, 1), 0), "2222");
+        assert_eq!(
+            glyphs(&composite(&mut stack, &terminal::silent(), 4, 1), 0),
+            "2222"
+        );
     }
 
     #[test]
@@ -221,7 +311,7 @@ mod tests {
             .view(id)
             .unwrap()
             .fill(Rect::new(0, 0, 4, 3), "#", Style::new());
-        let out = composite(&stack, 4, 2);
+        let out = composite(&mut stack, &terminal::silent(), 4, 2);
         assert_eq!(glyphs(&out, 0), "##  ");
         assert_eq!(glyphs(&out, 1), "##  ");
     }

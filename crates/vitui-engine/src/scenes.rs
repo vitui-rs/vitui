@@ -129,9 +129,29 @@ fn base(screen: &mut Screen) -> LayerId {
 /// Twenty popups, each with a shadow under it, over a base.
 ///
 /// Spec §5 measured 107.3 us for a full-screen composite **at forty layers**, and these are those
-/// forty; the base is the forty-first because a screen has to have something under them. The shadow
-/// is a non-opaque content layer here — it becomes an operator layer at ticket 12, which is where
-/// the `Mix` and the atomic glyph rule arrive.
+/// forty; the base is the forty-first because a screen has to have something under them.
+///
+/// # The shadow stays a non-opaque content layer, and ticket 12 is where that was decided
+///
+/// Ticket 04 wrote it as one on the understanding that ticket 12 would convert it. Ticket 12 built
+/// the operator and did not, for two reasons that are both about this list rather than about the
+/// operator.
+///
+/// **The L-shaped shadow is the only place on the twelve where the `EMPTY` skip is load-bearing**,
+/// and §14's own rule is that a scene is removed only by a ticket that names the property it can no
+/// longer distinguish. An operator has no cells, so converting the shadow would delete those eighty
+/// transparent corner cells and with them the arm that measured 6.14 against 25.25 us.
+///
+/// **And it would measure nothing.** A `Harness` is headless, headless is
+/// `ColorDepth::None` unless something pins it, and §5 skips operator layers outright at that depth
+/// — so the converted scene would report the cost of twenty content layers under a heading that
+/// said forty. Pinning the depth and giving the base an explicit background would fix that and is a
+/// change to what the scene *is*.
+///
+/// So the operator's own cost is measured where it can be measured against a content layer at the
+/// same coverage, in `layer.rs`'s `the_operator_layer_costs_what_spec_5_recorded`, and §5's 107.3 us
+/// decomposes there instead. The row on §14's table that is *about* an operator is the twelfth, and
+/// impl 08 owns it.
 ///
 /// # Why the shadow has rounded corners
 ///
@@ -846,10 +866,13 @@ impl Scene for HyperlinkedPageUnderAnOperator {
     fn status(&self) -> State {
         State::Red {
             inverted_by: "impl 08",
-            why: "impl 08 owns this row and is where it gets its measurement; the extended-style \
-                  bit and the link table it stands on landed with impl 07, and what is still \
-                  missing is the operator layer with its Mix (impl 12) — which is what makes the \
-                  table grow without bound in the first place",
+            why: "impl 08 owns this row and is where it gets its measurement. Everything it \
+                  stands on now exists — the extended-style bit and the link table with impl 07, \
+                  the operator layer and its Mix with impl 12 — so the shape is expressible \
+                  today: an operator whose amount moves every frame over a hyperlinked page mints \
+                  one extended-style entry per distinct result, for ever. What is missing is the \
+                  half that makes the number mean something, the sweep that bounds the growth and \
+                  the `repaint` that follows it",
         }
     }
 

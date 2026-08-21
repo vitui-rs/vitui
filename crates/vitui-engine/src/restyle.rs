@@ -143,7 +143,12 @@ fn attrs_of(old: Style, d: &Restyle) -> u16 {
 ///
 /// An inline word has no underline colour and no hyperlink by construction — that is what *inline*
 /// means — so the two extended channels come back as their absent values rather than as `None`.
-fn channels(tables: &Tables, old: Style) -> ExtStyle {
+///
+/// `pub(crate)` for [`crate::mix`], which has to *read* the colours before it can name their
+/// replacements: an operator recolours what is already there, where a descriptor names a value
+/// outright. It reads them through this and writes them back through [`apply`], so the
+/// preserve-everything-else contract has exactly one implementation.
+pub(crate) fn channels(tables: &Tables, old: Style) -> ExtStyle {
     match old.ext_handle() {
         Some(h) => tables.exts.get(h).expect(
             "every surface in a layer stack speaks that stack's handle space (spec §3, ADR 0011)",

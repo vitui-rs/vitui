@@ -657,9 +657,70 @@ impl Capabilities {
     }
 
     /// Palette entry `i`, or `None` where the terminal did not say and the xterm table applies.
-    #[allow(dead_code)]
+    ///
+    /// Read by [`crate::mix`], which resolves an indexed colour to channels before a `Mix` can
+    /// touch it. **Sixteen entries, not 256**: 16..256 are fixed by specification and identical on
+    /// every terminal, so there is nothing to ask about and nothing to store.
     pub(crate) fn palette(&self, i: u8) -> Option<Rgb> {
         self.private.palette.get(i as usize).copied().flatten()
+    }
+
+    /// The capabilities of a terminal that answered exactly this, for a test that needs an answer.
+    ///
+    /// **Not a second door into this type.** It goes through [`assemble`] with a synthetic
+    /// [`Detected`], which is the shape a real tty's replies arrive in, so a test built this way
+    /// exercises the same precedence resolution `attach` does.
+    ///
+    /// It exists because **`Overrides` cannot declare a default background or foreground** and every
+    /// test in this crate is headless, so spec §5's *answered OSC 11* path is otherwise unreachable
+    /// from any test the public types can construct. That is the second instance of
+    /// [architecture ticket 22](../../../.scratch/vitui-engine-architecture/issues/22-headless-cannot-declare-a-hyperlink.md)'s
+    /// question and is recorded there; what is *not* deferred is the silent path, which is the
+    /// default headless state and therefore the one every other test drives.
+    #[cfg(test)]
+    pub(crate) fn answering(
+        colors: ColorDepth,
+        default_fg: Option<Rgb>,
+        default_bg: Option<Rgb>,
+    ) -> Capabilities {
+        assemble(
+            Overrides {
+                colors: Some(colors),
+                ..Overrides::default()
+            },
+            &Env::default(),
+            Ground::Tty,
+            &Detected {
+                answered: true,
+                default_fg,
+                default_bg,
+                ..Detected::default()
+            },
+            Quirks::default(),
+        )
+    }
+
+    /// The same, for a terminal whose OSC 4 answered `entry` for all sixteen palette slots.
+    ///
+    /// One colour for all sixteen rather than sixteen arguments: what the palette tests are about is
+    /// whether the terminal's answer is read at all, and sixteen distinct values would be sixteen
+    /// values to keep in step for no extra property.
+    #[cfg(test)]
+    pub(crate) fn answering_palette(entry: Rgb) -> Capabilities {
+        assemble(
+            Overrides {
+                colors: Some(ColorDepth::TrueColor),
+                ..Overrides::default()
+            },
+            &Env::default(),
+            Ground::Tty,
+            &Detected {
+                answered: true,
+                palette: [Some(entry); 16],
+                ..Detected::default()
+            },
+            Quirks::default(),
+        )
     }
 
     /// Which table decides a cluster's width.

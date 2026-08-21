@@ -21,6 +21,7 @@
 
 use crate::damage::Run;
 use crate::geom::Rect;
+use crate::mix::Mix;
 use crate::reference;
 use crate::register::State;
 use crate::scenes::{H, Scene, W, scenes, table_two_ways, virtualised_tree};
@@ -84,9 +85,9 @@ fn no_damage_structure_under_reports() {
         let name = scene.name();
         let mut h = staged(&mut *scene);
         for t in 1..=FRAMES {
-            let before = reference::composite(h.screen.layers(), W, H);
+            let before = h.screen.reference();
             let written = scene.step(&mut h.screen, t) as usize;
-            let after = reference::composite(h.screen.layers(), W, H);
+            let after = h.screen.reference();
             h.present();
 
             let changed = reference::differences(&before, &after);
@@ -417,7 +418,7 @@ fn the_pairing_invariant_survives_twelve_bisecting_layers_over_cjk() {
     assert_pairing_holds(h.screen.frame());
 
     for t in 1..=FRAMES {
-        let before = reference::composite(h.screen.layers(), W, H);
+        let before = h.screen.reference();
         for (id, rect) in &mut movers {
             rect.x += 1;
             h.screen.layers().set_rect(*id, *rect);
@@ -430,7 +431,7 @@ fn the_pairing_invariant_survives_twelve_bisecting_layers_over_cjk() {
                 );
             }
         }
-        let after = reference::composite(h.screen.layers(), W, H);
+        let after = h.screen.reference();
         h.present();
 
         assert_pairing_holds(h.screen.frame());
@@ -472,7 +473,7 @@ fn the_pairing_invariant_survives_twelve_bisecting_layers_over_cjk() {
     // reference of a picture the frame never held.
     h.present();
     for t in 0..40u32 {
-        let before = reference::composite(h.screen.layers(), W, H);
+        let before = h.screen.reference();
         h.screen
             .layers()
             .set_rect(marker, Rect::new(60 + t as i32, 30, 1, 1));
@@ -481,7 +482,7 @@ fn the_pairing_invariant_survives_twelve_bisecting_layers_over_cjk() {
             .view(marker)
             .unwrap()
             .text(0, 0, "X", Style::new());
-        let after = reference::composite(h.screen.layers(), W, H);
+        let after = h.screen.reference();
         h.present();
 
         assert_pairing_holds(h.screen.frame());
@@ -499,6 +500,155 @@ fn the_pairing_invariant_survives_twelve_bisecting_layers_over_cjk() {
                     after.row(y)[x as usize],
                     "marker frame {t}: the damage-tracked frame and the reference compositor \
                      disagree at ({x}, {y})"
+                );
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Ticket 12 — the atomic glyph rule, over the composited frame and against the oracle.
+// ---------------------------------------------------------------------------------------------
+
+/// Ticket 12's gate: twelve **operators** bisecting a screen of mixed CJK, walking a column a frame.
+///
+/// Ticket 11's gate is the same fixture with content layers, and the two are about different
+/// failures. A content layer overwrites, so a bisected pair loses a half and the frame stops
+/// pairing; an operator recolours, so nothing is orphaned and **the pair simply comes out in two
+/// colours** — half a darkened `漢`, which is an artifact the five repair rules cannot see because
+/// there is nothing for them to mend.
+///
+/// So this asserts the property the repair rules do not cover, directly and on every cell:
+///
+/// > Both halves of a double-width pair carry the same style word.
+///
+/// Plus the equality against the reference compositor, which states the atomic-glyph rule the other
+/// way round — per cell, *where is this glyph's head*, against a picture it rebuilds for each
+/// operator rather than tracks. And plus the round trip, because `Harness::present` is what every
+/// gate here calls.
+///
+/// It is the gate's **own** fixture — [`bisecting_cjk`], rows and rects both, shared with ticket 11
+/// and with the golden — because a fixture copied to suit a second instrument is one that goes on
+/// passing after the first one's rectangles change underneath it.
+///
+/// # The two ways this gate could quietly test nothing, both closed
+///
+/// **A headless `Harness` is at `ColorDepth::None`**, because a caller-supplied sink is asked
+/// nothing and §10 will not invent a colour for it — and at that depth §5 skips operator layers
+/// *outright*, correctly. So the depth is pinned, the way [`crate::golden`] pins it, and the first
+/// thing asserted is that the operators moved a cell at all. A gate whose subject never ran reports
+/// success for the same reason a scene that draws nothing does.
+///
+/// **A cell with a default background is left unmixed**, which is spec §5's silent path and is
+/// right: no `Overrides` can declare a default background (architecture ticket 22). So the content
+/// is drawn in explicit colours, which is the path a real shadow over a themed panel takes and needs
+/// no capability at all.
+///
+/// # And one class of case it still does not reach
+///
+/// All damage here comes from moving the operators, which exposes their whole rectangles — so a run
+/// never begins at an operator's own edge. That is where a differential fuzz against the oracle
+/// found two defects, and `layer.rs` carries the three regression tests for them beside its own
+/// oracle gate. Said here as well, because a gate that names its fixture as *the* CJK fixture reads
+/// as though it covered everything the fixture can express.
+#[test]
+fn the_atomic_glyph_rule_survives_twelve_bisecting_operators_over_cjk() {
+    let pinned = crate::caps::Overrides {
+        colors: Some(crate::caps::ColorDepth::TrueColor),
+        ..Default::default()
+    };
+    let mut h = Harness::with_overrides(W, H, pinned).labelled("twelve-bisecting-operators");
+    let base = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, W, H), true);
+    let panel = Style::new()
+        .fg(crate::style::Color::rgb(0xd0, 0xd0, 0xd0))
+        .bg(crate::style::Color::rgb(0x30, 0x40, 0x50));
+    for y in 0..H {
+        let row = bisecting_cjk::row(y, W);
+        h.screen
+            .layers()
+            .view(base)
+            .expect("just added")
+            .text(0, y as i32, &row, panel);
+    }
+
+    let mut movers = Vec::new();
+    for i in 0..bisecting_cjk::BISECTORS {
+        let rect = bisecting_cjk::rect(i, W);
+        // Alternating intensities, so the twelve compound into more than two distinct results and
+        // the memo is exercised rather than trivially hit.
+        let id = h
+            .screen
+            .layers()
+            .add_operator(1 + i, rect, Mix::darken(24 + 8 * i as u16));
+        movers.push((id, rect));
+    }
+    h.present();
+    assert_pairing_holds(h.screen.frame());
+    assert_pairs_share_one_style(&h, 0);
+    // The operators ran. Without this the whole gate passes at `ColorDepth::None`, where §5 skips
+    // them and every assertion below is about a screen nothing recoloured. A floor rather than an
+    // exact count, because the number belongs to the fixture's rectangles and would be edited every
+    // time one of them moved — but a floor in the thousands cannot be met by an accident.
+    let frame = h.screen.frame();
+    let moved = (0..H)
+        .flat_map(|y| (0..W).map(move |x| (x, y)))
+        .filter(|&(x, y)| frame.row(y)[x as usize].style != panel)
+        .count();
+    assert!(
+        moved > 1_000,
+        "{moved} cells recoloured; the gate is testing nothing"
+    );
+
+    for t in 1..=FRAMES {
+        let before = h.screen.reference();
+        for (id, rect) in &mut movers {
+            rect.x += 1;
+            h.screen.layers().set_rect(*id, *rect);
+        }
+        let after = h.screen.reference();
+        h.present();
+
+        assert_pairing_holds(h.screen.frame());
+        assert_pairs_share_one_style(&h, t);
+        for &(x, y) in &reference::differences(&before, &after) {
+            assert!(
+                covered(h.screen.runs(), x, y),
+                "frame {t}: ({x}, {y}) changed and no run reported it"
+            );
+        }
+        let frame = h.screen.frame();
+        for y in 0..H {
+            for x in 0..W {
+                assert_eq!(
+                    frame.row(y)[x as usize],
+                    after.row(y)[x as usize],
+                    "frame {t}: the damage-tracked frame and the reference compositor disagree \
+                     at ({x}, {y})"
+                );
+            }
+        }
+    }
+}
+
+/// A darkened wide glyph is one colour, not two.
+///
+/// The invariant the atomic-glyph rule exists for, asserted over the whole frame — and it is
+/// **invisible to every other instrument here**, exactly as the pairing invariant was. The round
+/// trip cannot see it: the serializer emits the head's SGR and skips the continuation, so a frame
+/// whose two halves disagree serialises as though they agreed and replays as though they did too.
+fn assert_pairs_share_one_style(h: &Harness, t: u32) {
+    let frame = h.screen.frame();
+    for y in 0..H {
+        let row = frame.row(y);
+        for x in 0..W as usize - 1 {
+            if row[x].grapheme.is_wide_head() {
+                assert_eq!(
+                    row[x].style,
+                    row[x + 1].style,
+                    "frame {t}: half a darkened glyph at ({x}, {y})"
                 );
             }
         }

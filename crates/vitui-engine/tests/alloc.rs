@@ -35,7 +35,7 @@
 use std::io::{Result, Write};
 
 use vitui_alloc_probe::{CountingAllocator, assert_no_alloc};
-use vitui_engine::{Color, Config, Engine, LayerId, Output, Rect, Restyle, Screen, Style};
+use vitui_engine::{Color, Config, Engine, LayerId, Mix, Output, Rect, Restyle, Screen, Style};
 
 #[global_allocator]
 static ALLOC: CountingAllocator = CountingAllocator::new();
@@ -83,6 +83,75 @@ fn the_steady_state_allocates_nothing() {
     an_idle_frame_allocates_nothing();
     a_frame_of_clusters_allocates_nothing();
     a_settled_restyle_over_a_hyperlinked_screen_allocates_nothing();
+    a_settled_operator_over_a_hyperlinked_screen_allocates_nothing();
+}
+
+/// Ticket 12 puts the **first** intern on the frame path, and this is what bounds it.
+///
+/// Every other allocation site in this crate is a drawing verb or a topology change, where §3
+/// permits one. `composite_run` → `recolour` → `Mixer::style` → `restyle::apply` reaches the
+/// extended-style table *while a frame is being composited*, and CLAUDE.md's budget is **zero
+/// allocations during frame composition**. So the property has to be that a **settled** operator
+/// asks for nothing new: the table deduplicates, so once the entries its result needs exist, every
+/// later frame finds them.
+///
+/// This is not register entry #7, which is about a *fading* operator and is red against impl 08 with
+/// the sweep. It is the half impl 12 can be held to, and it is the same shape as
+/// `a_settled_restyle_over_a_hyperlinked_screen_allocates_nothing` one layer up.
+///
+/// Hyperlinked, because that is what makes the mix's result need a table entry at all: an inline
+/// cell mixes to an inline word and reaches no table, so a screen of those would pass whatever
+/// `recolour` did.
+fn a_settled_operator_over_a_hyperlinked_screen_allocates_nothing() {
+    let (mut screen, id) = screen();
+    let row: String = std::iter::repeat_n('m', W as usize).collect();
+    // Explicit colours: a cell with a default background is left unmixed on a terminal silent on
+    // OSC 11 (spec §5), and a sink is silent — so a default-coloured screen would measure an
+    // operator that never touched a cell.
+    full_screen(
+        &mut screen,
+        id,
+        &row,
+        Style::new().fg(Color::indexed(15)).bg(Color::indexed(8)),
+    );
+    let link = screen.link("https://example.com/vitui");
+    {
+        let mut v = screen.layers().view(id).expect("the layer was just added");
+        v.restyle(
+            Rect::new(0, 0, W, H),
+            &Restyle {
+                link: Some(link),
+                ..Default::default()
+            },
+        );
+    }
+    screen
+        .layers()
+        .add_operator(1, Rect::new(0, 0, W, H), Mix::darken(Mix::FULL / 2));
+
+    // Two frames of warm-up: the first mints the one entry the mix needs and grows the frame's own
+    // buffers, the second proves the steady state has started.
+    for _ in 0..2 {
+        full_screen(
+            &mut screen,
+            id,
+            &row,
+            Style::new().fg(Color::indexed(15)).bg(Color::indexed(8)),
+        );
+        screen.present();
+    }
+
+    assert_no_alloc(|| {
+        for _ in 0..100 {
+            full_screen(
+                &mut screen,
+                id,
+                &row,
+                Style::new().fg(Color::indexed(15)).bg(Color::indexed(8)),
+            );
+            screen.present();
+        }
+    });
 }
 
 /// The memo's property, as an allocation count rather than as a stopwatch.
