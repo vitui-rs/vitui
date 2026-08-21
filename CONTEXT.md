@@ -217,6 +217,26 @@ margins plus a count. Cheaper than repainting the band by two orders of magnitud
 when moving *every* column of the band produces what the frame asked for, and therefore emitted only
 after that has been checked against the mirror.
 
+**Shortest** — the cursor encoding the engine ships, and the only one: absolute positioning, absolute
+column, relative forward, carriage return, and carriage return plus line feeds, **priced by digit
+count** and the cheapest taken. There is no table and no per-move search over content overwrite.
+Ties go to the **absolute** encoding, because a relative move compounds an error and an absolute one
+cannot — which is the same reason a run that has emitted a non-ASCII cluster forbids the relative form
+for the rest of its row.
+
+**Session framing** — bytes that hold for the whole attachment rather than for one frame, written once
+on entry and given back on leaving: auto-wrap off, and the alternate screen. Distinct from **frame
+framing**, which is the style reset every frame opens with, the synchronised-output block it may be
+wrapped in, and the hyperlink it must close — a frame is self-contained, a session is not.
+
+**The two SGR spellings** — one colour, two encodings that no capability query separates. The
+**modern** one is ITU-T T.416's, with colons and an empty colour-space id; the **legacy** one is
+xterm's older semicolon form. The engine emits the modern one and a **quirk** or an override selects
+the legacy one for a terminal that mis-parses it. Which is the default is a compatibility decision and
+not a bandwidth one — the modern form is one byte longer per parameterised colour — and the disagreement
+runs one parameter along into the underline colour, where the same two spellings exist and are selected
+separately.
+
 ## The loop
 
 **Screen** — the app thread's handle to the attached terminal, and the whole of the engine from the

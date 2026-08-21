@@ -125,16 +125,22 @@ pub(crate) mod terminal {
     /// asked nothing and §10 will not invent a colour for one.
     ///
     /// This tier *is* reachable through [`Overrides`](crate::Overrides) — it is what
-    /// `Harness::with_overrides` with `colors: TrueColor` produces — and it is built here the same
-    /// way [`mixing`] is so that the two read as a pair.
+    /// `Harness::with_overrides` with `colors: TrueColor` produces, which is
+    /// [`pinned_truecolor`](super::pinned_truecolor) — and it is built here the same way [`mixing`]
+    /// is so that the two read as a pair.
     pub(crate) fn silent() -> Capabilities {
         Capabilities::answering(ColorDepth::TrueColor, None, None)
     }
 
     /// A terminal that answered both default colours, in white.
     ///
-    /// **Not reachable through `Overrides`** — that is architecture ticket 22's question and the
-    /// reason `Capabilities::answering` exists.
+    /// **Reachable through [`Overrides`](crate::Overrides) since architecture ticket 22** —
+    /// `default_fg` and `default_bg` are fields now — and this helper survives anyway, because its
+    /// callers sit **below** `Screen` and have no `Overrides` to speak through: `crate::layer` calls
+    /// `composite_run` with a `&Capabilities` directly, and [`silent`]'s callers in `crate::view` and
+    /// `crate::reference` do the same. That is arch 22's *the two doors*, and it is why
+    /// `Capabilities::answering` was never the alternative to a field it looked like: **the instrument
+    /// that pins a capability has to be at the same depth as the gate.**
     ///
     /// White because it is the far end from a darkening: a `Mix` toward black over a default-coloured
     /// cell then moves as far as it can, so the picture says which cells were touched rather than
@@ -214,40 +220,37 @@ impl Write for Recorder {
     }
 }
 
-/// A screen writing into nothing, with **no round trip closed on it**.
-///
-/// [`Harness`] is what every test should reach for, because it closes the round trip on every
-/// `present`. This exists for the tests that cannot have one, and there is exactly one class of
-/// those: **a frame carrying an extended cell.** SGR 58/59 and OSC 8 are impl 13's, so the
-/// serializer paints a hyperlinked or underline-coloured cell in the right colours and drops the
-/// channel that made it extended (`crate::serial`'s module documentation). The terminal model then
-/// holds an inline cell where the frame holds a handle, and comparing the two compares one screen
-/// against a different spelling of it.
-///
-/// Every caller is a test about a **handle table**, and an extended cell is what a handle table is
-/// for. So the round trip is not being skipped here, it is unavailable — and what is lost is stated
-/// rather than assumed: a caller of this gets no assertion that bytes reached a terminal.
-pub(crate) fn screen_without_a_round_trip(w: u16, h: u16, overrides: Overrides) -> Screen {
-    let (screen, _wake) = Engine::new(Config {
-        size: (w, h),
-        output: Output::Sink(Box::new(std::io::sink())),
-        clock: Clock::Manual,
-        overrides,
-    })
-    .attach()
-    .expect("attaching to a sink cannot fail");
-    screen
-}
-
 /// A truecolor terminal, silent on both default colours: what a compositing test needs pinned.
 ///
 /// §5 skips an operator layer **outright** at [`ColorDepth::None`](crate::ColorDepth), which is what
-/// a headless screen is unless something says otherwise (architecture ticket 22) — so a test about
-/// an operator that does not pin this measures the depth instead of the operator.
+/// a headless screen is unless something says otherwise — so a test about an operator that does not
+/// pin this measures the depth instead of the operator.
 pub(crate) fn pinned_truecolor() -> Overrides {
     Overrides {
         colors: Some(crate::caps::ColorDepth::TrueColor),
         ..Overrides::default()
+    }
+}
+
+/// The same, and **OSC 8 as well**: what a test whose extended cells are hyperlinks needs pinned.
+///
+/// A hyperlink is the one channel `Mix` never names, so it is what this crate's table fixtures use to
+/// make a cell extended without the mechanism under test also transforming the variable. The cost of
+/// that choice is that the fixture then depends on a *capability*: OSC 8 reaches the wire only where
+/// the terminal has it, and a headless screen is asked nothing.
+///
+/// **So a gate that pins the depth and not this is a gate about the depth.** Architecture ticket 22
+/// found six instances of that shape on this axis alone, none of them a defect yet and all of them
+/// one ticket away from being one — because a gate can be written today and go vacuous later, and
+/// nothing in the gate changes. What changes is a capability arriving with a reader.
+///
+/// The audit that finds them is a grep and not a list: `rg 'screen\.link\('` over `src/`, `tests/`
+/// and `examples/`. Three of the six were missed by a reading that enumerated instead, and two of
+/// those three are not in `src/` at all.
+pub(crate) fn pinned_extended() -> Overrides {
+    Overrides {
+        hyperlinks: Some(true),
+        ..pinned_truecolor()
     }
 }
 
@@ -264,6 +267,15 @@ pub(crate) struct Harness {
     /// Prefixes every failure message. A gate driving twelve scenes has to say which one failed;
     /// a single-scene test has nothing useful to add and leaves it empty.
     label: String,
+    /// What the session prologue cost, so that the counters below are about **frames**.
+    ///
+    /// Auto-wrap is switched off once on entering the alt screen (§8), which is one write of five
+    /// bytes before any frame exists. Subtracting it here rather than in every caller is what keeps
+    /// *one `write` per frame* a statement a gate can make — and the prologue itself is not left
+    /// unasserted for it: `crate::engine`'s
+    /// `auto_wrap_is_disabled_once_on_entry_and_restored_on_leaving` is what covers it, in both
+    /// directions.
+    prologue: (usize, usize),
     /// Rows a sweep's `repaint` invalidated and no frame has re-established since.
     ///
     /// **All false until a `repaint` actually crosses**, which is what separates this from the
@@ -307,12 +319,20 @@ impl Harness {
         })
         .attach()
         .expect("attaching to a sink cannot fail");
+        let prologue = {
+            let r = recording.lock().expect("the recorder is never poisoned");
+            (r.bytes.len(), r.writes)
+        };
         Harness {
             screen,
             recording,
             term: TermModel::new(w, h),
+            // **Zero, not the prologue's length.** The model has to see those bytes: it tracks
+            // DECAWM from ticket 13 on, and a model that never saw the reset would be modelling a
+            // terminal this engine does not talk to.
             replayed: 0,
             label: String::new(),
+            prologue,
             stale: vec![false; h as usize],
         }
     }
@@ -350,7 +370,7 @@ impl Harness {
         // engine already knows *is* the engine's handle — which is what lets the assertion below
         // compare whole cells rather than rendered text. A cluster the engine never wrote gets a
         // handle nobody has, and the comparison fails, which is the point.
-        self.term.feed(&fresh, self.screen.interner_mut());
+        self.term.feed(&fresh, self.screen.tables_mut());
         self.note_what_a_sweep_invalidated();
 
         assert_eq!(
@@ -370,6 +390,21 @@ impl Harness {
     /// it as known, which is the same condition — one frame having written every column of it — and
     /// is read off the mirror rather than recomputed here so the two cannot drift apart.
     fn note_what_a_sweep_invalidated(&mut self) {
+        // **Two triggers, and the order between them is the whole of this method.**
+        //
+        // A packet that carried the flag is the frame the mirror was told on: from there, a row is
+        // re-established when the serializer records it as known, and that is read off the mirror
+        // rather than recomputed here so the two cannot drift apart.
+        //
+        // A flag still **latched** on the `Screen` is a different state: a sweep has run, the handles
+        // have already moved, and no frame has taken the news yet. In that window the mirror's own
+        // `known` flags are answers to an older question — they were set before the handles moved and
+        // nothing has reset them — so they must not clear anything. Hence the fill *after* the loop.
+        //
+        // The window is reachable and is not a corner: `sweep_now`, then any number of idle
+        // `present` calls, then the frame that carries it. Found the moment the extended gates came
+        // back onto this harness at impl 13, which is the first time a sweep and a round trip were in
+        // the same test.
         if self.screen.packet().repaint() {
             self.stale.fill(true);
         }
@@ -377,6 +412,9 @@ impl Harness {
             if self.screen.mirror().is_known(y) {
                 self.stale[y as usize] = false;
             }
+        }
+        if self.screen.repaint_pending() {
+            self.stale.fill(true);
         }
     }
 
@@ -453,12 +491,14 @@ impl Harness {
         }
     }
 
+    /// Bytes the **frames** have written, which is the session's total less the prologue.
     pub(crate) fn bytes_written(&self) -> usize {
-        self.recording.lock().unwrap().bytes.len()
+        self.recording.lock().unwrap().bytes.len() - self.prologue.0
     }
 
+    /// `write` calls the **frames** have made. See [`prologue`](Harness::prologue).
     pub(crate) fn writes(&self) -> usize {
-        self.recording.lock().unwrap().writes
+        self.recording.lock().unwrap().writes - self.prologue.1
     }
 
     pub(crate) fn retries(&self) -> usize {

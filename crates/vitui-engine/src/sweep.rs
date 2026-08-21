@@ -272,7 +272,7 @@ mod tests {
     use crate::geom::Rect;
     use crate::scenes::{H, Scene, W, hyperlinked_page};
     use crate::style::{Color, Style};
-    use crate::testing::{pinned_truecolor, screen_without_a_round_trip};
+    use crate::testing::{Harness, pinned_extended};
 
     /// §14's twelfth scene, with the two numbers the row was put on the list for.
     ///
@@ -303,21 +303,24 @@ mod tests {
         let mut swept = Vec::new();
         for fading in [false, true] {
             let mut scene = hyperlinked_page();
-            let mut screen = screen_without_a_round_trip(W, H, scene.overrides());
-            scene.build(&mut screen);
+            // **On the round trip**, which impl 13 is what made possible: the scene's own
+            // `Scene::overrides` pins truecolor *and* `hyperlinks`, so a hyperlinked cell reaches
+            // the wire and comes back as the same handle rather than as an inline word.
+            let mut h = Harness::with_overrides(W, H, scene.overrides());
+            scene.build(&mut h.screen);
             // Counted from **before** the first present, because the mixed results the first
             // composite mints are 96 of the 96 spec §3 attributes to the settled arm.
-            let start = screen.extended_styles_minted();
+            let start = h.screen.extended_styles_minted();
             for t in 1..=FRAMES {
                 if fading {
-                    scene.step(&mut screen, t);
+                    scene.step(&mut h.screen, t);
                 } else {
-                    scene.step_settled(&mut screen, t);
+                    scene.step_settled(&mut h.screen, t);
                 }
-                screen.present();
+                h.present();
             }
-            counted.push((screen.extended_styles_minted() - start) as usize);
-            swept.push((screen.sweeps(), screen.table_lengths().1));
+            counted.push((h.screen.extended_styles_minted() - start) as usize);
+            swept.push((h.screen.sweeps(), h.screen.table_lengths().1));
         }
         let (settled, fading) = (counted[0], counted[1]);
 
@@ -404,13 +407,17 @@ mod tests {
         /// over the whole of it, then a second cluster and a second hyperlink. The first of each
         /// pair is then pointed at by nothing, and the two pairs interleave down both tables, so
         /// every survivor moves.
-        fn staged(layers: u16) -> crate::engine::Screen {
-            let mut screen = screen_without_a_round_trip(W, H, pinned_truecolor());
+        fn staged(layers: u16) -> Harness {
+            // **`pinned_extended`, not `pinned_truecolor`.** Half of both tables here are links, and
+            // OSC 8 reaches the wire only where the terminal has it — so on a screen that declared
+            // only the depth this fixture's *half dead, every survivor moves* tables would be half
+            // as interesting as they look and the round trip would refuse the frame.
+            let mut h = Harness::with_overrides(W, H, pinned_extended());
             let row: String = std::iter::repeat_n('m', W as usize).collect();
             let ink = Style::new().fg(Color::indexed(15)).bg(Color::indexed(17));
             let ids: Vec<_> = (0..layers)
                 .map(|i| {
-                    screen
+                    h.screen
                         .layers()
                         // Opaque only at the bottom: the layers above have to stay visible in the
                         // frame, or the frame would name one layer's handles and the sweep would
@@ -424,9 +431,10 @@ mod tests {
                     let mark = char::from_u32('\u{0300}' as u32 + pass).expect("a combining mark");
                     let base = char::from_u32('a' as u32 + i as u32 % 26).expect("a letter");
                     let cluster = format!("{base}{mark}");
-                    let link =
-                        screen.link(&format!("https://example.com/vitui#layer{i}pass{pass}"));
-                    let mut view = screen.layers().view(id).expect("just added");
+                    let link = h
+                        .screen
+                        .link(&format!("https://example.com/vitui#layer{i}pass{pass}"));
+                    let mut view = h.screen.layers().view(id).expect("just added");
                     for y in 0..H as i32 {
                         view.text(0, y, &row, ink);
                         view.text(0, y, &cluster, ink);
@@ -439,18 +447,18 @@ mod tests {
                         },
                     );
                 }
-                screen.present();
+                h.present();
             }
-            screen
+            h
         }
 
         /// The fastest of `rounds` sweeps, each on a fixture built fresh and untimed.
         fn fastest_sweep(layers: u16, rounds: u32) -> std::time::Duration {
             (0..rounds)
                 .map(|_| {
-                    let mut screen = staged(layers);
+                    let mut h = staged(layers);
                     let at = std::time::Instant::now();
-                    let swept = screen.sweep_now();
+                    let swept = h.screen.sweep_now();
                     let took = at.elapsed();
                     // Prove the mechanism ran before reporting what it cost.
                     assert!(swept.renumbered, "the fixture left nothing to renumber");

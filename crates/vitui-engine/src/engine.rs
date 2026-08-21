@@ -235,7 +235,7 @@ impl Engine {
             _ => self.config.size,
         };
         let wakes = Arc::new(AtomicU32::new(0));
-        let screen = Screen {
+        let mut screen = Screen {
             size: (w, h),
             layers: LayerStack::new(),
             frame: Surface::new(w, h),
@@ -253,6 +253,7 @@ impl Engine {
             sweeps: 0,
             _not_send: PhantomData,
         };
+        screen.begin_session();
         Ok((screen, WakeHandle { wakes }))
     }
 }
@@ -431,6 +432,39 @@ impl Screen {
         &mut self.layers
     }
 
+    /// Write the bytes that hold for the whole session rather than for one frame.
+    ///
+    /// **Auto-wrap off, once, and it is a decision the spec states rather than an implementation
+    /// detail** (§8). It is worth ten bytes of every frame, which matters only because a caret blink
+    /// is a 29-byte frame — and it deletes both of cellbuf's bug-driven workarounds outright, because
+    /// with no wrap there is no pending-wrap state and no bottom-right corner that scrolls. **Neither
+    /// workaround is ported.** The cost of refusing auto-wrap is that a run ending at the right
+    /// margin can no longer flow into the next row's, and §8 measured that at *zero*: 73 290 bytes
+    /// either way, because damage already splits at row boundaries.
+    ///
+    /// # Why this is the alt screen's prologue without an alt screen in it
+    ///
+    /// §8 says *for the lifetime of the alt screen*, and **ticket 22 owns the alt screen** — entering
+    /// it, the panic hook, and a restoration that is idempotent under both. So this pair of methods
+    /// is the two points that ticket adds `?1049h` and `?1049l` to, and auto-wrap is here now because
+    /// impl 13 is what makes the serializer depend on it: every `shortest` move is priced on the
+    /// assumption that nothing wrapped, and a serializer that assumed it without asking for it would
+    /// be right on most terminals and silently wrong on one.
+    fn begin_session(&mut self) {
+        write_frame(&mut *self.sink, DISABLE_AUTO_WRAP);
+    }
+
+    /// Give back what [`begin_session`](Screen::begin_session) took.
+    ///
+    /// A `Drop` rather than a method, for the reason `Tty`'s own `Drop` states: a restoration that
+    /// happens only when somebody remembers to ask for it is a restoration that does not happen when
+    /// `attach` fails, when a `?` propagates, or when the process is unwinding. This is the floor and
+    /// not the design — **ticket 22 owns shutdown** — and it lives here because this is what changed
+    /// the mode.
+    fn end_session(&mut self) {
+        write_frame(&mut *self.sink, ENABLE_AUTO_WRAP);
+    }
+
     /// Composite the damaged rectangles, pack them, serialise them, and write once.
     ///
     /// The only exit. Damage is marked by the drawing verbs and cleared here, and neither is
@@ -473,7 +507,7 @@ impl Screen {
             self.layers.tables(),
             std::mem::take(&mut self.repaint),
         );
-        let bytes = self.serializer.serialize(&self.packet);
+        let bytes = self.serializer.serialize(&self.packet, &self.caps);
         write_frame(&mut *self.sink, bytes);
 
         self.frame.damage_mut().clear();
@@ -561,10 +595,16 @@ impl Screen {
         self.layers.tables_mut().link(uri)
     }
 
-    /// The handle space this screen's layers speak, for the terminal model to intern into.
+    /// The handle space this screen's layers speak, for the terminal model to mint back into.
+    ///
+    /// **All three tables, not the interner alone.** Ticket 06 needed one, because a cluster was the
+    /// only handle a cell carried that the model had to agree about; impl 13 puts an underline colour
+    /// and a URI on the wire, so the model has to reach the extended-style and link tables too — a
+    /// cell is compared whole, handle included, and two tables cannot produce equal handles for one
+    /// entry.
     #[cfg(test)]
-    pub(crate) fn interner_mut(&mut self) -> &mut crate::intern::Interner {
-        &mut self.layers.tables_mut().interner
+    pub(crate) fn tables_mut(&mut self) -> &mut crate::tables::Tables {
+        self.layers.tables_mut()
     }
 
     /// The handle space this screen's layers speak, for a golden to resolve a frame's handles
@@ -594,10 +634,30 @@ impl Screen {
         &self.packet
     }
 
+    /// What §10's `CHA`-after-non-ASCII rule has cost this screen in bytes, for the report that pays
+    /// spec §15's second owed measurement. See `crate::serial::Serializer::cha_rule_bytes`.
+    #[cfg(test)]
+    pub(crate) fn cha_rule_bytes(&self) -> usize {
+        self.serializer.cha_rule_bytes()
+    }
+
     /// How many mark-and-compact sweeps this screen has run.
     #[cfg(test)]
     pub(crate) fn sweeps(&self) -> u32 {
         self.sweeps
+    }
+
+    /// Whether a sweep has renumbered a table and no packet has carried the news yet.
+    ///
+    /// Read by [`crate::testing::Harness`], and it exists because the harness's own staleness window
+    /// started one event too late: it began when a `repaint` packet **crossed**, and the handles move
+    /// when the sweep **runs**. Between the two there can be any number of idle `present` calls, and
+    /// on each of them the terminal model holds the handles that were current when the bytes went out
+    /// while the frame holds the ones the sweep moved them to. Comparing those two compares two
+    /// spellings of one screen, which is the whole thing `Packet::repaint` is about.
+    #[cfg(test)]
+    pub(crate) fn repaint_pending(&self) -> bool {
+        self.repaint
     }
 
     /// Sweep now, whether or not the high-water mark says to.
@@ -724,6 +784,17 @@ fn merge_touching(runs: &mut Vec<Run>) {
 ///
 /// A write error is dropped on the floor here. Ticket 22 owns shutdown, and it is what will have
 /// somewhere to put one.
+/// DECAWM off. Once, on entering the alt screen (spec §8).
+const DISABLE_AUTO_WRAP: &[u8] = b"\x1b[?7l";
+/// DECAWM on, which is what the terminal had before this process took it.
+const ENABLE_AUTO_WRAP: &[u8] = b"\x1b[?7h";
+
+impl Drop for Screen {
+    fn drop(&mut self) {
+        self.end_session();
+    }
+}
+
 fn write_frame(sink: &mut (dyn Write + Send), bytes: &[u8]) {
     let mut at = 0;
     while at < bytes.len() {
@@ -911,7 +982,7 @@ mod tests {
 
             let cells = h.screen.frame().row(0).to_vec();
             let glyphs = h.screen.capabilities().glyphs;
-            let interner = h.screen.interner_mut();
+            let interner = &mut h.screen.tables_mut().interner;
             let mut seen = String::new();
             for c in &cells {
                 if c.grapheme.is_continuation() {
@@ -921,6 +992,88 @@ mod tests {
             }
             assert_eq!(seen.trim_end(), drawn, "a glyph was replaced at {glyphs:?}");
         }
+    }
+
+    /// **Gate, both directions: auto-wrap is switched off once and given back.**
+    ///
+    /// §8 makes this a decision rather than an implementation detail, and both halves have a way of
+    /// going missing separately — `Tty`'s own `Drop` exists because mode 2027 was being set and never
+    /// reset. So the sequence is asserted as a *pair*, and asserted through the terminal model rather
+    /// than as two byte strings, because what matters is the state the terminal is left in.
+    #[test]
+    fn auto_wrap_is_disabled_once_on_entry_and_restored_on_leaving() {
+        let sink = crate::testing::Recorder::new();
+        let recording = sink.handle();
+        {
+            let (mut screen, _wake) = Engine::new(Config {
+                size: (8, 1),
+                output: Output::Sink(Box::new(sink)),
+                clock: Clock::Manual,
+                overrides: Overrides::default(),
+            })
+            .attach()
+            .expect("attaching to a sink cannot fail");
+
+            let prologue = recording.lock().unwrap().bytes.clone();
+            assert_eq!(prologue, DISABLE_AUTO_WRAP, "before any frame");
+
+            // And **once**, not once per frame: ten bytes of every frame is what §8 prices this at.
+            let id = screen
+                .layers()
+                .add_content(0, crate::geom::Rect::new(0, 0, 8, 1), true);
+            screen
+                .layers()
+                .view(id)
+                .unwrap()
+                .text(0, 0, "a", crate::style::Style::new());
+            screen.present();
+            let after = recording.lock().unwrap().bytes.clone();
+            assert_eq!(
+                after
+                    .windows(DISABLE_AUTO_WRAP.len())
+                    .filter(|w| *w == DISABLE_AUTO_WRAP)
+                    .count(),
+                1,
+                "one DECAWM reset for the session, not one per frame"
+            );
+        }
+
+        // The screen is gone, so the epilogue has been written. Replayed as a whole session, the
+        // model ends with auto-wrap back on — which is the state the user's shell had before this
+        // process took it.
+        let bytes = recording.lock().unwrap().bytes.clone();
+        let mut term = crate::term_model::TermModel::new(8, 1);
+        let mut tables = crate::tables::Tables::new();
+        term.feed(&bytes, &mut tables);
+        assert_eq!(term.unrecognised(), 0, "every byte of the session parses");
+        assert!(term.autowrap(), "restored on leaving");
+        assert!(
+            bytes.ends_with(ENABLE_AUTO_WRAP),
+            "and it is the last thing said"
+        );
+    }
+
+    /// Neither of cellbuf's two bug-driven workarounds is ported, and the reason is that with
+    /// auto-wrap off neither has a subject: there is no pending-wrap state and no bottom-right
+    /// corner that scrolls.
+    ///
+    /// The claim is executed rather than asserted: a full row written to the last column, and the
+    /// row below it left alone.
+    #[test]
+    fn writing_the_last_column_of_the_last_row_wraps_and_scrolls_nothing() {
+        let mut h = crate::testing::Harness::new(6, 2);
+        let id = h
+            .screen
+            .layers()
+            .add_content(0, crate::geom::Rect::new(0, 0, 6, 2), true);
+        h.screen
+            .layers()
+            .view(id)
+            .unwrap()
+            .text(0, 1, "abcdef", crate::style::Style::new());
+        // `Harness::present` is the round trip, so this asserts the replayed screen and the mirror
+        // both equal the frame — including the row above, which a scroll would have moved.
+        assert!(h.present().submitted);
     }
 
     /// The size comes from the terminal when there is one to ask, and from `Config` when there is

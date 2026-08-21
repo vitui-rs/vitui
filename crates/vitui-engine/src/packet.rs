@@ -189,20 +189,14 @@ impl Packet {
     /// The four channels an extended style word names. `None` for an inline handle, and for a
     /// handle no cell in this packet carried.
     ///
-    /// Read by [`serial::colors_of`](crate::serial) for the two colours it already emits; ticket 13
-    /// is what reads the other two, as SGR 58/59 and OSC 8.
+    /// Read by [`serial::channels_of`](crate::serial), which resolves all four: two colours as
+    /// `SGR 38`/`48`, the underline colour as `SGR 58`/`59`, and the hyperlink as OSC 8 where the
+    /// terminal has it.
     pub(crate) fn ext(&self, handle: u32) -> Option<ExtStyle> {
         self.exts.get(&handle).copied()
     }
 
     /// The URI a hyperlink names. `None` for [`LinkId::NONE`].
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "ticket 13 emits the OSC 8 this resolves and is the first reader"
-        )
-    )]
     pub(crate) fn link(&self, id: LinkId) -> Option<&str> {
         let (start, end) = *self.links.get(&id)?;
         Some(&self.arena[start as usize..end as usize])

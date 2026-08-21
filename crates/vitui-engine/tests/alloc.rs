@@ -65,6 +65,33 @@ fn screen() -> (Screen, LayerId) {
     screen_with(Overrides::default())
 }
 
+/// What every gate here whose extended cells are **hyperlinks** has to pin, and the whole of why.
+///
+/// Truecolor because §5 skips an operator layer outright at `ColorDepth::None` — see [`screen_with`]
+/// for the instance that shipped without it. And `hyperlinks`, because OSC 8 reaches the wire only
+/// where the terminal has it, and a caller-supplied sink is asked nothing.
+///
+/// The second pin is architecture ticket 22's and it is not yet load-bearing: **the gates below would
+/// go vacuous the moment impl 17 lands §10's intern-key collapse**, because a hyperlink on a screen
+/// where OSC 8 is inexpressible stops making a cell extended, and a `Mix` over an inline cell reaches
+/// no table at all. So the gate that says a settled operator mints nothing would be asserting that a
+/// table nobody reached stayed empty.
+///
+/// > **A gate can be written today and be vacuous later, and nothing in the gate changes.** What
+/// > changes is a capability arriving with a reader. So the audit is not *did I pin the axes that
+/// > exist* but *will the subject still be reached once every ticket that reads a capability has
+/// > landed*.
+///
+/// The audit that finds these is a grep and not a list — `rg 'screen\.link\('` over `src/`, `tests/`
+/// and `examples/` — and **two of the six it finds are in this file**, which is not `src/`.
+fn hyperlinks_and_truecolor() -> Overrides {
+    Overrides {
+        colors: Some(ColorDepth::TrueColor),
+        hyperlinks: Some(true),
+        ..Default::default()
+    }
+}
+
 /// The same screen, on a terminal with whatever `overrides` pins.
 ///
 /// **A headless screen is at `ColorDepth::None`**, because a caller-supplied sink is asked nothing
@@ -138,12 +165,9 @@ fn the_steady_state_allocates_nothing() {
 /// cell mixes to an inline word and reaches no table, so a screen of those would pass whatever
 /// `recolour` did.
 fn a_settled_operator_over_a_hyperlinked_screen_allocates_nothing() {
-    // Truecolor, or §5 skips the operator layer outright and this gate is about the depth. See
-    // `screen_with`.
-    let (mut screen, id) = screen_with(Overrides {
-        colors: Some(ColorDepth::TrueColor),
-        ..Default::default()
-    });
+    // Two axes, both of which make this gate about something else if they are missing. See
+    // `hyperlinks_and_truecolor`.
+    let (mut screen, id) = screen_with(hyperlinks_and_truecolor());
     let row: String = std::iter::repeat_n('m', W as usize).collect();
     // Explicit colours: a cell with a default background is left unmixed on a terminal silent on
     // OSC 11 (spec §5), and a sink is silent — so a default-coloured screen would measure an
@@ -228,10 +252,7 @@ fn the_operator_reaches_the_wire_at_the_depth_the_gate_pins() {
         let (mut screen, _wake) = Engine::new(Config {
             size: (W, H),
             output: Output::Sink(Box::new(tap)),
-            overrides: Overrides {
-                colors: Some(ColorDepth::TrueColor),
-                ..Default::default()
-            },
+            overrides: hyperlinks_and_truecolor(),
             ..Default::default()
         })
         .attach()
@@ -272,11 +293,16 @@ fn the_operator_reaches_the_wire_at_the_depth_the_gate_pins() {
 /// This is not register entry #7, which is about the operator layer and is red against impl 08. It
 /// is the half of that property `restyle` can be held to today.
 ///
-/// It stops short of `present` on purpose: the serializer does not emit SGR 58/59 or OSC 8 yet
-/// (impl 13), and `Style`'s colour accessors carry a `debug_assert` that says so rather than
-/// reading a handle as two colours.
+/// It stops short of `present` on purpose, and the reason changed at impl 13: the serializer emits
+/// SGR 58/59 and OSC 8 now, so the frame path is no longer what is unavailable. What this gate is
+/// about is `restyle`'s own arithmetic — the memo, one layer above the frame — and putting a
+/// `present` inside its window would fold the serializer's buffers into the measurement.
+///
+/// It still pins both axes, and the second one is why: after impl 17's intern-key collapse a
+/// hyperlink on a screen where OSC 8 is inexpressible stops making a cell extended at all, and this
+/// fixture's only extended channel is a hyperlink.
 fn a_settled_restyle_over_a_hyperlinked_screen_allocates_nothing() {
-    let (mut screen, id) = screen();
+    let (mut screen, id) = screen_with(hyperlinks_and_truecolor());
     let row: String = std::iter::repeat_n('m', W as usize).collect();
     full_screen(&mut screen, id, &row, Style::new());
     let link = screen.link("https://example.com/vitui");

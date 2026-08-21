@@ -587,12 +587,20 @@ fn a_donated_surface_of_clusters_survives_the_round_trip() {
     // handle that landed in the wrong row of the interner fails here rather than showing the wrong
     // glyph on someone's terminal.
     //
-    // **The extended half of the donation cannot be driven through here yet**, and that is this
-    // file's existing boundary rather than a gap in ticket 10: neither the serializer nor the
-    // terminal model speaks SGR 58/59 or OSC 8, so an extended cell cannot close the round trip at
-    // all until ticket 13. What the renumbering does to a hyperlink and to an underline colour is
-    // asserted against the composited frame instead, in `layer::tests`.
-    let mut h = Harness::new(20, 2);
+    // **The extended half of the donation is driven through here since impl 13**, and it was this
+    // file's boundary rather than a gap in ticket 10: until SGR 58/59 and OSC 8 reached the wire an
+    // extended cell could not close the round trip at all, so what the renumbering did to an
+    // underline colour was asserted against the composited frame instead, in `layer::tests`. It is
+    // asserted end to end below — the donor's own extended-style entries are re-minted into the
+    // stack's table at donation, and the terminal model resolves the bytes back through that same
+    // table, so a handle that landed in the wrong row fails here.
+    //
+    // The **hyperlink** half is still not driven, and that is architecture ticket 21 rather than this
+    // file: no public door reaches a standalone surface's link table, so the only id a caller can put
+    // on a donated surface already belongs to the destination stack, and there is nothing for the
+    // donation to renumber. `layer::tests::a_screen_minted_link_survives_a_donation_it_was_not_minted_for`
+    // is that case.
+    let mut h = Harness::with_overrides(20, 2, crate::testing::pinned_extended());
 
     // Something is already in this screen's tables, so the donor's ids are not this screen's.
     let seeded = h
@@ -613,8 +621,26 @@ fn a_donated_surface_of_clusters_survives_the_round_trip() {
         "n\u{303}o\u{308}漢",
         Style::new().fg(Color::rgb(3, 4, 5)),
     );
+    // Two distinct underline colours over the clusters, which is what puts entries in the donor's
+    // *extended-style* table as well as in its interner — the half a plain donation never reaches.
+    for (x, ul) in [(0, Color::rgb(9, 8, 7)), (1, Color::rgb(7, 8, 9))] {
+        off.root().restyle(
+            Rect::new(x, 0, 1, 1),
+            &crate::restyle::Restyle {
+                ul: Some(ul),
+                ..Default::default()
+            },
+        );
+    }
     h.screen
         .layers()
         .add_content_with(1, Rect::new(2, 1, 10, 1), true, off);
     assert!(h.present().submitted);
+    // The harness compares whole cells, so the assertion above already covers this; naming it is
+    // what stops a future edit deleting the `restyle` calls and leaving a test that says *clusters*
+    // in its name and means it.
+    assert!(
+        h.screen.frame().row(1)[2].style.ext_handle().is_some(),
+        "the donated cell has to be extended, or the extended half is not being driven"
+    );
 }

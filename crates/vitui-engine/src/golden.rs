@@ -1016,10 +1016,19 @@ mod scene_goldens {
     /// [`Harness`] always uses — makes the *sequence* deterministic. A golden is reproducible only
     /// with both, and `colors: TrueColor` is what makes headless a **declared** tier rather than the
     /// lowest one.
+    /// Architecture ticket 22 added three fields and this names all seven, because a golden that
+    /// spread `..Default::default()` would let a new axis change every blessed picture silently. Two
+    /// of the three are pinned to the value they already had: **silence is not declarable and does
+    /// not need to be** — it is what a caller-supplied sink gets, and §5 leaves a default-coloured
+    /// cell unmixed rather than mixing it against a guess, which is the behaviour every golden on
+    /// the list was blessed under.
     fn pinned() -> crate::caps::Overrides {
         crate::caps::Overrides {
             colors: Some(crate::caps::ColorDepth::TrueColor),
             glyphs: Some(crate::caps::GlyphSet::Extended),
+            default_fg: None,
+            default_bg: None,
+            hyperlinks: Some(false),
             legacy_sgr: Some(false),
             width: Some(crate::caps::WidthSource::Tables),
         }

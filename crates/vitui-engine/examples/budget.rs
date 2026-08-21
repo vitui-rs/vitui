@@ -48,7 +48,10 @@ use std::io::{Result, Write};
 use std::time::{Duration, Instant};
 
 use vitui_bench::{Bench, Report};
-use vitui_engine::{Color, Config, Engine, LayerId, Output, Rect, Restyle, Screen, Style, Surface};
+use vitui_engine::{
+    Color, ColorDepth, Config, Engine, LayerId, Output, Overrides, Rect, Restyle, Screen, Style,
+    Surface,
+};
 
 use register::{State, table};
 use scenes::{H, Scene, W, scenes, table_two_ways, virtualised_tree};
@@ -68,14 +71,40 @@ impl Write for Discard {
 
 /// A 300x80 screen writing into nothing, which is what every arm in this file measures against.
 fn sink_screen() -> Screen {
+    sink_screen_with(Overrides::default())
+}
+
+/// The same, on a terminal with whatever `overrides` pins.
+///
+/// **A headless screen is at `ColorDepth::None` and has no OSC 8**, because a caller-supplied sink is
+/// asked nothing — and §5 skips an operator layer outright at that depth. A *report* built on an
+/// unpinned screen is the same defect as a gate built on one, and it fails the same silent way: it
+/// prints the cost of the layers under an operator that was never visited.
+fn sink_screen_with(overrides: Overrides) -> Screen {
     let (screen, _wake) = Engine::new(Config {
         size: (W, H),
         output: Output::Sink(Box::new(Discard)),
+        overrides,
         ..Default::default()
     })
     .attach()
     .expect("attaching to a sink cannot fail");
     screen
+}
+
+/// What every case here whose extended cells are **hyperlinks** has to pin.
+///
+/// Truecolor for §5's operator skip, and `hyperlinks` because OSC 8 reaches the wire only where the
+/// terminal has it. The second is architecture ticket 22's and is not load-bearing yet: it becomes so
+/// the moment impl 17 lands §10's intern-key collapse, at which point a hyperlink on a screen where
+/// OSC 8 is inexpressible stops making a cell extended and every one of these cases would be
+/// measuring an inline screen.
+fn hyperlinks_and_truecolor() -> Overrides {
+    Overrides {
+        colors: Some(ColorDepth::TrueColor),
+        hyperlinks: Some(true),
+        ..Default::default()
+    }
 }
 
 /// A scene with its layers built, its birth frame gone, and the screen it draws into.
@@ -92,7 +121,12 @@ struct Staged {
 
 impl Staged {
     fn new(mut scene: Box<dyn Scene>, case: &str, iters: u32) -> Staged {
-        let mut screen = sink_screen();
+        // **The scene says what it needs pinned, and this is the driver that forgot to ask.** Eleven
+        // of the twelve are indifferent; the twelfth is an operator over a hyperlinked page, and on an
+        // unpinned screen §5 skips the operator and OSC 8 never reaches the wire — so the row would
+        // report the cost of the content layers under a layer nobody visited. It went unnoticed while
+        // that scene was red, because `measure` never staged it.
+        let mut screen = sink_screen_with(scene.overrides());
         scene.build(&mut screen);
         // Adding a layer damages its whole rectangle. That is the design, and it is not what any of
         // these cases is measuring.
@@ -178,11 +212,12 @@ fn main() {
 /// row-clearing list scroll — as cliffs by construction rather than as failures. A scene sorted by
 /// its measurement instead of by its shape would let anything that grew past 100 us reclassify
 /// itself as a full screen, which is a gate that is edited rather than fixed.
-const FULL_SCREEN: [&str; 4] = [
+const FULL_SCREEN: [&str; 5] = [
     "scrolling-list-rows-cleared",
     "twenty-popups-with-shadows",
     "full-screen-change",
     "every-cell-a-distinct-style",
+    "hyperlinked-page-under-an-animating-operator",
 ];
 
 /// Scenes whose measurement on the machine below leaves under 5x, and are therefore reported rather
@@ -203,10 +238,14 @@ const FULL_SCREEN: [&str; 4] = [
 /// Each is reported with its budget named, and **impl 18 is what gates them** — it is the ticket
 /// that moves serialization off the app thread, and only then is there a number the budget is
 /// about. Nothing here is silently absent.
-const REPORTED_NOT_GATED: [(&str, &str); 3] = [
+const REPORTED_NOT_GATED: [(&str, &str); 4] = [
     ("every-cell-a-distinct-style", "1 ms, full-screen: ~1.04x"),
     ("table-as-list-and-bar-chart", "100 us, typical: ~1.8x"),
     ("virtualised-tree", "100 us, typical: ~3.6x"),
+    (
+        "hyperlinked-page-under-an-animating-operator",
+        "1 ms, full-screen: over budget at ~1.3x — impl 13's own OSC 8 is why",
+    ),
 ];
 
 /// Gates #23 and #24: §13's two budget figures, over every scene of the class each one is about.
@@ -357,10 +396,11 @@ fn the_verb_granularity_rule() {
 ///
 /// # Why the scene is driven by name rather than off the twelve-scene list
 ///
-/// It is red, and against impl 13 rather than impl 08: every gate in `crate::gates` drives its
-/// scenes through the round trip and an **extended** cell cannot close one, because SGR 58/59 and
-/// OSC 8 are impl 13's. `measure` filters on that status, so this reaches for the scene directly —
-/// the same door `virtualised_tree` and `table_two_ways` already use for their two sizes.
+/// It is wired since impl 13, so `measure` stages it like the other eleven and the twelve-scene
+/// report has a row for it. What that row cannot have is **two arms**: `Scene::step` is the fading
+/// one, and the settled arm is `step_settled`, which is not on the trait's stepping path. So this
+/// reaches for the concrete type — the same door `virtualised_tree` and `table_two_ways` already use
+/// for their two sizes — and the twelve-scene row is the fading arm alone.
 ///
 /// # Why this is not `Bench`, and what two drafts got wrong before this one
 ///
@@ -386,15 +426,23 @@ fn the_hyperlinked_page_under_an_animating_operator() {
     const FRAMES: u32 = 120;
 
     /// Every frame's duration, in microseconds, over one arm of the scene.
-    fn frames(fading: bool) -> Vec<f64> {
+    ///
+    /// `osc8` is the third arm and it is an attribution rather than a configuration: the scene's own
+    /// `Scene::overrides` pins `hyperlinks`, and turning that one field off leaves the composite
+    /// identical — the cells are still extended, because the link is still in the table entry — while
+    /// dropping every OSC 8 and every URI from the wire. So the difference between the two is the
+    /// serializer's share and nothing else.
+    fn frames(fading: bool, osc8: bool) -> Vec<f64> {
         let mut scene = scenes::hyperlinked_page();
         let (mut screen, _wake) = Engine::new(Config {
             size: (W, H),
             output: Output::Sink(Box::new(Discard)),
             // The scene says what it needs pinned: §5 skips an operator layer outright at
-            // `ColorDepth::None`, which is what a headless screen is unless something says
-            // otherwise.
-            overrides: scene.overrides(),
+            // `ColorDepth::None`, and OSC 8 reaches the wire only where the terminal has it.
+            overrides: Overrides {
+                hyperlinks: Some(osc8),
+                ..scene.overrides()
+            },
             ..Default::default()
         })
         .attach()
@@ -422,13 +470,16 @@ fn the_hyperlinked_page_under_an_animating_operator() {
         (min, us.iter().sum::<f64>() / us.len() as f64, max)
     }
 
-    let (settled, fading) = (frames(false), frames(true));
+    let (settled, fading) = (frames(false, true), frames(true, true));
+    let mute = frames(true, false);
     let (smin, smean, smax) = shape(&settled);
     let (fmin, fmean, fmax) = shape(&fading);
+    let (mmin, mmean, mmax) = shape(&mute);
     println!(
         "§14's twelfth scene, {FRAMES} frames each, microseconds:\n  \
          a settled modal dim   min {smin:>8.1}   mean {smean:>8.1}   worst {smax:>8.1}\n  \
-         a fading operator     min {fmin:>8.1}   mean {fmean:>8.1}   worst {fmax:>8.1}"
+         a fading operator     min {fmin:>8.1}   mean {fmean:>8.1}   worst {fmax:>8.1}\n  \
+         the same, no OSC 8    min {mmin:>8.1}   mean {mmean:>8.1}   worst {mmax:>8.1}"
     );
     println!(
         "            fading / settled = {:.2}x at the minimum, {:.2}x at the mean, {:.2}x at the \n\
@@ -445,11 +496,24 @@ fn the_hyperlinked_page_under_an_animating_operator() {
          \x20           frame of the *settled* arm alone. §14 put this row on the list as a table \n\
          \x20           lifetime question and this is why: a clock could not have answered it. The \n\
          \x20           counts are the measurement, in crate::sweep's report.\n\
-         \x20           Reported, not gated: the scene is red for the round trip (impl 13), and \n\
-         \x20           impl 18 is what moves serialisation off this thread.",
+         \x20           **And the row is over the 1 ms full-screen budget, at {:.2}x.** It was over it \n\
+         \x20           before impl 13 too — the third arm above is the same scene with `hyperlinks` \n\
+         \x20           off, identical composite and no OSC 8, at {:.0} us — and what impl 13 added is \n\
+         \x20           the {:.0} us between the two: ninety-six links and their URIs on the wire \n\
+         \x20           every frame. So the row went from just over the budget to {:.2}x it, and the \n\
+         \x20           whole of the difference is bytes rather than work. Impl 14 is where it comes \n\
+         \x20           back: the page's text does not change between frames, so nearly every one of \n\
+         \x20           those bytes is a re-emission of a cell the mirror already holds. Reported, \n\
+         \x20           not gated, because a 1 ms frame with a {:.0} us spread cannot carry a budget \n\
+         \x20           gate; impl 18 is what moves serialisation off this thread.",
         fmin / smin,
         fmean / smean,
         fmax / smax,
+        smax - smin,
+        fmean / 1000.0,
+        mmean,
+        fmean - mmean,
+        fmean / 1000.0,
         smax - smin,
     );
     println!();
@@ -467,7 +531,7 @@ struct Linked {
 }
 
 fn linked(case: &'static str, every: i32) -> Linked {
-    let mut screen = sink_screen();
+    let mut screen = sink_screen_with(hyperlinks_and_truecolor());
     let layer = screen.layers().add_content(0, Rect::new(0, 0, W, H), true);
     let link = screen.link("https://example.com/vitui");
     let row: String = std::iter::repeat_n('m', W as usize).collect();
@@ -484,10 +548,11 @@ fn linked(case: &'static str, every: i32) -> Linked {
             v.text(0, y, &row, Style::new());
         }
     }
-    // The birth frame, which is not what any of this measures — and it goes out **before** the
-    // hyperlinks do, because the serializer does not emit SGR 58/59 or OSC 8 until impl 13, and
-    // `Style::foreground` carries a `debug_assert` that says so rather than reading a handle as two
-    // colours. Nothing below this line presents again.
+    // The birth frame, which is not what any of this measures. It still goes out before the
+    // hyperlinks do, and the reason changed at impl 13: SGR 58/59 and OSC 8 reach the wire now, so
+    // this is no longer working around a serializer that could not say what a cell was — it is
+    // keeping the URI bytes of 24 000 hyperlinked cells out of a measurement about `restyle`.
+    // Nothing below this line presents again.
     screen.present();
     {
         let mut v = screen

@@ -305,26 +305,50 @@ fn the_round_trip_closes_on_every_scene() {
 /// states the measurement it came from, and replaces the provenance line below. What may **not**
 /// move without a new map decision is a budget figure, and none of these is one.
 ///
-/// Provenance: measured by **impl 04** on 2026-08-20, Apple M1 Max, rustc 1.97.1, over
-/// [`FRAMES`] steady frames after the birth frame, at 300x80, with no equality filter (impl 14),
-/// no `shortest` cursor encoding (impl 13) and no scroll region (impl 15) in the serializer yet.
+/// Provenance: measured by **impl 13** on 2026-08-21, Apple M1 Max, rustc 1.97.1, over
+/// [`FRAMES`] steady frames after the birth frame, at 300x80, with the full §8 encoding set —
+/// `shortest`, the differential SGR, SGR 58/59 and OSC 8 — and with no equality filter (impl 14) and
+/// no scroll region (impl 15) yet. It replaces impl 04's line, which was taken on a `CUP`-only loop.
 ///
-/// Two of these are the reason the gate exists. **`every-cell-a-distinct-style` is 1.3 MB for three
-/// frames** — the adversarial page, which is what set the synchronised-output time limit — and
-/// **`sparse-chart-400-points` is 11 417 bytes for 1 200 cells**, which is the ratio a serializer
+/// **Ten of the twelve fell and one rose, and the one that rose is the finding.** `shortest` takes
+/// between 0.4% and 30% off every scene with more than one run — the sparse chart goes 11 417 → 8 009,
+/// which is §8's *the largest win is the chart* as a byte count. `every-cell-a-distinct-style` goes
+/// 1 296 592 → 1 367 431, **+5.5%**, and every byte of that is the modern SGR spelling: T.416's
+/// colon form carries an empty colour-space id that xterm's semicolon form does not, so a
+/// parameterised colour is one byte longer and the adversarial page is 24 000 of them a frame.
+///
+/// That trade is a compatibility decision and not an optimisation, it is reversible per terminal
+/// through `Overrides::legacy_sgr` and `VITUI_FORCE_LEGACY_SGR`, and §8's own byte tables were
+/// measured on the semicolon form — which is why moving this number up is the honest thing to do
+/// rather than a regression to fix. `crate::serial::emit_color` carries the argument.
+///
+/// Two entries are the reason the gate exists at all. **`every-cell-a-distinct-style` is 1.4 MB for
+/// three frames** — the adversarial page, which is what set the synchronised-output time limit — and
+/// **`sparse-chart-400-points` is 8 009 bytes for 1 200 cells**, which is the ratio a serializer
 /// walking the grid instead of the runs would blow up by 284x without changing a pixel.
-const WIRE_BUDGET: [(&str, usize); 11] = [
+///
+/// The twelfth row is new here and its number says what the scene is: **876 624 bytes for three
+/// frames**, second only to the adversarial page, because a fading operator over a hyperlinked page
+/// mints a distinct style per band per frame and each one carries an OSC 8 with a URI in it. That is
+/// the *cost side* of what the row was put on §14's list to decide, and it is on the wire rather than
+/// in a table — which is why it belongs to this gate and the entry counts belong to `crate::sweep`.
+///
+/// The equality filter (impl 14) is what this row is waiting for and the reason is visible in the
+/// number: the page's text does not change, so all but the first of the three frames is re-emitting
+/// cells whose glyph and whose colours a mirror already holds.
+const WIRE_BUDGET: [(&str, usize); 12] = [
     ("caret-blink", 43),
-    ("scrolling-list-label-only", 6_465),
-    ("scrolling-list-rows-cleared", 73_665),
-    ("twenty-popups-with-shadows", 30_648),
-    ("three-dialogs-apart", 6_870),
-    ("sparse-chart-400-points", 11_417),
+    ("scrolling-list-label-only", 5_304),
+    ("scrolling-list-rows-cleared", 72_504),
+    ("twenty-popups-with-shadows", 30_354),
+    ("three-dialogs-apart", 6_564),
+    ("sparse-chart-400-points", 8_009),
     ("progress-bar-one-percent", 336),
-    ("virtualised-tree", 11_265),
-    ("table-as-list-and-bar-chart", 20_598),
-    ("full-screen-change", 73_680),
-    ("every-cell-a-distinct-style", 1_296_592),
+    ("virtualised-tree", 10_104),
+    ("table-as-list-and-bar-chart", 18_744),
+    ("full-screen-change", 72_519),
+    ("every-cell-a-distinct-style", 1_367_431),
+    ("hyperlinked-page-under-an-animating-operator", 876_624),
 ];
 
 /// Gate #21, and the reason it is per scene rather than a total.
@@ -364,7 +388,7 @@ fn wire_bytes_per_scene() {
         assert!(
             bytes <= *budget,
             "{name}: {bytes} bytes over {FRAMES} frames, bound is {budget}. \
-             The bound is impl 04's own measurement, so this is a regression rather than drift."
+             The bound is impl 13's own measurement, so this is a regression rather than drift."
         );
     }
 }
@@ -695,15 +719,17 @@ fn the_scene_list_is_spec_14s_twelve() {
             .assert_names_a_destination(&format!("scene `{}`", s.name()));
     }
 
-    let red = all
+    let red: Vec<&str> = all
         .iter()
         .filter(|s| !matches!(s.status(), State::Wired { .. }))
-        .count();
-    assert_eq!(
-        red, 1,
-        "one scene has no measurement behind it — the hyperlinked page under an animating \
-         operator — and spec §14 says so. A second red scene is either a mechanism that regressed \
-         or a scene that was added without one."
+        .map(|s| s.name())
+        .collect();
+    assert!(
+        red.is_empty(),
+        "every scene on §14's normative list is wired since impl 13, which took the last one — the \
+         hyperlinked page under an animating operator — off red by putting SGR 58/59 and OSC 8 on \
+         the wire. A red scene now is either a mechanism that regressed or a scene added without a \
+         measurement behind it: {red:?}"
     );
 }
 
@@ -770,29 +796,36 @@ fn gate_20s_arms_are_one_scene_at_two_sizes() {
 // #7  — a settled operator allocates zero; a fading one allocates per distinct extended style.
 // ---------------------------------------------------------------------------------------------
 
-/// A screen whose cells are extended, on a tier that has colour, with **no round trip**.
+/// A screen whose cells are extended, on a tier that has colour, **on the round trip**.
 ///
-/// # Why these four gates cannot use the harness, and what is lost
+/// # The seven gates below used to be unable to close it, and impl 13 is what ended that
 ///
-/// `Harness::present` closes the round trip on every frame, and **an extended cell cannot close
-/// it**: SGR 58/59 and OSC 8 are impl 13's, so the serializer emits a hyperlinked, underline-coloured
-/// cell in the right colours and drops the two channels that made it extended (`crate::serial`'s
-/// module documentation says so). The terminal model then holds an *inline* cell where the frame
-/// holds a handle, and comparing the two compares one screen against a different spelling of it.
+/// `Harness::present` closes the round trip on every frame, and until impl 13 an extended cell could
+/// not close it: SGR 58/59 and OSC 8 did not reach the wire, so the serializer emitted a hyperlinked,
+/// underline-coloured cell in the right colours and dropped the two channels that made it extended.
+/// The terminal model then held an *inline* cell where the frame held a handle, and comparing the two
+/// compared one screen against a different spelling of it. `crate::testing`'s
+/// `screen_without_a_round_trip` was the door around that, and it is **deleted**: its subject was
+/// never a capability, it was work this crate had not done.
 ///
-/// Every gate here is about a **table**, and the table is the thing an extended cell is required
-/// for: a sweep with nothing extended in the tables has nothing to reclaim. So the round trip is
-/// not skipped for these scenes, it is unavailable to them, and impl 13 is what makes it available.
-/// What is lost is stated rather than assumed: nothing below asserts that bytes reached a terminal,
-/// only that the tables, the cells and the mirror's own bookkeeping agree.
+/// > **A door around an instrument is legitimate only while the instrument is incapable, and it must
+/// > name the ticket that ends it.**
 ///
-/// Truecolor is pinned because an operator layer is skipped outright at [`ColorDepth::None`] (§5),
-/// which is what a headless screen is unless something says otherwise (architecture ticket 22), and
-/// the colours are explicit because a cell with a **default** background is left unmixed on a
-/// terminal silent on OSC 11. Both traps make the fading gate below measure nothing rather than
-/// fail.
-fn extended_screen(rows: u16) -> Screen {
-    crate::testing::screen_without_a_round_trip(8, rows, crate::testing::pinned_truecolor())
+/// # The three axes this pins, and why each of them makes a gate vacuous if it is missing
+///
+/// **Truecolor**, because §5 skips an operator layer outright at [`ColorDepth::None`], which is what a
+/// headless screen is unless something says otherwise. **Explicit colours** on every cell — see
+/// [`opaque_ink`] — because a cell with a *default* background is left unmixed on a terminal silent
+/// on OSC 11. And **`hyperlinks`**, because these fixtures make a cell extended with a hyperlink
+/// deliberately, being the one channel `Mix` never names, and OSC 8 is emitted only where the
+/// terminal has it — so without the declaration the round trip would be comparing a frame that
+/// carries a link against a replay that could not have read one.
+///
+/// The third is architecture ticket 22's, and it is the one that was not available to write before:
+/// `hyperlinks` is *inferred* rather than detected, and an inference is the one kind of fact a
+/// declaration must be able to correct.
+fn extended_screen(rows: u16) -> Harness {
+    Harness::with_overrides(8, rows, crate::testing::pinned_extended())
 }
 
 /// The style every cell of an extended page starts from: explicit on both channels.
@@ -849,19 +882,23 @@ fn underline_each_row(
 #[test]
 fn a_sweep_preserves_every_live_cells_channels() {
     const ROWS: u16 = 4;
-    let mut screen = extended_screen(ROWS);
-    let id = extended_page(&mut screen, ROWS);
-    underline_each_row(&mut screen, id, ROWS, |y| Color::rgb(y as u8 + 1, 0, 0));
-    screen.present();
+    let mut h = extended_screen(ROWS);
+    let id = extended_page(&mut h.screen, ROWS);
+    underline_each_row(&mut h.screen, id, ROWS, |y| Color::rgb(y as u8 + 1, 0, 0));
+    h.present();
     assert_eq!(
-        screen.table_lengths(),
+        h.screen.table_lengths(),
         (1, ROWS as usize),
         "one cluster, and one extended style per row"
     );
 
     // Three of the four rows move onto a fifth style, orphaning entries 1, 2 and 3.
     {
-        let mut view = screen.layers().view(id).expect("the layer is still there");
+        let mut view = h
+            .screen
+            .layers()
+            .view(id)
+            .expect("the layer is still there");
         view.restyle(
             Rect::new(0, 1, 8, ROWS - 1),
             &Restyle {
@@ -870,12 +907,12 @@ fn a_sweep_preserves_every_live_cells_channels() {
             },
         );
     }
-    screen.present();
-    assert_eq!(screen.table_lengths(), (1, ROWS as usize + 1));
+    h.present();
+    assert_eq!(h.screen.table_lengths(), (1, ROWS as usize + 1));
 
-    let before = screen.channels();
-    let swept = screen.sweep_now();
-    let after = screen.channels();
+    let before = h.screen.channels();
+    let swept = h.screen.sweep_now();
+    let after = h.screen.channels();
 
     assert!(swept.renumbered, "entry 4 had three dead entries below it");
     assert_eq!(swept.freed_exts, 3);
@@ -883,7 +920,7 @@ fn a_sweep_preserves_every_live_cells_channels() {
     assert_eq!(swept.freed_clusters, 0, "the cluster is still on every row");
     assert_eq!(swept.live_clusters, 1);
     assert_eq!(
-        screen.table_lengths(),
+        h.screen.table_lengths(),
         (1, 2),
         "the table holds exactly what is live"
     );
@@ -902,8 +939,9 @@ fn a_sweep_preserves_every_live_cells_channels() {
 #[test]
 fn a_sweep_preserves_a_wide_clusters_channels_and_its_width() {
     const ROWS: u16 = 4;
-    let mut screen = extended_screen(ROWS);
-    let id = screen
+    let mut h = extended_screen(ROWS);
+    let id = h
+        .screen
         .layers()
         .add_content(0, Rect::new(0, 0, 8, ROWS), true);
     // Four distinct wide clusters, one per row: a family emoji and three flags. Each is a ZWJ or
@@ -915,37 +953,41 @@ fn a_sweep_preserves_a_wide_clusters_channels_and_its_width() {
         "\u{1F1EB}\u{1F1F7}",
     ];
     {
-        let mut view = screen.layers().view(id).expect("just added");
+        let mut view = h.screen.layers().view(id).expect("just added");
         for (y, cluster) in WIDE.iter().enumerate() {
             view.text(0, y as i32, cluster, opaque_ink());
         }
     }
-    screen.present();
-    assert_eq!(screen.table_lengths().0, 4, "four interned clusters");
+    h.present();
+    assert_eq!(h.screen.table_lengths().0, 4, "four interned clusters");
 
     // Rows 1..3 are overwritten with the cluster row 0 holds, orphaning ids 1, 2 and 3 — which are
     // above the only live one, so this is also the second half's case seen from the interner.
     {
-        let mut view = screen.layers().view(id).expect("the layer is still there");
+        let mut view = h
+            .screen
+            .layers()
+            .view(id)
+            .expect("the layer is still there");
         for y in 1..ROWS as i32 {
             view.text(0, y, WIDE[0], opaque_ink());
         }
     }
-    screen.present();
+    h.present();
 
-    let before = screen.channels();
-    let swept = screen.sweep_now();
+    let before = h.screen.channels();
+    let swept = h.screen.sweep_now();
     assert_eq!(swept.freed_clusters, 3);
     assert_eq!(swept.live_clusters, 1);
     assert!(
         !swept.renumbered,
         "ids 1..3 were all above the only live one"
     );
-    assert_eq!(screen.table_lengths().0, 1);
-    assert_eq!(before, screen.channels());
+    assert_eq!(h.screen.table_lengths().0, 1);
+    assert_eq!(before, h.screen.channels());
 
     // The wide flag survived, which is what says the rewrite rebuilt the handle rather than the id.
-    let frame = screen.frame();
+    let frame = h.screen.frame();
     for y in 0..ROWS {
         assert!(
             frame.row(y)[0].grapheme.is_wide_head(),
@@ -968,32 +1010,38 @@ fn a_sweep_preserves_a_wide_clusters_channels_and_its_width() {
 #[test]
 fn a_sweep_that_frees_only_the_top_of_a_table_does_not_renumber() {
     const ROWS: u16 = 4;
-    let mut screen = extended_screen(ROWS);
-    let id = extended_page(&mut screen, ROWS);
-    underline_each_row(&mut screen, id, ROWS, |y| Color::rgb(y as u8 + 1, 0, 0));
-    screen.present();
-    assert_eq!(screen.table_lengths(), (1, ROWS as usize));
+    let mut h = extended_screen(ROWS);
+    let id = extended_page(&mut h.screen, ROWS);
+    underline_each_row(&mut h.screen, id, ROWS, |y| Color::rgb(y as u8 + 1, 0, 0));
+    h.present();
+    assert_eq!(h.screen.table_lengths(), (1, ROWS as usize));
 
     // Rows 2 and 3 take rows 0 and 1's styles, which the table already holds. Entries 2 and 3 go
     // dead and every survivor keeps its handle.
-    underline_each_row(&mut screen, id, ROWS, |y| Color::rgb(y as u8 % 2 + 1, 0, 0));
-    screen.present();
+    underline_each_row(&mut h.screen, id, ROWS, |y| {
+        Color::rgb(y as u8 % 2 + 1, 0, 0)
+    });
+    h.present();
     assert_eq!(
-        screen.table_lengths(),
+        h.screen.table_lengths(),
         (1, ROWS as usize),
         "nothing new was minted; two entries simply stopped being pointed at"
     );
 
-    let before = screen.channels();
-    let swept = screen.sweep_now();
+    let before = h.screen.channels();
+    let swept = h.screen.sweep_now();
     assert!(
         !swept.renumbered,
         "the two freed entries were above every live one"
     );
     assert_eq!(swept.freed_exts, 2);
     assert_eq!(swept.live_exts, 2);
-    assert_eq!(screen.table_lengths(), (1, 2), "and they were still freed");
-    assert_eq!(before, screen.channels());
+    assert_eq!(
+        h.screen.table_lengths(),
+        (1, 2),
+        "and they were still freed"
+    );
+    assert_eq!(before, h.screen.channels());
 }
 
 /// A sweep that renumbers marks **every** mirror row unknown, and one that does not marks none.
@@ -1008,18 +1056,22 @@ fn a_sweep_that_frees_only_the_top_of_a_table_does_not_renumber() {
 #[test]
 fn a_renumbering_sweep_marks_every_mirror_row_unknown() {
     const ROWS: u16 = 4;
-    let mut screen = extended_screen(ROWS);
-    let id = extended_page(&mut screen, ROWS);
-    underline_each_row(&mut screen, id, ROWS, |y| Color::rgb(y as u8 + 1, 0, 0));
-    screen.present();
+    let mut h = extended_screen(ROWS);
+    let id = extended_page(&mut h.screen, ROWS);
+    underline_each_row(&mut h.screen, id, ROWS, |y| Color::rgb(y as u8 + 1, 0, 0));
+    h.present();
     assert_eq!(
-        screen.known_rows(),
+        h.screen.known_rows(),
         ROWS as usize,
         "the birth frame wrote every row whole"
     );
 
     {
-        let mut view = screen.layers().view(id).expect("the layer is still there");
+        let mut view = h
+            .screen
+            .layers()
+            .view(id)
+            .expect("the layer is still there");
         view.restyle(
             Rect::new(0, 1, 8, ROWS - 1),
             &Restyle {
@@ -1028,14 +1080,14 @@ fn a_renumbering_sweep_marks_every_mirror_row_unknown() {
             },
         );
     }
-    screen.present();
-    assert!(screen.sweep_now().renumbered);
+    h.present();
+    assert!(h.screen.sweep_now().renumbered);
 
     // Nothing is damaged, so this submits nothing — and the flag has to survive it. A flag spent on
     // a frame that never went out is a mirror that is never told.
-    assert!(!screen.present().submitted);
+    assert!(!h.present().submitted);
     assert_eq!(
-        screen.known_rows(),
+        h.screen.known_rows(),
         ROWS as usize,
         "an idle present must not spend the flag"
     );
@@ -1043,18 +1095,22 @@ fn a_renumbering_sweep_marks_every_mirror_row_unknown() {
     // The next real frame is the one that carries it. Every row of it is written whole, so the rows
     // are unknown and known again inside one `present` — which is exactly what *costing one full
     // frame on the render thread* means.
-    underline_each_row(&mut screen, id, ROWS, |_| Color::rgb(1, 2, 3));
-    assert!(screen.present().submitted);
-    assert_eq!(screen.known_rows(), ROWS as usize);
+    underline_each_row(&mut h.screen, id, ROWS, |_| Color::rgb(1, 2, 3));
+    assert!(h.present().submitted);
+    assert_eq!(h.screen.known_rows(), ROWS as usize);
 
     // A narrow frame after a renumbering sweep leaves the rows it did not write whole unknown, which
     // is the half ADR 0006's *written whole rather than compared* does not reach: the sweep marks no
     // damage, so there is no whole row to write. `crate::serial::Mirror` states what ticket 14's
     // filter has to do about it.
-    underline_each_row(&mut screen, id, ROWS, |y| Color::rgb(y as u8 + 1, 0, 0));
-    screen.present();
+    underline_each_row(&mut h.screen, id, ROWS, |y| Color::rgb(y as u8 + 1, 0, 0));
+    h.present();
     {
-        let mut view = screen.layers().view(id).expect("the layer is still there");
+        let mut view = h
+            .screen
+            .layers()
+            .view(id)
+            .expect("the layer is still there");
         view.restyle(
             Rect::new(0, 1, 8, ROWS - 1),
             &Restyle {
@@ -1063,15 +1119,19 @@ fn a_renumbering_sweep_marks_every_mirror_row_unknown() {
             },
         );
     }
-    screen.present();
-    assert!(screen.sweep_now().renumbered);
+    h.present();
+    assert!(h.screen.sweep_now().renumbered);
     {
-        let mut view = screen.layers().view(id).expect("the layer is still there");
+        let mut view = h
+            .screen
+            .layers()
+            .view(id)
+            .expect("the layer is still there");
         view.text(3, 0, "z", opaque_ink());
     }
-    assert!(screen.present().submitted);
+    assert!(h.present().submitted);
     assert_eq!(
-        screen.known_rows(),
+        h.screen.known_rows(),
         0,
         "one cell of one row is not one whole row of four"
     );
@@ -1081,25 +1141,31 @@ fn a_renumbering_sweep_marks_every_mirror_row_unknown() {
 #[test]
 fn a_sweep_that_renumbers_nothing_leaves_the_mirror_alone() {
     const ROWS: u16 = 4;
-    let mut screen = extended_screen(ROWS);
-    let id = extended_page(&mut screen, ROWS);
-    underline_each_row(&mut screen, id, ROWS, |y| Color::rgb(y as u8 + 1, 0, 0));
-    screen.present();
-    underline_each_row(&mut screen, id, ROWS, |y| Color::rgb(y as u8 % 2 + 1, 0, 0));
-    screen.present();
-    assert_eq!(screen.known_rows(), ROWS as usize);
+    let mut h = extended_screen(ROWS);
+    let id = extended_page(&mut h.screen, ROWS);
+    underline_each_row(&mut h.screen, id, ROWS, |y| Color::rgb(y as u8 + 1, 0, 0));
+    h.present();
+    underline_each_row(&mut h.screen, id, ROWS, |y| {
+        Color::rgb(y as u8 % 2 + 1, 0, 0)
+    });
+    h.present();
+    assert_eq!(h.screen.known_rows(), ROWS as usize);
 
-    let swept = screen.sweep_now();
+    let swept = h.screen.sweep_now();
     assert!(!swept.renumbered);
     assert_eq!(swept.freed_exts, 2, "it did reclaim, it just did not move");
 
     // A frame that damages one cell of one row. Were the flag set, every row would go unknown.
     {
-        let mut view = screen.layers().view(id).expect("the layer is still there");
+        let mut view = h
+            .screen
+            .layers()
+            .view(id)
+            .expect("the layer is still there");
         view.text(3, 0, "z", opaque_ink());
     }
-    assert!(screen.present().submitted);
-    assert_eq!(screen.known_rows(), ROWS as usize);
+    assert!(h.present().submitted);
+    assert_eq!(h.screen.known_rows(), ROWS as usize);
 }
 
 /// **There is no path by which a sweep runs inside `present`.**
@@ -1115,19 +1181,23 @@ fn a_sweep_that_renumbers_nothing_leaves_the_mirror_alone() {
 /// difference, and §3 is what asks for the narrower property.
 #[test]
 fn the_sweep_never_runs_inside_present() {
-    let mut screen = extended_screen(4);
-    let id = extended_page(&mut screen, 4);
-    screen.present();
+    let mut h = extended_screen(4);
+    let id = extended_page(&mut h.screen, 4);
+    h.present();
 
     // Past the floor: one new distinct extended style per frame until the mark is reached. Two
     // colour channels rather than one, because the floor is 256 entries and one byte would run out
     // of distinct values at exactly the wrong moment.
     let mut distinct = 0u32;
-    while !screen.sweep_due() {
+    while !h.screen.sweep_due() {
         distinct += 1;
         assert!(distinct < 4096, "the high-water mark was never reached");
         {
-            let mut view = screen.layers().view(id).expect("the layer is still there");
+            let mut view = h
+                .screen
+                .layers()
+                .view(id)
+                .expect("the layer is still there");
             view.restyle(
                 Rect::new(0, 0, 8, 1),
                 &Restyle {
@@ -1136,26 +1206,26 @@ fn the_sweep_never_runs_inside_present() {
                 },
             );
         }
-        screen.present();
+        h.present();
     }
 
     // `layers()` is the door, and it has not been opened since the mark was reached.
-    let before = screen.sweeps();
+    let before = h.screen.sweeps();
     for _ in 0..4 {
-        screen.present();
+        h.present();
     }
-    assert!(screen.sweep_due(), "the mark is still reached");
+    assert!(h.screen.sweep_due(), "the mark is still reached");
     assert_eq!(
-        screen.sweeps(),
+        h.screen.sweeps(),
         before,
         "`present` swept, and §13's budget for the sweep rests on the promise that it cannot"
     );
 
     // And the door does open, exactly once, and moves the mark past what is live.
-    screen.layers();
-    assert_eq!(screen.sweeps(), before + 1);
+    h.screen.layers();
+    assert_eq!(h.screen.sweeps(), before + 1);
     assert!(
-        !screen.sweep_due(),
+        !h.screen.sweep_due(),
         "the high-water mark did not move past the live count"
     );
 }
@@ -1176,8 +1246,8 @@ fn the_sweep_never_runs_inside_present() {
 fn a_fading_operator_mints_per_distinct_style_and_never_per_cell() {
     const ROWS: u16 = 8;
     const CELLS: usize = 8 * ROWS as usize;
-    let mut screen = extended_screen(ROWS);
-    let id = extended_page(&mut screen, ROWS);
+    let mut h = extended_screen(ROWS);
+    let id = extended_page(&mut h.screen, ROWS);
 
     // Four distinct extended styles over sixty-four cells: enough that "per distinct style" and
     // "per cell" are different numbers by a factor of sixteen.
@@ -1191,10 +1261,14 @@ fn a_fading_operator_mints_per_distinct_style_and_never_per_cell() {
     // four links are four distinct results at **every** amount, by construction.
     let distinct = 4usize;
     let links: Vec<_> = (0..distinct)
-        .map(|i| screen.link(&format!("https://example.com/{i}")))
+        .map(|i| h.screen.link(&format!("https://example.com/{i}")))
         .collect();
     {
-        let mut view = screen.layers().view(id).expect("the layer is still there");
+        let mut view = h
+            .screen
+            .layers()
+            .view(id)
+            .expect("the layer is still there");
         for y in 0..ROWS {
             view.restyle(
                 Rect::new(0, y as i32, 8, 1),
@@ -1205,32 +1279,32 @@ fn a_fading_operator_mints_per_distinct_style_and_never_per_cell() {
             );
         }
     }
-    screen.present();
-    let page = screen.table_lengths().1;
+    h.present();
+    let page = h.screen.table_lengths().1;
     assert_eq!(page, distinct, "the page itself holds four extended styles");
 
-    let before_any_operator = screen.frame().row(0)[1];
+    let before_any_operator = h.screen.frame().row(0)[1];
     let mut op =
-        screen
+        h.screen
             .layers()
             .add_operator(1, Rect::new(0, 0, 8, ROWS), Mix::darken(Mix::FULL / 4));
-    screen.present();
+    h.present();
     // **Assert the operator moved a cell before asserting anything about which ones.** A headless
     // screen is at `ColorDepth::None` unless something pins it, and there an operator layer is
     // skipped outright — a fade that touched nothing would report a beautiful zero growth and mean
     // nothing at all.
     assert_ne!(
-        screen.frame().row(0)[1],
+        h.screen.frame().row(0)[1],
         before_any_operator,
         "the operator changed no cell, so this gate is measuring the depth and not the fade"
     );
 
     // The settled shape first, because the fading number means nothing without it: the same `amount`
     // again mints nothing at all.
-    let settled = screen.table_lengths().1;
-    screen.present();
+    let settled = h.screen.table_lengths().1;
+    h.present();
     assert_eq!(
-        screen.table_lengths().1,
+        h.screen.table_lengths().1,
         settled,
         "a settled operator converges after one frame"
     );
@@ -1238,15 +1312,15 @@ fn a_fading_operator_mints_per_distinct_style_and_never_per_cell() {
     // Ten frames of a fade, each with an `amount` no earlier frame used.
     let mut minted = Vec::new();
     for step in 1..=10u16 {
-        let was = screen.table_lengths().1;
-        screen.layers().remove(op);
-        op = screen.layers().add_operator(
+        let was = h.screen.table_lengths().1;
+        h.screen.layers().remove(op);
+        op = h.screen.layers().add_operator(
             1,
             Rect::new(0, 0, 8, ROWS),
             Mix::darken(Mix::FULL / 4 + step * 8),
         );
-        screen.present();
-        minted.push(screen.table_lengths().1 - was);
+        h.present();
+        minted.push(h.screen.table_lengths().1 - was);
     }
 
     for (step, &n) in minted.iter().enumerate() {
@@ -1262,8 +1336,8 @@ fn a_fading_operator_mints_per_distinct_style_and_never_per_cell() {
     }
 
     // And the growth is what the sweep exists for: it is unbounded in frames and bounded in styles.
-    assert_eq!(screen.table_lengths().1, page + distinct * 11);
-    let swept = screen.sweep_now();
+    assert_eq!(h.screen.table_lengths().1, page + distinct * 11);
+    let swept = h.screen.sweep_now();
     assert_eq!(
         swept.live_exts,
         distinct * 2,
@@ -1275,5 +1349,5 @@ fn a_fading_operator_mints_per_distinct_style_and_never_per_cell() {
         swept.renumbered,
         "the page's own four entries are below every freed one"
     );
-    assert_eq!(screen.table_lengths().1, distinct * 2);
+    assert_eq!(h.screen.table_lengths().1, distinct * 2);
 }

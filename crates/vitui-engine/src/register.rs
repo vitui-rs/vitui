@@ -252,7 +252,11 @@ pub const REGISTER: [Entry; 27] = [
         qualifier: "equality",
         source: "arch 08, 16",
         state: State::Wired {
-            at: "crate::roundtrip, and crate::gates::the_round_trip_closes_on_every_scene",
+            at: "crate::roundtrip, crate::gates::the_round_trip_closes_on_every_scene — all twelve \
+                 scenes since impl 13 took the twelfth off red — and \
+                 crate::serial::tests::the_round_trip_closes_under_every_wire_configuration, which \
+                 is the sixteen combinations of the two SGR spellings, the two underline-colour \
+                 spellings, mode 2026 and OSC 8",
         },
     },
     Entry {
@@ -353,7 +357,8 @@ pub const REGISTER: [Entry; 27] = [
         qualifier: "count, an upper bound per scene",
         source: "arch 08, 16",
         state: State::Wired {
-            at: "crate::gates::wire_bytes_per_scene",
+            at: "crate::gates::wire_bytes_per_scene, twelve rows since impl 13 and re-measured on \
+                 the full §8 encoding set",
         },
     },
     Entry {

@@ -184,10 +184,38 @@ impl WidthSource {
 
 /// What was asked for, before anything was detected.
 ///
-/// Every field **lowers or pins**, and `None` means *let detection decide*. This is where an
+/// Every field **pins**, and `None` means *let detection decide*. This is where an
 /// application's own `--ascii` and `--no-color` land: **the engine parses no argv**, and it never
 /// will, because an engine that read `std::env::args` would be deciding what an application's flags
 /// are called.
+///
+/// *Pins*, not *lowers or pins*, and the correction is architecture ticket 22's: a `Some` may raise
+/// as well as lower, which `colors` has always done — pinning truecolor with detection switched off
+/// is what makes headless a declared tier rather than the lowest one — and `hyperlinks: Some(true)`
+/// on a sink is the same shape one axis along.
+///
+/// # Seven fields, and the set is a rule rather than a list
+///
+/// > **An axis belongs here iff (a) nothing measured it — nothing can, or nothing did and the engine
+/// > inferred it — or (b) the engine's own output depends on it *and* the value is one the person at
+/// > the terminal knows.**
+///
+/// That is the write-side twin of [`Capabilities`]' read-side test. `Capabilities` asks *can someone
+/// above act on it*; this asks *can someone below be told it, and does telling it change what the
+/// engine produces*. Two questions, two field sets — which is why this was never a subset of
+/// `Capabilities`: [`legacy_sgr`](Overrides::legacy_sgr) and [`width`](Overrides::width) pin facts
+/// that are **private** on the read side.
+///
+/// The eight input axes are refused by (b) twice over: nothing on the composite→pack→serialise path
+/// reads one, and **a declaration cannot make an event arrive** — a declarable `key_release` would
+/// leave a component drawing a key it believes still held, which is exactly the defect
+/// [ADR 0007](../../../docs/adr/0007-the-input-model-is-honest-about-the-terminal.md) refused the
+/// uniform keyboard model for. `sync_output` and `underlines` are refused by (b)'s second half:
+/// nobody at the terminal can name mode 2026 or ConPTY's underline-colour form, so their arms are
+/// reached from **inside** the crate through [`assemble`] instead.
+///
+/// **Any refused axis gains a field the moment one of the two sentences becomes true of it**, which
+/// is a visible event in a diff and not a judgement call.
 ///
 /// # `Some` is never overridden
 ///
@@ -211,7 +239,35 @@ pub struct Overrides {
     pub colors: Option<ColorDepth>,
     /// Pin what may be assumed of the font. The only lever there is, since nothing can be queried.
     pub glyphs: Option<GlyphSet>,
-    /// Force the pre-ITU-T colon form of SGR 38/48, for a terminal that mis-parses the modern one.
+    /// Pin the terminal's default foreground, as OSC 10 would have answered it.
+    ///
+    /// **`Option<Rgb>` and not `Option<Option<Rgb>>`, and the asymmetry is the whole design.**
+    /// Silence is the default headless state and the fall-through on every terminal that did not
+    /// answer, so the arm that needed a door was the *answered* one and one `Option` reaches it.
+    /// Pinning silence is not offered and nothing wants it: an application cannot force a terminal
+    /// that did answer OSC 10 to be treated as silent.
+    pub default_fg: Option<Rgb>,
+    /// Pin the terminal's default background, as OSC 11 would have answered it.
+    ///
+    /// The same asymmetry as [`default_fg`](Overrides::default_fg), and this is the half spec §5
+    /// reads: a cell with a default background is left **unmixed** while this is silent (ADR 0025),
+    /// so declaring it is what reaches the *answered* branch of the compositor from a headless
+    /// screen. These two are the only fields here whose reader is the compositor rather than the
+    /// serializer.
+    pub default_bg: Option<Rgb>,
+    /// Declare whether the terminal implements OSC 8 hyperlinks.
+    ///
+    /// **The one axis that is neither detected nor declared but *inferred*** — OSC 8 has no query,
+    /// §10's probe set has none that could, and [`implements_osc8`] is the engine guessing on the
+    /// world's behalf from what XTVERSION reported. An inference is the one kind of fact a
+    /// declaration must be able to correct, because there is no second query to ask more carefully
+    /// and a quirk-table entry is a new release. Architecture ticket 22 is where that became a rule.
+    ///
+    /// The shipped inference's residual failure is what this field is for: VTE — gnome-terminal,
+    /// Tilix — implements OSC 8, answers no XTVERSION, and gets a wrong `false`.
+    pub hyperlinks: Option<bool>,
+    /// Force the pre-ITU-T semicolon form of SGR 38/48, for a terminal that mis-parses the modern
+    /// colon one.
     pub legacy_sgr: Option<bool>,
     /// Pin which table decides a cluster's width.
     pub width: Option<WidthSource>,
@@ -223,6 +279,11 @@ impl Overrides {
     /// The **only** named combination that survives, and the reason it survives is that it is a
     /// constructor rather than a type: nothing reads "is this the plain tier", so nothing can
     /// branch on a name instead of on a fact.
+    /// **Unchanged by architecture ticket 22's three new fields, and that is the result rather than
+    /// an oversight.** `plain` names the two flags `--ascii --no-color` stand for. A third field
+    /// inside it would invent a third flag nobody typed, and the constructor survives only because
+    /// it is a constructor rather than a type — nothing reads *is this the plain tier*, so nothing
+    /// can branch on a name instead of on a fact.
     pub fn plain() -> Overrides {
         Overrides {
             colors: Some(ColorDepth::None),
@@ -235,6 +296,9 @@ impl Overrides {
     fn fill(&mut self, weaker: Overrides) {
         self.colors = self.colors.or(weaker.colors);
         self.glyphs = self.glyphs.or(weaker.glyphs);
+        self.default_fg = self.default_fg.or(weaker.default_fg);
+        self.default_bg = self.default_bg.or(weaker.default_bg);
+        self.hyperlinks = self.hyperlinks.or(weaker.hyperlinks);
         self.legacy_sgr = self.legacy_sgr.or(weaker.legacy_sgr);
         self.width = self.width.or(weaker.width);
     }
@@ -252,6 +316,12 @@ pub(crate) struct Env {
     pub(crate) glyphs: Option<String>,
     /// `VITUI_FORCE_COLOR` — `none`/`0`, `16`, `256` or `truecolor`.
     pub(crate) force_color: Option<String>,
+    /// `VITUI_HYPERLINKS` — truthy, and the correction for VTE's wrong `false`.
+    pub(crate) hyperlinks: Option<String>,
+    /// `VITUI_DEFAULT_FG` — `#rrggbb`.
+    pub(crate) default_fg: Option<String>,
+    /// `VITUI_DEFAULT_BG` — `#rrggbb`.
+    pub(crate) default_bg: Option<String>,
     /// `VITUI_FORCE_LEGACY_SGR`.
     pub(crate) force_legacy_sgr: Option<String>,
     /// `VITUI_FORCE_WCWIDTH`.
@@ -275,6 +345,9 @@ impl Env {
         Env {
             glyphs: var("VITUI_GLYPHS"),
             force_color: var("VITUI_FORCE_COLOR"),
+            hyperlinks: var("VITUI_HYPERLINKS"),
+            default_fg: var("VITUI_DEFAULT_FG"),
+            default_bg: var("VITUI_DEFAULT_BG"),
             force_legacy_sgr: var("VITUI_FORCE_LEGACY_SGR"),
             force_wcwidth: var("VITUI_FORCE_WCWIDTH"),
             no_color: var("NO_COLOR"),
@@ -304,6 +377,9 @@ impl Env {
         Overrides {
             colors: self.force_color.as_deref().and_then(parse_depth),
             glyphs: self.glyphs.as_deref().and_then(GlyphSet::parse),
+            default_fg: self.default_fg.as_deref().and_then(parse_rgb),
+            default_bg: self.default_bg.as_deref().and_then(parse_rgb),
+            hyperlinks: self.hyperlinks.as_deref().map(truthy),
             legacy_sgr: self.force_legacy_sgr.as_deref().map(truthy),
             width: self.force_wcwidth.as_deref().map(|v| {
                 if truthy(v) {
@@ -324,6 +400,21 @@ fn parse_depth(s: &str) -> Option<ColorDepth> {
         "truecolor" | "24bit" | "24-bit" | "rgb" => Some(ColorDepth::TrueColor),
         _ => None,
     }
+}
+
+/// `#rrggbb`, and an unparseable value is `None` rather than an error.
+///
+/// The same shape [`parse_depth`] already has, and for the same reason: level 2 exists to be a lever
+/// in the field, and a variable that turns a mistyped value into a failed `attach` is a lever that
+/// bricks the application it was reached for. A `None` here falls through to whatever the terminal
+/// said, which is where an unset variable already lands.
+fn parse_rgb(s: &str) -> Option<Rgb> {
+    let hex = s.trim().strip_prefix('#')?;
+    if hex.len() != 6 || !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return None;
+    }
+    let channel = |at: usize| u8::from_str_radix(&hex[at..at + 2], 16).ok();
+    Some(Rgb::new(channel(0)?, channel(2)?, channel(4)?))
 }
 
 /// Anything but an explicit denial. `VITUI_FORCE_LEGACY_SGR=0` is somebody switching it off.
@@ -593,7 +684,7 @@ impl Capabilities {
         let _ = writeln!(out, "  glyphs            {} (declared)", self.glyphs.word());
         let _ = writeln!(out, "  default_fg        {}", show(self.default_fg));
         let _ = writeln!(out, "  default_bg        {}", show(self.default_bg));
-        let _ = writeln!(out, "  hyperlinks        {}", self.hyperlinks);
+        let _ = writeln!(out, "  hyperlinks        {} (inferred)", self.hyperlinks);
         let _ = writeln!(out, "  grapheme_clusters {}", self.grapheme_clusters);
         let _ = writeln!(
             out,
@@ -633,19 +724,16 @@ impl Capabilities {
     }
 
     /// Mode 2026, which §8 wraps a frame in when it is there.
-    #[allow(dead_code)]
     pub(crate) fn sync_output(&self) -> bool {
         self.private.sync_output
     }
 
     /// Whether SGR 38/48 must be spelled the pre-ITU-T way.
-    #[allow(dead_code)]
     pub(crate) fn legacy_sgr(&self) -> bool {
         self.private.legacy_sgr
     }
 
     /// Which escape spells an underline colour on this terminal.
-    #[allow(dead_code)]
     pub(crate) fn underlines(&self) -> Underlines {
         self.private.underlines
     }
@@ -671,12 +759,13 @@ impl Capabilities {
     /// [`Detected`], which is the shape a real tty's replies arrive in, so a test built this way
     /// exercises the same precedence resolution `attach` does.
     ///
-    /// It exists because **`Overrides` cannot declare a default background or foreground** and every
-    /// test in this crate is headless, so spec §5's *answered OSC 11* path is otherwise unreachable
-    /// from any test the public types can construct. That is the second instance of
-    /// [architecture ticket 22](../../../.scratch/vitui-engine-architecture/issues/22-headless-cannot-declare-a-hyperlink.md)'s
-    /// question and is recorded there; what is *not* deferred is the silent path, which is the
-    /// default headless state and therefore the one every other test drives.
+    /// **It exists for the callers that sit *below* `Screen`, and after architecture ticket 22 that
+    /// is the only reason left.** `Overrides` can declare a default foreground and background now,
+    /// so spec §5's *answered OSC 11* path is reachable from a headless `Harness` — but
+    /// [`crate::layer`] calls `composite_run` with a `&Capabilities` directly and
+    /// [`crate::view`] and [`crate::reference`] do the same, and none of them builds a `Screen` for
+    /// an `Overrides` to be spoken through. That is arch 22's *the two doors*: this one was never
+    /// competing with a field, because it reaches no gate that builds a `Screen`.
     #[cfg(test)]
     pub(crate) fn answering(
         colors: ColorDepth,
@@ -720,6 +809,54 @@ impl Capabilities {
                 ..Detected::default()
             },
             Quirks::default(),
+        )
+    }
+
+    /// The capabilities of a terminal whose **wire** facts are these, for a test that needs an arm
+    /// of the serializer no `Overrides` can reach.
+    ///
+    /// `sync_output` and `underlines` are the two axes impl 13 has to reach and may not declare: the
+    /// rule refuses them a field because nobody at the terminal can name mode 2026 or ConPTY's
+    /// underline-colour form, so their arms come from **inside** the crate through a synthetic
+    /// [`Detected`] put through [`assemble`] — the same door [`answering`](Capabilities::answering)
+    /// already uses for §5's answered-colour arms.
+    ///
+    /// Mode 2026 arrives as a DECRQM answer because that is the shape a real terminal's reply has;
+    /// the ConPTY underline form arrives as a [`Quirks`] entry because that is where it lives on a
+    /// real Windows console, and constructing the entry by hand is what makes the arm reachable
+    /// without pretending the test is running on Windows.
+    ///
+    /// This is what makes §8's *20 bytes of fixed framing* on a 29-byte caret frame producible for
+    /// the first time: before this it was a claim about a configuration no test could construct.
+    #[cfg(test)]
+    pub(crate) fn on_the_wire(
+        colors: ColorDepth,
+        sync_output: bool,
+        underlines: Underlines,
+        legacy_sgr: bool,
+    ) -> Capabilities {
+        assemble(
+            Overrides {
+                colors: Some(colors),
+                hyperlinks: Some(true),
+                legacy_sgr: Some(legacy_sgr),
+                ..Overrides::default()
+            },
+            &Env::default(),
+            Ground::Tty,
+            &Detected {
+                answered: true,
+                modes: if sync_output {
+                    vec![(MODE_SYNC_OUTPUT, 2)]
+                } else {
+                    vec![(MODE_SYNC_OUTPUT, NOT_RECOGNISED)]
+                },
+                ..Detected::default()
+            },
+            Quirks {
+                underlines,
+                ..Quirks::default()
+            },
         )
     }
 
@@ -847,11 +984,26 @@ pub(crate) fn assemble(
     }
 
     // And levels 1 to 4 on top of all of it.
+    //
+    // **After the blanking above, and every one of the seven is applied here.** The ordering is the
+    // whole of architecture ticket 22's second half: a declared `hyperlinks` on a sink would be
+    // erased by the very branch that made it unreachable if it were applied any earlier, and the
+    // door that *is* applied earlier — `Quirks::hyperlinks`, at level 5 — is therefore not the door,
+    // however much it looks like one.
     if let Some(colors) = forced.colors {
         caps.colors = colors;
     }
     if let Some(glyphs) = forced.glyphs {
         caps.glyphs = glyphs;
+    }
+    if let Some(fg) = forced.default_fg {
+        caps.default_fg = Some(fg);
+    }
+    if let Some(bg) = forced.default_bg {
+        caps.default_bg = Some(bg);
+    }
+    if let Some(hyperlinks) = forced.hyperlinks {
+        caps.hyperlinks = hyperlinks;
     }
     if let Some(legacy) = forced.legacy_sgr {
         caps.private.legacy_sgr = legacy;
@@ -1179,6 +1331,9 @@ mod tests {
             Overrides {
                 colors: Some(ColorDepth::TrueColor),
                 glyphs: Some(GlyphSet::Extended),
+                default_fg: Some(Rgb::new(0xc5, 0xc8, 0xc6)),
+                default_bg: Some(Rgb::new(0x1d, 0x1f, 0x21)),
+                hyperlinks: Some(true),
                 legacy_sgr: Some(false),
                 width: Some(WidthSource::Tables),
             },
@@ -1191,6 +1346,15 @@ mod tests {
         assert_eq!(caps.glyphs, GlyphSet::Extended);
         assert!(!caps.legacy_sgr());
         assert!(caps.report().contains("headless"));
+        // Architecture ticket 22's three, and the reason this test names every field rather than
+        // spreading `..Default::default()`: a field added to `Overrides` and forgotten in `assemble`
+        // is a field that compiles and does nothing, and this is the assertion that would not.
+        assert_eq!(caps.default_fg, Some(Rgb::new(0xc5, 0xc8, 0xc6)));
+        assert_eq!(caps.default_bg, Some(Rgb::new(0x1d, 0x1f, 0x21)));
+        assert!(
+            caps.hyperlinks,
+            "a sink is asked nothing, so `hyperlinks` on it is a declaration or nothing"
+        );
     }
 
     /// **Gate.** The quirk table is applied *after* detection, which is the whole reason it exists:
@@ -1422,6 +1586,141 @@ mod tests {
             "`--ascii --no-color` says nothing about SGR"
         );
         assert_eq!(plain.width, None);
+        // Architecture ticket 22's three, and `plain` is deliberately unchanged by them: it names
+        // two flags, and a third field inside it would invent a third flag nobody typed.
+        assert_eq!(plain.hyperlinks, None);
+        assert_eq!(plain.default_fg, None);
+        assert_eq!(plain.default_bg, None);
+    }
+
+    /// **Gate, both directions, for the three fields architecture ticket 22 added.**
+    ///
+    /// Every `Overrides` field has a `VITUI_*` twin and that is the rule: level 2 exists to be the
+    /// same lever without a release. So each of the three is asserted twice — a `Some` is never
+    /// overridden by its variable, and the variable fills a `None` — exactly as the first four
+    /// already are.
+    #[test]
+    fn the_three_new_axes_are_levers_in_both_directions() {
+        let white = Rgb::new(0xff, 0xff, 0xff);
+        let black = Rgb::new(0, 0, 0);
+        let asking = Env {
+            hyperlinks: Some("0".to_string()),
+            default_fg: Some("#000000".to_string()),
+            default_bg: Some("#000000".to_string()),
+            ..Env::default()
+        };
+
+        // Level 1 over level 2. The variable would deny the hyperlink and darken both colours.
+        let held = on_a_tty(
+            Overrides {
+                hyperlinks: Some(true),
+                default_fg: Some(white),
+                default_bg: Some(white),
+                ..Overrides::default()
+            },
+            asking.clone(),
+        );
+        assert!(held.hyperlinks);
+        assert_eq!(held.default_fg, Some(white));
+        assert_eq!(held.default_bg, Some(white));
+
+        // Level 2 into a `None`. `modern()` answers a hyperlink and two colours of its own, so all
+        // three of these are the variable overruling detection rather than filling a silence —
+        // which is the half that matters, because `VITUI_HYPERLINKS` exists for a terminal whose
+        // inference came back wrong.
+        let filled = on_a_tty(Overrides::default(), asking);
+        assert!(
+            !filled.hyperlinks,
+            "`VITUI_HYPERLINKS=0` is somebody switching off an inference"
+        );
+        assert_eq!(filled.default_fg, Some(black));
+        assert_eq!(filled.default_bg, Some(black));
+
+        // And the other direction on the axis the residual failure is about: VTE implements OSC 8,
+        // answers no XTVERSION, and gets a wrong `false`. One variable is the whole fix.
+        let vte = Detected {
+            version: None,
+            ..modern()
+        };
+        let corrected = assemble(
+            Overrides::default(),
+            &Env {
+                hyperlinks: Some("1".to_string()),
+                ..Env::default()
+            },
+            Ground::Tty,
+            &vte,
+            Quirks::default(),
+        );
+        assert!(corrected.hyperlinks);
+    }
+
+    /// **Gate.** A declared `hyperlinks` on a sink survives, and that is entirely about *where* in
+    /// [`assemble`] the three fields are applied.
+    ///
+    /// `!speaks_escapes` blanks `hyperlinks` along with nine input axes, because a pipe, a file, a
+    /// sink or `TERM=dumb` was asked nothing and may be assumed nothing. Applying a declaration
+    /// before that branch would let the very thing that made the axis unreachable erase the one door
+    /// that reaches it — and the door that *is* applied earlier, `Quirks::hyperlinks` at level 5, is
+    /// therefore not the door however much it looks like one.
+    #[test]
+    fn a_declared_hyperlink_is_not_erased_by_the_branch_that_blanked_it() {
+        let declared = Overrides {
+            hyperlinks: Some(true),
+            ..Overrides::default()
+        };
+        for ground in [Ground::Headless, Ground::NotATty] {
+            assert!(
+                !assemble(
+                    Overrides::default(),
+                    &Env::default(),
+                    ground,
+                    &Detected::default(),
+                    Quirks::default(),
+                )
+                .hyperlinks,
+                "{ground:?} is asked nothing, so it starts with nothing"
+            );
+            assert!(
+                assemble(
+                    declared,
+                    &Env::default(),
+                    ground,
+                    &Detected::default(),
+                    Quirks::default(),
+                )
+                .hyperlinks,
+                "{ground:?} with a declaration is the case impl 13's round trip needs"
+            );
+        }
+
+        // The quirk table is level 5 and cannot substitute, which is the negative half: it is laid
+        // over detection *before* the blanking, so on a sink it is wiped.
+        assert!(
+            !assemble(
+                Overrides::default(),
+                &Env::default(),
+                Ground::Headless,
+                &Detected::default(),
+                Quirks {
+                    hyperlinks: Some(true),
+                    ..Quirks::default()
+                },
+            )
+            .hyperlinks
+        );
+    }
+
+    /// An unparseable colour is `None` rather than an error, the way [`parse_depth`] already is: a
+    /// lever that turns a mistyped value into a failed `attach` bricks the application it was
+    /// reached for.
+    #[test]
+    fn a_default_colour_variable_parses_six_hex_digits_and_refuses_everything_else() {
+        assert_eq!(parse_rgb("#01aBff"), Some(Rgb::new(1, 0xab, 0xff)));
+        assert_eq!(parse_rgb("  #000000\n"), Some(Rgb::new(0, 0, 0)));
+        for bad in ["", "#", "000000", "#00000", "#0000000", "#00zz00", "red"] {
+            assert_eq!(parse_rgb(bad), None, "{bad:?}");
+        }
     }
 
     /// The ladder is ordered, and it is the only public axis that is — which is what lets a caller

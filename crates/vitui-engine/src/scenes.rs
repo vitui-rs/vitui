@@ -888,17 +888,20 @@ impl Scene for EveryCellADistinctStyle {
 /// workaround: it is why [`Screen::layers`] is the right door for the sweep's high-water check, since
 /// the one shape that grows a table without bound passes through it on every frame it animates.
 ///
-/// # Why it is still red, and against impl 13 rather than impl 08
+/// # It was red against impl 13, and impl 13 is what made it green
 ///
-/// `crate::gates` drives every wired scene through the round trip, and **an extended cell cannot
-/// close it**: SGR 58/59 and OSC 8 are impl 13's, so the serializer paints a hyperlinked cell in the
-/// right colours and drops the channel that made it extended. The terminal model then holds an
-/// inline cell where the frame holds a handle. That is a fact about the wire, not about this scene —
-/// `crate::serial`'s module documentation states it and impl 13 is what ends it.
+/// `crate::gates` drives every wired scene through the round trip, and until impl 13 an extended cell
+/// could not close one: SGR 58/59 and OSC 8 did not reach the wire, so the serializer painted a
+/// hyperlinked cell in the right colours and dropped the channel that made it extended, and the
+/// terminal model held an inline cell where the frame held a handle. That was a fact about the wire
+/// rather than about this scene, and it is no longer true of either.
 ///
-/// So the numbers this row exists for are taken in `examples/budget.rs`'s
-/// `the_hyperlinked_page_under_an_animating_operator`, which drives this scene directly, and the
-/// per-frame timing that would put it in the twelve-scene report waits for impl 13.
+/// **`Scene::overrides` needs two pins now, not one.** Truecolor, because §5 skips an operator layer
+/// outright at [`ColorDepth::None`]; and `hyperlinks`, because OSC 8 is emitted only where the
+/// terminal has it and a headless screen is asked nothing — so on a screen that declared only the
+/// depth this scene's links would be dropped from the wire, and after impl 17's intern-key collapse
+/// they would be dropped from the *key* as well and the row would report 8 entries where it exists to
+/// report 96 (architecture ticket 22).
 pub struct HyperlinkedPageUnderAnOperator {
     page: Option<LayerId>,
     operator: Option<LayerId>,
@@ -1018,10 +1021,10 @@ impl HyperlinkedPageUnderAnOperator {
 
 /// §14's twelfth scene, for the two consumers that drive it directly rather than off the list.
 ///
-/// It is not on `scenes()`' happy path because it is red for the round trip (see
-/// [`HyperlinkedPageUnderAnOperator`]'s own documentation) while being perfectly measurable, so both
-/// `crate::sweep`'s report and `examples/budget.rs` reach for it by name — the same door
-/// [`virtualised_tree`] and [`table_two_ways`] already use for their two sizes.
+/// It is on `scenes()` since impl 13, so this door is no longer about the round trip: it is the same
+/// door [`virtualised_tree`] and [`table_two_ways`] already use, for the two consumers that need the
+/// concrete type rather than a `dyn Scene` — `crate::sweep`'s report reaches for `step_settled` and
+/// the entry counts, and `examples/budget.rs` for the two arms of the timing.
 pub fn hyperlinked_page() -> Box<HyperlinkedPageUnderAnOperator> {
     Box::new(HyperlinkedPageUnderAnOperator::new())
 }
@@ -1037,25 +1040,27 @@ impl Scene for HyperlinkedPageUnderAnOperator {
     }
 
     fn status(&self) -> State {
-        State::Red {
-            inverted_by: "impl 13",
-            why: "impl 08 built the scene and took the numbers this row exists for — entries \
-                  created per frame settled and fading, and the sweep's cost at one screen and at \
-                  twenty layers — in examples/budget.rs's \
-                  the_hyperlinked_page_under_an_animating_operator. What keeps it off the gate list \
-                  is the wire rather than the scene: every gate in crate::gates drives its scenes \
-                  through the round trip, and an *extended* cell cannot close one, because SGR 58/59 \
-                  and OSC 8 are impl 13's and the terminal model cannot read back what the \
-                  serializer does not emit. Impl 13 is also where architecture ticket 22's second \
-                  half lands, so it is the ticket that has to decide whether a headless round trip \
-                  over a hyperlink is reachable at all",
+        State::Wired {
+            at: "crate::gates, on the normative list, since impl 13 put SGR 58/59 and OSC 8 on the \
+                 wire and taught the terminal model to read them back",
         }
     }
 
-    /// A truecolor terminal, because §5 skips an operator layer outright at [`ColorDepth::None`].
+    /// **Two pins, and each of them is a gate that would otherwise measure something else.**
+    ///
+    /// Truecolor, because §5 skips an operator layer outright at [`ColorDepth::None`], which is what
+    /// a headless screen is unless something says otherwise — without it this row reports a fade
+    /// that mints nothing.
+    ///
+    /// `hyperlinks`, because OSC 8 reaches the wire only where the terminal has it and nothing asks a
+    /// sink. Without it the round trip cannot close on this scene at all, and after impl 17's
+    /// intern-key collapse the row would report 8 entries where it exists to report 96: a hyperlink
+    /// on a screen where OSC 8 is inexpressible stops making a cell extended, and a `Mix` over an
+    /// inline cell reaches no table (architecture ticket 22).
     fn overrides(&self) -> Overrides {
         Overrides {
             colors: Some(ColorDepth::TrueColor),
+            hyperlinks: Some(true),
             ..Overrides::default()
         }
     }
