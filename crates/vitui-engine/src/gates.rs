@@ -262,37 +262,39 @@ fn a_packed_cell_is_byte_identical_to_the_surface_cell() {
             let frame = h.screen.frame();
             let size = h.screen.size();
             let runs = h.screen.runs();
-            h.screen.with_packet(|packet| {
-                assert_eq!(
-                    packet.size(),
-                    size,
-                    "{name}, frame {t}: the packet carries the wrong size"
-                );
-                let cells = packet.cells();
-                let mut at = 0;
-                for r in packet.runs() {
-                    for x in r.lo..=r.hi {
-                        assert_eq!(
-                            cells[at],
-                            frame.row(r.y)[x as usize],
-                            "{name}, frame {t}: the packed cell at ({x}, {}) is not the surface \
-                             cell",
-                            r.y
-                        );
-                        at += 1;
+            h.screen
+                .with_packet(|packet| {
+                    assert_eq!(
+                        packet.size(),
+                        size,
+                        "{name}, frame {t}: the packet carries the wrong size"
+                    );
+                    let cells = packet.cells();
+                    let mut at = 0;
+                    for r in packet.runs() {
+                        for x in r.lo..=r.hi {
+                            assert_eq!(
+                                cells[at],
+                                frame.row(r.y)[x as usize],
+                                "{name}, frame {t}: the packed cell at ({x}, {}) is not the surface \
+                                 cell",
+                                r.y
+                            );
+                            at += 1;
+                        }
                     }
-                }
-                assert_eq!(
-                    at,
-                    cells.len(),
-                    "{name}, frame {t}: the packet carries cells no run describes"
-                );
-                assert_eq!(
-                    packet.runs(),
-                    runs,
-                    "{name}, frame {t}: the packet's runs are not the frame's"
-                );
-            });
+                    assert_eq!(
+                        at,
+                        cells.len(),
+                        "{name}, frame {t}: the packet carries cells no run describes"
+                    );
+                    assert_eq!(
+                        packet.runs(),
+                        runs,
+                        "{name}, frame {t}: the packet's runs are not the frame's"
+                    );
+                })
+                .expect("the frame was packed on this thread");
         }
     }
 }
@@ -2932,7 +2934,11 @@ fn every_pack_stamps_a_generation_of_its_own() {
             continue;
         }
         h.present();
-        seen.push(h.screen.with_packet(|p| p.generation()));
+        seen.push(
+            h.screen
+                .with_packet(|p| p.generation())
+                .expect("the frame was packed on this thread"),
+        );
     }
     let mut sorted = seen.clone();
     sorted.sort_unstable();
@@ -3182,7 +3188,9 @@ fn what_the_serializers_walk_costs_contiguous_against_indexed() {
         let screen = &h.screen;
         let runs = screen.runs();
         let frame = screen.frame();
-        let cells: Vec<crate::cell::Cell> = screen.with_packet(|p| p.cells().to_vec());
+        let cells: Vec<crate::cell::Cell> = screen
+            .with_packet(|p| p.cells().to_vec())
+            .expect("the frame was packed on this thread");
         assert!(!cells.is_empty(), "{name}: nothing was packed to walk");
 
         let report = vitui_bench::Bench::new(24)
@@ -3216,5 +3224,211 @@ fn what_the_serializers_walk_costs_contiguous_against_indexed() {
         "\n  the serializer's walk, per scene: packet (contiguous) against grid indexed by runs\n\
          {rows}  spec §7: 4.88x on the sparse chart, 0.99x-1.12x on the contiguous scenes.\n  \
          Report, not a gate."
+    );
+}
+
+/// **A resize invalidates the mirror by the flag and never by the size delta.**
+///
+/// The review found this one and it is the position rule again, one level up: the render thread
+/// rebuilds its serializer when a packet's size differs from the one it holds, and a size that leaves
+/// and comes back is a size that never differs. 300x80 to 120x40 to 300x80, with both events handled
+/// before the next frame, hands the renderer a packet of the size it already has — and the mirror
+/// still describes a screen that has reflowed twice. The frame damages every cell, and then the
+/// equality filter suppresses exactly the ones that match the pre-reflow mirror.
+///
+/// The flag is about the *event* and has no such hole, which is why it is what `resize` sets. Both
+/// halves are asserted: the latch, and the byte count of the frame after a round trip through another
+/// size.
+#[test]
+fn a_resize_invalidates_the_mirror_even_when_the_size_comes_back() {
+    let mut h = Harness::truecolor(8, 2);
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, 8, 2), true);
+    {
+        let mut view = h.screen.layers().view(id).expect("just added");
+        view.text(0, 0, "abcdefgh", Style::new());
+    }
+    h.present();
+    assert!(
+        !h.screen.repaint_pending(),
+        "nothing has swept and nothing has resized"
+    );
+
+    // Away and back, so nothing about the *size* has changed by the time the next frame is packed.
+    h.screen.resize(4, 2);
+    h.screen.resize(8, 2);
+    assert!(
+        h.screen.repaint_pending(),
+        "a resize that ends where it started still reflowed the terminal twice"
+    );
+
+    // And the frame that follows writes the whole screen rather than filtering against a mirror
+    // that describes what the terminal showed before either resize.
+    let before = h.bytes_written();
+    {
+        let mut view = h.screen.layers().view(id).expect("still there");
+        view.text(0, 0, "abcdefgh", Style::new());
+    }
+    h.screen.present();
+    assert!(
+        h.bytes_written() > before,
+        "the identical content was filtered against a mirror the terminal has left behind"
+    );
+}
+
+/// **The app thread reads the authoritative size and never writes it.**
+///
+/// `resize` used to write it, on the reasoning that the app was agreeing with what the input thread
+/// had already recorded. The review found the case where that is false: a second resize can land while
+/// the application is still draining the first event, and then the write puts the *older* size back —
+/// so the next frame samples it, agrees with itself at submit, and writes a 120x40 frame into an 80x24
+/// terminal. That is the wrap-and-scroll §2's sixth invariant exists to prevent, with the evidence
+/// erased by the thread that was supposed to read it.
+#[test]
+fn resizing_the_surfaces_does_not_write_the_authoritative_size() {
+    let mut h = Harness::truecolor(W, H);
+    assert_eq!(h.screen.terminal_size(), (W, H));
+    h.screen.resize(120, 40);
+    assert_eq!(
+        h.screen.terminal_size(),
+        (W, H),
+        "the app thread wrote a size only the input thread can know"
+    );
+    assert_eq!(h.screen.size(), (120, 40), "the surfaces did resize");
+}
+
+/// **A dead render thread must not park the app thread for ever.**
+///
+/// The deadlock the review found is exact: the renderer takes packet one and dies inside its write,
+/// packet two is submitted into the slot behind it, and `ready` is now false with nobody left to
+/// clear it. `wait_until_free` then blocks on a condvar nobody will signal — `quit` is set from
+/// `Screen::drop`, and `drop` cannot run while the app thread is parked. **A hang is worse than a
+/// failure.**
+///
+/// The escape is a `Drop` guard on the render thread, so an unwind takes the same path as a return.
+/// What it does *not* do is make the renderer look free: that would let the app submit into a slot
+/// nobody empties, which moves register entry #9's counter and destroys the meaning of the gate this
+/// file opens with.
+#[test]
+fn a_render_thread_that_panics_releases_the_app_thread_rather_than_parking_it() {
+    /// A sink that dies the first time it is asked to take a frame, once armed.
+    struct Fatal(std::sync::Arc<std::sync::atomic::AtomicBool>);
+
+    impl std::io::Write for Fatal {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            assert!(
+                !self.0.load(std::sync::atomic::Ordering::Relaxed),
+                "this sink is supposed to die"
+            );
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    let armed = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    // Armed after `attach`, because the prologue goes out on this thread before the render thread
+    // exists and a sink that died there would take the constructor with it.
+    let mut screen = threaded(Box::new(Fatal(std::sync::Arc::clone(&armed))));
+    let id = screen.layers().add_content(0, Rect::new(0, 0, W, H), true);
+    let paint = |screen: &mut Screen, y: i32| {
+        let mut view = screen.layers().view(id).expect("just added");
+        view.text(0, y, "the last frame", Style::new());
+    };
+
+    // A backtrace in the middle of a passing suite reads like a failure, and this panic is the
+    // subject rather than a surprise.
+    let hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(|_| {}));
+    armed.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    // Frame one is taken — which is what frees the renderer — and then dies in the write.
+    paint(&mut screen, 0);
+    assert!(screen.present().submitted);
+    screen.wait_for_renderer();
+
+    // Frame two lands in the slot behind a renderer that is not coming back for it, so `ready` is
+    // false and this is the wait that used to be for ever.
+    paint(&mut screen, 1);
+    assert!(screen.present().submitted, "the slot was empty");
+    let at = std::time::Instant::now();
+    screen.wait_for_renderer();
+    std::panic::set_hook(hook);
+    assert!(
+        at.elapsed() < std::time::Duration::from_secs(5),
+        "the app thread was parked on a condvar nobody was going to signal"
+    );
+    assert!(
+        screen.renderer_is_gone(),
+        "the wait returned, so either the renderer took the packet or it is gone — and it is gone"
+    );
+    assert_eq!(
+        screen.handoff_counts().0,
+        0,
+        "a dead renderer must not look free, or every frame after is composed to be dropped"
+    );
+}
+
+/// The packet accessor answers by **identity, and admits when there is nothing to answer with**.
+///
+/// Two defects, both found by the review and both the position rule one level down. The index this
+/// held was invalidated by the next `lease`, because `finish` pushes at the tail and `lease` pops
+/// from it; and index zero was *valid* before anything had ever been packed, so the accessor handed
+/// back a packet nobody had filled and `Harness::present` read a `repaint` flag off it. A screen that
+/// presents nothing is the case that reaches it, and there is one in `crate::roundtrip`.
+///
+/// What it answers with is the last packet **returned to the pool**, not the last one painted, and
+/// that is forced rather than chosen: the pool reuses buffers, so a discarded frame packs over the
+/// bytes of the painted one before it — in the same `Box`. There is no last-painted packet left to
+/// hold on to, and a name claiming otherwise would describe a copy that does not exist.
+#[test]
+fn the_packet_accessor_answers_by_identity_or_not_at_all() {
+    let mut h = Harness::truecolor(8, 2);
+    assert_eq!(
+        h.screen.with_packet(|p| p.generation()),
+        None,
+        "no frame has packed anything, and a packet nobody filled is not an answer"
+    );
+
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, 8, 2), true);
+    {
+        let mut view = h.screen.layers().view(id).expect("just added");
+        view.text(0, 0, "ab", Style::new());
+    }
+    h.present();
+    assert_eq!(h.screen.with_packet(|p| p.generation()), Some(1));
+
+    // A second frame leases from the tail of the free list, which is where the first one was pushed
+    // back. An index recorded by `finish` was out of bounds by this point.
+    {
+        let mut view = h.screen.layers().view(id).expect("still there");
+        view.text(0, 0, "cd", Style::new());
+    }
+    h.present();
+    assert_eq!(
+        h.screen.with_packet(|p| p.generation()),
+        Some(2),
+        "the accessor lost the packet the lease moved"
+    );
+
+    // And a discarded frame is what the pool most recently got back, because it packed over the same
+    // buffer the painted frame used.
+    {
+        let mut view = h.screen.layers().view(id).expect("still there");
+        view.text(0, 0, "efgh", Style::new());
+    }
+    h.screen.resize_during_next_frame(4, 2);
+    assert!(h.screen.present().discarded_for_resize);
+    assert_eq!(
+        h.screen.with_packet(|p| p.generation()),
+        Some(3),
+        "a discarded frame still consumed a generation and still packed over the buffer"
     );
 }

@@ -463,7 +463,7 @@ impl Harness {
         // `present` calls, then the frame that carries it. Found the moment the extended gates came
         // back onto this harness at impl 13, which is the first time a sweep and a round trip were in
         // the same test.
-        if self.screen.with_packet(|p| p.repaint()) {
+        if self.screen.with_packet(|p| p.repaint()) == Some(true) {
             self.stale.fill(true);
         }
         for y in 0..self.screen.size().1 {

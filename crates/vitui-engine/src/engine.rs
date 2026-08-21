@@ -340,13 +340,21 @@ pub struct Presented {
     /// that submits is the one that reports and clears the count. Always zero on [`Clock::Manual`],
     /// where the renderer is the calling thread and is never busy.
     pub coalesced: u32,
-    /// Whether the frame was thrown away because the terminal resized under it.
+    /// Whether the frame was thrown away because the terminal resized **under it**.
     ///
     /// Writing a 300x80 frame into a terminal that is now 120x40 wraps and scrolls, which is worse
     /// than a missing frame. The size is sampled at frame start and re-checked at submit, so this is
-    /// true **once** per resize and not on every frame after one: the frame that follows samples the
-    /// size the discarded one was refused for. The composite is lost; the lease is not — a leased
-    /// surface never changes size under a drawing caller.
+    /// true **once** per resize observed inside a frame, and not on every frame after one: the frame
+    /// that follows samples the size the discarded one was refused for. The composite is lost; the
+    /// lease is not — a leased surface never changes size under a drawing caller.
+    ///
+    /// **A resize observed between two frames is not this**, and the review is what made the
+    /// distinction explicit rather than implied. The sample is taken at frame start, so a terminal
+    /// that resized while the application was idle is already the sampled size and the frame submits
+    /// against a mirror built for the old geometry. Discarding it instead is not the answer available
+    /// here: nothing delivers a resize *event* until ticket 20, so nothing would ever call
+    /// [`Screen::resize`], and an engine that discarded every frame until it did would go blank for
+    /// good at the first resize. The event and this window are one ticket's work, and it is 20's.
     pub discarded_for_resize: bool,
 }
 
@@ -643,6 +651,12 @@ impl Screen {
         }
     }
 
+    /// Whether the render thread has left, by panic or otherwise.
+    #[cfg(test)]
+    pub(crate) fn renderer_is_gone(&self) -> bool {
+        self.mailbox.renderer_is_gone()
+    }
+
     /// The same door, immutably.
     #[cfg(test)]
     fn inline_renderer(&self) -> &Renderer {
@@ -833,18 +847,29 @@ impl Screen {
         self.frame = Surface::new(w, h);
         self.frame.damage_mut().mark_all();
         self.runs = Vec::with_capacity(h as usize * 4);
-        // The mirror is the render thread's, so on the threaded path this is the packet's job: the
-        // size travels with it and [`Renderer::render`] rebuilds when it moves. Here it is done
-        // eagerly as well, because on the deterministic path a caller may read the mirror between a
-        // resize and the next frame, and a mirror of the old size would answer about rows that no
-        // longer exist.
+        // **The mirror is invalidated by the flag and not by the size delta**, and the difference is
+        // a defect the review found. The render thread rebuilds its serializer when a packet's size
+        // differs from the one it holds — which misses a size that leaves and comes back: 300x80 to
+        // 120x40 to 300x80, with both events handled before the next frame, hands the renderer a
+        // packet of the size it already has, and the mirror still describes a screen that has
+        // reflowed twice. The frame damages every cell and the equality filter then suppresses
+        // exactly the ones that match the pre-reflow mirror, so the garbage stays on the terminal.
+        //
+        // The flag has no such hole, because it is about the *event* rather than about a value.
+        self.repaint = true;
+        // Eagerly on the deterministic path as well, because a caller may read the mirror between a
+        // resize and the next frame and a mirror of the old size would answer about rows that no
+        // longer exist. On the threaded path the packet's size is what carries it.
         if let Some(renderer) = self.renderer.as_mut() {
             renderer.resize(w, h);
         }
-        // The app agreeing with what the input thread already recorded. Writing it keeps the pair
-        // consistent when a caller drives `resize` directly, and is a no-op when a resize event is
-        // what brought us here.
-        self.terminal_size.set((w, h));
+        // **The authoritative size is not written here, and the review is what corrected that.** It
+        // belongs to the input thread, and the app thread agreeing with it is not harmless: a second
+        // resize can land while the application is still draining the first event, and then this
+        // would put the *older* size back. The next frame would sample it, agree with itself at
+        // submit, and write a 120x40 frame into an 80x24 terminal — the wrap-and-scroll §2's sixth
+        // invariant exists to prevent, with the evidence erased by the thread that was supposed to
+        // read it. The surfaces' size is `Screen::size`; the terminal's is nobody here's to say.
         self.layers.forget_damage();
     }
 
@@ -917,13 +942,14 @@ impl Screen {
         &self.runs
     }
 
-    /// The packet the renderer finished last, for register entry #10's equality.
+    /// The packet the last frame packed, for register entry #10's equality.
     ///
-    /// A closure, because the packet lives in the pool behind the mailbox's lock. Deterministic path
-    /// only: on the threaded path the renderer may still be holding the frame being asked about.
+    /// A closure, because the packet lives in the pool behind the mailbox's lock. `None` when no
+    /// frame has packed one yet. Deterministic path only: on the threaded path the renderer may still
+    /// be holding the frame being asked about, and then this is `None` as well.
     #[cfg(test)]
-    pub(crate) fn with_packet<R>(&self, f: impl FnOnce(&Packet) -> R) -> R {
-        self.mailbox.with_last_finished(f)
+    pub(crate) fn with_packet<R>(&self, f: impl FnOnce(&Packet) -> R) -> Option<R> {
+        self.mailbox.with_last_packed(f)
     }
 
     /// How many packets a submit dropped on the floor, how many leases found the pool empty, and how
@@ -1197,7 +1223,23 @@ impl Renderer {
 }
 
 /// Block, write, repeat, until the app thread says stop.
+///
+/// **The guard is the whole of the panic story here**, and the review is what added it: a renderer
+/// that dies holding a packet leaves `ready` false for ever, and the app thread then parks on a
+/// condvar nobody will signal — `quit` is set from `Screen::drop`, which cannot run while the app
+/// thread is parked. A `Drop` runs on the way out of an unwind as well as on the way out of a
+/// return, so one guard covers both exits and there is no `catch_unwind` anywhere.
 fn render_loop(mailbox: &Mailbox, renderer: &mut Renderer) {
+    /// Tell the app thread the renderer has left, however it left.
+    struct Guard<'a>(&'a Mailbox);
+
+    impl Drop for Guard<'_> {
+        fn drop(&mut self) {
+            self.0.renderer_gone();
+        }
+    }
+
+    let _guard = Guard(mailbox);
     while let Some(packet) = mailbox.take() {
         renderer.render(&packet);
         mailbox.finish(packet);

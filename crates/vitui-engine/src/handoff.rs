@@ -96,6 +96,21 @@ struct Shared {
     ready: bool,
     /// Set once, by the app thread, to bring the render thread out of its wait for the last time.
     quit: bool,
+    /// Set by the render thread on its way out, **including on the way out of a panic**.
+    ///
+    /// Without it a dead renderer is a silent deadlock rather than a visible failure: it dies
+    /// holding the packet, so `ready` never comes back, `wait_until_free` parks for ever on a
+    /// condvar nobody will signal, and `quit` cannot arrive because it is set from `Screen::drop`,
+    /// which cannot run while the app thread is parked. **A hang is worse than a failure**, and this
+    /// is the flag that makes it a failure.
+    ///
+    /// It does **not** make the renderer look free. Setting `ready` would let the app submit into a
+    /// slot nobody empties, which moves register entry #9's counter and destroys the meaning of the
+    /// one gate that says frames are never composed to be thrown away. So the app is released from
+    /// the wait and every frame after answers `submitted: false`: nothing can be painted, because
+    /// the sink went with the thread. **Ticket 22 owns what happens next** — a restoration that is
+    /// idempotent from any thread — and ticket 19's `wait` is where `Wake::Quit` belongs.
+    gone: bool,
     /// How many packets were dropped on the floor by a submit landing on a full slot. **Zero, for
     /// ever**: register entry #9.
     superseded: u32,
@@ -103,11 +118,31 @@ struct Shared {
     starved: u32,
     /// How many packets the render thread has finished writing.
     painted: u64,
-    /// Where in `free` the packet the renderer finished last is. `finish` pushes it, so this is
-    /// `free.len() - 1` at that moment; it is recorded rather than recomputed because a `lease`
-    /// between then and the read would move the top.
+    /// The **address** of the packet most recently returned to the pool, or zero before any has been.
+    ///
+    /// An index was what this held first, and the review found two ways it was wrong. `finish` pushes
+    /// at the tail and `lease` pops from the tail, so the next lease invalidated it; and zero was a
+    /// valid index before anything had ever been packed, so the accessor answered with a packet
+    /// nobody had filled instead of admitting there was none. Both are the position rule at the top
+    /// of `crate::packet`, one level down: *nothing compared across events may be derived from a
+    /// position.* An address is the identity the pool actually preserves, because a `Box` does not
+    /// move, and zero is not one.
+    ///
+    /// **Returned, not painted**, and the distinction is forced rather than chosen: the pool reuses
+    /// buffers, so a discarded frame packs over the bytes of the painted one before it — in the same
+    /// `Box`. There is no last-painted packet to hold on to once the next pack has happened, and a
+    /// name that claimed otherwise would be describing a copy that does not exist.
     #[cfg(test)]
-    last_finished: usize,
+    last_returned: usize,
+}
+
+#[cfg(test)]
+impl Shared {
+    /// Record the identity of the packet just pushed onto the free list.
+    fn remember_returned(&mut self) {
+        let packet: &Packet = self.free.last().expect("just pushed");
+        self.last_returned = std::ptr::from_ref(packet) as usize;
+    }
 }
 
 /// The mailbox: everything that crosses between the app thread and the render thread.
@@ -129,11 +164,12 @@ impl Mailbox {
                 free: (0..POOL).map(|_| Box::new(Packet::new())).collect(),
                 ready: true,
                 quit: false,
+                gone: false,
                 superseded: 0,
                 starved: 0,
                 painted: 0,
                 #[cfg(test)]
-                last_finished: 0,
+                last_returned: 0,
             }),
             landed: Condvar::new(),
             free: Condvar::new(),
@@ -180,7 +216,10 @@ impl Mailbox {
     /// `ready` is untouched, because a lease never cleared it. **A lease is never invalidated; the
     /// frame it produced may be discarded** (spec §2's sixth invariant).
     pub(crate) fn give_back(&self, packet: Box<Packet>) {
-        self.lock().free.push(packet);
+        let mut shared = self.lock();
+        shared.free.push(packet);
+        #[cfg(test)]
+        shared.remember_returned();
     }
 
     /// Block until there is a packet to write, or until the app thread has said to stop.
@@ -224,25 +263,24 @@ impl Mailbox {
         shared.free.push(packet);
         shared.painted += 1;
         #[cfg(test)]
-        {
-            shared.last_finished = shared.free.len() - 1;
-        }
+        shared.remember_returned();
     }
 
-    /// The packet the renderer finished last, for register entry #10's equality.
+    /// The packet the last frame packed, for register entry #10's equality.
     ///
     /// A closure rather than a reference, because the packet lives behind the lock and a `&Packet`
-    /// handed out of here would outlive the guard. Only meaningful on the deterministic path, where
-    /// `present` has finished writing before it returns; on the threaded path the renderer may still
-    /// be holding the frame the caller is asking about.
+    /// handed out of here would outlive the guard. `None` when no frame has packed one yet, and
+    /// `None` when the one that did is still in the renderer's hands — which on the threaded path is
+    /// any frame the caller has not waited for. Pin `Clock::Manual`, where `present` has finished
+    /// writing before it returns.
     #[cfg(test)]
-    pub(crate) fn with_last_finished<R>(&self, f: impl FnOnce(&Packet) -> R) -> R {
+    pub(crate) fn with_last_packed<R>(&self, f: impl FnOnce(&Packet) -> R) -> Option<R> {
         let shared = self.lock();
         let packet = shared
             .free
-            .get(shared.last_finished)
-            .expect("`finish` recorded where it pushed");
-        f(packet)
+            .iter()
+            .find(|p| std::ptr::from_ref::<Packet>(&**p) as usize == shared.last_returned)?;
+        Some(f(packet))
     }
 
     /// Block until the render thread has taken whatever was submitted.
@@ -253,12 +291,35 @@ impl Mailbox {
     /// what keeps the second condvar of the design from being a primitive nobody blocks on.
     pub(crate) fn wait_until_free(&self) {
         let mut shared = self.lock();
-        while !shared.ready && !shared.quit {
+        while !shared.ready && !shared.quit && !shared.gone {
             shared = self
                 .free
                 .wait(shared)
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
         }
+    }
+
+    /// The render thread is not coming back, whether it returned or unwound.
+    ///
+    /// Called from a guard's `Drop` on that thread, so a panic takes this path too. Both condvars
+    /// are signalled: the app may be parked on *free*, and nothing else will ever release it.
+    pub(crate) fn renderer_gone(&self) {
+        self.lock().gone = true;
+        self.free.notify_all();
+        self.landed.notify_all();
+    }
+
+    /// Whether the render thread has left. `present` answers `submitted: false` for ever after.
+    ///
+    /// `cfg(test)`, and the reason is a scope boundary rather than a shortcut: a dead renderer is
+    /// **indistinguishable from a permanently busy one** through the public surface, because
+    /// `Presented` has no field for it and the engine offers no completion anywhere (§12's refusal
+    /// 7). What this ticket owed was that the app thread does not *hang*; telling the application
+    /// its renderer is gone is a `Wake::Quit` (ticket 19) or a shutdown (ticket 22), and inventing a
+    /// third spelling here would be a public API this backlog has not decided.
+    #[cfg(test)]
+    pub(crate) fn renderer_is_gone(&self) -> bool {
+        self.lock().gone
     }
 
     /// Tell the render thread to stop after the packet it is holding, if any.
@@ -323,6 +384,17 @@ impl Mailbox {
 /// a resize — a `SIGWINCH` arrives there, as an `Event::Resize`. Until then [`TerminalSize::set`]
 /// has one caller and it is a gate: the mechanism this ticket owes is the sampling, the re-check and
 /// the discard, and those are testable without the signal that will drive them.
+///
+/// **The app thread reads this and never writes it**, which `Screen::resize` did until the review
+/// found the case: a second resize can land while the application is still draining the first event,
+/// and an app thread writing back what that event said would put the older size over the newer one —
+/// erasing the evidence the discard exists to act on. The surfaces' size is `Screen::size`; the
+/// terminal's is not the app thread's to say.
+///
+/// What this pair does **not** catch is a resize observed *between* two frames, because the sample is
+/// the frame's own first statement: a terminal that resized while the application was idle is already
+/// the sampled size. See [`crate::Presented::discarded_for_resize`], which names ticket 20 and why the
+/// answer needs the resize event to exist first.
 #[derive(Debug)]
 pub(crate) struct TerminalSize(AtomicU32);
 
@@ -343,6 +415,12 @@ impl TerminalSize {
     /// One store. **Both halves in one word**, which is the whole reason for the packing: two
     /// atomics could be read as a width from before a resize and a height from after it, and that
     /// pair describes a terminal that never existed.
+    ///
+    /// `cfg(test)` because **nothing in a release build writes this yet, and the app thread must
+    /// never be what does**: a resize belongs to the input thread, and an app thread that wrote it
+    /// back from an event it was still draining would put an older size over a newer one. Ticket 20
+    /// is the first production writer. See `Screen::resize`, which is where that mistake was.
+    #[cfg(test)]
     pub(crate) fn set(&self, (w, h): (u16, u16)) {
         self.0.store(pack_size(w, h), Ordering::Relaxed);
     }
