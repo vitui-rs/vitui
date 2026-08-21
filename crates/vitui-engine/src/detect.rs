@@ -441,6 +441,36 @@ fn channel_value(hex: &str) -> Option<u8> {
     })
 }
 
+/// **A unit test may not reach for the developer's terminal, and this makes that structural rather
+/// than remembered.**
+///
+/// The defect it closes was live: `Config::default()` is `Output::Terminal`, three tests used it, and
+/// `cargo test` in a real terminal enabled raw mode, wrote the query batch onto the screen, ate the
+/// developer's keystrokes and failed. **CI has no tty, so it was green there and broken only for
+/// humans** — a test that reaches for real I/O passes in the environment that has none.
+///
+/// A guard beats a second test environment because it cannot rot and costs nothing. What it cannot
+/// cover is a **doctest**: those compile against the crate as a dependency, without `cfg(test)`, so
+/// it is invisible to them. `.gitlab-ci.yml` runs the suite a second time under a pty for that half.
+///
+/// # Why a function pair and not a `#[cfg(test)] panic!` in the body
+///
+/// The first form put the `panic!` inside [`Tty::open`], which made the whole rest of that body
+/// **unreachable** under `cfg(test)` — so `IsTty` and `Read` became unused imports in the `lib test`
+/// target, and CI runs under `RUSTFLAGS: -D warnings` where an unused import is a build failure. A
+/// call to a `()`-returning function keeps the body reachable and both imports used, in both
+/// configurations, while still failing the test at runtime.
+#[cfg(test)]
+fn refuse_in_tests() {
+    panic!(
+        "a test called Tty::open, which would query the developer's real terminal — use \
+         Output::Sink (see engine::tests::headless) instead of Output::Terminal"
+    );
+}
+
+#[cfg(not(test))]
+fn refuse_in_tests() {}
+
 /// The process's own terminal.
 ///
 /// # One reader, ever
@@ -471,26 +501,7 @@ impl Tty {
     pub(crate) fn open() -> Option<Tty> {
         use crossterm::tty::IsTty;
 
-        // **A unit test may not reach for the developer's terminal, and this is what makes that
-        // structural rather than remembered.**
-        //
-        // The defect it closes was live: `Config::default()` is `Output::Terminal`, three tests used
-        // it, and `cargo test` in a real terminal enabled raw mode, wrote the query batch onto the
-        // screen, ate the developer's keystrokes and failed. **CI has no tty, so it was green there
-        // and broken only for humans** — a test that reaches for real I/O passes in the environment
-        // that has none.
-        //
-        // A guard beats a second test environment because it cannot rot and costs nothing. What it
-        // cannot cover is a **doctest**: those compile against the crate as a dependency, without
-        // `cfg(test)`, so this line is invisible to them. `.gitlab-ci.yml` runs the suite a second
-        // time under a pty for exactly that half, and says so.
-        #[cfg(test)]
-        panic!(
-            "a test called Tty::open, which would query the developer's real terminal — use \
-             Output::Sink (see engine::tests::headless) instead of Output::Terminal"
-        );
-
-        #[cfg(not(test))]
+        refuse_in_tests();
         {
             // **Both ends, and the first draft asked only about stdout.** Detection writes to stdout and
             // reads the answers from stdin, so a tty on one side and a redirect on the other is not a
