@@ -181,6 +181,12 @@ pub(crate) fn apply(tables: &mut Tables, d: &Restyle, old: Style) -> Style {
     if let Some(l) = d.link {
         e.link = l;
     }
+    // **The key, not the entry**, and on a terminal with no OSC 8 the two differ by a hyperlink —
+    // spec §10's one narrow exception to *degrade at serialise time*. A cell that was extended only
+    // because of a link then goes back **inline**, which is `is_extended` asked of the key rather
+    // than of the descriptor's result: *extended is a cost, not a state*, and a link the terminal
+    // cannot express is not a cost worth paying. See [`Tables::key`](crate::tables::Tables::key).
+    let e = tables.key(e);
     if e.is_extended() {
         Style::extended(attrs, tables.exts.handle(e))
     } else {

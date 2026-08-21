@@ -97,6 +97,7 @@ use crate::cell::{Cell, GraphemeId};
 use crate::damage::Run;
 use crate::exts::LinkId;
 use crate::packet::Packet;
+use crate::quant::Quantiser;
 use crate::quirks::Underlines;
 use crate::style::{Color, Style, TAG_DEFAULT, TAG_INDEXED, TAG_RGB};
 
@@ -159,6 +160,27 @@ use crate::style::{Color, Style, TAG_DEFAULT, TAG_INDEXED, TAG_RGB};
 ///   this is a fraction of that.
 /// - The mirror no longer reads as a screen of blanks before anything is drawn. That was never true of
 ///   the terminal and the flag existed to say so; now the cells say it themselves.
+///
+/// # It holds what the terminal was **sent**, and one cell is a proxy for that rather than a copy
+///
+/// Impl 17 narrows colour to what the terminal can express, and it does so **before** the comparison
+/// below, precisely so that this stays true: a mirror holding colours the terminal never got would
+/// make the filter under-filter by exactly the amount the depth collapses, and an animated gradient
+/// on a 16-colour terminal would re-emit every frame for no visible change. See [`crate::quant`].
+///
+/// **For an extended cell it is a proxy, and the residual is bytes rather than correctness.** Bits
+/// 51..0 of an extended word are a handle, so there is nothing in the word to narrow; what this
+/// records is the handle, and the handle is what the next frame compares. Two *distinct* table
+/// entries whose colours narrow to the same wire — two underline colours a shade apart on a
+/// 16-colour terminal — therefore compare unequal and are re-emitted, exactly the shape the inline
+/// case no longer has.
+///
+/// It is not made exact, and the reason is that the exact version already has a price attached. It
+/// needs an identity derived from the *narrowed content* rather than from the table, which is spec
+/// §6's **content-keyed packet** one layer along: built, measured at 1.8x on an adversarial page, and
+/// refused on the app thread's behalf. Nothing here reopens that. What bounds the residual instead is
+/// what bounds the table itself — an extended cell is under 1% of a screen (spec §3), and the channel
+/// that would have to be *animated* to make this cost anything is an underline colour.
 ///
 /// [`is_known`](Mirror::is_known) survives as a **row** query over the cells, and impl 15 corrected
 /// which readers ask it. The amendment named the scroll region as the shipping one, and the scroll
@@ -378,6 +400,34 @@ pub(crate) struct Serializer {
     /// found nothing to emit would have to choose between sending it for nothing and claiming a reset
     /// the terminal never saw. Deferring it makes both wrong answers unreachable.
     frame_open: bool,
+    /// What this terminal can express, rebuilt from [`Capabilities`] at the top of every
+    /// [`serialize`](Serializer::serialize).
+    ///
+    /// Rebuilt rather than invalidated because it is forty-odd bytes of fixed-size value and
+    /// capabilities are immutable for the life of the `Screen` — so there is no staleness to
+    /// track, and a `Serializer` a test hands two different terminals still narrows for the one it
+    /// was given.
+    quant: Quantiser,
+    /// The **one-entry memo** on the last style word narrowed, which is the whole of what keeps
+    /// quantisation off the per-cell path.
+    ///
+    /// Cells in a run are contiguous and share a `u64`, so a memo one entry deep turns a per-cell
+    /// narrowing into a per-distinct-style one — the same trick spec §3 used three times for the
+    /// side-table round trip, and the reason this ticket's owed measurement is *per style word*
+    /// rather than per cell. Cleared at the top of every frame, because that is where
+    /// [`quant`](Serializer::quant) is rebuilt and a memo outliving its quantiser would answer for
+    /// the wrong terminal.
+    memo: Option<(Style, Style)>,
+    /// How many style words this serializer has actually narrowed, as opposed to answered from the
+    /// memo.
+    ///
+    /// **A count, because a memo that thrashes is invisible to every correctness test.** It is the
+    /// property `crate::gates::a_frame_narrows_once_a_distinct_style_word_and_never_twice_a_cell`
+    /// is about, and it exists because that gate's first version did not: the memo answered one
+    /// spelling of a word and stored the other, so a screen of one colour paid two full narrowings
+    /// a cell and every test stayed green.
+    #[cfg(test)]
+    narrowings: usize,
     /// Which configuration of the filter this serializer is running. **One value ships**; the rest
     /// exist so §8's *there is no threshold* is reproducible. See [`Filter`].
     #[cfg(test)]
@@ -426,6 +476,10 @@ impl Serializer {
             prev: None,
             non_ascii_on_row: false,
             frame_open: false,
+            quant: Quantiser::transparent(),
+            memo: None,
+            #[cfg(test)]
+            narrowings: 0,
             #[cfg(test)]
             filter: Filter::default(),
             #[cfg(test)]
@@ -569,6 +623,13 @@ impl Serializer {
         &self.mirror
     }
 
+    /// How many style words this serializer has narrowed rather than answered from the memo. See
+    /// [`narrowings`](Serializer::narrowings).
+    #[cfg(test)]
+    pub(crate) fn narrowings(&self) -> usize {
+        self.narrowings
+    }
+
     /// Serialise a packet. The returned slice is valid until the next call.
     ///
     /// `caps` is what the terminal can parse, not what anybody prefers: the two SGR forms, ConPTY's
@@ -580,6 +641,11 @@ impl Serializer {
         // a flag left standing from the frame before would make the next one inherit a style it never
         // reset. See [`open_frame`](Serializer::open_frame).
         self.frame_open = false;
+        // What this terminal can express, and the memo that keeps narrowing off the per-cell path.
+        // Both here rather than in `new`, because `new` has no terminal — and together, so a memo
+        // can never outlive the quantiser that filled it.
+        self.quant = Quantiser::for_terminal(caps);
+        self.memo = None;
         if packet.is_empty() {
             return &self.out;
         }
@@ -999,6 +1065,12 @@ impl Serializer {
                 // skipping a `CONTINUATION` free of bookkeeping, and spec §8 records the first
                 // version getting it wrong in the one case where a run *begins* on a continuation.
                 let x = r.lo + i as u16;
+                // **Narrowed before the comparison, which is the whole placement.** The mirror holds
+                // what the terminal was *sent*, so two colours this depth cannot tell apart have to
+                // arrive here already indistinguishable — otherwise the filter under-filters by
+                // exactly the amount the depth collapses, and an animated gradient on a 16-colour
+                // terminal re-emits every frame for no visible change. See [`crate::quant`].
+                let cell = self.narrow(cell);
                 if cell.grapheme.is_continuation() {
                     // Before the comparison, and unconditionally. The head already painted both
                     // columns so there is nothing to emit and nothing to decide — but the mirror
@@ -1028,12 +1100,50 @@ impl Serializer {
         }
     }
 
+    /// One style word, narrowed to what this terminal can express, through the one-entry memo.
+    ///
+    /// The memo is the whole implementation and two rejected alternatives are recorded rather than
+    /// re-derived: spec §3 measured a per-cell branch that took the cheap path on an inline word
+    /// (it loses, because the branch breaks the mask loop's vectorisation) and a surface-level
+    /// *contains nothing to narrow* gate (indistinguishable from the memo alone).
+    fn narrow(&mut self, cell: Cell) -> Cell {
+        if let Some((from, to)) = self.memo {
+            // **Both spellings hit, and the second `==` is not redundant.** The run scan narrows a
+            // cell to compare it and `emit_cell` narrows again to be correct whoever called it, so
+            // every emitted cell asks twice — once for the word the application wrote and once for
+            // the word this returned. A memo keyed on the first spelling alone answers the second
+            // with a miss *and then stores it*, so the next cell of the run misses too: the memo
+            // thrashes and every emitted cell is narrowed twice. Measured on
+            // `every-cell-a-distinct-style` at sixteen colours, where narrowing is 26 ns a word and
+            // no two cells share one.
+            //
+            // Answering `to` for `to` is sound rather than convenient: `to` is a fixed point,
+            // because [`Quantiser::color`] is idempotent at every depth.
+            if from == cell.style || to == cell.style {
+                return Cell::new(cell.grapheme, to);
+            }
+        }
+        let to = self.quant.style(cell.style);
+        #[cfg(test)]
+        {
+            self.narrowings += 1;
+        }
+        self.memo = Some((cell.style, to));
+        Cell::new(cell.grapheme, to)
+    }
+
     /// Put one cell on the wire, and record it in the mirror.
     ///
     /// Called for a damaged cell the filter kept and for a gap cell the merge decided to paint
     /// through, which is why it is a function: the two arrive by different routes and must not be
     /// two loops that drift.
+    ///
+    /// **Narrowing is repeated here rather than assumed**, because the gap merge sources columns the
+    /// run scan never saw — one out of the packet's row and one out of the mirror, which is already
+    /// narrowed. [`Quantiser::color`] is idempotent at every depth precisely so that this costs a
+    /// memo hit rather than a flag saying which of the two is in hand.
     fn emit_cell(&mut self, x: u16, y: u16, cell: Cell, packet: &Packet, caps: &Capabilities) {
+        let cell = self.narrow(cell);
         if cell.grapheme.is_continuation() {
             // Reachable only from the gap merge, which walks columns rather than a run's cells. The
             // head painted both, and `emit_grapheme` would put a space here: `text_of` cannot render
@@ -1059,7 +1169,14 @@ impl Serializer {
         let force = self.cursor == Some((x, y)) && self.joins_left(cell.grapheme, packet);
         self.move_to(x, y, force);
         if cell.style != self.style {
-            emit_sgr_delta(&mut self.out, self.style, cell.style, packet, caps);
+            emit_sgr_delta(
+                &mut self.out,
+                self.style,
+                cell.style,
+                packet,
+                caps,
+                self.quant,
+            );
             self.style = cell.style;
             self.retarget_link(cell.style, packet, caps);
         }
@@ -1175,9 +1292,14 @@ impl Serializer {
                     return None;
                 }
             }
-            if cell.style != style {
+            // Narrowed before it is compared, for the reason the filter is: two words this depth
+            // cannot tell apart cost one SGR and not two, and a gap priced against the unnarrowed
+            // words would be priced against a wire nobody is going to write. Without the memo,
+            // because a gap is a handful of columns and this takes `&self`.
+            let narrowed = self.quant.style(cell.style);
+            if narrowed != style {
                 price += SGR_FLOOR;
-                style = cell.style;
+                style = narrowed;
             }
             if price >= budget {
                 return None;
@@ -1197,7 +1319,7 @@ impl Serializer {
         if !caps.hyperlinks {
             return;
         }
-        let want = channels_of(style, packet).link;
+        let want = channels_of(style, packet, self.quant).link;
         if want == self.link {
             return;
         }
@@ -1575,7 +1697,14 @@ fn is_ascii_scalar(g: GraphemeId) -> bool {
 /// A differential SGR is worth it and costs nothing to decide, because the decision is one style
 /// compare and the decomposition is off the hot path by construction: a realistic full-screen frame
 /// emits **one** SGR sequence for 24 000 cells.
-fn emit_sgr_delta(out: &mut Vec<u8>, old: Style, new: Style, packet: &Packet, caps: &Capabilities) {
+fn emit_sgr_delta(
+    out: &mut Vec<u8>,
+    old: Style,
+    new: Style,
+    packet: &Packet,
+    caps: &Capabilities,
+    quant: Quantiser,
+) {
     let mark = out.len();
     out.extend_from_slice(b"\x1b[");
     let mut params = 0u32;
@@ -1631,8 +1760,8 @@ fn emit_sgr_delta(out: &mut Vec<u8>, old: Style, new: Style, packet: &Packet, ca
         }
     }
 
-    let was = channels_of(old, packet);
-    let now = channels_of(new, packet);
+    let was = channels_of(old, packet, quant);
+    let now = channels_of(new, packet, quant);
     let legacy = caps.legacy_sgr();
     if was.fg != now.fg {
         emit_color(out, &mut params, now.fg, FOREGROUND, legacy);
@@ -1667,7 +1796,16 @@ fn emit_sgr_delta(out: &mut Vec<u8>, old: Style, new: Style, packet: &Packet, ca
 /// A handle the packet does not carry means `pack` and `serialize` disagree about which frame this
 /// is, and there is nothing truthful to paint: the terminal's own colours and no hyperlink are the
 /// one answer that invents nothing.
-fn channels_of(style: Style, packet: &Packet) -> crate::exts::ExtStyle {
+///
+/// # Narrowing happens here, and for the extended arm this is the *only* place it can
+///
+/// An inline word arrives already narrowed — the run scan did it, before the mirror comparison — and
+/// [`Quantiser::color`] is idempotent, so asking again costs a few instructions per style change and
+/// buys the property that this function is correct whoever calls it. **An extended word cannot be
+/// narrowed before this point**: bits 51..0 are a handle, and rewriting them would be rewriting the
+/// identity the mirror compares on. See [`Mirror`] for what that leaves on the table and why it is
+/// bytes rather than correctness.
+fn channels_of(style: Style, packet: &Packet, quant: Quantiser) -> crate::exts::ExtStyle {
     let inline = |fg, bg| crate::exts::ExtStyle {
         fg,
         bg,
@@ -1675,10 +1813,13 @@ fn channels_of(style: Style, packet: &Packet) -> crate::exts::ExtStyle {
         link: LinkId::NONE,
     };
     let Some(handle) = style.ext_handle() else {
-        return inline(style.foreground(), style.background());
+        return inline(
+            quant.color(style.foreground()),
+            quant.color(style.background()),
+        );
     };
     match packet.ext(handle) {
-        Some(e) => e,
+        Some(e) => quant.channels(e),
         None => inline(Color::DEFAULT, Color::DEFAULT),
     }
 }
@@ -1912,7 +2053,14 @@ mod tests {
     /// The SGR one style change spells, on a terminal `caps` describes.
     fn sgr(old: Style, new: Style, caps: &Capabilities) -> String {
         let mut out = Vec::new();
-        emit_sgr_delta(&mut out, old, new, &Packet::new(), caps);
+        emit_sgr_delta(
+            &mut out,
+            old,
+            new,
+            &Packet::new(),
+            caps,
+            Quantiser::for_terminal(caps),
+        );
         text(&out)
     }
 
@@ -2240,7 +2388,14 @@ mod tests {
         frame.damage().for_each_run(|r| runs.push(r));
         packet.pack(&runs, &frame, frame.tables(), false);
         let mut out = Vec::new();
-        emit_sgr_delta(&mut out, with, Style::new(), &packet, &modern());
+        emit_sgr_delta(
+            &mut out,
+            with,
+            Style::new(),
+            &packet,
+            &modern(),
+            Quantiser::transparent(),
+        );
         assert_eq!(text(&out), "ESC[59m");
     }
 

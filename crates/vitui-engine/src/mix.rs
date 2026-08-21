@@ -181,53 +181,19 @@ enum Side {
     Bg,
 }
 
-/// xterm's default sixteen, used for an entry OSC 4 did not answer for.
-///
-/// **Wrong only in degree**, which is what makes defaulting right here and refusing right for the
-/// default background (§10). Entries 0..8 are xterm's dimmed set and 8..16 its bright one; these are
-/// the values `xterm` itself compiles in, not a re-derivation.
-const ANSI16: [Rgb; 16] = [
-    Rgb::new(0x00, 0x00, 0x00),
-    Rgb::new(0xcd, 0x00, 0x00),
-    Rgb::new(0x00, 0xcd, 0x00),
-    Rgb::new(0xcd, 0xcd, 0x00),
-    Rgb::new(0x00, 0x00, 0xee),
-    Rgb::new(0xcd, 0x00, 0xcd),
-    Rgb::new(0x00, 0xcd, 0xcd),
-    Rgb::new(0xe5, 0xe5, 0xe5),
-    Rgb::new(0x7f, 0x7f, 0x7f),
-    Rgb::new(0xff, 0x00, 0x00),
-    Rgb::new(0x00, 0xff, 0x00),
-    Rgb::new(0xff, 0xff, 0x00),
-    Rgb::new(0x5c, 0x5c, 0xff),
-    Rgb::new(0xff, 0x00, 0xff),
-    Rgb::new(0x00, 0xff, 0xff),
-    Rgb::new(0xff, 0xff, 0xff),
-];
-
-/// The six levels of the 6×6×6 cube, which is fixed by specification and identical everywhere.
-const CUBE: [u8; 6] = [0, 95, 135, 175, 215, 255];
-
 /// Palette entry `i`, as channels.
 ///
-/// **0..16 come from OSC 4 where the terminal answered and from [`ANSI16`] where it did not**, and
-/// 16..256 are not asked about at all: the cube and the twenty-four greys are fixed by
-/// specification and identical on every terminal, which is also why §10 refuses to *quantise* into
-/// 0..16 while it is happy to *read* them here. Quantising into someone else's theme is a bet;
-/// resolving a colour the caller explicitly named is not.
+/// **One table, two readers, and this is the reader that *resolves* rather than chooses**: an index
+/// a caller named is turned into channels here so a `Mix` can move it, while [`crate::quant`]
+/// chooses one for a terminal that cannot spell the colour asked for. xterm's own sixteen and the
+/// cube's six levels live there, because a second copy of either could drift and a drifted table is
+/// a wrong colour nothing fails on.
+///
+/// 0..16 come from OSC 4 where the terminal answered and from xterm's table where it did not, which
+/// is spec §10's silence asymmetry: OSC 4 silence *defaults* where OSC 11 silence *refuses*, because
+/// a themed palette is wrong in degree and a guessed background is wrong in direction.
 fn indexed(caps: &Capabilities, i: u8) -> Rgb {
-    match i {
-        0..=15 => caps.palette(i).unwrap_or(ANSI16[i as usize]),
-        16..=231 => {
-            let n = (i - 16) as usize;
-            Rgb::new(CUBE[n / 36], CUBE[(n / 6) % 6], CUBE[n % 6])
-        }
-        // The greys, 232..=255, at 8 and then every tenth value.
-        _ => {
-            let level = 8 + 10 * (i as u16 - 232);
-            Rgb::new(level as u8, level as u8, level as u8)
-        }
-    }
+    crate::quant::index_channels(caps, i)
 }
 
 /// A colour as channels, or `None` when this terminal has given us no way to know.

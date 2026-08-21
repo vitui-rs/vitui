@@ -72,7 +72,7 @@ fn screen() -> (Screen, LayerId) {
 /// where the terminal has it, and a caller-supplied sink is asked nothing.
 ///
 /// The second pin is architecture ticket 22's and it is not yet load-bearing: **the gates below would
-/// go vacuous the moment impl 17 lands §10's intern-key collapse**, because a hyperlink on a screen
+/// go vacuous since impl 17 landed §10's intern-key collapse**, because a hyperlink on a screen
 /// where OSC 8 is inexpressible stops making a cell extended, and a `Mix` over an inline cell reaches
 /// no table at all. So the gate that says a settled operator mints nothing would be asserting that a
 /// table nobody reached stayed empty.
@@ -299,7 +299,7 @@ fn the_operator_reaches_the_wire_at_the_depth_the_gate_pins() {
 /// about is `restyle`'s own arithmetic — the memo, one layer above the frame — and putting a
 /// `present` inside its window would fold the serializer's buffers into the measurement.
 ///
-/// It still pins both axes, and the second one is why: after impl 17's intern-key collapse a
+/// It still pins both axes, and the second one is why: under impl 17's intern-key collapse a
 /// hyperlink on a screen where OSC 8 is inexpressible stops making a cell extended at all, and this
 /// fixture's only extended channel is a hyperlink.
 fn a_settled_restyle_over_a_hyperlinked_screen_allocates_nothing() {

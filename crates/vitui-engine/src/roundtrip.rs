@@ -141,7 +141,7 @@ fn every_attribute_survives_the_round_trip() {
 
 #[test]
 fn every_colour_form_survives_the_round_trip() {
-    let mut h = Harness::new(40, 2);
+    let mut h = Harness::truecolor(40, 2);
     let id = h
         .screen
         .layers()
@@ -198,7 +198,7 @@ fn two_spans_on_one_row_survive_the_round_trip() {
 #[test]
 fn a_sparse_scatter_survives_the_round_trip() {
     // The sub-cell chart's shape: many short runs, which is the case the bitset exists for.
-    let mut h = Harness::new(300, 80);
+    let mut h = Harness::truecolor(300, 80);
     let id = h
         .screen
         .layers()
@@ -214,7 +214,7 @@ fn a_sparse_scatter_survives_the_round_trip() {
 
 #[test]
 fn a_full_screen_survives_the_round_trip() {
-    let mut h = Harness::new(300, 80);
+    let mut h = Harness::truecolor(300, 80);
     let id = h
         .screen
         .layers()
@@ -231,7 +231,7 @@ fn a_full_screen_survives_the_round_trip() {
 
 #[test]
 fn a_fill_survives_the_round_trip() {
-    let mut h = Harness::new(40, 8);
+    let mut h = Harness::truecolor(40, 8);
     let id = h
         .screen
         .layers()
@@ -246,7 +246,7 @@ fn a_fill_survives_the_round_trip() {
 
 #[test]
 fn two_layers_survive_the_round_trip() {
-    let mut h = Harness::new(40, 8);
+    let mut h = Harness::truecolor(40, 8);
     let below = h
         .screen
         .layers()
@@ -275,7 +275,7 @@ fn two_layers_survive_the_round_trip() {
 
 #[test]
 fn a_non_opaque_layer_survives_the_round_trip() {
-    let mut h = Harness::new(40, 4);
+    let mut h = Harness::truecolor(40, 4);
     let below = h
         .screen
         .layers()
@@ -385,7 +385,7 @@ fn a_change_between_frames_emits_only_what_changed() {
 
 #[test]
 fn every_frame_is_one_write() {
-    let mut h = Harness::new(300, 80);
+    let mut h = Harness::truecolor(300, 80);
     let id = h
         .screen
         .layers()
@@ -413,7 +413,7 @@ fn every_frame_is_one_write() {
 /// it is asked.
 #[test]
 fn a_frame_the_filter_emptied_is_no_write_at_all() {
-    let mut h = Harness::new(300, 80);
+    let mut h = Harness::truecolor(300, 80);
     let id = h
         .screen
         .layers()
@@ -452,7 +452,7 @@ fn a_frame_reassembles_through_a_sink_that_takes_seven_bytes_at_a_time() {
 
 #[test]
 fn five_frames_of_a_moving_selection_bar_survive_the_round_trip() {
-    let mut h = Harness::new(60, 10);
+    let mut h = Harness::truecolor(60, 10);
     let id = h
         .screen
         .layers()
@@ -478,7 +478,7 @@ fn five_frames_of_a_moving_selection_bar_survive_the_round_trip() {
 
 #[test]
 fn a_frame_that_blanks_what_it_drew_survives_the_round_trip() {
-    let mut h = Harness::new(20, 3);
+    let mut h = Harness::truecolor(20, 3);
     let id = h
         .screen
         .layers()

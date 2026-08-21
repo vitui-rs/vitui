@@ -57,9 +57,10 @@ fn staged(scene: &mut dyn Scene) -> Harness {
 /// a fresh mirror is unknown, so the birth frame is the same bytes under all four configurations, and
 /// a harness that had to be told afterwards would have a window where it was measuring two.
 fn staged_with(scene: &mut dyn Scene, filter: Filter) -> Harness {
-    // The scene says what it needs pinned about the terminal, and both drivers ask. Eleven of the
-    // twelve need nothing; the twelfth is about an operator, and an operator layer is skipped
-    // outright at the `ColorDepth::None` a headless screen otherwise has.
+    // The scene says what it needs pinned about the terminal, and both drivers ask. Since impl 17
+    // that is truecolor for all twelve — narrowing at truecolor is the identity, and a byte count on
+    // a screen whose depth nobody named is a byte count about the depth — plus OSC 8 for the
+    // twelfth, whose operator layer is skipped outright at `ColorDepth::None`.
     let mut h = Harness::with_overrides(W, H, scene.overrides())
         .labelled(scene.name())
         .with_filter(filter);
@@ -1951,4 +1952,594 @@ fn a_fading_operator_mints_per_distinct_style_and_never_per_cell() {
         "the page's own four entries are below every freed one"
     );
     assert_eq!(h.screen.table_lengths().1, distinct * 2);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Impl 17 — quantisation runs before the mirror comparison.
+// ---------------------------------------------------------------------------------------------
+
+/// A harness on a terminal of exactly this depth, with the rest of a scene's pins kept.
+///
+/// **`..scene.overrides()` and not `..Default::default()`**, because the twelfth scene needs OSC 8
+/// declared as well and a driver that dropped that pin while varying the depth would be measuring a
+/// third thing. See [`crate::scenes::Scene::overrides`].
+fn staged_at(scene: &mut dyn Scene, colors: crate::caps::ColorDepth) -> Harness {
+    let mut h = Harness::with_overrides(
+        W,
+        H,
+        Overrides {
+            colors: Some(colors),
+            ..scene.overrides()
+        },
+    )
+    .labelled(scene.name());
+    scene.build(&mut h.screen);
+    h.present();
+    h
+}
+
+/// Every colour an SGR sequence in `out` selects, as `(channel, colour)` — where the channel is 38,
+/// 48 or 58 and the colour is either an index or `None` for a truecolor triple.
+///
+/// **A walk and not a split, and the first draft was a split.** Flattening `;` and `:` alike is
+/// right — it is what makes the answer the same whether a colour was spelled `38:5:9`, `38;5;9` or
+/// `31` — but *then asking whether any number lies in 30..38* is wrong, and wrong in the direction
+/// that fails on correct code: `38:5:32` is cube index 32, and its third field is a number in that
+/// range. So the selectors are consumed with their payloads, which is the smallest amount of SGR
+/// structure that makes the question decidable.
+///
+/// A truecolor triple's channels are deliberately not returned. Nothing here asks about them: what
+/// these gates are about is which *index* a narrowing chose, and an RGB colour chose none.
+fn sgr_colours(out: &[u8]) -> Vec<(u32, Option<u32>)> {
+    let mut found = Vec::new();
+    let mut i = 0;
+    while i + 1 < out.len() {
+        if out[i] != 0x1b || out[i + 1] != b'[' {
+            i += 1;
+            continue;
+        }
+        let start = i + 2;
+        let mut end = start;
+        while end < out.len() && !(0x40..=0x7e).contains(&out[end]) {
+            end += 1;
+        }
+        if end < out.len() && out[end] == b'm' {
+            let mut fields = Vec::new();
+            for field in out[start..end].split(|b| *b == b';' || *b == b':') {
+                // An empty field is T.416's colour-space id, which is meant to be empty.
+                if let Ok(n) = std::str::from_utf8(field).unwrap_or("x").parse::<u32>() {
+                    fields.push(n);
+                }
+            }
+            let mut p = 0;
+            while p < fields.len() {
+                match fields[p] {
+                    ch @ (38 | 48 | 58) if p + 1 < fields.len() => {
+                        match fields[p + 1] {
+                            5 => {
+                                found.push((ch, fields.get(p + 2).copied()));
+                                p += 3;
+                            }
+                            2 => {
+                                found.push((ch, None));
+                                p += 5;
+                            }
+                            // Neither spelling, which the serializer never emits. Stepping one at a
+                            // time is what makes a malformed stream loud rather than silently skipped.
+                            _ => p += 1,
+                        }
+                    }
+                    // The short forms, which are the low sixteen and nothing else.
+                    n @ (30..=37) => {
+                        found.push((38, Some(n - 30)));
+                        p += 1;
+                    }
+                    n @ (90..=97) => {
+                        found.push((38, Some(n - 90 + 8)));
+                        p += 1;
+                    }
+                    n @ (40..=47) => {
+                        found.push((48, Some(n - 40)));
+                        p += 1;
+                    }
+                    n @ (100..=107) => {
+                        found.push((48, Some(n - 100 + 8)));
+                        p += 1;
+                    }
+                    _ => p += 1,
+                }
+            }
+        }
+        i = end.max(i + 1);
+    }
+    found
+}
+
+/// **The gate the whole placement exists for**, and the correction the ticket was written around:
+///
+/// > "Quantising colour saves almost nothing" is right about frame *size* and silent about frame
+/// > *membership*.
+///
+/// Two RGB values that collapse to one index at [`ColorDepth::Ansi16`](crate::ColorDepth) must make
+/// the second frame **empty**. If the mirror held the colours the application asked for, the two
+/// would compare unequal and 24 000 cells would be re-emitted for no visible change — the equality
+/// filter would under-filter by exactly the amount the depth collapses.
+///
+/// The truecolor arm is what stops this passing for the wrong reason. A fixture that drew nothing,
+/// or drew the same colour twice, would satisfy the first half; the same two colours at a depth that
+/// can tell them apart have to produce a frame.
+#[test]
+fn two_colours_a_depth_cannot_tell_apart_are_one_frame_and_not_two() {
+    /// Both land on ANSI entry 1, and neither is it.
+    const NEAR: [Color; 2] = [Color::rgb(0xcc, 0x02, 0x01), Color::rgb(0xcf, 0x00, 0x03)];
+
+    fn second_frame(colors: crate::caps::ColorDepth) -> usize {
+        let mut h = Harness::with_overrides(
+            W,
+            H,
+            Overrides {
+                colors: Some(colors),
+                ..Overrides::default()
+            },
+        );
+        let id = h
+            .screen
+            .layers()
+            .add_content(0, Rect::new(0, 0, W, H), true);
+        let row: String = std::iter::repeat_n('m', W as usize).collect();
+        let paint = |h: &mut Harness, c: Color| {
+            let mut v = h.screen.layers().view(id).expect("just added");
+            for y in 0..H as i32 {
+                v.text(0, y, &row, Style::new().fg(c));
+            }
+        };
+        paint(&mut h, NEAR[0]);
+        h.present();
+        let before = h.bytes_written();
+        paint(&mut h, NEAR[1]);
+        h.present();
+        h.bytes_written() - before
+    }
+
+    assert_eq!(
+        second_frame(crate::caps::ColorDepth::Ansi16),
+        0,
+        "a terminal that cannot tell the two apart was sent a second frame"
+    );
+    assert!(
+        second_frame(crate::caps::ColorDepth::TrueColor) > 0,
+        "a terminal that can tell them apart was sent nothing, so the arm above is vacuous"
+    );
+}
+
+/// **Gate: `bytes_16 < bytes_256 < bytes_truecolor`** on the worst-case scene.
+///
+/// §8's own table is 934 058 / 1 658 570 / 2 417 060 — **fewer** bytes at sixteen colours, because
+/// `SGR 31` is two bytes where `38:2::205:0:0` is thirteen.
+///
+/// > §14's `t_16 > t_256` is an abstract example about quantisation **time**; reading it as bytes
+/// > inverts the gate and fails it on correct code.
+///
+/// A relation and not three equalities, because the numbers belong to the *data* — the scene's own
+/// colour walk — and a number that belongs to the data must be a relation or it becomes a gate that
+/// is edited rather than fixed ([`crate::register`]'s first refinement).
+///
+/// It is asked of `every-cell-a-distinct-style` because that scene is the only one on §14's list
+/// where every cell carries a colour no other cell carries, so nothing else on the list can
+/// distinguish a serializer that narrowed from one that did not.
+#[test]
+fn fewer_bytes_the_less_colour_the_terminal_has() {
+    use crate::caps::ColorDepth::{Ansi16, Indexed256, TrueColor};
+
+    let mut scene = wired()
+        .into_iter()
+        .find(|s| s.name() == "every-cell-a-distinct-style")
+        .expect("the worst case is on the wired list");
+
+    let mut bytes = Vec::new();
+    for depth in [Ansi16, Indexed256, TrueColor] {
+        let mut h = staged_at(&mut *scene, depth).without_scroll_region();
+        let before = h.bytes_written();
+        for t in 1..=FRAMES {
+            scene.step(&mut h.screen, t);
+            h.present();
+        }
+        let n = h.bytes_written() - before;
+        println!("  {:<12} {n:>9} bytes", format!("{depth:?}"));
+        bytes.push(n);
+    }
+
+    assert!(
+        bytes[0] < bytes[1] && bytes[1] < bytes[2],
+        "the wire did not get cheaper as the terminal got poorer: {bytes:?}"
+    );
+}
+
+/// **Gate: at [`ColorDepth::Indexed256`](crate::ColorDepth), no output ever names an index under
+/// sixteen as a quantisation target.**
+///
+/// 16..256 are fixed by specification and identical on every terminal; 0..16 are repainted by the
+/// user's theme, so quantising into them is a bet on somebody else's colour scheme. Asked of the
+/// **wire** rather than of the function — `crate::quant` has the exhaustive unit gate — because what
+/// the register is about is bytes, and a serializer that spelled a cube index with a short form
+/// would pass the function's gate and paint the user's theme anyway.
+///
+/// The fixture carries **only** RGB colours, which is what makes the assertion decidable: no cell
+/// asked for a low index, so any low index on the wire was chosen rather than carried.
+#[test]
+fn at_256_the_wire_never_names_the_users_own_sixteen() {
+    let mut scene = wired()
+        .into_iter()
+        .find(|s| s.name() == "every-cell-a-distinct-style")
+        .expect("the worst case is on the wired list");
+    let mut h = staged_at(&mut *scene, crate::caps::ColorDepth::Indexed256);
+    scene.step(&mut h.screen, 1);
+    h.present();
+
+    let bytes = h.wire();
+    let colours = sgr_colours(&bytes);
+    let mut indexed = 0usize;
+    for (channel, index) in &colours {
+        let Some(i) = *index else {
+            panic!("a truecolor triple reached a terminal that cannot parse one");
+        };
+        assert!(
+            i >= 16,
+            "channel {channel} was narrowed to index {i}, which is the user's own theme"
+        );
+        indexed += 1;
+    }
+    assert!(
+        indexed > 0,
+        "nothing on the wire named a colour, so this gate asserted nothing"
+    );
+}
+
+/// **The other half of ADR 0025's silence rule, asked of a frame rather than of a `Mixer`.**
+///
+/// Spec §5 leaves a cell with a default background **unmixed** where OSC 11 was silent, because a
+/// guessed background inverts a shadow on the opposite theme — wrong in *direction*, where a themed
+/// palette is only wrong in degree. `crate::mix` has gated the silent arm since impl 12; the
+/// **answered** arm was unreachable from a `Screen` until impl 13 gave [`Overrides`] `default_bg`,
+/// so the pair could only be asserted one layer below the frame.
+///
+/// Both arms here, on one fixture, at one depth: the cell is default-backgrounded, an operator
+/// darkens it, and the only difference between the two screens is whether the terminal said what its
+/// background is.
+#[test]
+fn a_default_background_is_mixed_only_where_the_terminal_said_what_it_is() {
+    fn painted(default_bg: Option<crate::caps::Rgb>) -> Style {
+        let mut h = Harness::with_overrides(
+            8,
+            2,
+            Overrides {
+                colors: Some(crate::caps::ColorDepth::TrueColor),
+                default_bg,
+                ..Overrides::default()
+            },
+        );
+        let id = h
+            .screen
+            .layers()
+            .add_content(0, Rect::new(0, 0, 8, 2), true);
+        h.screen
+            .layers()
+            .view(id)
+            .expect("just added")
+            // **Explicit foreground, default background.** §5 refuses the whole cell when *either*
+            // channel is a default the terminal did not name, so a cell default on both would be
+            // left alone in the answered arm too — for a reason that is about the foreground, and
+            // this gate is about the background.
+            .text(0, 0, "abcdefgh", Style::new().fg(Color::indexed(15)));
+        h.screen
+            .layers()
+            .add_operator(1, Rect::new(0, 0, 8, 2), Mix::darken(Mix::FULL / 2));
+        h.present();
+        h.screen.frame().row(0)[0].style
+    }
+
+    let white = crate::caps::Rgb::new(0xff, 0xff, 0xff);
+    let untouched = Style::new().fg(Color::indexed(15));
+    assert_eq!(
+        painted(None),
+        untouched,
+        "a guessed background is wrong in direction, so a silent terminal leaves the cell alone"
+    );
+    let answered = painted(Some(white));
+    assert_ne!(
+        answered, untouched,
+        "the terminal said what its background is and the operator declined to use it"
+    );
+    assert_eq!(
+        answered.background(),
+        Color::rgb(0x7f, 0x7f, 0x7f),
+        "white, half of the way to black"
+    );
+}
+
+/// **Gate: the intern-key collapse is eight entries against ninety-six, and not one byte.**
+///
+/// Spec §10's one narrow exception to *degrade at serialise time*:
+///
+/// > A channel the terminal **cannot express at all** is dropped from the intern *key* on the app
+/// > thread; a channel it expresses **imprecisely** is degraded at serialise time.
+///
+/// Three arms, because two of them are the same number and the third is what makes either mean
+/// anything:
+///
+/// 1. `hyperlinks: Some(true)` — ninety-six links over ninety-six cells, each with one of eight
+///    underline colours, is **ninety-six** distinct extended styles.
+/// 2. `Some(false)` — the link leaves the key, and what is left is the eight the underline colours
+///    alone distinguish. **One arm alone is not the gate**: a fixture at `false` that reported 8
+///    would be indistinguishable from one that never reached the table at all, which is why the
+///    positive half below asserts the cells are still extended.
+/// 3. `Some(false)` with §7's **rejected** placement — the link kept in the key and dropped at
+///    serialise time instead — which is ninety-six entries again and, byte for byte, **the same
+///    wire**. Two style words differing only in a channel the serializer will not emit produce an
+///    SGR delta with nothing in it, and the emit loop takes back the escape it speculatively
+///    opened.
+///
+/// So the collapse buys a growth bound and costs nothing, which is why it is taken. The one place
+/// the two placements could diverge in bytes is a **gap**: `price_gap` charges `SGR_FLOOR` per
+/// distinct narrowed word, so a gap spanning cells that differ only by an unemittable link is
+/// priced higher under the rejected placement. This fixture damages whole rows and has no gap, and
+/// the divergence is recorded here rather than left to be discovered.
+#[test]
+fn dropping_an_inexpressible_channel_from_the_key_costs_entries_and_no_bytes() {
+    /// One cell per link, and eight underline colours cycling through them.
+    ///
+    /// Eight rather than one because the point of the `false` arm is a number that is neither 96 nor
+    /// zero: a fixture whose only extended channel were the link would collapse to *nothing* and
+    /// could not tell a table that emptied from a table nobody visited.
+    const LINKS: u16 = 96;
+    const ULS: u16 = 8;
+
+    fn arm(hyperlinks: bool, rejected_placement: bool) -> (usize, Vec<u8>) {
+        let mut h = Harness::with_overrides(
+            LINKS,
+            2,
+            Overrides {
+                colors: Some(crate::caps::ColorDepth::TrueColor),
+                hyperlinks: Some(hyperlinks),
+                ..Overrides::default()
+            },
+        );
+        if rejected_placement {
+            h.screen.tables_mut().keep_links_in_key();
+        }
+        let id = h
+            .screen
+            .layers()
+            .add_content(0, Rect::new(0, 0, LINKS, 2), true);
+        let links: Vec<_> = (0..LINKS)
+            .map(|i| h.screen.link(&format!("https://example.com/vitui#{i}")))
+            .collect();
+        {
+            let row: String = std::iter::repeat_n('m', LINKS as usize).collect();
+            let mut v = h.screen.layers().view(id).expect("just added");
+            v.text(0, 0, &row, Style::new().fg(Color::indexed(15)));
+            v.text(0, 1, &row, Style::new().fg(Color::indexed(15)));
+            for (i, link) in links.iter().enumerate() {
+                v.restyle(
+                    Rect::new(i as i32, 0, 1, 2),
+                    &Restyle {
+                        set: Restyle::UNDERLINE_CURLY,
+                        ul: Some(Color::rgb((i as u16 % ULS) as u8 + 1, 0, 0)),
+                        link: Some(*link),
+                        ..Restyle::default()
+                    },
+                );
+            }
+        }
+        // **Counted before the frame goes out, and that is not tidiness.** The terminal model
+        // interns what it reads into this screen's own tables — which is what lets the round trip
+        // compare handles at all — so it mints the eight entries an SGR 58 without an OSC 8 names,
+        // and the rejected arm's ninety-six would read as a hundred and four. The number this gate
+        // is about is what the *drawing verbs* minted.
+        let entries = h.screen.table_lengths().1;
+        let before = h.bytes_written();
+        h.present();
+        // The positive half: whatever the counts say, these cells reached a table.
+        for x in 0..LINKS {
+            assert!(
+                h.screen.frame().row(0)[x as usize].style.is_extended(),
+                "column {x} is not extended, so the counts below are about nothing"
+            );
+        }
+        let bytes = h.wire()[before..].to_vec();
+        (entries, bytes)
+    }
+
+    let (expressible, _) = arm(true, false);
+    let (collapsed, collapsed_bytes) = arm(false, false);
+    let (rejected, rejected_bytes) = arm(false, true);
+
+    assert_eq!(expressible, LINKS as usize, "one entry per distinct link");
+    assert_eq!(
+        collapsed, ULS as usize,
+        "the link left the key and the underline colours are what is left"
+    );
+    assert_eq!(
+        rejected, LINKS as usize,
+        "§7's rejected placement keeps the link in the key, so it keeps the entries"
+    );
+    assert_eq!(
+        collapsed_bytes.len(),
+        rejected_bytes.len(),
+        "the collapse changed the wire, which is the one thing it is not supposed to do"
+    );
+    assert_eq!(
+        collapsed_bytes, rejected_bytes,
+        "the same bytes in a different order is still a change"
+    );
+}
+
+/// **Spec §15's first owed measurement, paid: what narrowing costs per style word**, against the
+/// equality filter's 0.9 ns per damaged cell.
+///
+/// Two numbers, because the mechanism has two costs and one instrument cannot isolate both.
+///
+/// **The memo's cost, in situ.** `full-screen-change` paints 24 000 cells from **one** style word,
+/// and its colour is an index under sixteen — expressible at every depth that has colour — so the
+/// wire is byte-identical at `Ansi16` and at `TrueColor` and the whole difference between the two
+/// frames is the narrowing. That is asserted rather than assumed, because an isolation that is
+/// merely plausible is not one.
+///
+/// **The narrowing's own cost, per distinct word.** The frame times cannot give it: on
+/// `every-cell-a-distinct-style` a poorer terminal narrows 24 000 words *and* writes a ninth of the
+/// bytes, so the difference is a sum of the two with opposite signs. So it is timed directly, over
+/// the style words of a real frame — read off the frame rather than re-deriving the scene's colour
+/// walk, because a second copy of the walk is a second thing to keep in step — through
+/// [`Quantiser::style`](crate::quant::Quantiser::style), which is the function the run scan calls.
+///
+/// A report, not a gate: §14's rule is that a timing is a gate only at cliff granularity with the
+/// headroom written beside it, and nothing here is near a cliff.
+#[test]
+fn what_narrowing_colour_costs_per_style_word() {
+    use crate::caps::ColorDepth::{Ansi16, Indexed256, TrueColor};
+
+    const SAMPLES: u32 = 20;
+    let cells = f64::from(u32::from(W) * u32::from(H));
+
+    // ---- the memo, in situ, on a scene whose wire does not move with the depth ----------------
+    let arm = |depth| {
+        let mut scene = wired()
+            .into_iter()
+            .find(|s| s.name() == "full-screen-change")
+            .expect("§14's twelve are the wired list");
+        let mut h = staged_at(&mut *scene, depth);
+        for t in 1..=2 {
+            scene.step(&mut h.screen, t);
+            h.present();
+        }
+        let before = h.bytes_written();
+        let at = std::time::Instant::now();
+        for t in 3..3 + SAMPLES {
+            scene.step(&mut h.screen, t);
+            h.screen.present();
+        }
+        let us = at.elapsed().as_secs_f64() * 1e6 / f64::from(SAMPLES);
+        (us, h.bytes_written() - before)
+    };
+    let (transparent, transparent_bytes) = arm(TrueColor);
+    let (narrowed, narrowed_bytes) = arm(Ansi16);
+    assert_eq!(
+        transparent_bytes, narrowed_bytes,
+        "this scene's colours are indices under sixteen, so the two depths spell them the same — \
+         and if they ever do not, the difference below stops being the narrowing"
+    );
+
+    // ---- the narrowing itself, per distinct style word ----------------------------------------
+    let mut scene = wired()
+        .into_iter()
+        .find(|s| s.name() == "every-cell-a-distinct-style")
+        .expect("§14's twelve are the wired list");
+    let mut h = staged_at(&mut *scene, TrueColor);
+    scene.step(&mut h.screen, 1);
+    h.present();
+    let words: Vec<Style> = (0..H)
+        .flat_map(|y| h.screen.frame().row(y).iter().map(|c| c.style))
+        .collect();
+    assert_eq!(words.len(), cells as usize);
+    let per_word = |depth| {
+        let q = crate::quant::Quantiser::for_terminal(&crate::caps::Capabilities::answering(
+            depth, None, None,
+        ));
+        // Warm, then timed: the first pass faults the vector in.
+        for w in &words {
+            std::hint::black_box(q.style(*w));
+        }
+        let at = std::time::Instant::now();
+        for w in &words {
+            std::hint::black_box(q.style(*w));
+        }
+        at.elapsed().as_secs_f64() * 1e9 / cells
+    };
+
+    println!(
+        "\n  narrowing colour, {W}x{H}:\n  \
+         memoised, one style word for {cells:.0} cells, {SAMPLES} frames an arm:\n    \
+         {transparent:.2} us at truecolor, {narrowed:.2} us at sixteen, {:+.2} us the difference\n    \
+         {:+.3} ns a cell (the equality filter's own is 0.9 ns, spec §8)\n  \
+         unmemoised, {cells:.0} distinct style words:\n    \
+         {:.2} ns a word at indexed256, {:.2} ns a word at sixteen\n  \
+         Report, not a gate.",
+        narrowed - transparent,
+        (narrowed - transparent) * 1000.0 / cells,
+        per_word(Indexed256),
+        per_word(Ansi16),
+    );
+}
+
+/// **Gate: narrowing is per distinct style word, and never twice per cell.**
+///
+/// A count, because the failure this is about is invisible to every correctness test and to every
+/// byte count: the one-entry memo can answer *one* spelling of a word and store the other, and then
+/// a screen of a single colour pays two full narrowings a cell while producing exactly the right
+/// bytes. It did, and it cost **1 103 µs against 429 µs** on a 300×80 screen of one RGB colour at
+/// sixteen colours — a 2.6x frame, all of it in a function whose output was correct.
+///
+/// The shape of the defect is structural rather than careless, which is why the counter stays. The
+/// run scan narrows a cell to compare it against the mirror; `emit_cell` narrows again so that it is
+/// correct whoever called it, because the gap merge sources columns the scan never saw. So every
+/// emitted cell asks twice, in two different spellings of the same word, and a memo that recognises
+/// one of them is a memo that recognises neither. See [`Serializer::narrow`](crate::serial).
+///
+/// Both arms, because one is satisfied by a memo that never stores anything:
+///
+/// - a screen of **one** style word is narrowed **once** a frame;
+/// - a screen of 24 000 **distinct** style words is narrowed 24 000 times and not 48 000.
+#[test]
+fn a_frame_narrows_once_a_distinct_style_word_and_never_twice_a_cell() {
+    const CELLS: usize = 300 * 80;
+    let ansi16 = Overrides {
+        colors: Some(crate::caps::ColorDepth::Ansi16),
+        ..Overrides::default()
+    };
+
+    // One style word, and every cell emitted every frame: the glyph alternates so the equality
+    // filter cannot empty the frame, because a filtered frame narrows in the scan and never in
+    // `emit_cell` and would satisfy this arm for the wrong reason.
+    let mut h = Harness::with_overrides(W, H, ansi16);
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, W, H), true);
+    let rows: [String; 2] = [
+        std::iter::repeat_n('x', W as usize).collect(),
+        std::iter::repeat_n('y', W as usize).collect(),
+    ];
+    let ink = Style::new().fg(Color::rgb(0x10, 0x40, 0x90));
+    for t in 0..3 {
+        {
+            let mut v = h.screen.layers().view(id).expect("just added");
+            for y in 0..H as i32 {
+                v.text(0, y, &rows[t % 2], ink);
+            }
+        }
+        let before = h.screen.narrowings();
+        h.present();
+        let narrowings = h.screen.narrowings() - before;
+        assert_eq!(
+            narrowings, 1,
+            "frame {t}: {narrowings} narrowings for one distinct style word over {CELLS} cells"
+        );
+    }
+
+    // And the arm that says the memo is one entry deep rather than a table: a screen where no two
+    // cells share a word narrows once a cell, which is 24 000 — not the 48 000 the two spellings
+    // would cost.
+    let mut scene = wired()
+        .into_iter()
+        .find(|s| s.name() == "every-cell-a-distinct-style")
+        .expect("§14's twelve are the wired list");
+    let mut h = staged_at(&mut *scene, crate::caps::ColorDepth::Ansi16);
+    scene.step(&mut h.screen, 1);
+    let before = h.screen.narrowings();
+    h.present();
+    let narrowings = h.screen.narrowings() - before;
+    assert_eq!(
+        narrowings, CELLS,
+        "{narrowings} narrowings for {CELLS} distinct style words"
+    );
 }

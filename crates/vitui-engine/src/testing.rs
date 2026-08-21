@@ -292,6 +292,21 @@ impl Harness {
         Harness::with_sink_and_overrides(w, h, sink, Overrides::default())
     }
 
+    /// A harness on a terminal that can say every colour a caller can name.
+    ///
+    /// **What a round trip whose cells carry colour has to be built with since impl 17.** A
+    /// `Harness` is headless, headless is [`ColorDepth::None`](crate::ColorDepth) unless something
+    /// pins otherwise, and colour is now narrowed to what the terminal can express — so on the
+    /// default harness `bg(Color::indexed(4))` reaches the wire as the terminal's own background and
+    /// a fixture whose selection bar *is* that colour asserts that a blank screen round-trips.
+    ///
+    /// It is the same trap [`pinned_extended`] exists for, one axis along, and it is why the audit
+    /// is a grep rather than a list: the needle is a colour constructor, and what it finds is every
+    /// gate that would go vacuous at a depth nobody named.
+    pub(crate) fn truecolor(w: u16, h: u16) -> Harness {
+        Harness::with_overrides(w, h, pinned_truecolor())
+    }
+
     /// A harness on a **declared** tier: a caller-supplied sink detects nothing, so whatever these
     /// overrides pin is what [`Screen::capabilities`](crate::Screen::capabilities) reports — up to
     /// and including truecolor, which is what makes headless a declared tier rather than the lowest
@@ -490,14 +505,15 @@ impl Harness {
     fn assert_screen_matches_frame(&self) {
         let (w, h) = self.screen.size();
         let frame = self.screen.frame();
+        let wire = self.as_the_wire_says_it();
         for y in 0..h {
             if self.stale[y as usize] {
                 continue;
             }
             for x in 0..w {
                 assert_eq!(
-                    self.term.cell(x, y),
-                    frame.row(y)[x as usize],
+                    wire(self.term.cell(x, y)),
+                    wire(frame.row(y)[x as usize]),
                     "{}the replayed screen and the composited frame disagree at ({x}, {y})",
                     self.label
                 );
@@ -532,19 +548,35 @@ impl Harness {
         }
         let (w, h) = self.screen.size();
         let frame = self.screen.frame();
+        let wire = self.as_the_wire_says_it();
         for y in 0..h {
             for x in 0..w {
                 let Some(mirrored) = self.screen.mirror().known_cell(x, y) else {
                     continue;
                 };
                 assert_eq!(
-                    mirrored,
-                    frame.row(y)[x as usize],
+                    wire(mirrored),
+                    wire(frame.row(y)[x as usize]),
                     "{}the mirror and the composited frame disagree at ({x}, {y})",
                     self.label
                 );
             }
         }
+    }
+
+    /// How a cell is compared, on this screen's terminal.
+    ///
+    /// **Both assertions above go through this, and neither compares a raw `Cell` any more.** Impl
+    /// 17 narrows colour to what the terminal can express, so a frame holds what the application
+    /// asked for while the mirror and the terminal hold what the depth could say — and on any
+    /// terminal below truecolor those are different values by construction. Comparing them raw
+    /// would either fail on correct code or force every test onto one depth, which is the same
+    /// vacuity one axis along from architecture ticket 22's. See [`crate::quant::OnTheWire`] for
+    /// why resolving the handle is a *stronger* comparison rather than a weaker one.
+    fn as_the_wire_says_it(&self) -> impl Fn(crate::cell::Cell) -> crate::quant::OnTheWire + '_ {
+        let q = crate::quant::Quantiser::for_terminal(self.screen.capabilities());
+        let tables = self.screen.tables();
+        move |c| crate::quant::on_the_wire(q, tables, c)
     }
 
     /// What the replayed terminal is showing at `(x, y)`, for a test that wants to name one cell

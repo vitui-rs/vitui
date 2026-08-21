@@ -104,17 +104,34 @@ pub trait Scene {
 
     /// What this scene needs pinned about the terminal it is measured against.
     ///
-    /// Default: nothing, which is a headless screen — and **a headless screen is at
-    /// [`ColorDepth::None`]**, because a caller-supplied sink is asked nothing and spec §10 will not
-    /// invent a colour for one. Eleven of the twelve are indifferent to that.
+    /// **Default: truecolor, and it was `Overrides::default()` until impl 17.** The old default was
+    /// *nothing pinned*, which is a headless screen, which is [`ColorDepth::None`] — and while
+    /// nothing narrowed colour that was a distinction without a difference: the serializer emitted
+    /// `38:2:…` whatever the depth said, so eleven of the twelve were genuinely indifferent to it.
     ///
-    /// The twelfth is not. §5 skips an operator layer **outright** at that depth, so a scene whose
-    /// subject is an operator would report the cost of the content layers under it and grow no table
-    /// at all. It is on the trait rather than passed in by each driver so that the pin travels with
-    /// the scene: `crate::gates` and `examples/budget.rs` build their own screens, and a scene that
-    /// only one of them pinned correctly would be measured on two different terminals.
+    /// Impl 17 ends that. At [`ColorDepth::None`] every colour on the wire becomes the terminal's
+    /// own, so the old default would have made **every byte count on this list a measurement of a
+    /// colourless screen** — and worse than smaller: `twenty-popups-with-shadows` immediately grew a
+    /// gap the filter's threshold sweep could argue about, because two cells that differ only in a
+    /// colour the depth cannot say are one cell, and `every-cell-a-distinct-style` would have become
+    /// *every cell the same style*. That is §14's own trap — a gate that pins nothing measures the
+    /// thing it did not pin — and the fix is the one architecture ticket 22 used on the link axis:
+    /// name the terminal.
+    ///
+    /// Truecolor specifically, because it is the arm that **preserves every number already on the
+    /// register**: narrowing at truecolor is the identity, so the bytes are the bytes impl 14
+    /// measured, and the depths that do narrow are reached by the gates that are about narrowing.
+    ///
+    /// The twelfth scene pins more, and pinned it before this: §5 skips an operator layer
+    /// **outright** at [`ColorDepth::None`], and OSC 8 reaches the wire only where the terminal has
+    /// it. It is on the trait rather than passed in by each driver so that the pin travels with the
+    /// scene: `crate::gates` and `examples/budget.rs` build their own screens, and a scene that only
+    /// one of them pinned correctly would be measured on two different terminals.
     fn overrides(&self) -> Overrides {
-        Overrides::default()
+        Overrides {
+            colors: Some(ColorDepth::TrueColor),
+            ..Overrides::default()
+        }
     }
 }
 
@@ -907,7 +924,7 @@ impl Scene for EveryCellADistinctStyle {
 /// **`Scene::overrides` needs two pins now, not one.** Truecolor, because §5 skips an operator layer
 /// outright at [`ColorDepth::None`]; and `hyperlinks`, because OSC 8 is emitted only where the
 /// terminal has it and a headless screen is asked nothing — so on a screen that declared only the
-/// depth this scene's links would be dropped from the wire, and after impl 17's intern-key collapse
+/// depth this scene's links would be dropped from the wire, and under impl 17's intern-key collapse
 /// they would be dropped from the *key* as well and the row would report 8 entries where it exists to
 /// report 96 (architecture ticket 22).
 pub struct HyperlinkedPageUnderAnOperator {
@@ -1061,7 +1078,7 @@ impl Scene for HyperlinkedPageUnderAnOperator {
     /// that mints nothing.
     ///
     /// `hyperlinks`, because OSC 8 reaches the wire only where the terminal has it and nothing asks a
-    /// sink. Without it the round trip cannot close on this scene at all, and after impl 17's
+    /// sink. Without it the round trip cannot close on this scene at all, and under impl 17's
     /// intern-key collapse the row would report 8 entries where it exists to report 96: a hyperlink
     /// on a screen where OSC 8 is inexpressible stops making a cell extended, and a `Mix` over an
     /// inline cell reaches no table (architecture ticket 22).

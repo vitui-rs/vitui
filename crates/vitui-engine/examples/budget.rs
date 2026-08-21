@@ -96,7 +96,7 @@ fn sink_screen_with(overrides: Overrides) -> Screen {
 ///
 /// Truecolor for §5's operator skip, and `hyperlinks` because OSC 8 reaches the wire only where the
 /// terminal has it. The second is architecture ticket 22's and is not load-bearing yet: it becomes so
-/// the moment impl 17 lands §10's intern-key collapse, at which point a hyperlink on a screen where
+/// since impl 17 landed §10's intern-key collapse: a hyperlink on a screen where
 /// OSC 8 is inexpressible stops making a cell extended and every one of these cases would be
 /// measuring an inline screen.
 fn hyperlinks_and_truecolor() -> Overrides {

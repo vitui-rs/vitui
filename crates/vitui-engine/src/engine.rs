@@ -253,6 +253,13 @@ impl Engine {
             sweeps: 0,
             _not_send: PhantomData,
         };
+        // The one thing the handle space has to be told about the terminal, and it is told once:
+        // whether a hyperlink is part of an extended style's identity. Spec §10's narrow exception —
+        // a channel the terminal cannot express at all is dropped from the intern *key*, where one it
+        // expresses imprecisely is degraded at serialise time. See
+        // [`Tables::key`](crate::tables::Tables::key).
+        let hyperlinks = screen.caps.hyperlinks;
+        screen.layers.tables_mut().set_links_in_key(hyperlinks);
         screen.begin_session();
         Ok((screen, WakeHandle { wakes }))
     }
@@ -767,6 +774,12 @@ impl Screen {
     #[cfg(test)]
     pub(crate) fn mirror(&self) -> &crate::serial::Mirror {
         self.serializer.mirror()
+    }
+
+    /// How many style words the serializer has narrowed rather than answered from its memo.
+    #[cfg(test)]
+    pub(crate) fn narrowings(&self) -> usize {
+        self.serializer.narrowings()
     }
 
     /// The whole stack, composited the slow obvious way: gate #1's oracle, over this screen.

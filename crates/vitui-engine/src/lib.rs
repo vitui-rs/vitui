@@ -74,8 +74,16 @@
 //! reaches four of the twelve rather than the two §8 named, and verifies exactly one candidate
 //! because verifying every one that matched the probe was a 27x regression.
 //!
-//! Not here yet, each with the ticket that brings it: quantisation before the mirror (17), the three
-//! threads and the frame clock (18, 19), and input (20, 21).
+//! Colour is **narrowed to what the terminal can express, inside the run scan and before the mirror
+//! comparison** — which is right about frame *size* and was silent about frame *membership*: a
+//! mirror holding colours the terminal was never sent under-filters by exactly the amount the depth
+//! collapses, so an animated gradient on a 16-colour terminal re-emits every frame for no visible
+//! change. The wire gets cheaper as the terminal gets poorer, indices under sixteen are never a
+//! quantisation *target* because they are the user's own theme, and contrast preservation is refused
+//! because a context-aware choice would break the style run that collected the whole win.
+//!
+//! Not here yet, each with the ticket that brings it: the three threads and the frame clock (18,
+//! 19), and input (20, 21).
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]
@@ -101,6 +109,7 @@ mod intern;
 mod layer;
 mod mix;
 mod packet;
+mod quant;
 mod quirks;
 mod serial;
 mod tables;

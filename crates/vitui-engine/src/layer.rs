@@ -622,13 +622,24 @@ impl LayerStack {
             links.push(self.tables.links.mint(uri));
         }
 
-        let mut exts: Vec<u32> = Vec::with_capacity(donor.exts.entries().len());
+        // **The second of the two intern sites, and the collapse is applied at both.** A donor
+        // surface knows no terminal (spec §3, architecture ticket 19), so its entries were interned
+        // with a hyperlink in the key whatever this screen's terminal can do — and here is where the
+        // screen's answer applies. An entry that was extended *only* because of a link therefore
+        // comes back **inline** on a terminal with no OSC 8, so what a donor handle becomes is a
+        // style word and not always another handle. See [`Tables::key`](crate::tables::Tables::key).
+        let mut exts: Vec<Reborn> = Vec::with_capacity(donor.exts.entries().len());
         for entry in donor.exts.entries() {
             let renumbered = ExtStyle {
                 link: remapped(&links, entry.link),
                 ..entry
             };
-            exts.push(self.tables.exts.handle(renumbered));
+            let keyed = self.tables.key(renumbered);
+            exts.push(if keyed.is_extended() {
+                Reborn::Extended(self.tables.exts.handle(keyed))
+            } else {
+                Reborn::Inline(keyed.fg, keyed.bg)
+            });
         }
 
         let mut graphemes: Vec<GraphemeId> = Vec::with_capacity(donor.interner.entries().len());
@@ -656,7 +667,11 @@ impl LayerStack {
                 if let Some(h) = cell.style.ext_handle()
                     && let Some(new) = exts.get(h as usize)
                 {
-                    cell.style = Style::extended(cell.style.attr_word(), *new);
+                    let attrs = cell.style.attr_word();
+                    cell.style = match *new {
+                        Reborn::Extended(handle) => Style::extended(attrs, handle),
+                        Reborn::Inline(fg, bg) => Style::inline(attrs, fg, bg),
+                    };
                 }
             }
         }
@@ -1250,6 +1265,21 @@ fn fit(rect: Rect, size: (u16, u16)) -> Rect {
 /// reachable from the public API, because there is no second mint for one of them to come from.
 /// That is a gap in spec §3/§4/§12 rather than a decision this file may take, and it is filed as
 /// [architecture ticket 21](../../../.scratch/vitui-engine-architecture/issues/21-a-hyperlink-on-a-standalone-surface-has-no-mint.md).
+/// What one of a donor's extended-style handles becomes in this stack's handle space.
+///
+/// **Not always another handle, which is the whole reason this is a type.** On a terminal with no
+/// OSC 8 an entry that was extended only because of a hyperlink loses its one extended channel, and
+/// then the cell goes back **inline** — *extended is a cost, not a state* (spec §3, §10). A donor
+/// surface cannot know that, because it knows no terminal, so the decision belongs here and not at
+/// the verb that drew it.
+#[derive(Clone, Copy, Debug)]
+enum Reborn {
+    /// Another handle, in this stack's extended-style table.
+    Extended(u32),
+    /// Two inline colours, because the entry has no extended channel left.
+    Inline(crate::style::Color, crate::style::Color),
+}
+
 fn remapped(links: &[LinkId], id: LinkId) -> LinkId {
     let Some(i) = id.index() else {
         return LinkId::NONE;

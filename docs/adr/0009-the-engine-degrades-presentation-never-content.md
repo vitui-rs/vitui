@@ -69,3 +69,36 @@ border character set handed to a component according to `Capabilities::glyphs` i
 source. The same table applied by the engine to cells a component already wrote is the thing this ADR
 exists to prevent. The prohibition costs no discipline in practice: ticket 05 left the engine three
 verbs and no box-drawing primitive, so it has no glyphs of its own to substitute.
+
+## Amendment, 2026-08-21 — one narrow exception, on the axis that is boolean
+
+Amended by [architecture ticket 16](../../.scratch/vitui-engine-architecture/issues/16-handle-tables.md)
+and implemented by [impl 17](../../.scratch/vitui-engine-impl/issues/17-quantisation-before-the-mirror.md).
+Everything above stands. What it did not distinguish is *how badly* a terminal fails to express a
+channel, and that turns out to decide **where** the degradation goes:
+
+> **A channel the terminal cannot express at all is dropped from the intern *key*, on the app thread;
+> a channel it expresses imprecisely is degraded at serialise time.**
+
+Colour is always the second kind — the narrowing is depth-dependent, so it belongs where the depth
+does. The hyperlink is the only instance of the first: `Capabilities::hyperlinks` is boolean rather
+than a ladder, and OSC 8 is the only channel whose absence makes a cell stop needing a table entry at
+all. So on a terminal with no OSC 8 the link leaves the extended style's identity, a cell that was
+extended only because of one goes back inline, and *extended is a cost, not a state* holds one axis
+further than it did.
+
+What the collapse is worth is **table entries and no bytes**: eight against ninety-six on a page of
+hyperlinked text, at byte-identical frames, because two style words differing only in a channel the
+serializer will not emit produce an SGR delta with nothing in it and the emit loop takes back the
+escape it speculatively opened. That is a growth bound rather than a frame cost, and it is free, which
+is the whole of why it is taken. Both arms are gated —
+`crate::gates::dropping_an_inexpressible_channel_from_the_key_costs_entries_and_no_bytes` runs the
+rejected placement beside the shipped one, so the claim is reproduced rather than quoted.
+
+**The narrowing itself is not exact for an extended cell, and the price of making it exact is already
+written down.** Bits 51..0 of an extended style word are a handle, so there is nothing in the word to
+narrow and what the mirror compares is identity: two distinct table entries whose colours narrow to
+the same wire compare unequal and are re-emitted. Closing that needs an identity derived from the
+narrowed *content*, which is architecture ticket 16's content-keyed packet — built, priced and
+refused on the app thread's behalf. The residual is bytes, on under 1% of a screen, and only while an
+underline colour is being animated.
