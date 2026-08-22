@@ -1,5 +1,10 @@
 # CLAUDE.md
 
+> **The local GitLab moved out of this repository (2026-08-22).** One shared instance now serves
+> every repo on this machine: <http://gitlab.localhost:8940>, this repo's project is `repos/vitui`,
+> and it is started with `devkit up`. The `infra/` stack here is gone — see `infra/MOVED.md` for the
+> old-command-to-new-command table, and `~/Projects/devkit/README.md` for the manual.
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## What this is
