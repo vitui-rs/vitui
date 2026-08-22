@@ -75,7 +75,7 @@
 use std::fmt;
 use std::marker::PhantomData;
 use std::ops::Range;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use vitui_engine::{
     AttachError, Capabilities, Clock, Config, Cursor, CursorShape, Engine, LayerId, MouseMode,
@@ -314,6 +314,39 @@ pub struct Frame {
     /// 5. The key queue, drained at successively outer levels. Ticket 11 splits it at a routing edge.
     keys: Vec<vitui_engine::Key>,
 
+    // ── the pointer, which is a frame structure in everything but name ─────────────────────────
+    /// This frame's mouse events, in arrival order.
+    mouse: Vec<vitui_engine::Mouse>,
+    /// Where the pointer is, in root coordinates. `None` until one has been reported — and it stays
+    /// `None` at `Buttons` tracking, where **no motion event is ever sent**.
+    pointer: Option<(i32, i32)>,
+    /// What is held.
+    buttons: vitui_engine::Buttons,
+    /// What modifiers were on the last pointer event. **One byte, and it costs the tracking level
+    /// nothing** — dropping it is why ctrl-click and shift-click were recorded as inexpressible three
+    /// times.
+    mods: vitui_engine::Mods,
+    /// **Modality: one index into the hit index, which is already in draw order.** An *ordering*, not
+    /// a membership — everything at or after this index is inside the modal.
+    ///
+    /// `Option<usize>` and **not** `usize`, because `0` meant both *no modal* and *a modal over
+    /// nothing*.
+    modal_from: Option<usize>,
+    /// Resolved in `begin` from the **previous** frame's index: a guess at what is hovered, which
+    /// buys in-frame feedback and can never become a wrong click.
+    hover_guess: Option<Id>,
+    /// Resolved in `begin` the same way: who owns the wheel.
+    wheel_target: Option<Id>,
+    /// Hover styles declared during the draw, resolved at `end` — which is what makes hover-as-a-style
+    /// land in the **same** frame.
+    hover_styles: Vec<(Id, Rect, crate::theme::Role)>,
+    /// What `end` awarded, delivered on the next frame's draw.
+    awarded: Option<Awarded>,
+    /// What the previous frame's `end` awarded, readable during this draw.
+    delivered: Option<Awarded>,
+    /// The thresholds.
+    pointer_config: Pointer,
+
     // ── the id-keyed facts (ADR 0012). Three are swept at `end`; the click record is not ────────
     grab: Option<Id>,
     press_origin: Option<(Id, (i32, i32))>,
@@ -341,6 +374,30 @@ pub struct Frame {
     begun: bool,
 }
 
+/// What `end` awarded, from the index that has just drawn.
+///
+/// **Delivered on the next frame's draw**, which is the whole trick: the guess resolved in `begin`
+/// buys in-frame feedback and this buys correctness, and neither has to be both.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+struct Awarded {
+    /// Who was pressed.
+    pressed: Option<Id>,
+    /// Who was clicked, and whether it was the second of two.
+    clicked: Option<(Id, bool)>,
+    /// Who released.
+    released: Option<Id>,
+    /// Who is hovered.
+    hovered: Option<Id>,
+    /// Who was held past the long-press threshold.
+    long_pressed: Option<Id>,
+    /// Who got the wheel, and how much.
+    wheel: Option<(Id, (i32, i32))>,
+    /// **Whose drag was cancelled**, which the identity sweep alone did not tell anybody.
+    cancelled: Option<Id>,
+    /// The modifiers on the event that decided it.
+    mods: vitui_engine::Mods,
+}
+
 /// A queued overlay. **Ticket 13 owns `OverlayOpts` and placement**; this is the shape of the request
 /// so that the queue is a real structure with nothing in it.
 #[derive(Debug)]
@@ -358,6 +415,37 @@ struct OverlayRequest {
     seq: u32,
 }
 
+/// The thresholds double-click and long-press inference uses.
+///
+/// # Why the runtime infers these at all
+///
+/// The engine refuses to synthesise anything it did not see (ADR 0007): no double-click detection, no
+/// mouse-leave inferred from focus loss, no guess at an escape sequence. **The runtime is exactly
+/// where that inference is legitimate**, because it sits above the honest layer and because these are
+/// *thresholds* — configuration, not facts about the wire. The engine's own `Mouse::at` doc says so:
+/// *"double-click detection is not the engine's: it is policy with a tunable threshold and it belongs
+/// where hit-testing belongs."*
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Pointer {
+    /// How close together two clicks must be. **400 ms.**
+    pub click_threshold: Duration,
+    /// How far the pointer may move between them and still be one place. **One cell** — a terminal
+    /// pointer moves in whole cells, so this is *the pointer did not really move*, not a tolerance.
+    pub click_slop: u16,
+    /// How long a button must be held. **500 ms**, and it is the only threshold that costs a wakeup.
+    pub long_press: Duration,
+}
+
+impl Default for Pointer {
+    fn default() -> Pointer {
+        Pointer {
+            click_threshold: Duration::from_millis(400),
+            click_slop: 1,
+            long_press: Duration::from_millis(500),
+        }
+    }
+}
+
 /// How many rounds the overlay pass runs. **A limit, not a hang**: a body may request another
 /// overlay, and sixteen is where that stops being a menu and starts being a loop.
 pub const OVERLAY_ROUNDS: usize = 16;
@@ -370,6 +458,17 @@ impl Frame {
             overlays: Vec::with_capacity(8),
             deadline: None,
             keys: Vec::with_capacity(32),
+            mouse: Vec::with_capacity(32),
+            pointer: None,
+            buttons: vitui_engine::Buttons::NONE,
+            mods: vitui_engine::Mods::NONE,
+            modal_from: None,
+            hover_guess: None,
+            wheel_target: None,
+            hover_styles: Vec::with_capacity(32),
+            awarded: None,
+            delivered: None,
+            pointer_config: Pointer::default(),
             grab: None,
             press_origin: None,
             focused: None,
@@ -391,7 +490,20 @@ impl Frame {
     /// **Swap-and-clear, not drop-and-rebuild**: every one of the five keeps its allocation, so a
     /// steady frame allocates nothing. The id table is *stamped* instead, which is why this cannot be
     /// skipped — see the module comment.
-    fn begin(&mut self, batch: impl IntoIterator<Item = vitui_engine::Key>) {
+    fn begin(
+        &mut self,
+        keys: impl IntoIterator<Item = vitui_engine::Key>,
+        mice: impl IntoIterator<Item = vitui_engine::Mouse>,
+    ) {
+        // **The guess, resolved from the PREVIOUS frame's index before it is cleared.** This is the
+        // one thing `begin` can answer that the draw cannot: which widget is topmost under the
+        // pointer, and which owns the wheel. It is a *guess* — the index is a frame old — and it is
+        // never allowed to decide a click.
+        self.hover_guess = self.topmost_over();
+        self.wheel_target = self.topmost_scrollable();
+        // And the previous frame's award becomes this frame's news.
+        self.delivered = self.awarded.take();
+
         self.hits.clear();
         self.ring.clear();
         self.overlays.clear();
@@ -410,7 +522,42 @@ impl Frame {
         // Post the batch. **Ticket 11 splits it at a routing edge**; here it is posted whole, which
         // is the named no-op — the structure and the order are right and the classification is
         // missing.
-        self.keys.extend(batch);
+        self.keys.extend(keys);
+
+        // The pointer's own batch, and it updates the position as it goes so that `over` is computed
+        // against the pointer **as it was when this frame drew**.
+        self.mouse.clear();
+        self.hover_styles.clear();
+        self.modal_from = None;
+        for m in mice {
+            self.pointer = Some((i32::from(m.x), i32::from(m.y)));
+            self.buttons = m.buttons;
+            self.mods = m.mods;
+            self.mouse.push(m);
+        }
+    }
+
+    /// The innermost entry the pointer is over, from the index as it stands.
+    ///
+    /// **A reverse scan, because the index is in draw order and later is innermost.** No quadtree: the
+    /// engine already answers the layer question, and 312 entries is 142 ns.
+    fn topmost_over(&self) -> Option<Id> {
+        let from = self.modal_from.unwrap_or(0);
+        self.hits[from..]
+            .iter()
+            .rev()
+            .find(|h| h.over && !h.interest.is_empty())
+            .map(|h| h.id)
+    }
+
+    /// The innermost scrollable entry the pointer is over.
+    fn topmost_scrollable(&self) -> Option<Id> {
+        let from = self.modal_from.unwrap_or(0);
+        self.hits[from..]
+            .iter()
+            .rev()
+            .find(|h| h.over && h.scrollable)
+            .map(|h| h.id)
     }
 
     /// Finish a frame, folding everything into one wake.
@@ -418,10 +565,9 @@ impl Frame {
     /// Six of these steps are named no-ops belonging to later tickets, and they are steps rather than
     /// comments so that filling one is not also deciding where it goes.
     fn end(&mut self) -> Option<Instant> {
-        // award the press — ticket 10.
+        self.award();
         // resolve Tab — ticket 12.
         // release the focus with the grab — ticket 12.
-        // settle hover — ticket 10.
         self.sweep();
         // resolve scroll-into-view — ticket 14.
 
@@ -432,6 +578,108 @@ impl Frame {
             (_, true) => Some(Instant::now()),
             (at, false) => at,
         }
+    }
+
+    /// **Award the pointer, from the index that has just drawn.**
+    ///
+    /// This is where both one-frame lags close. The guess `begin` resolved was a frame old, so it
+    /// could be wrong about *where* — and it never decides a click, only in-frame feedback. Here the
+    /// index is this frame's, so `over` was computed against the pointer as it was when this frame
+    /// drew, and a press that arrived where no frame had yet drawn still finds its widget.
+    ///
+    /// **That last case is not exotic**: at `Buttons` tracking the terminal sends no motion events at
+    /// all, so *every* press arrives at a position no frame has been told about.
+    fn award(&mut self) {
+        let mut a = Awarded {
+            mods: self.mods,
+            ..Awarded::default()
+        };
+        let over = self.topmost_over();
+        a.hovered = over;
+
+        for m in std::mem::take(&mut self.mouse) {
+            match m.kind {
+                vitui_engine::MouseKind::Down(_) => {
+                    // **The grab is exclusive.** Without it a splitter drag lights every button it
+                    // crosses — the pointer is over them, and without a grab every one of them is
+                    // hovered and pressable.
+                    if let Some(id) = over {
+                        self.grab = Some(id);
+                        self.press_origin = Some((id, (i32::from(m.x), i32::from(m.y))));
+                        a.pressed = Some(id);
+                    }
+                }
+                vitui_engine::MouseKind::Up(_) => {
+                    let held = self.grab.take();
+                    self.press_origin = None;
+                    if let Some(id) = held {
+                        a.released = Some(id);
+                        // A click is a release **over the widget that was pressed**.
+                        if over == Some(id) {
+                            let double = self.is_double(id, m.at, (i32::from(m.x), i32::from(m.y)));
+                            a.clicked = Some((id, double));
+                            self.click_record = Some((id, m.at));
+                        } else {
+                            // Released somewhere else: the drag was cancelled, and **the application
+                            // is told**, which the identity sweep alone did not do.
+                            a.cancelled = Some(id);
+                        }
+                    }
+                }
+                vitui_engine::MouseKind::Wheel(w) => {
+                    // **The wheel is withheld while a grab is held.** A drag is one gesture and a
+                    // scroll in the middle of it is not part of it.
+                    if self.grab.is_none() {
+                        if let Some(id) = self.topmost_scrollable() {
+                            let delta = match w {
+                                vitui_engine::Wheel::Up => (0, -1),
+                                vitui_engine::Wheel::Down => (0, 1),
+                                vitui_engine::Wheel::Left => (-1, 0),
+                                vitui_engine::Wheel::Right => (1, 0),
+                            };
+                            a.wheel = Some((id, delta));
+                        }
+                    }
+                }
+                vitui_engine::MouseKind::Move => {}
+            }
+        }
+
+        // **The long press costs a wakeup, and it is the only field that does**, because no event
+        // arrives while a button is held. Attributed to the runtime's own call site: blaming a
+        // component for a wake the runtime asked for is worse than no attribution at all.
+        if let Some((id, _)) = self.press_origin {
+            if let Some((_, since)) = self.click_record.filter(|(held, _)| *held == id) {
+                if since.elapsed() >= self.pointer_config.long_press {
+                    a.long_pressed = Some(id);
+                }
+            }
+            self.deadline = Some(match self.deadline {
+                Some(at) => at.min(Instant::now() + self.pointer_config.long_press),
+                None => Instant::now() + self.pointer_config.long_press,
+            });
+        }
+
+        self.awarded = Some(a);
+    }
+
+    /// Whether this click is the second of two.
+    ///
+    /// **Two comparisons against the *event's* stamp**, never the frame clock: the frame clock is
+    /// sampled once and a split drain would make it measure the drain rather than the user.
+    fn is_double(&self, id: Id, at: Instant, at_xy: (i32, i32)) -> bool {
+        let Some((last_id, last_at)) = self.click_record else {
+            return false;
+        };
+        if last_id != id {
+            return false;
+        }
+        let soon = at.duration_since(last_at) <= self.pointer_config.click_threshold;
+        let near = self.press_origin.is_none_or(|(_, origin)| {
+            origin.0.abs_diff(at_xy.0) <= u32::from(self.pointer_config.click_slop)
+                && origin.1.abs_diff(at_xy.1) <= u32::from(self.pointer_config.click_slop)
+        });
+        soon && near
     }
 
     /// **Release the three id-keyed facts whose widget stopped drawing.**
@@ -467,6 +715,17 @@ impl Frame {
             }
         }
         // The click record is **not** swept. See this function's documentation.
+    }
+
+    /// The hover style to apply, if anything is hovered. **Resolved from the index that has just
+    /// drawn**, which is what makes it land in the same frame.
+    fn hover_to_apply(&self) -> Option<(Rect, crate::theme::Role)> {
+        let hovered = self.awarded.and_then(|a| a.hovered)?;
+        self.hover_styles
+            .iter()
+            .rev()
+            .find(|(id, _, _)| *id == hovered)
+            .map(|&(_, r, role)| (r, role))
     }
 
     /// The hit index, for the gates and for ticket 10.
@@ -512,6 +771,21 @@ impl Frame {
         self.press_origin = grab.map(|id| (id, (0, 0)));
         self.focused = focus;
         self.click_record = click.map(|id| (id, Instant::now()));
+    }
+
+    /// Where the modal barrier is, for the gate. **`Option`, and `Some(0)` is not `None`.**
+    pub fn modal_from(&self) -> Option<usize> {
+        self.modal_from
+    }
+
+    /// Whose drag was cancelled, if any.
+    pub fn cancelled_drag(&self) -> Option<Id> {
+        self.awarded.and_then(|a| a.cancelled)
+    }
+
+    /// Who is hovered, as awarded from the index that has just drawn.
+    pub fn hovered_now(&self) -> Option<Id> {
+        self.awarded.and_then(|a| a.hovered)
     }
 
     /// The four id-keyed facts, for the gate that counts them.
@@ -626,6 +900,14 @@ pub struct Ctx<'f, 'v> {
     frame: &'v mut Frame,
     env: &'v Env,
     rect: Rect,
+    /// The pointer **in this context's own coordinates**, transformed on the way down by `child` and
+    /// `scrolled`.
+    ///
+    /// This is what makes the hit index need no geometry: containment is decided *during the draw*, in
+    /// the coordinates the widget is already thinking in, and the index carries one bit instead of a
+    /// rectangle. Geometry is needed **inside** a frame and never across one (ADR 0015) — which is the
+    /// rule, and is not the same as *no geometry*.
+    pointer: Option<(i32, i32)>,
     /// **Invariant in `'f`**, and the whole overlay guarantee rests on it: a covariant brand lets a
     /// caller shorten `'f` at a `child()` call, which makes the `+ 'f` bound on an overlay body
     /// satisfiable by a shorter capture. A lifetime in both argument and return position of a `fn`
@@ -681,6 +963,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
             frame: self.frame,
             env: self.env,
             rect: r,
+            pointer: self.pointer.map(|(x, y)| (x - r.x, y - r.y)),
             _frame: PhantomData,
             _not_send: PhantomData,
         }
@@ -693,6 +976,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
             frame: self.frame,
             env: self.env,
             rect: self.rect,
+            pointer: self.pointer.map(|(x, y)| (x - dx, y - dy)),
             _frame: PhantomData,
             _not_send: PhantomData,
         }
@@ -850,6 +1134,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
                 frame: self.frame,
                 env: self.env,
                 rect: self.rect,
+                pointer: self.pointer,
                 _frame: PhantomData,
                 _not_send: PhantomData,
             };
@@ -910,10 +1195,15 @@ impl<'f, 'v> Ctx<'f, 'v> {
             // entry, no tracking, no tab stop.
             return Response::inert(id, r);
         }
+        // **Containment, here, in this widget's own coordinates.** The pointer travelled down the
+        // `Ctx`; the index gets one bit.
+        let local = self
+            .pointer
+            .filter(|&(x, y)| x >= r.x && y >= r.y && x < r.right() && y < r.bottom());
         self.frame.hits.push(Hit {
             id,
             interest: i,
-            over: false,
+            over: local.is_some(),
             scrollable: i.contains(Interest::SCROLL),
         });
         // The `max` over a totally ordered ladder, which is why combining is not a negotiation.
@@ -921,7 +1211,80 @@ impl<'f, 'v> Ctx<'f, 'v> {
         if i.contains(Interest::FOCUS) {
             self.frame.ring.push(id);
         }
-        Response::inert(id, r)
+
+        let a = self.frame.delivered.unwrap_or_default();
+        let is = |who: Option<Id>| who == Some(id);
+        Response {
+            id,
+            rect: r,
+            // **The guess**, from the previous frame's index: in-frame feedback, and it never decides
+            // a click.
+            hovered: self.frame.hover_guess == Some(id),
+            pressed: self.frame.grab == Some(id),
+            released: is(a.released),
+            clicked: a.clicked.is_some_and(|(who, _)| who == id),
+            double_clicked: a.clicked.is_some_and(|(who, d)| who == id && d),
+            long_pressed: is(a.long_pressed),
+            dragged: match (self.frame.grab, self.frame.press_origin, local) {
+                (Some(g), Some((_, origin)), Some(now)) if g == id => {
+                    Some((now.0 - (origin.0 - r.x), now.1 - (origin.1 - r.y)))
+                }
+                _ => None,
+            },
+            scrolled: a
+                .wheel
+                .filter(|(who, _)| *who == id)
+                .map_or((0, 0), |(_, d)| d),
+            // **The position, not a delta.** A splitter, a slider and a selection drag all need where
+            // the pointer *is*; reconstructing it from a delta needs a press origin the widget was
+            // never given.
+            local: local.map(|(x, y)| (x - r.x, y - r.y)),
+            focused: self.frame.focused == Some(id),
+            focus_entered: false,
+            focus_left: false,
+            // **Never written by the runtime.** A component with a value sets it before returning,
+            // because the runtime does not hold the value and may not.
+            changed: false,
+            mods: a.mods,
+        }
+    }
+
+    /// Open a modal barrier here.
+    ///
+    /// **One index into the hit index**, which is already in draw order — so modality is an *ordering*
+    /// and not a membership, and nothing needs a layer id. Everything declared from here on is inside
+    /// the modal; everything before it is withheld from the pointer.
+    pub fn modal_barrier_here(&mut self) {
+        self.frame.modal_from = Some(self.frame.hits.len());
+    }
+
+    /// Declare an interactive region and derive its id from the call site.
+    ///
+    /// The spelling a component actually uses; `interact` is for a caller that already has an id.
+    #[track_caller]
+    pub fn interact_named(&mut self, id: Id, r: Rect, i: Interest) -> Response {
+        self.interact(id, r, i)
+    }
+
+    /// **Hover as a style, resolved in the same frame.**
+    ///
+    /// Declaring the intent during the draw and applying it at `end` is what closes the lag: the
+    /// winner is decided from the index that has just drawn, so it is right on the *first* frame of an
+    /// overlap, where a guess from the previous frame would still be pointing at what was on top
+    /// before.
+    ///
+    /// **What is left one frame old is hover that changes content or size**, and that is the whole
+    /// residue. A style is not; a different label is.
+    pub fn hover_style(&mut self, resp: &Response, r: Rect, role: crate::theme::Role) {
+        // Root coordinates, because `end` runs after every `Ctx` is dropped and a widget's own
+        // coordinates mean nothing to it by then.
+        let root = Rect::new(
+            r.x + (self.rect.x - self.area().x),
+            r.y + (self.rect.y - self.area().y),
+            r.w,
+            r.h,
+        );
+        self.frame.hover_styles.push((resp.id, root, role));
     }
 
     /// Take the next key for `id`.
@@ -1090,6 +1453,8 @@ pub struct Driver {
     frame: Frame,
     env: Env,
     base: LayerId,
+    /// Pointer events posted through [`Driver::post_mouse`], drained by the next frame.
+    pending: Vec<vitui_engine::Mouse>,
 }
 
 impl Driver {
@@ -1109,6 +1474,7 @@ impl Driver {
                 theme_changed: true,
             },
             base,
+            pending: Vec::new(),
         })
     }
 
@@ -1138,14 +1504,20 @@ impl Driver {
         // gains no step for it (ticket 16).
 
         // begin.
-        let batch: Vec<vitui_engine::Key> = std::iter::from_fn(|| self.screen.next_event())
-            .filter_map(|e| match e {
-                vitui_engine::Event::Key(k) => Some(k),
-                _ => None,
-            })
-            .collect();
+        let mut keys: Vec<vitui_engine::Key> = Vec::new();
+        let mut mice: Vec<vitui_engine::Mouse> = Vec::new();
+        while let Some(event) = self.screen.next_event() {
+            match event {
+                vitui_engine::Event::Key(k) => keys.push(k),
+                vitui_engine::Event::Mouse(m) => mice.push(m),
+                // Paste, resize and focus are tickets 11 and 12's; the arm exists so that adding one
+                // is filling a hole rather than finding a place to put it.
+                _ => {}
+            }
+        }
+        mice.append(&mut self.pending);
         self.env.now = Instant::now();
-        self.frame.begin(batch);
+        self.frame.begin(keys, mice);
 
         // resolve, from the PREVIOUS frame's index, what cannot be answered during the draw:
         // which widget is topmost, and which owns the wheel. Ticket 10 fills both; the step is here
@@ -1155,6 +1527,7 @@ impl Driver {
         // screen mutably and reading the size borrows it again — `E0502`, and the fix is an ordering
         // rather than a clone.
         let (w, h) = self.screen.size();
+        let pointer = self.frame.pointer;
         {
             let mut cx = Ctx {
                 view: self
@@ -1165,6 +1538,7 @@ impl Driver {
                 frame: &mut self.frame,
                 env: &self.env,
                 rect: Rect::new(0, 0, w, h),
+                pointer,
                 _frame: PhantomData,
                 _not_send: PhantomData,
             };
@@ -1182,6 +1556,20 @@ impl Driver {
 
         // end.
         let wake = self.frame.end();
+
+        // **Hover as a style, applied after the draw and before `present`.** This is the whole of why
+        // it lands in the same frame: the winner was decided from the index that has just drawn, and
+        // the restyle happens while the frame is still ours.
+        if let Some((r, role)) = self.frame.hover_to_apply() {
+            let lowered = crate::theme::Repaint {
+                bg: Some(role),
+                ..Default::default()
+            }
+            .lower(&self.env.theme);
+            if let Some(mut view) = self.screen.layers().view(self.base) {
+                view.restyle(r, &lowered);
+            }
+        }
 
         // settle.
         self.screen.set_mouse(self.frame.tracking);
@@ -1222,6 +1610,18 @@ impl Driver {
     /// The screen's size.
     pub fn size(&self) -> (u16, u16) {
         self.screen.size()
+    }
+
+    /// Post a pointer event for the next frame.
+    ///
+    /// **A door for the gates and the reports, and it has to exist.** A headless attach has no tty, so
+    /// `Screen::next_event` never yields anything and there is no other way to drive the pointer at
+    /// all — every property in this ticket is about what a press does, and none of it would be
+    /// testable. It is the same shape as `Clock::Manual`: a deterministic input path that is public
+    /// API rather than test scaffolding, because a test that cannot reach the mechanism is not a test
+    /// of it.
+    pub fn post_mouse(&mut self, m: vitui_engine::Mouse) {
+        self.pending.push(m);
     }
 
     /// Plant the id-keyed facts, for the gates. **Tickets 10 and 12 own the real writers** — the
@@ -1807,5 +2207,549 @@ mod tests {
             assert_eq!(back.map(|k| k.code), Some(KeyCode::Char('a')));
             assert!(cx.next_key(Id::ROOT).is_none(), "and only the one");
         });
+    }
+}
+
+#[cfg(test)]
+mod pointer_tests {
+    //! Ticket 10's gates: the index that carries no geometry, and everything awarded at `end`.
+
+    use super::*;
+    use crate::id::Id;
+    use crate::theme::Role;
+    use vitui_engine::{Button, Buttons, Mouse, MouseKind, Wheel};
+
+    fn driver() -> Driver {
+        Driver::headless(300, 80).expect("attaching to a sink cannot fail")
+    }
+
+    fn at(x: u16, y: u16, kind: MouseKind, buttons: Buttons) -> Mouse {
+        Mouse {
+            x,
+            y,
+            kind,
+            buttons,
+            mods: vitui_engine::Mods::NONE,
+            at: Instant::now(),
+        }
+    }
+
+    fn moved(x: u16, y: u16) -> Mouse {
+        at(x, y, MouseKind::Move, Buttons::NONE)
+    }
+
+    fn down(x: u16, y: u16) -> Mouse {
+        at(x, y, MouseKind::Down(Button::Left), Buttons::NONE)
+    }
+
+    fn up(x: u16, y: u16) -> Mouse {
+        at(x, y, MouseKind::Up(Button::Left), Buttons::NONE)
+    }
+
+    /// **The index entry is sixteen bytes and carries no rectangle and no layer id.**
+    ///
+    /// The rect buys nothing, because containment is decided during the draw from the pointer that
+    /// travelled down the `Ctx`; `layer` goes because modality is an *ordering* into a list that is
+    /// already in draw order, not a membership.
+    #[test]
+    fn the_index_entry_is_sixteen_bytes_and_holds_no_geometry() {
+        assert_eq!(size_of::<Hit>(), 16);
+        // What it would have been with the two fields the proposal had.
+        struct WithGeometry {
+            _id: Id,
+            _layer: u32,
+            _rect: Rect,
+            _interest: Interest,
+        }
+        assert_eq!(size_of::<WithGeometry>(), 32);
+    }
+
+    /// **Modality is an `Option<usize>`, and `0` is not a sentinel.**
+    ///
+    /// `usize` alone meant both *no modal* and *a modal over nothing* — a modal declared before any
+    /// widget drew. Both are reachable and they are different situations.
+    #[test]
+    fn a_modal_over_nothing_is_not_no_modal() {
+        let mut d = driver();
+        d.post_mouse(moved(1, 1));
+        d.frame(|cx| {
+            // A modal barrier before anything has drawn: index 0, and nothing is inside it.
+            cx.modal_barrier_here();
+            cx.interact(Id::from_raw(1), Rect::new(0, 0, 4, 1), Interest::CLICK);
+        });
+        assert_eq!(
+            d.inspect().modal_from(),
+            Some(0),
+            "a modal over nothing is Some(0), which is not None"
+        );
+
+        let mut e = driver();
+        e.frame(|cx| {
+            cx.interact(Id::from_raw(1), Rect::new(0, 0, 4, 1), Interest::CLICK);
+        });
+        assert_eq!(e.inspect().modal_from(), None, "and no modal is None");
+    }
+
+    /// A modal withholds the pointer from everything declared before it.
+    #[test]
+    fn a_modal_withholds_the_pointer_from_what_is_behind_it() {
+        let mut d = driver();
+        let behind = Id::from_raw(1);
+        let inside = Id::from_raw(2);
+        d.post_mouse(moved(2, 0));
+        // Frame one: both draw, no modal, so the pointer finds the innermost.
+        d.frame(|cx| {
+            cx.interact(behind, Rect::new(0, 0, 8, 1), Interest::CLICK);
+            cx.interact(inside, Rect::new(0, 0, 8, 1), Interest::CLICK);
+        });
+        // Frame two: a modal opens above `behind`.
+        d.post_mouse(moved(2, 0));
+        let mut behind_hovered = None;
+        d.frame(|cx| {
+            let b = cx.interact(behind, Rect::new(0, 0, 8, 1), Interest::CLICK);
+            cx.modal_barrier_here();
+            cx.interact(inside, Rect::new(0, 0, 8, 1), Interest::CLICK);
+            behind_hovered = Some(b.hovered);
+        });
+        // The guess was from frame one, where the innermost was `inside`; the award is from frame two.
+        d.post_mouse(moved(2, 0));
+        let mut behind_now = None;
+        d.frame(|cx| {
+            let b = cx.interact(behind, Rect::new(0, 0, 8, 1), Interest::CLICK);
+            cx.modal_barrier_here();
+            cx.interact(inside, Rect::new(0, 0, 8, 1), Interest::CLICK);
+            behind_now = Some(b.hovered);
+        });
+        assert_eq!(
+            behind_now,
+            Some(false),
+            "a widget behind a modal is not hovered, whatever the pointer is over"
+        );
+    }
+
+    /// **The count is bounded by visible cells and not by data**: the same screen over two thousand
+    /// rows and over a million declares the same entries.
+    #[test]
+    fn the_entry_count_is_identical_over_two_thousand_and_a_million_rows() {
+        fn screen(cx: &mut Ctx<'_, '_>, rows: i64) {
+            // A list that culls, which is the only way a million rows is affordable at all.
+            let visible = cx.visible_rows();
+            for row in visible.start..visible.end.min(80) {
+                if i64::from(row) >= rows {
+                    break;
+                }
+                cx.with_key(u64::try_from(row).unwrap_or(0), |r| {
+                    // **Two targets a row**, which is the mechanical trigger for the spread: an entry
+                    // carrying no geometry cannot separate them, so the author declares per target.
+                    let label = r.id();
+                    r.interact(label, Rect::new(0, row, 40, 1), Interest::CLICK);
+                    r.interact(
+                        Id::keyed(Id::from_raw(9), u64::try_from(row).unwrap_or(0)),
+                        Rect::new(40, row, 8, 1),
+                        Interest::CLICK,
+                    );
+                });
+            }
+        }
+
+        let mut small = driver();
+        small.frame(|cx| screen(cx, 2_000));
+        let a = small.inspect().hits().len();
+
+        let mut large = driver();
+        large.frame(|cx| screen(cx, 1_000_000));
+        let b = large.inspect().hits().len();
+
+        assert_eq!(a, b, "the count moved with the data volume");
+        assert_eq!(a, 160, "eighty rows, two targets each");
+    }
+
+    /// **The press is awarded at `end`, from the index that has just drawn** — so a press arriving
+    /// where no frame has been told the pointer is still finds its widget.
+    ///
+    /// This is not an exotic case: **at `Buttons` tracking the terminal sends no motion events at
+    /// all**, so every press arrives at a position no frame has heard about.
+    #[test]
+    fn a_press_where_no_frame_has_drawn_still_reaches_its_widget() {
+        let mut d = driver();
+        let button = Id::from_raw(1);
+
+        // Frame one: the widget draws, and the pointer has never been reported.
+        d.frame(|cx| {
+            cx.interact(button, Rect::new(10, 5, 6, 1), Interest::CLICK);
+        });
+        assert_eq!(
+            d.inspect().tracking(),
+            MouseMode::Buttons,
+            "no motion is sent"
+        );
+
+        // A press arrives at a position no frame has seen. Frame two draws and awards it.
+        d.post_mouse(down(12, 5));
+        let mut pressed_during_draw = None;
+        d.frame(|cx| {
+            let r = cx.interact(button, Rect::new(10, 5, 6, 1), Interest::CLICK);
+            pressed_during_draw = Some(r.pressed);
+        });
+        assert_eq!(
+            pressed_during_draw,
+            Some(false),
+            "during the draw nothing was known — the guess was from a frame with no pointer"
+        );
+        assert!(
+            d.inspect().id_keyed_facts().0,
+            "and at `end` the grab was awarded from the index that had just drawn"
+        );
+
+        // The release completes the click, delivered on the next frame.
+        //
+        // **The widget has to draw on the frame that processes the release**, and the first version of
+        // this test put an empty frame in between. That frame's award ran over an empty index, so the
+        // release found a grab and nothing under the pointer — which is a *cancelled drag*, correctly,
+        // and not a click. A widget that stops drawing mid-gesture has cancelled it.
+        d.post_mouse(up(12, 5));
+        d.frame(|cx| {
+            cx.interact(button, Rect::new(10, 5, 6, 1), Interest::CLICK);
+        });
+        let mut clicked = None;
+        d.frame(|cx| {
+            let r = cx.interact(button, Rect::new(10, 5, 6, 1), Interest::CLICK);
+            clicked = Some(r.clicked);
+        });
+        assert_eq!(clicked, Some(true), "the click reached its widget");
+    }
+
+    /// **`begin`'s guess never produces a wrong click.** A pointer that moves between two widgets
+    /// that do not touch hovers nothing on the frame it crosses — and does not click the one it left.
+    #[test]
+    fn the_guess_never_becomes_a_wrong_click() {
+        let mut d = driver();
+        let left = Id::from_raw(1);
+        let right = Id::from_raw(2);
+        let draw = |cx: &mut Ctx<'_, '_>| {
+            (
+                cx.interact(left, Rect::new(0, 0, 4, 1), Interest::CLICK),
+                cx.interact(right, Rect::new(20, 0, 4, 1), Interest::CLICK),
+            )
+        };
+
+        // Over the left one, then a press over the right one in the same batch as the move.
+        d.post_mouse(moved(1, 0));
+        d.frame(|cx| {
+            draw(cx);
+        });
+        d.post_mouse(moved(21, 0));
+        d.post_mouse(down(21, 0));
+        d.post_mouse(up(21, 0));
+        d.frame(|cx| {
+            draw(cx);
+        });
+        // The award came from this frame's index, where the pointer was over `right`.
+        let mut clicks = (false, false);
+        d.frame(|cx| {
+            let (l, r) = draw(cx);
+            clicks = (l.clicked, r.clicked);
+        });
+        assert_eq!(
+            clicks,
+            (false, true),
+            "the click went to where the pointer was, not to the previous frame's guess"
+        );
+    }
+
+    /// **A held grab is exclusive.** Without it a splitter drag lights every button it crosses.
+    #[test]
+    fn a_held_grab_is_exclusive() {
+        let mut d = driver();
+        let splitter = Id::from_raw(1);
+        let button = Id::from_raw(2);
+        let draw = |cx: &mut Ctx<'_, '_>| {
+            (
+                cx.interact(splitter, Rect::new(0, 0, 1, 10), Interest::DRAG),
+                cx.interact(
+                    button,
+                    Rect::new(10, 5, 6, 1),
+                    Interest::CLICK.with(Interest::HOVER),
+                ),
+            )
+        };
+
+        d.post_mouse(moved(0, 5));
+        d.frame(|cx| {
+            draw(cx);
+        });
+        d.post_mouse(down(0, 5));
+        d.frame(|cx| {
+            draw(cx);
+        });
+        assert!(d.inspect().id_keyed_facts().0, "the splitter holds it");
+
+        // Drag across the button.
+        d.post_mouse(moved(12, 5));
+        let mut button_pressed = None;
+        d.frame(|cx| {
+            let (_, b) = draw(cx);
+            button_pressed = Some(b.pressed);
+        });
+        assert_eq!(
+            button_pressed,
+            Some(false),
+            "the button the drag crossed was not pressed — the grab is exclusive"
+        );
+    }
+
+    /// **The wheel is withheld while a grab is held.** A drag is one gesture and a scroll in the
+    /// middle of it is not part of it.
+    #[test]
+    fn the_wheel_is_withheld_while_a_grab_is_held() {
+        let mut d = driver();
+        let list = Id::from_raw(1);
+        let draw = |cx: &mut Ctx<'_, '_>| {
+            cx.interact(
+                list,
+                Rect::new(0, 0, 40, 20),
+                Interest::SCROLL.with(Interest::DRAG),
+            )
+        };
+
+        // A wheel with nothing held reaches the list.
+        d.post_mouse(moved(5, 5));
+        d.frame(|cx| {
+            draw(cx);
+        });
+        d.post_mouse(at(5, 5, MouseKind::Wheel(Wheel::Down), Buttons::NONE));
+        d.frame(|cx| {
+            draw(cx);
+        });
+        let mut scrolled = (0, 0);
+        d.frame(|cx| {
+            scrolled = draw(cx).scrolled;
+        });
+        assert_eq!(scrolled, (0, 1), "the wheel reached the list");
+
+        // Now hold the pointer and try again.
+        d.post_mouse(down(5, 5));
+        d.frame(|cx| {
+            draw(cx);
+        });
+        d.post_mouse(at(5, 5, MouseKind::Wheel(Wheel::Down), Buttons::NONE));
+        d.frame(|cx| {
+            draw(cx);
+        });
+        let mut held_scroll = (0, 0);
+        d.frame(|cx| {
+            held_scroll = draw(cx).scrolled;
+        });
+        assert_eq!(held_scroll, (0, 0), "the wheel was withheld");
+    }
+
+    /// **A cancelled drag reaches the application**, which the identity sweep alone did not do.
+    #[test]
+    fn a_cancelled_drag_reaches_the_application() {
+        let mut d = driver();
+        let thumb = Id::from_raw(1);
+        let draw = |cx: &mut Ctx<'_, '_>| cx.interact(thumb, Rect::new(0, 0, 1, 4), Interest::DRAG);
+        d.post_mouse(moved(0, 1));
+        d.frame(|cx| {
+            draw(cx);
+        });
+        d.post_mouse(down(0, 1));
+        d.frame(|cx| {
+            draw(cx);
+        });
+        // Released a long way away: not a click, and the widget has to be told.
+        d.post_mouse(moved(50, 40));
+        d.post_mouse(up(50, 40));
+        d.frame(|cx| {
+            draw(cx);
+        });
+        // **Read immediately.** The award is rotated into `delivered` by the next `begin`, so asking
+        // after another frame asks about that frame instead — which is how the first version of this
+        // test managed to see `None`.
+        assert_eq!(
+            d.inspect().cancelled_drag(),
+            Some(thumb),
+            "the cancellation is recorded rather than silently swallowed"
+        );
+        let mut r = None;
+        d.frame(|cx| {
+            r = Some(draw(cx));
+        });
+        assert!(
+            !r.expect("the frame ran").clicked,
+            "and a release elsewhere is not a click"
+        );
+    }
+
+    /// **One region in 312 raises the whole frame to `Motion`**, and the escape is the theme.
+    #[test]
+    fn one_hovering_region_raises_the_frame_and_a_flat_theme_does_not() {
+        let hovering = |cx: &mut Ctx<'_, '_>| {
+            let interest = cx.theme().hover_interest().with(Interest::CLICK);
+            for i in 0..312u64 {
+                cx.interact(Id::keyed(Id::ROOT, i), Rect::new(0, 0, 4, 1), interest);
+            }
+        };
+
+        // A theme whose hover is visible.
+        let mut rich = driver();
+        rich.frame(hovering);
+        assert_eq!(
+            rich.inspect().tracking(),
+            MouseMode::Motion,
+            "a visible hover costs motion reporting"
+        );
+
+        // **A flat theme leaves the same 312 entries at `Drag`.** That is a routing consequence of a
+        // theme switch, and it is why hover interest comes from the theme rather than from a literal.
+        let mut flat = driver();
+        flat.set_theme(Theme::default().resolve(vitui_engine::ColorDepth::None));
+        flat.frame(|cx| {
+            let interest = cx
+                .theme()
+                .hover_interest()
+                .with(Interest::CLICK)
+                .with(Interest::DRAG);
+            for i in 0..312u64 {
+                cx.interact(Id::keyed(Id::ROOT, i), Rect::new(0, 0, 4, 1), interest);
+            }
+        });
+        assert_eq!(
+            flat.inspect().tracking(),
+            MouseMode::Drag,
+            "a flat theme does not pay for a highlight nobody can see"
+        );
+    }
+
+    /// `Response` carries the modifiers, which is what makes ctrl-click expressible.
+    #[test]
+    fn the_response_carries_the_modifiers() {
+        let mut d = driver();
+        let row = Id::from_raw(1);
+        let draw = |cx: &mut Ctx<'_, '_>| cx.interact(row, Rect::new(0, 0, 8, 1), Interest::CLICK);
+
+        d.post_mouse(moved(2, 0));
+        d.frame(|cx| {
+            draw(cx);
+        });
+        let mut ctrl_click = Mouse {
+            mods: vitui_engine::Mods::CTRL,
+            ..down(2, 0)
+        };
+        d.post_mouse(ctrl_click);
+        ctrl_click.kind = MouseKind::Up(Button::Left);
+        d.post_mouse(ctrl_click);
+        d.frame(|cx| {
+            draw(cx);
+        });
+        let mut got = None;
+        d.frame(|cx| got = Some(draw(cx)));
+        let got = got.expect("the frame ran");
+        assert!(got.clicked);
+        assert!(
+            got.mods.ctrl(),
+            "a ctrl-click is a click plus a modifier, and the field is how a component sees it"
+        );
+    }
+
+    /// `local` is a position and not a delta, which is what a slider needs.
+    #[test]
+    fn local_is_a_position_in_the_widgets_own_coordinates() {
+        let mut d = driver();
+        d.post_mouse(moved(13, 7));
+        d.frame(|cx| {
+            // A widget at (10, 5): the pointer at (13, 7) is at (3, 2) inside it.
+            let r = cx.interact(Id::from_raw(1), Rect::new(10, 5, 8, 4), Interest::DRAG);
+            assert_eq!(r.local, Some((3, 2)));
+            // And a widget the pointer is outside gets nothing rather than a negative guess.
+            let out = cx.interact(Id::from_raw(2), Rect::new(0, 0, 4, 1), Interest::DRAG);
+            assert_eq!(out.local, None);
+        });
+    }
+
+    /// `local` survives being nested and scrolled, because the pointer travels down the `Ctx`.
+    #[test]
+    fn local_survives_nesting_and_scrolling() {
+        let mut d = driver();
+        d.post_mouse(moved(13, 7));
+        d.frame(|cx| {
+            let mut pane = cx.child(Rect::new(10, 5, 20, 10));
+            // Inside the pane the pointer is at (3, 2).
+            let r = pane.interact(Id::from_raw(1), Rect::new(0, 0, 8, 4), Interest::DRAG);
+            assert_eq!(r.local, Some((3, 2)));
+            let mut scrolled = pane.scrolled(0, -100);
+            // Scrolled, the same screen position is a different content row.
+            let s = scrolled.interact(Id::from_raw(2), Rect::new(0, 100, 8, 4), Interest::DRAG);
+            assert_eq!(s.local, Some((3, 2)));
+        });
+    }
+
+    /// **`changed` is never written by the runtime.**
+    #[test]
+    fn changed_is_never_written_by_the_runtime() {
+        let mut d = driver();
+        d.post_mouse(moved(2, 0));
+        d.frame(|cx| {
+            cx.interact(Id::from_raw(1), Rect::new(0, 0, 8, 1), Interest::CLICK);
+        });
+        d.post_mouse(down(2, 0));
+        d.post_mouse(up(2, 0));
+        d.frame(|cx| {
+            cx.interact(Id::from_raw(1), Rect::new(0, 0, 8, 1), Interest::CLICK);
+        });
+        let mut changed = None;
+        d.frame(|cx| {
+            let r = cx.interact(Id::from_raw(1), Rect::new(0, 0, 8, 1), Interest::CLICK);
+            assert!(r.clicked, "it was clicked");
+            changed = Some(r.changed);
+        });
+        assert_eq!(
+            changed,
+            Some(false),
+            "a click is not a change — the runtime does not hold the value and may not"
+        );
+    }
+
+    /// The thresholds are the three the ticket names.
+    #[test]
+    fn the_thresholds_are_configuration() {
+        let p = Pointer::default();
+        assert_eq!(p.click_threshold, Duration::from_millis(400));
+        assert_eq!(p.click_slop, 1);
+        assert_eq!(p.long_press, Duration::from_millis(500));
+    }
+
+    /// Hover as a style resolves in the same frame, on the first frame of an overlap.
+    #[test]
+    fn hover_as_a_style_resolves_in_the_same_frame() {
+        let mut d = driver();
+        let under = Id::from_raw(1);
+        let over = Id::from_raw(2);
+        d.post_mouse(moved(2, 0));
+        // Frame one: only `under` draws, so the guess will point at it.
+        d.frame(|cx| {
+            let r = cx.interact(under, Rect::new(0, 0, 8, 1), Interest::HOVER);
+            cx.hover_style(&r, Rect::new(0, 0, 8, 1), Role::FaceHover);
+        });
+        // Frame two: `over` appears on top. The guess still says `under`; the award says `over`.
+        d.post_mouse(moved(2, 0));
+        let mut guessed = None;
+        d.frame(|cx| {
+            let a = cx.interact(under, Rect::new(0, 0, 8, 1), Interest::HOVER);
+            let b = cx.interact(over, Rect::new(0, 0, 8, 1), Interest::HOVER);
+            cx.hover_style(&a, Rect::new(0, 0, 8, 1), Role::FaceHover);
+            cx.hover_style(&b, Rect::new(0, 0, 8, 1), Role::FaceHover);
+            guessed = Some((a.hovered, b.hovered));
+        });
+        assert_eq!(
+            guessed,
+            Some((true, false)),
+            "the guess is a frame old and points at what was on top before"
+        );
+        assert_eq!(
+            d.inspect().hovered_now(),
+            Some(over),
+            "**and the style went to the one actually on top, in this frame**"
+        );
     }
 }
