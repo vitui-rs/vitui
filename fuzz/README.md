@@ -162,5 +162,5 @@ What *was* run, at ticket 25, on macOS/arm64 with nightly and `cargo-fuzz 0.13.2
 the committed seeds, for the times recorded in the ticket. `draw_sequence` found **two live defects**
 in the operator's reach at the frame's edge — both fixed, both committed as named unit tests — and
 **three instances of an open architecture question** (arch 20), which are in the corpus and are
-excused by one allowance that names the ticket. `input_bytes` found nothing, over about twenty minutes
-and eighteen hundred coverage units.
+excused by one allowance that names the ticket. `input_bytes` found nothing over **10 518 149 executions in
+1 201 seconds** — 24 741 new coverage units at 8 757 executions a second.
