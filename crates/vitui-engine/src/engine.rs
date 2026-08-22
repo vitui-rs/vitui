@@ -55,9 +55,10 @@
 
 use std::io::{ErrorKind, Write};
 use std::marker::PhantomData;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::thread::JoinHandle;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::actuate::{Actuators, Cursor};
 use crate::caps::{Capabilities, Env, Ground, Overrides, assemble};
@@ -69,6 +70,7 @@ use crate::handoff::{Lease, Mailbox, TerminalSize};
 use crate::input::{Event, InputConfig, InputDiagnostics, MouseMode};
 use crate::layer::LayerStack;
 use crate::packet::Packet;
+use crate::perf::{Perf, Permit};
 use crate::quirks::Quirks;
 use crate::serial::Serializer;
 use crate::shutdown::Site;
@@ -166,7 +168,6 @@ impl std::fmt::Debug for Output {
 /// };
 /// assert_eq!(config.size, (80, 24));
 /// ```
-#[derive(Debug)]
 pub struct Config {
     /// Where the frame clock takes its time from.
     pub clock: Clock,
@@ -199,6 +200,40 @@ pub struct Config {
     /// argv**, and every field is an `Option` so that the environment can fill a `None` and can
     /// never overrule a `Some`.
     pub overrides: Overrides,
+    /// What an iteration may cost before the app thread is told it lost a frame, or `None` for
+    /// **one frame interval** — the same number as [`Config::max_frame_rate`], and the only
+    /// threshold spec §11 would accept.
+    ///
+    /// **The map's < 100 µs is a CI gate on one stage of the engine's own work, not a runtime
+    /// threshold for the application's whole iteration**, and pinning it here at 100 µs would be a
+    /// bug rather than a strict setting: a full realistic `wake → submit` is **166.76 µs**, so the
+    /// watchdog would fire on entirely legitimate frames. One frame interval is 8.3 ms at 120 Hz and
+    /// 3.3 ms at 300 Hz, which makes that 166.76 µs 1.0% of it — 100x of headroom and no false
+    /// positives — and an overrun then means a **dropped frame**, which is the event a user can
+    /// actually perceive.
+    ///
+    /// An unlimited [`max_frame_rate`](Config::max_frame_rate) still has a threshold: *do not pace
+    /// me* is a statement about the wire, not about how patient an eye is, so the derivation falls
+    /// back to 60 Hz. `Some(Duration::MAX)` is how an application switches the detector off, and
+    /// [`Screen::set_max_frame_rate`] does not move a threshold that was pinned here.
+    ///
+    /// **The sanction differs by profile and not by configuration.** A debug build panics on the
+    /// first overrun — safe by construction, because the restoration is idempotent and runs before
+    /// the default hook prints — and a release build warns once, into
+    /// [`overrun_report`](Config::overrun_report).
+    pub overrun_threshold: Option<Duration>,
+    /// Where a release build's one warning about a dropped frame goes, or `None` for silence.
+    ///
+    /// **Silence rather than stderr**, and that is not laziness: a full-screen application's stderr
+    /// is the terminal it is drawing on, and a line printed into the alt screen corrupts the frame
+    /// that is on it. An application that wants the diagnostic — and it is the one diagnostic that
+    /// reaches a user's bug report — gives it somewhere to go: a log file, a channel, a `Vec`.
+    ///
+    /// It is written **once per process**. A frame that overruns usually overruns again, so a line
+    /// per frame would be an I/O call on the frame path for ever and a file nobody reads.
+    ///
+    /// A debug build panics instead, and writes here first so that both audiences get it.
+    pub overrun_report: Option<Box<dyn Write + Send>>,
     /// What the terminal is switched on for, as a **floor** rather than a setting.
     ///
     /// See [`InputConfig`]. Every field is load-bearing: the escape sequences that ask a terminal
@@ -228,8 +263,29 @@ impl Default for Config {
             output: Output::default(),
             size: Config::DEFAULT_SIZE,
             overrides: Overrides::default(),
+            overrun_threshold: None,
+            overrun_report: None,
             input: InputConfig::default(),
         }
+    }
+}
+
+/// By hand, because [`Config::overrun_report`] is a sink and a sink is not `Debug`.
+///
+/// The same shape [`Output`] already needs one for, and for the same reason. Every other field is
+/// printed; the sink is reported as present or absent, which is the only thing about it that can be.
+impl std::fmt::Debug for Config {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Config")
+            .field("clock", &self.clock)
+            .field("max_frame_rate", &self.max_frame_rate)
+            .field("output", &self.output)
+            .field("size", &self.size)
+            .field("overrides", &self.overrides)
+            .field("overrun_threshold", &self.overrun_threshold)
+            .field("overrun_report", &self.overrun_report.is_some())
+            .field("input", &self.input)
+            .finish()
     }
 }
 
@@ -434,6 +490,14 @@ impl Engine {
                 self.config.max_frame_rate,
                 self.config.clock == Clock::System,
             ),
+            // **The threshold is a frame interval whether or not the clock paces one.** `Manual`
+            // removes the pacing, not the budget: a deterministic application's app thread freezes
+            // for exactly as long as a paced one's.
+            perf: Perf::new(
+                self.config.max_frame_rate,
+                self.config.overrun_threshold,
+                self.config.overrun_report,
+            ),
             wakes: Arc::clone(&wakes),
             terminal_size: Arc::clone(&terminal_size),
             input: Arc::clone(&input),
@@ -463,6 +527,25 @@ impl Engine {
         // prologue are the one place the engine both writes and reads, and they are finished before
         // a second thread exists.
         screen.spawn_render_thread();
+        // **Debug only, after the setup, and only where there is a loop to watch.** After, because
+        // raw mode, the query batch and the prologue are the one place the engine both writes and
+        // reads and they finish before a second thread exists — an observer spawned above this line
+        // would be concurrency during the setup that exists to have none, even though it has nothing
+        // to say until an iteration begins.
+        //
+        // Only on `Clock::System`, because `Manual` has no thread to interleave with, a
+        // deterministic program does not call `wait` at all (spec §14's test is a straight line), and
+        // a test binary that attaches hundreds of times would otherwise carry a thread per attach.
+        //
+        // And only in a debug build: the words this thread would print are absent from a release
+        // binary altogether, which is register entry #18 and what `scripts/observer-gate.sh` reads a
+        // binary to check.
+        #[cfg(debug_assertions)]
+        if self.config.clock == Clock::System {
+            screen
+                .perf
+                .observe(crate::shutdown::restore_current as fn());
+        }
         // And then the input thread, which adopts detection's reader rather than opening one of its
         // own — a second reader of the same file descriptor steals bytes from the first. Nothing is
         // spawned when there is no terminal: a headless screen has no keyboard, and a thread parked
@@ -595,6 +678,77 @@ impl WakeHandle {
 ///     .unwrap();
 /// assert_eq!(screen.size(), (80, 24));
 /// ```
+///
+/// # The two holes this closes, and both of their tests used to pass
+///
+/// Spec §11's real yield was not the marker; it was that *"with one producer the slot is always
+/// empty at submit, so a packet can never be superseded"* — asserted over 10 000 cycles — is a claim
+/// **with one producer**, and nothing made one producer true. Two tests were written and both
+/// passed, which is what made both of them holes: a worker thread could lease and submit a packet,
+/// and a worker thread could call `wait` and consume a wake the app thread never saw. **The thief
+/// received the event.** That second one is exactly the silent freeze this whole rung exists to make
+/// unrepresentable — no CPU, no log, no wakeup, and the app thread waiting for something already
+/// gone.
+///
+/// Both are `E0277` on this type's private `PhantomData<*const ()>` now, and both are gated below
+/// rather than described. A worker cannot **produce a frame**:
+///
+/// ```compile_fail,E0277
+/// let (mut screen, _wake) = vitui_engine::Engine::new(vitui_engine::Config {
+///     output: vitui_engine::Output::Sink(Box::new(Vec::new())),
+///     ..Default::default()
+/// })
+/// .attach()
+/// .unwrap();
+/// std::thread::spawn(move || screen.present());
+/// ```
+///
+/// and a worker cannot **steal a wake**:
+///
+/// ```compile_fail,E0277
+/// let (mut screen, _wake) = vitui_engine::Engine::new(vitui_engine::Config {
+///     output: vitui_engine::Output::Sink(Box::new(Vec::new())),
+///     ..Default::default()
+/// })
+/// .attach()
+/// .unwrap();
+/// std::thread::spawn(move || screen.wait());
+/// ```
+///
+/// and a worker cannot **draw**, which is the door the other two would have gone through anyway —
+/// the layer stack is reachable only from here:
+///
+/// ```compile_fail,E0277
+/// let (mut screen, _wake) = vitui_engine::Engine::new(vitui_engine::Config {
+///     output: vitui_engine::Output::Sink(Box::new(Vec::new())),
+///     ..Default::default()
+/// })
+/// .attach()
+/// .unwrap();
+/// std::thread::spawn(move || screen.layers().len());
+/// ```
+///
+/// The positive twin for all three, naming each of the three verbs by path on this thread — because
+/// a `compile_fail` alone passes for any reason at all, including the type having been renamed:
+///
+/// ```
+/// use vitui_engine::{Config, Engine, Output, Screen, Wake, WakeHandle};
+///
+/// let (mut screen, wake): (Screen, WakeHandle) = Engine::new(Config {
+///     output: Output::Sink(Box::new(Vec::new())),
+///     ..Default::default()
+/// })
+/// .attach()
+/// .unwrap();
+/// assert_eq!(Screen::layers(&mut screen).len(), 0);
+/// assert!(!Screen::present(&mut screen).submitted);
+/// wake.quit();
+/// assert_eq!(Screen::wait(&mut screen), Wake::Quit);
+/// ```
+///
+/// The wake source was in fact **self-contradictory as one type**, which is the structural reason
+/// ADR 0003's split is not merely tidier: the posting verb has to be `Sync` to be callable from a
+/// worker, and `wait` must not be. [`WakeHandle`] is the `Sync` half and it has two verbs.
 pub struct Screen {
     size: (u16, u16),
     layers: LayerStack,
@@ -616,6 +770,12 @@ pub struct Screen {
     /// The minimum gap between two frames, and when the last one went out. **The app thread's
     /// alone**, which is why it is not behind the wake source's lock.
     frame_clock: FrameClock,
+    /// How long the app thread's iteration took, and what happens when it took too long.
+    ///
+    /// Behind an `Rc` because [`Permit`] holds one and may not borrow this `Screen`: a permitted
+    /// region draws, and drawing takes `&mut self`. See [`crate::perf::Permit`], which is where the
+    /// borrow that spec §11's *`Cell` and `&self` throughout* does not fix is written down.
+    perf: Rc<Perf>,
     /// The one thing that can wake this thread: an input event, a post, a deadline, or the renderer
     /// going free with a frame owed. Shared with every [`WakeHandle`] and with the render thread.
     wakes: Arc<WakeSource>,
@@ -946,7 +1106,24 @@ impl Screen {
     /// assert_eq!(screen.wait(), Wake::Quit);
     /// ```
     pub fn wait(&mut self) -> Wake {
-        self.wakes.wait(self.frame_clock.next_allowed())
+        let wake = self.wakes.wait(self.frame_clock.next_allowed());
+        // **After it returns, and this is the one place it happens.** The app thread's iteration is
+        // whatever it does between coming back from here and finishing a `present`, and spec §11's
+        // offence is that interval overrunning a frame budget — whatever caused it. `Perf::enter` is
+        // not merely unforgettable, it is uncallable: nothing outside this crate can reach it, so a
+        // runtime author cannot omit it, reorder it, or measure the wrong span with it.
+        //
+        // **Except on a quit, which is not an iteration**, and the review is what found this. A quit
+        // has no `present` coming after it — every loop in this crate's own documentation, and the
+        // template application, break out of the loop and drop the `Screen` — so entering here would
+        // leave an iteration open for ever with nothing to close it. In a debug build that arms the
+        // observer against the shutdown itself: an application that flushes state or saves a file
+        // between the quit and the drop gets restored, reported and **aborted** for doing exactly
+        // what a clean exit does, destroying the work the abort interrupted.
+        if wake != Wake::Quit {
+            self.perf.enter();
+        }
+        wake
     }
 
     /// Take the next thing the terminal reported, or `None` when there is nothing waiting.
@@ -1042,6 +1219,10 @@ impl Screen {
     /// while choosing the clock elsewhere is a reasonable thing for an application to do.
     pub fn set_max_frame_rate(&mut self, hz: f32) {
         self.frame_clock.set_rate(hz);
+        // **The budget moves with the ceiling**, because it *is* the ceiling: one frame interval.
+        // Unless the application pinned a threshold of its own, in which case it named a number and
+        // gets that number — see [`Config::overrun_threshold`].
+        self.perf.set_rate(hz);
     }
 
     /// How much mouse reporting the terminal is switched on for.
@@ -1120,13 +1301,124 @@ impl Screen {
         self.actuators.set_cursor(cursor, self.size);
     }
 
+    /// **This region is allowed to be slow, and here is why.** 45 ns, once per cold start.
+    ///
+    /// The in-loop detector panics a debug build on the *first* overrun, which is the right
+    /// strictness and would otherwise fire on every application's cold-start frame. So there is an
+    /// escape, and the honest form of it is a **declaration** rather than a switch: the reason is
+    /// printed by whichever diagnostic fires, so the escape hatch makes the report better instead of
+    /// making it quieter.
+    ///
+    /// What the region costs comes off the iteration rather than off the detector — a frame that
+    /// spends 300 ms inside a permit and 20 ms outside it still reports the 20 ms — and nested
+    /// permits over-excuse rather than under-excuse, which is the direction to err in: over-excusing
+    /// loses a diagnostic and under-excusing panics on a frame that did nothing wrong.
+    ///
+    /// A frame may be drawn **inside** the permitted region, and that sentence cost two compile
+    /// errors to be able to write. See [`crate::perf::Permit`], where both are recorded.
+    ///
+    /// # It does not excuse the observer
+    ///
+    /// A debug build also watches this thread from another one, and a permit **annotates** that
+    /// watch rather than switching it off: the two answer different claims. A permit says *this will
+    /// be slow*; the observer says *this has not come back at all*. A permitted region that runs
+    /// past 64 frame intervals — 1.07 s at the default rate — is still a frozen interface, and what
+    /// it belongs on is a worker thread with a [`WakeHandle`] and a
+    /// [`Slot`](crate::Slot).
+    ///
+    /// # The rung that catches it before it runs is yours, not this crate's
+    ///
+    /// Spec §11's third rung is a `clippy.toml` fragment naming `fs`, `net`, `sleep`, `join`, `recv`
+    /// and `lock`, and it ships in **`examples/app-template/`** with the sentence that matters on it:
+    /// **it protects vitui, not vitui's users.** That is a measured fact rather than a policy —
+    /// clippy reads `clippy.toml` from the crate being linted, and no stable mechanism lets a
+    /// dependency inject lints downstream. Verified with a control: the file in the *dependency*
+    /// produces no diagnostic at all, and the same code with it in the *application* produces
+    /// `warning: use of a disallowed method std::thread::sleep`.
+    ///
+    /// So copy two things into your own crate, and one alone is inert:
+    ///
+    /// 1. `clippy.toml` beside your `Cargo.toml`, with the `disallowed-methods` list.
+    /// 2. `#![warn(clippy::disallowed_methods)]` in your crate root.
+    ///
+    /// It is the *lintable subset* of the offence and never the offence: `thread::sleep` is on the
+    /// list and a `for` loop that takes 400 ms is not, because no lint can see it. That is what the
+    /// detector above is for.
+    ///
+    /// ```
+    /// use vitui_engine::{Config, Engine, Output, Rect, Style};
+    ///
+    /// let (mut screen, _wake) = Engine::new(Config {
+    ///     output: Output::Sink(Box::new(Vec::new())),
+    ///     ..Default::default()
+    /// })
+    /// .attach()
+    /// .unwrap();
+    ///
+    /// let permit = screen.permit_slow("the cold-start frame");
+    /// // Drawing inside the region, which is the whole point of the guard not borrowing `screen`.
+    /// let id = screen.layers().add_content(0, Rect::new(0, 0, 8, 1), true);
+    /// screen.layers().view(id).unwrap().text(0, 0, "hello", Style::new());
+    /// assert!(screen.present().submitted);
+    /// drop(permit);
+    /// ```
+    ///
+    /// A permit is the app thread's and may not travel — a worker holding one would excuse *this*
+    /// thread's iteration for reasons that had nothing to do with it:
+    ///
+    /// ```compile_fail,E0277
+    /// let (screen, _wake) = vitui_engine::Engine::new(vitui_engine::Config {
+    ///     output: vitui_engine::Output::Sink(Box::new(Vec::new())),
+    ///     ..Default::default()
+    /// })
+    /// .attach()
+    /// .unwrap();
+    /// let permit = screen.permit_slow("loading config");
+    /// std::thread::spawn(move || drop(permit));
+    /// ```
+    ///
+    /// and its positive twin, which names [`Permit`](crate::Permit) by path and moves it where it may
+    /// go — out of the scope that made it, on the thread that made it:
+    ///
+    /// ```
+    /// let (screen, _wake) = vitui_engine::Engine::new(vitui_engine::Config {
+    ///     output: vitui_engine::Output::Sink(Box::new(Vec::new())),
+    ///     ..Default::default()
+    /// })
+    /// .attach()
+    /// .unwrap();
+    /// fn hold(permit: vitui_engine::Permit) -> vitui_engine::Permit {
+    ///     permit
+    /// }
+    /// let permit: vitui_engine::Permit = hold(screen.permit_slow("loading config"));
+    /// drop(permit);
+    /// ```
+    pub fn permit_slow(&self, reason: &'static str) -> Permit {
+        Permit::mint(&self.perf, reason)
+    }
+
     /// Composite the damaged rectangles, pack them, serialise them, and write once.
     ///
     /// The only exit. Damage is marked by the drawing verbs and cleared here, and neither is
     /// reachable from outside — a forgotten clear produces a frame that repaints for ever, so it is
     /// an invariant rather than a chore, and it is also why nothing above the engine can force a
     /// full repaint.
+    ///
+    /// # The iteration ends here, on every path
+    ///
+    /// `Perf::leave` runs whether or not a frame was submitted, and the wrapper below is what makes
+    /// that structural rather than remembered: the body has six early returns and a diagnostic that
+    /// missed one would go quiet on exactly the frames worth reporting — a resize discard and a
+    /// coalesced frame both spent the app thread's iteration and both froze the interface for
+    /// however long they took. See `crate::perf`.
     pub fn present(&mut self) -> Presented {
+        let presented = self.compose_and_submit();
+        self.perf.leave();
+        presented
+    }
+
+    /// Everything `present` does except end the iteration.
+    fn compose_and_submit(&mut self) -> Presented {
         // **Sampled here and re-checked at submit** (spec §2's sixth invariant). One load, and what
         // it buys is that a frame composited at 300x80 is never written into a terminal that became
         // 120x40 while it was being composited — which wraps and scrolls, and is worse than a
@@ -1339,6 +1631,16 @@ impl Screen {
     #[cfg(test)]
     pub(crate) fn restore_as_a_panic_would(&self) -> bool {
         self.shutdown.restore(None)
+    }
+
+    /// The budget an iteration of this screen's app thread is measured against.
+    ///
+    /// For `crate::gates`, which checks two wires nothing else does: that the threshold really is
+    /// one frame interval of the declared rate, and that `set_max_frame_rate` moves it unless the
+    /// application pinned one.
+    #[cfg(test)]
+    pub(crate) fn overrun_threshold(&self) -> Duration {
+        self.perf.threshold()
     }
 
     /// A handle to the mailbox that outlives this `Screen`.
@@ -1781,6 +2083,12 @@ impl Drop for Screen {
     /// interleaves with it. Then the restoration. Then the site is disarmed, so that a panic later
     /// in the same process does not restore a terminal this screen no longer has.
     fn drop(&mut self) {
+        // **First of all, and before a join.** A debug build has another thread watching this one,
+        // and everything below is finite but not instant — a join on a render thread inside a
+        // bounded `write`, then the epilogue. There is no iteration in progress to stall, because
+        // `present` ended it, but a session that is over has nothing left worth aborting a process
+        // over either. Not joined: see [`crate::perf::Perf::stop_observing`].
+        self.perf.stop_observing();
         self.reclaim_renderer();
         self.end_session();
         crate::shutdown::disarm(&self.shutdown);
@@ -2507,6 +2815,8 @@ mod tests {
                 clock: Clock::Manual,
                 max_frame_rate: f32::INFINITY,
                 overrides: Overrides::default(),
+                overrun_threshold: None,
+                overrun_report: None,
                 input: InputConfig::default(),
             })
             .attach()

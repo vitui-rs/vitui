@@ -231,7 +231,13 @@ fn current() -> MutexGuard<'static, Option<Arc<Site>>> {
 }
 
 /// What the hook does, and what a test that wants to be the hook calls.
-fn restore_current() {
+///
+/// `pub(crate)` since impl 23, for its second caller: the debug observer's sanction is *restore the
+/// terminal, print the stall, abort*, and it runs on a thread that holds no `Screen` and could not
+/// hold one. It reaches the same process-global site the hook does, so it gives back the same
+/// epilogue under the same one-shot guard — an observer that fires while a panic is already
+/// unwinding restores once between them.
+pub(crate) fn restore_current() {
     // The `Arc` is cloned out and the lock released **before** the write, because the write is a
     // syscall and this lock is reachable from every thread in the process. The clone is what makes
     // that possible at all.

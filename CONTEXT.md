@@ -547,7 +547,24 @@ slow pure computation and a blocking read produce the same frozen screen.
 
 **Permitted iteration** — an iteration declared in advance to be legitimately slow, with a reason
 recorded. Cold start reads configuration; that is not the defect the overrun detector hunts, and
-saying so explicitly is what keeps the detector strict everywhere else.
+saying so explicitly is what keeps the detector strict everywhere else. What the region cost comes off
+the iteration rather than off the detector, so a permit taken for a microsecond does not excuse the
+300 ms after it.
+
+**Stall** — an iteration that has not come back at all, as distinct from one that came back late. Two
+different claims, watched by two different mechanisms and answered by two different sanctions: an
+overrun is noticed by the app thread itself, at the end, and a stall can only be noticed by another
+thread that is awake. Being awake is what it costs, which is why the watcher is debug-only.
+
+**Observer** — the debug-only thread that watches for a stall. It is not a second overrun detector:
+everything that overruns *and returns* has already been reported by then, so its limit is a different
+number by two orders of magnitude. It may not panic — a panic on its own thread unwinds the wrong
+stack and stops nothing — so its sanction is restore, print, abort.
+
+**One-slot outbox** — where a worker leaves a result for the app thread, with a non-blocking take and
+no blocking twin anywhere. Newest supersedes, and what it displaced comes back to the worker rather
+than vanishing on a thread nobody chose. The counterpart of the resident worker's inbox and of the
+frame mailbox, and the three share one rule.
 
 **Question** — the thing a background job is asked, identified by a key the app thread computes. Not
 the job and not the answer: two requests carrying the same key are one question, so the verb that

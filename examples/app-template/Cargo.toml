@@ -1,0 +1,26 @@
+# A template application, and **deliberately outside the workspace**.
+#
+# `clippy.toml` is read from the crate being linted, and `cargo clippy` lints every *workspace
+# member* it builds. So a `clippy.toml` anywhere inside the workspace would apply spec §11's
+# disallowed-method list to `vitui-engine` itself — which legitimately spawns, joins and locks, on
+# the render and input threads that exist so the app thread does not have to. Excluding this package
+# is what makes the fragment mean *the application author's crate* rather than *every crate in this
+# repository*, and it is also the two-crate shape the finding was verified with in the first place.
+#
+# It is linted by `scripts/lint-rung-gate.sh` and never published.
+[package]
+name = "vitui-app-template"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+rust-version = "1.85"
+publish = false
+
+[dependencies]
+vitui-engine = { path = "../../crates/vitui-engine" }
+
+# The same `deny` the workspace uses, for the same reason: a check that is weaker than the gate is not
+# a check. `warnings` names every lint currently at warn level and clippy-driver applies it to its
+# own, so the `#![warn(clippy::disallowed_methods)]` in `main.rs` is an **error** here.
+[lints.rust]
+warnings = "deny"

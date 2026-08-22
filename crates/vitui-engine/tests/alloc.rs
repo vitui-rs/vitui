@@ -133,6 +133,8 @@ fn screen_with(overrides: Overrides) -> (Screen, LayerId) {
         max_frame_rate: f32::INFINITY,
         // The paste ceiling is the only field here the input pipeline reads, and no paste arrives
         // through a sink. Spelled for the same reason as the line above it.
+        overrun_threshold: None,
+        overrun_report: None,
         input: InputConfig::default(),
     })
     .attach()
@@ -376,6 +378,8 @@ fn the_operator_reaches_the_wire_at_the_depth_the_gate_pins() {
             // Inline, so the bytes are in the tap by the time `present` returns.
             clock: Clock::Manual,
             max_frame_rate: f32::INFINITY,
+            overrun_threshold: None,
+            overrun_report: None,
             input: InputConfig::default(),
         })
         .attach()

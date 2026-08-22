@@ -1,0 +1,61 @@
+# The lint rung of spec §11's unblockable app thread.
+#
+# **This file protects vitui, not vitui's users.** Copy it into your own application's crate root and
+# it protects your application; leave it here and it protects this template and nothing else. That is
+# not a policy choice, it is a measured fact about clippy: `clippy.toml` is read from the crate being
+# linted, and there is no stable mechanism for a dependency to inject lints downstream. Verified with
+# a control rather than assumed — a two-crate probe with this file in the *dependency* produces no
+# diagnostic at all, and the same code with it in the *application* produces
+# `warning: use of a disallowed method std::thread::sleep`.
+#
+# A dylint driver would reach further and was rejected: an external dependency and a tool nobody
+# installs cannot be a gate.
+#
+# # What it catches, and what it cannot
+#
+# The offence spec §11 defines is **a frame-budget overrun by the app thread's iteration, whatever
+# caused it**. This list is the *lintable subset* of that definition and never the definition:
+# `thread::sleep` is here, and a `for` loop that takes 400 ms is not, because no lint can see it. The
+# runtime detector is what catches the rest, after the frame is already lost — and a debug build
+# panics on the first one.
+#
+# It is also blunt in the other direction: it fires per **crate**, not per thread, so a worker thread
+# in the same crate that legitimately blocks is flagged too. Put an `#[allow]` on that function with
+# the reason on the same line, which is a sentence worth having to write.
+disallowed-methods = [
+    # Waiting for a result. There is no non-blocking twin of any of these, which is the point:
+    # `vitui_engine::Slot::take` and `WakeHandle::post` are what to use instead.
+    { path = "std::sync::mpsc::Receiver::recv", reason = "waits for a background result on the app thread — put it in a `Slot` and `post` instead" },
+    { path = "std::sync::mpsc::Receiver::recv_timeout", reason = "waits for a background result on the app thread — put it in a `Slot` and `post` instead" },
+    { path = "std::thread::JoinHandle::join", reason = "waits for a worker to finish — let it `post` when it is done" },
+    { path = "std::thread::sleep", reason = "freezes the interface for exactly this long; use `Screen::request_wake_at`" },
+    { path = "std::thread::park", reason = "`Screen::wait` is the app thread's only blocking call" },
+    { path = "std::thread::park_timeout", reason = "`Screen::wait` is the app thread's only blocking call" },
+    { path = "std::sync::Condvar::wait", reason = "`Screen::wait` is the app thread's only blocking call" },
+    { path = "std::sync::Condvar::wait_timeout", reason = "`Screen::wait` is the app thread's only blocking call" },
+
+    # Contended locks. A `Mutex` guarding one value that a worker replaces is fine and is what
+    # `Slot` is; a `Mutex` a worker holds while it works is a frozen interface with a different name.
+    { path = "std::sync::Mutex::lock", reason = "blocks for as long as whoever holds it — a `Slot` moves the value instead" },
+    { path = "std::sync::RwLock::read", reason = "blocks for as long as a writer holds it — a `Slot` moves the value instead" },
+    { path = "std::sync::RwLock::write", reason = "blocks for as long as any reader holds it — a `Slot` moves the value instead" },
+
+    # Filesystem. A local read is microseconds until the day it is on a network mount, and then it is
+    # the 300 ms frame nobody can reproduce.
+    { path = "std::fs::read", reason = "filesystem I/O on the app thread; read it on a worker and `post`" },
+    { path = "std::fs::read_to_string", reason = "filesystem I/O on the app thread; read it on a worker and `post`" },
+    { path = "std::fs::write", reason = "filesystem I/O on the app thread; write it on a worker" },
+    { path = "std::fs::File::open", reason = "filesystem I/O on the app thread; open it on a worker and `post`" },
+    { path = "std::fs::File::create", reason = "filesystem I/O on the app thread; create it on a worker" },
+    { path = "std::fs::metadata", reason = "filesystem I/O on the app thread; stat it on a worker and `post`" },
+    { path = "std::fs::read_dir", reason = "filesystem I/O on the app thread, and unbounded in the size of the directory" },
+
+    # Network. Never microseconds, on any day.
+    { path = "std::net::TcpStream::connect", reason = "network I/O on the app thread; connect on a worker and `post`" },
+    { path = "std::net::TcpListener::accept", reason = "blocks until somebody connects" },
+    { path = "std::net::UdpSocket::recv_from", reason = "blocks until a datagram arrives" },
+    { path = "std::net::ToSocketAddrs::to_socket_addrs", reason = "a DNS lookup, which is network I/O with a friendly name" },
+
+    # Standard input. A full-screen application's keyboard is `Screen::next_event`.
+    { path = "std::io::Stdin::read_line", reason = "blocks until the user presses Enter; the keyboard is `Screen::next_event`" },
+]

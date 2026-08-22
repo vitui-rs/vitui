@@ -59,6 +59,21 @@ jobs:
       # branches of shell to gate one property that one runner already gates. The guard itself does
       # run on all three, and it is the half that covers most of the sites.
       - run: cargo test --workspace -- --test-threads=1
+      # Engine ticket 23's lint rung, and the control that makes it mean something. It lints
+      # `examples/app-template`, which is deliberately **not** a workspace member: `clippy.toml` is
+      # read from the crate being linted and `cargo clippy` lints every workspace member it builds,
+      # so a fragment inside this workspace would apply spec §11's disallowed-method list to
+      # `vitui-engine` itself — which legitimately spawns, joins and locks on the two threads that
+      # exist so the app thread does not have to. Then it lints a copy of the template with one
+      # `std::thread::sleep` in it and requires that to fail, because a clean result on its own
+      # passes for any reason at all, the fragment being inert included.
+      #
+      # `bash` explicitly, and Windows is skipped: the script is POSIX shell around `cargo clippy`
+      # and `git-bash` on the Windows runner resolves paths differently for the temporary copy it
+      # makes. The property is per-crate configuration reaching a crate, which is not an
+      # operating-system question, so two of the three runners establish it.
+      - if: runner.os != 'Windows'
+        run: bash scripts/lint-rung-gate.sh
 
   # The dependency policy is a decision, not a preference: the engine takes crossterm and nothing
   # else, and the runtime takes nothing at all. See docs/adr/0001-crossterm-behind-a-seam.md.
@@ -90,6 +105,14 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo run --release --example budget -p vitui-engine
+      # Register entry #18: no observer thread is linked into a release binary. Standing requirement
+      # 11 is a **release-build** property — measured, an observer converts zero wakeups into ~10 a
+      # second for ever — so the observer is `cfg(debug_assertions)`, and a compile outcome about
+      # absent code is checked in the one place absent code is visible: the binary. Both directions,
+      # because a grep that finds nothing passes for any reason including the message having been
+      # reworded. Here rather than in a job of its own because the release target directory is
+      # already warm.
+      - run: scripts/observer-gate.sh
 
   # Register entry #17: an idle application costs nothing at all.
   #

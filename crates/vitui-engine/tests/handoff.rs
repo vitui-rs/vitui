@@ -75,6 +75,8 @@ fn screen(clock: Clock) -> (Screen, LayerId) {
         // be a number these frames never read.
         max_frame_rate: f32::INFINITY,
         overrides: declared(),
+        overrun_threshold: None,
+        overrun_report: None,
         input: InputConfig::default(),
     })
     .attach()

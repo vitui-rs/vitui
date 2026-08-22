@@ -62,6 +62,13 @@ stages:
 # pipeline is as long as its slowest job rather than the sum of them. With three concurrent runner
 # slots the fourth queues behind whichever finishes first, which costs the pipeline the `idle` job's
 # thirty seconds and nothing else — it is the cheapest of the four to be behind.
+#
+# **Engine ticket 23's two gates are folded into existing jobs rather than added as a fifth and a
+# sixth**, and that is a runner-slot decision with a reason on both counts. `scripts/observer-gate.sh`
+# needs a release build and a debug build of one example, and `budget` already has a warm release
+# target directory — a job of its own would compile the workspace twice more for two greps.
+# `scripts/lint-rung-gate.sh` needs clippy and a check build of a crate that is deliberately outside
+# this workspace, and `test` is the job that already installs clippy.
 
 test:
   stage: check
@@ -120,6 +127,13 @@ test:
     # gate that cannot fail — a flaky test wearing a budget's clothes, which §14 names exactly.
     # Verified against this image: `script -q -e -c false /dev/null` exits 1.
     - script -q -e -c "cargo test --workspace -- --test-threads=1" /dev/null
+    # Engine ticket 23's lint rung, and the control that makes it mean something. It lints
+    # `examples/app-template`, which is **not** a workspace member — `clippy.toml` is read from the
+    # crate being linted and `cargo clippy` lints every workspace member it builds, so a fragment
+    # inside this workspace would apply the disallowed-method list to `vitui-engine` itself. Then it
+    # lints a copy of the template with one `std::thread::sleep` in it and requires that to fail,
+    # because a clean result on its own passes for any reason including the fragment being inert.
+    - scripts/lint-rung-gate.sh
 
 deny:
   stage: check
@@ -192,6 +206,10 @@ budget:
       - target
   script:
     - cargo run --release --example budget -p vitui-engine
+    # Register entry #18: no observer thread is linked into a release binary. A compile outcome about
+    # *absent* code, so it is checked in the one place absent code is visible — the binary. Here
+    # rather than in a job of its own because the release target directory is already warm.
+    - scripts/observer-gate.sh
 
 # Register entry #17: an idle application costs nothing at all.
 #

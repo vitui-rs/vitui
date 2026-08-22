@@ -43,6 +43,15 @@ mod register;
 #[allow(dead_code)]
 #[path = "../src/scenes.rs"]
 mod scenes;
+// The overrun detector, included rather than imported for one reason: register entry #22 is a timing
+// and **the only profile it means anything in is this one**. `Perf::enter` and `Perf::leave` are
+// `pub(crate)` — spec §11's whole point is that they are uncallable from outside, so a caller cannot
+// reach them and this file has to be compiled with them. That is possible at all because
+// `src/perf.rs` reaches for nothing in the crate, which
+// `crate::gates::the_detector_reaches_for_nothing_in_the_crate` is what keeps true.
+#[allow(dead_code)]
+#[path = "../src/perf.rs"]
+mod perf;
 
 use std::io::{Result, Write};
 use std::time::{Duration, Instant};
@@ -92,6 +101,8 @@ fn sink_screen_with(overrides: Overrides) -> Screen {
         // thread's share of a frame: a different measurement, and a better one, which is what
         // [`the_app_threads_share`] reports on purpose.
         clock: Clock::Manual,
+        overrun_threshold: None,
+        overrun_report: None,
         input: InputConfig::default(),
     })
     .attach()
@@ -213,6 +224,8 @@ fn the_app_threads_share() {
                 // somebody moves the gate.
                 max_frame_rate: f32::INFINITY,
                 overrides: scene.overrides(),
+                overrun_threshold: None,
+                overrun_report: None,
                 input: InputConfig::default(),
             })
             .attach()
@@ -308,6 +321,8 @@ fn main() {
 
     // Numbers are kept per scene and never summed: the 27x scroll-detector regression the map
     // found was visible only that way, and summed across twelve scenes it is a rounding error.
+    the_overrun_detector();
+    the_price_of_a_worker();
     the_two_budget_gates(&report);
     the_app_threads_share();
     the_steady_state_share(&report);
@@ -611,6 +626,8 @@ fn the_hyperlinked_page_under_an_animating_operator() {
             // The inline round, as everywhere else here. See `sink_screen_with`.
             clock: Clock::Manual,
             max_frame_rate: f32::INFINITY,
+            overrun_threshold: None,
+            overrun_report: None,
             input: InputConfig::default(),
         })
         .attach()
@@ -1259,4 +1276,159 @@ fn the_donation_renumbering() {
         "            report, not a gate — §15's sixth owed measurement, paid, and every arm is\n         \x20           inside the eviction sweep's 58.88 us for the same 24 000 cells.\n         \x20           **The cost is per cell, not per handle**: 1% and 100% clusters are a few\n         \x20           microseconds apart while the number of table lookups between them differs\n         \x20           by 100x, because the two-phase walk re-interns once per distinct entry and\n         \x20           the per-cell pass is an array index. So the walk is what costs, and it is\n         \x20           bounded by the surface rather than by what is in it.\n         \x20           Architecture ticket 19's option A — delete `Surface::root` — does not come\n         \x20           back: the **plain** row is the one that decides it, and a screen of Latin,\n         \x20           CJK or box drawing skips the walk outright.\n         \x20           Method: a difference of two minima, so it is an estimate rather than a\n         \x20           measurement of the walk alone; the arms are round-robin, so both saw the\n         \x20           same interference. The **plain** row lands at or under zero, which is what\n         \x20           a skip below the noise floor looks like, and the **100% clusters** row is\n         \x20           the least precise of the five, being a difference of tens of microseconds\n         \x20           over a build of nearly a millisecond.\n         \x20           **The link phase is not measured here and cannot be**, because a standalone\n         \x20           surface has no way to mint a link id — architecture ticket 21. What the\n         \x20           extended arms exercise is the extended-style table; the link table they walk\n         \x20           is empty."
     );
     println!();
+}
+
+/// Gate and report #22: **the overrun detector, in the only profile it means anything in.**
+///
+/// Spec §11 measured `Instant::now()` at 19.42 ns, `elapsed()` at 25.05 ns and the pair at
+/// **42.64 ns**, and decided on that basis that the detector **stays in release**: 0.04% of the
+/// frame budget is worth a diagnostic that reaches a user's bug report. Against the *cheapest
+/// possible* iteration — a one-cell cursor move at 28.61 ns — it is 2.4x, which is the honest worst
+/// framing, and in absolute terms it is 2.5 µs per second at 60 fps.
+///
+/// # What is gated here is not the 50 ns
+///
+/// §14's rule is that **a timing is a report, and is a gate only at cliff granularity, with the
+/// headroom written next to the number**. 50 ns against a measured ~43 is 1.17x, and a gate with
+/// 1.17x of headroom on a shared runner is a flaky test wearing a budget's clothes — the exact shape
+/// this register exists to refuse. `ubuntu-latest` is a runner nobody here has measured and
+/// `clock_gettime` is not the same price on every kernel.
+///
+/// So the 50 ns is **printed with its headroom**, and two things are gated, both of which are
+/// properties of the mechanism rather than of the machine:
+///
+/// 1. **A ratio**: the detector may cost no more than twice the two `Instant::now()` calls it is
+///    built out of. That is what fails if somebody puts an allocation, a lock, a syscall or a
+///    formatting call on the frame path, and it is immune to a slow clock because the baseline moves
+///    with it.
+/// 2. **A cliff**: under 1 µs, which is 1% of §13's typical-frame budget and twenty times the
+///    measured figure. Nothing passes this and is still a per-frame cost worth arguing about.
+fn the_overrun_detector() {
+    // No sink and no pinned threshold: the default 60 Hz budget, which nothing below comes near.
+    let detector = perf::Perf::new(perf::DEFAULT_HZ, None, None);
+    let bare = perf::Perf::new(perf::DEFAULT_HZ, None, None);
+
+    let report = Bench::new(40)
+        .case("detector/enter+leave", 20_000, || {
+            detector.enter();
+            detector.leave();
+        })
+        // The two clock reads the pair is built out of, and nothing else, so that the ratio below is
+        // about what the detector *adds* rather than about what a `clock_gettime` costs here.
+        .case("detector/two-clock-reads", 20_000, || {
+            let a = Instant::now();
+            let b = Instant::now();
+            std::hint::black_box((a, b));
+        })
+        // The escape hatch, which spec §11 measured at 4.20 ns. It is not on the frame path — an
+        // application takes one per cold start, not per frame — so it is a report only.
+        .case("detector/permit_slow", 20_000, || {
+            let permit = perf::Permit::mint(&bare, "loading config");
+            std::hint::black_box(&permit);
+        })
+        .run();
+
+    let pair = report
+        .get("detector/enter+leave")
+        .expect("the detector was measured");
+    let clocks = report
+        .get("detector/two-clock-reads")
+        .expect("the baseline was measured");
+    let permit = report
+        .get("detector/permit_slow")
+        .expect("the permit was measured");
+    let ratio = pair / clocks;
+    let headroom = 50.0 / pair;
+
+    println!(
+        "\ngate #22   the overrun detector, release, minimum of 40 rounds:\n           enter+leave \
+         {pair:.2} ns against a 50 ns budget, {headroom:.2}x of headroom\n           two clock \
+         reads {clocks:.2} ns, so the detector adds {ratio:.2}x of them\n           permit_slow \
+         {permit:.2} ns, once per cold start and never per frame\n           gated on the ratio and \
+         on a 1 µs cliff, not on the 50 ns: see the doc comment"
+    );
+
+    assert!(
+        ratio < 2.0,
+        "the detector costs {ratio:.2}x the two clock reads it is built out of ({pair:.2} ns \
+         against {clocks:.2} ns). Something that is not a clock read is on the frame path — an \
+         allocation, a lock, a syscall or a format"
+    );
+    report.assert_under("detector/enter+leave", Duration::from_micros(1));
+    if pair >= 50.0 {
+        println!(
+            "           NOTE: {pair:.2} ns is over spec §11's 50 ns on this runner. Reported, not \
+             gated — but if it is over on the machine the ledger is taken on, it is a regression"
+        );
+    }
+}
+
+/// Report: **what a `thread::spawn` costs the app thread**, so that nobody puts one in a draw path.
+///
+/// Spec §11 refuses a worker pool — it is an executor under another name — and puts a `Worker::spawn`
+/// sugar in the runtime rather than the engine. That decision is only safe if the number is written
+/// down where a runtime author reads it, which is [`vitui_engine::Slot`]'s own documentation; this is
+/// where the number comes from.
+///
+/// 9.5 µs is nothing once per keystroke and 10% of the frame budget once per frame, and **the API's
+/// shape decides which one gets written**. Percentiles rather than a minimum, because the tail is the
+/// part that matters here: a spawn that is usually 9 µs and occasionally 30 is a frame lost at
+/// 120 Hz, and a minimum-of-forty would never show it.
+fn the_price_of_a_worker() {
+    /// How many of each shape to time. Enough for a p99 to mean something and few enough that the
+    /// job does not spend a second creating threads.
+    const ROUNDS: usize = 400;
+
+    let mut spawned = Vec::with_capacity(ROUNDS);
+    for _ in 0..ROUNDS {
+        let at = Instant::now();
+        let handle = std::thread::spawn(|| std::hint::black_box(0u32));
+        // **Charged to the app thread**, which is the number the decision is about: what the calling
+        // thread pays before it can go back to its frame. The join is outside the window.
+        spawned.push(at.elapsed());
+        let _ = handle.join();
+    }
+
+    let (tx, rx) = std::sync::mpsc::channel::<Instant>();
+    let (done_tx, done_rx) = std::sync::mpsc::channel::<()>();
+    let resident = std::thread::spawn(move || {
+        while rx.recv().is_ok() {
+            let _ = done_tx.send(());
+        }
+    });
+    let mut sent = Vec::with_capacity(ROUNDS);
+    for _ in 0..ROUNDS {
+        let at = Instant::now();
+        tx.send(at).expect("the resident thread is alive");
+        sent.push(at.elapsed());
+        let _ = done_rx.recv();
+    }
+    drop(tx);
+    let _ = resident.join();
+
+    println!("\nreport     the price of a worker, {ROUNDS} rounds each:");
+    println!(
+        "           thread::spawn, charged to the app thread   p50 {:>8} p90 {:>8} p99 {:>8}",
+        micros(&mut spawned, 50),
+        micros(&mut spawned, 90),
+        micros(&mut spawned, 99)
+    );
+    println!(
+        "           resident thread + channel send             p50 {:>8} p90 {:>8} p99 {:>8}",
+        micros(&mut sent, 50),
+        micros(&mut sent, 90),
+        micros(&mut sent, 99)
+    );
+    println!(
+        "           spec §11 measured 9.50 / 21.75 / 30.46 µs and 2.83 / 5.79 / 9.21 µs. A worker\n\
+         \x20          pool is refused — it is an executor under another name — and `Worker::spawn`\n\
+         \x20          sugar belongs to the runtime, with these numbers beside it."
+    );
+}
+
+/// The `p`th percentile of `samples`, in microseconds, as a string. Sorts in place.
+fn micros(samples: &mut [Duration], p: usize) -> String {
+    samples.sort_unstable();
+    let at = (samples.len() * p / 100).min(samples.len() - 1);
+    format!("{:.2} µs", samples[at].as_secs_f64() * 1e6)
 }

@@ -375,6 +375,13 @@ impl Harness {
             // ceiling: the deterministic mode's promise is that a test is a straight-line program.
             max_frame_rate: f32::INFINITY,
             overrides,
+            // **The harness pins nothing and reports nowhere.** Every gate here draws and presents
+            // in a straight line with no `wait` before it, so the iteration is never entered and the
+            // detector is never charged for the time a debugger, a slow runner or the test beside it
+            // spent between two asserts. `crate::gates::the_detector_is_silent_without_a_wait` is
+            // that property said out loud rather than relied on here.
+            overrun_threshold: None,
+            overrun_report: None,
             input,
         });
         let (mut screen, _wake) = match declared {

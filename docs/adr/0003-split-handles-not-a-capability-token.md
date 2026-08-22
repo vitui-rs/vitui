@@ -70,3 +70,26 @@ unaffected, because `Surface` remains `Send` deliberately.
 
 Splitting is free at runtime. Both halves hold the same shared state behind the same `Arc`; only
 reachability differs. What changed is which mistakes compile.
+
+## Amended by the implementation, 2026-08-22 (engine impl 18, 19, 23)
+
+**All four halves are now internal, and the enforcement is stronger for it.** `attach` spawns the
+render and input threads and `present` owns the whole sequence, so `Parker`, `Unparker`, `Producer`,
+`Consumer` and the `Ui` token are not public names at all: what remains on the public surface is
+`Screen` (`!Send`), `WakeHandle` (`Send + Sync + Clone`, `post` and `quit`), `Slot<T>`
+(`Send + Sync`) and `Permit` (`!Send`). *Consequences*' list of what crosses threads should be read
+against those four rather than against the prototype's. `Perf::enter` and `Perf::leave` stopped being
+merely unforgettable and became **uncallable**, because `wait` and `present` are the only things that
+can reach them.
+
+**The two holes are closed in the shipped crate and each is a paired `compile_fail` doctest on
+`Screen`**, rather than in the prototype this ADR was written against: a worker cannot `present` (the
+lease and the submit), and a worker cannot `wait` (the stolen wake). The third door they would have
+gone through instead — `layers()` — is closed the same way.
+
+One thing this ADR's own reasoning did not reach. *A private zero-sized field delivers the identical
+guarantee invisibly* is true of `View` and `Screen`, and it is **not** true of a guard that has to be
+held across a draw: `Permit<'a>` borrowed out of `&'a Screen` makes `Screen::layers` unreachable
+(`E0502`) inside the very region the permit exists to excuse. `Permit` therefore holds an `Rc` and has
+no lifetime, and its `!Send`-ness is the `Rc`'s rather than a marker's. The general form is that
+**immobility by borrow and immobility by marker are not interchangeable when the value is a guard.**

@@ -8,6 +8,13 @@ members = [
     "crates/vitui-alloc-probe",
     "crates/vitui-bench",
 ]
+# **Not a member, and the reason is `clippy.toml`.** `cargo clippy` lints every workspace member it
+# builds, and clippy reads its configuration from the crate being linted — so a `clippy.toml` inside
+# this workspace would apply engine ticket 23's disallowed-method list to `vitui-engine` itself, which
+# legitimately spawns, joins and locks on the two threads that exist so the app thread does not have
+# to. Excluding the template is what makes that fragment mean *the application author's crate*, which
+# is the only thing it can mean: see `examples/app-template/README.md`.
+exclude = ["examples/app-template"]
 
 # Every warning is a build failure, in a local `cargo build` exactly as in CI.
 #

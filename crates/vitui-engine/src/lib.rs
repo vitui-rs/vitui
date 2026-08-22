@@ -227,8 +227,58 @@
 //! left there, which is one write fewer on the wire and no exit latency spent showing state that is
 //! already stale.
 //!
-//! Not here yet: the unblockable app thread (23), the public surface and its negative corpus (24),
-//! fuzzing (25), and the budget ledger and comparative suite (26).
+//! And **the app thread that nothing but itself can stop** (ticket 23). The inversion is the whole
+//! of it — *the compiler cannot stop the app thread from being slow; it can stop anything else from
+//! being the app thread* — and the offence is a **frame-budget overrun by the app thread's iteration,
+//! whatever caused it**, never a blocking syscall: `NetworkOnMainThreadException` picks the syscall
+//! and therefore catches a DNS lookup while waving through a `for` loop that takes 400 ms. Four of
+//! the five rungs cost nothing — [`Screen`] and [`View`] are `!Send`, there is no blocking primitive
+//! on the app-thread side at all, and the lint fragment is the application author's
+//! (`examples/app-template/`, which ships it with the sentence that it protects vitui and **not**
+//! vitui's users, because `clippy.toml` is read from the crate being linted and no stable mechanism
+//! lets a dependency inject lints downstream). The two that cost something are `crate::perf`: an
+//! in-loop detector at **45 ns a frame that stays in release**, and a debug-only observer thread.
+//!
+//! The threshold is **one frame interval, and 100 µs would have been a bug** — the map's < 100 µs is
+//! a CI gate on one stage of the engine's own work, and a full realistic `wake → submit` is
+//! 166.76 µs, so that watchdog fires on entirely legitimate frames. Debug panics on the first
+//! overrun, which is safe by construction because ticket 22's restoration is idempotent and runs
+//! before the default hook; release warns **once**, into a sink the caller supplies, and `None` is
+//! silence rather than stderr because a full-screen application's stderr is the terminal it is
+//! drawing on.
+//!
+//! Two things this ticket found rather than built. **Spec §11's fix for the escape hatch is half of
+//! one**: `permit_slow(&mut self)` was `E0499`, and *`Cell` and `&self` throughout* leaves a
+//! `Permit<'a>` borrowed out of `&'a Screen`, which makes drawing inside the permitted region
+//! `E0502` — the identical defect one letter along. So [`Permit`] holds an `Rc` and has no lifetime,
+//! and the marker the ticket predicted for its negative case (`Cell<()>`) is `Rc<Perf>`. And **a
+//! permit still held at `present` has to be accounted for**: the first shape did all the arithmetic
+//! in `Drop`, so a guard kept until after the frame excused nothing at all — and said so in a
+//! diagnostic that printed the permit's own reason.
+//!
+//! The two sanctions are deliberately spelled differently, and it is not that debug is stricter.
+//! **The observer may not panic**: a panic on its thread unwinds its own stack and stops nothing, and
+//! a *returning* app thread would then paint frames into a terminal somebody had restored. So it
+//! restores, prints when the iteration entered and what it said it was doing, and aborts — in that
+//! order, gated by a child process whose two streams share one open file. A permit **annotates** the
+//! stall and does not excuse it, because *this will be slow* and *this has not come back at all* are
+//! different claims. And the observer is `cfg(debug_assertions)` only, because **CPU is not the
+//! objection and wakeups are**: a 100 ms poll converts zero wakeups into about ten a second for ever,
+//! which is the one property standing requirement 11 names literally. Register entry #18 is that
+//! absence, checked in the one place absent code is visible — the observer's own words are in a debug
+//! binary and not in a release one.
+//!
+//! What is offered instead of blocking is [`WakeHandle`] and [`Slot`], whose only accessor is a
+//! non-blocking `take`. **There is no `recv`, no `wait`, no `Future` and no completion returned by
+//! anything on the app-thread side**, and the two `recv`s that do exist in this crate are the render
+//! thread's and the input thread's — and detection's deadline read is on the app thread but outside the loop.
+//! *No blocking receive is inside the app thread's iteration* is the honest form of §12's refusal 7,
+//! and `crate::gates` keeps it true over the source rather than in prose. A worker pool
+//! is refused: it is an executor under another name, and the numbers that stop anybody reaching for
+//! one are beside [`Slot`] itself.
+//!
+//! Not here yet: the public surface and its negative corpus (24), fuzzing (25), and the budget ledger
+//! and comparative suite (26).
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]
@@ -258,6 +308,7 @@ mod intern;
 mod layer;
 mod mix;
 mod packet;
+mod perf;
 mod quant;
 mod quirks;
 mod reader;
@@ -298,6 +349,7 @@ mod term_model;
 mod testing;
 
 mod restyle;
+mod slot;
 mod style;
 mod surface;
 mod sweep;
@@ -319,7 +371,9 @@ pub use input::{
 };
 pub use layer::{LayerId, LayerStack};
 pub use mix::Mix;
+pub use perf::Permit;
 pub use restyle::Restyle;
+pub use slot::Slot;
 pub use style::{Color, Style};
 pub use surface::Surface;
 pub use text::{graphemes, width_of};

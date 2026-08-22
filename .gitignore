@@ -1,4 +1,12 @@
 /target
+
+# The template application is outside the workspace on purpose — see the root `Cargo.toml`'s
+# `exclude` — so it has a `target/` and a lock file of its own. Neither is worth committing: the
+# crate exists to be linted and copied, `cargo deny` does not see it, and a second lock file in the
+# tree is a second thing to keep current for no benefit.
+/examples/app-template/target
+/examples/app-template/Cargo.lock
+
 .claude/
 
 # JetBrains project files. `.idea/workspace.xml` was committed once by accident (fd8ad06) and is

@@ -361,9 +361,16 @@ pub const REGISTER: [Entry; 27] = [
         kind: Kind::Gate,
         qualifier: "compile outcome",
         source: "arch 18",
-        state: State::Red {
-            inverted_by: "impl 23",
-            why: "there is no debug observer yet",
+        state: State::Wired {
+            at: "scripts/observer-gate.sh, which is a compile outcome about *absent* code and \
+                 therefore checked in the one place absent code is visible — the binary. The \
+                 observer's sanction message is a string literal in the only function that prints \
+                 it, so the literal is in `target/*/examples/idle` if and only if the code is, and \
+                 the script asserts it is in the debug build and not in the release one. Both \
+                 directions, because a grep that finds nothing passes for any reason including the \
+                 message having been reworded. The observer's *behaviour* is \
+                 crate::gates::the_observers_sanction_restores_the_terminal_then_prints_the_stall_then_aborts, \
+                 a child process that reads the order of three events out of one open file",
         },
     },
     Entry {
@@ -373,9 +380,15 @@ pub const REGISTER: [Entry; 27] = [
         qualifier: "compile outcome, paired doctests",
         source: "arch 18, 13",
         state: State::Wired {
-            at: "the paired doctests on Screen, View, Style and Capabilities — nine compile_fail \
-                 cases, each with a positive twin, because a compile_fail alone passes for any \
-                 reason including the type having been renamed; impl 24 completes the corpus",
+            at: "the paired doctests on Screen, View, Permit, Mix, Style, LinkId and Capabilities \
+                 — sixteen compile_fail cases, each with a positive twin, because a compile_fail \
+                 alone passes for any reason including the type having been renamed. Impl 23 added \
+                 §11's six: five E0277 on `PhantomData<*const ()>` — a worker may not hold a \
+                 `Screen` and call `size`, `wait`, `present` or `layers`, nor hold a `View` and \
+                 draw — and one on the escape hatch, where the marker the ticket predicted \
+                 (`Cell<()>`) became `Rc<Perf>` when `Permit` had to stop borrowing the `Screen` so \
+                 that a frame could be drawn inside a permitted region. Impl 24 completes the \
+                 corpus",
         },
     },
     Entry {
@@ -413,9 +426,20 @@ pub const REGISTER: [Entry; 27] = [
         kind: Kind::Gate,
         qualifier: "timing",
         source: "arch 18",
-        state: State::Red {
-            inverted_by: "impl 23",
-            why: "there is no overrun detector yet",
+        state: State::Wired {
+            at: "examples/budget.rs, `the_overrun_detector` — and **the 50 ns is the report rather \
+                 than the gate**, which is this register's own rule applied to its own entry. \
+                 Measured **43.9 to 46.9 ns across four runs on one unloaded M1** against a 50 ns \
+                 budget: 1.07x to 1.14x, and the 3.0 ns spread between runs on the *same* machine is \
+                 itself the argument — a timing gate with 1.1x of headroom on a runner nobody has \
+                 measured is a flaky test wearing a budget's clothes. What is gated is two properties of the mechanism instead — a \
+                 **ratio**, that the pair costs under 2x the two `Instant::now()` calls it is built \
+                 out of (1.25x measured), which is what fails when an allocation, a lock, a syscall \
+                 or a format lands on the frame path and is immune to a slow clock because the \
+                 baseline moves with it; and a **cliff** at 1 µs, 1% of §13's typical frame and 20x \
+                 the measurement. The absolute number is printed with its headroom on every run, \
+                 and impl 26's ledger is where it becomes a gate against a machine somebody has \
+                 measured",
         },
     },
     Entry {

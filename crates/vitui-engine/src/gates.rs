@@ -2664,6 +2664,8 @@ fn threaded_at(
         clock: crate::engine::Clock::System,
         max_frame_rate: hz,
         overrides: crate::testing::pinned_truecolor(),
+        overrun_threshold: None,
+        overrun_report: None,
         input: crate::input::InputConfig::default(),
     })
     .attach()
@@ -2784,6 +2786,8 @@ fn the_threaded_path_writes_the_bytes_the_deterministic_path_writes() {
                 clock: crate::engine::Clock::System,
                 max_frame_rate: f32::INFINITY,
                 overrides: scene.overrides(),
+                overrun_threshold: None,
+                overrun_report: None,
                 input: crate::input::InputConfig::default(),
             })
             .attach()
@@ -4770,6 +4774,8 @@ fn exit_through(mode: &str) {
         clock: crate::engine::Clock::Manual,
         max_frame_rate: f32::INFINITY,
         overrides: Overrides::default(),
+        overrun_threshold: None,
+        overrun_report: None,
         input: crate::input::InputConfig {
             mouse: crate::input::MouseMode::Buttons,
             focus: true,
@@ -5099,6 +5105,8 @@ fn the_restoration_stops_the_renderer_before_the_terminal_is_given_back() {
         clock: crate::engine::Clock::System,
         max_frame_rate: f32::INFINITY,
         overrides: crate::testing::pinned_truecolor(),
+        overrun_threshold: None,
+        overrun_report: None,
         input: crate::input::InputConfig::default(),
     })
     // The panic path's sink, which over a caller-supplied output would otherwise not exist.
@@ -5155,4 +5163,517 @@ fn the_restoration_stops_the_renderer_before_the_terminal_is_given_back() {
         "the epilogue went out twice, once through each sink: {}",
         escaped(&seen)
     );
+}
+
+// ---------------------------------------------------------------------------------------------
+// The unblockable app thread: the two runtime rungs, and the negative corpus's runtime companions.
+//
+// Spec §11, and register entries #18 and #22. Four of the five rungs cost nothing and are checked by
+// the compiler — the paired `compile_fail` doctests on `Screen`, `View` and `Permit`, and the absence
+// of any blocking accessor on `Slot` — so what is left here is what runs: the in-loop detector, the
+// escape hatch, and the observer thread whose sanction ends the process.
+//
+// **No gate here asserts a scheduler property.** A test that spends 166.76 us and then insists the
+// operating system gave the thread back inside 8.3 ms is a flaky test wearing a budget's clothes,
+// which is exactly what §14 refuses. So the numbers live in `crate::perf`'s unit tests, where the
+// instants are arguments rather than measurements, and what is driven through the public API here is
+// the *wiring*: that the iteration begins at `wait` and ends at `present`, on every path out of it,
+// with a threshold taken from the rate the application declared.
+// ---------------------------------------------------------------------------------------------
+
+/// A headless screen on the threaded clock, at `hz`, with the budget pinned to `threshold`.
+///
+/// The threaded clock rather than `Clock::Manual` for one reason: `wait` is where the iteration
+/// begins, `Manual` is the mode in which a deterministic program does not call it, and a gate about
+/// the detector that never entered an iteration would be a gate about nothing.
+///
+/// **A tight `threshold` here does not arm a tight abort**, and the review is what made that true.
+/// The observer's limit was the threshold times sixty-four with no floor, so a gate pinning 1 ms and
+/// sleeping 20 ms inside its iteration sat 3.2x away from `std::process::abort` on a loaded runner —
+/// which would have taken all seven hundred tests with it and reported a stall instead of the
+/// assertion that actually broke. `crate::perf::STALL_FLOOR` is the fix: every limit a `Screen` can
+/// have is at least a second, whatever budget the caller pinned.
+fn detected_screen(
+    hz: f32,
+    threshold: Option<std::time::Duration>,
+) -> (Screen, crate::engine::WakeHandle) {
+    crate::engine::Engine::new(crate::engine::Config {
+        size: (40, 8),
+        output: crate::engine::Output::Sink(Box::new(std::io::sink())),
+        clock: crate::engine::Clock::System,
+        max_frame_rate: hz,
+        overrides: Overrides::default(),
+        overrun_threshold: threshold,
+        overrun_report: None,
+        input: crate::input::InputConfig::default(),
+    })
+    .attach()
+    .expect("attaching to a sink cannot fail")
+}
+
+/// **The threshold is one frame interval of the rate the application declared** — never the map's
+/// 100 us, which is a CI gate on one stage of the engine's own work.
+///
+/// The number itself is `crate::perf`'s to check, against instants that are arguments; what is
+/// checked here is that a `Screen` at 120 Hz really carries 8.333 ms and that
+/// `set_max_frame_rate` moves it, because those are two wires and either could be missing.
+#[test]
+fn a_screens_budget_is_one_frame_interval_of_its_own_rate() {
+    let (mut screen, _wake) = detected_screen(120.0, None);
+    assert_eq!(
+        screen.overrun_threshold(),
+        std::time::Duration::from_nanos(8_333_333)
+    );
+    screen.set_max_frame_rate(300.0);
+    assert_eq!(
+        screen.overrun_threshold(),
+        std::time::Duration::from_nanos(3_333_333)
+    );
+}
+
+/// **A pinned threshold is the application's number and a rate change does not rescale it.**
+#[test]
+fn a_pinned_budget_survives_a_monitor_changing_under_the_program() {
+    let pinned = std::time::Duration::from_millis(2);
+    let (mut screen, _wake) = detected_screen(120.0, Some(pinned));
+    screen.set_max_frame_rate(300.0);
+    assert_eq!(screen.overrun_threshold(), pinned);
+}
+
+/// **The default budget is `Config`'s default rate**, and this is the only thing that says so.
+///
+/// `crate::perf::DEFAULT_HZ` is a deliberate second copy of `Config::DEFAULT_MAX_FRAME_RATE` — that
+/// module reaches for nothing in the crate, because `examples/budget.rs` `#[path]`-includes it to
+/// time the detector in a release build — so the two can drift, and nothing but an equality would
+/// notice.
+#[test]
+fn the_detectors_default_budget_is_the_configs_default_rate() {
+    let (screen, _wake) = detected_screen(crate::engine::Config::default().max_frame_rate, None);
+    let (defaulted, _wake) = detected_screen(crate::perf::DEFAULT_HZ, None);
+    assert_eq!(screen.overrun_threshold(), defaulted.overrun_threshold());
+}
+
+/// **The iteration begins when `wait` returns and ends when `present` does**, and an overrun between
+/// them panics a debug build on the first one.
+///
+/// The sleep is twenty times the pinned budget, so there is no scheduler question in either
+/// direction: no runner is slow enough to make this pass and none is fast enough to make it fail.
+#[test]
+#[should_panic(expected = "a frame was dropped")]
+fn an_overrun_between_wait_and_present_panics_a_debug_build() {
+    let (mut screen, wake) = detected_screen(120.0, Some(std::time::Duration::from_millis(1)));
+    wake.post();
+    assert_eq!(screen.wait(), Wake::Posted);
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    screen.present();
+}
+
+/// **Every path out of `present` ends the iteration**, including the ones that submit nothing.
+///
+/// The body has six early returns, and a diagnostic that missed one would go quiet on exactly the
+/// frames worth reporting: an idle `present` here is the cheapest of them, and it still has to leave.
+/// The gate is that the *second* iteration is charged from its own `wait` rather than from the first
+/// one's — if `leave` had not run, the entry instant would still be the older one and this would
+/// panic.
+#[test]
+fn an_idle_present_still_ends_the_iteration_it_was_in() {
+    let (mut screen, wake) = detected_screen(120.0, Some(std::time::Duration::from_millis(50)));
+    wake.post();
+    assert_eq!(screen.wait(), Wake::Posted);
+    assert!(!screen.present().submitted, "nothing was drawn");
+    std::thread::sleep(std::time::Duration::from_millis(30));
+    wake.post();
+    assert_eq!(screen.wait(), Wake::Posted);
+    // Thirty of the fifty milliseconds were spent outside any iteration. A detector that had not
+    // left the first one would charge them to this one and panic.
+    assert!(!screen.present().submitted);
+}
+
+/// **A `present` with no `wait` before it is not an iteration at all**, which is what makes
+/// `Clock::Manual` usable as a straight-line program — and what makes every other gate in this file
+/// safe to run beside a debugger.
+#[test]
+fn the_detector_is_silent_without_a_wait() {
+    let mut h = Harness::new(8, 2);
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    h.screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, 8, 2), true);
+    h.present();
+}
+
+/// **A frame may be drawn inside a permitted region.** The case whose first shape was `E0499` and
+/// whose second was `E0502`.
+///
+/// Spec §11 records the `&mut self` shape failing and the fix as *`Cell` and `&self` throughout*.
+/// That is half of one: with `Cell` inside, a `Permit<'a>` borrowed out of `&'a Screen` still cannot
+/// have a frame drawn inside it, because `Screen::layers` takes `&mut self`. This test is what a
+/// borrowing guard cannot pass, which is why the guard holds an `Rc` and has no lifetime — see
+/// `crate::perf::Permit`.
+///
+/// The budget is pinned tight and the region sleeps well past it, so the assertion is not *this was
+/// fast* but *this was excused*.
+#[test]
+fn a_frame_is_drawn_inside_a_permitted_region_and_the_region_is_excused() {
+    let (mut screen, wake) = detected_screen(120.0, Some(std::time::Duration::from_millis(1)));
+    wake.post();
+    assert_eq!(screen.wait(), Wake::Posted);
+    let permit = screen.permit_slow("the cold-start frame");
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    let id = screen.layers().add_content(0, Rect::new(0, 0, 8, 1), true);
+    screen
+        .layers()
+        .view(id)
+        .expect("the layer was just added")
+        .text(0, 0, "cold", Style::new());
+    assert!(screen.present().submitted);
+    drop(permit);
+}
+
+/// **What a permit excused comes off the iteration and not off the detector.**
+///
+/// The frame around the permitted region is still charged, and it is the half of the escape hatch
+/// that makes it an escape rather than a switch: a permit taken for a 1 us region does not buy the
+/// 300 ms after it.
+#[test]
+#[should_panic(expected = "a frame was dropped")]
+fn a_permit_that_ended_does_not_excuse_what_came_after_it() {
+    let (mut screen, wake) = detected_screen(120.0, Some(std::time::Duration::from_millis(1)));
+    wake.post();
+    assert_eq!(screen.wait(), Wake::Posted);
+    drop(screen.permit_slow("a region that cost nothing"));
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    screen.present();
+}
+
+/// **The split is internal**: `Parker`, `Producer`, `Consumer` and `Ui` are not public names.
+///
+/// ADR 0003 split each of two primitives into an app-thread half and a `Send` half, and the seam
+/// ticket then made all four private — which *strengthens* the enforcement rather than hiding it,
+/// because `Perf::enter` and `Perf::leave` stop being merely unforgettable and become uncallable.
+/// What is left on the public surface is `Screen`, `WakeHandle`, `Slot` and `Permit`, and the four
+/// names below being absent from `lib.rs`'s re-exports is the only thing that says so.
+#[test]
+fn the_split_handles_are_not_public_names() {
+    let lib = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/lib.rs"))
+        .expect("the crate root is beside this file");
+    // **Whole statements, not first lines.** `lib.rs` already has a re-export spanning four lines —
+    // `pub use input::{ … }` — so a `Parker` added on a continuation line would be invisible to a
+    // filter over line starts, which is what the first draft of this gate was.
+    let mut exports: Vec<String> = Vec::new();
+    let mut open: Option<String> = None;
+    for line in lib.lines() {
+        let statement = match open.take() {
+            Some(mut held) => {
+                held.push(' ');
+                held.push_str(line.trim());
+                held
+            }
+            None if line.starts_with("pub use ") || line.starts_with("pub mod ") => {
+                line.trim().to_string()
+            }
+            None => continue,
+        };
+        match statement.ends_with(';') {
+            true => exports.push(statement),
+            false => open = Some(statement),
+        }
+    }
+    assert!(
+        open.is_none(),
+        "a re-export in lib.rs never ended in a semicolon, so this gate stopped reading early"
+    );
+    // Nine at the time of writing, and the count is here so that a gate reading an empty list fails
+    // rather than passes. It is a floor and not an equality: adding a re-export is ordinary.
+    assert!(
+        exports.len() >= 9,
+        "only {} re-exports were parsed out of lib.rs, which is too few to be the whole list",
+        exports.len()
+    );
+    for orphan in ["Parker", "Unparker", "Producer", "Consumer", "Ui"] {
+        for line in &exports {
+            assert!(
+                !line.contains(orphan),
+                "`{orphan}` is on the public surface again: {line}"
+            );
+        }
+    }
+    // And the positive twin, because a list of absences passes for any reason including the file
+    // having been renamed out from under it.
+    for present in ["Screen", "WakeHandle", "Slot", "Permit"] {
+        assert!(
+            exports.iter().any(|line| line.contains(present)),
+            "`{present}` is not re-exported, so this test is checking a file that moved"
+        );
+    }
+}
+
+/// **Refusal 7, over the source rather than in prose: no blocking receive is inside the app thread's
+/// loop.**
+///
+/// Spec §12 spells this *the word `recv` does not appear*, and taken literally it is neither true nor
+/// desirable — and the two ways it is false are not the same way, which is why the allowance below
+/// carries a reason per file rather than a count. Two are on **other threads**: the render thread
+/// waits on a one-message channel for the renderer `attach` hands it, and the input thread's whole
+/// life is a receive on the reader's channel. One is on the app thread and **outside the loop**:
+/// capability detection reads the terminal's answers with a deadline, at `attach`, before a render
+/// thread exists and before anything has drawn.
+///
+/// So the property is *no blocking receive is inside the app thread's iteration*, and a new one
+/// anywhere else fails the build. The `Slot` this ticket added is what makes that liveable: a
+/// background result reaches the app thread through a non-blocking `take` and a `WakeHandle`, so an
+/// application never needs the call it cannot make.
+#[test]
+fn every_blocking_receive_in_the_crate_is_outside_the_app_threads_loop() {
+    /// Where a blocking receive may appear, and why that one is not inside a frame.
+    const ALLOWED: [(&str, &str); 4] = [
+        (
+            "reader.rs",
+            "another thread: the input thread's whole life, and it owns the read direction",
+        ),
+        (
+            "engine.rs",
+            "another thread: the render thread waiting for the renderer `attach` hands it after the \
+             spawn succeeded",
+        ),
+        (
+            "detect.rs",
+            "the app thread, and outside the loop: §10's query batch is read back with a deadline \
+             at `attach`, before a render thread exists and before anything has drawn",
+        ),
+        (
+            "gates.rs",
+            "tests: sinks and orderings, on threads standing in for the renderer",
+        ),
+    ];
+    /// Every blocking spelling, not just the bare one. `recv_timeout` is what `clippy.toml` names as
+    /// the offence, and `recv_deadline` is the same call with the argument the other way round.
+    const SPELLINGS: [&str; 3] = [".recv(", ".recv_timeout(", ".recv_deadline("];
+    /// **Recursive, because `src/` has subdirectories and both of them hold code.** `src/input/` and
+    /// `src/ucd/` exist, and a flat `read_dir` would have made this gate pass for a blocking receive
+    /// added to the input parser — the one file where a reader would most expect to find one.
+    fn walk(dir: &std::path::Path, found: &mut Vec<(String, usize)>) {
+        for entry in std::fs::read_dir(dir).expect("a readable source directory") {
+            let path = entry.expect("a readable directory entry").path();
+            if path.is_dir() {
+                walk(&path, found);
+                continue;
+            }
+            if path.extension().is_none_or(|e| e != "rs") {
+                continue;
+            }
+            let source = std::fs::read_to_string(&path).expect("a readable source file");
+            let count: usize = SPELLINGS.iter().map(|s| source.matches(s).count()).sum();
+            if count > 0 {
+                let name = path
+                    .file_name()
+                    .expect("a file with an extension has a name")
+                    .to_string_lossy()
+                    .into_owned();
+                found.push((name, count));
+            }
+        }
+    }
+
+    let dir = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/src"));
+    let mut found = Vec::new();
+    walk(dir, &mut found);
+    let mut offenders = Vec::new();
+    let mut seen = Vec::new();
+    for (name, count) in found {
+        match ALLOWED.iter().any(|(file, _)| *file == name) {
+            true => seen.push(name),
+            false => offenders.push(format!("{name} has {count}")),
+        }
+    }
+    assert!(
+        offenders.is_empty(),
+        "a blocking receive appeared somewhere the allowance does not name: {}. Spec §12's refusal \
+         7 is that nothing inside the app thread's iteration waits for a result; `Slot::take` and \
+         `WakeHandle::post` are what it uses instead. If the new one really is outside the loop or on \
+         another thread, add it to `ALLOWED` **with that reason** — the reason is the gate",
+        offenders.join(", ")
+    );
+    // The positive twin: the two files that are allowed one still have one. Otherwise this test
+    // passes on the day somebody deletes the render thread's channel and leaves the allowance behind.
+    for (file, _) in ALLOWED {
+        assert!(
+            seen.iter().any(|s| s == file),
+            "`{file}` is on the allowance and has no `recv` in it — the allowance is stale"
+        );
+    }
+}
+
+/// **The detector reaches for nothing in the crate**, which is what lets `examples/budget.rs`
+/// `#[path]`-include it and time register entry #22 in a release build.
+///
+/// The same rule `crate::input` carries for `tests/alloc.rs`, and it looks like tidiness in both
+/// places and is not: one `use crate::` here would drag the whole engine into that binary. The one
+/// thing the module cannot do for itself — give the terminal back — arrives as a `fn()` pointer.
+#[test]
+fn the_detector_reaches_for_nothing_in_the_crate() {
+    let source = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/perf.rs"))
+        .expect("the detector is beside this file");
+    for (number, line) in source.lines().enumerate() {
+        let code = line.trim_start();
+        if code.starts_with("//") {
+            continue;
+        }
+        assert!(
+            !code.contains("crate::"),
+            "crates/vitui-engine/src/perf.rs:{} names the crate: {code}",
+            number + 1
+        );
+    }
+    // And it declares no **file-backed** child module, because a `#[path]`-included file resolves
+    // its children beside itself rather than under it. An inline `mod` needs no file and is fine,
+    // which is why the unit tests below it are one.
+    for (number, line) in source.lines().enumerate() {
+        let code = line.trim_start();
+        assert!(
+            !(code.starts_with("mod ") && code.ends_with(';')),
+            "crates/vitui-engine/src/perf.rs:{} declares a file-backed child module, which a \
+             `#[path]` include cannot resolve: {code}",
+            number + 1
+        );
+    }
+}
+
+/// Turns this test binary into the child of the observer gate.
+const STALL_MODE: &str = "VITUI_OBSERVER_STALL";
+
+/// What the child declares its stalled region to be, so the parent can find it in the report.
+const STALL_REASON: &str = "a stall on purpose";
+
+/// The exit the child takes if the observer never fires, so that *nothing happened* is a failure
+/// with a name rather than a hung job.
+const NEVER_FIRED: i32 = 17;
+
+/// **Gate: the observer's sanction is restore, print, abort — in that order.**
+///
+/// A child process, for the same reason the three exit gates are one: the panic hook and the
+/// restoration site are process-global, and this gate ends the process on purpose. It also buys the
+/// ordering the property is really about — the child's stdout and stderr are two handles on **one
+/// open file**, so what comes back is the two streams interleaved in write order, and *the terminal
+/// was given back before the message was printed* is exactly a statement about that order.
+///
+/// Why the order is the sanction, in one line each. Restoring and continuing is broken: a returning
+/// app thread would paint frames into a terminal somebody else had restored. Printing before
+/// restoring puts the message on an alt screen that is discarded a moment later. And panicking
+/// instead of aborting unwinds the observer's own stack, which stops nothing at all — the app thread
+/// is still inside the iteration that has not come back.
+///
+/// The child waits past `crate::perf::STALL_FLOOR`, so the whole gate costs a test-binary startup and
+/// a little over a second. It is not shortened by pinning a tight budget, and that is the floor doing
+/// its job rather than an inconvenience: a limit that could be driven down to 128 ms by a `Config`
+/// field is a limit every other gate in this file would have been arming by accident.
+#[test]
+fn the_observers_sanction_restores_the_terminal_then_prints_the_stall_then_aborts() {
+    use std::process::{Command, Stdio};
+
+    if std::env::var(STALL_MODE).is_ok() {
+        return stall_on_purpose();
+    }
+    let path = std::env::temp_dir().join(format!("vitui-observer-{}.out", std::process::id()));
+    let file = std::fs::File::create(&path).expect("a file in the temp directory");
+    let merged = file.try_clone().expect("the same open file, twice");
+    let status = Command::new(std::env::current_exe().expect("the test binary's own path"))
+        .args([
+            "--exact",
+            "gates::the_observers_sanction_restores_the_terminal_then_prints_the_stall_then_aborts",
+            "--nocapture",
+            "--test-threads=1",
+        ])
+        .env(STALL_MODE, "1")
+        .env("RUST_BACKTRACE", "0")
+        .stdin(Stdio::null())
+        .stdout(Stdio::from(file))
+        .stderr(Stdio::from(merged))
+        .status()
+        .expect("the test binary is runnable");
+    let out = std::fs::read_to_string(&path).expect("what the child wrote");
+    let _ = std::fs::remove_file(&path);
+
+    assert_ne!(
+        status.code(),
+        Some(NEVER_FIRED),
+        "the app thread stalled for five seconds and the observer never noticed: {}",
+        escaped(&out)
+    );
+    assert_ne!(
+        status.code(),
+        Some(0),
+        "the child returned normally, so nothing aborted: {}",
+        escaped(&out)
+    );
+    let restored = out
+        .find(EPILOGUE)
+        .unwrap_or_else(|| panic!("the terminal was never given back: {}", escaped(&out)));
+    let printed = out
+        .find("has not come back")
+        .unwrap_or_else(|| panic!("the stall was never reported: {}", escaped(&out)));
+    assert!(
+        restored < printed,
+        "the stall was printed into the alt screen, before the restoration: {}",
+        escaped(&out)
+    );
+    assert!(
+        out[printed..].contains(STALL_REASON),
+        "the report does not name the permit the stalled region was held under: {}",
+        escaped(&out)
+    );
+    // The entry time, which is the number that identifies the frame — and it is *before* the phrase
+    // above rather than after it, so the slice starts at the restoration. The limit is one second and
+    // the poll is 100 ms, so the number is just over a second and is printed in seconds.
+    assert!(
+        out[restored..].contains(" s ago"),
+        "the report does not say when the iteration entered: {}",
+        escaped(&out)
+    );
+}
+
+/// The child: take the terminal, paint a frame, enter an iteration, and never come back.
+fn stall_on_purpose() {
+    let engine = crate::engine::Engine::new(crate::engine::Config {
+        size: (20, 4),
+        output: crate::engine::Output::Sink(Box::new(std::io::stdout())),
+        clock: crate::engine::Clock::System,
+        max_frame_rate: f32::INFINITY,
+        overrides: Overrides::default(),
+        // Pinned tight so that nothing here is at the mercy of the default budget, and it does
+        // **not** shorten the stall limit — `crate::perf::STALL_FLOOR` is a second whatever this
+        // says. The numbers this gate is about are the order of three events, not the size of the
+        // limit.
+        overrun_threshold: Some(std::time::Duration::from_millis(2)),
+        overrun_report: None,
+        input: crate::input::InputConfig {
+            mouse: crate::input::MouseMode::Buttons,
+            focus: true,
+            paste: true,
+            ..crate::input::InputConfig::default()
+        },
+    });
+    let (mut screen, wake) = engine
+        .attach_restoring_into(Some(every_input_protocol()), Box::new(std::io::stdout()))
+        .expect("attaching to a sink cannot fail");
+    screen.set_mouse(crate::input::MouseMode::Motion);
+    let id = screen.layers().add_content(0, Rect::new(0, 0, 20, 4), true);
+    screen
+        .layers()
+        .view(id)
+        .expect("the layer was just added")
+        .text(0, 0, "on the alt screen", Style::new());
+    // No `wait` before it, so this frame is not an iteration and the in-loop detector is silent.
+    assert!(screen.present().submitted);
+
+    wake.post();
+    assert_eq!(screen.wait(), Wake::Posted);
+    // A permit **annotates** the stall and does not excuse it: the in-loop rung is excused because
+    // the application said *this will be slow*, and the observer answers a different claim.
+    let _permit = screen.permit_slow(STALL_REASON);
+    // Past the floor and its poll, and then some. The observer fires at a little over a second; five
+    // is the ceiling at which *nothing happened* becomes a diagnosis rather than a hung job.
+    std::thread::sleep(std::time::Duration::from_secs(5));
+    // Unreachable unless the observer is missing, and then it is the diagnosis rather than a hang.
+    std::process::exit(NEVER_FIRED);
 }
