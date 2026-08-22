@@ -160,3 +160,10 @@ jobs:
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y time
       - run: scripts/idle-gate.sh 30
+      # **Report #25, folded into this job**, for the same reason `.gitlab-ci.yml` folds it here: it
+      # needs the `time` the step above installed and a release build of one example this job already
+      # has. Entry #17's neighbour rather than a second copy — #17 is thirty *idle* seconds, this is
+      # thirty at **60 frames a second**, which had never been measured until impl 26 measured it at
+      # 0.133% of a core against a 5% budget, where the arithmetic it replaces said 0.0029%. A report:
+      # the gate underneath it is a frame count inside `examples/steady.rs`.
+      - run: scripts/steady-report.sh 30

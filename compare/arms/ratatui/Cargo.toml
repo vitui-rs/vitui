@@ -1,0 +1,26 @@
+[package]
+name = "arm-ratatui"
+version = "0.0.0"
+edition = "2024"
+# ratatui 0.30.2 and ratatui-crossterm 0.1.2 both declare 1.88.
+rust-version = "1.88"
+publish = false
+description = "The ratatui arm of the vitui comparative suite (compare/SCENES.md)."
+
+# Every version is pinned exactly. The suite is a claim about other people's software, so the
+# number in REPORT.md is only meaningful next to the version it was measured against.
+[dependencies]
+# The framework under measurement.
+ratatui = "=0.30.2"
+# ratatui 0.30 split the backends out; this is the one `ratatui`'s default `crossterm` feature
+# pulls in, and the arm names `CrosstermBackend` from it directly rather than through the facade.
+ratatui-crossterm = "=0.1.2"
+# The crossterm that ratatui-crossterm 0.1.2 selects (its `crossterm_0_29` default feature).
+# Used only for the alternate-screen prologue, never for output or input.
+crossterm = "=0.29.0"
+
+[features]
+# ratatui's scroll-region support is opt-in and OFF by default, so the arm's default build is
+# what a ratatui author gets without reading the feature list. Building with this feature on is
+# the second `list-scroll` measurement recorded in NOTES.md.
+scrolling-regions = ["ratatui/scrolling-regions", "ratatui-crossterm/scrolling-regions"]

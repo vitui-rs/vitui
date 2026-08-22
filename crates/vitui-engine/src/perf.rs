@@ -116,7 +116,10 @@ pub(crate) const POLL_FLOOR: Duration = Duration::from_millis(1);
 pub(crate) const POLL_CEILING: Duration = Duration::from_millis(100);
 
 /// Nothing excused, for the arms that have no permit in them.
-#[cfg(test)]
+///
+/// `debug_assertions` as well as `test`, for the reason on the test module below: the arms that use
+/// it are the debug-only ones, and a `cfg(test)` alone made `cargo test --release` fail to compile.
+#[cfg(all(test, debug_assertions))]
 const ZERO: Duration = Duration::ZERO;
 
 /// One frame interval at `hz`, or exactly what the caller pinned.
@@ -463,7 +466,10 @@ impl Perf {
 
     /// Whether the iteration in progress has already lost its frame — asked without spending the
     /// sanction, which in a debug build is a panic and would take the test with it.
-    #[cfg(test)]
+    ///
+    /// `debug_assertions` as well as `test`: its only caller is in the debug-only test module, and
+    /// the sanction it is asked *instead of* does not exist in a release build either.
+    #[cfg(all(test, debug_assertions))]
     fn would_overrun(&self) -> bool {
         overrun_by(
             self.entered.get(),
@@ -749,7 +755,26 @@ fn observe(watch: &Watch, restore: fn(), poll: Duration) {
     }
 }
 
-#[cfg(test)]
+// **`debug_assertions` as well as `test`, and impl 26 is where that was found.**
+//
+// The observer thread and everything that sizes it — `STALL_FACTOR`, `POLL_FLOOR`, `stall_limit`,
+// `Perf::watch_handle` — are `#[cfg(debug_assertions)]`, because requirement 11's zero-wakeup idle is
+// a *release-build* property and an observer thread would end it. This module tests them, so it has
+// to be gated on the same condition and was not: `cargo test --release -p vitui-engine` failed to
+// compile with **twenty-nine errors and two dead-code denials.**
+//
+// It failed nothing. CI runs `cargo test --workspace`, which is the dev profile, so the one
+// configuration nobody built was the one every timing report in this crate names in its own doc
+// comment — `cargo test --release … --nocapture`. Impl 26 went to re-measure the ledger against the
+// shipped engine and could not run a single one of those commands.
+//
+// This is the shape engine ticket 16 met twice and impl 25 met once more, arriving through a third
+// door: **a check that is weaker than the gate is not a check** — and here the *gate* was fine and
+// the thing nobody ran was the instrument. It is the same argument as `.gitlab-ci.yml`'s
+// `cargo clippy -p vitui-engine --features fuzz` line, which exists because a feature-on,
+// `cfg(test)`-off build had no build at all. The configurations a workspace does not compile are
+// where this class of defect lives, and *release plus tests* is now one fewer of them.
+#[cfg(all(test, debug_assertions))]
 mod tests {
     use super::*;
     use std::rc::Rc;

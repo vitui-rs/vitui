@@ -1,0 +1,41 @@
+# **`compare/` is its own workspace, and — like `fuzz/` — that is a loophole rather than a
+# permission.**
+#
+# One of the arms depends on ratatui, which is the framework being compared against. In the
+# workspace next door that dependency would be a policy violation with a straight face: the engine
+# takes crossterm plus generated UCD tables and nothing else (ADR 0001, enforced by `../deny.toml`),
+# and `cargo deny check` at the repository root cannot see a single crate in here.
+#
+# **Unlike `fuzz/`, this directory does not get a `deny.toml` of its own, and the reason is worth
+# stating rather than leaving as an omission.** `fuzz/` gets one because its dependencies are
+# incidental to what it does — `libfuzzer-sys` is machinery, and a new crate creeping into that graph
+# is the same defect it would be anywhere else. Here the third-party dependencies *are the subject*.
+# A dependency policy over the arms would be a gate on the thing being measured, and the only way to
+# satisfy it would be to delete an arm — which is precisely how this suite becomes dishonest, since
+# **a missing row reads as a win**.
+#
+# What replaces it is pinning. Every arm names an exact version of everything it compares against,
+# and the report states them, because a comparison against "whatever was current" is not a
+# comparison anybody can repeat.
+#
+# The empty table below is what detaches this. Without it, cargo reads the parent manifest, finds
+# these packages are neither members nor excluded, and refuses to build at all.
+[workspace]
+resolver = "3"
+members = ["arms/vitui", "arms/ratatui"]
+
+# No `[lints]` table, and this is not the omission it looks like next to the root manifest's
+# `warnings = "deny"`. These are measurement programs, not shipped code: a lint that failed the build
+# here would fail a *report*, and a report may not be load-bearing for a gate — which is §14's own
+# rule, applied to the one directory in this repository where it points the other way.
+#
+# The arms are still linted, by `compare/run.sh --check`, which is how a warning gets seen without a
+# comparative report being the thing that goes red.
+
+# Release, always. Every arm is compiled the way its users would ship it, and a debug build of ours
+# against a release build of somebody else's would be the most flattering possible mistake to make in
+# the wrong direction — which is the one direction this suite cannot afford to be wrong in.
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

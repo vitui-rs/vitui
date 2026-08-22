@@ -466,6 +466,11 @@ mod audit;
 mod gates;
 #[cfg(test)]
 mod golden;
+// **The ledger, and it is one table because the audit found the alternative.** Impl 26 went
+// looking for a provenance comment beside every gate number and found three in the whole tree,
+// against a hundred numbers — and the 1 ms / 100 us split written four times. See `ledger.rs`.
+#[cfg(test)]
+mod ledger;
 #[cfg(test)]
 mod register;
 #[cfg(test)]

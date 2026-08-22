@@ -234,6 +234,10 @@ pub const TEST_ONLY_MODULES: &[&str] = &[
     "gates.rs",
     "golden.rs",
     "input/tests.rs",
+    // Impl 26's ledger. Test-only for the same reason `register.rs` is: it is the instrument §14
+    // asks for rather than a part of the engine, `examples/budget.rs` reaches it with `#[path]`, and
+    // nothing a caller can hold is in it.
+    "ledger.rs",
     "register.rs",
     "roundtrip.rs",
     "scenes.rs",

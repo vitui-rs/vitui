@@ -1,0 +1,116 @@
+# The comparative suite. **Scheduled and on demand, and never on a pull request.**
+#
+# Register entry #27 is a claim about other people's software, so an absolute number cannot check it.
+# Spec §14's arrangement, unchanged: *it reports; it does not block*, into a committed file. Four
+# external projects' versions cannot gate this repository's pull requests — a suite that did would go
+# red when Textual cut a release, on a commit that touched nothing, and the honest response to that
+# would be to stop running it.
+#
+# What makes the requirement falsifiable anyway is that `compare/REPORT.md` is **committed**, so a
+# worsening number arrives as a review-visible diff. Same trade `soak.yml` makes: the soak is
+# scheduled and the committed corpus is the gate.
+#
+# **This job uploads its report; it does not push one.** A scheduled job with write access, for a file
+# a human has to read anyway, is the wrong shape — `soak.yml` refuses the same thing for the same
+# reason.
+#
+# # Why this is here and not on the local GitLab
+#
+# Every gate this repository actually watches go green runs on the shared local GitLab in
+# `~/Projects/devkit`, because a CI job nobody has watched is not a gate. This is not a gate, and that
+# runner is the wrong home for it twice over: it has six concurrent slots **shared with every other
+# repository on the machine**, and this job spends minutes on an `apt-get install` and a `pip install`
+# before it measures anything. Taxing every other repo's pipeline for a report is a bad trade.
+#
+# **So nobody has watched this workflow go green**, and that is stated rather than implied — the same
+# caveat `soak.yml` opens with. What paid §15's fifth owed measurement is a real run on a real machine:
+# `compare/FINDINGS.md` is dated, names the machine, and is where the eleven things that broke are
+# recorded. This workflow is the pinned-runner home for the two arms that machine cannot build.
+name: Compare
+
+on:
+  # Monthly rather than weekly. What this measures moves at the speed of other people's releases, and
+  # the arms are pinned, so a weekly run would re-derive the same table from the same versions.
+  schedule:
+    - cron: "0 5 1 * *"
+  # And on demand, which is how it is actually used: somebody changes the serializer and wants to know
+  # what it did to the wire against something that is not us.
+  workflow_dispatch:
+    inputs:
+      frames:
+        description: Frames per scene
+        required: false
+        default: "120"
+
+jobs:
+  compare:
+    # **Pinned, not `ubuntu-latest`.** The whole output is a comparison, and a comparison against
+    # "whatever the runner image was that month" is not one anybody can repeat. The image decides the
+    # `libnotcurses-dev` version, which decides an arm.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pinned to the same patch `.gitlab-ci.yml` pins, and deliberately not `@stable`. `ci.yml` is
+      # the job that catches a new Rust release breaking us; this one must not move for that reason,
+      # because a toolchain change would land in the middle of a table about other people's software.
+      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: compare
+
+      # **notcurses.** From apt rather than from source: the version is then a property of the pinned
+      # image, which is the only kind of pin that survives somebody else's release. The version
+      # actually installed is echoed into the log, because a report that named no version would be a
+      # comparison against nothing.
+      #
+      # **`libnotcurses-core-dev`, not `libnotcurses-dev`**, and the difference is not cosmetic. The
+      # arm links `notcurses-core`; the core package ships the headers *and* `notcurses-core.pc` while
+      # pulling in neither ffmpeg nor OpenImageIO. `libnotcurses-dev` drags in the multimedia stack for
+      # an arm that draws text.
+      #
+      # What each distribution has, checked rather than assumed: Debian sid and Ubuntu 26.04 carry
+      # `3.0.17+dfsg-3`, the version the arm was written against; **ubuntu-24.04 here carries
+      # `3.0.7+dfsg.1-1ubuntu5`, which builds** — verified against the 3.0.7 headers. Ubuntu 22.04 is
+      # 3.0.6 and too old, and notcurses is **not packaged in Debian 12 or 13 at all**, so a
+      # `bookworm`/`trixie` runner would have to pin sid or build the tarball. That is why the image
+      # above is pinned to an Ubuntu and not to the `rust:` image the four gates use.
+      - name: notcurses
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libnotcurses-core-dev pkg-config
+          dpkg-query -W libnotcurses-core-dev
+          pkg-config --modversion notcurses-core
+
+      # **Python counts.** Textual's interpreter overhead is what its users pay, so the interpreter is
+      # pinned too and the version goes in the report. `requirements.txt` pins Textual exactly.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Textual
+        run: |
+          compare/arms/textual/setup.sh
+          compare/arms/textual/.venv/bin/python -m pip freeze
+
+      - name: Measure
+        env:
+          FRAMES: ${{ github.event.inputs.frames || '120' }}
+        run: |
+          compare/run.sh --label "github ubuntu-24.04, rustc 1.97.1, python 3.12"
+
+      # **The report is the point of the run, and it is uploaded rather than committed.** A human reads
+      # it, decides whether the numbers moved for a reason, and commits it — which is the review step
+      # the whole "it reports into a committed file" arrangement exists to create.
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: comparative-report
+          path: compare/REPORT.md
+          if-no-files-found: error
+
+      # And the diff against what is committed, in the log, so that the interesting case — *a number
+      # moved* — is visible without downloading anything. `|| true`: a diff is the expected outcome of
+      # a run on a different machine, and this job does not fail on its own subject matter.
+      - if: always()
+        run: git --no-pager diff --stat -- compare/REPORT.md && git --no-pager diff -- compare/REPORT.md || true

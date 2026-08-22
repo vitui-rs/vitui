@@ -1,0 +1,21 @@
+# The vitui arm of the comparative suite.
+#
+# A member of `compare/`'s workspace, which is **detached from the repository root** — see
+# `../../Cargo.toml` for why. This crate itself takes nothing but the engine, so it would have been
+# legal inside the root workspace; it lives here because the arms have to be built and run as one
+# set, and one of the others takes ratatui.
+[package]
+name = "arm-vitui"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+# The engine alone, and deliberately not the facade: what is being compared is the thing that
+# touches the terminal. A runtime that does not exist yet cannot be in the number.
+vitui-engine = { path = "../../../crates/vitui-engine", version = "0.0.0" }
+
+[[bin]]
+name = "arm-vitui"
+path = "src/main.rs"

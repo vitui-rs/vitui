@@ -13,3 +13,10 @@
 # untracked again here: it holds window layout, open tabs, run configurations and the cursor's last
 # position, so every IDE session dirties it and no two developers ever want each other's copy.
 .idea/
+
+# The comparative suite (`compare/`) is a detached workspace with a lock file and a target directory
+# of its own, and one arm has a Python virtual environment. The lock file **is** committed — the
+# arms pin exact versions and a lock is what makes the pin reproducible — but nothing built is.
+/compare/target
+/compare/arms/textual/.venv
+/compare/arms/notcurses/arm

@@ -276,3 +276,18 @@ idle:
     # failure and still a failure.
     - apt-get update && apt-get install -y --no-install-recommends time
     - scripts/idle-gate.sh 30
+    # **Report #25, folded into this job rather than added as a fifth**, and it is the same
+    # runner-slot decision the note above the four jobs makes twice already. It needs GNU `time`,
+    # which the line above just installed, and a release build of one example in a target directory
+    # this job's cache already holds — a job of its own would install a package and compile a
+    # workspace again for a number nobody gates on.
+    #
+    # It is entry #17's neighbour rather than a second copy of it: #17 is thirty **idle** seconds at
+    # `0.00 user 0.00 sys`, and this is thirty seconds at **60 frames a second**, which is a different
+    # question and had never been measured. Impl 26 measured it at 0.133% of a core against a 5%
+    # budget, where the arithmetic it replaces said 0.0029%.
+    #
+    # A report, so it prints and does not fail the job on the percentage. The gate underneath it is a
+    # frame *count* inside `examples/steady.rs`, which aborts if the run was not a steady state — a
+    # percentage measured over four frames is not a measurement of one.
+    - scripts/steady-report.sh 30

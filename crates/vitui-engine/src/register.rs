@@ -70,6 +70,22 @@ pub enum State {
         at: &'static str,
     },
     /// It does not run, and the implementation ticket that makes it possible is named.
+    ///
+    /// **Nothing constructs this any more, and impl 26 is where that became true**: entry #27, the
+    /// comparative suite, was the last red row on §14's register, and the suite has now been run.
+    /// All twenty-seven are wired.
+    ///
+    /// `expect(dead_code)` rather than deletion, and the reason is the whole design of this file.
+    /// The register exists because **a property that quietly never arrives is indistinguishable from
+    /// one that was decided against**, and this arm is how a new property says *not yet, and here is
+    /// the ticket*. Deleting it would leave the next entry with only one thing it could be, which is
+    /// the pressure that produces a row claiming to be wired somewhere vague. The two-sided
+    /// assertion in [`State::assert_names_a_destination`] is still compiled and still what a red row
+    /// would have to satisfy.
+    #[expect(
+        dead_code,
+        reason = "every entry is wired since impl 26; the arm stays so a new one can be red"
+    )]
     Red {
         /// The implementation ticket that inverts this entry.
         inverted_by: &'static str,
@@ -471,7 +487,18 @@ pub const REGISTER: [Entry; 27] = [
                  under their budgets there. They stay reported because a sample on that path can \
                  contain a wait — that loop spins rather than parking in impl 19's `wait`, since a \
                  frame gap inside a sample is a sleep inside a budget — and because a budget gate \
-                 has to hold on a runner somebody has measured, which is impl 26's ledger",
+                 has to hold on a runner somebody has measured, which is impl 26's ledger. **Impl \
+                 26 measured it and left all four reported**, which is the outcome the sentence \
+                 above was written to allow: on the M1 Max every one of the four is under its \
+                 budget on the threaded path — 704.09, 58.02, 57.04 and 532.00 us, headroom 1.42x \
+                 to 1.88x — and the thinnest of those margins is inside the spread this list has \
+                 already seen between this machine and the runner (113.9 us against 75.7 us on \
+                 `virtualised-tree`, pipeline 41). A row promoted on the strength of one machine's \
+                 report is the same mistake as a row exempted on the strength of an expectation, \
+                 and one machine is what impl 26 had. **The budget figure itself now has one home**: \
+                 `crate::ledger::full_screen_budget_ns`, because the audit found it written four \
+                 times in two files and a budget figure may not move without a new map decision. \
+                 Provenance: impl 26, Apple M1 Max, macOS 26.5.2, rustc 1.97.1, --release, unloaded",
         },
     },
     Entry {
@@ -482,18 +509,31 @@ pub const REGISTER: [Entry; 27] = [
         source: "budget",
         state: State::Wired {
             at: "examples/budget.rs, every scene of the incremental class, the caret at forty \
-                 layers among them",
+                 layers among them. The figure has one home, `crate::ledger::incremental_budget_ns`, \
+                 for the reason on #23. Provenance: impl 26, Apple M1 Max, macOS 26.5.2, rustc \
+                 1.97.1, --release, unloaded — worst headroom gated here is 1.6x on \
+                 `scrolling-list-label-only`",
         },
     },
     Entry {
         number: 25,
         property: "60 fps steady state under 5% of a core",
         kind: Kind::Report,
-        qualifier: "derived from the typical frame, not a process measurement",
+        qualifier: "a process measurement over a real 60 Hz loop; the derived figure is kept beside it",
         source: "budget",
         state: State::Wired {
-            at: "examples/budget.rs, derived from the typical frame; impl 26 carries this report \
-                 in its own criteria and replaces the arithmetic with a measured steady state",
+            at: "**measured, by impl 26**: `examples/steady.rs` and `scripts/steady-report.sh` \
+                 run the real three-thread 60 Hz loop for thirty seconds and read /usr/bin/time — \
+                 **0.133% of one core over 1 800 frames**, 37.6x of headroom against the 5% budget, \
+                 22.2 us of process CPU a frame with every thread and the wire in it. The derived \
+                 arithmetic stays beside it in examples/budget.rs and read **0.0029%**, so it was \
+                 46x optimistic — and it was not wrong about anything it contained: what it left \
+                 out is the whole of what the word *core* covers, the render thread that wakes \
+                 sixty times a second to composite nothing, the serializer and the write on that \
+                 thread, and sixty condvar round trips of scheduler time. The gate under the report \
+                 is a frame **count** inside examples/steady.rs, because a percentage taken over \
+                 four frames is not a measurement of a steady state. Provenance: impl 26, Apple M1 \
+                 Max, macOS 26.5.2, rustc 1.97.1, --release, unloaded",
         },
     },
     Entry {
@@ -522,9 +562,37 @@ pub const REGISTER: [Entry; 27] = [
         kind: Kind::Report,
         qualifier: "committed file, on a pinned runner",
         source: "arch 11, 13",
-        state: State::Red {
-            inverted_by: "impl 26",
-            why: "the suite has never been run",
+        state: State::Wired {
+            at: "`compare/` — a detached workspace, `SCENES.md` normative, `harness.py` the \
+                 instrument, `REPORT.md` committed and regenerated, `FINDINGS.md` written by hand \
+                 and dated. **Run on 2026-08-22 by impl 26, which is §15's fifth owed measurement \
+                 paid**, and the ticket's prediction was right: *expect the \"same scene\" \
+                 definition to break first.* It broke in eleven places, two of them genuine \
+                 framework limits and nine of them SCENES.md under-specifying — the worst being \
+                 scene 5's dim, which had no colour to be halfway *from*, so it was a silent no-op \
+                 rather than a disagreement. All eleven are recorded at the bottom of SCENES.md. \
+                 The reading of the numbers is FINDINGS.md and the headline is a method finding: a \
+                 per-scene **total** over 120 frames reversed the caret row, because a total is a \
+                 weighted mean of a one-off and a steady state, so the report leads with the \
+                 marginal cost of one frame and keeps the total underneath it. Two arms are not \
+                 built on the development machine — notcurses, whose Homebrew formula pulls \
+                 ffmpeg, and Textual — and their cells read `not built here` with the reason, \
+                 which is deliberately **not** the same cell as `cannot express`: a missing row \
+                 reads as a win and that is the single easiest way for this suite to become \
+                 dishonest. **And the one `cannot express` cell on the table carries a \
+                 withdrawal**, which is the sharpest thing this ticket found: arch 13 says \
+                 notcurses does not composite layers, and it does — `NCALPHA_BLEND` over the plane \
+                 stack, built from the 3.0.17 tarball and demonstrated, halving a plane below \
+                 without the caller computing one dimmed colour. So the rule written to stop the \
+                 suite being dishonest would itself have shipped a cell claiming a competitor \
+                 cannot do something it can. The arm still refuses the scene, because SCENES.md is \
+                 normative and flipping that cell is the map's call; the evidence is appended to \
+                 arch 13 and the withdrawal sits beside the cell in FINDINGS.md and README.md. `.github/workflows/compare.yml` is the pinned-runner home where all \
+                 four arms build, scheduled monthly and never on a pull request, uploading its \
+                 report rather than pushing one. **It reports; it does not block** — four external \
+                 projects' versions cannot gate this repository's pull requests, and what makes \
+                 the requirement falsifiable instead is that REPORT.md is committed, so a \
+                 worsening number arrives as a review-visible diff",
         },
     },
 ];

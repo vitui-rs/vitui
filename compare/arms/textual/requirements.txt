@@ -1,0 +1,21 @@
+# The Textual arm of the vitui comparative suite, pinned.
+#
+# "Python counts. Textual's interpreter overhead is what its users pay; the
+# version is pinned and stated." — ticket 26.  The interpreter is pinned by
+# setup.sh (python3.14, 3.14.6 on the recording machine); this file pins
+# everything above it, transitive closure included, nothing floating.
+#
+# Resolved 2026-08-22 on CPython 3.14.6, macOS 26.0 arm64.
+
+textual==8.2.8
+
+# textual's own dependencies, and theirs.
+linkify-it-py==2.1.0
+markdown-it-py==4.2.0
+mdit-py-plugins==0.6.1
+mdurl==0.1.2
+platformdirs==4.11.3
+Pygments==2.21.0
+rich==15.0.0
+typing_extensions==4.16.0
+uc-micro-py==2.0.0

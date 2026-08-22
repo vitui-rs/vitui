@@ -37,6 +37,14 @@
 // allowed because each consumer uses a different part — the register's `Red` reasons are read here,
 // the scenes' `step` return value is read there — and a lint that fires on the half you are not
 // looking at teaches people to delete the other half.
+// **The ledger, and it is why the two budget literals below became two function calls.** Impl 26's
+// audit found the 1 ms / 100 us split written four times in two files — a budget figure, which is
+// the one class of number that may not move without a new map decision, needing four edits to be
+// corrected once. `src/ledger.rs` is now the single home; see its module comment for what the audit
+// found and why one table replaced a hundred provenance comments.
+#[allow(dead_code)]
+#[path = "../src/ledger.rs"]
+mod ledger;
 #[allow(dead_code)]
 #[path = "../src/register.rs"]
 mod register;
@@ -255,12 +263,11 @@ fn the_app_threads_share() {
         let Some(ns) = report.get(case) else {
             continue;
         };
-        let budget = if FULL_SCREEN.contains(&case) {
-            Duration::from_millis(1)
+        let budget_ns = if FULL_SCREEN.contains(&case) {
+            ledger::full_screen_budget_ns()
         } else {
-            Duration::from_micros(100)
+            ledger::incremental_budget_ns()
         };
-        let budget_ns = budget.as_secs_f64() * 1e9;
         let (verb, ratio) = if ns < budget_ns {
             ("under, headroom", budget_ns / ns)
         } else {
@@ -292,8 +299,25 @@ fn the_app_threads_share() {
     println!();
 }
 
+/// Impl 26's ledger, printed on every run.
+///
+/// **The table is in `src/ledger.rs` rather than here**, and that is the ticket's finding rather
+/// than a filing preference: an audit for a provenance comment beside every gate number found three
+/// in the whole repository against something over a hundred numbers, and the same figures written
+/// out in up to nine files each. One table, and everything else points at it.
+fn print_the_ledger() {
+    println!("impl 26's ledger — the app thread's worst realistic frame:");
+    print!("{}", ledger::table());
+    println!(
+        "\n  parallel compositing, re-checked against the real numbers:\n  {}",
+        ledger::the_parallel_compositing_ruling()
+    );
+    println!();
+}
+
 fn main() {
     print_the_scene_list();
+    print_the_ledger();
 
     // Measured before the twelve scenes rather than after, and the reason is a number: the same
     // 300-cell redraw reports 1.67 us here and 4.37 us if it is run at the end of this file, on the
@@ -452,24 +476,46 @@ fn the_two_budget_gates(report: &Report) {
             println!("  reported, not gated: {case:<44} {note}, gated at impl 18");
             continue;
         }
-        let budget = if FULL_SCREEN.contains(&case) {
-            Duration::from_millis(1)
+        // **One home.** Both gates read their figure from `crate::ledger`, which is the whole
+        // point of that file existing: the audit that produced it found this number written four
+        // times, and four copies of a budget figure is three copies that will not be corrected.
+        let budget_ns = if FULL_SCREEN.contains(&case) {
+            ledger::full_screen_budget_ns()
         } else {
-            Duration::from_micros(100)
+            ledger::incremental_budget_ns()
         };
-        report.assert_under(case, budget);
+        report.assert_under(case, Duration::from_nanos(budget_ns as u64));
     }
 }
 
-/// Report #25: 60 fps steady state against 5% of a core.
+/// Report #25: 60 fps steady state against 5% of a core — **the derived figure, kept beside the
+/// measured one because the gap between them is the finding.**
 ///
-/// **Derived, and a report may never be load-bearing for a gate** (§14's second refinement). The
-/// arithmetic is one animated frame's cost times sixty against one second of one core, which is an
-/// estimate of the app thread's share and not a process measurement. Impl 26 carries this report in
-/// its own criteria and is where the arithmetic is replaced by a measured steady state — a *sixty
-/// frames a second* one, which is a different question from entry #17's, and #17's is answered:
-/// `scripts/idle-gate.sh` measures thirty **idle** seconds at `0.00 user 0.00 sys` and zero
-/// voluntary context switches.
+/// Impl 26 replaced this arithmetic with `examples/steady.rs` and `scripts/steady-report.sh`, which
+/// run a real three-thread 60 Hz animation for thirty seconds and read `/usr/bin/time`. The two
+/// numbers, on the same M1 Max:
+///
+/// | | 60 fps steady state, % of one core |
+/// |---|---|
+/// | derived, below — one animated frame's app-thread cost x 60 | **0.0029%** |
+/// | measured — 1 800 frames, all threads, wire included | **0.133%** |
+///
+/// **The arithmetic was 46x optimistic, and it was not wrong about anything it contained.** What it
+/// left out is everything entry #25's word *core* is about: the render thread, which composites
+/// nothing on a caret and still wakes sixty times a second; the serializer and the write, which are
+/// on that thread and not in the app thread's share; and sixty condvar round trips a second of
+/// scheduler time charged to this process. Per frame that is **22.2 µs of process CPU against a
+/// 491 ns app-thread frame**, which is the ratio worth remembering: on the cheapest scene there is,
+/// the engine's own frame is 2% of what running at 60 Hz costs at all.
+///
+/// Both stay. The derived line is a decomposition — it is the app thread's share, which is the number
+/// §13's budget is written about — and the measured line is the entry. **A report may never be
+/// load-bearing for a gate** (§14's second refinement), and neither is: the gate under the measured
+/// figure is a frame *count* inside `examples/steady.rs`, because a percentage taken over four frames
+/// is not a measurement of a steady state.
+///
+/// Entry #17 is the neighbouring question and is separately answered: `scripts/idle-gate.sh` measures
+/// thirty **idle** seconds at `0.00 user 0.00 sys` and zero voluntary context switches.
 fn the_steady_state_share(report: &Report) {
     let frame_ns = report
         .get("caret-blink")
@@ -477,8 +523,11 @@ fn the_steady_state_share(report: &Report) {
     let share = frame_ns * 60.0 / 1e9 * 100.0;
     println!(
         "\nreport #25  60 fps steady state: {share:.4}% of one core, derived from a {frame_ns:.0} \
-         ns animated frame\n            budget is 5%; impl 26 replaces this with a measured steady \
-         state"
+         ns animated frame\n            budget is 5%. **The measured figure is 0.133%** — 46x this \
+         one — and it is\n            `scripts/steady-report.sh`, which runs the real three-thread \
+         loop for thirty\n            seconds and reads /usr/bin/time. The gap is the render \
+         thread, the wire and\n            sixty condvar round trips a second: 22.2 us of process \
+         CPU a frame against\n            this {frame_ns:.0} ns of app thread. Impl 26."
     );
 }
 
@@ -968,7 +1017,31 @@ fn print_the_scene_list() {
 }
 
 /// What is red, and who inverts it. Printed last, because it is the part that is meant to shrink.
+///
+/// **It has shrunk to nothing, and impl 26 is the ticket that closed it.** Entry #27, the comparative
+/// suite, was the last red row on §14's register and the suite has now been run. So this function
+/// prints a sentence rather than an empty heading — an empty list under a heading reads as an
+/// instrument that failed to find its subject, which is the one thing a register that exists to make
+/// absence visible must never look like.
 fn print_what_is_red() {
+    let red = scenes()
+        .into_iter()
+        .filter(|s| matches!(s.status(), State::Red { .. }))
+        .count()
+        + register::REGISTER
+            .iter()
+            .filter(|e| matches!(e.state, State::Red { .. }))
+            .count();
+    if red == 0 {
+        println!(
+            "red on purpose: nothing. All twelve scenes and all twenty-seven register entries are \
+             wired,\n                as of impl 26, which ran the comparative suite (#27) — the \
+             last red row.\n                What is *not* covered is a different list and is not \
+             this one: the impl\n                backlog's \"Deliberately not sliced\" is where §15's \
+             fog is written down."
+        );
+        return;
+    }
     println!("red on purpose:");
     for s in scenes() {
         if let State::Red { inverted_by, why } = s.status() {
