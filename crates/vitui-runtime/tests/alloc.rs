@@ -501,3 +501,75 @@ fn formatting_a_frame_of_rows_allocates_nothing() {
         }
     });
 }
+
+/// **Routing a batch allocates nothing**, which is the half of *there are no per-id inboxes* that a
+/// count can hold.
+///
+/// The per-id version costs at least one allocation a frame — a map entry, or a `Vec` per widget
+/// that read a key — and this is what says the one queue was kept. Two allocations were hiding
+/// behind it and neither showed up in the steady-frame gate above, because that gate posts no
+/// input: the pointer batch was `std::mem::take`-n at award time and bought back on the next frame
+/// that saw the pointer, and the key queue was drained with `Vec::remove(0)`.
+#[test]
+fn routing_a_batch_allocates_nothing() {
+    use vitui_engine::{
+        Button, Buttons, Key, KeyCode, KeyKind, KeyText, Mods, Mouse, MouseKind, Rect,
+    };
+    use vitui_runtime::ctx::{Driver, Id, Interest};
+
+    let mut driver = Driver::headless(80, 24).expect("attaching to a sink cannot fail");
+    let focused = Id::from_raw(1);
+    driver.plant(None, Some(focused), None);
+
+    let key = |c: char| Key {
+        code: KeyCode::Char(c),
+        mods: Mods::NONE,
+        kind: KeyKind::Press,
+        text: KeyText::EMPTY,
+        at: std::time::Instant::now(),
+    };
+    let mouse = |kind| Mouse {
+        x: 4,
+        y: 2,
+        kind,
+        buttons: Buttons::NONE,
+        mods: Mods::NONE,
+        at: std::time::Instant::now(),
+    };
+
+    // A realistic burst: a dozen keys, a few moves and a click. The click is a routing edge, so this
+    // is two frames' worth of queue and the drain loop is part of what is being measured.
+    let one_burst = |driver: &mut Driver| {
+        for c in "hello, world".chars() {
+            driver.post_key(key(c));
+        }
+        for _ in 0..4 {
+            driver.post_mouse(mouse(MouseKind::Move));
+        }
+        driver.post_mouse(mouse(MouseKind::Down(Button::Left)));
+        driver.post_mouse(mouse(MouseKind::Up(Button::Left)));
+        loop {
+            driver.frame(|cx| {
+                for row in 0..24i32 {
+                    cx.interact(
+                        Id::from_raw(u64::try_from(row).unwrap_or(0)),
+                        Rect::new(0, row, 80, 1),
+                        Interest::CLICK.with(Interest::FOCUS),
+                    );
+                }
+                while cx.next_key(focused).is_some() {}
+            });
+            if driver.queued() == 0 {
+                break;
+            }
+        }
+    };
+
+    one_burst(&mut driver);
+    one_burst(&mut driver);
+    steady(|| {
+        for _ in 0..20 {
+            one_burst(&mut driver);
+        }
+    });
+}

@@ -29,6 +29,9 @@
 //!   cannot be skipped.
 //! - [`id`] — `Id`, `IdTable`, the id stack. Spec §5; ADR 0013. The call site is the source, FNV-1a
 //!   with no finalizer, and three of the four id-keyed facts swept when a widget stops drawing.
+//! - [`route`] — `Edge`, `edge_of`, `batch_len`, and the one key queue behind `Ctx::next_key`. Spec
+//!   §7; ADR 0016. **A frame consumes at most one routing edge**, there are no per-id inboxes, and
+//!   bubbling is `Ctx::scope`'s after-the-body moment rather than a walk of the id path.
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]
@@ -46,6 +49,7 @@ pub mod data;
 pub mod id;
 pub mod keys;
 pub mod layout;
+pub mod route;
 pub mod theme;
 
 // **One realistic screen, shared by the reports and the allocation gates.** `#[path]`-included by its

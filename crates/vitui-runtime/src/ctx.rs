@@ -84,6 +84,7 @@ use vitui_engine::{
 
 use crate::id::IdStack;
 use crate::keys::Matches;
+use crate::route::{self, KeyQueue};
 use crate::theme::{Link, Paint, Repaint, Theme};
 
 /// The engine's capabilities, re-exported and not redefined.
@@ -311,8 +312,9 @@ pub struct Frame {
     /// 4. The deadline sink: **the earliest requested wake, and one value rather than a list**,
     ///    because `end` folds it into one wake anyway.
     deadline: Option<Instant>,
-    /// 5. The key queue, drained at successively outer levels. Ticket 11 splits it at a routing edge.
-    keys: Vec<vitui_engine::Key>,
+    /// 5. The key queue, drained at successively outer levels. **One queue and no per-id inboxes**
+    ///    — `crate::route` is where the cursor that keeps draining it linear lives.
+    keys: KeyQueue,
 
     // ── the pointer, which is a frame structure in everything but name ─────────────────────────
     /// This frame's mouse events, in arrival order.
@@ -346,6 +348,20 @@ pub struct Frame {
     delivered: Option<Awarded>,
     /// The thresholds.
     pointer_config: Pointer,
+
+    // ── routing (ticket 11) ────────────────────────────────────────────────────────────────────
+    /// **Who may take a key right now**, and it is one id rather than a map.
+    ///
+    /// `begin` sets it to the focused id; a bubbling scope moves it outward to its own id after its
+    /// body. Nothing focused means `None`, and then no widget takes anything — every key falls
+    /// through to the application, which is the outermost level of the one queue.
+    route_to: Option<Id>,
+    /// How many times the focused widget has declared itself this frame.
+    ///
+    /// **The bubbling detector, and it is a counter rather than a scan**: a scope reads it before
+    /// and after its body, and a change means the focus is inside it. A container drawn *before*
+    /// the focused widget must not bubble, and this is what tells it apart at O(1).
+    focus_draws: u32,
 
     // ── the id-keyed facts (ADR 0012). Three are swept at `end`; the click record is not ────────
     grab: Option<Id>,
@@ -457,7 +473,7 @@ impl Frame {
             ring: Vec::with_capacity(64),
             overlays: Vec::with_capacity(8),
             deadline: None,
-            keys: Vec::with_capacity(32),
+            keys: KeyQueue::new(),
             mouse: Vec::with_capacity(32),
             pointer: None,
             buttons: vitui_engine::Buttons::NONE,
@@ -469,6 +485,8 @@ impl Frame {
             awarded: None,
             delivered: None,
             pointer_config: Pointer::default(),
+            route_to: None,
+            focus_draws: 0,
             grab: None,
             press_origin: None,
             focused: None,
@@ -485,16 +503,16 @@ impl Frame {
         }
     }
 
-    /// Start a frame.
+    /// Start a frame, over **one batch of events that has already been split at a routing edge**.
     ///
     /// **Swap-and-clear, not drop-and-rebuild**: every one of the five keeps its allocation, so a
     /// steady frame allocates nothing. The id table is *stamped* instead, which is why this cannot be
     /// skipped — see the module comment.
-    fn begin(
-        &mut self,
-        keys: impl IntoIterator<Item = vitui_engine::Key>,
-        mice: impl IntoIterator<Item = vitui_engine::Mouse>,
-    ) {
+    ///
+    /// The batch arrives whole and in arrival order, keys and pointer events interleaved, because
+    /// **the split is over the interleaving**: a `Down` between two keys ends the batch there, and
+    /// two separate per-kind queues could not have said so.
+    fn begin(&mut self, batch: &[vitui_engine::Event]) {
         // **The guess, resolved from the PREVIOUS frame's index before it is cleared.** This is the
         // one thing `begin` can answer that the draw cannot: which widget is topmost under the
         // pointer, and which owns the wheel. It is a *guess* — the index is a frame old — and it is
@@ -508,7 +526,7 @@ impl Frame {
         self.ring.clear();
         self.overlays.clear();
         self.deadline = None;
-        self.keys.clear();
+        self.keys.begin();
         self.maps.clear();
         self.scratch.buf.clear();
         self.tracking = MouseMode::Off;
@@ -519,22 +537,52 @@ impl Frame {
         self.frames += 1;
         self.begun = true;
 
-        // Post the batch. **Ticket 11 splits it at a routing edge**; here it is posted whole, which
-        // is the named no-op — the structure and the order are right and the classification is
-        // missing.
-        self.keys.extend(keys);
+        // **Routing starts at the focus and moves outward, never inward.** One id, not a map: see
+        // the field.
+        self.route_to = self.focused;
+        self.focus_draws = 0;
 
-        // The pointer's own batch, and it updates the position as it goes so that `over` is computed
-        // against the pointer **as it was when this frame drew**.
+        // Post the batch. It was split at a routing edge by `route::batch_len` before it got here,
+        // so **everything in it is routed against one routing state** and at most one event in it
+        // changes that state — at the end, because every edge that ships is a closing edge.
+        //
+        // **This is the split that was invisible for five tickets**, and the reason is worth having
+        // in front of whoever edits it next: at `MouseMode::Motion` the unsplit batch *works*. A
+        // motion event arrives between any two clicks a human can produce, and a batch that is
+        // mostly moves is a batch whose edges were already one to a frame. Ticket 04's theme switch
+        // is what escapes `Motion` — a theme with no visible hover state declares no `HOVER`, the
+        // tracking level drops to `Buttons`, **the terminal stops sending motion events entirely**,
+        // and `[Down, Up, Down, Up]` arrives as one batch for the first time. A US-layout,
+        // `Motion`-tracking test suite finds nothing here.
         self.mouse.clear();
         self.hover_styles.clear();
         self.modal_from = None;
-        for m in mice {
-            self.pointer = Some((i32::from(m.x), i32::from(m.y)));
-            self.buttons = m.buttons;
-            self.mods = m.mods;
-            self.mouse.push(m);
+        for event in batch {
+            match event {
+                vitui_engine::Event::Key(k) => self.keys.push(*k),
+                // The pointer's own batch updates the position as it goes, so that `over` is
+                // computed against the pointer **as it was when this frame drew**.
+                vitui_engine::Event::Mouse(m) => {
+                    self.pointer = Some((i32::from(m.x), i32::from(m.y)));
+                    self.buttons = m.buttons;
+                    self.mods = m.mods;
+                    self.mouse.push(*m);
+                }
+                // Not routed by this crate yet, and `route::edge_of` says which ticket owns each.
+                vitui_engine::Event::Paste(_)
+                | vitui_engine::Event::Resize(_, _)
+                | vitui_engine::Event::FocusGained
+                | vitui_engine::Event::FocusLost => {}
+            }
         }
+    }
+
+    /// Ask for another frame, because the batch this one took was not the whole queue.
+    ///
+    /// **The wake sink and nothing new** — `end` folds this into the one wake it already emits,
+    /// which is what makes `[Tab, Key(a)]` route both keys rather than stranding the second.
+    fn wants_another_frame(&mut self) {
+        self.repaint = true;
     }
 
     /// The innermost entry the pointer is over, from the index as it stands.
@@ -597,7 +645,12 @@ impl Frame {
         let over = self.topmost_over();
         a.hovered = over;
 
-        for m in std::mem::take(&mut self.mouse) {
+        // **By index, and cleared afterwards.** `std::mem::take` here dropped the batch's
+        // allocation and `begin` bought it back on the next frame that saw a pointer event — an
+        // allocation a frame, on the frame where the pointer is busiest. It passed the steady-frame
+        // gate only because that gate posts no pointer events.
+        for i in 0..self.mouse.len() {
+            let m = self.mouse[i];
             match m.kind {
                 vitui_engine::MouseKind::Down(_) => {
                     // **The grab is exclusive.** Without it a splitter drag lights every button it
@@ -631,19 +684,30 @@ impl Frame {
                     // scroll in the middle of it is not part of it.
                     if self.grab.is_none() {
                         if let Some(id) = self.topmost_scrollable() {
-                            let delta = match w {
+                            let (dx, dy) = match w {
                                 vitui_engine::Wheel::Up => (0, -1),
                                 vitui_engine::Wheel::Down => (0, 1),
                                 vitui_engine::Wheel::Left => (-1, 0),
                                 vitui_engine::Wheel::Right => (1, 0),
                             };
-                            a.wheel = Some((id, delta));
+                            // **Notches in one batch add up.** A wheel click folds into a frame
+                            // (ADR 0016) and it is intent (ADR 0008), and the two are only
+                            // compatible if folding is a sum: overwriting made three notches in one
+                            // batch scroll one row, which is dropping intent by another name. The
+                            // 1006 encoding carries no magnitude, so counting the notches is the
+                            // only place the count can come from.
+                            a.wheel = Some(match a.wheel {
+                                Some((held, (hx, hy))) if held == id => (id, (hx + dx, hy + dy)),
+                                // A different target mid-batch: the newer one wins, whole.
+                                _ => (id, (dx, dy)),
+                            });
                         }
                     }
                 }
                 vitui_engine::MouseKind::Move => {}
             }
         }
+        self.mouse.clear();
 
         // **The long press costs a wakeup, and it is the only field that does**, because no event
         // arrives while a button is held. Attributed to the runtime's own call site: blaming a
@@ -786,6 +850,34 @@ impl Frame {
     /// Who is hovered, as awarded from the index that has just drawn.
     pub fn hovered_now(&self) -> Option<Id> {
         self.awarded.and_then(|a| a.hovered)
+    }
+
+    /// **What nobody took**, in arrival order.
+    ///
+    /// The focus ring reads this: a `Tab` no scope claimed is what moves the focus, and a `Tab` an
+    /// isolated scope *did* claim must not. Ticket 12 is the caller; the door is here because the
+    /// queue is.
+    pub fn undrained_keys(&self) -> &[vitui_engine::Key] {
+        self.keys.undrained()
+    }
+
+    /// How many keys this frame's batch carried, drained or not.
+    pub fn keys_in_batch(&self) -> usize {
+        self.keys.len()
+    }
+
+    /// **How many key slots the queue has touched since the driver was made.**
+    ///
+    /// The growth-ratio gate's number, and it is a count for the reason §20 gives: a ratio of
+    /// timings is a report. One slot a key is linear; the `Vec::remove(0)` form touches the whole
+    /// tail and is 16× at 4× the keys.
+    pub fn key_touches(&self) -> u64 {
+        self.keys.touched()
+    }
+
+    /// Who may take a key right now. **One id, and there is no map behind it.**
+    pub fn routed_to(&self) -> Option<Id> {
+        self.route_to
     }
 
     /// The four id-keyed facts, for the gate that counts them.
@@ -1155,9 +1247,50 @@ impl<'f, 'v> Ctx<'f, 'v> {
     ///
     /// So the id stack is untouched here. Ticket 12 adds what a scope is *for* — grouping, trapping,
     /// isolating the focus — and none of it touches identity.
-    pub fn scope<R>(&mut self, _id: Id, f: impl FnOnce(&mut Ctx<'f, '_>) -> R) -> R {
-        let mut inner = self.child(self.area());
-        f(&mut inner)
+    ///
+    /// # This is where bubbling happens, and it is not a walk of the id path
+    ///
+    /// A container draws **before** its children, so a pull API gives *capture* and not bubbling.
+    /// The only moment an ancestor can ask *after* its children is **after its body**, which only a
+    /// closure-taking container has — and this is the one that already takes a closure.
+    ///
+    /// That looked like a third force on the container shape, pointing against the rule that a
+    /// closure-taking container renames its children. **It is not a trade at all**: taking a closure
+    /// is not what renames a child, *scoping identity* is, and they are independent. So the ids
+    /// inside a scope are equal entry for entry to the ids without it, and **a bubbling container
+    /// adds exactly one id: its own**, claimed here.
+    ///
+    /// After the body, if the focus drew **inside** it, this scope becomes the routing target and
+    /// [`Ctx::next_key`] answers `id`. A scope the focus is not in bubbles nothing — otherwise a
+    /// sibling drawn earlier would take keys the focused widget has not been offered yet.
+    ///
+    /// # A merge does not switch bubbling off, and here that differs from [`Ctx::interact`]
+    ///
+    /// `interact` makes a merged claim **inert**, because a second hit entry under one id would
+    /// double-count a region. Bubbling has no such quantity: `route_to = Some(id)` is idempotent,
+    /// and the case that matters is not a duplicate call site at all — it is **a panel that declares
+    /// a clickable region and then opens a scope under its own id**, which is how a bubbling
+    /// container is actually written. Refusing to bubble there would leave the panel silently unable
+    /// to see a keystroke, with no diagnostic and nothing on screen to notice.
+    pub fn scope<R>(&mut self, id: Id, f: impl FnOnce(&mut Ctx<'f, '_>) -> R) -> R {
+        // **The one id a bubbling container adds.** Not on the id stack — a scope renames nothing —
+        // and not in the hit index either, because it declares no region. The claim is for the
+        // identity side alone: it makes the id live, so the sweep and the counts see it.
+        let _ = self.frame.ids.claim(id);
+        let before = self.frame.focus_draws;
+        let r = {
+            let mut inner = self.child(self.area());
+            f(&mut inner)
+        };
+        // The after-the-body moment.
+        if self.frame.focus_draws != before {
+            self.frame.route_to = Some(id);
+            // **The routing target moved, so a decline made below is spent.** Without this the
+            // queue is still closed by whatever the level inside handed back, and the key it handed
+            // back is exactly the one this scope exists to be offered.
+            self.frame.keys.resume();
+        }
+        r
     }
 
     /// Open a scroll scope. **Scopes no identity either**, for the same reason.
@@ -1210,6 +1343,11 @@ impl<'f, 'v> Ctx<'f, 'v> {
         self.frame.tracking = self.frame.tracking.max(i.tracking());
         if i.contains(Interest::FOCUS) {
             self.frame.ring.push(id);
+        }
+        // **The bubbling detector**, incremented here because this is the one verb every focusable
+        // widget calls. A scope reads it either side of its body; see `Ctx::scope`.
+        if self.frame.focused == Some(id) {
+            self.frame.focus_draws += 1;
         }
 
         let a = self.frame.delivered.unwrap_or_default();
@@ -1289,22 +1427,88 @@ impl<'f, 'v> Ctx<'f, 'v> {
 
     /// Take the next key for `id`.
     ///
+    /// **It answers nobody but the routing target**, which is the focused id — or, after a bubbling
+    /// container's body, that container's own id. Any other caller gets `None`, whatever is in the
+    /// queue. That single rule is what makes a `Trap` a trap: a scope that has taken the focus has
+    /// taken the keyboard, with no second mechanism.
+    ///
     /// **One value per call, holding no borrow**, which is the second deviation: an iterator borrows
     /// the queue and every interactive component reads its keys inside the scope where it draws, so
     /// the iterator would be live across the drawing verbs. And there is **no upper bound on how many
     /// arrive**, which is what ADR 0008 requires of input.
     ///
-    /// Ticket 11 owns routing, so this answers the queue in order and consults no focus.
-    pub fn next_key(&mut self, _id: Id) -> Option<vitui_engine::Key> {
-        if self.frame.keys.is_empty() {
+    /// # There is one queue, and no per-id inbox
+    ///
+    /// This is the whole keyboard API, and the item it protects is named here by path so that a
+    /// rename fails this twin rather than quietly changing what the negative case below is about:
+    ///
+    /// ```
+    /// use vitui_runtime::ctx::{Ctx, Driver};
+    /// use vitui_runtime::Id;
+    /// use vitui_engine::Key;
+    ///
+    /// // Named by path and pinned to its signature: a rename or a changed argument fails HERE, and
+    /// // not silently in the `compile_fail` case below — which would go on passing for the wrong
+    /// // reason, because a method that no longer exists also does not compile.
+    /// fn protected<'f, 'v>(cx: &mut Ctx<'f, 'v>, id: Id) -> Option<Key> {
+    ///     Ctx::next_key(cx, id)
+    /// }
+    ///
+    /// let mut d = Driver::headless(20, 3).expect("sink");
+    /// d.frame(|cx| {
+    ///     assert!(protected(cx, Id::ROOT).is_none(), "nothing focused, nothing routed");
+    /// });
+    /// ```
+    ///
+    /// And there is no shape to ask for a queue of one's own. The per-id version costs 1.17×
+    /// routing and at least one allocation a frame against zero, and this is the gate that says it
+    /// was never built:
+    ///
+    /// ```compile_fail
+    /// use vitui_runtime::ctx::Driver;
+    /// use vitui_runtime::Id;
+    ///
+    /// let mut d = Driver::headless(20, 3).expect("sink");
+    /// d.frame(|cx| {
+    ///     let _inbox = cx.inbox(Id::ROOT);
+    /// });
+    /// ```
+    pub fn next_key(&mut self, id: Id) -> Option<vitui_engine::Key> {
+        if self.frame.route_to != Some(id) {
             return None;
         }
-        Some(self.frame.keys.remove(0))
+        self.frame.keys.take()
     }
 
-    /// Hand a key back, in order.
+    /// Hand a key back, **in order**: it is the next key the queue answers, to the next level out.
+    ///
+    /// This is the whole of bubbling's mechanism from below. An inner widget takes a key, finds it
+    /// is not one of its own and declines it; the container's after-the-body moment takes it next,
+    /// and so on outward. **Nested traps are innermost-first for free**, because the drain order
+    /// already is.
+    ///
+    /// # A decline ends this widget's turn at the queue
+    ///
+    /// [`Ctx::next_key`] answers `None` after it, however many keys are left, until the routing
+    /// target moves outward. So the obvious loop terminates:
+    ///
+    /// ```
+    /// # use vitui_runtime::ctx::Driver;
+    /// # use vitui_runtime::Id;
+    /// # let mut d = Driver::headless(20, 3).expect("sink");
+    /// # let field = Id::from_raw(1);
+    /// d.frame(|cx| {
+    ///     while let Some(k) = cx.next_key(field) {
+    ///         cx.decline(k);   // not mine — and this loop ends rather than spinning
+    ///     }
+    /// });
+    /// ```
+    ///
+    /// **That is a contract and not a limitation.** The queue is ordered and shared: a widget that
+    /// declined key *k* and then took *k+1* would leave the level above it seeing the two the wrong
+    /// way round.
     pub fn decline(&mut self, k: vitui_engine::Key) {
-        self.frame.keys.insert(0, k);
+        self.frame.keys.put_back(k);
     }
 
     /// Declare a key map for the open scope.
@@ -1453,8 +1657,17 @@ pub struct Driver {
     frame: Frame,
     env: Env,
     base: LayerId,
-    /// Pointer events posted through [`Driver::post_mouse`], drained by the next frame.
-    pending: Vec<vitui_engine::Mouse>,
+    /// **The unsplit input queue**, in arrival order and with keys and pointer events interleaved:
+    /// what the terminal sent plus what was posted, minus what earlier frames have taken.
+    ///
+    /// The split is over the interleaving, which is why this is one queue and not two.
+    pending: Vec<vitui_engine::Event>,
+    /// How much of `pending` earlier frames have consumed.
+    ///
+    /// **A cursor rather than a `drain`, and the same reason `next_key` has one**: an edge at the
+    /// head of a long batch would otherwise shift the tail once a frame. The queue is cleared
+    /// outright the moment it is fully drained, which is every frame an application keeps up.
+    pending_at: usize,
 }
 
 impl Driver {
@@ -1475,6 +1688,7 @@ impl Driver {
             },
             base,
             pending: Vec::new(),
+            pending_at: 0,
         })
     }
 
@@ -1503,21 +1717,31 @@ impl Driver {
         // take — a worker landing is the application's write at the top of the view, and the sequence
         // gains no step for it (ticket 16).
 
-        // begin.
-        let mut keys: Vec<vitui_engine::Key> = Vec::new();
-        let mut mice: Vec<vitui_engine::Mouse> = Vec::new();
+        // begin. Everything the terminal has to say goes on the back of the one queue, classified
+        // by nobody yet: **the split is over the interleaving**, so the queue has to hold it.
         while let Some(event) = self.screen.next_event() {
-            match event {
-                vitui_engine::Event::Key(k) => keys.push(k),
-                vitui_engine::Event::Mouse(m) => mice.push(m),
-                // Paste, resize and focus are tickets 11 and 12's; the arm exists so that adding one
-                // is filling a hole rather than finding a place to put it.
-                _ => {}
-            }
+            self.pending.push(event);
         }
-        mice.append(&mut self.pending);
         self.env.now = Instant::now();
-        self.frame.begin(keys, mice);
+
+        // **The batch split**, and it is the whole of ADR 0016 in three lines: take events from the
+        // front until one of them is a routing edge, take that edge too, and leave the rest for the
+        // next frame. Moves, wheel notches and ordinary keys are not edges and all of them fold
+        // into this one frame at 5.0 ns each.
+        let queued = &self.pending[self.pending_at..];
+        let taken = route::batch_len(queued);
+        self.frame.begin(&queued[..taken]);
+        self.pending_at += taken;
+        if self.pending_at >= self.pending.len() {
+            self.pending.clear();
+            self.pending_at = 0;
+        } else {
+            // Something is still queued, so **there must be another frame** — otherwise the tail of
+            // a burst waits for whatever the user does next, which for `[Tab, Key(a)]` means the
+            // key arrives on the next keystroke or never. One wake, folded at `end` with everything
+            // else that asked for one.
+            self.frame.wants_another_frame();
+        }
 
         // resolve, from the PREVIOUS frame's index, what cannot be answered during the draw:
         // which widget is topmost, and which owns the wheel. Ticket 10 fills both; the step is here
@@ -1621,7 +1845,33 @@ impl Driver {
     /// API rather than test scaffolding, because a test that cannot reach the mechanism is not a test
     /// of it.
     pub fn post_mouse(&mut self, m: vitui_engine::Mouse) {
-        self.pending.push(m);
+        self.pending.push(vitui_engine::Event::Mouse(m));
+    }
+
+    /// Post a key for the next frame. **The same door and the same reason as [`Driver::post_mouse`]**
+    /// — a headless attach has no tty, so nothing about routing would be reachable without it.
+    ///
+    /// It shares the one queue with the pointer, because the batch split is over the interleaving:
+    /// posting `[Key(a), Down]` and posting `[Down, Key(a)]` are different frames, and two per-kind
+    /// doors could not have expressed the difference.
+    pub fn post_key(&mut self, k: vitui_engine::Key) {
+        self.pending.push(vitui_engine::Event::Key(k));
+    }
+
+    /// How many events are queued and not yet consumed by a frame.
+    ///
+    /// **The gate that counts frames reads this**: sixteen edges are drained when this reaches zero,
+    /// and it took sixteen frames to get there.
+    pub fn queued(&self) -> usize {
+        self.pending.len() - self.pending_at
+    }
+
+    /// The keys this frame's batch carried that nobody took.
+    ///
+    /// **The outermost level of the one queue is the application**, and this is where it reads. Not
+    /// a second queue: it is a window onto the same one, valid until the next frame begins.
+    pub fn unhandled(&self) -> &[vitui_engine::Key] {
+        self.frame.undrained_keys()
     }
 
     /// Plant the id-keyed facts, for the gates. **Tickets 10 and 12 own the real writers** — the
@@ -1629,6 +1879,495 @@ impl Driver {
     /// inventing either of them early.
     pub fn plant(&mut self, grab: Option<Id>, focus: Option<Id>, click: Option<Id>) {
         self.frame.plant_facts(grab, focus, click);
+    }
+}
+
+#[cfg(test)]
+mod routing_tests {
+    //! Ticket 11's gates: **one queue, and a frame that consumes at most one routing edge.**
+    //!
+    //! The classification and the splitter have their own unit tests in [`crate::route`], including
+    //! the negative case that keeps the two-ended rule honest. What is here is the half that needs a
+    //! whole frame: who a key is answered to, how many frames a burst costs, and where bubbling
+    //! happens.
+
+    use super::*;
+    use crate::id::Id;
+    use vitui_engine::{
+        Button, Buttons, Key, KeyCode, KeyKind, KeyText, Mods, Mouse, MouseKind, Wheel,
+    };
+
+    fn driver() -> Driver {
+        Driver::headless(300, 80).expect("attaching to a sink cannot fail")
+    }
+
+    fn key(code: KeyCode) -> Key {
+        Key {
+            code,
+            mods: Mods::NONE,
+            kind: KeyKind::Press,
+            text: KeyText::EMPTY,
+            at: Instant::now(),
+        }
+    }
+
+    fn mouse(x: u16, y: u16, kind: MouseKind) -> Mouse {
+        Mouse {
+            x,
+            y,
+            kind,
+            buttons: Buttons::NONE,
+            mods: Mods::NONE,
+            at: Instant::now(),
+        }
+    }
+
+    /// Run frames until nothing is queued, and answer how many it took.
+    fn drain(d: &mut Driver, mut draw: impl FnMut(&mut Ctx<'_, '_>)) -> usize {
+        let mut frames = 0;
+        loop {
+            d.frame(&mut draw);
+            frames += 1;
+            if d.queued() == 0 {
+                break;
+            }
+        }
+        frames
+    }
+
+    /// **`next_key` answers nobody but the focused id.**
+    ///
+    /// Not *the innermost*, not *the one under the pointer*, and not *whoever asks first*. That one
+    /// rule is also ticket 12's `Trap` in its entirety: a scope that has taken the focus has taken
+    /// the keyboard, and there is no second mechanism to keep consistent with this one.
+    #[test]
+    fn next_key_answers_nobody_but_the_focused_id() {
+        let mut d = driver();
+        let focused = Id::from_raw(1);
+        let other = Id::from_raw(2);
+        d.plant(None, Some(focused), None);
+        d.post_key(key(KeyCode::Char('a')));
+
+        let mut seen = (None, None);
+        d.frame(|cx| {
+            cx.interact(other, Rect::new(0, 0, 4, 1), Interest::FOCUS);
+            // The unfocused one asks first, and asks with a key sitting in the queue.
+            seen.0 = cx.next_key(other);
+            cx.interact(focused, Rect::new(0, 1, 4, 1), Interest::FOCUS);
+            seen.1 = cx.next_key(focused);
+        });
+        assert_eq!(seen.0, None, "an unfocused widget is answered nothing");
+        assert_eq!(seen.1.map(|k| k.code), Some(KeyCode::Char('a')));
+    }
+
+    /// With nothing focused, **every key falls through to the application** — which is the outermost
+    /// level of the one queue and not a second queue.
+    #[test]
+    fn nothing_focused_means_the_application_gets_the_key() {
+        let mut d = driver();
+        let row = Id::from_raw(1);
+        d.post_key(key(KeyCode::Char('a')));
+        d.frame(|cx| {
+            cx.interact(row, Rect::new(0, 0, 4, 1), Interest::FOCUS);
+            assert!(cx.next_key(row).is_none(), "it is not focused");
+        });
+        let unhandled: Vec<KeyCode> = d.unhandled().iter().map(|k| k.code).collect();
+        assert_eq!(unhandled, vec![KeyCode::Char('a')]);
+    }
+
+    /// **Sixteen edges, sixteen frames, eight clicks, none lost.**
+    ///
+    /// The number that made the rule worth having. Eight presses and eight releases arrive as one
+    /// burst — which is what happens the moment the theme drops the tracking level below `Motion`
+    /// and the terminal stops interleaving moves between them.
+    #[test]
+    fn sixteen_edges_are_sixteen_frames_and_eight_clicks() {
+        let mut d = driver();
+        let button = Id::from_raw(1);
+        for _ in 0..8 {
+            d.post_mouse(mouse(2, 0, MouseKind::Down(Button::Left)));
+            d.post_mouse(mouse(2, 0, MouseKind::Up(Button::Left)));
+        }
+        assert_eq!(d.queued(), 16, "sixteen edges went in");
+
+        let mut clicks = 0;
+        let mut draw = |cx: &mut Ctx<'_, '_>| {
+            let r = cx.interact(button, Rect::new(0, 0, 8, 1), Interest::CLICK);
+            if r.clicked {
+                clicks += 1;
+            }
+        };
+        let frames = drain(&mut d, &mut draw);
+        // One more, because an award is delivered on the frame after the one that made it.
+        d.frame(&mut draw);
+
+        assert_eq!(frames, 16, "one edge a frame, and every one of them drew");
+        assert_eq!(clicks, 8, "eight clicks, none lost");
+    }
+
+    /// **`[Key(a), Tab]` is one frame**, because `Tab` closes a batch rather than opening one.
+    ///
+    /// The key was routed against the focus this frame drew with, which is the state it was typed
+    /// against. Split the other way it would go to the widget the `Tab` is about to move to.
+    #[test]
+    fn a_key_before_a_tab_is_one_frame() {
+        let mut d = driver();
+        let focused = Id::from_raw(1);
+        d.plant(None, Some(focused), None);
+        d.post_key(key(KeyCode::Char('a')));
+        d.post_key(key(KeyCode::Tab));
+
+        let mut got = Vec::new();
+        let frames = drain(&mut d, |cx| {
+            cx.interact(focused, Rect::new(0, 0, 4, 1), Interest::FOCUS);
+            while let Some(k) = cx.next_key(focused) {
+                got.push(k.code);
+                if k.code == KeyCode::Tab {
+                    // The ring's, not a widget's: hand it back so `end` can see it.
+                    cx.decline(k);
+                    break;
+                }
+            }
+        });
+        assert_eq!(frames, 1, "both events, one frame");
+        assert_eq!(got, vec![KeyCode::Char('a'), KeyCode::Tab]);
+        assert_eq!(
+            d.unhandled().iter().map(|k| k.code).collect::<Vec<_>>(),
+            vec![KeyCode::Tab],
+            "and what nobody took is what moves the focus"
+        );
+    }
+
+    /// **`[Tab, Key(a)]` routes both keys** — two frames, and the second one happens because the
+    /// frame that took a short batch asked for another. One wake, folded at `end`.
+    #[test]
+    fn a_key_after_a_tab_routes_both_keys() {
+        let mut d = driver();
+        let focused = Id::from_raw(1);
+        d.plant(None, Some(focused), None);
+        d.post_key(key(KeyCode::Tab));
+        d.post_key(key(KeyCode::Char('a')));
+
+        let mut per_frame: Vec<Vec<KeyCode>> = Vec::new();
+        let frames = drain(&mut d, |cx| {
+            cx.interact(focused, Rect::new(0, 0, 4, 1), Interest::FOCUS);
+            let mut this = Vec::new();
+            while let Some(k) = cx.next_key(focused) {
+                this.push(k.code);
+            }
+            per_frame.push(this);
+        });
+        assert_eq!(frames, 2);
+        assert_eq!(
+            per_frame,
+            vec![vec![KeyCode::Tab], vec![KeyCode::Char('a')]],
+            "neither key was lost, and neither was routed against the other's focus"
+        );
+    }
+
+    /// **Ordinary keys fold**: an eight-thousand-key paste is one frame, not eight thousand.
+    ///
+    /// This is the direction "one event a frame" gets wrong that nobody notices until a paste.
+    #[test]
+    fn an_eight_thousand_key_paste_is_one_frame() {
+        let mut d = driver();
+        let editor = Id::from_raw(1);
+        d.plant(None, Some(editor), None);
+        for i in 0..8_000u32 {
+            let c = char::from_u32(b'a' as u32 + i % 26).unwrap_or('a');
+            d.post_key(key(KeyCode::Char(c)));
+        }
+
+        let mut taken = 0;
+        let frames = drain(&mut d, |cx| {
+            cx.interact(editor, Rect::new(0, 0, 40, 1), Interest::FOCUS);
+            while cx.next_key(editor).is_some() {
+                taken += 1;
+            }
+        });
+        assert_eq!(frames, 1, "no key in it is a routing edge");
+        assert_eq!(taken, 8_000, "and none of them was dropped");
+    }
+
+    /// **The growth-ratio detector, through the whole frame**: four times the keys is about four
+    /// times the slots touched. The quadratic form is 16× here and still passes a 100 µs gate.
+    #[test]
+    fn draining_a_paste_through_a_frame_is_linear() {
+        let touches_for = |n: u32| {
+            let mut d = driver();
+            let editor = Id::from_raw(1);
+            d.plant(None, Some(editor), None);
+            for _ in 0..n {
+                d.post_key(key(KeyCode::Char('x')));
+            }
+            d.frame(|cx| {
+                cx.interact(editor, Rect::new(0, 0, 40, 1), Interest::FOCUS);
+                while cx.next_key(editor).is_some() {}
+            });
+            d.inspect().key_touches()
+        };
+        let small = touches_for(2_000);
+        let large = touches_for(8_000);
+        let ratio = large as f64 / small as f64;
+        assert!(
+            ratio <= 5.0,
+            "the drain touched {ratio:.2}x the slots for 4x the keys, which is quadratic territory"
+        );
+    }
+
+    /// **A modal bounds the pointer only.** A focused widget behind one keeps receiving keys, which
+    /// is the floor ticket 12's `Trap` is built on: trapping the keyboard is a *scope* decision and
+    /// not something modality does for free.
+    #[test]
+    fn a_modal_withholds_the_pointer_and_not_the_keyboard() {
+        let mut d = driver();
+        let behind = Id::from_raw(1);
+        let front = Id::from_raw(2);
+        d.plant(None, Some(behind), None);
+        d.post_mouse(mouse(2, 0, MouseKind::Move));
+        d.post_key(key(KeyCode::Char('a')));
+
+        let mut got = None;
+        let mut hovered = None;
+        d.frame(|cx| {
+            let r = cx.interact(
+                behind,
+                Rect::new(0, 0, 8, 1),
+                Interest::CLICK.with(Interest::FOCUS),
+            );
+            got = cx.next_key(behind);
+            cx.modal_barrier_here();
+            cx.interact(front, Rect::new(0, 10, 8, 1), Interest::CLICK);
+            let _ = r;
+        });
+        d.frame(|cx| {
+            let r = cx.interact(
+                behind,
+                Rect::new(0, 0, 8, 1),
+                Interest::CLICK.with(Interest::FOCUS),
+            );
+            hovered = Some(r.hovered);
+            cx.modal_barrier_here();
+            cx.interact(front, Rect::new(0, 10, 8, 1), Interest::CLICK);
+        });
+        assert_eq!(
+            got.map(|k| k.code),
+            Some(KeyCode::Char('a')),
+            "the key got through"
+        );
+        assert_eq!(hovered, Some(false), "and the pointer did not");
+    }
+
+    /// **A bubbling container adds exactly one id: its own.**
+    ///
+    /// The equality gate. Taking a closure is not what renames a child — *scoping identity* is — so
+    /// the ids inside a scope are equal entry for entry to the ids without it, and the only
+    /// difference in the table is the container itself.
+    #[test]
+    fn a_bubbling_container_adds_exactly_one_id() {
+        let rows = |cx: &mut Ctx<'_, '_>| {
+            for i in 0..24u64 {
+                cx.with_key(i, |cx| {
+                    cx.interact_here(Rect::new(0, i as i32, 20, 1), Interest::FOCUS);
+                });
+            }
+        };
+
+        let mut bare = driver();
+        bare.frame(|cx| rows(cx));
+        let bare_hits: Vec<Id> = bare.inspect().hits().iter().map(|h| h.id).collect();
+        let bare_live = bare.inspect().ids().live();
+
+        let mut wrapped = driver();
+        wrapped.frame(|cx| {
+            let id = Id::from_raw(9_999);
+            cx.scope(id, |cx| rows(cx));
+        });
+        let wrapped_hits: Vec<Id> = wrapped.inspect().hits().iter().map(|h| h.id).collect();
+        let wrapped_live = wrapped.inspect().ids().live();
+
+        assert_eq!(
+            wrapped_hits, bare_hits,
+            "entry for entry: a scope renames nothing, and a renamed field loses its focus"
+        );
+        assert_eq!(
+            wrapped_live,
+            bare_live + 1,
+            "and the container's own is the one it adds"
+        );
+    }
+
+    /// **Bubbling is `Ctx::scope`'s after-the-body moment**, and it is not a walk of the id path.
+    ///
+    /// A container draws before its children, so asking during its body would be *capture*. Here
+    /// the focused child declines a key it does not want and the container takes it afterwards.
+    #[test]
+    fn a_declined_key_bubbles_to_the_container_after_its_body() {
+        let mut d = driver();
+        let panel = Id::from_raw(1);
+        let field = Id::from_raw(2);
+        d.plant(None, Some(field), None);
+        d.post_key(key(KeyCode::Escape));
+
+        let mut captured = None;
+        let mut bubbled = None;
+        d.frame(|cx| {
+            cx.scope(panel, |cx| {
+                // Capture: the container's own moment has not arrived, and asking here answers
+                // nothing because the container is not the routing target yet.
+                captured = cx.next_key(panel);
+                cx.interact(field, Rect::new(0, 0, 8, 1), Interest::FOCUS);
+                let k = cx.next_key(field).expect("the focused field is offered it");
+                assert_eq!(k.code, KeyCode::Escape);
+                cx.decline(k);
+            });
+            bubbled = cx.next_key(panel);
+        });
+        assert_eq!(
+            captured, None,
+            "before the body is capture, and there is no capture here"
+        );
+        assert_eq!(bubbled.map(|k| k.code), Some(KeyCode::Escape));
+    }
+
+    /// **The obvious drain loop terminates.**
+    ///
+    /// `while let Some(k) = cx.next_key(id) { cx.decline(k) }` is the shape `decline`'s own
+    /// documentation describes, and a bare cursor rewind hands the same key out for ever — a hung
+    /// frame from the most natural way to write the verb. A decline ends this widget's turn, so the
+    /// loop ends after one offer and the key goes outward whole.
+    #[test]
+    fn the_obvious_drain_loop_terminates() {
+        let mut d = driver();
+        let field = Id::from_raw(1);
+        d.plant(None, Some(field), None);
+        for _ in 0..4 {
+            d.post_key(key(KeyCode::Char('a')));
+        }
+
+        let mut rounds = 0;
+        d.frame(|cx| {
+            cx.interact(field, Rect::new(0, 0, 8, 1), Interest::FOCUS);
+            while let Some(k) = cx.next_key(field) {
+                rounds += 1;
+                assert!(rounds < 1_000, "the drain loop did not terminate");
+                cx.decline(k);
+            }
+        });
+        assert_eq!(rounds, 1, "one offer, one decline, and the queue closes");
+        assert_eq!(
+            d.unhandled().len(),
+            4,
+            "and all four keys went outward, in order"
+        );
+    }
+
+    /// **A decline never duplicates a keystroke.**
+    ///
+    /// The queue holds every key it was given and removes none, so a decline with nothing taken —
+    /// or a second decline — has nothing to restore. Restoring anyway would make the application
+    /// process one keystroke twice, and would shift the tail into a possible allocation.
+    #[test]
+    fn declining_twice_does_not_duplicate_a_keystroke() {
+        let mut d = driver();
+        let field = Id::from_raw(1);
+        d.plant(None, Some(field), None);
+        d.post_key(key(KeyCode::Char('a')));
+
+        d.frame(|cx| {
+            cx.interact(field, Rect::new(0, 0, 8, 1), Interest::FOCUS);
+            let k = cx.next_key(field).expect("a key");
+            cx.decline(k);
+            cx.decline(k);
+            cx.decline(key(KeyCode::Char('z')));
+        });
+        assert_eq!(
+            d.unhandled().iter().map(|k| k.code).collect::<Vec<_>>(),
+            vec![KeyCode::Char('a')],
+            "one key in, one key out"
+        );
+        assert_eq!(d.inspect().keys_in_batch(), 1);
+    }
+
+    /// **A panel that is clickable and bubbling still bubbles**, though its id is claimed twice.
+    ///
+    /// This is how a bubbling container is actually written — `interact` for the region, `scope` for
+    /// the children — and `interact`'s merge rule would have made it silently deaf: every declined
+    /// key falling through to the application with nothing on screen to notice.
+    #[test]
+    fn a_clickable_container_still_bubbles_under_its_own_id() {
+        let mut d = driver();
+        let panel = Id::from_raw(1);
+        let field = Id::from_raw(2);
+        d.plant(None, Some(field), None);
+        d.post_key(key(KeyCode::Escape));
+
+        let mut bubbled = None;
+        d.frame(|cx| {
+            cx.interact(panel, Rect::new(0, 0, 20, 10), Interest::CLICK);
+            cx.scope(panel, |cx| {
+                cx.interact(field, Rect::new(1, 1, 8, 1), Interest::FOCUS);
+                let k = cx.next_key(field).expect("offered to the focus");
+                cx.decline(k);
+            });
+            bubbled = cx.next_key(panel);
+        });
+        assert_eq!(bubbled.map(|k| k.code), Some(KeyCode::Escape));
+        assert!(d.unhandled().is_empty(), "and it did not fall through");
+    }
+
+    /// A scope the focus is **not** in bubbles nothing — otherwise a sibling drawn earlier would
+    /// take keys the focused widget has not been offered yet.
+    #[test]
+    fn a_scope_the_focus_is_not_in_takes_nothing() {
+        let mut d = driver();
+        let sidebar = Id::from_raw(1);
+        let editor = Id::from_raw(2);
+        let field = Id::from_raw(3);
+        d.plant(None, Some(field), None);
+        d.post_key(key(KeyCode::Char('a')));
+
+        let mut stolen = None;
+        let mut reached = None;
+        d.frame(|cx| {
+            cx.scope(sidebar, |cx| {
+                cx.interact(Id::from_raw(4), Rect::new(0, 0, 8, 1), Interest::CLICK);
+            });
+            stolen = cx.next_key(sidebar);
+            cx.scope(editor, |cx| {
+                cx.interact(field, Rect::new(0, 10, 8, 1), Interest::FOCUS);
+                reached = cx.next_key(field);
+            });
+        });
+        assert_eq!(stolen, None, "the focus was not in it");
+        assert_eq!(reached.map(|k| k.code), Some(KeyCode::Char('a')));
+    }
+
+    /// **Folding a wheel is a sum, not an overwrite.**
+    ///
+    /// A wheel notch folds into a frame (ADR 0016) *and* carries intent (ADR 0008), and the two are
+    /// only compatible if the notches add up. Overwriting made three notches in one batch scroll one
+    /// row, which is dropping intent under another name.
+    #[test]
+    fn wheel_notches_in_one_batch_add_up() {
+        let mut d = driver();
+        let list = Id::from_raw(1);
+        let draw =
+            |cx: &mut Ctx<'_, '_>| cx.interact(list, Rect::new(0, 0, 20, 10), Interest::SCROLL);
+        d.post_mouse(mouse(2, 2, MouseKind::Move));
+        d.frame(|cx| {
+            draw(cx);
+        });
+        for _ in 0..3 {
+            d.post_mouse(mouse(2, 2, MouseKind::Wheel(Wheel::Down)));
+        }
+        let frames = drain(&mut d, |cx| {
+            draw(cx);
+        });
+        let mut scrolled = (0, 0);
+        d.frame(|cx| scrolled = draw(cx).scrolled);
+        assert_eq!(frames, 1, "a wheel notch is not a routing edge");
+        assert_eq!(scrolled, (0, 3), "three notches are three rows");
     }
 }
 
@@ -2192,21 +2931,37 @@ mod tests {
         use vitui_engine::{Key, KeyCode, KeyKind, KeyText, Mods};
 
         let mut d = driver();
-        // No tty, so no key can be posted through the engine; the queue is exercised through the
-        // frame's own door, which is what ticket 11 will split at a routing edge.
-        d.frame(|cx| {
-            let k = Key {
-                code: KeyCode::Char('a'),
-                mods: Mods::NONE,
-                kind: KeyKind::Press,
-                text: KeyText::EMPTY,
-                at: cx.now(),
-            };
-            cx.decline(k);
-            let back = cx.next_key(Id::ROOT);
-            assert_eq!(back.map(|k| k.code), Some(KeyCode::Char('a')));
-            assert!(cx.next_key(Id::ROOT).is_none(), "and only the one");
+        let focused = Id::from_raw(1);
+        d.plant(None, Some(focused), None);
+        d.post_key(Key {
+            code: KeyCode::Char('a'),
+            mods: Mods::NONE,
+            kind: KeyKind::Press,
+            text: KeyText::EMPTY,
+            at: Instant::now(),
         });
+        d.frame(|cx| {
+            cx.interact(
+                focused,
+                vitui_engine::Rect::new(0, 0, 4, 1),
+                Interest::FOCUS,
+            );
+            let first = cx.next_key(focused);
+            assert_eq!(first.map(|k| k.code), Some(KeyCode::Char('a')));
+            cx.decline(first.expect("a key"));
+            // **A decline hands the key outward, not back to the same widget.** Asking again is
+            // `None`, which is what makes the obvious `while let` drain loop terminate rather than
+            // hand the same key out for ever.
+            assert!(
+                cx.next_key(focused).is_none(),
+                "this widget is finished with the queue"
+            );
+        });
+        assert_eq!(
+            d.unhandled().iter().map(|k| k.code).collect::<Vec<_>>(),
+            vec![KeyCode::Char('a')],
+            "and the key is still there, in order, for the level out"
+        );
     }
 }
 
@@ -2244,6 +2999,23 @@ mod pointer_tests {
 
     fn up(x: u16, y: u16) -> Mouse {
         at(x, y, MouseKind::Up(Button::Left), Buttons::NONE)
+    }
+
+    /// Run frames until nothing is queued, and answer how many it took.
+    ///
+    /// **A burst of pointer events is not one frame** — `Down` and `Up` are routing edges and each
+    /// closes a batch, so `[Move, Down, Up]` is two. Every one of them draws, which is what the
+    /// award needs: the index it reads has to be this frame's.
+    fn drain(d: &mut Driver, mut draw: impl FnMut(&mut Ctx<'_, '_>)) -> usize {
+        let mut frames = 0;
+        loop {
+            d.frame(&mut draw);
+            frames += 1;
+            if d.queued() == 0 {
+                break;
+            }
+        }
+        frames
     }
 
     /// **The index entry is sixteen bytes and carries no rectangle and no layer id.**
@@ -2441,10 +3213,14 @@ mod pointer_tests {
         d.post_mouse(moved(21, 0));
         d.post_mouse(down(21, 0));
         d.post_mouse(up(21, 0));
-        d.frame(|cx| {
-            draw(cx);
-        });
-        // The award came from this frame's index, where the pointer was over `right`.
+        // Two frames: the move folds into the one the `Down` closes, and the `Up` closes its own.
+        assert_eq!(
+            drain(&mut d, |cx| {
+                draw(cx);
+            }),
+            2
+        );
+        // The award came from that frame's index, where the pointer was over `right`.
         let mut clicks = (false, false);
         d.frame(|cx| {
             let (l, r) = draw(cx);
@@ -2639,9 +3415,13 @@ mod pointer_tests {
         d.post_mouse(ctrl_click);
         ctrl_click.kind = MouseKind::Up(Button::Left);
         d.post_mouse(ctrl_click);
-        d.frame(|cx| {
-            draw(cx);
-        });
+        assert_eq!(
+            drain(&mut d, |cx| {
+                draw(cx);
+            }),
+            2,
+            "two edges, two frames"
+        );
         let mut got = None;
         d.frame(|cx| got = Some(draw(cx)));
         let got = got.expect("the frame ran");
@@ -2694,7 +3474,7 @@ mod pointer_tests {
         });
         d.post_mouse(down(2, 0));
         d.post_mouse(up(2, 0));
-        d.frame(|cx| {
+        drain(&mut d, |cx| {
             cx.interact(Id::from_raw(1), Rect::new(0, 0, 8, 1), Interest::CLICK);
         });
         let mut changed = None;
