@@ -47,6 +47,12 @@
 //! most `lanes × avail / 2^40`, which at 64 lanes and a 65 535-cell band is **under 4×10⁻⁶ of a
 //! column**: it cannot round to a whole cell, so it cannot move a boundary.
 
+// Text measurement, which is what layout actually costs. A submodule rather than a module of its
+// own: measuring a wrapped paragraph is a layout question, and the two are used together. Its
+// documentation is in `layout/text.rs` — a `///` here as well as the `//!` there makes rustdoc
+// resolve that file's intra-doc links in *this* scope, where none of its items exist.
+pub mod text;
+
 use vitui_engine::Rect;
 
 /// Which way a band is divided. Private: [`Row`] and [`Col`] are the public form, and an axis

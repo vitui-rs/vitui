@@ -26,7 +26,7 @@ use vitui_engine::Rect;
 use vitui_runtime::layout::{
     Col, Constraint,
     Constraint::{Fixed, Max, Min, Percent, Ratio, Weight},
-    Grid, Row, Stack, rect, solve,
+    Grid, Row, Stack, rect, solve, text,
 };
 
 #[global_allocator]
@@ -224,4 +224,52 @@ fn screen_frame(w: u16, h: u16) -> (u32, u32) {
         lanes += 4;
     }
     (splits, lanes)
+}
+
+/// **Text measurement allocates nothing either**, which is the less obvious half of it.
+///
+/// `wrap` hands back subslices of its input and holds two indices; `truncate` is a prefix of its
+/// input; `wrap_height` is a `count` over the first. The tempting implementation of every one of
+/// those builds a `Vec<String>` — and it would be *correct*, which is why this is a gate and not a
+/// review note. Measuring twenty-four wrapped rows is 2.5x the cost of the whole screen's layout
+/// already; doing it with an allocation a line would put it somewhere else entirely.
+#[test]
+fn text_measurement_allocates_zero() {
+    let paragraph = "The quick brown fox jumps over the lazy dog, and 漢字 as well, \
+                     with an e\u{301} and a \u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467} in it.";
+    assert_no_alloc(|| {
+        for w in 1..=80u16 {
+            let mut columns = 0u32;
+            for line in text::wrap(paragraph, w) {
+                columns += u32::from(text::width(line));
+            }
+            assert!(columns > 0);
+            assert_eq!(
+                text::wrap_height(paragraph, w),
+                text::wrap(paragraph, w).count()
+            );
+            let cut = text::truncate(paragraph, w);
+            assert!(text::width(cut) <= w);
+        }
+    });
+}
+
+/// The realistic case: a column of twenty-four wrapped rows, which is what the report times.
+#[test]
+fn a_column_of_wrapped_rows_allocates_zero() {
+    let rows: [&str; 4] = [
+        "a short line",
+        "a considerably longer line that will certainly need to be wrapped at any sensible width",
+        "漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字",
+        "e\u{301}quipe \u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467} and a\u{2764}\u{FE0F}b",
+    ];
+    assert_no_alloc(|| {
+        let mut lines = 0usize;
+        for _ in 0..6 {
+            for row in rows {
+                lines += text::wrap_height(row, 38);
+            }
+        }
+        assert!(lines >= 24);
+    });
 }
