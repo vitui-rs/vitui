@@ -168,6 +168,68 @@ impl std::fmt::Debug for Output {
 /// };
 /// assert_eq!(config.size, (80, 24));
 /// ```
+///
+/// # Eight fields, and two of §12's six are not among them
+///
+/// §12 writes `Config { packets, max_frame_rate, resolver, overrides, input, clock }`, and the two
+/// that are missing here are missing for reasons the implementation settled rather than for want of
+/// typing. **`packets` would be a knob with one legal value**: spec §7 fixes the pool at two
+/// *provably* — with one producer the slot is always empty at submit, so a packet can never be
+/// superseded — and a configurable pool would invite a three that buys nothing and a one that
+/// deadlocks. **`resolver` names a type that never existed**: `Resolver` appears once in the whole
+/// architecture, in §12's own compositing line, with no field, no verb and no sentence, and impl 12
+/// resolves an operator layer's colour at composite time against what the terminal answered.
+///
+/// Four arrived instead, each with the ticket that brought it: [`output`](Config::output) and
+/// [`size`](Config::size) at impl 03, because a tracer bullet needs a caller-supplied sink and there
+/// is no terminal to ask for a size, and
+/// [`overrun_threshold`](Config::overrun_threshold) with
+/// [`overrun_report`](Config::overrun_report) at impl 23 — two fields rather than one `Overruns`
+/// struct, because a twenty-second public type for two knobs is what *every knob visible in one
+/// place* was chosen over a builder to avoid.
+///
+/// A field arriving on a public struct is a **breaking change to every literal that does not use
+/// `..Default::default()`**, which is why impl 16 declared [`WidthSource`](crate::WidthSource) before anything read it
+/// and why this paragraph exists: the next field is a diff and not a surprise.
+///
+/// Both absences are on register #19's corpus as pairs, because a sentence in this paragraph is
+/// checked by nobody. The pool is not a knob:
+///
+/// ```compile_fail,E0560
+/// let _ = vitui_engine::Config {
+///     packets: 2,
+///     ..Default::default()
+/// };
+/// ```
+///
+/// and neither is a resolver nobody holds:
+///
+/// ```compile_fail,E0560
+/// let _ = vitui_engine::Config {
+///     resolver: (),
+///     ..Default::default()
+/// };
+/// ```
+///
+/// and the twin, which names by path a field that **is** here and destructures the two the tickets
+/// added — a `compile_fail` alone passes for any reason at all, including `output` having been
+/// renamed, at which point both cases above go on failing and say nothing:
+///
+/// ```
+/// let config = vitui_engine::Config {
+///     output: vitui_engine::Output::Sink(Box::new(Vec::new())),
+///     ..Default::default()
+/// };
+/// let vitui_engine::Config {
+///     output,
+///     size,
+///     overrun_threshold,
+///     ..
+/// } = config;
+/// assert!(matches!(output, vitui_engine::Output::Sink(_)));
+/// assert_eq!(size, (80, 24));
+/// assert_eq!(overrun_threshold, None);
+/// ```
 pub struct Config {
     /// Where the frame clock takes its time from.
     pub clock: Clock,
@@ -240,7 +302,7 @@ pub struct Config {
     /// for mouse tracking, focus reporting and bracketed paste go out at `attach`, before the render
     /// thread exists and before anything has drawn — which is what makes the mouse level a *floor*
     /// rather than a setting, since the union of what the frame's components want is known only after
-    /// a draw. See [`crate::actuate::negotiation`].
+    /// a draw. See `crate::actuate::negotiation`.
     pub input: InputConfig,
 }
 
@@ -749,6 +811,55 @@ impl WakeHandle {
 /// The wake source was in fact **self-contradictory as one type**, which is the structural reason
 /// ADR 0003's split is not merely tidier: the posting verb has to be `Sync` to be callable from a
 /// worker, and `wait` must not be. [`WakeHandle`] is the `Sync` half and it has two verbs.
+///
+/// # Refusals 3 and 10, which would have arrived here or nowhere
+///
+/// **No reactivity** (refusal 3). There is no signal, no observer and nothing to subscribe to: the
+/// runtime drives the loop, and a component that wants to know something asks on the frame it is
+/// drawing. A subscription is a callback the engine would hold, which is refusal 4 wearing a
+/// different word.
+///
+/// ```compile_fail,E0599
+/// let (screen, _wake) = vitui_engine::Engine::new(vitui_engine::Config {
+///     output: vitui_engine::Output::Sink(Box::new(Vec::new())),
+///     ..Default::default()
+/// })
+/// .attach()
+/// .unwrap();
+/// screen.subscribe(|_| {});
+/// ```
+///
+/// **No display query** (refusal 10). The refresh rate arrives as configuration or not at all — a
+/// tty cannot report one, and a crate that offered the question would have to answer it with a
+/// guess. [`Config::max_frame_rate`] is where the application says, and
+/// [`set_max_frame_rate`](Screen::set_max_frame_rate) is how it says so again when a monitor changes
+/// under a running program.
+///
+/// ```compile_fail,E0599
+/// let (screen, _wake) = vitui_engine::Engine::new(vitui_engine::Config {
+///     output: vitui_engine::Output::Sink(Box::new(Vec::new())),
+///     ..Default::default()
+/// })
+/// .attach()
+/// .unwrap();
+/// let _ = screen.refresh_rate();
+/// ```
+///
+/// The twin for both, naming by path the two verbs that stand where a subscription and a display
+/// query would have gone:
+///
+/// ```
+/// use vitui_engine::{Config, Engine, Output, Screen};
+///
+/// let (mut screen, _wake) = Engine::new(Config {
+///     output: Output::Sink(Box::new(Vec::new())),
+///     ..Default::default()
+/// })
+/// .attach()
+/// .unwrap();
+/// Screen::set_max_frame_rate(&mut screen, 120.0);
+/// assert!(Screen::next_event(&mut screen).is_none());
+/// ```
 pub struct Screen {
     size: (u16, u16),
     layers: LayerStack,

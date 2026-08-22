@@ -100,6 +100,20 @@ test:
     # this workspace ships must be registered where it is defined — `[lints.rust] unexpected_cfgs`
     # in the crate manifest, and `cargo::rustc-check-cfg` in the build script once one exists.
     - cargo clippy --workspace --all-targets
+    # The public surface is what the runtime author reads, so a broken intra-doc link on it is a
+    # defect and not a cosmetic. **Added by engine ticket 24, which found eight of them** — five
+    # older than this job's last green run, because nothing here was documenting anything and a link
+    # that resolves to a private item is invisible to `cargo build`, to `cargo clippy` and to
+    # `cargo test` alike.
+    #
+    # What makes it a gate rather than a warning is **`[workspace.lints.rust] warnings = "deny"` in
+    # `Cargo.toml`, and not the `RUSTFLAGS` above**: cargo passes `RUSTFLAGS` to `rustc` and
+    # `RUSTDOCFLAGS` to `rustdoc`, so the variable on line 23 reaches this command not at all.
+    # Measured with `RUSTFLAGS` unset — `rustdoc::broken_intra_doc_links` still errors, and the
+    # diagnostic names `-D warnings` as the reason. Deleting that table would leave this line green
+    # on a broken link. It also covers only the **public** surface, which is what the sentence above
+    # claims: rustdoc does not document private items, so it does not lint their links either.
+    - cargo doc --workspace --no-deps
     # One test command, and it is the serialised one. The allocation probe counts through a
     # process-global counter and `cargo test` runs a binary's tests on several threads, so an
     # allocating sibling lands in the number. The unserialised pass is deliberately absent — it

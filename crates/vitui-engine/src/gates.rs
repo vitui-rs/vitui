@@ -4108,6 +4108,57 @@ fn the_achieved_rate_lands_under_the_configured_ceiling() {
     );
 }
 
+/// The code of a source file: every line that is compiled, and no line that is not.
+///
+/// **A negative case that spells the call it refuses is the proof of the absence, not an instance of
+/// it.** Impl 24's corpus put `screen.refresh_rate()` and `slot.recv()` inside `compile_fail` fences
+/// on the very types that do not have them, and the two source-scanning gates below promptly fired on
+/// their own evidence.
+///
+/// The line this draws is *compiled* rather than *not a comment*, and the difference was a hole in
+/// the first version: **a runnable doctest body is code.** Dropping every doc-comment line would have
+/// let a doc example spawn a thread and call `rx.recv()` with `every_blocking_receive_…` still green,
+/// which is a worse gate than the one that fired wrongly. So a doc comment's prose goes, a
+/// `compile_fail` fence and its body go — nothing in either is ever built — and a **runnable** fence
+/// keeps its body, because rustdoc compiles and runs it. The non-doc `//` comments go for the reason
+/// that was right all along: a comment cannot query a display or block a thread.
+fn code_only(text: &str) -> String {
+    /// Whether a fence's attributes describe a block rustdoc will compile.
+    fn runnable(attributes: &str) -> bool {
+        !["compile_fail", "ignore", "text", "rust,ignore"]
+            .iter()
+            .any(|skip| attributes.contains(skip))
+    }
+    let mut out: Vec<&str> = Vec::new();
+    let mut fence: Option<bool> = None;
+    for line in text.lines() {
+        let trimmed = line.trim_start();
+        let doc = trimmed
+            .strip_prefix("///")
+            .or_else(|| trimmed.strip_prefix("//!"));
+        let Some(doc) = doc else {
+            // A non-doc comment is not compiled either.
+            if !trimmed.starts_with("//") {
+                out.push(line);
+            }
+            continue;
+        };
+        let doc = doc.strip_prefix(' ').unwrap_or(doc);
+        match doc.strip_prefix("```") {
+            Some(attributes) => match fence.take() {
+                Some(_) => {}
+                None => fence = Some(runnable(attributes.trim())),
+            },
+            None => {
+                if fence == Some(true) {
+                    out.push(line);
+                }
+            }
+        }
+    }
+    out.join("\n")
+}
+
 /// **Nothing anywhere queries a display**, which is §12's refusal 10 and an absence rather than a
 /// behaviour.
 ///
@@ -4145,14 +4196,15 @@ fn nothing_anywhere_queries_a_display_for_a_refresh_rate() {
         files.len()
     );
     for path in files {
-        // This file, and only this file: it is the one whose purpose is to name them, and it is
-        // `cfg(test)` — nothing it says reaches a release binary. Excluded by name rather than by
-        // excluding every `cfg(test)` module, because that list is a thing to forget to update and
-        // this is one line that fails loudly if the file is renamed.
-        if path.ends_with("gates.rs") {
+        // Two files, and only these two: the ones whose purpose is to name the refusals. Both are
+        // `cfg(test)` — nothing either says reaches a release binary. Excluded by name rather than
+        // by excluding every `cfg(test)` module, because that list is a thing to forget to update
+        // and these are two lines that fail loudly if a file is renamed.
+        if path.ends_with("gates.rs") || path.ends_with("audit.rs") {
             continue;
         }
         let text = std::fs::read_to_string(&path).expect("the crate's own source is readable");
+        let text = code_only(&text);
         for needle in FORBIDDEN {
             assert!(
                 !text.contains(needle),
@@ -5426,7 +5478,7 @@ fn the_split_handles_are_not_public_names() {
 #[test]
 fn every_blocking_receive_in_the_crate_is_outside_the_app_threads_loop() {
     /// Where a blocking receive may appear, and why that one is not inside a frame.
-    const ALLOWED: [(&str, &str); 4] = [
+    const ALLOWED: [(&str, &str); 5] = [
         (
             "reader.rs",
             "another thread: the input thread's whole life, and it owns the read direction",
@@ -5444,6 +5496,14 @@ fn every_blocking_receive_in_the_crate_is_outside_the_app_threads_loop() {
         (
             "gates.rs",
             "tests: sinks and orderings, on threads standing in for the renderer",
+        ),
+        (
+            "audit.rs",
+            "not a call at all: `crate::audit`'s refusal register names the hostile line each \
+             negative case is held by, and `slot.recv()` is one of them — a string literal, in a \
+             `cfg(test)` module, whose whole purpose is to assert that the call does not exist. The \
+             same reason `nothing_anywhere_queries_a_display_for_a_refresh_rate` excludes this file \
+             by name",
         ),
     ];
     /// Every blocking spelling, not just the bare one. `recv_timeout` is what `clippy.toml` names as
@@ -5463,6 +5523,7 @@ fn every_blocking_receive_in_the_crate_is_outside_the_app_threads_loop() {
                 continue;
             }
             let source = std::fs::read_to_string(&path).expect("a readable source file");
+            let source = code_only(&source);
             let count: usize = SPELLINGS.iter().map(|s| source.matches(s).count()).sum();
             if count > 0 {
                 let name = path

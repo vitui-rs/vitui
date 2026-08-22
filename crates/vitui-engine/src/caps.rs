@@ -212,7 +212,7 @@ impl WidthSource {
 /// [ADR 0007](../../../docs/adr/0007-the-input-model-is-honest-about-the-terminal.md) refused the
 /// uniform keyboard model for. `sync_output` and `underlines` are refused by (b)'s second half:
 /// nobody at the terminal can name mode 2026 or ConPTY's underline-colour form, so their arms are
-/// reached from **inside** the crate through [`assemble`] instead.
+/// reached from **inside** the crate through `assemble` instead.
 ///
 /// **Any refused axis gains a field the moment one of the two sentences becomes true of it**, which
 /// is a visible event in a diff and not a judgement call.
@@ -231,6 +231,38 @@ impl WidthSource {
 /// assert_eq!(plain.colors, Some(ColorDepth::None));
 /// assert_eq!(plain.glyphs, Some(GlyphSet::Ascii));
 /// assert_eq!(Overrides::default().colors, None);
+/// ```
+///
+/// # The stopping line is a compile outcome, not a paragraph
+///
+/// *A declaration cannot make an event arrive* is the rule above, and a rule stated only in prose is
+/// checked by nobody. So the eight input axes have a **pair** on register #19's corpus, in the same
+/// shape impl 16 used for the eleven attribute bits that are not [`Capabilities`] fields: a field
+/// nobody may declare, and a positive twin naming a field that **is** here by path — because a
+/// `compile_fail` alone passes for any reason at all, including
+/// [`hyperlinks`](Overrides::hyperlinks) having been renamed, at which point the negative case fails
+/// for `E0433` rather than `E0560` and the mechanism reports `ok`.
+///
+/// A mouse the terminal was never asked for cannot be declared into existence:
+///
+/// ```compile_fail,E0560
+/// let _ = vitui_engine::Overrides {
+///     mouse: Some(true),
+///     ..Default::default()
+/// };
+/// ```
+///
+/// and the twin, which is the field that survives (a) and (b) and is set the same way:
+///
+/// ```
+/// let overrides = vitui_engine::Overrides {
+///     hyperlinks: Some(false),
+///     ..Default::default()
+/// };
+/// // A destructuring pattern rather than a field access, because it names the field in a position
+/// // where a rename is `E0026` rather than a silently different program.
+/// let vitui_engine::Overrides { hyperlinks, .. } = overrides;
+/// assert_eq!(hyperlinks, Some(false));
 /// ```
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Hash)]
 pub struct Overrides {
@@ -258,7 +290,7 @@ pub struct Overrides {
     /// Declare whether the terminal implements OSC 8 hyperlinks.
     ///
     /// **The one axis that is neither detected nor declared but *inferred*** — OSC 8 has no query,
-    /// §10's probe set has none that could, and [`implements_osc8`] is the engine guessing on the
+    /// §10's probe set has none that could, and `implements_osc8` is the engine guessing on the
     /// world's behalf from what XTVERSION reported. An inference is the one kind of fact a
     /// declaration must be able to correct, because there is no second query to ask more carefully
     /// and a quirk-table entry is a new release. Architecture ticket 22 is where that became a rule.

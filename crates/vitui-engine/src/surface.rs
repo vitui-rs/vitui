@@ -38,7 +38,7 @@ use crate::view::View;
 /// the frames that matter.
 ///
 /// The same idea one layer down, at pack time against the mirror, is worth between 1.4x and 37.7x on
-/// spec §14's twelve — see [`crate::serial`]. That is not the same optimisation implemented better;
+/// spec §14's twelve — see `crate::serial`. That is not the same optimisation implemented better;
 /// it is a different one, because by then the two writes have already collapsed into the one cell the
 /// frame ends up holding.
 ///

@@ -172,6 +172,84 @@ impl Layer {
 ///
 /// There is no public constructor and no `Default`: spec §12 reaches the stack only through
 /// [`Screen::layers`](crate::Screen::layers), and a derived `Default` would be a second door.
+///
+/// # The stack is the app thread's because it cannot be reached from anywhere else
+///
+/// §12's threading table puts `LayerStack` on the app-thread side, and the mechanism is
+/// reachability rather than a `!Send` marker: `LayerStack::new` is `pub(crate)`, so a worker
+/// has nothing to hold. This is the negative half of that row, and the twin is the door that does
+/// open:
+///
+/// ```compile_fail,E0624
+/// let mut stack = vitui_engine::LayerStack::new();
+/// let _ = stack.len();
+/// ```
+///
+/// ```
+/// use vitui_engine::{Config, Engine, LayerStack, Output, Screen};
+///
+/// let (mut screen, _wake) = Engine::new(Config {
+///     output: Output::Sink(Box::new(Vec::new())),
+///     ..Default::default()
+/// })
+/// .attach()
+/// .unwrap();
+/// assert!(LayerStack::is_empty(Screen::layers(&mut screen)));
+/// ```
+///
+/// # Refusal 6 and ADR 0024, as compile outcomes
+///
+/// **No alpha and no per-layer opacity.** A content layer is opaque or it is not, and there is no
+/// third argument to say how much of it shows: everything a fade, a dim, a tint or a shadow wants is
+/// [`Mix`] on an operator layer, whose `amount` moves across frames. So `add_content` takes three
+/// arguments and takes them for ever:
+///
+/// ```compile_fail,E0061
+/// use vitui_engine::{Config, Engine, Output, Rect};
+///
+/// let (mut screen, _wake) = Engine::new(Config {
+///     output: Output::Sink(Box::new(Vec::new())),
+///     ..Default::default()
+/// })
+/// .attach()
+/// .unwrap();
+/// screen.layers().add_content(0, Rect::new(0, 0, 4, 2), true, 0.5);
+/// ```
+///
+/// **No flattened layer cache** (ADR 0024). There is nothing to flatten into and nothing to
+/// invalidate: the composite runs over the damaged rows bottom-up every frame, and a cache would
+/// have to be invalidated by exactly the events that already bound the work:
+///
+/// ```compile_fail,E0599
+/// use vitui_engine::{Config, Engine, Output};
+///
+/// let (mut screen, _wake) = Engine::new(Config {
+///     output: Output::Sink(Box::new(Vec::new())),
+///     ..Default::default()
+/// })
+/// .attach()
+/// .unwrap();
+/// let _ = screen.layers().flattened();
+/// ```
+///
+/// And the twin for both, naming by path the three-argument constructor and the one way to a layer's
+/// cells:
+///
+/// ```
+/// use vitui_engine::{Config, Engine, LayerStack, Output, Rect, Style};
+///
+/// let (mut screen, _wake) = Engine::new(Config {
+///     output: Output::Sink(Box::new(Vec::new())),
+///     ..Default::default()
+/// })
+/// .attach()
+/// .unwrap();
+/// let stack = screen.layers();
+/// let id = LayerStack::add_content(stack, 0, Rect::new(0, 0, 4, 2), true);
+/// LayerStack::view(stack, id)
+///     .expect("the layer was just added")
+///     .fill(Rect::new(0, 0, 4, 2), "x", Style::new());
+/// ```
 pub struct LayerStack {
     /// Sorted by `(z, seq)`. The dominant operation is an ordered traversal of the whole stack
     /// every frame, which is what a contiguous `Vec` is best at.

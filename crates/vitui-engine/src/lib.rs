@@ -41,6 +41,84 @@
 //! drives. Damage is marked by the verbs and cleared by `present`, and neither is reachable from
 //! outside — which is also why nothing above the engine can force a full repaint.
 //!
+//! # The three refusals with no type to hang a doctest on
+//!
+//! Nine of §12's twelve refusals are gated on the type that would have carried the refused item —
+//! [`Screen`] for reactivity and the display query, [`View`] for layout, widgets, a clock and a
+//! scheduler, [`LayerStack`] for alpha and the flattened cache, [`Slot`] for blocking and
+//! completion, and `lib.rs`'s own `#![forbid(unsafe_code)]` for the twelfth. Three have no such
+//! type, because the whole of the claim is that a **name** is absent, so they are here.
+//!
+//! Each is a pair, and the pair is the unit: **deleting the hostile line is caught by the first half
+//! and renaming the item it protects is caught only by the second.** A rename turns a lone
+//! `compile_fail` from `E0599` into `E0433`, which the mechanism cannot distinguish and reports as
+//! `ok` — so every twin below names the item it protects **by path**. The error code on a fence is
+//! documentation for the reader and not an assertion: `compile_fail,E0308` on a snippet whose real
+//! error is `E0277` passes on stable.
+//!
+//! **Refusal 5 — no trait, zero of them.** The engine has nothing to call upward, so the dependency
+//! arrow is enforced by there being no arrow. `dyn Painter` stays a negative result, and
+//! `crate::audit`'s `there_are_no_public_traits` is the count beside this case.
+//!
+//! ```compile_fail,E0405
+//! struct Mine;
+//! impl vitui_engine::Painter for Mine {}
+//! ```
+//!
+//! **Refusal 8 — no executor and no thread pool.** What is offered instead is [`WakeHandle`] and
+//! [`Slot`], and the numbers that stop anybody reaching for a pool are beside `Slot` itself: a
+//! `thread::spawn` charged to the calling thread is 12.94 µs at p50 on the CI runner, which is one
+//! and a half frames at 120 Hz.
+//!
+//! ```compile_fail,E0433
+//! let _ = vitui_engine::ThreadPool::new(4);
+//! ```
+//!
+//! **Refusal 11 — no cells, no grapheme handles, no style bits** (ADR 0023). A caller cannot read
+//! back what is on screen, which is why the oracle over cells lives inside this crate and why the
+//! one handle that *is* public — [`LinkId`] — is opaque and mints only through
+//! [`Screen::link`].
+//!
+//! ```compile_fail,E0433
+//! let _ = vitui_engine::Cell::default();
+//! ```
+//!
+//! And the two names §12 lists or prices that are not here either — `Resolver`, which appears once
+//! in the whole architecture and never again, and the serializer `Options` type, priced rather than
+//! overlooked in §8:
+//!
+//! ```compile_fail,E0433
+//! let _: vitui_engine::Resolver = Default::default();
+//! ```
+//!
+//! ```compile_fail,E0433
+//! let _ = vitui_engine::Options::default();
+//! ```
+//!
+//! The twin for all five, naming by path what stands in each one's place — the drawing verb a
+//! `Painter` would have been called from, the slot a pool would have fed, the write that replaces
+//! reading a cell, the capabilities an operator's colour is resolved against, and the config that
+//! carries every serializer axis there is:
+//!
+//! ```
+//! use vitui_engine::{Capabilities, Config, Engine, Output, Rect, Screen, Slot, Style, Surface, View};
+//!
+//! let mut surface = Surface::new(4, 1);
+//! let mut view = surface.root();
+//! assert_eq!(View::set(&mut view, 0, 0, "x", Style::new()).cells, 1);
+//! let slot: Slot<u32> = Slot::new();
+//! assert_eq!(Slot::take(&slot), None);
+//! let (screen, _wake) = Engine::new(Config {
+//!     output: Output::Sink(Box::new(Vec::new())),
+//!     ..Default::default()
+//! })
+//! .attach()
+//! .unwrap();
+//! let caps: &Capabilities = Screen::capabilities(&screen);
+//! assert!(!Capabilities::report(caps).is_empty());
+//! let _ = Rect::new(0, 0, 1, 1);
+//! ```
+//!
 //! # Status
 //!
 //! The architecture is decided — `.scratch/vitui-engine-architecture/spec.md` — and the
@@ -166,7 +244,7 @@
 //! ticket about two setters.
 //!
 //! And **the two setters, the negotiation and the caret** (ticket 21). Everything the engine says to
-//! the terminal that is not a cell is [`crate::actuate`], and all of it is bytes with no reply — the
+//! the terminal that is not a cell is `crate::actuate`, and all of it is bytes with no reply — the
 //! questions were asked and answered at `attach`, before its first byte goes out.
 //!
 //! [`MouseMode`] is `Off < Buttons < Drag < Motion` and the ordering is a design decision rather than
@@ -277,10 +355,73 @@
 //! is refused: it is an executor under another name, and the numbers that stop anybody reaching for
 //! one are beside [`Slot`] itself.
 //!
-//! Not here yet: the public surface and its negative corpus (24), fuzzing (25), and the budget ledger
-//! and comparative suite (26).
+//! And **the surface itself, assembled and audited** (ticket 24). The audit is a value —
+//! `crate::audit` — because four tickets moved §12's counts and every one of them said so in its own
+//! answer, which is four places to look and no place that fails. Every public item, the receiver of
+//! every verb, and the ticket that added anything §12's block does not list are in one table, and
+//! sixteen gates are queries over it **in both directions**: an item in the source and not in the
+//! table fails, and so does an item in the table and not in the source.
+//!
+//! What the audit found is not what §12 says. **§12's own block never agreed with §12's own
+//! sentence**: *twenty-one public types and about sixty-three functions* against a block that
+//! declares thirty-nine types with a keyword and names two more only inside a signature. Against
+//! that forty-one, the surface as built is **forty-nine types and one hundred and five functions** —
+//! `Resolver` gone, nine types and thirty-five functions added, each naming its ticket, and not one
+//! of them breaching a refusal. `Resolver` is the finding rather than the omission: it appears
+//! **once** in the whole architecture, with no field, no verb and no sentence, and impl 12 resolves
+//! an operator's colour against [`Capabilities`] at composite time. A public empty struct to make a
+//! count come out right would be worse than recording that the count is wrong, so its absence is
+//! gated. `Config::packets` went the same way — spec §7 fixes the pool at two *provably*, so the
+//! knob would have had one legal value.
+//!
+//! Precedence rule 4 is a query rather than a paragraph now, and it reads differently in one place
+//! than §12 wrote it: the four types §12 blesses wholesale are `Copy`, so their forty verbs **read by
+//! value rather than by reference**. `self` on a register-sized type *is* the read. Three moves, all
+//! ownership transfer, and `Screen::permit_slow` takes `&self` because impl 23 found `&mut self`
+//! there was `E0499` against drawing inside the permitted region.
+//!
+//! The negative corpus is the other half, and **the pair is the unit or it is nothing**: deleting the
+//! hostile line is caught by the first half, and *renaming the item it protects is caught only by the
+//! second* — a rename makes the negative case fail for `E0433` instead of `E0277`, which the
+//! mechanism cannot distinguish and reports as `ok`. So every twin names its protected item by path.
+//! Sixteen cases became **thirty-six**, and the count is itself a gate, because a case deleted
+//! together with its twin leaves every other test green. The error code on a fence is documentation
+//! and not an assertion: `compile_fail,E0308` on a snippet whose real error is `E0277` passes on
+//! stable.
+//!
+//! And **the gates were the part that was wrong.** Nineteen mutations, of which two survived first,
+//! and both survivals were in the watching rather than in the engine. A source-scanning gate reads one
+//! spelling of a thing and is blind to the rest, and every hole was that shape: `pub use` but not a
+//! `pub` item written into the crate root — which left `pub struct Painter;` invisible to all sixteen
+//! gates, `REFUSED_NAMES` included — `impl Fn` but not `F: Fn(…)`, which is the spelling `restyle`
+//! actually had in ticket 12's skeleton, `<T>` but not `<T: Into<u8>>`, a flat `read_dir` but not
+//! `src/input/`, and the hostile line but not the twin beside it. All of them are closed, each with the
+//! mutation that proves it.
+//!
+//! Two more this ticket found by mutating its own gates. `the_crate_root_forbids_unsafe_code` was
+//! **vacuous**: it asked whether `lib.rs` *contained* `#![forbid(unsafe_code)]`, and the prose above
+//! names the attribute, so downgrading the real one to a `warn` left it green. It now compares a
+//! trimmed line. And the two source-scanning gates fired on their own evidence — a corpus that spells
+//! `screen.refresh_rate()` and `slot.recv()` inside `compile_fail` fences is proof of an absence, not
+//! an instance of one — so both read code with the comments stripped, which is stricter rather than
+//! looser: a mention was never the offence.
+//!
+//! The limit is stated rather than papered over. **Doctests compile as an external crate**, so this
+//! corpus reaches only the public surface — which is exactly the set of misuses a *user* could
+//! commit. An internal misuse is caught by the engine's own compilation, and an internal negative
+//! case costs a `#[doc(hidden)] pub`, which is a design admission and should read as one. Exactly one
+//! of §12's priced absences is on the wrong side of that line and says so in the register: a
+//! write-time equality filter, which nothing public would have named.
+//!
+//! Not here yet: fuzzing (25), and the budget ledger and comparative suite (26).
 
-#![forbid(unsafe_op_in_unsafe_fn)]
+// Refusal 12, as a lint rather than as a claim. `forbid` and not `deny`, so that nothing inside the
+// crate can turn it back on with an `allow` — and it subsumes the `unsafe_op_in_unsafe_fn` this line
+// used to carry, which only shaped `unsafe` that was allowed to exist. The three places `unsafe`
+// would have bought something are recorded where they were refused: `crate::view` on the
+// column-band split, `crate::slot` on an `AtomicPtr`, and `crate::handoff` on the alternatives to
+// one mailbox.
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
 // `crate::scenes` and `crate::register` are `#[path]`-included by `examples/budget.rs` as well as
@@ -321,6 +462,8 @@ mod tables;
 // caller cannot read back what is already on screen (ADR 0023), so an oracle over cells lives
 // inside the crate. Ticket 25's fuzz targets are what will need `reference` outside `cfg(test)`.
 #[cfg(test)]
+mod audit;
+#[cfg(test)]
 mod gates;
 #[cfg(test)]
 mod golden;
@@ -358,6 +501,20 @@ mod view;
 
 #[cfg(test)]
 mod roundtrip;
+
+/// The nine names an application writes at the top of a file.
+///
+/// Spec §12 states the list and ticket 24 states it again, which is how a prelude stays a prelude:
+/// nine names is a glance, and the moment it is twenty it is the crate's re-export list with an
+/// extra path segment in front of it. `crate::audit`'s
+/// `the_prelude_re_exports_exactly_nine_names` is what keeps it at nine.
+///
+/// Everything else is reached by its own path. The input types are not here on purpose — a runtime
+/// matching on [`Event`] names it once, at the top of one function, and a component
+/// author names none of these at all.
+pub mod prelude {
+    pub use crate::{Color, Config, Engine, LayerId, Rect, Screen, Style, View, Wake};
+}
 
 pub use actuate::{Cursor, CursorShape};
 pub use caps::{Capabilities, ColorDepth, GlyphSet, Overrides, Rgb, WidthSource};

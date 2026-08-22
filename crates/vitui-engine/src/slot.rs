@@ -79,6 +79,35 @@ use std::sync::{Mutex, PoisonError};
 /// A predicate followed by a `take` is two reads with a window between them, and the second one can
 /// still answer `None` on the app thread's own next line — the worker is running. Every honest use
 /// of a check is `if let Some(v) = slot.take()`, which is one read, so the check is the take.
+///
+/// # Refusal 7, as a compile outcome
+///
+/// **No blocking primitive on the app thread and no completion anywhere.** §12 spells it *the word
+/// `recv` does not appear*, and `crate::gates` holds the literal form of that over the source with a
+/// reason per allowance. Here is the half a caller can see: there is nothing on this type to wait
+/// on, and no `Future` to await.
+///
+/// ```compile_fail,E0599
+/// let slot: vitui_engine::Slot<u32> = vitui_engine::Slot::new();
+/// let _ = slot.recv();
+/// ```
+///
+/// ```compile_fail,E0599
+/// let slot: vitui_engine::Slot<u32> = vitui_engine::Slot::new();
+/// let _ = slot.wait();
+/// ```
+///
+/// and the twin, naming by path the one accessor there is — which returns an `Option` rather than
+/// blocking, and is the whole of what the app thread is offered in place of a receive:
+///
+/// ```
+/// use vitui_engine::Slot;
+///
+/// let slot: Slot<u32> = Slot::new();
+/// assert_eq!(Slot::take(&slot), None);
+/// assert_eq!(Slot::put(&slot, 42), None);
+/// assert_eq!(Slot::take(&slot), Some(42));
+/// ```
 pub struct Slot<T> {
     /// **A `Mutex<Option<T>>`, and not an `AtomicPtr`.** The atomic version needs a `Box` per `put`
     /// and one `unsafe` to get the value back out, and §12's refusal 12 is that there is no `unsafe`

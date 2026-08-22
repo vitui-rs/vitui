@@ -158,6 +158,72 @@ impl Written {
 /// let mut view: vitui_engine::View<'_> = surface.root();
 /// view.fill(vitui_engine::Rect::new(0, 0, 1, 1), "x", vitui_engine::Style::new());
 /// ```
+///
+/// # Four refusals land on this type, and one of them was nearly lost
+///
+/// This is the type a component holds, so it is the type every convenience is proposed for. §12's
+/// list is what each proposal was measured against, and the four below are gated as pairs on
+/// register #19's corpus rather than argued in this paragraph.
+///
+/// **No layout and no widget** (refusals 1 and 2, ADR 0002). Callers bring rectangles. There is no
+/// `layout`, no constraint, no measure and no auto-size, and nothing can be registered to be drawn:
+///
+/// ```compile_fail,E0599
+/// let mut surface = vitui_engine::Surface::new(8, 2);
+/// let mut view = surface.root();
+/// let _ = view.layout(vitui_engine::Rect::new(0, 0, 4, 2));
+/// ```
+///
+/// **No clock and no scheduler** (refusal 9), and *this one was nearly lost*: `elapsed()` and
+/// `wake_in()` on this type were proposed, worked, and were refused. A clock and a scheduler on the
+/// drawing type is to time what ADR 0002 forbids for layout — the runtime samples `Instant::now()`
+/// once per frame, puts it in its own draw context, and flushes the deadlines its components asked
+/// for through [`Screen::request_wake_at`](crate::Screen::request_wake_at) once, after drawing. On
+/// inspection the engine needs *nothing*, because the runtime owns the loop:
+///
+/// ```compile_fail,E0599
+/// let mut surface = vitui_engine::Surface::new(8, 2);
+/// let view = surface.root();
+/// let _ = view.elapsed();
+/// ```
+///
+/// ```compile_fail,E0599
+/// let mut surface = vitui_engine::Surface::new(8, 2);
+/// let mut view = surface.root();
+/// view.wake_in(std::time::Duration::from_millis(16));
+/// ```
+///
+/// **No `split_h` and no `fill_with`**, which are priced above rather than overlooked — the first
+/// needs `unsafe` in the hottest code in the crate for the column-band case, and the second is a
+/// closure the engine would call, which is refusal 4:
+///
+/// ```compile_fail,E0599
+/// let mut surface = vitui_engine::Surface::new(8, 2);
+/// let mut view = surface.root();
+/// let _ = view.split_h(4);
+/// ```
+///
+/// ```compile_fail,E0599
+/// let mut surface = vitui_engine::Surface::new(8, 2);
+/// let mut view = surface.root();
+/// view.fill_with(vitui_engine::Rect::new(0, 0, 4, 2), |_x, _y| "x");
+/// ```
+///
+/// And the twin for all five, naming by path the verbs that stand where each refused one would have
+/// gone — the clip that replaces a split, the fill that takes a cluster rather than a closure, and
+/// the visibility query that replaces a measure:
+///
+/// ```
+/// use vitui_engine::{Rect, Style, Surface, View};
+///
+/// let mut surface = Surface::new(8, 2);
+/// let mut root = surface.root();
+/// let mut pane = View::child(&mut root, Rect::new(0, 0, 4, 2));
+/// View::fill(&mut pane, Rect::new(0, 0, 4, 2), "x", Style::new());
+/// assert_eq!(View::size(&pane), (4, 2));
+/// assert_eq!(View::visible_rows(&pane), 0..2);
+/// assert_eq!(View::visible_cols(&pane), 0..4);
+/// ```
 pub struct View<'a> {
     cells: &'a mut [Cell],
     damage: &'a mut RowBits,
