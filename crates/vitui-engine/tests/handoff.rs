@@ -29,7 +29,7 @@
 
 use std::io::{Result, Write};
 
-use vitui_alloc_probe::{CountingAllocator, assert_no_alloc};
+use vitui_alloc_probe::{CountingAllocator, steady};
 use vitui_engine::{
     Clock, Color, ColorDepth, Config, Engine, InputConfig, LayerId, Output, Overrides, Rect,
     Restyle, Screen, Style,
@@ -112,7 +112,19 @@ fn the_steady_state_of_the_handoff_allocates_nothing() {
 /// The pool is two `Box<Packet>` made at `attach`. What the frames below have to reach is the state
 /// where every buffer inside both of them is at its high-water mark: the runs, the cells, the arena,
 /// and the generation-stamped marker vectors, whose one growth is to the size of the handle tables.
-/// Ten warm-up frames are what get there, and the assertion is over the thousand after.
+///
+/// # Ten warm-up frames were not enough, and this gate flaked in CI because of it
+///
+/// It observed **nine allocations** on pipeline #17 having passed everywhere else. The moving cell is
+/// at `(t % 300, t % 80)`, so the damage pattern has a period of twelve hundred frames — ten frames
+/// visit ten positions near the diagonal and the measured thousand visit a thousand, several of which
+/// split a row into more runs than anything in the warm-up did. The high-water mark was reached
+/// *inside the window*.
+///
+/// So the warm pass is now **the identical workload** rather than a prefix of it: `steady` runs the
+/// whole thousand once and asserts over the second thousand. Same `t` values, same damage patterns,
+/// same buffers — and no guess about which prefix is representative. See
+/// [`vitui_alloc_probe::steady`].
 fn the_handoff_allocates_nothing() {
     let (mut screen, id) = screen(Clock::System);
     let row: String = std::iter::repeat_n('m', W as usize).collect();
@@ -137,12 +149,8 @@ fn the_handoff_allocates_nothing() {
         present_eventually(screen);
     };
 
-    for t in 0..10 {
-        frame(&mut screen, t);
-    }
-
-    assert_no_alloc(|| {
-        for t in 10..1_010 {
+    steady(|| {
+        for t in 0..1_000 {
             frame(&mut screen, t);
         }
     });
@@ -225,18 +233,14 @@ fn pack_allocates_nothing_at_every_density() {
             );
         };
 
-        // **Warm, and the dense arms need every one of these frames.** The extended-style table
-        // reaches its high-water mark on the first, the marker vectors grow to it on the second, and
-        // the third is the first frame that could possibly be quiet. `Screen::layers` is also where
-        // the mark-and-compact sweep runs, and a table of 24 000 entries is well past its floor of
-        // 256 — so the warm-up has to be long enough for the sweep to have settled, which it is:
-        // every frame draws the same handles, so nothing is orphaned after the first.
-        for t in 0..6 {
-            frame(&mut screen, t);
-        }
-
-        assert_no_alloc(|| {
-            for t in 6..106 {
+        // **The warm pass is the identical workload**, for the reason the gate above it now carries:
+        // a six-frame prefix reaches the high-water marks that six frames reach, and the hundred
+        // measured after it need not be a subset of those. The extended-style table peaks on the
+        // first frame, the marker vectors grow to it on the second, and the mark-and-compact sweep in
+        // `Screen::layers` settles once nothing is orphaned — all of which the first hundred does too,
+        // and without anyone having to decide which prefix is representative.
+        steady(|| {
+            for t in 0..100 {
                 frame(&mut screen, t);
             }
         });

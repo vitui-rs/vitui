@@ -21,7 +21,7 @@
 //! either one being quietly undone — a `Vec` for the remainders would pass every other test in this
 //! crate.
 
-use vitui_alloc_probe::{CountingAllocator, assert_no_alloc};
+use vitui_alloc_probe::{CountingAllocator, steady};
 use vitui_engine::Rect;
 use vitui_runtime::layout::{
     Col, Constraint,
@@ -31,26 +31,6 @@ use vitui_runtime::layout::{
 
 #[global_allocator]
 static PROBE: CountingAllocator = CountingAllocator;
-
-/// **Run the body once untimed, then assert it allocates nothing.**
-///
-/// Every gate in this file goes through this rather than calling [`assert_no_alloc`] directly, and the
-/// reason is a red pipeline: `a_column_of_wrapped_rows_allocates_zero` passed on the development
-/// machine and on one CI run and failed on another with **two allocations** — the same test, the same
-/// commit, a different roll. It is alphabetically first in this binary, so it is the first thing in
-/// the process to touch its path, and it paid whatever the first touch costs.
-///
-/// **A flake is worse than a failure**, and an allocation gate whose answer depends on what ran before
-/// it is a flake wearing a count's clothing. Two of the gates here already warmed and the rest did
-/// not, which is the shape of a rule that is remembered rather than enforced — so it is a function
-/// now, and forgetting it means not calling it, which is visible.
-///
-/// `vitui-bench` does the same untimed round before it measures anything, for exactly the same
-/// reason: *a window that includes first-touch is measuring the loader.*
-fn steady<T>(mut body: impl FnMut() -> T) -> T {
-    let _first_touch = body();
-    assert_no_alloc(body)
-}
 
 // The one realistic screen, shared with the two reports. See `src/screen.rs`.
 #[allow(dead_code)]

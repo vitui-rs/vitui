@@ -105,6 +105,40 @@ pub fn assert_no_alloc<T>(f: impl FnOnce() -> T) -> T {
     value
 }
 
+/// **Run `f` once untimed, then assert it allocates nothing.**
+///
+/// Use this rather than [`assert_no_alloc`] for anything with a warm-up cost — which is almost every
+/// gate, because *zero allocations* nearly always means *zero in the steady state* and reaching the
+/// steady state is itself allocation. A window that includes the first touch is measuring the loader.
+///
+/// # It lives here because the pattern could not enforce itself anywhere else
+///
+/// Two allocation gates flaked in CI within two pipelines, on the same class of defect and in
+/// different crates: one in the runtime observing two allocations and one in the engine's handoff
+/// observing nine. The first fix introduced a `steady` helper — and put it in one integration test
+/// file. **Each `tests/*.rs` compiles as its own crate**, so a private helper there cannot be reached
+/// from a sibling file, let alone from another crate, and the commit claiming *forgetting it means not
+/// calling it, which shows up in a diff* was true only inside the one file it lived in.
+///
+/// This crate is the one place both sides already see: it is a dev-dependency of the engine and of
+/// the runtime, and it is where `assert_no_alloc` lives. **The warm-up now travels with the counter.**
+///
+/// # The warm-up has to be the same work, not less of it
+///
+/// The engine's handoff gate already warmed — ten frames — and still flaked, because it then measured
+/// **a thousand**, whose damage patterns reach buffers ten frames never touch. `f` is run *whole*, so
+/// the warm pass is the identical workload rather than a guess at a prefix of it. That doubles the
+/// work and removes the guess, and a gate is not the place to be economical about certainty.
+///
+/// # Panics
+///
+/// Panics if the second run performed at least one allocation.
+#[track_caller]
+pub fn steady<T>(mut f: impl FnMut() -> T) -> T {
+    let _first_touch = f();
+    assert_no_alloc(f)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

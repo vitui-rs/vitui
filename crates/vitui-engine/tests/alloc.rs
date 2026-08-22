@@ -42,7 +42,7 @@ use std::io::{Result, Write};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use vitui_alloc_probe::{CountingAllocator, assert_no_alloc};
+use vitui_alloc_probe::{CountingAllocator, steady};
 use vitui_engine::{
     Clock, Color, ColorDepth, Config, Cursor, CursorShape, Engine, InputConfig, LayerId, Mix,
     MouseMode, Output, Overrides, Rect, Restyle, Screen, Style,
@@ -197,7 +197,7 @@ fn a_caret_and_a_tracking_level_allocate_nothing() {
         screen.present();
     }
 
-    assert_no_alloc(|| {
+    steady(|| {
         for i in 0..1_000u32 {
             let y = (i % H as u32) as u16;
             let mut view = screen.layers().view(id).expect("the layer is still there");
@@ -258,7 +258,7 @@ fn a_keystroke_allocates_nothing() {
         while queue.pop().is_some() {}
     }
 
-    assert_no_alloc(|| {
+    steady(|| {
         for _ in 0..1_000 {
             let at = Instant::now();
             parser.feed(TYPING, at, &mut |event| queue.push(event));
@@ -327,7 +327,7 @@ fn a_settled_operator_over_a_hyperlinked_screen_allocates_nothing() {
         screen.present();
     }
 
-    assert_no_alloc(|| {
+    steady(|| {
         for _ in 0..100 {
             full_screen(
                 &mut screen,
@@ -451,7 +451,7 @@ fn a_settled_restyle_over_a_hyperlinked_screen_allocates_nothing() {
         v.restyle(all, &shadow);
     }
 
-    assert_no_alloc(|| {
+    steady(|| {
         let mut v = screen.layers().view(id).expect("the layer is still there");
         for _ in 0..1_000 {
             v.restyle(all, &shadow);
@@ -482,7 +482,7 @@ fn a_thousand_compose_cycles_allocate_nothing() {
         screen.present();
     }
 
-    assert_no_alloc(|| {
+    steady(|| {
         for i in 0..1_000u32 {
             let mut view = screen.layers().view(id).expect("the layer is still there");
             view.text(0, (i % H as u32) as i32, &row, Style::new());
@@ -501,7 +501,7 @@ fn a_full_screen_frame_allocates_nothing() {
         screen.present();
     }
 
-    assert_no_alloc(|| {
+    steady(|| {
         for i in 0..10u8 {
             // A different style every frame, so every one of the 24 000 cells changes and the
             // serializer walks the whole screen.
@@ -550,7 +550,7 @@ fn a_filtered_frame_with_gaps_allocates_nothing() {
         screen.present();
     }
 
-    assert_no_alloc(|| {
+    steady(|| {
         for row in &rows[2..] {
             full_screen(&mut screen, id, row, Style::new());
             assert!(screen.present().submitted, "the frame had nothing to say");
@@ -601,7 +601,7 @@ fn a_frame_of_clusters_allocates_nothing() {
         screen.present();
     }
 
-    assert_no_alloc(|| {
+    steady(|| {
         for tint in 2..12u8 {
             frame(&mut screen, tint);
             assert!(
@@ -618,7 +618,7 @@ fn an_idle_frame_allocates_nothing() {
     full_screen(&mut screen, id, &row, Style::new());
     screen.present();
 
-    assert_no_alloc(|| {
+    steady(|| {
         for _ in 0..1_000 {
             assert!(!screen.present().submitted);
         }
