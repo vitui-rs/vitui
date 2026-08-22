@@ -1,2 +1,7 @@
 /target
 .claude/
+
+# JetBrains project files. `.idea/workspace.xml` was committed once by accident (fd8ad06) and is
+# untracked again here: it holds window layout, open tabs, run configurations and the cursor's last
+# position, so every IDE session dirties it and no two developers ever want each other's copy.
+.idea/
