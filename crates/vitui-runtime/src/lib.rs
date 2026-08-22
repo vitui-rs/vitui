@@ -18,6 +18,9 @@
 //!   reaches for neither the engine nor the frame, which is why it is first.
 //! - [`layout`] — the constraint solver and the rect algebra. Spec §11. Pure functions over integer
 //!   rectangles: no solver state, no allocation, and no floats anywhere.
+//! - [`theme`] — `Paint`, `Role`, `Roles`, `Theme`, `Repaint`, `Glyph`, `Distinction`, `Density`.
+//!   Spec §3 and §10; ADR 0018, 0021, 0010. A component names a role and can never construct a
+//!   paint.
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]
@@ -32,6 +35,7 @@ extern crate self as vitui_runtime;
 
 pub mod data;
 pub mod layout;
+pub mod theme;
 
 // **One realistic screen, shared by the reports and the allocation gates.** `#[path]`-included by its
 // callers rather than exported, which is the engine's arrangement for its scene list and for the same
@@ -50,3 +54,4 @@ mod screen;
 // `data::` in front of every one of them is noise at a call site. The module stays public: a reader
 // looking for *why there is no trait* should land on its documentation, not on four scattered types.
 pub use data::{Edit, Memo, Revision, Versioned};
+pub use theme::{Density, Distinction, Glyph, GlyphSet, Paint, Repaint, Role, Roles, Theme};

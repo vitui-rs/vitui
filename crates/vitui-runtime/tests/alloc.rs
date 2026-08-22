@@ -223,3 +223,103 @@ fn a_column_of_wrapped_rows_allocates_zero() {
         assert!(lines >= 24);
     });
 }
+
+/// **A theme is heap-free, and a swap allocates nothing.**
+///
+/// The obvious `Vec<Style>` palette allocates on **exactly the frame a swap becomes visible** — which
+/// is the one frame where an allocation is least affordable and most likely to be blamed on something
+/// else. Two swaps and two full frames' worth of lookups, and the count is zero.
+///
+/// `Theme` owning its thirteen roles rather than borrowing `&'static` ones is what costs the +0.32 ns
+/// a lookup, and it is what buys a theme that can come off a disk without `Box::leak`.
+#[test]
+fn a_theme_and_two_swaps_allocate_zero() {
+    use vitui_engine::ColorDepth;
+    use vitui_runtime::theme::{
+        CATPPUCCIN_MOCHA, Density, Distinction, Glyph, GlyphSet, Role, Theme,
+    };
+
+    let mut light = CATPPUCCIN_MOCHA;
+    light[0] = 0xff_ffff;
+    light[5] = 0x00_0000;
+
+    // Built outside the window: construction pairs sixteen colours and is not what is being measured.
+    let dark = Theme::authored(&CATPPUCCIN_MOCHA, GlyphSet::Extended, Density::Cosy)
+        .resolve(ColorDepth::TrueColor);
+    let pale =
+        Theme::authored(&light, GlyphSet::Ascii, Density::Compact).resolve(ColorDepth::Indexed256);
+
+    // **One untimed pass first**, which is what `vitui-bench` does before it measures anything and
+    // for the same reason: the first touch of a code path in a process pays costs that are not the
+    // steady state — ten allocations, on the run that found this, and zero on every one after. A
+    // window that includes first-touch is measuring the loader.
+    let warm = |mut current: Theme| {
+        for swap in 0..2 {
+            for _ in 0..2 {
+                let mut sink = 0usize;
+                for _ in 0..48 {
+                    for r in Role::ALL {
+                        sink += usize::from(current.paint(r) == current.paint(Role::Body));
+                    }
+                }
+                for g in Glyph::ALL {
+                    sink += current.glyph(g).len();
+                }
+                for d in Distinction::ALL {
+                    sink += usize::from(current.shows(d));
+                }
+                sink += usize::from(current.roles_differ_on_wire(Role::Face, Role::FaceHover));
+                assert!(sink > 0);
+            }
+            current = if swap == 0 { pale } else { dark };
+        }
+    };
+    warm(dark);
+
+    assert_no_alloc(|| {
+        let mut current = dark;
+        for swap in 0..2 {
+            // Two full frames of lookups: 48 role paints is what a dense screen asks for.
+            for _ in 0..2 {
+                let mut sink = 0usize;
+                for _ in 0..48 {
+                    for r in Role::ALL {
+                        sink += usize::from(current.paint(r) == current.paint(Role::Body));
+                    }
+                }
+                for g in Glyph::ALL {
+                    sink += current.glyph(g).len();
+                }
+                for d in Distinction::ALL {
+                    sink += usize::from(current.shows(d));
+                }
+                sink += usize::from(current.roles_differ_on_wire(Role::Face, Role::FaceHover));
+                assert!(sink > 0);
+            }
+            // The swap itself: a move, and nothing else.
+            current = if swap == 0 { pale } else { dark };
+        }
+    });
+}
+
+/// `resolve`, `with_glyphs` and `mix` allocate nothing either.
+#[test]
+fn resolve_with_glyphs_and_mix_allocate_zero() {
+    use vitui_engine::ColorDepth;
+    use vitui_runtime::theme::{GlyphSet, Role, Theme};
+
+    let theme = Theme::default();
+    assert_no_alloc(|| {
+        for tier in [
+            ColorDepth::TrueColor,
+            ColorDepth::Indexed256,
+            ColorDepth::Ansi16,
+            ColorDepth::None,
+        ] {
+            let t = theme.resolve(tier).with_glyphs(GlyphSet::Unicode);
+            for step in 0..=10u32 {
+                let _ = t.mix(Role::Body, Role::Danger, step as f32 / 10.0);
+            }
+        }
+    });
+}
