@@ -21,6 +21,9 @@
 //! - [`theme`] — `Paint`, `Role`, `Roles`, `Theme`, `Repaint`, `Glyph`, `Distinction`, `Density`.
 //!   Spec §3 and §10; ADR 0018, 0021, 0010. A component names a role and can never construct a
 //!   paint.
+//! - [`keys`] — `Chord`, `Binding`, `KeyMap`, sequences and help. Spec §9. Chords stored inline
+//!   because `&'static [Chord]` cannot be written at a call site, and matching on the intent half of
+//!   eight modifier bits.
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]
@@ -34,6 +37,7 @@
 extern crate self as vitui_runtime;
 
 pub mod data;
+pub mod keys;
 pub mod layout;
 pub mod theme;
 
@@ -54,4 +58,5 @@ mod screen;
 // `data::` in front of every one of them is noise at a call site. The module stays public: a reader
 // looking for *why there is no trait* should land on its documentation, not on four scattered types.
 pub use data::{Edit, Memo, Revision, Versioned};
+pub use keys::{ActionId, Binding, Chord, Chords, KeyMap, Match, MatchMode, On};
 pub use theme::{Density, Distinction, Glyph, GlyphSet, Paint, Repaint, Role, Roles, Theme};

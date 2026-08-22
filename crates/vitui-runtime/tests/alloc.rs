@@ -323,3 +323,92 @@ fn resolve_with_glyphs_and_mix_allocate_zero() {
         }
     });
 }
+
+/// **A key map declares, matches and helps without allocating.**
+///
+/// Four windows, because they are four different claims: copying a map's routing half into the
+/// frame's buffer, matching over it, stepping the sequence machine, and writing the whole corpus's
+/// help into one reused `String`.
+///
+/// The buffer is the interesting one: it is **cleared and never freed**, so a frame that declares the
+/// same maps every frame allocates on the first one and never again. A `Vec` that was dropped and
+/// rebuilt would pass every other test in this file.
+#[test]
+fn a_key_map_declares_matches_and_helps_without_allocating() {
+    use std::time::Instant;
+
+    use vitui_engine::{Key, KeyCode, KeyKind, KeyText, Mods};
+    use vitui_runtime::keys::{Chord, KeyMap, MatchMode, Matches, Pending, write_help};
+
+    const SAVE: u32 = 1;
+    let map = KeyMap::new()
+        .bind(&[Chord::key('s').ctrl()], SAVE, "Save")
+        .bind(&[Chord::key('q').ctrl(), Chord::key('c').ctrl()], 2, "Quit")
+        .bind_seq(&[Chord::key('g'), Chord::key('g')], 3, "Top");
+
+    let key = |code: KeyCode, mods: Mods| Key {
+        code,
+        mods,
+        kind: KeyKind::Press,
+        text: KeyText::EMPTY,
+        at: Instant::now(),
+    };
+
+    let mut buf = Matches::new();
+    let mut help = String::with_capacity(256);
+    let mut pending = Pending::none();
+
+    // The untimed pass, for the reason on the theme gate: a window that includes first-touch is
+    // measuring the loader.
+    buf.clear();
+    buf.declare(&map);
+    let _ = buf.match_first(&key(KeyCode::Char('s'), Mods::CTRL), MatchMode::Masked);
+    let _ = map.step(
+        &mut pending,
+        &key(KeyCode::Char('g'), Mods::NONE),
+        KeyMap::TIMEOUT,
+    );
+    map.abandon(&mut pending);
+    for b in &map.bindings {
+        help.clear();
+        write_help(&mut help, b);
+    }
+    let capacity = buf.capacity();
+
+    assert_no_alloc(|| {
+        for _ in 0..100 {
+            buf.clear();
+            buf.declare(&map);
+            assert_eq!(
+                buf.match_first(
+                    &key(KeyCode::Char('s'), Mods::CTRL.with(Mods::CAPS)),
+                    MatchMode::Masked
+                ),
+                Some(SAVE)
+            );
+            // Sixty-four steps of the sequence machine, which holds one `Copy` value and no heap.
+            for _ in 0..32 {
+                let _ = map.step(
+                    &mut pending,
+                    &key(KeyCode::Char('g'), Mods::NONE),
+                    KeyMap::TIMEOUT,
+                );
+                let _ = map.step(
+                    &mut pending,
+                    &key(KeyCode::Char('g'), Mods::NONE),
+                    KeyMap::TIMEOUT,
+                );
+            }
+            for b in &map.bindings {
+                help.clear();
+                write_help(&mut help, b);
+                assert!(!help.is_empty());
+            }
+        }
+    });
+    assert_eq!(
+        buf.capacity(),
+        capacity,
+        "the buffer was cleared, not freed"
+    );
+}
