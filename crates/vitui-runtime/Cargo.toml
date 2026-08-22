@@ -22,6 +22,10 @@ vitui-engine.workspace = true
 # dependent of `vitui-runtime` pulls in is unchanged.
 [dev-dependencies]
 vitui-bench.workspace = true
+# The counting global allocator, for the allocation gates. Dev only, `publish = false`, and the
+# engine takes it in exactly the same place for exactly the same reason: *no allocation* is a count,
+# and a count needs something that counts.
+vitui-alloc-probe.workspace = true
 
 [lints]
 workspace = true

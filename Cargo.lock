@@ -229,6 +229,7 @@ dependencies = [
 name = "vitui-runtime"
 version = "0.0.0"
 dependencies = [
+ "vitui-alloc-probe",
  "vitui-bench",
  "vitui-engine",
 ]

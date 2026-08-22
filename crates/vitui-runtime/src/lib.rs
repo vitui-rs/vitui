@@ -16,11 +16,14 @@
 //!
 //! - [`data`] — `Revision`, `Versioned`, `Edit`, `Memo`. Spec §14, ADR 0019. **`std` only**: it
 //!   reaches for neither the engine nor the frame, which is why it is first.
+//! - [`layout`] — the constraint solver and the rect algebra. Spec §11. Pure functions over integer
+//!   rectangles: no solver state, no allocation, and no floats anywhere.
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]
 
 pub mod data;
+pub mod layout;
 
 // Re-exported at the root as well as in the module, because the four are named constantly and
 // `data::` in front of every one of them is noise at a call site. The module stays public: a reader
