@@ -18,50 +18,20 @@
 use std::hint::black_box;
 
 use vitui_bench::Bench;
-use vitui_engine::Rect;
-use vitui_runtime::layout::{
-    Col,
-    Constraint::{Fixed, Weight},
-    Row, text,
-};
+use vitui_runtime::layout::text;
+
+// The one realistic screen and its row corpus, shared with the allocation gates and the layout
+// report. See `src/screen.rs`.
+#[allow(dead_code)]
+#[path = "../src/screen.rs"]
+mod screen;
+use screen::{ROWS, screen_frame};
 
 /// The frame budget every ratio here is against.
 const FRAME_NS: f64 = 100_000.0;
 
 /// The width the rows are wrapped to: a detail pane in the screen the layout report uses.
 const PANE: u16 = 38;
-
-/// Twenty-four rows, which is a screenful of a list with wrapped cells.
-///
-/// **Deliberately not twenty-four copies of one string.** A row of Latin, a row that wraps four
-/// times, a CJK row with nothing to break on and a row full of clusters cost different amounts, and a
-/// measurement over one of them would be a measurement of that one.
-const ROWS: [&str; 24] = [
-    "a short line",
-    "The quick brown fox jumps over the lazy dog and keeps going for a while yet",
-    "漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字",
-    "e\u{301}quipe \u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467} and a\u{2764}\u{FE0F}b",
-    "status: ready",
-    "one two three four five six seven eight nine ten eleven twelve thirteen",
-    "mixed 漢字 and latin words together in one line that has to wrap somewhere",
-    "a\u{300}\u{301}\u{302}\u{303} stacked combining marks, and then some ordinary text after them",
-    "/usr/local/share/doc/some-package/examples/a-rather-long-path-name.txt",
-    "",
-    "  leading and   internal   spaces  ",
-    "supercalifragilisticexpialidocious",
-    "warning: the value was truncated because it did not fit in the column provided",
-    "42",
-    "\u{2764}\u{FE0E} text presentation, and \u{2764}\u{FE0F} emoji presentation, side by side",
-    "one\ntwo\nthree",
-    "The second paragraph is here to make the corpus look like real data rather than a fixture",
-    "漢字 mixed with a very long latin run that will definitely need more than one line",
-    "id       name                 state     updated",
-    "a b c d e f g h i j k l m n o p q r s t u v w x y z",
-    "tab\tseparated\tvalues\there",
-    "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor",
-    "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}",
-    "done",
-];
 
 fn main() {
     println!("runtime ticket 03 — what text measurement costs\n");
@@ -165,55 +135,4 @@ fn main() {
         \x20       which is what ADR 0005 exists to prevent, because two copies disagree the day\n\
         \x20       their Unicode versions differ."
     );
-}
-
-/// The same realistic screen the layout report times, so the two arms are comparable.
-///
-/// A third copy of this function, and the third one is the one that made me stop and think about it:
-/// `tests/alloc.rs` has it, `examples/layout_numbers.rs` has it, and now this. All three assert
-/// `(32, 119)`, which is what keeps them honest — but the right answer at four copies is a
-/// `#[path]`-included module the way the engine shares its scene list, and that is worth doing before
-/// a fourth arrives rather than after.
-fn screen_frame(w: u16, h: u16) -> (u32, u32) {
-    let mut splits = 0;
-    let mut lanes = 0;
-    let screen = Rect::new(0, 0, w, h);
-
-    let [header, body, footer] = Col::new().split(screen, [Fixed(3), Weight(1), Fixed(1)]);
-    splits += 1;
-    lanes += 3;
-    let [sidebar, _gutter, detail] = Row::new()
-        .spacing(1)
-        .split(body, [Fixed(20), Fixed(1), Weight(1)]);
-    splits += 1;
-    lanes += 3;
-    let _ = Col::new()
-        .margin(1)
-        .split(detail, [Weight(1), Weight(1), Weight(1)]);
-    splits += 1;
-    lanes += 3;
-    let _ = Row::new().spacing(2).split(footer, [Weight(1); 6]);
-    splits += 1;
-    lanes += 6;
-    let [left, mid, right] = Row::new().split(header, [Fixed(10), Weight(1), Fixed(12)]);
-    splits += 1;
-    lanes += 3;
-    let _ = Row::new().split(left, [Weight(1), Weight(1)]);
-    splits += 1;
-    lanes += 2;
-    let _ = Row::new().split(right, [Weight(1), Weight(1)]);
-    splits += 1;
-    lanes += 2;
-    let _ = Col::new().split(mid, [Weight(1)]);
-    splits += 1;
-    lanes += 1;
-
-    let mut rows = [Rect::default(); 24];
-    let n = Col::new().split_into(sidebar, &[Weight(1); 24], &mut rows);
-    for row in &rows[..n] {
-        let _ = Row::new().split(*row, [Fixed(6), Weight(2), Weight(1), Fixed(8)]);
-        splits += 1;
-        lanes += 4;
-    }
-    (splits, lanes)
 }

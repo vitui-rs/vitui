@@ -23,12 +23,12 @@
 use std::hint::black_box;
 
 use vitui_bench::Bench;
-use vitui_engine::Rect;
-use vitui_runtime::layout::{
-    Col,
-    Constraint::{Fixed, Weight},
-    Row,
-};
+// The one realistic screen, shared with the allocation gates and the text report. See
+// `src/screen.rs` for why it is included rather than exported.
+#[allow(dead_code)]
+#[path = "../src/screen.rs"]
+mod screen;
+use screen::screen_frame;
 
 /// The frame budget every ratio here is against.
 const FRAME_NS: f64 = 100_000.0;
@@ -106,58 +106,4 @@ fn main() {
          cells — something in the solver is walking the band"
     );
     println!("        gate: flat within 1.5x. Measured {spread:.2}x.");
-}
-
-/// A realistic screen: a header, a sidebar, a detail pane, a footer of buttons and a
-/// twenty-four-row list with four columns in each row.
-///
-/// Returns `(splits, lanes)` so that the shape is a count rather than a description. See
-/// `tests/alloc.rs`, which holds the same function and asserts the same two numbers — the
-/// duplication is deliberate and those counts are what keep the copies from drifting.
-fn screen_frame(w: u16, h: u16) -> (u32, u32) {
-    let mut splits = 0;
-    let mut lanes = 0;
-    let screen = Rect::new(0, 0, w, h);
-
-    let [header, body, footer] = Col::new().split(screen, [Fixed(3), Weight(1), Fixed(1)]);
-    splits += 1;
-    lanes += 3;
-
-    let [sidebar, _gutter, detail] = Row::new()
-        .spacing(1)
-        .split(body, [Fixed(20), Fixed(1), Weight(1)]);
-    splits += 1;
-    lanes += 3;
-
-    let [_top, _mid, _bot] = Col::new()
-        .margin(1)
-        .split(detail, [Weight(1), Weight(1), Weight(1)]);
-    splits += 1;
-    lanes += 3;
-
-    let _buttons = Row::new().spacing(2).split(footer, [Weight(1); 6]);
-    splits += 1;
-    lanes += 6;
-
-    let [left, mid, right] = Row::new().split(header, [Fixed(10), Weight(1), Fixed(12)]);
-    splits += 1;
-    lanes += 3;
-    let _ = Row::new().split(left, [Weight(1), Weight(1)]);
-    splits += 1;
-    lanes += 2;
-    let _ = Row::new().split(right, [Weight(1), Weight(1)]);
-    splits += 1;
-    lanes += 2;
-    let _ = Col::new().split(mid, [Weight(1)]);
-    splits += 1;
-    lanes += 1;
-
-    let mut rows = [Rect::default(); 24];
-    let n = Col::new().split_into(sidebar, &[Weight(1); 24], &mut rows);
-    for row in &rows[..n] {
-        let _ = Row::new().split(*row, [Fixed(6), Weight(2), Weight(1), Fixed(8)]);
-        splits += 1;
-        lanes += 4;
-    }
-    (splits, lanes)
 }

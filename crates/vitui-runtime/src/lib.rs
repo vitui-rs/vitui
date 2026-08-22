@@ -22,8 +22,29 @@
 #![forbid(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]
 
+// `crate::screen` is `#[path]`-included by `tests/alloc.rs` and by both reports as well as compiled
+// here, so the one realistic screen has exactly one definition. It is written against the public API
+// — `use vitui_runtime::…` — and this alias is what makes that resolve inside the library too. The
+// engine does the same for its scene list and gives the same second reason, which is the better one:
+// **a fixture that could reach past the public surface would be measuring something a caller cannot
+// do.**
+extern crate self as vitui_runtime;
+
 pub mod data;
 pub mod layout;
+
+// **One realistic screen, shared by the reports and the allocation gates.** `#[path]`-included by its
+// callers rather than exported, which is the engine's arrangement for its scene list and for the same
+// reason: an instrument is not part of the library. Compiled under `cfg(test)` here so the crate's own
+// suite checks its two counts; the examples include the file directly.
+// `allow(dead_code)` rather than `expect`, and the same reason the engine's `budget.rs` gives for its
+// own included modules: each *caller* uses a different part of this file — the crate's suite checks the
+// counts, one example wraps `ROWS`, another only splits — and a lint that fires on the half you are not
+// looking at teaches people to delete the other half.
+#[cfg(test)]
+#[allow(dead_code)]
+#[path = "screen.rs"]
+mod screen;
 
 // Re-exported at the root as well as in the module, because the four are named constantly and
 // `data::` in front of every one of them is noise at a call site. The module stays public: a reader
