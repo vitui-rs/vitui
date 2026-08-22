@@ -32,6 +32,26 @@ use vitui_runtime::layout::{
 #[global_allocator]
 static PROBE: CountingAllocator = CountingAllocator;
 
+/// **Run the body once untimed, then assert it allocates nothing.**
+///
+/// Every gate in this file goes through this rather than calling [`assert_no_alloc`] directly, and the
+/// reason is a red pipeline: `a_column_of_wrapped_rows_allocates_zero` passed on the development
+/// machine and on one CI run and failed on another with **two allocations** — the same test, the same
+/// commit, a different roll. It is alphabetically first in this binary, so it is the first thing in
+/// the process to touch its path, and it paid whatever the first touch costs.
+///
+/// **A flake is worse than a failure**, and an allocation gate whose answer depends on what ran before
+/// it is a flake wearing a count's clothing. Two of the gates here already warmed and the rest did
+/// not, which is the shape of a rule that is remembered rather than enforced — so it is a function
+/// now, and forgetting it means not calling it, which is visible.
+///
+/// `vitui-bench` does the same untimed round before it measures anything, for exactly the same
+/// reason: *a window that includes first-touch is measuring the loader.*
+fn steady<T>(mut body: impl FnMut() -> T) -> T {
+    let _first_touch = body();
+    assert_no_alloc(body)
+}
+
 // The one realistic screen, shared with the two reports. See `src/screen.rs`.
 #[allow(dead_code)]
 #[path = "../src/screen.rs"]
@@ -46,7 +66,7 @@ use screen::screen_frame;
 #[test]
 fn split_allocates_zero_at_every_arity() {
     let band = Rect::new(0, 0, 300, 80);
-    assert_no_alloc(|| {
+    steady(|| {
         let _ = Row::new().split(band, [Weight(1)]);
         let _ = Row::new().split(band, [Fixed(20), Weight(1)]);
         let _ = Row::new().split(band, [Fixed(20), Weight(1), Min(10)]);
@@ -89,7 +109,7 @@ fn the_dynamic_split_allocates_zero() {
         Weight(3),
     ];
     let mut out = [Rect::default(); 7];
-    assert_no_alloc(|| {
+    steady(|| {
         let n = Row::new()
             .spacing(1)
             .margin(1)
@@ -124,7 +144,7 @@ fn the_cap_fixpoint_allocates_zero_when_it_is_driven_to_its_bound() {
     let mut out = [Rect::default(); 12];
     let (_, fit) = solve(4000, &spec, &mut out);
     assert!(fit.rounds >= 2, "the fixpoint did not engage: {fit:?}");
-    assert_no_alloc(|| {
+    steady(|| {
         for _ in 0..1_000 {
             let (n, fit) = solve(4000, &spec, &mut out);
             assert_eq!(n, 12);
@@ -142,7 +162,7 @@ fn the_cap_fixpoint_allocates_zero_when_it_is_driven_to_its_bound() {
 fn the_rect_algebra_and_the_grid_allocate_zero() {
     let a = Rect::new(4, 4, 40, 20);
     let b = Rect::new(0, 0, 30, 30);
-    assert_no_alloc(|| {
+    steady(|| {
         let _ = rect::inset(a, 2);
         let _ = rect::shrink(a, 1, 2, 3, 4);
         let _ = rect::expand(a, 3);
@@ -168,7 +188,7 @@ fn the_rect_algebra_and_the_grid_allocate_zero() {
 /// above while allocating thirty-two times a frame.
 #[test]
 fn a_whole_screen_of_layout_allocates_zero() {
-    assert_no_alloc(|| {
+    steady(|| {
         for _ in 0..100 {
             let (splits, lanes) = screen_frame(300, 80);
             assert_eq!((splits, lanes), (32, 119));
@@ -187,7 +207,7 @@ fn a_whole_screen_of_layout_allocates_zero() {
 fn text_measurement_allocates_zero() {
     let paragraph = "The quick brown fox jumps over the lazy dog, and 漢字 as well, \
                      with an e\u{301} and a \u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467} in it.";
-    assert_no_alloc(|| {
+    steady(|| {
         for w in 1..=80u16 {
             let mut columns = 0u32;
             for line in text::wrap(paragraph, w) {
@@ -213,7 +233,7 @@ fn a_column_of_wrapped_rows_allocates_zero() {
         "漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字",
         "e\u{301}quipe \u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467} and a\u{2764}\u{FE0F}b",
     ];
-    assert_no_alloc(|| {
+    let column = || {
         let mut lines = 0usize;
         for _ in 0..6 {
             for row in rows {
@@ -221,7 +241,9 @@ fn a_column_of_wrapped_rows_allocates_zero() {
             }
         }
         assert!(lines >= 24);
-    });
+    };
+
+    steady(column);
 }
 
 /// **A theme is heap-free, and a swap allocates nothing.**
@@ -276,7 +298,7 @@ fn a_theme_and_two_swaps_allocate_zero() {
     };
     warm(dark);
 
-    assert_no_alloc(|| {
+    steady(|| {
         let mut current = dark;
         for swap in 0..2 {
             // Two full frames of lookups: 48 role paints is what a dense screen asks for.
@@ -309,7 +331,7 @@ fn resolve_with_glyphs_and_mix_allocate_zero() {
     use vitui_runtime::theme::{GlyphSet, Role, Theme};
 
     let theme = Theme::default();
-    assert_no_alloc(|| {
+    steady(|| {
         for tier in [
             ColorDepth::TrueColor,
             ColorDepth::Indexed256,
@@ -375,7 +397,7 @@ fn a_key_map_declares_matches_and_helps_without_allocating() {
     }
     let capacity = buf.capacity();
 
-    assert_no_alloc(|| {
+    steady(|| {
         for _ in 0..100 {
             buf.clear();
             buf.declare(&map);
@@ -459,7 +481,7 @@ fn a_steady_frame_allocates_nothing() {
     one_frame(&mut driver);
     one_frame(&mut driver);
 
-    assert_no_alloc(|| {
+    steady(|| {
         for _ in 0..50 {
             one_frame(&mut driver);
         }
@@ -493,7 +515,7 @@ fn formatting_a_frame_of_rows_allocates_nothing() {
     };
     draw(&mut driver);
     draw(&mut driver);
-    assert_no_alloc(|| {
+    steady(|| {
         for _ in 0..50 {
             draw(&mut driver);
         }
