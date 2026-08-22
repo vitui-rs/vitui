@@ -27,6 +27,8 @@
 //! - [`ctx`] — `Ctx<'f, 'v>`, `Frame`, `Env`, `Response`, `Interest`, `Driver`. Spec §1, §3, §6;
 //!   ADR 0012. Five flat structures rebuilt from the draw, four id-keyed facts, and a `begin` that
 //!   cannot be skipped.
+//! - [`id`] — `Id`, `IdTable`, the id stack. Spec §5; ADR 0013. The call site is the source, FNV-1a
+//!   with no finalizer, and three of the four id-keyed facts swept when a widget stops drawing.
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]
@@ -41,6 +43,7 @@ extern crate self as vitui_runtime;
 
 pub mod ctx;
 pub mod data;
+pub mod id;
 pub mod keys;
 pub mod layout;
 pub mod theme;
@@ -61,7 +64,8 @@ mod screen;
 // Re-exported at the root as well as in the module, because the four are named constantly and
 // `data::` in front of every one of them is noise at a call site. The module stays public: a reader
 // looking for *why there is no trait* should land on its documentation, not on four scattered types.
-pub use ctx::{Ctx, Driver, Id, Interest, Response};
+pub use ctx::{Ctx, Driver, Interest, Response};
 pub use data::{Edit, Memo, Revision, Versioned};
+pub use id::{Id, IdTable};
 pub use keys::{ActionId, Binding, Chord, Chords, KeyMap, Match, MatchMode, On};
 pub use theme::{Density, Distinction, Glyph, GlyphSet, Paint, Repaint, Role, Roles, Theme};

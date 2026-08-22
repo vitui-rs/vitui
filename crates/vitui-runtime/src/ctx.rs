@@ -69,7 +69,7 @@
 //! ever. **A hang is worse than a failure, because `cargo test` has no per-test timeout.**
 //!
 //! Both halves of the obligation are met rather than one: a `Frame` is only reachable through
-//! [`Driver`], which `begin`s it — *and* [`IdTable::claim`] returns `None` after a bounded probe
+//! [`Driver`], which `begin`s it — *and* `IdTable::claim` returns `None` after a bounded probe
 //! instead of spinning, so the failure is a value even if the first half is ever circumvented.
 
 use std::fmt;
@@ -82,6 +82,7 @@ use vitui_engine::{
     Output, Presented, Rect, Screen, View, Written,
 };
 
+use crate::id::IdStack;
 use crate::keys::Matches;
 use crate::theme::{Link, Paint, Repaint, Theme};
 
@@ -157,137 +158,7 @@ impl Interest {
     }
 }
 
-/// A widget's identity for this frame.
-///
-/// **Ticket 08 owns the type and the table's stamp discipline; ticket 09 owns the hash.** What is
-/// here is a newtype and a claim that cannot spin — enough for [`Response`] to name it and for
-/// `Frame::begin`'s stamp bump to be gated. The derivation from the call site, the id stack,
-/// `with_key` and the sweep are all 09's.
-///
-/// **An `Id` may never be persisted.** It is a function of the call site and the closure tree, so a
-/// stored one means something different next frame. No serialisation, no ordering — deliberately not
-/// `Ord`.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub struct Id(u64);
-
-impl Id {
-    /// The root, which is what a frame's outermost draw is.
-    pub const ROOT: Id = Id(0);
-
-    /// An id from a raw value. **Ticket 09 replaces the only real caller of this**, which is the
-    /// derivation from a call site; it is public so a test can name one.
-    pub const fn from_raw(v: u64) -> Id {
-        Id(v)
-    }
-
-    /// The raw value, for a table to index by.
-    pub const fn raw(self) -> u64 {
-        self.0
-    }
-}
-
-/// One slot of the stamped id table.
-#[derive(Clone, Copy, Debug, Default)]
-struct Slot {
-    id: u64,
-    /// Which frame claimed it. **Compared against the table's current stamp**, which is why the
-    /// table is never cleared and why a stamp of zero over slots of zero is a hang.
-    stamp: u32,
-}
-
-/// The stamped table that detects a duplicate id in one probe.
-///
-/// **Stamped rather than cleared**, which is ticket 09's 1.1 ns duplicate detector and is also the
-/// reason `begin` cannot be skipped: see the module comment.
-#[derive(Clone, Debug)]
-pub struct IdTable {
-    slots: Vec<Slot>,
-    stamp: u32,
-    /// How many ids were claimed this frame, for the load check.
-    live: usize,
-}
-
-impl IdTable {
-    /// A table with room for a dense screen's widgets.
-    ///
-    /// Three hundred and thirteen interactive regions is what a dense 300×80 screen has; 512 keeps
-    /// the load factor under two thirds without a growth on the first frame.
-    pub fn new() -> IdTable {
-        IdTable {
-            slots: vec![Slot::default(); 512],
-            // **One, not zero.** A fresh table is already past the value an un-stamped slot carries,
-            // so even a `Frame` that somehow reached `claim` without a `begin` finds every slot
-            // foreign rather than every slot its own. The stamp bump in `begin` is still what makes
-            // it correct frame to frame; this is the belt to that braces.
-            stamp: 1,
-            live: 0,
-        }
-    }
-
-    /// Start a frame: bump the stamp, so every slot is now foreign.
-    ///
-    /// Wrapping, and a wrap is handled rather than ignored: at the wrap the whole table is zeroed,
-    /// because otherwise a slot stamped `u32::MAX` would read as this frame's again after four
-    /// billion frames. At sixty frames a second that is two years and three months of uptime, which
-    /// is exactly the kind of number that turns up in a bug report rather than a test.
-    fn begin(&mut self) {
-        self.live = 0;
-        self.stamp = self.stamp.wrapping_add(1);
-        if self.stamp == 0 {
-            for slot in &mut self.slots {
-                *slot = Slot::default();
-            }
-            self.stamp = 1;
-        }
-    }
-
-    /// Claim an id for this frame. `None` means the table is full or the id is a duplicate.
-    ///
-    /// **Bounded, and that is the point.** The probe walks at most the table's length, so the answer
-    /// is a value rather than a hang however wrong the stamp is. See the module comment: the naive
-    /// version spins for ever on a `Frame` that was never begun, and a hang is worse than a failure.
-    pub fn claim(&mut self, id: Id) -> Option<usize> {
-        let len = self.slots.len();
-        if len == 0 {
-            return None;
-        }
-        let mut at = usize::try_from(id.raw() % len as u64).unwrap_or(0);
-        for _ in 0..len {
-            let slot = self.slots[at];
-            if slot.stamp != self.stamp {
-                self.slots[at] = Slot {
-                    id: id.raw(),
-                    stamp: self.stamp,
-                };
-                self.live += 1;
-                return Some(at);
-            }
-            if slot.id == id.raw() {
-                // A duplicate: first claimant wins and the second is inert. Ticket 09 owns the
-                // policy; this is where it will live.
-                return None;
-            }
-            at = (at + 1) % len;
-        }
-        None
-    }
-
-    /// How many ids are claimed this frame.
-    pub fn live(&self) -> usize {
-        self.live
-    }
-
-    /// The current stamp, for the gate that asserts `begin` bumped it.
-    pub fn stamp(&self) -> u32 {
-        self.stamp
-    }
-}
-
-impl Default for IdTable {
-    fn default() -> IdTable {
-        IdTable::new()
-    }
-}
+pub use crate::id::{Id, IdTable};
 
 /// One entry of the hit index: **sixteen bytes, with no rectangle and no layer id.**
 ///
@@ -453,6 +324,8 @@ pub struct Frame {
 
     // ── everything else the frame accumulates ──────────────────────────────────────────────────
     ids: IdTable,
+    /// The id path: **the closure tree, not the draw tree.** Pushed only by `with_key` and `with_id`.
+    stack: IdStack,
     scratch: Scratch,
     /// The declared key maps for the open scope, cleared and never freed.
     maps: Matches,
@@ -502,6 +375,7 @@ impl Frame {
             focused: None,
             click_record: None,
             ids: IdTable::new(),
+            stack: IdStack::new(),
             scratch: Scratch::default(),
             maps: Matches::new(),
             tracking: MouseMode::Off,
@@ -529,6 +403,7 @@ impl Frame {
         self.caret = None;
         self.repaint = false;
         self.ids.begin();
+        self.stack.clear();
         self.frames += 1;
         self.begun = true;
 
@@ -547,7 +422,7 @@ impl Frame {
         // resolve Tab — ticket 12.
         // release the focus with the grab — ticket 12.
         // settle hover — ticket 10.
-        // sweep three of the four id-keyed facts — ticket 09.
+        self.sweep();
         // resolve scroll-into-view — ticket 14.
 
         // **Fold the deadline sink and the repaint flag into ONE wake.** This part is 08's, and it is
@@ -557,6 +432,41 @@ impl Frame {
             (_, true) => Some(Instant::now()),
             (at, false) => at,
         }
+    }
+
+    /// **Release the three id-keyed facts whose widget stopped drawing.**
+    ///
+    /// The grab, the press origin and the focus — and **not the click record**, which is the fourth
+    /// and deliberately survives its widget so that a double click survives a redraw.
+    ///
+    /// Without this, **a stale grab swallows the pointer for every widget still on screen**: a widget
+    /// that held the pointer and then stopped drawing keeps holding it, and every hit test afterwards
+    /// resolves to something that is not there.
+    ///
+    /// The test is *did this id draw this frame*, which is exactly what the stamped table answers —
+    /// so the sweep is three lookups rather than a scan, and 281 ns is the whole of it on a dense
+    /// screen.
+    fn sweep(&mut self) {
+        let drew = |id: Id, hits: &[Hit]| hits.iter().any(|h| h.id == id);
+        if let Some(id) = self.grab {
+            if !drew(id, &self.hits) {
+                self.grab = None;
+                // The press origin goes with the grab: it is the same interaction, and a press origin
+                // without a grab is a drag nobody is holding.
+                self.press_origin = None;
+            }
+        }
+        if let Some((id, _)) = self.press_origin {
+            if !drew(id, &self.hits) {
+                self.press_origin = None;
+            }
+        }
+        if let Some(id) = self.focused {
+            if !drew(id, &self.hits) {
+                self.focused = None;
+            }
+        }
+        // The click record is **not** swept. See this function's documentation.
     }
 
     /// The hit index, for the gates and for ticket 10.
@@ -592,6 +502,16 @@ impl Frame {
     /// The tracking level the pointer needs, which is the `max` of what was declared.
     pub fn tracking(&self) -> MouseMode {
         self.tracking
+    }
+
+    /// Plant an id-keyed fact, for the gates. **Tickets 10 and 12 own the real writers** — the press
+    /// award and the focus resolution — and this is how ticket 09 tests the sweep without inventing
+    /// either of them early.
+    pub fn plant_facts(&mut self, grab: Option<Id>, focus: Option<Id>, click: Option<Id>) {
+        self.grab = grab;
+        self.press_origin = grab.map(|id| (id, (0, 0)));
+        self.focused = focus;
+        self.click_record = click.map(|id| (id, Instant::now()));
     }
 
     /// The four id-keyed facts, for the gate that counts them.
@@ -874,12 +794,122 @@ impl<'f, 'v> Ctx<'f, 'v> {
     // minting on `Screen`, and a component draws through a `View`. The fix is one method on `View` or
     // on `LayerStack`, and it is the engine map's to make.
 
+    /// This widget's id, from the call site.
+    ///
+    /// `#[track_caller]`, so the location is the caller's and it costs nothing at run time — a
+    /// `&'static Location` is already in the binary.
+    ///
+    /// # A `#[track_caller]` wrapper merges the widgets inside its own body
+    ///
+    /// **Found by accident, and visible only because duplicate detection named it.** A helper marked
+    /// `#[track_caller]` reports *its caller's* location for every call it makes, so two widgets drawn
+    /// inside one such helper get the same id and the second is inert.
+    ///
+    /// ```text
+    /// #[track_caller]
+    /// fn labelled_field(cx: &mut Ctx, label: &str) {   // ← the attribute is the bug
+    ///     cx.id();   // both of these report the *caller's* line,
+    ///     cx.id();   // so they are one widget and one of them does nothing
+    /// }
+    /// ```
+    ///
+    /// The rule for a component author: **put `#[track_caller]` on a function that draws one widget,
+    /// and not on one that draws several.** A wrapper that draws several should take a key, or let its
+    /// children report their own call sites by not carrying the attribute at all.
+    #[track_caller]
+    pub fn id(&mut self) -> Id {
+        Id::at(self.frame.stack.current(), std::panic::Location::caller())
+    }
+
+    /// How deep the id path is here. Zero at the top of a frame.
+    ///
+    /// **The gate for the container rule**: a rectangle-returning split leaves its panes at one depth
+    /// and a keyed row is one deeper.
+    pub fn depth(&self) -> usize {
+        self.frame.stack.depth()
+    }
+
+    /// Draw under a caller-supplied key, which is what a loop needs.
+    ///
+    /// One of exactly **two** places the id stack is pushed. `Ctx::child` is not one of them.
+    pub fn with_key<R>(&mut self, key: u64, f: impl FnOnce(&mut Ctx<'f, '_>) -> R) -> R {
+        let id = Id::keyed(self.frame.stack.current(), key);
+        self.with_id(id, f)
+    }
+
+    /// Draw under an id the caller already has.
+    ///
+    /// The other of the two places the stack is pushed.
+    pub fn with_id<R>(&mut self, id: Id, f: impl FnOnce(&mut Ctx<'f, '_>) -> R) -> R {
+        self.frame.stack.push(id);
+        // A block rather than an explicit `drop`: `Ctx` has no `Drop` impl, so `drop` only extends
+        // the borrow's region — clippy is right, and a scope is what actually ends it.
+        let r = {
+            let mut inner = Ctx {
+                view: self.view.child(self.area()),
+                frame: self.frame,
+                env: self.env,
+                rect: self.rect,
+                _frame: PhantomData,
+                _not_send: PhantomData,
+            };
+            f(&mut inner)
+        };
+        self.frame.stack.pop();
+        r
+    }
+
+    /// Open a scope.
+    ///
+    /// # **A scope renames nothing, and that is load-bearing**
+    ///
+    /// This is the container rule's one exception. `scope` takes a closure, and *a container that
+    /// takes a closure renames its children* — except this one, because **the frame a modal opens
+    /// would otherwise rename every field of the form it traps**, and a form whose fields are renamed
+    /// loses its focus and its scroll position for a reason nobody wrote down.
+    ///
+    /// So the id stack is untouched here. Ticket 12 adds what a scope is *for* — grouping, trapping,
+    /// isolating the focus — and none of it touches identity.
+    pub fn scope<R>(&mut self, _id: Id, f: impl FnOnce(&mut Ctx<'f, '_>) -> R) -> R {
+        let mut inner = self.child(self.area());
+        f(&mut inner)
+    }
+
+    /// Open a scroll scope. **Scopes no identity either**, for the same reason.
+    pub fn scroll_scope<R>(
+        &mut self,
+        _id: Id,
+        offset: (i32, i32),
+        f: impl FnOnce(&mut Ctx<'f, '_>) -> R,
+    ) -> R {
+        let mut inner = self.scrolled(offset.0, offset.1);
+        f(&mut inner)
+    }
+
     /// Declare an interactive region.
     ///
     /// **Ticket 10 fills the response in.** What is here is 08's half and it is not nothing: the entry
     /// is appended to the hit index in draw order, and the declared interest is folded into the
     /// tracking level `settle` hands to `set_mouse`.
+    #[track_caller]
+    pub fn interact_here(&mut self, r: Rect, i: Interest) -> Response {
+        let id = Id::at(self.frame.stack.current(), std::panic::Location::caller());
+        self.interact(id, r, i)
+    }
+
+    /// Declare an interactive region under an id the caller already has.
+    ///
+    /// **A merge is where duplicate detection shows up at a call site**: if this id was already
+    /// claimed this frame, the first claimant keeps it and this response is inert. That is the policy
+    /// rather than an error, because two widgets legitimately sharing a call site is a *design* smell
+    /// the author can see on screen, and a panic would be a crash for a cosmetic problem.
     pub fn interact(&mut self, id: Id, r: Rect, i: Interest) -> Response {
+        let claimed = self.frame.ids.claim(id).is_some();
+        if !claimed {
+            // Merged: the first claimant owns the id, and this one does nothing at all — no hit
+            // entry, no tracking, no tab stop.
+            return Response::inert(id, r);
+        }
         self.frame.hits.push(Hit {
             id,
             interest: i,
@@ -1053,7 +1083,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
 ///
 /// **That is the first half of *`begin` cannot be skipped*** — there is no public constructor for a
 /// `Frame`, and `Driver::frame` begins one before the body sees it. The second half is
-/// [`IdTable::claim`] returning `None` rather than spinning, which holds even if this one is ever
+/// `IdTable::claim` returning `None` rather than spinning, which holds even if this one is ever
 /// circumvented.
 pub struct Driver {
     screen: Screen,
@@ -1193,6 +1223,13 @@ impl Driver {
     pub fn size(&self) -> (u16, u16) {
         self.screen.size()
     }
+
+    /// Plant the id-keyed facts, for the gates. **Tickets 10 and 12 own the real writers** — the
+    /// press award and the focus resolution — and this is how ticket 09 tests the sweep without
+    /// inventing either of them early.
+    pub fn plant(&mut self, grab: Option<Id>, focus: Option<Id>, click: Option<Id>) {
+        self.frame.plant_facts(grab, focus, click);
+    }
 }
 
 /// **Why `'f` has to be invariant, kept runnable rather than asserted.**
@@ -1284,28 +1321,28 @@ mod tests {
     /// — stamp 0 over slots stamped 0 means no slot is ever *not mine* — and a hang is worse than a
     /// failure because `cargo test` has no per-test timeout.
     #[test]
-    fn a_claim_fails_rather_than_spinning() {
-        // The second half, tested directly on the table: a stamp that matches every slot.
+    fn a_claim_terminates_rather_than_spinning() {
+        // **The probe is bounded**, so a claim is a value however wrong the stamp is. Since ticket 09
+        // gave the table growth, a *full* table is no longer reachable — which is why this asserts
+        // termination under load rather than a `None` from a full one, and why the first version of
+        // this test stopped being right the moment growth landed.
         let mut table = IdTable::new();
-        // Fill every slot, so a further claim has nowhere to go. This is the shape a wrong stamp
-        // produces, reached by a means that cannot hang.
-        let len = 512;
-        let mut claimed = 0;
-        for i in 0..len as u64 {
-            if table.claim(Id::from_raw(i)).is_some() {
-                claimed += 1;
-            }
+        for i in 0..4_000u64 {
+            // Every one of these either claims or merges, and neither walks the ring for ever. A
+            // naive probe over a table whose stamp matched every slot would not return at all.
+            let _ = table.claim(Id::keyed(Id::ROOT, i));
         }
-        assert_eq!(claimed, len, "every slot took one id");
-        assert_eq!(
-            table.claim(Id::from_raw(9_999)),
-            None,
-            "a full table returns a value rather than walking the ring"
+        assert_eq!(table.live(), 4_000, "every id was claimed");
+        assert!(
+            table.grows() > 0,
+            "and the table grew rather than filling up"
         );
-        // And a duplicate is inert rather than a second slot.
-        let mut fresh = IdTable::new();
-        assert!(fresh.claim(Id::from_raw(7)).is_some());
-        assert_eq!(fresh.claim(Id::from_raw(7)), None, "first claimant wins");
+        // A duplicate is inert rather than a second slot.
+        assert_eq!(
+            table.claim(Id::keyed(Id::ROOT, 0)),
+            None,
+            "first claimant wins"
+        );
     }
 
     /// The first half: a `Frame` is only reachable through a `Driver`, which begins it.
@@ -1577,6 +1614,176 @@ mod tests {
         });
         // Drained by the pass, which is what makes the queue a queue rather than a log.
         assert_eq!(d.inspect().overlays_requested(), 0);
+    }
+
+    /// **`Ctx::child` pushes nothing**, so a rectangle-returning split leaves its panes siblings at
+    /// one depth — and a keyed row is one deeper.
+    ///
+    /// The container rule as an equality: *a container that returns a rectangle preserves its
+    /// children's identity; one that takes a closure renames them.*
+    #[test]
+    fn a_rectangle_returning_split_leaves_its_panes_siblings() {
+        let mut d = driver();
+        d.frame(|cx| {
+            assert_eq!(cx.depth(), 0, "the top of a frame is depth zero");
+            let mut pane = cx.child(Rect::new(0, 0, 10, 4));
+            assert_eq!(pane.depth(), 0, "a child pushes nothing");
+            let deeper = pane.child(Rect::new(0, 0, 4, 2));
+            assert_eq!(deeper.depth(), 0, "and neither does a child of a child");
+            let _ = deeper.area();
+        });
+    }
+
+    /// A keyed row is depth 2 from inside, which is the other half of the same equality.
+    #[test]
+    fn a_keyed_row_is_one_deeper() {
+        let mut d = driver();
+        d.frame(|cx| {
+            cx.with_key(7, |row| {
+                assert_eq!(row.depth(), 1, "inside a key");
+                row.with_key(3, |cell| {
+                    assert_eq!(cell.depth(), 2, "and inside a key inside a key");
+                });
+            });
+            assert_eq!(cx.depth(), 0, "and the stack is popped on the way out");
+        });
+    }
+
+    /// **Two keys give two widgets and the same key gives the same widget**, which is the whole of
+    /// what a loop needs.
+    #[test]
+    fn a_key_names_the_row() {
+        // **One call site, drawn twice.** The first version of this test collected the two frames
+        // from two different `for` loops and then compared them — two source lines, so two sets of
+        // ids, and the assertion failed for the one reason that is not interesting. A stability test
+        // has to run the *same* code.
+        fn rows(cx: &mut Ctx<'_, '_>, out: &mut Vec<Id>) {
+            for row in 0..3u64 {
+                cx.with_key(row, |r| out.push(r.id()));
+            }
+        }
+
+        let mut d = driver();
+        let mut first = Vec::new();
+        d.frame(|cx| rows(cx, &mut first));
+        assert_eq!(first.len(), 3);
+        assert_ne!(first[0], first[1], "two keys, two widgets");
+        assert_ne!(first[1], first[2]);
+
+        let mut second = Vec::new();
+        d.frame(|cx| rows(cx, &mut second));
+        assert_eq!(first, second, "a row keeps its name between frames");
+    }
+
+    /// **A scope renames nothing**, entry for entry — the container rule's one load-bearing
+    /// exception.
+    ///
+    /// Without it the frame a modal opens renames every field of the form it traps, and a renamed
+    /// field loses its focus and its scroll position for a reason nobody wrote down.
+    #[test]
+    fn a_scope_scopes_no_identity() {
+        // Again one call site, called three ways. Comparing ids collected at three different source
+        // lines would compare three different call sites and prove nothing about scoping.
+        fn fields(cx: &mut Ctx<'_, '_>, out: &mut Vec<Id>) {
+            for row in 0..4u64 {
+                cx.with_key(row, |r| out.push(r.id()));
+            }
+        }
+
+        let mut d = driver();
+        let mut without = Vec::new();
+        d.frame(|cx| fields(cx, &mut without));
+
+        let mut within = Vec::new();
+        d.frame(|cx| cx.scope(Id::named("modal"), |inner| fields(inner, &mut within)));
+        assert_eq!(without, within, "a scope changed an id");
+
+        let mut scrolled = Vec::new();
+        d.frame(|cx| {
+            cx.scroll_scope(Id::named("list"), (0, -5), |inner| {
+                fields(inner, &mut scrolled)
+            });
+        });
+        assert_eq!(without, scrolled, "a scroll scope changed an id");
+    }
+
+    /// **A stale grab does not survive its widget**, which is the sweep's whole purpose: without it,
+    /// a widget that held the pointer and stopped drawing keeps holding it and every hit test
+    /// afterwards resolves to something that is not there.
+    #[test]
+    fn a_stale_grab_does_not_survive_its_widget() {
+        let mut d = driver();
+        let held = Id::named("scrollbar.thumb");
+
+        // A frame in which it draws, holding the pointer and the focus.
+        d.frame(|cx| {
+            cx.interact(held, Rect::new(0, 0, 1, 4), Interest::DRAG);
+        });
+        d.plant(Some(held), Some(held), Some(held));
+        assert_eq!(
+            d.inspect().id_keyed_facts(),
+            (true, true, true, true),
+            "all four planted"
+        );
+
+        // A frame in which it draws again: nothing is released.
+        d.frame(|cx| {
+            cx.interact(held, Rect::new(0, 0, 1, 4), Interest::DRAG);
+        });
+        assert_eq!(
+            d.inspect().id_keyed_facts(),
+            (true, true, true, true),
+            "a widget that is still drawing keeps its facts"
+        );
+
+        // And a frame in which it does not.
+        d.frame(|_cx| {});
+        let (grab, origin, focus, click) = d.inspect().id_keyed_facts();
+        assert!(!grab, "the grab was not released");
+        assert!(!origin, "the press origin went with it");
+        assert!(!focus, "the focus was released");
+        assert!(
+            click,
+            "**and the click record did not sweep**, which is the fourth fact and deliberate"
+        );
+    }
+
+    /// A merge is visible at the call site: the second claimant's response is inert and it appears in
+    /// no structure.
+    #[test]
+    fn a_merged_widget_is_inert_and_declares_nothing() {
+        let mut d = driver();
+        let shared = Id::named("shared");
+        d.frame(|cx| {
+            let first = cx.interact(shared, Rect::new(0, 0, 4, 1), Interest::CLICK);
+            let second = cx.interact(shared, Rect::new(4, 0, 4, 1), Interest::CLICK);
+            assert_eq!(first.id, second.id);
+        });
+        assert_eq!(
+            d.inspect().hits().len(),
+            1,
+            "one hit entry, not two — the second claimant declared nothing"
+        );
+        assert_eq!(d.inspect().ids().merges(), 1);
+    }
+
+    /// The table does not grow on a dense screen, frame after frame.
+    #[test]
+    fn the_id_table_does_not_grow_in_a_steady_frame() {
+        let mut d = driver();
+        for _ in 0..8 {
+            d.frame(|cx| {
+                for i in 0..300u64 {
+                    cx.interact(
+                        Id::keyed(Id::ROOT, i),
+                        Rect::new(0, 0, 4, 1),
+                        Interest::CLICK,
+                    );
+                }
+            });
+            assert_eq!(d.inspect().ids().grows(), 0);
+        }
+        assert_eq!(d.inspect().ids().live(), 300);
     }
 
     /// A key posted before a frame is readable inside it, and declining puts it back in order.
