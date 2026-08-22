@@ -430,9 +430,11 @@ pub const REGISTER: [Entry; 27] = [
             at: "examples/budget.rs, `the_overrun_detector` — and **the 50 ns is the report rather \
                  than the gate**, which is this register's own rule applied to its own entry. \
                  Measured **43.9 to 46.9 ns across four runs on one unloaded M1** against a 50 ns \
-                 budget: 1.07x to 1.14x, and the 3.0 ns spread between runs on the *same* machine is \
-                 itself the argument — a timing gate with 1.1x of headroom on a runner nobody has \
-                 measured is a flaky test wearing a budget's clothes. What is gated is two properties of the mechanism instead — a \
+                 budget: 1.07x to 1.14x. **And 50.85 ns on the GitLab runner, over the budget \
+                 on the very first pipeline that ran it** — which settles the argument rather than \
+                 making it: a 50 ns gate would have been red on the commit that introduced it, for a \
+                 detector that is doing exactly what it was measured to do. The 3.0 ns spread \
+                 between runs on one machine said the same thing more quietly. What is gated is two properties of the mechanism instead — a \
                  **ratio**, that the pair costs under 2x the two `Instant::now()` calls it is built \
                  out of (1.25x measured), which is what fails when an allocation, a lock, a syscall \
                  or a format lands on the frame path and is immune to a slow clock because the \
