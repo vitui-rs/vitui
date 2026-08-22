@@ -318,6 +318,13 @@ impl Engine {
     ) -> Result<(Screen, WakeHandle), AttachError> {
         let env = Env::from_process();
         let headless = matches!(self.config.output, Output::Sink(_));
+        // Declared capabilities and a real terminal are a combination with no honest meaning: the
+        // batch would go out, the terminal would answer, and the answer would be thrown away — which
+        // is a test that eats the developer's keystrokes to learn nothing. The door is for a sink.
+        debug_assert!(
+            declared.is_none() || headless,
+            "capabilities may only be declared over a caller-supplied sink"
+        );
         let mut tty = if headless { None } else { Tty::open() };
         let ground = match (headless, &tty) {
             (true, _) => Ground::Headless,

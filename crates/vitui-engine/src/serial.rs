@@ -744,9 +744,11 @@ impl Serializer {
         // write direction and nothing else has written since — but `open_frame` establishes *a
         // frame's first move is absolute* and a second rule for one case is a rule that will be
         // wrong once. Five bytes on a caret that moved with nothing else changing.
+        //
+        // §10's row flag needs nothing here: `move_to` clears it whenever the row it is moving from
+        // is unknown, which an unknown cursor makes true.
         if !self.frame_open {
             self.cursor = None;
-            self.non_ascii_on_row = false;
         }
         if let Some(shape) = actuation.shape {
             crate::actuate::write_shape(&mut self.out, shape);
