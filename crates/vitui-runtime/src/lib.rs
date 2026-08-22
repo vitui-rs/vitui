@@ -11,9 +11,18 @@
 //!
 //! # Status
 //!
-//! Nothing is implemented. The architecture is decided one ticket at a time on the wayfinder map at
-//! `.scratch/vitui-runtime-architecture/map.md`; this crate exists so the seam has somewhere to
-//! point, and its prototypes are the evidence behind those decisions.
+//! Being built one ticket at a time from `.scratch/vitui-runtime-architecture/spec.md`, whose map is
+//! closed; the backlog is `.scratch/vitui-runtime-impl/`. What exists so far:
+//!
+//! - [`data`] — `Revision`, `Versioned`, `Edit`, `Memo`. Spec §14, ADR 0019. **`std` only**: it
+//!   reaches for neither the engine nor the frame, which is why it is first.
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]
+
+pub mod data;
+
+// Re-exported at the root as well as in the module, because the four are named constantly and
+// `data::` in front of every one of them is noise at a call site. The module stays public: a reader
+// looking for *why there is no trait* should land on its documentation, not on four scattered types.
+pub use data::{Edit, Memo, Revision, Versioned};

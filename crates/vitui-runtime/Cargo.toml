@@ -15,5 +15,13 @@ rust-version.workspace = true
 [dependencies]
 vitui-engine.workspace = true
 
+# **Dev only, and the policy above is untouched.** `vitui-bench` is this workspace's own
+# round-robin minimum-of-N harness, `publish = false`, and the engine depends on it exactly here for
+# exactly this reason: several tickets on this backlog owe *reports* — numbers a human reads — and a
+# report needs an instrument. It is not in the shipped graph, so `cargo deny`'s view of what a
+# dependent of `vitui-runtime` pulls in is unchanged.
+[dev-dependencies]
+vitui-bench.workspace = true
+
 [lints]
 workspace = true
