@@ -1,65 +1,162 @@
 # CLAUDE.md
 
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 > **The local GitLab moved out of this repository (2026-08-22).** One shared instance now serves
 > every repo on this machine: <http://gitlab.localhost:8940>, this repo's project is `repos/vitui`,
 > and it is started with `devkit up`. The `infra/` stack here is gone — see `infra/MOVED.md` for the
 > old-command-to-new-command table, and `~/Projects/devkit/README.md` for the manual.
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## What this is
 
-`vitui` is a Rust TUI library: fast, layered, reactive terminal rendering, meant to be the foundation
-a component library stands on. **Nothing is implemented yet.** The workspace is scaffolding; the
-architecture is being decided one ticket at a time on a wayfinder map.
+`vitui` is a Rust TUI library: fast, layered terminal rendering, meant to be the foundation a
+component library stands on. Version `0.0.0`, unpublished, no stability promise before 0.x. MSRV
+1.85.
+
+**Where the build actually is** (keep this paragraph current — it is the first thing a session needs):
+
+- **`vitui-engine` is implementation-complete**: all 26 tickets of `.scratch/vitui-engine-impl/`
+  resolved, all 27 entries of the verification register wired with none pinned red, ~30k lines.
+- **`vitui-runtime` is in progress**: 9 of 20 tickets resolved. `data`, `layout`, `theme`, `keys`,
+  `ctx`, `id`, `route` exist; focus, overlays, scrolling, sizing, async work and the standard theme
+  set do not.
+- **`vitui-components` is empty scaffolding.** Its architecture is settled (43 tickets sliced), no
+  code written.
+- Nothing above the engine can draw a screen yet, so no application exists to run.
 
 Read these before working, in this order:
 
-1. `.scratch/vitui-engine-architecture/map.md` — the live map. Its **Notes** section holds the settled
-   decisions that constrain everything; do not reopen them without a new decision.
+1. The spec for the layer being worked on — `.scratch/vitui-engine-architecture/spec.md`,
+   `.scratch/vitui-runtime-architecture/spec.md`, or
+   `.scratch/vitui-components-architecture/spec.md`. All three maps are **closed**; the specs are the
+   authority. An `architecture.md` beside a spec is the superseded proposal, kept only as the record
+   of what was argued.
 2. `CONTEXT.md` — the glossary. Use its terms in code, comments, tickets and commit messages.
-3. `docs/adr/` — decisions that are hard to reverse and surprising without context.
-4. `.scratch/vitui-runtime-architecture/spec.md` — the runtime's settled architecture, if the work is
-   above the engine. Its map is closed; `architecture.md` beside it is the superseded proposal and is
-   kept only as the record of what was argued.
+3. `docs/adr/` — 33 decisions that are hard to reverse and surprising without context. 0001–0011 and
+   0022–0025 are the engine, 0012–0021 the runtime, 0026–0033 the components.
+4. The impl backlog `README.md` for the layer being worked on — it holds the phase order, the
+   blocking edges, and the defects that shaped both.
+
+**Five engine questions reopened the closed map** and are recorded in
+`.scratch/vitui-engine-architecture/issues/19`–`23`. Three are still open (20, 21, 23): the
+implementation chose an answer and the tests lock it in, but the spec still says two things. Do not
+"fix" the code to match one sentence of the spec without resolving the ticket.
 
 ## Workspace
 
 ```
-crates/vitui-engine       cells, surfaces, layers, compositing, damage, frame writer
+crates/vitui-engine       cells, surfaces, layers, compositing, damage, serializer, frame writer
                           └ crossterm behind a seam: raw mode, input, capability detection
 crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key maps, theming,
                           overlays, the data contract — no scene tree, no reactivity
-crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers
+crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (not started)
 crates/vitui              facade re-export
-crates/vitui-alloc-probe  dev-only counting global allocator (publish = false)
+crates/vitui-bench        round-robin minimum-of-N measurement, no deps (publish = false)
+crates/vitui-alloc-probe  counting global allocator for the allocation gates (publish = false)
+examples/app-template     copy-this-directory starting point, and the home of spec §11's lint rung
+                          └ a detached workspace; its `clippy.toml` is the only way an application
+                            gets the disallowed-methods rung, because clippy config does not
+                            propagate from a dependency
+compare/                  the comparative suite: SCENES.md normative, harness.py the instrument,
+                          REPORT.md committed and regenerated, FINDINGS.md written by hand
+                          └ detached workspace; reports, never gates
 fuzz/                     two libFuzzer targets and the committed corpus that is their gate
-                          └ a **detached workspace**: cargo-fuzz needs nightly and libfuzzer-sys,
+                          └ a detached workspace: cargo-fuzz needs nightly and libfuzzer-sys,
                             which the engine's dependency policy will not have. That is a loophole,
-                            not a permission — it has its own `deny.toml` and its own CI invocation.
+                            not a permission — its own `deny.toml`, its own CI invocation.
+scripts/                  the three gates and one report that cannot be a `cargo test`: idle,
+                          observer, lint rung, steady state
 ```
 
 ## Commands
 
 ```bash
 cargo build --workspace
-cargo test --workspace
+cargo test --workspace -- --test-threads=1  # the real invocation; allocation gates need one thread
 cargo test -p vitui-engine name_substring   # single test
-cargo test --workspace -- --test-threads=1  # required for allocation assertions
 cargo clippy --workspace --all-targets
+cargo clippy -p vitui-engine --all-targets --features fuzz   # the one config `cargo test` misses
 cargo fmt --all
-cargo bench --workspace                     # criterion; -- --test to just check it runs
+cargo doc --workspace --no-deps             # a gate: a broken intra-doc link fails the job
 cargo deny check                            # needs `cargo install cargo-deny`
-cargo clippy -p vitui-engine --all-targets --features fuzz   # the one configuration `cargo test` misses
-(cd fuzz && cargo deny check)               # `fuzz/` is a detached workspace: its own graph, its own gate
+(cd fuzz && cargo deny check)               # detached workspace: its own graph, its own gate
+```
+
+Warnings are denied workspace-wide (`[workspace.lints.rust] warnings = "deny"`), so an enum variant
+nothing constructs is a build failure rather than a spare part — several modules say so in a comment
+where a reader would otherwise expect a missing arm.
+
+There are **no `cargo bench` targets** — criterion was removed and replaced by `vitui-bench`. Timing
+lives in examples that print a report:
+
+```bash
+cargo run --release --example budget -p vitui-engine     # asserts the gates, prints the numbers
+cargo run --release --example layout_numbers -p vitui-runtime   # one of eight *_numbers reports
+scripts/idle-gate.sh 30       # 0.00 user / 0.00 sys over 30 s; thirty is a floor, not a preference
+scripts/observer-gate.sh      # the debug observer is absent from a release binary
+scripts/steady-report.sh      # 60 fps for 30 s against 5% of a core
+scripts/lint-rung-gate.sh     # the clippy.toml rung fires in an application and not from a dep
+n=1 cargo test -p vitui-engine golden        # regenerate the golden frames; review the git diff
 ```
 
 The fuzz targets are a **soak, never a gate** — the committed corpus replayed by `cargo test` is the
-gate. They need nightly and `cargo-fuzz`, and `fuzz/README.md` is the whole procedure:
+gate. `fuzz/README.md` is the whole procedure. On this machine `~/.cargo/bin` must come first on
+`PATH` or Homebrew's cargo shadows rustup's and the toolchain selection is silently ignored:
 
 ```bash
 RUSTUP_TOOLCHAIN=nightly cargo fuzz run draw_sequence -- -max_total_time=900
 ```
+
+## Architecture that takes several files to see
+
+**The frame, as a sequence.** `Engine::new(Config)` → `attach()` on the app thread → `(Screen,
+WakeHandle)`. Then per frame: add layers and draw into a `View` with three verbs (`text`, `fill`,
+`restyle`), which mark damage as they write; `set_mouse` and `set_cursor`; `present()`. `present`
+leases a packet, composites the damaged rectangles bottom-up, packs runs plus their cells, submits.
+The render thread takes the packet, serialises against its mirror of the screen, writes once, returns
+the packet. Damage is marked by the verbs and cleared by `present`, and neither is reachable from
+outside — which is why nothing above the engine can force a full repaint.
+
+**`Config::clock` is public API, not a test fixture.** Under `Clock::Manual` both halves of that
+sequence run inline on the calling thread before `present` returns — same mailbox, same packet, same
+bytes — so a test is a straight-line program. Threading properties (zero wakeups, the packet never
+superseded, wake-up latency) are the ones that cannot be tested in the mode that removes them and
+live in the threaded mode as counts.
+
+**The app-thread role is enforced by split handles, not a capability token.** `Screen` and `View` are
+`!Send` via a private `PhantomData<*const ()>`; `Parker`/`Unparker` and `Producer`/`Consumer` split
+so an unreachable method is simply not on the type. The compiler cannot stop the app thread from
+being slow — that is a ~44 ns in-loop overrun detector (`perf.rs`) plus a debug-only observer thread,
+and the shortfall is written down rather than implied. See ADR 0003 and spec §11.
+
+**The runtime has no scene tree and no retained structure.** The clip stack is the call stack, the id
+path is the closure tree, and what survives one draw is five flat structures rebuilt from the next
+draw (ADR 0012). `Ctx<'f, 'v>` carries **two** lifetimes deliberately: with one, `child()` shrinks it
+and an overlay body capturing a base-pass local compiles, which deletes the mechanism overlays rest
+on. A frame consumes at most one routing edge; there are no per-id inboxes (ADR 0016).
+
+**The verification machinery is itself architecture**, and it is the part most likely to be
+misunderstood as test scaffolding:
+
+- `register.rs` — the 27 properties of spec §14 as a value, each with its instrument and provenance.
+  A property may be *pinned red* with the ticket that will invert it. Currently 27 wired, 0 red.
+- `roundtrip.rs` / `testing.rs` — the primary instrument: composite, serialise, replay the bytes
+  through the terminal model, assert the replayed screen equals the frame. It stores nothing. All
+  four defects the architecture map found were found this way. A golden *byte string* is refused
+  because the encoding is exactly the part allowed to change.
+- `reference.rs` — the obviously-correct, far-too-slow compositor. Gate #1 is *generated from it*,
+  not hand-written, because a hand-written expectation about damage is written by the person who
+  wrote the damage.
+- `scenes.rs` — the twelve scenes as a normative list. Every gate runs over every scene; a gate that
+  picks its own scenes tests the scenes.
+- `golden.rs` — the residue, covering only what the round trip cannot reach: the composited picture.
+  Regenerated with `n=1`, reviewed as a git diff, and `n=1` in CI is an error.
+- `ledger.rs` — **every gated or reported number has exactly one home here**, with the machine it was
+  measured on. The audit that produced it found the watchdog threshold copied into nine files.
+- `audit.rs` — the public surface as a value, with counts as gates: no public traits, and the paired
+  compile-fail corpus — 36 hostile cases and 48 positive twins beside them, each twin naming the
+  protected item *by path*, because a lone `compile_fail` also passes when the type has been renamed
+  (`E0433` instead of `E0277`, and the mechanism cannot tell those apart).
 
 ## Rules that are decisions, not preferences
 
@@ -69,21 +166,32 @@ Violating any of these silently undoes a decision that cost a session to make.
   through the `Surface` API — that is the door this erodes through. See `docs/adr/0002`.
 - **The engine never iterates application data.** It offers clipping and offset viewports; culling is
   the caller's job. Invariant: *frame cost is proportional to visible cells, never to data volume.*
-- **crossterm is invisible.** It is used for input and terminal mode only, never for output, and must
-  not appear in any public signature. See `docs/adr/0001`.
-- **Damage is marked at write time, not derived by diffing.** Prior art measured ratatui's full-buffer
-  diff at ~170 µs on 300×80 — already over the budget for a whole frame.
-- **A cell holds an interned grapheme-cluster handle, not a `char`.** Forced by UAX #29.
-- **Dependency policy.** Engine: crossterm plus generated UCD tables. Runtime: nothing. Enforced by
-  `deny.toml`.
+- **crossterm is invisible.** Input and terminal mode only, never output, and never in a public
+  signature. See `docs/adr/0001`.
+- **Damage is marked at write time, not derived by diffing.** Prior art measured ratatui's
+  full-buffer diff at ~170 µs on 300×80 — already over the budget for a whole frame.
+- **A cell holds an interned grapheme-cluster handle, not a `char`** (UAX #29), and no cell, handle or
+  style bit is readable from outside the engine (ADR 0023).
+- **No traits in the engine's public surface, and `#![forbid(unsafe_code)]`.** The engine has nothing
+  to call upward, so the dependency arrow is enforced by there being no arrow.
+- **Dependency policy.** Engine: crossterm plus build-script-generated UCD tables. Runtime: nothing.
+  Components: case by case. Enforced by `deny.toml`.
+- **A gate is a count, a ratio, an equality or a compile outcome. A timing is a report, and a gate
+  only at cliff granularity, with the headroom written next to the number.** A gate tuned to the
+  measurement is a flaky test that gets disabled within a month.
 - **Performance budget** (CI gates, not aspirations): full-screen 300×80 composition < 1 ms; typical
-  damage-tracked frame < 100 µs; zero allocations during frame composition.
+  damage-tracked frame < 100 µs; 60 fps steady state < 5% of a core; zero allocations during frame
+  composition; a genuinely idle application costs zero wakeups. A budget figure may not move without
+  a new map decision.
 
-## Local CI
+## CI
 
-The `.gitlab-ci.yml` gates run on a **shared local GitLab** at <http://gitlab.localhost:8940>,
-project `repos/vitui`. The instance is not in this repository — it lives in `~/Projects/devkit` and
-is shared with every other repo on this machine.
+Two runners, and the split is deliberate. **The gate set is `.gitlab-ci.yml`** — four jobs (`test`,
+`deny`, `budget`, `idle`) on a shared local GitLab at <http://gitlab.localhost:8940>, project
+`repos/vitui`, started with `devkit up`. **`.github/workflows/` holds what a local runner cannot do**:
+`ci.yml` for the macOS/Linux matrix, `soak.yml` for the weekly fuzz soak, and `compare.yml` for the
+monthly comparative suite on a pinned runner where all four arms build. Both scheduled workflows
+*upload* their report and never push one.
 
 ```sh
 devkit up                                  # start it (or bring it to spec) — the only mutating verb
@@ -91,16 +199,23 @@ devkit down                                # stop it, keeping everything
 . ~/.local/state/devkit/env                # GITLAB_HOST, DEVKIT_TOKENS, DEVKIT_GROUP
 ```
 
-Its runner has **no default job image**: it serves every repo, so `.gitlab-ci.yml` must name its own
-(`default: image:` is required, not decorative). Six concurrent slots, shared with every other repo.
-`~/Projects/devkit/README.md` is the manual. This replaced a per-repo GitLab that used to live in
-`infra/` here.
+The devkit runner has **no default job image**: it serves every repo, so `default: image:` in
+`.gitlab-ci.yml` is required, not decorative. Six concurrent slots, shared with every other repo.
 
-## Working the map
+**A commit is not the end of a ticket.** Push to `devkit` and watch every job go green before
+reporting the ticket done.
 
-One ticket per session, claimed by setting `Status: claimed` before any work. Tickets live in
-`.scratch/vitui-engine-architecture/issues/`; resolution appends an `## Answer` section, sets
-`Status: resolved`, and adds a one-line pointer to the map's Decisions-so-far. Research findings go in
-`.scratch/vitui-engine-architecture/research/`.
+## Working a backlog
 
-`docs/agents/issue-tracker.md` describes the tracker conventions in full.
+`docs/agents/issue-tracker.md` is the full convention. In short: one ticket per session; the
+**frontier** is the lowest-numbered file that is unblocked and unclaimed, and the `Blocked by:` line
+is the authority — the number only breaks ties. Claim by setting `Status: claimed` before any work;
+resolve by appending an `## Answer` section, setting `Status: resolved`, and adding a one-line
+pointer to the map's Decisions-so-far. Research findings go in `research/` beside the issues.
+
+The active backlog is `.scratch/vitui-runtime-impl/`. Build order across the repo is **engine →
+runtime → components**, but the runtime is *not* a queue behind the engine — several of its tickets
+name single engine tickets and ran beside them.
+
+`tickets/` at the repo root is a **separate** surface — the hand-written backlog the `dispatch` skill
+consumes — and holds the two items that need the finished library. Do not migrate one into the other.
