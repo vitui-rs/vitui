@@ -38,12 +38,11 @@
 //! the engine both writes *and* reads — happens entirely inside [`Engine::attach`] and **before the
 //! render thread exists**, where no concurrency does.
 //!
-//! The input thread is the one this crate had first: [`Tty::open`] spawns it, because detection has
-//! to read raw bytes with a deadline and **one thread ever reads that file descriptor**. It is held
-//! on the `Screen` rather than detached for exactly that reason. What it does not do yet is write
-//! [`TerminalSize`] — a resize arrives there as a `SIGWINCH` and reaches the application as an
-//! `Event::Resize`, and **ticket 20 owns both**. What this ticket owes and pays is the other end: the
-//! sample at frame start, the re-check at submit, and the discard.
+//! The reader is the one this crate had first: [`Tty::open`] spawns it, because detection has to
+//! read raw bytes with a deadline and **one thread ever reads that file descriptor**. `attach` hands
+//! its channel to the input thread, which parses, writes [`TerminalSize`] and queues an
+//! [`Event::Resize`] — the app thread samples the size at frame start, re-checks it at submit, and
+//! discards a composite that was built for a screen that no longer exists.
 //!
 //! # What `attach` now does before it hands anything back
 //!
@@ -66,6 +65,7 @@ use crate::damage::Run;
 use crate::detect::{CEILING, Tty, detect};
 use crate::exts::LinkId;
 use crate::handoff::{Lease, Mailbox, TerminalSize};
+use crate::input::{Event, InputConfig, InputDiagnostics};
 use crate::layer::LayerStack;
 use crate::packet::Packet;
 use crate::quirks::Quirks;
@@ -196,6 +196,13 @@ pub struct Config {
     /// argv**, and every field is an `Option` so that the environment can fill a `None` and can
     /// never overrule a `Some`.
     pub overrides: Overrides,
+    /// What the terminal is switched on for, as a **floor** rather than a setting.
+    ///
+    /// See [`InputConfig`]. Only [`InputConfig::paste_limit`] is load-bearing today: the escape
+    /// sequences that ask a terminal for mouse tracking, focus reporting and bracketed paste are
+    /// ticket 21's, and until they go out the parser handles those events without ever being sent
+    /// one.
+    pub input: InputConfig,
 }
 
 impl Config {
@@ -217,6 +224,7 @@ impl Default for Config {
             output: Output::default(),
             size: Config::DEFAULT_SIZE,
             overrides: Overrides::default(),
+            input: InputConfig::default(),
         }
     }
 }
@@ -318,6 +326,9 @@ impl Engine {
         // split handles are internal after ticket 12: what stays public is `Screen` (`!Send`) and
         // `WakeHandle` (`Send + Sync + Clone`, two verbs).
         let wakes = Arc::new(WakeSource::new());
+        let terminal_size = Arc::new(TerminalSize::new((w, h)));
+        let input = Arc::new(crate::input::Queue::new());
+        let paste_limit = self.config.input.paste_limit;
         let renderer = Renderer {
             serializer: Serializer::new(w, h),
             size: (w, h),
@@ -347,7 +358,8 @@ impl Engine {
                 self.config.clock == Clock::System,
             ),
             wakes: Arc::clone(&wakes),
-            terminal_size: TerminalSize::new((w, h)),
+            terminal_size: Arc::clone(&terminal_size),
+            input: Arc::clone(&input),
             generation: 0,
             coalesced: 0,
             caps,
@@ -371,6 +383,21 @@ impl Engine {
         // prologue are the one place the engine both writes and reads, and they are finished before
         // a second thread exists.
         screen.spawn_render_thread();
+        // And then the input thread, which adopts detection's reader rather than opening one of its
+        // own — a second reader of the same file descriptor steals bytes from the first. Nothing is
+        // spawned when there is no terminal: a headless screen has no keyboard, and a thread parked
+        // on a channel nobody sends to is a thread that shows up in every process listing for ever.
+        if let Some((reads, type_ahead)) = screen.tty.as_mut().and_then(Tty::take_reader) {
+            crate::reader::spawn(crate::reader::Wiring {
+                reads,
+                type_ahead,
+                queue: input,
+                wakes: Arc::clone(&wakes),
+                size: terminal_size,
+                paste_limit,
+                measure: Tty::size,
+            });
+        }
         Ok((screen, WakeHandle { wakes }))
     }
 }
@@ -402,10 +429,11 @@ pub struct Presented {
     /// **A resize observed between two frames is not this**, and the review is what made the
     /// distinction explicit rather than implied. The sample is taken at frame start, so a terminal
     /// that resized while the application was idle is already the sampled size and the frame submits
-    /// against a mirror built for the old geometry. Discarding it instead is not the answer available
-    /// here: nothing delivers a resize *event* until ticket 20, so nothing would ever call
-    /// [`Screen::resize`], and an engine that discarded every frame until it did would go blank for
-    /// good at the first resize. The event and this window are one ticket's work, and it is 20's.
+    /// against a mirror built for the old geometry. That frame is not discarded and does not need to
+    /// be: [`Screen::next_event`] rebuilds the surfaces and schedules a full repaint on the way past
+    /// the [`Event::Resize`], so the geometry has already caught up by the time anything draws. This
+    /// flag is only for the window a caller cannot reach — between the sample and the submit of one
+    /// frame, where there is no `next_event` to run.
     pub discarded_for_resize: bool,
 }
 
@@ -445,8 +473,8 @@ impl WakeHandle {
     /// The input thread parsed something.
     ///
     /// `pub(crate)` and it stays that way: §12 gives this handle two verbs, and the third is the
-    /// input thread's — spawned by `attach`, never held by an application. **Ticket 20 is the first
-    /// production caller**, in the same shape as [`TerminalSize::set`].
+    /// input thread's — spawned by `attach`, never held by an application. The production caller is
+    /// `crate::reader::run`, which reaches the same source without going through this handle.
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn input(&self) {
         self.wakes.input();
@@ -512,7 +540,12 @@ pub struct Screen {
     /// going free with a frame owed. Shared with every [`WakeHandle`] and with the render thread.
     wakes: Arc<WakeSource>,
     /// The authoritative size of the terminal: sampled at frame start, re-checked at submit.
-    terminal_size: TerminalSize,
+    ///
+    /// Behind an `Arc` because the **input thread is the only writer** (spec §7) and this thread is
+    /// the only reader.
+    terminal_size: Arc<TerminalSize>,
+    /// What the input thread has parsed and this thread has not taken yet.
+    input: Arc<crate::input::Queue>,
     /// How many packs have happened. Stamped into every packet, and never reused.
     generation: u64,
     /// How many `present` calls have been folded into the next frame because the renderer was busy.
@@ -529,8 +562,8 @@ pub struct Screen {
     /// `present` submits nothing and must not consume it.
     repaint: bool,
     /// The pty detection read its answers from, held rather than dropped so that **one thread ever
-    /// reads this file descriptor**. Ticket 20's input thread adopts this channel; a second reader
-    /// would steal bytes from the first. `None` whenever there is no terminal.
+    /// reads this file descriptor**. The input thread has adopted its channel; what is left here is
+    /// the `Drop` that gives back raw mode and mode 2027. `None` whenever there is no terminal.
     #[allow(dead_code)]
     tty: Option<Tty>,
     /// How many times [`Screen::layers`] has swept. Read by the gate that says `present` never does.
@@ -801,6 +834,58 @@ impl Screen {
         self.wakes.wait(self.frame_clock.next_allowed())
     }
 
+    /// Take the next thing the terminal reported, or `None` when there is nothing waiting.
+    ///
+    /// The queue drains in arrival order and this is the only door to it. [`Wake::Input`] says a
+    /// read happened; this says what was in it, and the two are not one call because a single wake
+    /// can carry a hundred events and a `wait` that returned one of them would need ninety-nine more
+    /// wakes to deliver the rest.
+    ///
+    /// # A resize is applied on the way past
+    ///
+    /// [`Event::Resize`] is the one variant that means something to the engine as well as to the
+    /// application, and this is the only app-thread call that sees it. So the surfaces are rebuilt
+    /// and a full repaint is scheduled **before** the event is returned: an application that draws
+    /// in response to it is already drawing at the new size, and one that ignores it entirely still
+    /// gets a correct screen. Doing it at `present` instead would put a frame composed at the old
+    /// size on the wire first.
+    ///
+    /// The layers keep their rectangles — the runtime brings a rectangle and a draw for every layer
+    /// every frame (spec §12), so a layer whose shape must change is
+    /// [`LayerStack::set_rect`](crate::LayerStack::set_rect)'s business and not this one's.
+    ///
+    /// ```
+    /// use vitui_engine::{Config, Engine, Output};
+    ///
+    /// let (mut screen, _wake) = Engine::new(Config {
+    ///     // Headless: no terminal, so no input thread, so nothing ever arrives.
+    ///     output: Output::Sink(Box::new(Vec::new())),
+    ///     ..Default::default()
+    /// })
+    /// .attach()
+    /// .unwrap();
+    /// assert_eq!(screen.next_event(), None);
+    /// ```
+    pub fn next_event(&mut self) -> Option<Event> {
+        let event = self.input.pop()?;
+        if let Event::Resize(w, h) = event {
+            if (w, h) != self.size {
+                self.resize(w, h);
+            }
+        }
+        Some(event)
+    }
+
+    /// What the input parser could not make sense of.
+    ///
+    /// **Unrecognised escape sequences are dropped, counted, and the last one kept.** There is
+    /// nothing to hand upward — a sequence nothing recognises is not a key — but silent discard is
+    /// the defect class that costs a day: "Shift+F5 does nothing", with no thread to pull. Two
+    /// fields buy the thread.
+    pub fn input_diagnostics(&self) -> InputDiagnostics {
+        self.input.diagnostics()
+    }
+
     /// Wake at `when`, unless something wakes the app thread sooner.
     ///
     /// **The engine has no animation concept and this is the whole of what it offers one.** Timelines,
@@ -856,6 +941,22 @@ impl Screen {
         // 120x40 while it was being composited — which wraps and scrolls, and is worse than a
         // missing frame.
         let sampled = self.terminal_size.get();
+        // **The surfaces are the wrong shape for the terminal, and this frame would wrap and
+        // scroll.** The re-check below catches a resize that lands *inside* the frame; this catches
+        // one the input thread recorded before the frame began and the application has not drained
+        // yet — [`Screen::next_event`] is what applies it, and nothing obliges an application to
+        // call it before every `present`. The review found this: before impl 20 nothing wrote the
+        // authoritative size in a release build, so the two comparisons were the same comparison and
+        // only one of them was written.
+        //
+        // Refused **before** the 107 µs composite rather than after it, and a frame is owed so the
+        // retry is guaranteed rather than hoped for. Damage has not been taken out of the layer
+        // stack at this point, so the frame that does run sees exactly what this one would have.
+        if sampled != self.size {
+            self.wakes.owe_frame();
+            self.repaint = true;
+            return self.not_submitted(true);
+        }
         self.layers.take_damage_into(&mut self.frame);
 
         // The idle path, and it is one scan of a couple of summary words rather than of the bitset:
@@ -1045,11 +1146,10 @@ impl Screen {
     /// for every layer every frame (spec §12), so a layer whose shape must change is
     /// [`set_rect`](crate::LayerStack::set_rect)'s business and not this one's.
     ///
-    /// **Nothing outside this crate calls it yet.** §12's public surface has no `resize` on
-    /// `Screen`: the authoritative size is one packed atomic written by the input thread, and a
-    /// resize reaches the application as an `Event`. Ticket 22 is what brings both, and this is what
-    /// it will call.
-    #[allow(dead_code)]
+    /// **Nothing outside this crate calls it, and nothing will.** §12's public surface has no
+    /// `resize` on `Screen`: the authoritative size is one packed atomic written by the input
+    /// thread, and a resize reaches the application as an [`Event::Resize`] — which
+    /// [`Screen::next_event`] applies here on its way past.
     pub(crate) fn resize(&mut self, w: u16, h: u16) {
         self.size = (w, h);
         self.frame = Surface::new(w, h);
@@ -1212,15 +1312,36 @@ impl Screen {
 
     /// Move the authoritative size **inside** the next frame — between its pack and its submit.
     ///
-    /// The write ticket 20's input thread will make, at the one instant it matters: a `SIGWINCH`
-    /// arrives on the input thread and reaches the application as an `Event::Resize`, and ticket 20
-    /// owns both. What is gated here is the sample, the re-check and the discard.
+    /// The write the input thread makes, at the one instant it matters: it observes a new size, puts
+    /// it in the authoritative atomic and queues an `Event::Resize`. What is gated here is the
+    /// sample, the re-check and the discard.
     ///
     /// See [`Screen::resize_before_submit`] for why the window is not reachable from outside a
     /// frame.
     #[cfg(test)]
     pub(crate) fn resize_during_next_frame(&mut self, w: u16, h: u16) {
         self.resize_before_submit = Some((w, h));
+    }
+
+    /// Write the authoritative size as the input thread would, without going through the queue.
+    ///
+    /// `cfg(test)` and it stays that way — the app thread may never write this (see
+    /// [`Screen::resize`]). What it is for is the harness, which drives a resize synchronously and
+    /// would otherwise leave the surfaces and the terminal disagreeing about a screen that has to
+    /// exist for the round trip to mean anything.
+    #[cfg(test)]
+    pub(crate) fn observe_terminal_size(&self, w: u16, h: u16) {
+        self.terminal_size.set((w, h));
+    }
+
+    /// Put an event on the queue as the input thread would.
+    ///
+    /// `cfg(test)` and it stays that way. A headless screen has no terminal, so it has no input
+    /// thread and nothing ever fills the queue — and a public door here would let an application
+    /// fabricate a keystroke, which is the whole of what ADR 0007 refuses.
+    #[cfg(test)]
+    pub(crate) fn inject(&self, event: Event) {
+        self.input.push(event);
     }
 
     /// What the app thread believes the terminal's size is, which is not what the surfaces are.
@@ -1536,6 +1657,70 @@ mod tests {
         }
     }
 
+    /// A resize is applied on the way past, and the application still receives it.
+    ///
+    /// Both halves matter and the second is the one that is easy to lose: an engine that swallowed
+    /// the event to do its own bookkeeping would leave every component sized from a frame ago, and
+    /// one that only handed it up would put a 300x80 composite on a 120x40 terminal first.
+    #[test]
+    fn next_event_resizes_the_screen_before_it_hands_the_event_up() {
+        let (mut screen, _wake) = Engine::new(headless())
+            .attach()
+            .expect("a sink cannot fail");
+        assert_eq!(screen.size(), (80, 24));
+        screen.inject(Event::Resize(120, 40));
+
+        assert_eq!(screen.next_event(), Some(Event::Resize(120, 40)));
+        assert_eq!(
+            screen.size(),
+            (120, 40),
+            "the surfaces moved before the caller was told"
+        );
+        assert!(
+            screen.repaint_pending(),
+            "a reflowed terminal shows nothing the mirror knows"
+        );
+        assert_eq!(screen.next_event(), None);
+    }
+
+    /// A resize to the size the screen already is costs nothing. The event still arrives — the
+    /// terminal said something happened and it is not this crate's place to decide it did not — but
+    /// no repaint is scheduled for it.
+    #[test]
+    fn a_resize_to_the_size_it_already_is_schedules_no_repaint() {
+        let (mut screen, _wake) = Engine::new(headless())
+            .attach()
+            .expect("a sink cannot fail");
+        screen.inject(Event::Resize(80, 24));
+        assert_eq!(screen.next_event(), Some(Event::Resize(80, 24)));
+        assert!(!screen.repaint_pending());
+    }
+
+    /// The queue drains in order and the events come back exactly as they went in.
+    #[test]
+    fn next_event_drains_the_queue_in_arrival_order() {
+        let (mut screen, _wake) = Engine::new(headless())
+            .attach()
+            .expect("a sink cannot fail");
+        screen.inject(Event::FocusGained);
+        screen.inject(Event::FocusLost);
+        assert_eq!(screen.next_event(), Some(Event::FocusGained));
+        assert_eq!(screen.next_event(), Some(Event::FocusLost));
+        assert_eq!(screen.next_event(), None);
+    }
+
+    /// A screen that has seen nothing reports nothing, and `last_unrecognised` is `None` rather than
+    /// an empty slice — the two are different answers and only one of them is true here.
+    #[test]
+    fn a_fresh_screen_has_nothing_to_report_about_input() {
+        let (screen, _wake) = Engine::new(headless())
+            .attach()
+            .expect("a sink cannot fail");
+        let diagnostics = screen.input_diagnostics();
+        assert_eq!(diagnostics.unrecognised(), 0);
+        assert_eq!(diagnostics.last_unrecognised(), None);
+    }
+
     /// The guard that makes the defect above structural rather than remembered.
     ///
     /// `Tty::open` panics under `cfg(test)`, so a unit test that reaches for the real terminal fails
@@ -1793,6 +1978,7 @@ mod tests {
                 clock: Clock::Manual,
                 max_frame_rate: f32::INFINITY,
                 overrides: Overrides::default(),
+                input: InputConfig::default(),
             })
             .attach()
             .expect("attaching to a sink cannot fail");

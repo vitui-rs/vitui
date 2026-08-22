@@ -2605,6 +2605,7 @@ fn threaded_at(
         clock: crate::engine::Clock::System,
         max_frame_rate: hz,
         overrides: crate::testing::pinned_truecolor(),
+        input: crate::input::InputConfig::default(),
     })
     .attach()
     .expect("attaching to a sink cannot fail")
@@ -2724,6 +2725,7 @@ fn the_threaded_path_writes_the_bytes_the_deterministic_path_writes() {
                 clock: crate::engine::Clock::System,
                 max_frame_rate: f32::INFINITY,
                 overrides: scene.overrides(),
+                input: crate::input::InputConfig::default(),
             })
             .attach()
             .expect("attaching to a sink cannot fail");
@@ -2916,10 +2918,86 @@ fn a_frame_whose_size_moved_under_it_is_discarded_and_repaints() {
     );
     assert_eq!(h.screen.terminal_size(), (120, 40));
 
-    // Once, not once per frame after one.
+    // **And it keeps refusing until the application catches up**, which is a correction impl 20
+    // made and could not have made before it: the surfaces are still 80x24 and the terminal is
+    // 120x40, so the next composite is a frame for a screen that does not exist either. The gate
+    // used to assert that this one submitted — right when nothing delivered a resize *event*, so
+    // nothing would ever have moved the surfaces and an engine that kept refusing would go blank
+    // for good. `Screen::next_event` is what moves them now, and an application gets one call to
+    // do it.
+    let still = h.screen.present();
+    assert!(
+        !still.submitted,
+        "an 80x24 composite for a 120x40 terminal reached the wire"
+    );
+    assert!(still.discarded_for_resize);
+    assert_eq!(h.bytes_written(), before);
+
+    // The application drains the resize — which is what the harness's own `resize` stands in for,
+    // surfaces and terminal model together — and the frame after that is an ordinary frame.
+    h.resize(120, 40);
     let next = h.screen.present();
-    assert!(next.submitted, "the frame after a resize is not discarded");
+    assert!(
+        next.submitted,
+        "the frame after the application caught up is not discarded"
+    );
     assert!(!next.discarded_for_resize);
+    assert!(h.bytes_written() > before);
+}
+
+/// **A resize observed between two frames is refused before the composite, not after it.**
+///
+/// The other half of the gate above, and the one the review found missing. `present` samples the
+/// authoritative size at frame start and re-checks it at submit, which catches a resize that lands
+/// *inside* the frame and cannot catch one that landed before it — the sample already equals the
+/// stored size and the re-check agrees with itself. Before impl 20 nothing wrote that size in a
+/// release build, so the hole was unreachable; the input thread writes it on every read now, and an
+/// application that calls `present` without draining its events first walks straight into it.
+///
+/// The concrete failure is a shrink: 80x24 stored, the terminal becomes 40x10, and an 80-column
+/// frame written into a 40-column terminal wraps every row and scrolls the screen.
+#[test]
+fn a_resize_the_application_has_not_drained_is_refused_before_the_composite() {
+    let mut h = Harness::truecolor(W, H);
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, W, H), true);
+    let row: String = std::iter::repeat_n('m', W as usize).collect();
+    {
+        let mut view = h.screen.layers().view(id).expect("just added");
+        view.text(0, 0, &row, Style::new());
+    }
+    h.present();
+
+    // The input thread's whole write, without the app thread hearing about it yet.
+    let before = h.bytes_written();
+    h.screen.observe_terminal_size(40, 10);
+    h.screen.inject(crate::input::Event::Resize(40, 10));
+    {
+        let mut view = h.screen.layers().view(id).expect("still there");
+        view.text(0, 1, &row, Style::new().bold());
+    }
+
+    let refused = h.screen.present();
+    assert!(
+        !refused.submitted,
+        "a 300-column frame reached a 40-column terminal"
+    );
+    assert!(refused.discarded_for_resize);
+    assert_eq!(h.bytes_written(), before);
+
+    // **The damage is still in the layer stack**, because the refusal is before `take_damage_into`:
+    // the frame that does run sees exactly what this one would have. `next_event` is the application
+    // catching up, and `Harness::resize` is that plus the terminal model the round trip replays
+    // through — the size it is given is the one already stored, so it moves only what is behind.
+    assert_eq!(
+        h.screen.next_event(),
+        Some(crate::input::Event::Resize(40, 10))
+    );
+    h.resize(40, 10);
+    let next = h.screen.present();
+    assert!(next.submitted, "the frame the application caught up for");
     assert!(h.bytes_written() > before);
 }
 
@@ -3725,13 +3803,13 @@ fn a_frame_discarded_for_a_resize_is_owed_too() {
 
 /// **`Wake::Input` is a reason of its own, and it outranks a post.**
 ///
-/// The input thread is ticket 20's and nothing raises this in a release build yet — `WakeHandle::input`
-/// is `pub(crate)` for exactly that reason, in the same shape as `TerminalSize::set`. What is gated
-/// here is the multiplexing rather than the parser: an input event and a post are two reasons, the
-/// wait reports them one at a time, and each is consumed by the return that carries it.
+/// What is gated here is the **multiplexing** rather than the parser: an input event and a post are
+/// two reasons, the wait reports them one at a time, and each is consumed by the return that carries
+/// it. The parser and the thread that raises this in a release build are impl 20's and are gated
+/// separately — `crate::reader::tests` for the raise, `crate::gates` above for the events.
 ///
-/// Filed as a gate rather than left until ticket 20 because the alternative is a `Wake` variant
-/// nothing has ever produced, which is indistinguishable from one that was decided against.
+/// It was filed before either existed, because the alternative was a `Wake` variant nothing had ever
+/// produced, which is indistinguishable from one that was decided against.
 #[test]
 fn an_input_event_is_a_reason_of_its_own_and_is_reported_before_a_post() {
     let (mut screen, wake) = threaded_at(f32::INFINITY, Box::new(Counting::default()));
@@ -4086,4 +4164,175 @@ fn setting_the_frame_rate_moves_the_gap_and_never_paces_the_deterministic_clock(
         None,
         "the deterministic clock accepted a ceiling"
     );
+}
+
+/// **Register entry #13** — a presses-only terminal never yields `Release` or `Repeat`.
+///
+/// The absence is what is being asserted, so the gate has to be able to fail: the second half feeds
+/// the *same* keys from a terminal that has kitty flag 2 and asserts that both kinds do arrive. A
+/// gate that only ever asserts an absence passes identically against a parser that produces nothing
+/// at all, and spec §14's rule about vacuous gates is what that sentence is.
+///
+/// The presses-only corpus is every shape a legacy terminal has: bare ASCII, a control chord, a meta
+/// prefix, both cursor-key introducers, the tilde block, `CSI Z`, an SGR mouse press *and its
+/// release*, focus in and out, and a paste. **The mouse release is deliberately in there** — a
+/// button coming up is a `MouseKind::Up` and must never be mistaken for a `KeyKind::Release`, which
+/// is exactly the confusion a "synthesise the missing half" implementation makes.
+#[test]
+fn a_presses_only_terminal_never_yields_release_or_repeat() {
+    const LEGACY: &[u8] = b"a\x03\x1bb\x1b[A\x1bOB\x1b[3~\x1b[Z\x1b[<0;10;5M\x1b[<0;10;5m\
+                            \x1b[I\x1b[O\x1b[200~pasted\x1b[201~\x1b[97;3u\x1b[1;5A";
+    let events = crate::input_tests::parse(LEGACY);
+    assert_eq!(
+        events.len(),
+        14,
+        "nine keys, a mouse press and its release, focus in and out, and one paste: {events:?}"
+    );
+
+    let mut keys = 0;
+    for event in &events {
+        if let crate::input::Event::Key(key) = event {
+            keys += 1;
+            assert_eq!(
+                key.kind,
+                crate::input::KeyKind::Press,
+                "{key:?} was synthesised out of a stream that reports only presses"
+            );
+        }
+    }
+    assert_eq!(keys, 9, "the corpus must be mostly keys: {keys}");
+
+    // And the same keys from a terminal that reports event types, so that the absence above is a
+    // property of the wire rather than of this parser.
+    let enhanced = crate::input_tests::parse(b"\x1b[97;1:1u\x1b[97;1:2u\x1b[97;1:3u");
+    let kinds: Vec<_> = enhanced
+        .iter()
+        .map(|event| match event {
+            crate::input::Event::Key(key) => key.kind,
+            other => panic!("unexpected {other:?}"),
+        })
+        .collect();
+    assert_eq!(
+        kinds,
+        vec![
+            crate::input::KeyKind::Press,
+            crate::input::KeyKind::Repeat,
+            crate::input::KeyKind::Release,
+        ],
+        "flag 2 is what makes the other two reachable at all"
+    );
+}
+
+/// **Register entry #14** — motion floods collapse to one per wake; press floods do not.
+///
+/// One read is one wake, which is what the reader thread does: parse the whole read, then post.
+/// **The asymmetry is asserted in the same test on purpose** (ADR 0008): a position on the way
+/// carries no intent and the newest one supersedes it, and every other event expresses something the
+/// user meant and is never dropped. Two tests would let one of them be deleted without the other
+/// noticing.
+#[test]
+fn motion_floods_collapse_and_press_floods_do_not() {
+    const FLOOD: usize = 1_000;
+
+    let mut moves = Vec::new();
+    for i in 0..FLOOD {
+        // A hand waving across a 300-column screen, one SGR motion report per cell.
+        moves.extend_from_slice(format!("\x1b[<35;{};10M", i % 300 + 1).as_bytes());
+    }
+    let queue = crate::input::Queue::new();
+    for event in crate::input_tests::parse(&moves) {
+        queue.push(event);
+    }
+    assert_eq!(
+        queue.len(),
+        1,
+        "{FLOOD} intermediate positions are one position"
+    );
+
+    let presses = vec![b'a'; FLOOD];
+    let queue = crate::input::Queue::new();
+    for event in crate::input_tests::parse(&presses) {
+        queue.push(event);
+    }
+    assert_eq!(
+        queue.len(),
+        FLOOD,
+        "a keystroke is intent and is never dropped"
+    );
+
+    // The wheel is the case that looks like motion and is not: turning it five notches means five
+    // notches, and coalescing them would make a scroll bar move a fifth as far.
+    let mut wheel = Vec::new();
+    for _ in 0..5 {
+        wheel.extend_from_slice(b"\x1b[<65;10;10M");
+    }
+    let queue = crate::input::Queue::new();
+    for event in crate::input_tests::parse(&wheel) {
+        queue.push(event);
+    }
+    assert_eq!(queue.len(), 5, "a wheel notch is intent");
+}
+
+/// **Register entry #16** — the parser survives five adversarial splits.
+///
+/// Five sequences, each cut at **every** internal byte boundary, each half delivered as its own read
+/// with its own end-of-read. The reassembled events must equal the events the whole sequence
+/// produces.
+///
+/// # The one index where the answer legitimately differs
+///
+/// A cut after byte one leaves a read whose entire content is `ESC`, and a bare `ESC` at the end of
+/// a read is the Escape key — see `crate::input::parse`'s module documentation for the two
+/// alternatives and what each costs. That is asserted here rather than skipped, and the assertion is
+/// two-sided: index one differs *and every other index does not*. A parser that quietly re-flushed
+/// somewhere else would fail the second half.
+#[test]
+fn the_parser_survives_five_adversarial_splits() {
+    const CORPUS: [&[u8]; 5] = [
+        // A kitty key with a modifier and associated text.
+        b"\x1b[97;2;65u",
+        // An SGR mouse press.
+        b"\x1b[<0;10;5M",
+        // A bracketed paste, whose terminator is itself an escape sequence.
+        b"\x1b[200~hi\x1b[201~",
+        // A legacy modified arrow.
+        b"\x1b[1;5A",
+        // A three-byte scalar, which has no `ESC` in it at all.
+        "漢".as_bytes(),
+    ];
+
+    // Every comparison below is made at one instant, because `at` is the real clock and two parses
+    // of the same bytes differ in it by construction. See `crate::input_tests::stamped`.
+    let epoch = std::time::Instant::now();
+    for whole in CORPUS {
+        let expected = crate::input_tests::stamped(crate::input_tests::parse(whole), epoch);
+        assert!(
+            !expected.is_empty(),
+            "the corpus entry must parse whole: {whole:?}"
+        );
+
+        for cut in 1..whole.len() {
+            let split = crate::input_tests::stamped(
+                crate::input_tests::parse_with(1 << 20, &[&whole[..cut], &whole[cut..]]),
+                epoch,
+            );
+            let escape_flush = cut == 1 && whole[0] == 0x1b;
+            if escape_flush {
+                assert_ne!(
+                    split, expected,
+                    "a read that is nothing but ESC is the Escape key, and this cut must show it"
+                );
+                match split.first() {
+                    Some(crate::input::Event::Key(key)) => assert_eq!(
+                        key.code,
+                        crate::input::KeyCode::Escape,
+                        "the documented flush produces Escape and nothing else"
+                    ),
+                    other => panic!("expected Escape first, got {other:?}"),
+                }
+            } else {
+                assert_eq!(split, expected, "{whole:?} cut at {cut} did not reassemble",);
+            }
+        }
+    }
 }

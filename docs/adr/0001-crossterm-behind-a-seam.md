@@ -10,6 +10,14 @@ writes its own bytes for output and does not expose `crossterm` in any public ty
 will notice the dependency and wonder why half of it is unused — this records that the split is
 deliberate.
 
+> **Amended by impl 20, and the amendment inverts the title.** "Input reading" turned out to be
+> unavailable: crossterm's parser ships welded to crossterm's reader, and this crate already owns the
+> only reader the terminal has, because capability detection needs a deadline on the read. The parser
+> is therefore ours. What is left of the dependency is **raw mode, the tty test and the terminal's
+> size** — platform abstraction, which is the half this ADR expected to keep for a different reason.
+> The seam is unchanged and so is every argument below; what changed is which side of it the parser
+> is on. See the two sections at the end.
+
 ## Considered options
 
 **Build the terminal layer from scratch on `libc`.** Genuinely attractive: the strict dependency floor
@@ -21,6 +29,14 @@ prefix is disambiguated only by timing and breaks on a high-latency ssh link, an
 three incompatible mouse encodings, bracketed paste, kitty keyboard negotiation, UTF-8 split across
 `read()` boundaries, and escape sequences arriving in fragments. None of that work advances any of the
 project's seven requirements.
+
+> *Impl 20 wrote that parser anyway, and the estimate above is the part of this ADR that held up
+> worst and best at once.* The list is exactly right about what has to be handled, and every item on
+> it is now handled and gated. What it got wrong is the one it named first: `ESC` is **not**
+> disambiguated only by timing. It is disambiguated by the read boundary — a bare `ESC` at the end of
+> a read is the Escape key — which costs one wrong answer on a terminal that splits its own write at
+> exactly that offset, against a 25 ms timer that this crate's idle budget cannot pay for. The three
+> options and their prices are in `crate::input::parse`'s module documentation.*
 
 **Build on `ratatui`.** Rejected on architecture, not effort: ratatui is immediate-mode and repaints
 the whole buffer every frame, while the layer stack, shadows, animations and damage tracking this
@@ -44,12 +60,26 @@ dedicated thread instead.
 do not expose, and it drags a proc-macro chain (syn, quote, convert_case, unicode-segmentation) into
 the build graph. Without it the engine's entire transitive tree is 13 crates of platform plumbing.
 
-**`mio` and `signal-hook` arrive regardless**, through the `events` feature — crossterm 0.29 declares
-`events = [dep:mio, dep:signal-hook, dep:signal-hook-mio]`, on every platform. This was assumed
-avoidable when the decision was taken, and it is not: `events` *is* the input parser, which is the
-entire reason for the dependency. They are crossterm's polling implementation rather than an async
-runtime, and they are accepted. `deny.toml` therefore bans `futures-core`, `tokio` and `async-std` —
-the real signals of runtime lock-in — and deliberately does not ban `mio`.
+**`mio` and `signal-hook` arrive through the `events` feature** — crossterm 0.29 declares
+`events = [dep:mio, dep:signal-hook, dep:signal-hook-mio]`, on every platform. They are crossterm's
+polling implementation rather than an async runtime, and they are accepted. `deny.toml` therefore
+bans `futures-core`, `tokio` and `async-std` — the real signals of runtime lock-in — and deliberately
+does not ban `mio`.
+
+**Amended by impl 20**, which is where "`events` *is* the input parser, which is the entire reason for
+the dependency" stopped being true. crossterm's parser cannot be reached without crossterm's
+*reader*: `event::read` opens `/dev/tty` and registers `SIGWINCH` on one poll, and a second reader of
+the same terminal steals bytes from the first — which this crate cannot afford, because detection
+needs a deadline on the read and therefore already owns the only reader there is. So the parser is
+`vitui_engine::input::parse`, hand-written over the same incremental state machine detection uses, and
+nothing in this crate calls `crossterm::event`.
+
+What crossterm is used for is now exactly three things: **raw mode, the tty test, and the terminal's
+size.** None of them needs `events`, and turning it off takes four crates out of the tree — verified,
+with the suite green. It is left on because switching it off is a decision about the dependency
+surface with one consequence that is not obvious: it forecloses the only `SIGWINCH` this crate could
+ever reach, and a resize observed while the application is completely idle is the open half of impl
+20's answer.
 
 Because crossterm appears in no public signature, replacing it later — with a hand-written backend, or
 with termwiz — is a contained change behind the backend trait rather than a breaking API change. This

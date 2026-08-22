@@ -485,7 +485,10 @@ fn refuse_in_tests() {}
 /// is never coming. Restoring it on drop is the floor rather than the design: **ticket 22 owns
 /// shutdown** — the alt screen, the panic hook, and restoration that is idempotent under both.
 pub(crate) struct Tty {
-    rx: Receiver<Vec<u8>>,
+    /// `None` once the input thread has adopted it, which is the last thing `attach` does. Detection
+    /// is over by then, so nothing here reads again — and the `Tty` itself is kept, because raw mode
+    /// and mode 2027 are its to give back.
+    rx: Option<Receiver<Vec<u8>>>,
     pending: Vec<u8>,
     at: usize,
     /// Whether the batch went out, and therefore whether mode 2027 has to be given back.
@@ -544,7 +547,7 @@ impl Tty {
                 return None;
             }
             Some(Tty {
-                rx,
+                rx: Some(rx),
                 pending: Vec::new(),
                 at: 0,
                 requested_2027: false,
@@ -556,6 +559,20 @@ impl Tty {
     /// in this batch because the kernel already knows.
     pub(crate) fn size() -> Option<(u16, u16)> {
         crossterm::terminal::size().ok()
+    }
+
+    /// Hand the channel and everything still unread to the input thread.
+    ///
+    /// **Once, and after detection.** The `Tty` keeps its `Drop` — raw mode and mode 2027 are what
+    /// it took and what it owes back — and gives up the only thing a second owner could use: the
+    /// reader. Everything `unread` put back comes with it, because those bytes are the user's
+    /// type-ahead and are older than every byte still in the channel.
+    pub(crate) fn take_reader(&mut self) -> Option<(Receiver<Vec<u8>>, Vec<u8>)> {
+        let rx = self.rx.take()?;
+        let pending = self.pending.split_off(self.at.min(self.pending.len()));
+        self.pending.clear();
+        self.at = 0;
+        Some((rx, pending))
     }
 }
 
@@ -604,7 +621,10 @@ impl Probe for Tty {
 
     fn read(&mut self, buf: &mut [u8], timeout: Duration) -> std::io::Result<usize> {
         if self.at == self.pending.len() {
-            match self.rx.recv_timeout(timeout) {
+            let Some(rx) = self.rx.as_ref() else {
+                return Err(std::io::Error::from(ErrorKind::BrokenPipe));
+            };
+            match rx.recv_timeout(timeout) {
                 Ok(bytes) => {
                     self.pending = bytes;
                     self.at = 0;

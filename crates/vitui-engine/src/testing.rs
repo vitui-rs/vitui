@@ -333,6 +333,7 @@ impl Harness {
             // ceiling: the deterministic mode's promise is that a test is a straight-line program.
             max_frame_rate: f32::INFINITY,
             overrides,
+            input: crate::input::InputConfig::default(),
         })
         .attach()
         .expect("attaching to a sink cannot fail");
@@ -369,6 +370,12 @@ impl Harness {
     /// Everything the round trip asserts still has to hold on the first frame after, which is the
     /// point of driving a resize through the harness rather than through `Screen` alone.
     pub(crate) fn resize(&mut self, w: u16, h: u16) {
+        // **The authoritative size first, because that is the order a real resize happens in**: the
+        // input thread observes the terminal and stores it, and the app thread rebuilds the surfaces
+        // when it drains the event. A harness that moved only the surfaces would leave the two
+        // disagreeing, which `present` now refuses to composite against — correctly, because it is a
+        // frame that would wrap and scroll.
+        self.screen.observe_terminal_size(w, h);
         self.screen.resize(w, h);
         self.term.resize(w, h);
         // Nothing is stale: `stale` is about a sweep having moved the handles under the model, and a

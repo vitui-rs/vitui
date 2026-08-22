@@ -109,7 +109,7 @@ impl Reason {
 }
 
 /// The input thread parsed something.
-const INPUT: u32 = 1 << 0;
+pub(crate) const INPUT: u32 = 1 << 0;
 /// Somebody called `post`.
 const POSTED: u32 = 1 << 1;
 /// Somebody called `quit`.
@@ -251,8 +251,8 @@ impl WakeSource {
         state
     }
 
-    /// The input thread parsed something. **Ticket 20 is the first production caller.**
-    #[cfg_attr(not(test), allow(dead_code))]
+    /// The input thread parsed something. Raised by `crate::reader::run`, once per read that
+    /// produced anything — never once per event, which would be a wake per keystroke of a paste.
     pub(crate) fn input(&self) {
         self.raise(INPUT);
     }

@@ -311,6 +311,31 @@ pointer position expresses only where the pointer was on the way, and consecutiv
 because *input is never dropped* is not a rule the engine can keep, and this one it can. See
 `docs/adr/0008`.
 
+**Base key** — which key was pressed, as against what it printed. A shortcut is about where the key
+is on the keyboard; text is about the character it produced, and reporting only one collapses
+`Ctrl+Shift+5` on a non-US layout into something no application can bind. The two are separate fields
+on a key event, and a terminal that cannot tell them apart reports the same answer in both.
+
+**Key text** — what a keystroke produced, as an extended grapheme cluster rather than a character. A
+dead-key accent, an Indic conjunct and an IME commit are each one keystroke and more than one scalar,
+so the shape has to be a cluster; it is stored inline because a keystroke may not allocate. A cluster
+too long to fit is reported as **nothing at all**, because half a cluster is a different cluster
+rather than a shorter one — the base key is unaffected either way.
+
+**Read boundary** — where one `read` from the terminal ended. It carries no meaning anywhere except
+one: a lone escape byte at the end of a read is the Escape key, because nothing on the wire separates
+that from the start of a sequence and the two alternatives are a timer the idle budget cannot pay for
+or an Escape key that never arrives on an idle application.
+
+**Type-ahead** — bytes the person typed before the program was ready for them, which arrive
+interleaved with the terminal's answers to the capability queries. They are set aside during
+detection and handed to the input thread ahead of everything still in the channel, because they are
+older than all of it and a hand-back out of order reorders somebody's keystrokes.
+
+**Unrecognised sequence** — an escape sequence nothing in the parser knows. There is nothing to hand
+upward, so it is dropped — but counted, with the last one kept whole, because silent discard is the
+defect class that costs a day: *Shift+F5 does nothing*, with no thread to pull.
+
 **Interest** — what a component declares it wants to receive, stated during the draw with the region
 it applies to. It belongs to the runtime; what reaches the engine is only the combined tracking level
 the frame turned out to need. A component that declares nothing costs nothing, and one drawn outside

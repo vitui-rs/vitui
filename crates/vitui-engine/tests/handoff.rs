@@ -31,8 +31,8 @@ use std::io::{Result, Write};
 
 use vitui_alloc_probe::{CountingAllocator, assert_no_alloc};
 use vitui_engine::{
-    Clock, Color, ColorDepth, Config, Engine, LayerId, Output, Overrides, Rect, Restyle, Screen,
-    Style,
+    Clock, Color, ColorDepth, Config, Engine, InputConfig, LayerId, Output, Overrides, Rect,
+    Restyle, Screen, Style,
 };
 
 #[global_allocator]
@@ -75,6 +75,7 @@ fn screen(clock: Clock) -> (Screen, LayerId) {
         // be a number these frames never read.
         max_frame_rate: f32::INFINITY,
         overrides: declared(),
+        input: InputConfig::default(),
     })
     .attach()
     .expect("attaching to a sink cannot fail");

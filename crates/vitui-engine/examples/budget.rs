@@ -49,8 +49,8 @@ use std::time::{Duration, Instant};
 
 use vitui_bench::{Bench, Report};
 use vitui_engine::{
-    Clock, Color, ColorDepth, Config, Engine, LayerId, Output, Overrides, Rect, Restyle, Screen,
-    Style, Surface,
+    Clock, Color, ColorDepth, Config, Engine, InputConfig, LayerId, Output, Overrides, Rect,
+    Restyle, Screen, Style, Surface,
 };
 
 use register::{State, table};
@@ -92,6 +92,7 @@ fn sink_screen_with(overrides: Overrides) -> Screen {
         // thread's share of a frame: a different measurement, and a better one, which is what
         // [`the_app_threads_share`] reports on purpose.
         clock: Clock::Manual,
+        input: InputConfig::default(),
     })
     .attach()
     .expect("attaching to a sink cannot fail");
@@ -212,6 +213,7 @@ fn the_app_threads_share() {
                 // somebody moves the gate.
                 max_frame_rate: f32::INFINITY,
                 overrides: scene.overrides(),
+                input: InputConfig::default(),
             })
             .attach()
             .expect("attaching to a sink cannot fail");
@@ -609,6 +611,7 @@ fn the_hyperlinked_page_under_an_animating_operator() {
             // The inline round, as everywhere else here. See `sink_screen_with`.
             clock: Clock::Manual,
             max_frame_rate: f32::INFINITY,
+            input: InputConfig::default(),
         })
         .attach()
         .expect("attaching to a sink cannot fail");

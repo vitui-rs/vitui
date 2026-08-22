@@ -40,15 +40,26 @@
 
 use std::io::{Result, Write};
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use vitui_alloc_probe::{CountingAllocator, assert_no_alloc};
 use vitui_engine::{
-    Clock, Color, ColorDepth, Config, Engine, LayerId, Mix, Output, Overrides, Rect, Restyle,
-    Screen, Style,
+    Clock, Color, ColorDepth, Config, Engine, InputConfig, LayerId, Mix, Output, Overrides, Rect,
+    Restyle, Screen, Style,
 };
 
 #[global_allocator]
 static ALLOC: CountingAllocator = CountingAllocator::new();
+
+// See `a_keystroke_allocates_nothing`. The parser and the queue are crate-private and this binary is
+// the only process with the counting allocator installed, so the source is compiled a second time
+// here rather than the gate being weakened to whatever the public surface reaches.
+#[path = "../src/input.rs"]
+#[allow(
+    dead_code,
+    reason = "this binary uses the parser and the queue, not the vocabulary"
+)]
+mod input;
 
 /// A sink that takes everything and keeps none of it. A recording sink would grow a `Vec` and the
 /// gate would be measuring the test rather than the engine.
@@ -120,6 +131,9 @@ fn screen_with(overrides: Overrides) -> (Screen, LayerId) {
         // Ignored on the deterministic clock, and spelled anyway: an allocation window must not
         // depend on a field somebody changed the default of.
         max_frame_rate: f32::INFINITY,
+        // The paste ceiling is the only field here the input pipeline reads, and no paste arrives
+        // through a sink. Spelled for the same reason as the line above it.
+        input: InputConfig::default(),
     })
     .attach()
     .expect("attaching to a sink cannot fail");
@@ -158,6 +172,64 @@ fn the_steady_state_allocates_nothing() {
     a_settled_restyle_over_a_hyperlinked_screen_allocates_nothing();
     a_settled_operator_over_a_hyperlinked_screen_allocates_nothing();
     the_operator_reaches_the_wire_at_the_depth_the_gate_pins();
+    a_keystroke_allocates_nothing();
+}
+
+/// A keystroke, from the byte the terminal sent to the event the app thread takes, allocates
+/// nothing.
+///
+/// **This is what `KeyText` being inline is for** (spec §9): kitty flag 16 reports the *codepoints*
+/// a key would produce, which is a sequence, and a `String` there would put an allocation on the
+/// path a person holding a key down walks sixty times a second.
+///
+/// # Why the module is included rather than imported
+///
+/// The measured path is `crate::input`'s parser and queue, and both are crate-private: a caller
+/// cannot feed the engine bytes, and there is no public constructor for a `Key` that would let this
+/// binary assemble one. Importing what *is* public would leave the gate asserting that a struct
+/// literal does not allocate, which is not the claim.
+///
+/// So the module is `#[path]`-included, the same way `examples/budget.rs` includes the scene list
+/// and the register — one definition, compiled twice. Two things make that possible and both are
+/// written down where they live, because both look like tidiness and are not:
+/// `crates/vitui-engine/src/input.rs` reaches for nothing in the crate — a single `use crate::` in
+/// it would drag the whole engine into this binary — and it declares **no child modules**, because
+/// a `#[path]`-included file resolves its children beside itself rather than under it. The parser is
+/// an inline `mod parse` for that reason, and the unit tests are declared from `lib.rs`.
+///
+/// # The three warm-ups, each of which would otherwise be measured
+///
+/// The queue takes its capacity at construction, the parser takes its buffers at construction, and a
+/// paste allocates by design — it is the one variant that owns a heap buffer, and §9 says so. So the
+/// window holds keys and pointer events over an already-built queue, which is the steady state a
+/// person typing is in.
+fn a_keystroke_allocates_nothing() {
+    let mut parser = input::parse::Parser::new(1 << 20);
+    let queue = input::Queue::new();
+
+    // Every shape a keystroke has, so that the window is not measuring the one cheap path: bare
+    // ASCII, a chord, a kitty key with associated text, a multi-byte scalar, an arrow, and a mouse
+    // report. One read's worth, as the reader thread delivers it.
+    const TYPING: &[u8] = b"a\x03\x1b[97;2;65u\xe6\xbc\xa2\x1b[1;5A\x1b[<0;10;5M";
+
+    // Warm every buffer the path keeps: the parser's, the queue's, and this closure's own.
+    for _ in 0..8 {
+        let at = Instant::now();
+        parser.feed(TYPING, at, &mut |event| queue.push(event));
+        parser.end_of_read(at, &mut |event| queue.push(event));
+        while queue.pop().is_some() {}
+    }
+
+    assert_no_alloc(|| {
+        for _ in 0..1_000 {
+            let at = Instant::now();
+            parser.feed(TYPING, at, &mut |event| queue.push(event));
+            parser.end_of_read(at, &mut |event| queue.push(event));
+            while let Some(event) = queue.pop() {
+                std::hint::black_box(&event);
+            }
+        }
+    });
 }
 
 /// Ticket 12 puts the **first** intern on the frame path, and this is what bounds it.
@@ -268,6 +340,7 @@ fn the_operator_reaches_the_wire_at_the_depth_the_gate_pins() {
             // Inline, so the bytes are in the tap by the time `present` returns.
             clock: Clock::Manual,
             max_frame_rate: f32::INFINITY,
+            input: InputConfig::default(),
         })
         .attach()
         .expect("attaching to a sink cannot fail");

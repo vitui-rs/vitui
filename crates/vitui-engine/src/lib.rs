@@ -129,7 +129,36 @@
 //! takes the packet, and it answers [`Wake::Deadline`]: what released the app thread really is the
 //! clock, and a fifth variant is a public surface this backlog has not decided. See `crate::clock`.
 //!
-//! Not here yet, each with the ticket that brings it: input (20, 21).
+//! And **input** (ticket 20): the six event variants, the parser behind the seam, and the two
+//! synthesised conveniences that everyone reaches for and that are **deliberately absent**. Three
+//! facts decide the keyboard and none is ours to fix — without kitty flag 2 a key release never
+//! arrives at all, without it auto-repeat is indistinguishable from a fast series of presses, and
+//! even at kitty baseline Enter and Tab stay ambiguous with Ctrl+M and Ctrl+I because the spec
+//! carves them out so that `reset` stays typeable after a crash. Papering over the first two is
+//! refused for **placement rather than principle** (ADR 0007): a synthesised release has no honest
+//! timestamp, so a component drawing a held key would show it held until the next keystroke, which
+//! on an idle form is forever. [`KeyCode`] is the base layout and [`KeyText`] is what the key
+//! printed — an inline grapheme cluster, never a `char`, because kitty flag 16 reports the
+//! *codepoints* a key would produce and because a keystroke may not allocate, which the counting
+//! allocator asserts over the whole path rather than at one type. **Intent is never dropped;
+//! position is** (ADR 0008): 1 000 pointer positions are one event and 1 000 keystrokes are 1 000,
+//! gated in one test so the asymmetry cannot be half deleted. [`Paste`] owns **bytes** and not a
+//! `String`, because pasted bytes are not guaranteed to be UTF-8 under any answer — the asymmetry
+//! with the drawing verbs is deliberate: *at the drawing verbs the engine may demand well-formed
+//! input from its caller; at the input boundary it may demand nothing.*
+//!
+//! The parser is **ours rather than crossterm's**, and that is a finding rather than a preference:
+//! `crossterm::event::read` ships welded to a reader that opens `/dev/tty` and registers `SIGWINCH`
+//! on one poll, and this crate already owns the only reader the terminal has — detection needs a
+//! deadline on the read, and a second reader steals bytes from the first. So ADR 0001's title is
+//! amended and what crossterm is left doing is raw mode, the tty test and the size. One consequence
+//! is owed and stated rather than hidden: **a resize is observed when the next byte arrives**, and a
+//! terminal resized while the application is completely idle is not noticed until the user touches
+//! something. Closing it needs either a signal handler, which the dependency policy does not have,
+//! or DEC mode 2048 requested at startup, which is ticket 21's negotiation.
+//!
+//! Not here yet, each with the ticket that brings it: `set_mouse`, the startup negotiation and the
+//! caret (21); shutdown, the panic hook and restoration (22).
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]
@@ -153,12 +182,14 @@ mod engine;
 mod exts;
 mod geom;
 mod handoff;
+mod input;
 mod intern;
 mod layer;
 mod mix;
 mod packet;
 mod quant;
 mod quirks;
+mod reader;
 mod serial;
 mod tables;
 
@@ -180,6 +211,15 @@ mod scenes;
 // The round trip is the primary instrument, and the model it replays through is engine-internal:
 // nothing in spec §12's public surface names it. Ticket 25's fuzz targets are what will need it
 // outside `cfg(test)`, and that is when it moves.
+// `crate::input`'s unit tests, declared here rather than inside `input.rs` — which is where they
+// would go, and where they were. `tests/alloc.rs` `#[path]`-includes `input.rs` so that the
+// keystroke path can be measured under the counting allocator, and a `mod tests` inside it would put
+// all of them in that binary, running beside an allocation window. See
+// `alloc::a_keystroke_allocates_nothing`, which says the same thing from the other end.
+#[cfg(test)]
+#[path = "input/tests.rs"]
+mod input_tests;
+
 #[cfg(test)]
 mod term_model;
 #[cfg(test)]
@@ -200,6 +240,10 @@ pub use clock::Wake;
 pub use engine::{AttachError, Clock, Config, Engine, Output, Presented, Screen, WakeHandle};
 pub use exts::LinkId;
 pub use geom::Rect;
+pub use input::{
+    Button, Buttons, Event, InputConfig, InputDiagnostics, Key, KeyCode, KeyKind, KeyText, Keypad,
+    Media, Modifier, Mods, Mouse, MouseKind, MouseMode, Paste, Wheel,
+};
 pub use layer::{LayerId, LayerStack};
 pub use mix::Mix;
 pub use restyle::Restyle;

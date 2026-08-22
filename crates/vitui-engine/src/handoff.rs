@@ -485,11 +485,10 @@ impl TerminalSize {
     /// atomics could be read as a width from before a resize and a height from after it, and that
     /// pair describes a terminal that never existed.
     ///
-    /// `cfg(test)` because **nothing in a release build writes this yet, and the app thread must
-    /// never be what does**: a resize belongs to the input thread, and an app thread that wrote it
-    /// back from an event it was still draining would put an older size over a newer one. Ticket 20
-    /// is the first production writer. See `Screen::resize`, which is where that mistake was.
-    #[cfg(test)]
+    /// **Only the input thread writes this, and the app thread must never be what does**: a resize
+    /// belongs to the thread that observed it, and an app thread writing it back from an event it
+    /// was still draining would put an older size over a newer one. See `Screen::resize`, which is
+    /// where that mistake was, and `crate::input::thread`, which is the one production caller.
     pub(crate) fn set(&self, (w, h): (u16, u16)) {
         self.0.store(pack_size(w, h), Ordering::Relaxed);
     }

@@ -284,9 +284,11 @@ pub const REGISTER: [Entry; 27] = [
         kind: Kind::Gate,
         qualifier: "absence",
         source: "arch 10, ADR 0007",
-        state: State::Red {
-            inverted_by: "impl 20",
-            why: "there is no input pipeline yet",
+        state: State::Wired {
+            at: "crate::gates::a_presses_only_terminal_never_yields_release_or_repeat — every \
+                 legacy shape there is, and the same keys again from a terminal that has kitty \
+                 flag 2, so that the absence is a property of the wire rather than of a parser \
+                 that produces nothing",
         },
     },
     Entry {
@@ -295,9 +297,10 @@ pub const REGISTER: [Entry; 27] = [
         kind: Kind::Gate,
         qualifier: "count",
         source: "arch 10, ADR 0008",
-        state: State::Red {
-            inverted_by: "impl 20",
-            why: "there is no input pipeline yet",
+        state: State::Wired {
+            at: "crate::gates::motion_floods_collapse_and_press_floods_do_not — 1 000 motion \
+                 reports are one event, 1 000 keystrokes are 1 000, and five wheel notches are \
+                 five, all in the same test so that the asymmetry cannot be half deleted",
         },
     },
     Entry {
@@ -318,9 +321,11 @@ pub const REGISTER: [Entry; 27] = [
         kind: Kind::Test,
         qualifier: "cheap assertion",
         source: "arch 10",
-        state: State::Red {
-            inverted_by: "impl 20",
-            why: "there is no input parser yet",
+        state: State::Wired {
+            at: "crate::gates::the_parser_survives_five_adversarial_splits — a kitty key with \
+                 text, an SGR mouse press, a bracketed paste, a modified arrow and a three-byte \
+                 scalar, each cut at every internal boundary; the one index that legitimately \
+                 differs is the bare `ESC`, asserted two-sided",
         },
     },
     Entry {
