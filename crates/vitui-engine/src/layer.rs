@@ -59,10 +59,12 @@ pub struct LayerId(u32);
 
 /// One layer, as the reference compositor and the gates need to see it.
 ///
-/// `cfg(test)` because spec §12's public surface names none of it: a caller cannot read back what
-/// is already on screen (ADR 0023), and an oracle is not an exception to that — it is simply
-/// inside the crate.
-#[cfg(test)]
+/// Gated because spec §12's public surface names none of it: a caller cannot read back what is
+/// already on screen (ADR 0023), and an oracle is not an exception to that — it is simply inside the
+/// crate. **The `cfg` is `any(test, feature = "fuzz")` since ticket 25**, which is where the
+/// reference compositor became the oracle for a fuzz target as well as for gate #1, and a fuzz
+/// target compiles this crate without `cfg(test)`.
+#[cfg(any(test, feature = "fuzz"))]
 pub(crate) struct LayerRef<'a> {
     pub(crate) z: i32,
     /// The tie-break among equal `z`. Handed out so the reference compositor can sort for itself.
@@ -83,7 +85,7 @@ impl<'a> LayerRef<'a> {
 }
 
 /// [`Kind`] as an oracle may see it: the surface borrowed rather than owned.
-#[cfg(test)]
+#[cfg(any(test, feature = "fuzz"))]
 #[derive(Clone, Copy)]
 pub(crate) enum Paint<'a> {
     Content { opaque: bool, surface: &'a Surface },
@@ -1049,7 +1051,7 @@ impl LayerStack {
     /// deduplicate, so the handle for a given extended style is fixed the first time anything asks
     /// for it, and two compositors that compute the same channels get the same handle whichever of
     /// them asked first.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "fuzz"))]
     pub(crate) fn parts(&mut self) -> (Vec<LayerRef<'_>>, &mut Tables) {
         let layers = self
             .layers
@@ -1193,7 +1195,8 @@ fn recolour(
     // and then the rectangle's own columns are all behind it while the glyph still straddles the
     // edge.
     let last = rect.right() - 1;
-    let reaches = is_head(below, last, y);
+    let width = row.len() as i32;
+    let reaches = is_head(below, last, y, width);
     let hi = (span.hi as i32).min(if reaches { rect.right() } else { last });
     let lo = (span.lo as i32).max(rect.x);
     if hi < lo {
@@ -1203,7 +1206,7 @@ fn recolour(
     // column's head is either itself or its left neighbour, and both are inside. A continuation
     // whose head the repair has *blanked* is not a continuation any more — it is a space of its own,
     // and its head is itself.
-    let lo = if lo == rect.x && is_continuation(below, lo, y) {
+    let lo = if lo == rect.x && is_continuation(below, lo, y, width) {
         lo + 1
     } else {
         lo
@@ -1264,16 +1267,55 @@ fn glyph_below(below: &[Layer], x: i32, y: i32) -> Option<GraphemeId> {
 /// right and nothing else may carry one, so a head whose neighbour is not one loses its column
 /// (`mend`). Asking both halves is what makes this the *repaired* picture rather than the raw one,
 /// and it is what the reference compositor's whole-row `repair` produces by another route.
-fn is_head(below: &[Layer], x: i32, y: i32) -> bool {
-    glyph_below(below, x, y).is_some_and(GraphemeId::is_wide_head)
+///
+/// # The frame's own edge is a boundary too, and ticket 25's fuzz target is what said so
+///
+/// `width` is the frame's, and [`pair_survives`]'s two bounds tests are a **defect fix and not a
+/// tidy-up**. `glyph_below` asks the *layers*, which extend past the screen — a layer at `x = -1` is
+/// intersected, not rejected (§5) — so a pair the **frame's** clamp bisected still looked whole from
+/// here: a half in column `-1` is a cell the layer has and the frame does not.
+///
+/// Two wrong cells, in mirror positions, each one cell wide and each invisible to every gate on the
+/// register. Both were found by `crate::fuzz`'s draw-sequence target, the second one *after* the
+/// first was fixed, which is why the rule is one function now instead of two spellings of it:
+///
+/// - A `CONTINUATION` in column zero whose head is off-screen is blanked by `mend`, so the picture
+///   has a space there. `is_continuation` said *that column belongs to a glyph whose head is outside
+///   the rectangle* and moved the operator's first column right by one — an unshaded hole in a scrim
+///   over a partially clipped layer of CJK. Found at 8 619 executions, on the target's first run.
+/// - A wide head in column `-1` with its continuation in column zero is not a pair the frame has;
+///   `mend` blanked that half too. `is_head` said the rectangle's last column *reaches one further*
+///   and shaded a column outside an operator whose rectangle ended off-screen entirely — the mirror
+///   image, one edge over, and the reason the second fix generalised rather than patched.
+///
+/// The reference compositor has always had the other reading: its `repair` runs a boundary *before*
+/// the first column and *after* the last, for exactly this.
+///
+/// That makes five defects this differential has found in the operator's reach, and all five have
+/// one shape: **the reach is decided from a plane that is not the one the eye ends up seeing.**
+/// Ticket 12 found three by reading the row; these two read the layers and forgot the frame.
+fn is_head(below: &[Layer], x: i32, y: i32, width: i32) -> bool {
+    pair_survives(below, x, y, width)
+}
+
+/// Whether the layers below an operator leave a **whole pair** at `(x, y)` and `(x + 1, y)`.
+///
+/// The one statement both edge questions are readings of, and the reason it is one function: the two
+/// spellings of it drifted apart the first time this was fixed. `is_head` asks it of the column
+/// itself and `is_continuation` asks it of the column to the left, and everything else — both halves
+/// present, both halves inside the frame — is the same sentence.
+fn pair_survives(below: &[Layer], x: i32, y: i32, width: i32) -> bool {
+    x >= 0
+        && x + 1 < width
+        && glyph_below(below, x, y).is_some_and(GraphemeId::is_wide_head)
         && glyph_below(below, x + 1, y).is_some_and(GraphemeId::is_continuation)
 }
 
 /// Whether the layers below an operator leave a surviving `CONTINUATION` at `(x, y)`: the mirror
-/// image, and blanked for the mirror reason.
-fn is_continuation(below: &[Layer], x: i32, y: i32) -> bool {
-    glyph_below(below, x, y).is_some_and(GraphemeId::is_continuation)
-        && glyph_below(below, x - 1, y).is_some_and(GraphemeId::is_wide_head)
+/// image, and blanked for the mirror reason — including at the frame's edge, where column `-1` does
+/// not exist however many layers reach into it. See [`is_head`].
+fn is_continuation(below: &[Layer], x: i32, y: i32, width: i32) -> bool {
+    pair_survives(below, x - 1, y, width)
 }
 
 /// Restore the pairing invariant across one boundary of a paint, **within `span`**.

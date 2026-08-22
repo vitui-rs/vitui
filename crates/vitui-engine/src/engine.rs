@@ -1885,7 +1885,7 @@ impl Screen {
         self.layers.tables()
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "fuzz"))]
     pub(crate) fn frame(&self) -> &Surface {
         &self.frame
     }
@@ -1894,7 +1894,7 @@ impl Screen {
     ///
     /// They survive `present` — `runs` is cleared at the *start* of the next one — which is what
     /// lets a gate composite, present, and only then ask what the damage structure had reported.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "fuzz"))]
     pub(crate) fn runs(&self) -> &[Run] {
         &self.runs
     }
@@ -2148,7 +2148,7 @@ impl Screen {
     /// answered (ADR 0025) — and those are two fields of this struct. A caller that reached for both
     /// itself would be holding one borrow of `self` mutably and another immutably; the split belongs
     /// where the fields are.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "fuzz"))]
     pub(crate) fn reference(&mut self) -> Surface {
         let (w, h) = self.size;
         crate::reference::composite(&mut self.layers, &self.caps, w, h)

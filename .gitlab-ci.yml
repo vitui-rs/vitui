@@ -1,8 +1,12 @@
 # The same gates as `.github/workflows/ci.yml`, on a runner that is on this machine.
 #
 # Why both exist: a CI job nobody has watched go green is not a gate, whatever it checks. This
-# repository has no hosted CI yet, so `infra/` stands up a GitLab and a runner in Docker and this
-# file is what they run. See `infra/README.md`.
+# repository has no hosted CI yet, so it runs on the shared local GitLab in `~/Projects/devkit` —
+# `devkit up` brings it up, and this file is what its runner executes. See `~/Projects/devkit/README.md`.
+#
+# That runner has NO default job image, deliberately: it is shared with every other repo on the
+# machine and no default is right for more than one of them. The `default: image:` below is therefore
+# required rather than decorative — a job that inherited nothing would fail with a config error.
 #
 # What this does NOT cover, and the GitHub workflow does: the `test` job there is a three-OS matrix
 # (ubuntu, macos, windows). A local Docker runner is one OS and one architecture — here,
@@ -11,8 +15,9 @@
 workflow:
   rules:
     # Without this, a branch that also has a merge request open builds twice for one push — once as
-    # a branch pipeline and once as an MR pipeline. On a runner with three concurrent slots and
-    # three jobs per pipeline, the duplicate does not queue behind the original, it starves it.
+    # a branch pipeline and once as an MR pipeline. The duplicate does not queue behind the original,
+    # it competes with it for runner slots — and those slots are now shared with every other repo on
+    # the machine, so the waste is not even confined to this pipeline.
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
       when: never
@@ -51,17 +56,17 @@ default:
     when:
       - runner_system_failure
 
-  # A superseded pipeline holds runner slots the current one needs. With three concurrent slots and
-  # three jobs, one stale pipeline blocks the next entirely.
+  # A superseded pipeline holds runner slots the current one needs. The runner is shared across every
+  # repo on this machine, so a stale pipeline here delays other repositories too, not just this one.
   interruptible: true
 
 stages:
   - check
 
 # The four gates are independent and share one stage on purpose, so they run concurrently and the
-# pipeline is as long as its slowest job rather than the sum of them. With three concurrent runner
-# slots the fourth queues behind whichever finishes first, which costs the pipeline the `idle` job's
-# thirty seconds and nothing else — it is the cheapest of the four to be behind.
+# pipeline is as long as its slowest job rather than the sum of them. The shared runner allows six
+# concurrent jobs, so all four can run at once — but those six are shared with every other repo on
+# the machine, so a full pipeline elsewhere can still push one of these into a queue.
 #
 # **Engine ticket 23's two gates are folded into existing jobs rather than added as a fifth and a
 # sixth**, and that is a runner-slot decision with a reason on both counts. `scripts/observer-gate.sh`
@@ -74,7 +79,7 @@ test:
   stage: check
   # `cargo test` has no per-test timeout of its own and a hang is worse than a failure.
   timeout: 20m
-  # Per-job cache key. A single shared key across three concurrent jobs is a race: all three upload
+  # Per-job cache key. A single shared key across concurrent jobs is a race: they all upload
   # at the end, last writer wins, and the two discarded archives were the ones with the build
   # outputs in them — `test` builds the dev profile and `budget` builds release, so they write
   # disjoint subtrees of `target/` and neither is a superset of the other.
@@ -100,6 +105,17 @@ test:
     # this workspace ships must be registered where it is defined — `[lints.rust] unexpected_cfgs`
     # in the crate manifest, and `cargo::rustc-check-cfg` in the build script once one exists.
     - cargo clippy --workspace --all-targets
+    # **The `fuzz` feature, linted here and built nowhere else in this file.** `crate::fuzz` and the
+    # reference compositor are compiled by `cargo test` (they are `cfg(any(test, feature = "fuzz"))`)
+    # and by the soak, and by nothing in between — so the one configuration that is *feature on,
+    # `cfg(test)` off* had no build at all until this line. That configuration is exactly where this
+    # ticket's two compile failures were: `LayerRef`, `Paint` and `LayerStack::parts` were
+    # `cfg(test)`, and a fuzz target compiles the crate without it. A weekly soak is the wrong place
+    # to discover that.
+    #
+    # `-p vitui-engine` rather than `--workspace`, because `--features` names a feature of one
+    # package. Clippy rather than `check`, so it runs under `-D warnings` like everything else.
+    - cargo clippy -p vitui-engine --all-targets --features fuzz
     # The public surface is what the runtime author reads, so a broken intra-doc link on it is a
     # defect and not a cosmetic. **Added by engine ticket 24, which found eight of them** — five
     # older than this job's last green run, because nothing here was documenting anything and a link
@@ -200,6 +216,15 @@ deny:
       # form that works on both.
       cargo deny --version | grep -q "${CARGO_DENY_VERSION}"
     - cargo deny check
+    # **The fuzz workspace's own invocation, and it is not a formality.** `fuzz/` is detached — it
+    # has its own `[workspace]` table, because `cargo-fuzz` needs nightly and `libfuzzer-sys` and the
+    # engine's policy is crossterm plus generated UCD tables and nothing else. So the line above
+    # cannot see a single crate in there, and spec §14 names that in as many words: *that is a
+    # loophole, not a permission*. Added by engine ticket 25, with `fuzz/deny.toml` beside it.
+    #
+    # A subshell, so a failure here is still this job's failure and the working directory the runner
+    # cached is not left somewhere else.
+    - (cd fuzz && cargo deny check)
 
 budget:
   stage: check

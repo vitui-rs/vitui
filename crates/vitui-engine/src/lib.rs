@@ -457,10 +457,9 @@ mod serial;
 mod shutdown;
 mod tables;
 
-// The scene list, the reference compositor and the register. All three are the instruments spec
-// §14 asks for rather than parts of the engine, and none of them is on the public surface: a
-// caller cannot read back what is already on screen (ADR 0023), so an oracle over cells lives
-// inside the crate. Ticket 25's fuzz targets are what will need `reference` outside `cfg(test)`.
+// The scene list and the register. Both are the instruments spec §14 asks for rather than parts of
+// the engine, and neither is on the public surface: a caller cannot read back what is already on
+// screen (ADR 0023), so an oracle over cells lives inside the crate.
 #[cfg(test)]
 mod audit;
 #[cfg(test)]
@@ -468,11 +467,31 @@ mod gates;
 #[cfg(test)]
 mod golden;
 #[cfg(test)]
-mod reference;
-#[cfg(test)]
 mod register;
 #[cfg(test)]
 mod scenes;
+
+// **The reference compositor, and ticket 25 is where it stopped being `cfg(test)`** — as this file
+// predicted it would. It is the oracle for §14's first fuzz target as well as for gate #1, and a
+// fuzz target lives in another crate: `fuzz/` is its own workspace, because `cargo-fuzz` needs
+// nightly and `libfuzzer-sys`. So the compositor is compiled whenever the tests are **or** the
+// `fuzz` feature is on, and `crate::audit`'s `SOAK_ONLY_MODULES` is the list that keeps a module in
+// that state from being silently exempt from the surface scans.
+#[cfg(any(test, feature = "fuzz"))]
+mod reference;
+
+// **The fuzz door, and the only public module here but the prelude.** It is behind a non-default
+// feature and hidden from rustdoc, so nothing an ordinary caller compiles can reach it and nothing
+// on §12's documented surface names it. `crate::audit`'s
+// `the_fuzz_door_is_behind_a_feature_and_hidden` asserts all three of those, because a second public
+// module is a real widening and *the loophole is closed rather than enjoyed*.
+//
+// The harness is here rather than in `fuzz/fuzz_targets/` for one reason: the committed corpus
+// replayed as an ordinary test is the gate, and the fuzzer is a soak over the same function. Two
+// copies of the decoding would make the gate a check on a second oracle.
+#[cfg(any(test, feature = "fuzz"))]
+#[doc(hidden)]
+pub mod fuzz;
 
 // The round trip is the primary instrument, and the model it replays through is engine-internal:
 // nothing in spec §12's public surface names it. Ticket 25's fuzz targets are what will need it

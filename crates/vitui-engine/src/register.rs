@@ -127,7 +127,13 @@ pub const REGISTER: [Entry; 27] = [
         qualifier: "property, generated from the reference compositor",
         source: "arch 07",
         state: State::Wired {
-            at: "crate::gates::no_damage_structure_under_reports",
+            at: "crate::gates::no_damage_structure_under_reports over §14's twelve scenes, and \
+                 `crate::fuzz::draw_sequence` over every input of a committed corpus — the same two \
+                 halves of the same property, generated from the same oracle. The second is what \
+                 §14's fuzzing section asks for, and impl 25 wired it: the corpus replayed as an \
+                 ordinary test is the gate and the fuzzer is a soak. It found a fourth defect in \
+                 the operator's reach on its first run, which is the argument for the entry having \
+                 two homes rather than one",
         },
     },
     Entry {

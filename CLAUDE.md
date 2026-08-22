@@ -28,6 +28,10 @@ crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key map
 crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers
 crates/vitui              facade re-export
 crates/vitui-alloc-probe  dev-only counting global allocator (publish = false)
+fuzz/                     two libFuzzer targets and the committed corpus that is their gate
+                          └ a **detached workspace**: cargo-fuzz needs nightly and libfuzzer-sys,
+                            which the engine's dependency policy will not have. That is a loophole,
+                            not a permission — it has its own `deny.toml` and its own CI invocation.
 ```
 
 ## Commands
@@ -41,6 +45,15 @@ cargo clippy --workspace --all-targets
 cargo fmt --all
 cargo bench --workspace                     # criterion; -- --test to just check it runs
 cargo deny check                            # needs `cargo install cargo-deny`
+cargo clippy -p vitui-engine --all-targets --features fuzz   # the one configuration `cargo test` misses
+(cd fuzz && cargo deny check)               # `fuzz/` is a detached workspace: its own graph, its own gate
+```
+
+The fuzz targets are a **soak, never a gate** — the committed corpus replayed by `cargo test` is the
+gate. They need nightly and `cargo-fuzz`, and `fuzz/README.md` is the whole procedure:
+
+```bash
+RUSTUP_TOOLCHAIN=nightly cargo fuzz run draw_sequence -- -max_total_time=900
 ```
 
 ## Rules that are decisions, not preferences
@@ -60,6 +73,23 @@ Violating any of these silently undoes a decision that cost a session to make.
   `deny.toml`.
 - **Performance budget** (CI gates, not aspirations): full-screen 300×80 composition < 1 ms; typical
   damage-tracked frame < 100 µs; zero allocations during frame composition.
+
+## Local CI
+
+The `.gitlab-ci.yml` gates run on a **shared local GitLab** at <http://gitlab.localhost:8940>,
+project `repos/vitui`. The instance is not in this repository — it lives in `~/Projects/devkit` and
+is shared with every other repo on this machine.
+
+```sh
+devkit up                                  # start it (or bring it to spec) — the only mutating verb
+devkit down                                # stop it, keeping everything
+. ~/.local/state/devkit/env                # GITLAB_HOST, DEVKIT_TOKENS, DEVKIT_GROUP
+```
+
+Its runner has **no default job image**: it serves every repo, so `.gitlab-ci.yml` must name its own
+(`default: image:` is required, not decorative). Six concurrent slots, shared with every other repo.
+`~/Projects/devkit/README.md` is the manual. This replaced a per-repo GitLab that used to live in
+`infra/` here.
 
 ## Working the map
 

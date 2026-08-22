@@ -32,6 +32,17 @@ jobs:
       # manifest, and again via `cargo::rustc-check-cfg` in the build script once one exists.
       # `unexpected_cfgs` warns by default, and under `-D warnings` a warning is red.
       - run: cargo clippy --workspace --all-targets
+      # **The `fuzz` feature, linted here and built nowhere else in this file.** `crate::fuzz` and the
+      # reference compositor are compiled by `cargo test` (they are `cfg(any(test, feature = "fuzz"))`)
+      # and by the soak, and by nothing in between — so the one configuration that is *feature on,
+      # `cfg(test)` off* had no build at all until this line. That configuration is exactly where this
+      # ticket's two compile failures were: `LayerRef`, `Paint` and `LayerStack::parts` were
+      # `cfg(test)`, and a fuzz target compiles the crate without it. A weekly soak is the wrong place
+      # to discover that.
+      #
+      # `-p vitui-engine` rather than `--workspace`, because `--features` names a feature of one
+      # package. Clippy rather than `check`, so it runs under `-D warnings` like everything else.
+      - run: cargo clippy -p vitui-engine --all-targets --features fuzz
       # One test command, and it is the serialised one.
       #
       # The allocation probe counts through a process-global counter, and `cargo test` runs a
@@ -90,6 +101,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: EmbarkStudios/cargo-deny-action@v2
+      # **The fuzz workspace, separately, because nothing above can see it.** `fuzz/` has its own
+      # `[workspace]` table — `cargo-fuzz` needs nightly and `libfuzzer-sys`, and the engine takes
+      # crossterm and nothing else — so its dependencies are outside the graph the step above
+      # checks. Spec §14: *that is a loophole, not a permission*. `deny.toml` is resolved beside the
+      # manifest, so `fuzz/deny.toml` is what this one reads, and its one delta from the root's is
+      # the `NCSA` allowance `libfuzzer-sys` needs for the LLVM sources it vendors.
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: fuzz/Cargo.toml
 
   # The performance budget. Numbers come from `examples/*_numbers.rs` built on `vitui-bench`
   # (round-robin, minimum of forty) and a gate is an `assert_under` inside one of them, so a

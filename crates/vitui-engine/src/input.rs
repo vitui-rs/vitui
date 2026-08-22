@@ -221,6 +221,36 @@ pub(crate) mod parse {
             }
         }
 
+        /// How many bytes this parser is holding, and how many it has reserved to hold them.
+        ///
+        /// Both halves, because the buffers are **reused** rather than freed: one that was cleared
+        /// and not shrunk has a length of zero and every byte it ever saw still committed. §14's
+        /// second target has *no unbounded growth* as one of its three oracles, and that is a claim
+        /// about the second number as much as the first.
+        ///
+        /// The `utf8` array is not counted: it is four inline bytes and it is why the parser is
+        /// allowed to reassemble a scalar across a read without allocating.
+        #[cfg(any(test, feature = "fuzz"))]
+        pub(crate) fn retained(&self) -> (usize, usize) {
+            let held = self.buf.len() + self.paste.len() + self.last_unrecognised.len();
+            let reserved =
+                self.buf.capacity() + self.paste.capacity() + self.last_unrecognised.capacity();
+            (held + self.utf8_at, reserved)
+        }
+
+        /// The most this parser may ever be holding, whatever arrives and however much of it.
+        ///
+        /// [`MAX_SEQUENCE`] twice — once for the sequence being collected and once for the last
+        /// unrecognised one kept beside it, which carries its own `ESC [` and final byte — plus the
+        /// paste ceiling and the four bytes of a partial scalar. **Nothing in it is a function of
+        /// how many bytes have been fed**, which is the whole content of the claim: a `String` state
+        /// that kept appending, or a paste that stopped checking its ceiling, exceeds this on a long
+        /// input and is invisible on every short one.
+        #[cfg(any(test, feature = "fuzz"))]
+        pub(crate) fn retention_bound(&self) -> usize {
+            2 * (MAX_SEQUENCE + 4) + self.paste_limit + 4
+        }
+
         fn step(&mut self, b: u8, at: Instant, sink: &mut dyn FnMut(Event)) {
             match self.state {
                 State::Ground => self.ground(b, at, sink),

@@ -1,0 +1,88 @@
+# The fuzz soak. **Scheduled and on demand, and never on a pull request.**
+#
+# Spec §14 inverts the polarity: *every crash is minimised and committed as an ordinary unit test,
+# and the committed corpus replayed as an ordinary test is the gate. The fuzzer itself is a scheduled
+# soak.* This file is the second half of that sentence, and the first half is
+# `crates/vitui-engine/src/fuzz.rs`'s `the_committed_corpus_replays_as_an_ordinary_test`, which runs
+# in `ci.yml`'s `test` job on every push.
+#
+# The reason this is not a gate is not squeamishness about red jobs. A fuzzer at sixty seconds finds
+# nothing and reports green, which is a gate that cannot fail; at an hour it is a flaky test that goes
+# red on a commit unrelated to whatever it finally reached. Neither is a check on the change being
+# reviewed.
+#
+# **This repository has no hosted CI, so nobody has watched this job go green** — the same caveat
+# `.gitlab-ci.yml` opens with, and it is why the corpus is the gate instead. What was run, and where,
+# is recorded in `fuzz/README.md` and in engine ticket 25.
+name: Soak
+
+on:
+  # Sunday, 04:00 UTC. Weekly rather than nightly because the corpus is what carries findings forward
+  # between runs, and a fifteen-minute run seven times a week explores no more than one an hour does
+  # — it re-derives the same first minute from the same committed seeds each time.
+  schedule:
+    - cron: "0 4 * * 0"
+  # And on demand, which is how a soak is actually used: somebody changes the compositor or the input
+  # parser and wants an hour on it before the map moves on.
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: Seconds per target
+        required: false
+        default: "900"
+
+jobs:
+  fuzz:
+    # One job per target, because a crash in one says nothing about the other and `fail-fast: false`
+    # is what keeps the second from being cancelled by the first.
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [draw_sequence, input_bytes]
+    runs-on: ubuntu-latest
+    # The run itself is capped by `-max_total_time`, and this is the ceiling on everything else: a
+    # `cargo fuzz build` from cold, plus the slack a stuck process would otherwise burn six hours of.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      # **Nightly, and that is not this repository's toolchain.** `cargo-fuzz` needs `-Zsanitizer`,
+      # which is why `fuzz/` is a detached workspace in the first place — see `fuzz/Cargo.toml`. The
+      # workspace next door is built by `dtolnay/rust-toolchain@stable` in `ci.yml` and nothing here
+      # changes that.
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: fuzz
+      - run: cargo install cargo-fuzz --locked
+      # `RUSTUP_TOOLCHAIN` rather than `cargo +nightly fuzz`: `cargo-fuzz` shells out to `cargo` again
+      # for the inner build, and a `+toolchain` argument does not survive that hop — the inner build
+      # resolves to the default toolchain and fails on `-Zsanitizer=address`. Measured on macOS while
+      # writing this; the variable does survive.
+      - name: Soak ${{ matrix.target }}
+        env:
+          RUSTUP_TOOLCHAIN: nightly
+          SECONDS_PER_TARGET: ${{ github.event.inputs.seconds || '900' }}
+        run: |
+          cargo fuzz run ${{ matrix.target }} -- \
+            -max_total_time="$SECONDS_PER_TARGET" -print_final_stats=1
+      # **The artifacts are the point of the run, and only on failure.** A crashing input is what a
+      # soak exists to produce; it is minimised with `cargo fuzz tmin` and committed as a named unit
+      # test in `crates/vitui-engine/src/fuzz.rs`, with the input inline. `fuzz/README.md` states the
+      # procedure. Nothing is committed by this job: a workflow that pushed to the repository would
+      # be a scheduled job with write access, for a file a human has to read anyway.
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crash-${{ matrix.target }}
+          path: fuzz/artifacts/${{ matrix.target }}/
+          if-no-files-found: warn
+      # New coverage, whether or not anything crashed. libFuzzer writes every input it kept into
+      # `corpus/<target>/`, and the ones worth keeping are the difference between this and what is
+      # committed. Uploaded rather than pushed, for the same reason as above — and because most of
+      # what a run adds is noise a human should not commit unread.
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpus-${{ matrix.target }}
+          path: fuzz/corpus/${{ matrix.target }}/
+          if-no-files-found: error

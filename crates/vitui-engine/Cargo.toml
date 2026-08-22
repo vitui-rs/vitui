@@ -7,6 +7,18 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+# **The one feature this crate has, and it is not a knob.** It compiles the reference compositor and
+# `crate::fuzz` — the two fuzz-target harnesses spec §14 asks for — for a crate that cannot be a
+# workspace member: `cargo-fuzz` needs nightly and `libfuzzer-sys`, so `fuzz/` is its own workspace
+# and reaches this one as a path dependency with `features = ["fuzz"]`.
+#
+# It is **off by default and hidden from rustdoc**, so an ordinary build, an ordinary `cargo doc` and
+# an ordinary dependent see none of it. `crate::audit`'s `the_fuzz_door_is_behind_a_feature_and_hidden`
+# is what asserts that, in this file as well as in the crate root: §15 leaves feature flags and the
+# release policy undecided, and a feature that quietly turned on by default would be deciding it.
+[features]
+fuzz = []
+
 [dependencies]
 crossterm.workspace = true
 

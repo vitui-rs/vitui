@@ -1,0 +1,8 @@
+# libFuzzer's own output. `target/` is a build directory; `artifacts/` is where `cargo fuzz` writes a
+# crashing input, and a crash does not stay there — it is minimised and committed as a named unit
+# test in `crates/vitui-engine/src/fuzz.rs`, which is the whole point of §14's inversion.
+#
+# `corpus/` is deliberately **not** here. It is the gate.
+/target
+/artifacts
+/coverage

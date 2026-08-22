@@ -223,17 +223,17 @@ pub const PRELUDE: &[&str] = &[
 ///
 /// **The list is checked against the `#[cfg(test)]` attributes themselves**, in both directions, by
 /// [`the_test_only_list_is_what_the_crate_root_declares_under_cfg_test`]. A name here that stops
-/// being test-only would otherwise stay silently exempt from every scan below — and `lib.rs` predicts
-/// exactly that happening: *ticket 25's fuzz targets are what will need `reference` outside
-/// `cfg(test)`*. Left unchecked, dropping `#[cfg(test)]` from `mod scenes;` would ship
-/// `pub trait Scene` with the zero-trait gate still green, because that gate's positive twin
-/// *requires* `Scene` to be found.
+/// being test-only would otherwise stay silently exempt from every scan below — and `lib.rs`
+/// predicted exactly that happening: *ticket 25's fuzz targets are what will need `reference`
+/// outside `cfg(test)`*. It happened, at ticket 25, and `reference.rs` moved to
+/// [`SOAK_ONLY_MODULES`] rather than quietly staying here. Left unchecked, dropping `#[cfg(test)]`
+/// from `mod scenes;` would ship `pub trait Scene` with the zero-trait gate still green, because
+/// that gate's positive twin *requires* `Scene` to be found.
 pub const TEST_ONLY_MODULES: &[&str] = &[
     "audit.rs",
     "gates.rs",
     "golden.rs",
     "input/tests.rs",
-    "reference.rs",
     "register.rs",
     "roundtrip.rs",
     "scenes.rs",
@@ -241,6 +241,24 @@ pub const TEST_ONLY_MODULES: &[&str] = &[
     "testing.rs",
     "ucd/tests.rs",
 ];
+
+/// The modules the crate compiles under `cfg(test)` **or** the `fuzz` feature, and never in an
+/// ordinary build.
+///
+/// [`TEST_ONLY_MODULES`]'s sibling, and it exists because ticket 25 needed a third state that the
+/// two-arm question *shipped or test-only?* cannot express. The reference compositor is §14's oracle
+/// for gate #1 **and** for the first fuzz target, and a fuzz target is in another crate — `fuzz/` is
+/// its own workspace, because `cargo-fuzz` needs nightly and `libfuzzer-sys`. So it is compiled by
+/// `cargo test` and by `cargo build --features fuzz`, and by nothing a dependent of this crate
+/// builds.
+///
+/// The distinction is not bookkeeping. These modules are **absent from the shipped surface** and so
+/// are exempt from the scans over [`shipped_modules`](tests::shipped_modules) exactly as the
+/// test-only ones are, and they are **absent from the doc build** and so may no more hold a
+/// `compile_fail` case than a `cfg(test)` module may. Both halves are asserted below, and the list
+/// itself is checked against the crate root's attributes by
+/// [`the_soak_only_list_is_what_the_crate_root_declares_under_the_fuzz_feature`].
+pub const SOAK_ONLY_MODULES: &[&str] = &["fuzz.rs", "reference.rs"];
 /// Every public item, with the receiver of every verb and the provenance of everything §12's block
 /// does not list.
 ///
@@ -1645,11 +1663,18 @@ mod tests {
         out
     }
 
-    /// The modules that are part of the shipped crate rather than of its tests.
+    /// The modules that are part of the shipped crate rather than of its tests or its soak.
+    ///
+    /// Both lists come off, and for the same reason: a module an ordinary build does not compile is
+    /// on nobody's surface, whichever `cfg` keeps it out. See [`SOAK_ONLY_MODULES`].
     fn shipped_modules() -> Vec<String> {
         let out: Vec<String> = all_modules()
             .into_iter()
-            .filter(|m| m != "lib.rs" && !TEST_ONLY_MODULES.contains(&m.as_str()))
+            .filter(|m| {
+                m != "lib.rs"
+                    && !TEST_ONLY_MODULES.contains(&m.as_str())
+                    && !SOAK_ONLY_MODULES.contains(&m.as_str())
+            })
             .collect();
         assert!(
             out.len() > 20,
@@ -2081,7 +2106,14 @@ mod tests {
         );
     }
 
-    /// **The prelude is the nine names ticket 24 states, and nothing is a public module but it.**
+    /// **The prelude is the nine names ticket 24 states, and the public modules are it and the fuzz
+    /// door.**
+    ///
+    /// It was *nothing is a public module but the prelude* until ticket 25, and the amendment is
+    /// stated rather than quietly widened: `crate::fuzz` is the second, it is behind a non-default
+    /// feature, it is `#[doc(hidden)]`, and
+    /// [`the_fuzz_door_is_behind_a_feature_and_hidden`] is what holds all three. Two is the number
+    /// now; a third fails here whatever it is.
     #[test]
     fn the_prelude_re_exports_exactly_nine_names() {
         let statements = re_export_statements();
@@ -2091,8 +2123,12 @@ mod tests {
             .collect();
         assert_eq!(
             modules.len(),
-            1,
-            "the crate has public modules other than the prelude: {modules:?}"
+            2,
+            "the crate has public modules other than the prelude and the fuzz door: {modules:?}"
+        );
+        assert!(
+            modules.iter().any(|m| m.as_str() == "pub mod fuzz;"),
+            "the second public module is not the fuzz door: {modules:?}"
         );
         let root = root();
         let start = root
@@ -2124,6 +2160,112 @@ mod tests {
             names, *PRELUDE,
             "the prelude re-exports something other than the nine names, in that order"
         );
+    }
+
+    /// **The fuzz door is behind a feature, hidden from rustdoc, and off by default.**
+    ///
+    /// `crate::fuzz` is the only public module here but the prelude, and it exists because the gate
+    /// and the soak have to be the same code: §14's inversion makes the committed corpus the gate,
+    /// so the replay test and the fuzz target call one function. The target is in another crate —
+    /// `cargo-fuzz` needs nightly and `libfuzzer-sys`, so `fuzz/` is its own workspace — and a
+    /// caller in another crate can only reach what is `pub`.
+    ///
+    /// Three conditions make that a door rather than a hole, and each fails on its own:
+    ///
+    /// 1. The declaration is gated on `any(test, feature = "fuzz")`, so an ordinary build compiles
+    ///    none of it.
+    /// 2. It carries `#[doc(hidden)]`, so it is absent from what a runtime author reads.
+    /// 3. The manifest declares the feature and **no default feature list turns it on**, which is
+    ///    the one of the three a `Cargo.toml` edit could undo silently.
+    #[test]
+    fn the_fuzz_door_is_behind_a_feature_and_hidden() {
+        let root = root();
+        let at = root
+            .find("pub mod fuzz;")
+            .expect("the crate root declares the fuzz door");
+        // The attributes immediately above it, which is where a `cfg` and a `doc(hidden)` have to be
+        // for either to mean anything about this declaration.
+        let above: Vec<&str> = root[..at].lines().rev().take(4).collect();
+        assert!(
+            above
+                .iter()
+                .any(|line| line.trim() == r#"#[cfg(any(test, feature = "fuzz"))]"#),
+            "`pub mod fuzz;` is not gated on the fuzz feature: {above:?}"
+        );
+        assert!(
+            above.iter().any(|line| line.trim() == "#[doc(hidden)]"),
+            "`pub mod fuzz;` is not hidden from rustdoc: {above:?}"
+        );
+
+        let manifest = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml"))
+            .expect("this crate's manifest is beside its source");
+        assert!(
+            manifest.contains("\nfuzz = []"),
+            "the `fuzz` feature is not declared in Cargo.toml, so `--features fuzz` is a typo \
+             nothing catches"
+        );
+        // A `default = [...]` list naming it would turn every one of the exemptions above into a
+        // silent inclusion: `shipped_modules` would still skip the files, and an ordinary dependent
+        // would compile them anyway.
+        assert!(
+            !manifest.contains("default = ["),
+            "this crate has a default feature list, and `fuzz` may not be reachable from one"
+        );
+    }
+
+    /// **The soak-only list is exactly what the crate root declares under the fuzz feature, in both
+    /// directions.**
+    ///
+    /// [`the_test_only_list_is_what_the_crate_root_declares_under_cfg_test`]'s twin, one `cfg`
+    /// along, and it exists for the identical reason: [`SOAK_ONLY_MODULES`] exempts a module from
+    /// every scan over the shipped surface, and until this gate existed the only thing checked about
+    /// a name on it was that the file still existed. A module that stops being soak-only — the exact
+    /// move ticket 25 made with `reference.rs`, in the other direction — would stay exempt.
+    #[test]
+    fn the_soak_only_list_is_what_the_crate_root_declares_under_the_fuzz_feature() {
+        let root = root();
+        let lines: Vec<&str> = root.lines().collect();
+        let mut declared: BTreeSet<String> = BTreeSet::new();
+        for (index, line) in lines.iter().enumerate() {
+            let trimmed = line.trim();
+            // `mod name;` and `pub mod name;` both, because the fuzz door is the second and the
+            // reference compositor is the first.
+            let Some(rest) = trimmed
+                .strip_prefix("mod ")
+                .or_else(|| trimmed.strip_prefix("pub mod "))
+                .filter(|rest| rest.ends_with(';'))
+            else {
+                continue;
+            };
+            let gated = lines[..index]
+                .iter()
+                .rev()
+                .take_while(|earlier| {
+                    let earlier = earlier.trim();
+                    earlier.starts_with("#[") || earlier.starts_with("//")
+                })
+                .any(|earlier| earlier.trim() == r#"#[cfg(any(test, feature = "fuzz"))]"#);
+            if gated {
+                declared.insert(format!("{}.rs", rest.trim_end_matches(';').trim()));
+            }
+        }
+        let named: BTreeSet<String> = SOAK_ONLY_MODULES.iter().map(|m| m.to_string()).collect();
+        assert_eq!(
+            named, declared,
+            "`SOAK_ONLY_MODULES` and the crate root's `#[cfg(any(test, feature = \"fuzz\"))] mod` \
+             declarations disagree. A module that stops being soak-only stays exempt from every scan \
+             in this file unless this is checked"
+        );
+        for module in SOAK_ONLY_MODULES {
+            assert!(
+                src_dir().join(module).exists(),
+                "`{module}` is named soak-only and does not exist, so this list is stale"
+            );
+            assert!(
+                !TEST_ONLY_MODULES.contains(module),
+                "`{module}` is on both lists, and the two `cfg`s it would need are different"
+            );
+        }
     }
 
     /// **The refused names are not re-exported, and the twin names one that is.**
@@ -2473,7 +2615,11 @@ mod tests {
         // And the other half of that: a negative case written into a `cfg(test)` module looks
         // exactly like a gate and is not one, because rustdoc never sees it. Same family as impl
         // 08's *a gate whose subject can be skipped must prove the subject ran*.
-        for module in TEST_ONLY_MODULES {
+        //
+        // `SOAK_ONLY_MODULES` is on it for the identical reason one `cfg` along. `cargo doc` builds
+        // default features, the `fuzz` feature is not one, and `crate::fuzz` carries `#[doc(hidden)]`
+        // besides — so a fence in either of those two files is compiled by nothing at all.
+        for module in TEST_ONLY_MODULES.iter().chain(SOAK_ONLY_MODULES) {
             // Rust blocks only. A ```text fence is a picture and `crate::gates` has one — the
             // golden frame's own format — and rustdoc would not compile that in a shipped module
             // either.
@@ -2485,8 +2631,9 @@ mod tests {
                 .count();
             assert_eq!(
                 fences, 0,
-                "`{module}` is `cfg(test)` and carries {fences} Rust doc block(s). Nothing compiles \
-                 them, so a `compile_fail` there is a case that cannot fail"
+                "`{module}` is compiled by neither an ordinary build nor the doc build, and \
+                 carries {fences} Rust doc block(s). Nothing compiles them, so a `compile_fail` \
+                 there is a case that cannot fail"
             );
         }
         assert_eq!(

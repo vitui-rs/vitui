@@ -1,0 +1,59 @@
+# **`fuzz/` is its own workspace, and that is a loophole rather than a permission.**
+#
+# `cargo-fuzz` needs nightly and `libfuzzer-sys`, and neither can be in the workspace next door: the
+# engine's dependency policy is *crossterm plus generated UCD tables and nothing else* (ADR 0001,
+# enforced by `../deny.toml`), and a `libfuzzer-sys` in that graph would be an eleven-crate hole in a
+# rule three tickets have restated. Detaching the workspace is what keeps the policy honest — and it
+# also means `cargo deny check` at the repository root **cannot see any of this**.
+#
+# So this directory gets its own `deny.toml` and its own `cargo deny` invocation, wired into the
+# `deny` job of both CI files. Spec §14 states the reason in one line: *that is a loophole, not a
+# permission*. A dependency added here is reviewed by the same gate as a dependency added anywhere
+# else, and the only thing the split buys is that the engine's graph stays the size it claims.
+#
+# The empty table below is what detaches it. Without it, cargo reads the parent manifest, finds this
+# package is neither a member nor excluded, and refuses to build at all.
+[workspace]
+
+[package]
+name = "vitui-engine-fuzz"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+rust-version = "1.85"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+# **`features = ["fuzz"]`, and that feature is the whole reason this crate can say anything.** The
+# oracle for the first target is the reference compositor and the subject of the second is the input
+# parser, and neither is on spec §12's public surface — a caller cannot read back what is on screen
+# (ADR 0023). The feature compiles `vitui_engine::fuzz`, whose two functions are the same ones the
+# committed corpus is replayed through by an ordinary `cargo test` in the engine's own suite.
+vitui-engine = { path = "../crates/vitui-engine", version = "0.0.0", features = ["fuzz"] }
+
+# No `[lints]` table, and the reason is not laziness. The workspace next door denies every warning,
+# because a check weaker than the gate is not a check — but these two files are four lines each and
+# everything else here is macro expansion from `libfuzzer-sys` under a **floating nightly**. Denying
+# warnings would make the soak fail on the day a nightly renames a lint inside somebody else's macro,
+# which is a red job that says nothing about this repository.
+
+# `test = false`, `doc = false`, `bench = false` on every target: a libFuzzer binary takes over `main`
+# and its argument parsing, so `cargo test` in this directory would run the fuzzer.
+[[bin]]
+name = "draw_sequence"
+path = "fuzz_targets/draw_sequence.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "input_bytes"
+path = "fuzz_targets/input_bytes.rs"
+test = false
+doc = false
+bench = false

@@ -1,0 +1,80 @@
+# cargo-deny configuration for the **fuzz workspace only**.
+#
+# Run with: cd fuzz && cargo deny check
+#
+# # Why this file exists at all
+#
+# `fuzz/` is its own workspace because `cargo-fuzz` needs nightly and `libfuzzer-sys`, so its
+# dependencies never enter the root `cargo deny`'s graph. Spec §14 names that in one line — **that is
+# a loophole, not a permission** — and this file is what closes it. Without it, `fuzz/Cargo.toml` is
+# the one place in the repository where any crate at all could be added and every gate would stay
+# green.
+#
+# The policy is the root's, minus the one thing that cannot hold here and plus the reason it cannot.
+[graph]
+all-features = true
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+deny = [
+    # **ADR 0001 in this graph too, and the `wrappers` list is the interesting part.** crossterm is
+    # here — `vitui-engine` depends on it — and the rule that matters is unchanged: nothing but the
+    # engine may name it. A fuzz target that reached for crossterm directly would be fuzzing a
+    # dependency rather than this repository, and it would be the first crack in *crossterm is
+    # invisible*.
+    { name = "crossterm", wrappers = ["vitui-engine"] },
+
+    # The async ban, for the same reason as the root's: `event-stream` or a runtime here would mean a
+    # fuzz target driving a code path no application can reach.
+    { name = "futures-core" },
+    { name = "futures-util" },
+    { name = "tokio" },
+    { name = "async-std" },
+
+    # The engine generates its own Unicode tables from UCD. A fuzz target that pulled one of these in
+    # to *check* the engine's widths against would be asserting against the crate the policy exists
+    # to keep out — an oracle that is a banned dependency is not an oracle this repository can use.
+    { name = "unicode-width" },
+    { name = "unicode-segmentation" },
+]
+
+# NOT banned, deliberately, and this is the whole delta from the root file: `libfuzzer-sys`,
+# `arbitrary`, `cc`, `jobserver`, `libc`, `rustix` and the rest of libFuzzer's build-time chain. They
+# are the reason this workspace is detached, they reach nothing that ships, and `cargo fuzz` cannot
+# run without them.
+
+# The root's list, kept in the same order so the two files diff, plus one addition that is a finding
+# rather than a formality.
+#
+# **`NCSA`.** `libfuzzer-sys` is `(MIT OR Apache-2.0) AND NCSA`, because it vendors LLVM's own
+# libFuzzer sources — the University of Illinois/NCSA Open Source License, which is BSD-3-Clause plus
+# the same no-endorsement clause applied to contributors. It is permissive and it is not on the root's
+# list, and it is the first concrete thing the detached workspace let in: exactly what §14 means by
+# *a loophole, not a permission*. It stays scoped to this file, so a `libfuzzer-sys` that somehow
+# appeared in the engine's graph would still meet `error[rejected]` at the root.
+#
+# Entries the fuzz graph does not use — `BSD-3-Clause`, `ISC`, `Unicode-3.0`, `Zlib` — warn as
+# `license-not-encountered` and are kept anyway. A warning is not a failure, and a list that is a
+# subset of the root's would silently become a *different policy* the first time a dependency here
+# carried one of them.
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "NCSA",
+    "Unicode-3.0",
+    "Zlib",
+]
+
+[advisories]
+yanked = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

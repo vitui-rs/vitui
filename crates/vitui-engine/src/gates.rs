@@ -1002,6 +1002,96 @@ fn what_the_equality_filter_costs_per_damaged_cell() {
     );
 }
 
+/// **Spec §15's fourth owed measurement, paid: the reference compositor's slowness is assumed.**
+///
+/// > If the naive one is within 2x of the fast one, the differential fuzz is worth less than it looks
+/// > — measure it and write the number down, because it decides whether this target is worth a soak
+/// > slot.
+///
+/// Three numbers per scene, because the question turns out to have two halves and §15 states only
+/// one of them:
+///
+/// 1. **The oracle**, timed on its own: the whole stack, every cell, one at a time.
+/// 2. **The fast path**, one frame: draw and `present`, which on the deterministic clock composites
+///    the damaged runs, packs, serialises and writes.
+/// 3. **A differential frame**, which is the first thing twice plus the second — that is what one
+///    input of `crate::fuzz`'s draw-sequence target costs per checkpoint, and it is what decides
+///    soak throughput.
+///
+/// **The comparison §15 asks for is not available from outside `present`, and this says so rather
+/// than pretending.** There is no door onto the fast *composite* alone — spec §12 has none and
+/// ADR 0023 is why — so number 2 contains the serializer, which on a full-screen change is most of
+/// it. The ratio printed against §15's 2x is therefore a **lower bound** on how much slower the
+/// oracle is than the compositor it checks: the denominator is larger than the thing being compared.
+///
+/// A **report and not a gate**, and deliberately without an `assert` on the ratio. The register's
+/// rule is that a timing is a gate only at cliff granularity, and 2x in a debug build on a shared
+/// runner is not one — an assertion there would be the flaky test wearing a budget's clothes that
+/// §14 names. What the numbers decide is a judgement about soak time, which is what §15 asks them
+/// to decide, and the ticket that pays this records the verdict.
+#[test]
+fn what_the_reference_compositor_costs_against_the_fast_path() {
+    /// Frames timed per arm, after the warm-up.
+    const SAMPLES: u32 = 20;
+
+    let arm = |name: &str| {
+        let mut scene = wired()
+            .into_iter()
+            .find(|s| s.name() == name)
+            .unwrap_or_else(|| panic!("{name} is one of §14's twelve"));
+        let mut h = staged(&mut *scene);
+        // Warm: the first steady frames reallocate nothing but do touch every page of the mirror and
+        // of the frame surface for the first time.
+        for t in 1..=2 {
+            scene.step(&mut h.screen, t);
+            h.screen.present();
+        }
+
+        let oracle = {
+            let at = std::time::Instant::now();
+            for _ in 0..SAMPLES {
+                std::hint::black_box(h.screen.reference());
+            }
+            at.elapsed().as_secs_f64() * 1e6 / f64::from(SAMPLES)
+        };
+        // `Screen::present` directly and not through the harness: the round trip's two full-screen
+        // comparisons are an order of magnitude more work than the frame they check.
+        let fast = {
+            let at = std::time::Instant::now();
+            for t in 3..3 + SAMPLES {
+                scene.step(&mut h.screen, t);
+                std::hint::black_box(h.screen.present());
+            }
+            at.elapsed().as_secs_f64() * 1e6 / f64::from(SAMPLES)
+        };
+        (oracle, fast)
+    };
+
+    // Two scenes and not one, because the ratio is a function of how much of the screen a frame
+    // damages: the oracle's cost is fixed at the screen whatever changed, and the fast path's is
+    // not. The dense screen is all 24 000 cells changing; the sparse one is 400 points on a chart,
+    // which is the shape damage tracking exists for and therefore the shape where the oracle is
+    // furthest ahead.
+    let (dense_oracle, dense_fast) = arm("full-screen-change");
+    let (sparse_oracle, sparse_fast) = arm("sparse-chart-400-points");
+    let line = |name: &str, oracle: f64, fast: f64| {
+        format!(
+            "{name:<24} {oracle:>8.2} us oracle, {fast:>8.2} us frame, {:>6.2}x, a differential \
+             frame {:>6.2}x",
+            oracle / fast,
+            (2.0 * oracle + fast) / fast,
+        )
+    };
+    println!(
+        "\n  the reference compositor against the fast path, {SAMPLES} frames an arm, debug \
+         build:\n  {}\n  {}\n  \
+         §15's 2x is against the fast *composite*, and the frame above is composite plus \
+         serializer, so these are lower bounds. Report, not a gate.",
+        line("full-screen-change:", dense_oracle, dense_fast),
+        line("sparse-chart:", sparse_oracle, sparse_fast),
+    );
+}
+
 // ---------------------------------------------------------------------------------------------
 // Ticket 11 — the pairing invariant, over the composited frame rather than over one surface.
 // ---------------------------------------------------------------------------------------------

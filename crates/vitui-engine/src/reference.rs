@@ -16,8 +16,18 @@
 //!   including the cells outside every damaged run — that is what says damage-tracked compositing
 //!   and full compositing are the same function.
 //!
-//! Spec §14 also names it as the oracle for ticket 25's first fuzz target, draw sequences against a
-//! naive reference compositor. That is when it stops being `cfg(test)`.
+//! Spec §14 also names it as the oracle for §14's first fuzz target, draw sequences against a naive
+//! reference compositor, and **ticket 25 is where that happened**: the `cfg` is
+//! `any(test, feature = "fuzz")` now, because a fuzz target compiles this crate without `cfg(test)`
+//! — `fuzz/` is its own workspace, since `cargo-fuzz` needs nightly and `libfuzzer-sys`. It is on
+//! `crate::audit`'s `SOAK_ONLY_MODULES` rather than its `TEST_ONLY_MODULES`, which is what keeps a
+//! module in that third state from being silently exempt from the surface scans.
+//!
+//! What it found there, on its first run: `crate::layer`'s `is_continuation` asked the **layers**
+//! whether a `CONTINUATION` still had its head, and a layer extends past the screen while the frame
+//! does not — so a pair the frame's own clamp bisected still looked whole, and an operator declined
+//! a column that was by then an ordinary space. `repair` below has always had the other reading:
+//! it runs a boundary *before* the first column and *after* the last, for exactly this.
 //!
 //! # The one thing it must not do
 //!
