@@ -128,6 +128,14 @@ impl Paint {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Link(pub(crate) LinkId);
 
+impl Link {
+    /// Wrap the engine's handle. `pub(crate)` — a component receives one from `Ctx::link` and can do
+    /// nothing else with it, which is what keeps `u32` off the seam.
+    pub(crate) const fn from_engine(id: LinkId) -> Link {
+        Link(id)
+    }
+}
+
 /// The thirteen roles.
 ///
 /// Thirteen and not the proposal's list: `on_surface` and `on_accent` do not appear, because once a
@@ -455,62 +463,12 @@ impl Distinction {
     }
 }
 
-/// What the runtime tells a component to declare when it registers a hit region.
-///
-/// **This type belongs to `ctx` and is defined here under protest.** Spec §4 puts `Interest` in the
-/// `ctx` module, which is impl ticket 08; this ticket's only blockers are engine 07 and engine 16, so
-/// `theme` lands first and `hover_interest` has nothing to return. Defining it here is the smaller
-/// wrong: the alternative is `hover_interest` returning bare bits and ticket 08 lifting them, which
-/// puts an untyped `u8` on the public surface of a crate whose whole subject is not doing that.
-///
-/// **Filed as a finding rather than decided**: ticket 08 either moves this type into `ctx` and has
-/// `theme` import it, or keeps it here and re-exports. Either is fine; what is not fine is two types
-/// with one name across a module boundary, which is the review finding that `GlyphSet` already
-/// carries.
-/// # There is no path by which the runtime could rewrite a declared interest
-///
-/// ADR 0021's rule is enforced by there being nothing to enforce it with: the field is private, there
-/// is no constructor beyond the two constants, and no method anywhere takes an `Interest` and returns
-/// a different one. The obvious implementation of *make hover cheap* — the runtime stripping `HOVER`
-/// out of hit entries it thinks are pointless — is unwritable rather than forbidden.
-///
-/// ```compile_fail,E0423
-/// use vitui_runtime::theme::Interest;
-/// let _ = Interest(0);
-/// ```
-///
-/// ```compile_fail,E0616
-/// use vitui_runtime::{Role, Theme};
-/// let i = Theme::default().hover_interest();
-/// let _ = i.0;
-/// let _ = Role::Body;
-/// ```
-///
-/// and the twin, which is the whole of what a component may do — read the answer and declare it:
-///
-/// ```
-/// use vitui_engine::ColorDepth;
-/// use vitui_runtime::theme::{Interest, Theme};
-///
-/// let flat = Theme::default().resolve(ColorDepth::None);
-/// let interest: Interest = flat.hover_interest();
-/// assert_eq!(interest, Interest::NONE);
-/// assert!(!interest.wants_hover());
-/// ```
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
-pub struct Interest(u8);
-
-impl Interest {
-    /// Nothing. The region is hit-tested and nothing is tracked.
-    pub const NONE: Interest = Interest(0);
-    /// The pointer entering and leaving matters, so the terminal must report motion.
-    pub const HOVER: Interest = Interest(1);
-
-    /// Whether hover is being asked for.
-    pub const fn wants_hover(self) -> bool {
-        self.0 & Interest::HOVER.0 != 0
-    }
-}
+// `Interest` used to be defined here, and it is `ctx`'s — spec §4 puts it there, and ticket 08 grew
+// it from two bits to five plus `tracking()`. Re-exported rather than redefined, because **two types
+// with one name across a module boundary is the review finding `GlyphSet` already carries**, and
+// because `hover_interest` returns one: a theme answers *what should be declared*, and what a
+// declaration means is the frame's business.
+pub use crate::ctx::Interest;
 
 /// The glyphs a theme spells for a component, so that no component owns a fallback table.
 ///

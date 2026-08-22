@@ -412,3 +412,90 @@ fn a_key_map_declares_matches_and_helps_without_allocating() {
         "the buffer was cleared, not freed"
     );
 }
+
+/// **A steady frame allocates nothing** — the five structures are swapped and cleared, not dropped
+/// and rebuilt, and the scratch buffer keeps its capacity across frames.
+///
+/// The one that matters most on this backlog, because it is the property every later ticket inherits:
+/// a frame that declares the same widgets every frame must not allocate for having done it before.
+#[test]
+fn a_steady_frame_allocates_nothing() {
+    use vitui_engine::Rect;
+    use vitui_runtime::ctx::{Driver, Id, Interest};
+    use vitui_runtime::{Repaint, Role};
+
+    let mut driver = Driver::headless(80, 24).expect("attaching to a sink cannot fail");
+
+    // A realistic-ish frame: twenty-four rows, each with a formatted cell and an interactive region,
+    // plus a restyle and a tab stop. Run once untimed, for the first-touch reason the other gates
+    // give.
+    let one_frame = |driver: &mut Driver| {
+        driver.frame(|cx| {
+            let body = cx.theme().paint(Role::Body);
+            for row in 0..24i32 {
+                let id = Id::from_raw(u64::try_from(row).unwrap_or(0));
+                cx.label(
+                    0,
+                    row,
+                    format_args!("row {row:>3}  {:>8.2}", f64::from(row) * 1.5),
+                    body,
+                );
+                cx.interact(
+                    id,
+                    Rect::new(0, row, 80, 1),
+                    Interest::CLICK.with(Interest::FOCUS),
+                );
+            }
+            cx.restyle(
+                Rect::new(0, 0, 80, 1),
+                &Repaint {
+                    fg: Some(Role::Title),
+                    set: Repaint::BOLD,
+                    ..Default::default()
+                },
+            );
+        });
+    };
+    one_frame(&mut driver);
+    one_frame(&mut driver);
+
+    assert_no_alloc(|| {
+        for _ in 0..50 {
+            one_frame(&mut driver);
+        }
+    });
+    assert_eq!(
+        driver.inspect().hits().len(),
+        24,
+        "and it drew what it claimed"
+    );
+    assert_eq!(driver.inspect().ring().len(), 24);
+}
+
+/// The drawing verbs and the scratch buffer, in their own window.
+///
+/// **The scratch is worth twenty-four allocations a frame**, which is the reason it exists — not the
+/// speed. A `format!` per row is one allocation per row; staging into a buffer the frame owns is none.
+#[test]
+fn formatting_a_frame_of_rows_allocates_nothing() {
+    use vitui_runtime::Role;
+    use vitui_runtime::ctx::Driver;
+
+    let mut driver = Driver::headless(80, 24).expect("sink");
+    let draw = |driver: &mut Driver| {
+        driver.frame(|cx| {
+            let body = cx.theme().paint(Role::Body);
+            for row in 0..24i32 {
+                let w = cx.stage(format_args!("{:>10}", row * 7));
+                let _ = cx.blit(i32::from(80 - w), row, body);
+            }
+        });
+    };
+    draw(&mut driver);
+    draw(&mut driver);
+    assert_no_alloc(|| {
+        for _ in 0..50 {
+            draw(&mut driver);
+        }
+    });
+}
