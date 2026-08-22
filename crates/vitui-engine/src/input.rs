@@ -1665,7 +1665,9 @@ impl Event {
 ///
 /// **Totally ordered, deliberately**: `Off < Buttons < Drag < Motion` — modes 1000, 1002 and 1003 —
 /// and each strictly contains the one below, so **combining what several components want is a `max`
-/// and not a set union**. The actuator that applies it is ticket 21's.
+/// and not a set union**. The actuator that applies it is
+/// [`Screen::set_mouse`](crate::Screen::set_mouse), and the `max` is the runtime's to take: there is
+/// no mount, a component is a function, and its declaration rides the draw.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
 pub enum MouseMode {
     /// No mouse reporting at all.

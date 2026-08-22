@@ -20,6 +20,9 @@
 //!   +- layers()                add layers; view(id) to draw into one
 //!   |   +- the verbs           text - fill - restyle, marking damage as they write
 //!   |
+//!   +- set_mouse(level)        what the frame's components asked the pointer for, as a `max`
+//!   +- set_cursor(caret)       where the caret goes, applied after the frame's last write
+//!   |
 //!   +- present() -> Presented  the app thread:
 //!                                lease a packet, or fold this frame into the next one
 //!                                composite the damaged rectangles bottom-up
@@ -155,10 +158,51 @@
 //! is owed and stated rather than hidden: **a resize is observed when the next byte arrives**, and a
 //! terminal resized while the application is completely idle is not noticed until the user touches
 //! something. Closing it needs either a signal handler, which the dependency policy does not have,
-//! or DEC mode 2048 requested at startup, which is ticket 21's negotiation.
+//! or DEC mode 2048 requested at startup. **Ticket 21's negotiation did not take it**, and the
+//! reason is that requesting the mode is the cheap half: the report arrives as a `CSI 48 ; … t`
+//! nothing parses, so it would land in [`InputDiagnostics`] as an unrecognised sequence per resize,
+//! and §10's batch has no DECRQM question that would say whether the request took. That is a
+//! detection axis, a parser arm and a `Capabilities` field, and none of the three belonged to a
+//! ticket about two setters.
 //!
-//! Not here yet, each with the ticket that brings it: `set_mouse`, the startup negotiation and the
-//! caret (21); shutdown, the panic hook and restoration (22).
+//! And **the two setters, the negotiation and the caret** (ticket 21). Everything the engine says to
+//! the terminal that is not a cell is [`crate::actuate`], and all of it is bytes with no reply — the
+//! questions were asked and answered at `attach`, before its first byte goes out.
+//!
+//! [`MouseMode`] is `Off < Buttons < Drag < Motion` and the ordering is a design decision rather than
+//! an accident of numbering: each level strictly contains the one below, so **combining what several
+//! components want is a `max` and not a set union**, and [`Screen::set_mouse`] receives one level per
+//! frame with no idea how many components it came from. It is **idempotent and free when unchanged**,
+//! and free in the strong sense the obligation needs rather than the one it states: the delta is
+//! computed on the app thread before a packet is leased, so a thousand unchanged calls — which is
+//! what a runtime makes, because it calls this after every frame — cost a thousand comparisons and no
+//! composite, no pack, no serialise and no write. [`Config::input`] is the **floor** under it, since
+//! the union is known only after a draw and the frame that first paints a hover-wanting modal did not
+//! yet have tracking on. SGR encoding is on whenever the mouse is on, because without it a press
+//! stops being reportable past column 223 and the budget is written against 300 columns.
+//!
+//! [`Screen::set_cursor`] is the caret, and **there is no software caret anywhere** (ADR 0005): one
+//! `restyle` of one cell, toggled, is two wakeups a second for as long as anything has focus — 7 200
+//! an hour on a screen where nothing is happening — so ticket 19's measured idle would not survive a
+//! text field, and a form is not an exotic component. The terminal's own caret blinks in the
+//! terminal's process at the user's rate, and is the only one a screen reader or an IME can follow.
+//! It is applied **after the frame's last write**, which is the only moment at which it is correct
+//! and a moment only the engine has, and it is placed with the serializer's own `shortest` rather
+//! than an unconditional `CUP` — so a character typed into a field leaves the cursor exactly where
+//! the caret belongs and **§8's 29-byte caret frame is 29 bytes with a caret on it**. Position, shape
+//! and visibility are tracked apart for the same reason: a frame that re-stated either would be 40.
+//!
+//! One thing this ticket had to reach for and one thing it refused. The reach: arch 22 refused the
+//! eight input facts an `Overrides` field, on the grounds that *a declaration cannot make an event
+//! arrive* and that nothing on the output path reads one — and the second half stopped being true
+//! here, because the actuator and the negotiation read four of them. The field is still refused; the
+//! arms come from **inside** the crate, which is the door arch 22 named for `sync_output`. The
+//! refusal: `DECSCUSR` conflates shape with blink, so [`CursorShape`] offers the blinking spellings
+//! and `Terminal`, which is the user's own configuration and the default.
+//!
+//! Not here yet: shutdown, the panic hook and restoration (22). The ordinary drop path already gives
+//! back all four modes the negotiation took; what has no answer is a restoration that runs while the
+//! process is unwinding.
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]
@@ -173,6 +217,7 @@ extern crate self as vitui_engine;
 
 mod ucd;
 
+mod actuate;
 mod caps;
 mod cell;
 mod clock;
@@ -235,6 +280,7 @@ mod view;
 #[cfg(test)]
 mod roundtrip;
 
+pub use actuate::{Cursor, CursorShape};
 pub use caps::{Capabilities, ColorDepth, GlyphSet, Overrides, Rgb, WidthSource};
 pub use clock::Wake;
 pub use engine::{AttachError, Clock, Config, Engine, Output, Presented, Screen, WakeHandle};

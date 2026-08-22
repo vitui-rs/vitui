@@ -577,6 +577,25 @@ not over-trusting: it saves nothing at all while the work finishes faster than t
 **Backend** — the seam behind which the terminal library lives. `crossterm` sits here and is not
 visible in any public type.
 
+**Negotiation** — the escape sequences sent once at startup that decide what the terminal will ever
+report: the keyboard enhancement flags, and mouse tracking, focus reporting and bracketed paste. It
+is not detection and never asks anything — detection has already finished — and it is not symmetric
+either: the keyboard flags cost nothing at rest and are asked for unconditionally, while the other
+three convert an idle application into a woken one and are asked for only when the application
+declared them.
+
+**Actuator** — a call that changes what the terminal *is* rather than what it shows. There are two,
+`set_mouse` and `set_cursor`, and both **record rather than write**: the write direction is the render
+thread's, so what an actuator produces is carried by the next frame's packet. An actuator is
+idempotent and free when its value has not changed — free in the strong sense, because an unchanged
+value does not cause a frame at all.
+
+**Caret** — the terminal's own text cursor, placed by the engine and blinked by the terminal. It is
+positioned after the frame's last write, which is the only moment at which its position is correct,
+and it is the only caret there is: a software one would cost two wakeups a second for as long as
+anything has focus, which is more than the idle budget has. Its position, its shape and its
+visibility are three separate deltas, because a caret that only moved must cost only a move.
+
 **Capability** — something the attached terminal can do. A capability is *detected* by querying the live
 pty — colour depth, synchronised output, the keyboard protocol flags — *declared* by the operator, which
 is the only way the glyph repertoire can be known, since no query asks whether a font contains a

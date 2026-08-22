@@ -117,6 +117,27 @@ pub(crate) struct TermModel {
     /// wants is the screen: a model that took the whole screen for granted would agree with a
     /// serializer that had set a region and forgotten to reset it.
     region: (u16, u16),
+    /// `DECTCEM`. **On until the prologue turns it off**, which is the state a terminal is in and
+    /// which is why the negotiation's `?25l` is not decoration: without it the terminal's own cursor
+    /// sits wherever the frame's last write landed, blinking, in a place the application did not put
+    /// it.
+    caret_visible: bool,
+    /// `DECSCUSR`'s `Ps`, and zero is *whatever the user configured* — which is what a terminal
+    /// starts at and what nothing having been said looks like.
+    caret_shape: u8,
+    /// The input modes that are set: 1000, 1002, 1003 for tracking, 1006 for the SGR encoding, 1004
+    /// for focus reporting, 2004 for bracketed paste.
+    ///
+    /// A set rather than four fields, because what the round trip has to be able to say is *these
+    /// modes and no others* — and a model with a field per mode cannot say that about a mode nobody
+    /// thought of.
+    modes: Vec<u32>,
+    /// The kitty enhancement flag stack, pushed by `CSI > flags u` and popped by `CSI < u`.
+    ///
+    /// A stack because the protocol's is one: detection pushes and pops inside `attach`, the
+    /// negotiation pushes once and leaves it, and the epilogue pops it. A model that held one value
+    /// could not tell a push that was never popped from one that was.
+    kitty: Vec<u32>,
     /// Bytes of a sequence that was cut in half by a partial write.
     buf: Vec<u8>,
     /// Sequences this model does not understand. The round trip asserts it is zero.
@@ -140,6 +161,10 @@ impl TermModel {
             sync_open: false,
             sync_blocks: 0,
             region: (0, height.saturating_sub(1)),
+            caret_visible: true,
+            caret_shape: 0,
+            modes: Vec::new(),
+            kitty: Vec::new(),
             buf: Vec::new(),
             unrecognised: 0,
             widths: WidthOpinion::default(),
@@ -209,6 +234,34 @@ impl TermModel {
 
     pub(crate) fn unrecognised(&self) -> usize {
         self.unrecognised
+    }
+
+    /// Where the caret is, or `None` when the terminal is not drawing one.
+    ///
+    /// **It is the cursor**, because on a real terminal it is: `DECTCEM` decides whether the cursor
+    /// is drawn and nothing else, and the caret has no position of its own to hold. So *the caret is
+    /// where the application put it* and *the caret was the last thing the frame said* are one
+    /// assertion, which is the property ADR 0005 turns on and the reason this reads the cursor rather
+    /// than a field beside it.
+    pub(crate) fn caret(&self) -> Option<(u16, u16)> {
+        self.caret_visible.then_some(self.cursor)
+    }
+
+    /// `DECSCUSR`'s `Ps`, and zero is the user's own configuration.
+    pub(crate) fn caret_shape(&self) -> u8 {
+        self.caret_shape
+    }
+
+    /// The input modes this terminal has been switched on for, ascending.
+    pub(crate) fn modes(&self) -> Vec<u32> {
+        let mut modes = self.modes.clone();
+        modes.sort_unstable();
+        modes
+    }
+
+    /// The kitty enhancement flag stack, oldest push first.
+    pub(crate) fn kitty(&self) -> &[u32] {
+        &self.kitty
     }
 
     /// Feed bytes. Any number of bytes, split anywhere — a sequence cut in half is held until the
@@ -310,6 +363,22 @@ impl TermModel {
             b'r' => self.decstbm(params),
             b'S' => self.scroll(true, first(params).max(1)),
             b'T' => self.scroll(false, first(params).max(1)),
+            // `DECSCUSR` — `CSI Ps SP q`. The space is an intermediate rather than a parameter byte,
+            // so it is still sitting on the end of `params` when the scan stops at `q`.
+            b'q' => match params.strip_suffix(b" ") {
+                Some(ps) => self.caret_shape = first(ps) as u8,
+                None => self.unrecognised += 1,
+            },
+            // The kitty keyboard stack: `CSI > flags u` pushes, `CSI < u` pops.
+            b'u' => match params.split_first() {
+                Some((b'>', flags)) => self.kitty.push(first(flags)),
+                Some((b'<', b"")) => {
+                    if self.kitty.pop().is_none() {
+                        self.unrecognised += 1;
+                    }
+                }
+                _ => self.unrecognised += 1,
+            },
             _ => self.unrecognised += 1,
         }
         Some(end + 1)
@@ -367,6 +436,17 @@ impl TermModel {
         match first(digits) {
             // DECAWM.
             7 => self.autowrap = set,
+            // `DECTCEM`, and the caret's position with it: hiding one does not move it, so the
+            // position is remembered and only forgotten when the caret is switched off.
+            25 => self.caret_visible = set,
+            // The input modes. Tracked as a set so that the round trip can say *these and no others*.
+            1000 | 1002 | 1003 | 1004 | 1006 | 2004 => {
+                let mode = first(digits);
+                self.modes.retain(|m| *m != mode);
+                if set {
+                    self.modes.push(mode);
+                }
+            }
             // Synchronised output. One frame is one block, so an open inside an open is a defect.
             2026 => {
                 if set {

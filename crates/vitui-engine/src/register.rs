@@ -312,7 +312,10 @@ pub const REGISTER: [Entry; 27] = [
         source: "arch 10, 01",
         state: State::Red {
             inverted_by: "impl 22",
-            why: "nothing takes the terminal yet, so nothing has to give it back",
+            why: "impl 21 takes all four and gives all four back on `Screen::drop`, gated by \
+                   `the_epilogue_undoes_the_prologue`. What is missing is the word this entry \
+                   turns on: panic. There is no hook, and a restoration that runs only on an \
+                   ordinary drop does not run while the process is unwinding",
         },
     },
     Entry {

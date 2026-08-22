@@ -315,14 +315,56 @@ impl Harness {
         Harness::with_sink_and_overrides(w, h, Recorder::new(), overrides)
     }
 
+    /// A harness on a terminal whose **input** facts are these, and an application that declared
+    /// this much.
+    ///
+    /// The door arch 22 named for an axis `Overrides` may not carry — see
+    /// [`Engine::attach_declaring`](crate::engine::Engine) and
+    /// [`Capabilities::with_input`](crate::Capabilities). Every gate about the mouse or the startup
+    /// negotiation is here, because a caller-supplied sink detects nothing and all eight input facts
+    /// are false on one.
+    pub(crate) fn declaring(
+        w: u16,
+        h: u16,
+        caps: crate::caps::Capabilities,
+        input: crate::input::InputConfig,
+    ) -> Harness {
+        Harness::build(
+            w,
+            h,
+            Recorder::new(),
+            Overrides::default(),
+            Some(caps),
+            input,
+        )
+    }
+
     pub(crate) fn with_sink_and_overrides(
         w: u16,
         h: u16,
         sink: Recorder,
         overrides: Overrides,
     ) -> Harness {
+        Harness::build(
+            w,
+            h,
+            sink,
+            overrides,
+            None,
+            crate::input::InputConfig::default(),
+        )
+    }
+
+    fn build(
+        w: u16,
+        h: u16,
+        sink: Recorder,
+        overrides: Overrides,
+        declared: Option<crate::caps::Capabilities>,
+        input: crate::input::InputConfig,
+    ) -> Harness {
         let recording = sink.handle();
-        let (screen, _wake) = Engine::new(Config {
+        let engine = Engine::new(Config {
             size: (w, h),
             output: Output::Sink(Box::new(sink)),
             // The deterministic mode is public API, not a test fixture: `present` composites,
@@ -333,22 +375,38 @@ impl Harness {
             // ceiling: the deterministic mode's promise is that a test is a straight-line program.
             max_frame_rate: f32::INFINITY,
             overrides,
-            input: crate::input::InputConfig::default(),
-        })
-        .attach()
+            input,
+        });
+        let (mut screen, _wake) = match declared {
+            Some(caps) => engine.attach_declaring(caps),
+            None => engine.attach(),
+        }
         .expect("attaching to a sink cannot fail");
         let prologue = {
             let r = recording.lock().expect("the recorder is never poisoned");
             (r.bytes.len(), r.writes)
         };
+        let mut term = TermModel::new(w, h);
+        // **The prologue is replayed here rather than by the first `present`.** The model has to see
+        // those bytes — it tracks DECAWM from ticket 13 and the input modes and the caret from impl
+        // 21 — and replaying them at the first frame made every question about the *negotiation*
+        // unanswerable until something had drawn, which is the one thing a floor exists not to
+        // require. Same bytes, same order, one frame earlier.
+        {
+            let bytes = {
+                let r = recording.lock().expect("the recorder is never poisoned");
+                r.bytes[..prologue.0].to_vec()
+            };
+            // The tables are the screen's, for the reason `present` gives: a handle the model mints
+            // is the engine's handle. Nothing in the prologue names one, and it is still the same
+            // door.
+            term.feed(&bytes, screen.tables_mut());
+        }
         Harness {
             screen,
             recording,
-            term: TermModel::new(w, h),
-            // **Zero, not the prologue's length.** The model has to see those bytes: it tracks
-            // DECAWM from ticket 13 on, and a model that never saw the reset would be modelling a
-            // terminal this engine does not talk to.
-            replayed: 0,
+            term,
+            replayed: prologue.0,
             label: String::new(),
             prologue,
             stale: vec![false; h as usize],
@@ -607,6 +665,17 @@ impl Harness {
     /// crate reads the bytes back, because the terminal model is what reads them.
     pub(crate) fn wire(&self) -> Vec<u8> {
         self.recording.lock().unwrap().bytes[self.prologue.0..].to_vec()
+    }
+
+    /// The terminal on the other end of the round trip, for the two facts that are terminal *state*
+    /// rather than cells: where the caret is, and which input modes are set.
+    pub(crate) fn terminal(&self) -> &TermModel {
+        &self.term
+    }
+
+    /// The bytes `attach` wrote before any frame existed: ticket 21's negotiation.
+    pub(crate) fn prologue(&self) -> Vec<u8> {
+        self.recording.lock().unwrap().bytes[..self.prologue.0].to_vec()
     }
 
     /// Every byte of the session, prologue included.

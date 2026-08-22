@@ -376,6 +376,21 @@ fn a_mouse_event_reports_the_three_modifiers_the_encoding_carries() {
     assert_eq!(mouse.mods, Mods::CTRL);
 }
 
+/// **The reason SGR encoding is on whenever the mouse is on**, read from the parser's end.
+///
+/// The legacy encoding puts each coordinate in one byte biased by 32, so it stops at column 223 —
+/// and the performance budget is written against a 300-column screen. This is the column past that
+/// cliff: it arrives exactly, and it arrives because there is only one encoding in this engine.
+#[test]
+fn an_sgr_press_past_column_two_hundred_and_twenty_three_arrives_exactly() {
+    let mouse = one_mouse(b"\x1b[<0;224;5M");
+    assert_eq!((mouse.x, mouse.y), (223, 4));
+    assert_eq!(mouse.kind, MouseKind::Down(Button::Left));
+
+    // And the far end of a 300-column screen, which is what the budget is measured on.
+    assert_eq!(one_mouse(b"\x1b[<0;300;80M").x, 299);
+}
+
 /// A column zero on the wire describes a cell that does not exist. It is discarded rather than
 /// wrapped to 65 535, which is what a plain `- 1` would have produced.
 #[test]

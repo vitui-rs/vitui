@@ -1746,6 +1746,65 @@ fn a_renumbering_sweep_marks_every_mirror_row_unknown() {
     );
 }
 
+/// **A cell-less frame is still a frame the flag can land on, and it must not swallow it.**
+///
+/// The defect this is about was real for one commit and would have been invisible to every other gate
+/// here. `repaint` is taken out of the `Screen`'s latch at pack time, so a packet carrying it has
+/// spent it — and impl 21 made a packet with **no cells** reachable for the first time: a caret that
+/// moved with nothing else changing. The serializer read the flag after its cell-less early return,
+/// so that frame dropped it, and the mirror went on trusting handles a sweep had already moved.
+///
+/// Every existing gate misses it because before impl 21 an empty packet could not be produced: an
+/// idle `present` returns before it leases one.
+#[test]
+fn a_renumbering_sweep_reaches_the_mirror_through_a_frame_with_no_cells() {
+    const ROWS: u16 = 4;
+    let mut h = extended_screen(ROWS);
+    let id = extended_page(&mut h.screen, ROWS);
+    underline_each_row(&mut h.screen, id, ROWS, |y| Color::rgb(y as u8 + 1, 0, 0));
+    h.present();
+    {
+        let mut view = h
+            .screen
+            .layers()
+            .view(id)
+            .expect("the layer is still there");
+        view.restyle(
+            Rect::new(0, 1, 8, ROWS - 1),
+            &Restyle {
+                ul: Some(Color::rgb(9, 9, 9)),
+                ..Default::default()
+            },
+        );
+    }
+    h.present();
+    assert_eq!(h.screen.known_rows(), ROWS as usize);
+    assert!(h.screen.sweep_now().renumbered);
+
+    // Nothing is damaged. The caret moved, so a frame goes out — and it is a frame with no cells in
+    // it at all, which is the one the flag now has to survive.
+    //
+    // Presented through the `Screen` rather than the harness on purpose: the round trip catches this
+    // too, one frame later and from four levels down a stack, and *the mirror was never told* is the
+    // thing that went wrong. The round trip still gets its say at the bottom.
+    h.screen.set_cursor(Some(crate::actuate::Cursor {
+        x: 2,
+        y: 1,
+        shape: crate::actuate::CursorShape::Terminal,
+    }));
+    assert!(h.screen.present().submitted);
+    assert_eq!(
+        h.screen.known_rows(),
+        0,
+        "the flag was spent on a cell-less frame and the mirror was never told"
+    );
+
+    // And the screen the terminal is left showing is still the frame's, which is the assertion the
+    // flag exists for rather than a restatement of the one above.
+    underline_each_row(&mut h.screen, id, ROWS, |_| Color::rgb(4, 5, 6));
+    assert!(h.present().submitted);
+}
+
 /// A sweep that renumbers nothing may not invalidate a mirror row.
 #[test]
 fn a_sweep_that_renumbers_nothing_leaves_the_mirror_alone() {
@@ -3232,7 +3291,7 @@ fn what_pack_costs_at_four_densities() {
         // name already exists, which is the state register entry #6 is about.
         let mut once = || {
             generation += 1;
-            packet.pack(
+            packet.pack_cells(
                 screen.runs(),
                 screen.frame(),
                 screen.tables(),
@@ -4335,4 +4394,288 @@ fn the_parser_survives_five_adversarial_splits() {
             }
         }
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+// `set_mouse`, the negotiation and the caret (ticket 21).
+//
+// Two counts and one absence. Both counts are about the same obligation read from two ends —
+// *idempotent, and free when the value has not changed* — and the absence is ADR 0005's: the
+// terminal blinks the caret, so nothing here does.
+// ---------------------------------------------------------------------------------------------
+
+/// A terminal that can do every input protocol, so a gate about what was *asked for* is not
+/// quietly a gate about what could be. See [`crate::Capabilities::with_input`].
+#[cfg(test)]
+fn every_input_protocol() -> crate::caps::Capabilities {
+    crate::caps::Capabilities::with_input(true, true, true, true, crate::caps::KITTY_ALL)
+}
+
+/// **Gate, count: `set_mouse` with an unchanged value across a thousand frames writes zero bytes.**
+///
+/// The obligation the spec states rather than implies, and it is load-bearing rather than polite:
+/// *the runtime calls this after every frame*, because the level is a `max` over what the frame's
+/// components declared and there is nowhere else to take it. A naive actuator writes an escape
+/// sequence per frame for ever.
+///
+/// The gate is stronger than the obligation, and the difference is the design: an unchanged setter
+/// does not merely emit nothing, **it does not cause a frame**. The delta is computed on the app
+/// thread, before `present` leases a packet, so a thousand unchanged calls cost a thousand
+/// comparisons and no composite, no pack, no serialise and no write.
+#[test]
+fn a_thousand_unchanged_set_mouse_calls_write_nothing_and_cause_no_frame() {
+    const FRAMES: usize = 1_000;
+    let mut h = Harness::declaring(
+        40,
+        4,
+        every_input_protocol(),
+        crate::input::InputConfig {
+            mouse: crate::input::MouseMode::Buttons,
+            ..crate::input::InputConfig::default()
+        },
+    );
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, 40, 4), true);
+    h.screen
+        .layers()
+        .view(id)
+        .unwrap()
+        .text(0, 0, "a field", Style::new());
+    h.present();
+    // The floor is already on the wire, so the birth frame said nothing about it either.
+    assert_eq!(h.terminal().modes(), vec![1000, 1006], "the declared floor");
+    let settled = h.bytes_written();
+
+    for _ in 0..FRAMES {
+        // Exactly what a runtime does: the `max` over this frame's components, every frame.
+        h.screen.set_mouse(crate::input::MouseMode::Buttons);
+        assert!(!h.screen.present().submitted);
+    }
+    assert_eq!(
+        h.bytes_written() - settled,
+        0,
+        "{FRAMES} unchanged `set_mouse` calls reached the wire"
+    );
+    assert_eq!(h.terminal().modes(), vec![1000, 1006], "and nothing moved");
+
+    // And a real change still goes out, which is what says the zero above is not a broken actuator.
+    h.screen.set_mouse(crate::input::MouseMode::Motion);
+    assert!(h.screen.present().submitted);
+    h.present();
+    assert_eq!(h.terminal().modes(), vec![1003, 1006]);
+}
+
+/// **Gate: spec §8's 29-byte caret frame, with a caret on it.**
+///
+/// The number was producible from impl 13 onwards and was a claim about a frame with no caret in it:
+/// `?2026h` + `0m` + `?2026l` is twenty bytes of fixed framing and an eight-byte `CUP` plus one
+/// ASCII cell is the other nine. What this adds is the caret, and the property is that **it costs
+/// nothing** — a character typed into a field leaves the terminal's cursor exactly where the caret
+/// belongs, so the move the caret needs is the move the write already made.
+///
+/// That is not a coincidence to be grateful for. It is why the caret is placed with the serializer's
+/// own `shortest` rather than with an unconditional `CUP`, and why the *shape* and the *visibility*
+/// are tracked separately from the position: a frame that re-stated either would be 40 bytes, and
+/// the caret is the most frequent frame there is.
+#[test]
+fn a_caret_frame_is_twenty_nine_bytes() {
+    // Mode 2026 is the twenty bytes of framing, and no `Overrides` can name it — see
+    // `Capabilities::on_the_wire`.
+    let syncing = crate::caps::Capabilities::on_the_wire(
+        crate::caps::ColorDepth::TrueColor,
+        true,
+        crate::quirks::Underlines::Standard,
+        false,
+    );
+    let mut h = Harness::declaring(80, 24, syncing, crate::input::InputConfig::default());
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, 80, 24), true);
+    h.screen.set_cursor(Some(crate::actuate::Cursor {
+        x: 40,
+        y: 12,
+        shape: crate::actuate::CursorShape::Terminal,
+    }));
+    // The birth frame paints the whole screen and shows the caret. Everything measured is after it.
+    h.present();
+    assert_eq!(h.terminal().caret(), Some((40, 12)));
+    let settled = h.bytes_written();
+
+    // One character typed into the field, and the caret follows it — which is where the terminal's
+    // cursor already is.
+    h.screen
+        .layers()
+        .view(id)
+        .unwrap()
+        .text(40, 12, "x", Style::new());
+    h.screen.set_cursor(Some(crate::actuate::Cursor {
+        x: 41,
+        y: 12,
+        shape: crate::actuate::CursorShape::Terminal,
+    }));
+    h.present();
+    let frame = h.bytes_written() - settled;
+    assert_eq!(
+        frame,
+        29,
+        "§8's caret frame, with the caret on it: {}",
+        String::from_utf8_lossy(&h.wire()[settled..]).replace('\x1b', "^[")
+    );
+    assert_eq!(
+        h.terminal().caret(),
+        Some((41, 12)),
+        "and it is where it belongs"
+    );
+}
+
+/// **Gate, count and absence: nothing in this crate blinks a caret.**
+///
+/// ADR 0005 measured the alternative: one `restyle` of one cell, toggled, is **two wakeups a second
+/// for as long as anything has focus** — 7 200 an hour on a screen where nothing is happening. Ticket
+/// 19's measured idle (`30.01 s real, 0.00 user, 0.00 sys, 0 voluntary context switches`) does not
+/// survive that, and a text field is not an exotic component.
+///
+/// The count is the property and the scan is the insurance. A software caret cannot be invisible to
+/// the count — it has to damage a cell, and damage produces a frame — so a thousand `present` calls
+/// over a screen with a visible caret and nothing changing submit **nothing** and write **nothing**.
+/// The scan then names what such an implementation would have to call itself, which catches the
+/// version of it that is written and not yet wired.
+#[test]
+fn nothing_anywhere_blinks_a_caret_in_software() {
+    let mut h = Harness::new(40, 4);
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, 40, 4), true);
+    h.screen
+        .layers()
+        .view(id)
+        .unwrap()
+        .text(0, 0, "a focused field", Style::new());
+    h.screen.set_cursor(Some(crate::actuate::Cursor {
+        x: 15,
+        y: 0,
+        shape: crate::actuate::CursorShape::Bar,
+    }));
+    h.present();
+    let settled = h.bytes_written();
+
+    for _ in 0..1_000 {
+        assert!(
+            !h.screen.present().submitted,
+            "a frame was produced with a caret on screen and nothing changing"
+        );
+    }
+    assert_eq!(h.bytes_written() - settled, 0);
+    assert_eq!(h.terminal().caret(), Some((15, 0)), "and it is still there");
+
+    /// What a software caret would have to name, whatever it was called.
+    const FORBIDDEN: &[&str] = &[
+        "caret_blink",
+        "blink_caret",
+        "cursor_blink",
+        "blink_phase",
+        "caret_phase",
+        "BLINK_RATE",
+        "BLINK_INTERVAL",
+        "BLINK_PERIOD",
+        "toggle_caret",
+    ];
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut files = Vec::new();
+    collect_rust_files(&root, &mut files);
+    assert!(
+        files.len() > 20,
+        "the source walk found {} files, so it is not walking the crate",
+        files.len()
+    );
+    for path in files {
+        // This file names them, and it is `cfg(test)`. See the display gate above for why the
+        // exclusion is by name.
+        if path.ends_with("gates.rs") {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path).expect("the crate's own source is readable");
+        for needle in FORBIDDEN {
+            assert!(
+                !text.contains(needle),
+                "{} names `{needle}`: the terminal blinks the caret, in its own process, at the \
+                 user's rate (ADR 0005)",
+                path.display()
+            );
+        }
+    }
+}
+
+/// **Ticket 19's idle gate, with a focused field on screen.**
+///
+/// The claim ADR 0005 rests on is that the caret costs nothing at rest, and ticket 19's gate was
+/// written on a screen with no caret. This is the same measurement with one: the app thread enters
+/// its wait once, comes back zero times, and the render thread's wait comes back zero times — with a
+/// visible caret sitting on the screen for the whole window.
+///
+/// It is a separate gate rather than an extra assertion inside ticket 19's, because it is a claim
+/// about a different thing: that one is about the clock, this one is about the caret, and a gate that
+/// fails should say which.
+#[test]
+fn an_idle_application_with_a_caret_on_screen_still_wakes_for_nothing() {
+    let (mut screen, wake) = threaded_at(120.0, Box::new(Counting::default()));
+    let id = screen.layers().add_content(0, Rect::new(0, 0, 40, 4), true);
+    screen
+        .layers()
+        .view(id)
+        .unwrap()
+        .text(0, 0, "a focused field", Style::new());
+    screen.set_cursor(Some(crate::actuate::Cursor {
+        x: 15,
+        y: 0,
+        shape: crate::actuate::CursorShape::Bar,
+    }));
+    assert!(screen.present().submitted);
+    // The caret is on the wire before the window opens, so what is measured is a caret at rest
+    // rather than a caret arriving.
+    drained(&screen, 1);
+    // **A baseline rather than a zero**, and the difference is the birth frame. Ticket 19's gate
+    // presents nothing, so its render thread has never parked and its count is zero absolutely; this
+    // one hands over a frame first, and whether that costs a park at all is a race between the two
+    // threads — a render thread that finds the packet already in the slot never waited for it. What
+    // is asserted is that the count does not move while nothing is happening.
+    let render_wakeups = screen.render_wakeups();
+
+    let source = wake.source();
+    let quiet = std::time::Duration::from_millis(150);
+    let observer = std::thread::spawn(move || {
+        std::thread::sleep(quiet);
+        let counts = source.park_counts();
+        wake.quit();
+        counts
+    });
+
+    let began = std::time::Instant::now();
+    assert_eq!(screen.wait(), Wake::Quit);
+    let (parks, wakeups) = observer.join().expect("the observer does not panic");
+
+    assert!(
+        began.elapsed() >= quiet,
+        "the wait came back before anything had happened"
+    );
+    assert_eq!(parks, 1, "an indefinite park re-entered the wait");
+    assert_eq!(
+        wakeups, 0,
+        "a caret on screen woke the app thread: a software one would put 18 here at two blinks a \
+         second, and 7 200 in an hour"
+    );
+    assert_eq!(
+        screen.render_wakeups(),
+        render_wakeups,
+        "the render thread woke with nothing in the slot"
+    );
+    assert_eq!(
+        screen.handoff_counts().2,
+        1,
+        "one frame, and it is the birth frame"
+    );
 }

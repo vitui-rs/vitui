@@ -62,6 +62,7 @@
 //! `pack` allocation-free on warm tables at every density (register entry #6). §3's mark-and-compact
 //! sweep is what bounds that mark; a table that could grow without one would grow these with it.
 
+use crate::actuate::Actuation;
 use crate::cell::{Cell, GraphemeId};
 use crate::damage::Run;
 use crate::exts::{ExtStyle, LinkId};
@@ -88,6 +89,14 @@ pub(crate) struct Packet {
     links: Marks<(u32, u32)>,
     /// Which pack filled this packet, and the stamp every side table above is marked with.
     generation: u64,
+    /// What this frame has to say to the terminal besides its cells: the mouse tracking level and
+    /// the caret.
+    ///
+    /// It rides the packet because **the render thread owns the write direction** (spec §7) and
+    /// these are writes. It is already a delta where a delta is what the wire needs — see
+    /// [`Actuation`] — so the render thread still holds no state of its own about either setter, and
+    /// ADR 0011's *no application state on the render thread* is undisturbed.
+    actuation: Actuation,
     /// Set when a sweep renumbered a table since the last packet: **invalidate the mirror.**
     ///
     /// See the position rule in this module's documentation. It is a property of the *packet* rather
@@ -114,6 +123,7 @@ impl Packet {
             }),
             links: Marks::new((0, 0)),
             generation: 0,
+            actuation: Actuation::default(),
             repaint: false,
         }
     }
@@ -133,6 +143,7 @@ impl Packet {
         frame: &Surface,
         tables: &Tables,
         repaint: bool,
+        actuation: Actuation,
         generation: u64,
     ) {
         debug_assert!(
@@ -140,6 +151,7 @@ impl Packet {
             "a reused generation makes last frame's side tables answer for this one"
         );
         self.repaint = repaint;
+        self.actuation = actuation;
         self.generation = generation;
         self.runs.clear();
         self.cells.clear();
@@ -154,6 +166,32 @@ impl Packet {
                 self.resolve_style(cell.style, tables);
             }
         }
+    }
+
+    /// Fill this packet from a frame's damaged runs, with nothing to say to the terminal besides
+    /// them.
+    ///
+    /// **The test door, and the reason it exists is that there is exactly one production caller of
+    /// [`pack`](Packet::pack).** Everything a frame carries goes in through one call so that nothing
+    /// can be forgotten there; a test packing a fixture to look at the cells has no mouse and no
+    /// caret, and threading a `Actuation::default()` through forty call sites would say nothing.
+    #[cfg(test)]
+    pub(crate) fn pack_cells(
+        &mut self,
+        runs: &[Run],
+        frame: &Surface,
+        tables: &Tables,
+        repaint: bool,
+        generation: u64,
+    ) {
+        self.pack(
+            runs,
+            frame,
+            tables,
+            repaint,
+            Actuation::default(),
+            generation,
+        );
     }
 
     /// Copy the bytes of a cluster handle into this packet, once per frame per handle.
@@ -262,6 +300,17 @@ impl Packet {
         self.repaint
     }
 
+    /// The mouse level and the caret this frame carries.
+    pub(crate) fn actuation(&self) -> Actuation {
+        self.actuation
+    }
+
+    /// Whether this packet carries no **cells**.
+    ///
+    /// It is deliberately not *whether this packet is worth writing*: a frame that damaged nothing
+    /// and moved the caret is empty by this measure and still has bytes to send. The serializer is
+    /// where the two are put together, and `Screen::present` is where a packet with neither is never
+    /// leased at all.
     pub(crate) fn is_empty(&self) -> bool {
         self.runs.is_empty()
     }
@@ -353,7 +402,7 @@ mod tests {
     fn a_packet_from_an_undamaged_frame_is_empty() {
         let mut p = Packet::new();
         let frame = Surface::new(8, 2);
-        p.pack(&runs_of(&frame), &frame, frame.tables(), false, 1);
+        p.pack_cells(&runs_of(&frame), &frame, frame.tables(), false, 1);
         assert!(p.is_empty());
         assert!(p.cells().is_empty());
     }
@@ -362,7 +411,7 @@ mod tests {
     fn a_packet_carries_the_damaged_cells_and_no_others() {
         let mut p = Packet::new();
         let frame = frame_with_two_spans();
-        p.pack(&runs_of(&frame), &frame, frame.tables(), false, 1);
+        p.pack_cells(&runs_of(&frame), &frame, frame.tables(), false, 1);
         assert_eq!(p.runs().len(), 2);
         assert_eq!(p.cells().len(), 4, "not the 300 cells of the row");
     }
@@ -371,7 +420,7 @@ mod tests {
     fn the_cells_are_concatenated_in_run_order() {
         let mut p = Packet::new();
         let frame = frame_with_two_spans();
-        p.pack(&runs_of(&frame), &frame, frame.tables(), false, 1);
+        p.pack_cells(&runs_of(&frame), &frame, frame.tables(), false, 1);
         let glyphs: String = p
             .cells()
             .iter()
@@ -384,7 +433,7 @@ mod tests {
     fn the_packet_carries_the_size_it_was_packed_at() {
         let mut p = Packet::new();
         let frame = Surface::new(300, 80);
-        p.pack(&runs_of(&frame), &frame, frame.tables(), false, 1);
+        p.pack_cells(&runs_of(&frame), &frame, frame.tables(), false, 1);
         assert_eq!(p.size(), (300, 80));
     }
 
@@ -411,7 +460,7 @@ mod tests {
         // never written into the cell.
         let mut p = Packet::new();
         let frame = hyperlinked_row();
-        p.pack(&runs_of(&frame), &frame, frame.tables(), false, 1);
+        p.pack_cells(&runs_of(&frame), &frame, frame.tables(), false, 1);
         let handle = p.cells()[0]
             .style
             .ext_handle()
@@ -425,7 +474,7 @@ mod tests {
     fn one_extended_style_is_copied_once_however_many_cells_carry_it() {
         let mut p = Packet::new();
         let frame = hyperlinked_row();
-        p.pack(&runs_of(&frame), &frame, frame.tables(), false, 1);
+        p.pack_cells(&runs_of(&frame), &frame, frame.tables(), false, 1);
         assert_eq!(p.cells().len(), 8);
         assert_eq!(p.exts.len(p.generation), 1);
         assert_eq!(p.links.len(p.generation), 1);
@@ -435,7 +484,7 @@ mod tests {
     fn a_packet_of_inline_cells_carries_no_extended_tables() {
         let mut p = Packet::new();
         let frame = frame_with_two_spans();
-        p.pack(&runs_of(&frame), &frame, frame.tables(), false, 1);
+        p.pack_cells(&runs_of(&frame), &frame, frame.tables(), false, 1);
         assert_eq!(
             p.exts.len(p.generation),
             0,
@@ -449,10 +498,10 @@ mod tests {
     fn packing_twice_replaces_rather_than_appends() {
         let mut p = Packet::new();
         let frame = frame_with_two_spans();
-        p.pack(&runs_of(&frame), &frame, frame.tables(), false, 1);
+        p.pack_cells(&runs_of(&frame), &frame, frame.tables(), false, 1);
         let mut second = Surface::new(300, 4);
         second.root().fill(Rect::new(0, 1, 3, 1), "#", Style::new());
-        p.pack(&runs_of(&second), &second, second.tables(), false, 2);
+        p.pack_cells(&runs_of(&second), &second, second.tables(), false, 2);
         assert_eq!(p.runs().len(), 1);
         assert_eq!(p.cells().len(), 3);
     }
@@ -461,10 +510,10 @@ mod tests {
     fn packing_a_plain_frame_after_an_extended_one_clears_the_side_tables() {
         let mut p = Packet::new();
         let extended = hyperlinked_row();
-        p.pack(&runs_of(&extended), &extended, extended.tables(), false, 1);
+        p.pack_cells(&runs_of(&extended), &extended, extended.tables(), false, 1);
         assert_eq!(p.exts.len(p.generation), 1);
         let plain = frame_with_two_spans();
-        p.pack(&runs_of(&plain), &plain, plain.tables(), false, 2);
+        p.pack_cells(&runs_of(&plain), &plain, plain.tables(), false, 2);
         assert_eq!(
             p.exts.len(p.generation),
             0,

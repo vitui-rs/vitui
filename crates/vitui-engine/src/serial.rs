@@ -646,9 +646,14 @@ impl Serializer {
         // can never outlive the quantiser that filled it.
         self.quant = Quantiser::for_terminal(caps);
         self.memo = None;
-        if packet.is_empty() {
-            return &self.out;
+        // **Before the frame, and outside its synchronised block.** A tracking level is a terminal
+        // mode rather than a picture, so it has nothing to be atomic with — and putting it first is
+        // what makes it arrive even on the frame that damaged nothing.
+        let actuation = packet.actuation();
+        if let Some((from, to)) = actuation.mouse {
+            crate::actuate::write_mouse(&mut self.out, from, to);
         }
+
         // A packet carries its own size so that a stale one can be refused on its own (spec §2).
         // Nothing can produce a stale one until ticket 22 brings the resize that makes sizes move,
         // so this is the debug-only assertion that shape of invariant gets rather than a runtime
@@ -659,12 +664,26 @@ impl Serializer {
             "a packet packed at one size is being written into a mirror of another"
         );
 
-        // Before anything is emitted: a sweep renumbered a table, so every handle this mirror
-        // recorded names an entry that has moved. Nothing about the *screen* changed — the cells
-        // still say the same thing — which is exactly why there is no damage to go with it and a
-        // flag is what carries it (spec §3).
+        // Before anything is emitted, **and before the cell-less early return below**: a sweep
+        // renumbered a table, so every handle this mirror recorded names an entry that has moved.
+        // Nothing about the *screen* changed — the cells still say the same thing — which is exactly
+        // why there is no damage to go with it and a flag is what carries it (spec §3).
+        //
+        // The placement is load-bearing since impl 21, and it was wrong for one commit. `repaint` is
+        // taken out of the `Screen`'s latch at pack time, so a packet that carries it has spent it;
+        // a frame with no cells is now reachable — a caret that moved with nothing else changing — and
+        // it can be the frame the flag lands on. Reading the flag after the early return would have
+        // dropped it silently, and the mirror would go on trusting handles a sweep had moved.
         if packet.repaint() {
             self.mirror.forget();
+        }
+
+        if packet.is_empty() {
+            // No cells, and something for the terminal anyway: a caret that moved, or a tracking
+            // level that changed. Nothing has opened a frame, so the caret's move is priced against
+            // a cursor position this serializer does not claim to know.
+            self.emit_caret(&actuation);
+            return &self.out;
         }
 
         // The scroll region, before a cell is considered: it moves the mirror, so the filter below
@@ -693,11 +712,53 @@ impl Serializer {
                 emit_osc8(&mut self.out, None);
                 self.link = LinkId::NONE;
             }
+            // **After the frame's last write and inside its block**, which is the only moment at
+            // which the caret's position is correct and a moment only the engine has (ADR 0005). The
+            // frame has just moved the terminal's cursor to wherever its last cell was, so a visible
+            // caret is put back here whether or not the application moved it — and in the case that
+            // matters it costs nothing, because that is exactly where the caret already is.
+            self.emit_caret(&actuation);
             if caps.sync_output() {
                 self.out.extend_from_slice(SYNC_END);
             }
+        } else {
+            // Every cell was filtered out, so the frame never opened. The caret still has to be
+            // answered, and there is no block to put it in.
+            self.emit_caret(&actuation);
         }
         &self.out
+    }
+
+    /// The caret: shape, then position, then visibility.
+    ///
+    /// The order is the one that cannot be seen going wrong. A shape set after the caret is shown
+    /// changes it under the eye; a caret shown before it is placed appears for one refresh where the
+    /// last write ended. **Nothing here blinks anything** — the terminal's own caret does that, in
+    /// the terminal's process, at the user's rate (ADR 0005).
+    ///
+    /// A move is emitted when the caret went somewhere, when it has just become visible, or when
+    /// this frame wrote a cell — and only then, which is what keeps a steady caret free.
+    fn emit_caret(&mut self, actuation: &crate::actuate::Actuation) {
+        // A frame that never opened never reset the cursor, and what is left in the field is the
+        // *previous* frame's last position. It is very probably still true — this thread owns the
+        // write direction and nothing else has written since — but `open_frame` establishes *a
+        // frame's first move is absolute* and a second rule for one case is a rule that will be
+        // wrong once. Five bytes on a caret that moved with nothing else changing.
+        if !self.frame_open {
+            self.cursor = None;
+            self.non_ascii_on_row = false;
+        }
+        if let Some(shape) = actuation.shape {
+            crate::actuate::write_shape(&mut self.out, shape);
+        }
+        if let Some(caret) = actuation.caret {
+            if actuation.moved || actuation.show == Some(true) || self.frame_open {
+                self.move_to(caret.x, caret.y, false);
+            }
+        }
+        if let Some(show) = actuation.show {
+            crate::actuate::write_visibility(&mut self.out, show);
+        }
     }
 
     /// The scroll region: `DECSTBM` + `SU`/`SD`, **verified before a byte is emitted**.
@@ -2066,7 +2127,7 @@ mod tests {
         let mut runs = Vec::new();
         frame.damage().for_each_run(|r| runs.push(r));
         let mut packet = Packet::new();
-        packet.pack(&runs, frame, frame.tables(), false, 1);
+        packet.pack_cells(&runs, frame, frame.tables(), false, 1);
         let (w, h) = frame.size();
         let mut s = Serializer::new(w, h);
         s.serialize(&packet, caps).to_vec()
@@ -2416,7 +2477,7 @@ mod tests {
         let mut packet = Packet::new();
         let mut runs = Vec::new();
         frame.damage().for_each_run(|r| runs.push(r));
-        packet.pack(&runs, &frame, frame.tables(), false, 1);
+        packet.pack_cells(&runs, &frame, frame.tables(), false, 1);
         let mut out = Vec::new();
         emit_sgr_delta(
             &mut out,
@@ -2503,7 +2564,7 @@ mod tests {
         let mut runs = Vec::new();
         f.damage().for_each_run(|r| runs.push(r));
         let mut packet = Packet::new();
-        packet.pack(&runs, &f, f.tables(), false, 1);
+        packet.pack_cells(&runs, &f, f.tables(), false, 1);
         let mut s = Serializer::new(8, 2);
         s.serialize(&packet, &modern());
         assert_eq!(s.mirror().cell(3, 1), f.row(1)[3]);
@@ -2593,7 +2654,7 @@ mod tests {
             frame.damage().for_each_run(|r| runs.push(r));
             let generation = self.next_generation();
             self.packet
-                .pack(&runs, frame, frame.tables(), false, generation);
+                .pack_cells(&runs, frame, frame.tables(), false, generation);
             let out = self.serializer.serialize(&self.packet, &self.caps).to_vec();
             frame.damage_mut().clear();
             out
@@ -2679,7 +2740,7 @@ mod tests {
         frame.damage().for_each_run(|r| runs.push(r));
         let generation = f.next_generation();
         f.packet
-            .pack(&runs, &frame, frame.tables(), true, generation);
+            .pack_cells(&runs, &frame, frame.tables(), true, generation);
         let after = f.serializer.serialize(&f.packet, &f.caps).to_vec();
         assert!(
             after.ends_with(b"abcdefgh"),
@@ -3274,7 +3335,7 @@ mod tests {
             let mut runs = Vec::new();
             f.damage().for_each_run(|r| runs.push(r));
             let mut packet = Packet::new();
-            packet.pack(&runs, f, f.tables(), false, 1);
+            packet.pack_cells(&runs, f, f.tables(), false, 1);
             let (w, h) = f.size();
             let mut s = Serializer::new(w, h);
             let bytes = s.serialize(&packet, &modern()).len();
@@ -3575,7 +3636,7 @@ mod tests {
         let mut runs = Vec::new();
         f.damage().for_each_run(|r| runs.push(r));
         let mut packet = Packet::new();
-        packet.pack(&runs, &f, f.tables(), false, 1);
+        packet.pack_cells(&runs, &f, f.tables(), false, 1);
         let mut s = Serializer::new(W, H);
         let caps = modern();
         let at = std::time::Instant::now();

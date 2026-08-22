@@ -68,3 +68,26 @@ requirement 11's idle; the shape choices in `Cursor` cover the legitimate part o
 
 **Neither addition is a text-shaping API.** Segmentation and width, not bidi, not line breaking, not
 shaping. RTL is out of scope for this map and this ADR does not quietly let it in.
+
+## Amended by implementation ticket 21
+
+**"A frame that does not move the caret pays nothing" was nearly right, and the gap is the frame's own
+writes.** A frame that emitted any cell has moved the terminal's cursor to wherever its last cell
+was, so a visible caret has to be re-placed by that frame whether or not the application moved it —
+there is nothing else that will, and the caret would otherwise sit at the end of the last run until
+something happened. What survives of the sentence is the byte count rather than the write: the caret
+is placed with the serializer's own shortest-move pricing, and in the case that matters — a character
+typed into a field, with the caret after it — the move the caret needs is the move the write already
+made, and it is **zero bytes**. §8's 29-byte caret frame is 29 bytes with a caret on it.
+
+The exact statement is: a frame that emitted nothing and did not move the caret pays nothing, and
+does not exist — `present` refuses it before it leases a packet. A frame that emitted cells pays for
+the caret only where the caret is not already where the cursor ended up.
+
+**`DECSCUSR` conflates shape with blink, so "the shape choices in `Cursor` cover the legitimate part
+of that want" needed a fourth choice.** There is one escape for the caret's appearance and its
+parameters pair each shape with a blink state — 1/3/5 blinking, 2/4/6 steady — so *choose a shape* and
+*leave the blink to the terminal* are not two things the wire can say. `CursorShape` therefore names
+the three blinking spellings and `Terminal`, which is `Ps = 0`: whatever the person at the terminal
+configured, and the default. Steady variants are not offered, because an application asking for one
+is overruling an answer that user already gave.

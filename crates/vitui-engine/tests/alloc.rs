@@ -44,8 +44,8 @@ use std::time::Instant;
 
 use vitui_alloc_probe::{CountingAllocator, assert_no_alloc};
 use vitui_engine::{
-    Clock, Color, ColorDepth, Config, Engine, InputConfig, LayerId, Mix, Output, Overrides, Rect,
-    Restyle, Screen, Style,
+    Clock, Color, ColorDepth, Config, Cursor, CursorShape, Engine, InputConfig, LayerId, Mix,
+    MouseMode, Output, Overrides, Rect, Restyle, Screen, Style,
 };
 
 #[global_allocator]
@@ -173,6 +173,42 @@ fn the_steady_state_allocates_nothing() {
     a_settled_operator_over_a_hyperlinked_screen_allocates_nothing();
     the_operator_reaches_the_wire_at_the_depth_the_gate_pins();
     a_keystroke_allocates_nothing();
+    a_caret_and_a_tracking_level_allocate_nothing();
+}
+
+/// A moving caret and a `set_mouse` after every frame allocate nothing.
+///
+/// Both are on the frame path from impl 21 on — the caret rides every packet, and the runtime calls
+/// `set_mouse` after every frame because the level is a `max` over what the frame's components
+/// declared. So both are inside the window the budget's *zero allocations during frame composition*
+/// is about, and neither had a gate until this one.
+///
+/// The mouse call is the unchanged one on purpose: what it costs is what a runtime actually pays, and
+/// the value being unchanged is the case the actuator is designed around rather than a weaker test.
+fn a_caret_and_a_tracking_level_allocate_nothing() {
+    let (mut screen, id) = screen();
+    let row: String = std::iter::repeat_n('c', W as usize).collect();
+
+    for _ in 0..2 {
+        full_screen(&mut screen, id, &row, Style::new());
+        screen.set_cursor(Some(Cursor::default()));
+        screen.present();
+    }
+
+    assert_no_alloc(|| {
+        for i in 0..1_000u32 {
+            let y = (i % H as u32) as u16;
+            let mut view = screen.layers().view(id).expect("the layer is still there");
+            view.text(0, y as i32, &row, Style::new());
+            screen.set_cursor(Some(Cursor {
+                x: (i % W as u32) as u16,
+                y,
+                shape: CursorShape::Bar,
+            }));
+            screen.set_mouse(MouseMode::Motion);
+            assert!(screen.present().submitted, "frame {i} had nothing to say");
+        }
+    });
 }
 
 /// A keystroke, from the byte the terminal sent to the event the app thread takes, allocates

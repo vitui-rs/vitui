@@ -548,6 +548,16 @@ pub(crate) struct Private {
     pub(crate) attrs_dropped: u64,
     /// When this terminal force-flushes an open synchronised-output block.
     pub(crate) sync_flush: Option<SyncFlush>,
+    /// The kitty enhancement flags that survived detection's push, and **zero when the terminal
+    /// answered the query with nothing at all**.
+    ///
+    /// It is here rather than public for ADR 0010's reason — raw kitty flags on the public surface
+    /// would be crossterm leaking through a different door, and the four booleans above are what
+    /// somebody can act on. It exists at all because ticket 21's negotiation has one thing to decide
+    /// that the booleans cannot answer: *is there a protocol here to push to?* A terminal that
+    /// implements the encoding and none of the stack answers `CSI ? u` with a flag word of zero, and
+    /// the four booleans are then all false for two different reasons.
+    pub(crate) kitty_flags: u32,
 }
 
 /// What is true about the terminal on the other end.
@@ -699,6 +709,7 @@ impl Capabilities {
         let _ = writeln!(out, "  -- not public, nobody above can act on these --");
         let _ = writeln!(out, "  sync_output       {}", p.sync_output);
         let _ = writeln!(out, "  decslrm           {}", p.decslrm);
+        let _ = writeln!(out, "  kitty_flags       {:#07b}", p.kitty_flags);
         let _ = writeln!(out, "  legacy_sgr        {}", p.legacy_sgr);
         let _ = writeln!(out, "  underline_colour  {}", p.underlines.word());
         let _ = writeln!(out, "  width             {}", p.width.word());
@@ -860,6 +871,56 @@ impl Capabilities {
         )
     }
 
+    /// The capabilities of a terminal whose **input** facts are these, for a gate no `Overrides` can
+    /// reach.
+    ///
+    /// The eight input axes are refused an `Overrides` field, and the refusal is a decision with
+    /// teeth rather than an omission: *a declaration cannot make an event arrive*, and a declared
+    /// `key_release` on a terminal that sends no releases puts a component in front of a key it
+    /// believes is still held — which is exactly the defect ADR 0007 refused the uniform keyboard
+    /// model for. See architecture ticket 22.
+    ///
+    /// Impl 21 is where that ran into its own consequence: the actuator and the startup negotiation
+    /// **do** read input facts, and every one of their arms is unreachable from a caller-supplied
+    /// sink, where nothing is detected and all eight are false. So the arms come from **inside** the
+    /// crate, through a synthetic [`Detected`] put through [`assemble`] — the same door
+    /// [`on_the_wire`](Capabilities::on_the_wire) already uses for the two wire axes nobody at the
+    /// terminal can name. Arch 22 named that door for exactly this case; what it did not foresee is
+    /// which axes would need it.
+    #[cfg(test)]
+    pub(crate) fn with_input(
+        mouse: bool,
+        mouse_motion: bool,
+        focus_events: bool,
+        bracketed_paste: bool,
+        kitty_flags: u32,
+    ) -> Capabilities {
+        let answer = |on: bool| if on { 2 } else { NOT_RECOGNISED };
+        assemble(
+            Overrides::default(),
+            &Env::default(),
+            Ground::Tty,
+            &Detected {
+                answered: true,
+                kitty_flags: (kitty_flags != 0).then_some(kitty_flags),
+                modes: vec![
+                    (MODE_MOUSE, answer(mouse)),
+                    (MODE_MOUSE_MOTION, answer(mouse_motion)),
+                    (MODE_FOCUS, answer(focus_events)),
+                    (MODE_BRACKETED_PASTE, answer(bracketed_paste)),
+                ],
+                ..Detected::default()
+            },
+            Quirks::default(),
+        )
+    }
+
+    /// The kitty enhancement flags that survived detection's push. See
+    /// [`Private::kitty_flags`](Private).
+    pub(crate) fn kitty_flags(&self) -> u32 {
+        self.private.kitty_flags
+    }
+
     /// Which table decides a cluster's width.
     #[allow(dead_code)]
     pub(crate) fn width(&self) -> WidthSource {
@@ -959,6 +1020,7 @@ pub(crate) fn assemble(
             palette: detected.palette,
             attrs_dropped: 0,
             sync_flush: None,
+            kitty_flags: detected.kitty_flags.unwrap_or(0),
         },
     };
 
@@ -981,6 +1043,7 @@ pub(crate) fn assemble(
         caps.bracketed_paste = false;
         caps.private.sync_output = false;
         caps.private.decslrm = false;
+        caps.private.kitty_flags = 0;
     }
 
     // And levels 1 to 4 on top of all of it.

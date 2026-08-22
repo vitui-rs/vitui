@@ -19,7 +19,7 @@
 //! straight-line program — draw, present, assert on the sink — with no condvar, no join, no timeout
 //! and no flake.
 //!
-//! `next_event` and the caret arrive with tickets 20 and 21. The parking point is here since ticket
+//! The parking point is here since ticket
 //! 19: [`Screen::wait`] is the app thread's only blocking call, the frame clock gates it rather than
 //! `present` (ADR 0004), and *the renderer is free* reaches it through [`crate::clock::WakeSource`]
 //! rather than through the mailbox's own condvar — one thread cannot park on two of them.
@@ -59,13 +59,14 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Instant;
 
+use crate::actuate::{Actuators, Cursor};
 use crate::caps::{Capabilities, Env, Ground, Overrides, assemble};
 use crate::clock::{FrameClock, Wake, WakeSource};
 use crate::damage::Run;
 use crate::detect::{CEILING, Tty, detect};
 use crate::exts::LinkId;
 use crate::handoff::{Lease, Mailbox, TerminalSize};
-use crate::input::{Event, InputConfig, InputDiagnostics};
+use crate::input::{Event, InputConfig, InputDiagnostics, MouseMode};
 use crate::layer::LayerStack;
 use crate::packet::Packet;
 use crate::quirks::Quirks;
@@ -198,10 +199,11 @@ pub struct Config {
     pub overrides: Overrides,
     /// What the terminal is switched on for, as a **floor** rather than a setting.
     ///
-    /// See [`InputConfig`]. Only [`InputConfig::paste_limit`] is load-bearing today: the escape
-    /// sequences that ask a terminal for mouse tracking, focus reporting and bracketed paste are
-    /// ticket 21's, and until they go out the parser handles those events without ever being sent
-    /// one.
+    /// See [`InputConfig`]. Every field is load-bearing: the escape sequences that ask a terminal
+    /// for mouse tracking, focus reporting and bracketed paste go out at `attach`, before the render
+    /// thread exists and before anything has drawn — which is what makes the mouse level a *floor*
+    /// rather than a setting, since the union of what the frame's components want is known only after
+    /// a draw. See [`crate::actuate::negotiation`].
     pub input: InputConfig,
 }
 
@@ -291,6 +293,29 @@ impl Engine {
     /// [`AttachError::NoAnswer`] when standard output is a terminal and **nothing at all** came
     /// back inside the ceiling.
     pub fn attach(self) -> Result<(Screen, WakeHandle), AttachError> {
+        self.attach_as(None)
+    }
+
+    /// Attach with the capabilities handed in rather than detected.
+    ///
+    /// **The door arch 22 named for the axes it refused a field**, one ticket further along than it
+    /// expected: impl 21's actuator and negotiation read the eight *input* facts, and every arm of
+    /// both is unreachable from a caller-supplied sink, where nothing is detected and all eight are
+    /// false. `Overrides` may not carry them — *a declaration cannot make an event arrive*, ADR 0007
+    /// — so the arms come from inside the crate, exactly as `sync_output` and the ConPTY underline
+    /// form already do. See [`Capabilities::with_input`](crate::Capabilities).
+    #[cfg(test)]
+    pub(crate) fn attach_declaring(
+        self,
+        caps: Capabilities,
+    ) -> Result<(Screen, WakeHandle), AttachError> {
+        self.attach_as(Some(caps))
+    }
+
+    fn attach_as(
+        self,
+        declared: Option<Capabilities>,
+    ) -> Result<(Screen, WakeHandle), AttachError> {
         let env = Env::from_process();
         let headless = matches!(self.config.output, Output::Sink(_));
         let mut tty = if headless { None } else { Tty::open() };
@@ -309,7 +334,8 @@ impl Engine {
             _ => crate::caps::Detected::default(),
         };
         let quirks = Quirks::lookup(detected.version.as_deref(), &env);
-        let caps = assemble(self.config.overrides, &env, ground, &detected, quirks);
+        let caps = declared
+            .unwrap_or_else(|| assemble(self.config.overrides, &env, ground, &detected, quirks));
 
         // A terminal that is there is asked its size, which is the one question with no escape
         // sequence in the batch because the kernel already knows. A zero falls back rather than
@@ -362,6 +388,8 @@ impl Engine {
             input: Arc::clone(&input),
             generation: 0,
             coalesced: 0,
+            actuators: Actuators::new(&self.config.input, &caps),
+            input_config: self.config.input,
             caps,
             repaint: false,
             tty,
@@ -553,6 +581,15 @@ pub struct Screen {
     coalesced: u32,
     /// What the terminal can do, sampled once during `attach` and never again.
     caps: Capabilities,
+    /// What [`Screen::set_mouse`] and [`Screen::set_cursor`] were told, and what the last submitted
+    /// packet carried. See [`crate::actuate`].
+    actuators: Actuators,
+    /// What the terminal was switched on for at startup, kept for the epilogue that switches it off.
+    ///
+    /// A copy of [`Config::input`] rather than a reference to it: `Config` is consumed by `attach`,
+    /// and the two questions the epilogue asks of it — *was focus reporting declared* and *was paste*
+    /// — have no other home.
+    input_config: InputConfig,
     /// Whether a sweep has renumbered a handle table since the last packet went out.
     ///
     /// Latched here rather than passed straight through, because the sweep and the frame are not the
@@ -671,8 +708,9 @@ impl Screen {
     /// assumption that nothing wrapped, and a serializer that assumed it without asking for it would
     /// be right on most terminals and silently wrong on one.
     fn begin_session(&mut self) {
+        let bytes = crate::actuate::negotiation(&self.input_config, &self.caps);
         let sink = &mut self.inline_renderer_mut().sink;
-        write_frame(&mut **sink, DISABLE_AUTO_WRAP);
+        write_frame(&mut **sink, &bytes);
     }
 
     /// Give back what [`begin_session`](Screen::begin_session) took.
@@ -685,8 +723,10 @@ impl Screen {
     /// Nothing at all when the render thread panicked and took the sink with it. **Ticket 22 owns
     /// what the terminal is left in** after that; here there is no longer anywhere to write.
     fn end_session(&mut self) {
+        let bytes =
+            crate::actuate::restoration(&self.input_config, &self.caps, self.actuators.mouse());
         if let Some(renderer) = self.renderer.as_mut() {
-            write_frame(&mut *renderer.sink, ENABLE_AUTO_WRAP);
+            write_frame(&mut *renderer.sink, &bytes);
         }
     }
 
@@ -929,6 +969,82 @@ impl Screen {
         self.frame_clock.set_rate(hz);
     }
 
+    /// How much mouse reporting the terminal is switched on for.
+    ///
+    /// **The engine's entire mouse actuator**, and it carries an obligation the spec states rather
+    /// than implies: *it is idempotent, and free when the value has not changed.* That is not
+    /// politeness, it is load-bearing — the runtime calls this after every frame, and a naive
+    /// implementation writes an escape sequence per frame for ever. Free here means free in the
+    /// strong sense: an unchanged level does not merely emit nothing, it does not cause a frame.
+    ///
+    /// # A `max`, not a union, and the caller is the one that takes it
+    ///
+    /// [`MouseMode`] is totally ordered — `Off < Buttons < Drag < Motion`, modes 1000, 1002 and
+    /// 1003 — because each level strictly contains the one below. So combining what several
+    /// components want is a `max` over what they declared, and that `max` is the runtime's to take:
+    /// there is no mount, a component is a function, and its declaration rides the draw. The engine
+    /// receives one level per frame and has no idea how many components it came from.
+    ///
+    /// [`Config::input`] is the **floor** under it. The union is known only after a draw, so the
+    /// frame that first paints a hover-wanting modal did not yet have tracking on; an application
+    /// that knows it wants the mouse says so once and has no blind frame, and one that does not pays
+    /// nothing.
+    ///
+    /// # A terminal without a mouse takes this silently
+    ///
+    /// Clamp-and-discard, never a `Result`. An application that did not ask
+    /// [`capabilities`](Screen::capabilities) will not handle an error usefully, and one that did
+    /// already knows. SGR encoding is switched on with the mouse and never separately — without it
+    /// coordinates stop at column 223, and the performance budget is written against 300 columns.
+    ///
+    /// ```
+    /// use vitui_engine::{Config, Engine, MouseMode, Output};
+    ///
+    /// let (mut screen, _wake) = Engine::new(Config {
+    ///     output: Output::Sink(Box::new(Vec::new())),
+    ///     ..Default::default()
+    /// })
+    /// .attach()
+    /// .unwrap();
+    /// // A sink is not a terminal, so it has no mouse, and this is silent rather than an error.
+    /// screen.set_mouse(MouseMode::Motion);
+    /// ```
+    pub fn set_mouse(&mut self, mode: MouseMode) {
+        self.actuators.set_mouse(mode);
+    }
+
+    /// Where the caret is, in **screen** coordinates, or `None` for no caret.
+    ///
+    /// Applied by [`present`](Screen::present) after the frame's last write, **which is the only
+    /// moment at which it is correct and a moment only the engine has** (ADR 0005): the frame has
+    /// just moved the terminal's cursor to wherever its last cell was. The runtime translates from
+    /// layer coordinates, which it can, because it brought the layer's rectangle.
+    ///
+    /// Blinking is the terminal's, at the rate its user configured. **There is no software caret
+    /// anywhere in this crate**, and that is a measurement rather than a preference: one `restyle` of
+    /// one cell, toggled, costs two wakeups a second for as long as anything has focus — 7 200 an
+    /// hour on a screen where nothing is happening — so ticket 19's measured idle would not survive a
+    /// text field, and a form is not an exotic component. The terminal's own caret is also the only
+    /// one a screen reader or an IME can follow.
+    ///
+    /// A caret off the edge of the screen is clamped, not refused.
+    ///
+    /// ```
+    /// use vitui_engine::{Config, Cursor, CursorShape, Engine, Output};
+    ///
+    /// let (mut screen, _wake) = Engine::new(Config {
+    ///     output: Output::Sink(Box::new(Vec::new())),
+    ///     ..Default::default()
+    /// })
+    /// .attach()
+    /// .unwrap();
+    /// screen.set_cursor(Some(Cursor { x: 12, y: 3, shape: CursorShape::Bar }));
+    /// screen.set_cursor(None);
+    /// ```
+    pub fn set_cursor(&mut self, cursor: Option<Cursor>) {
+        self.actuators.set_cursor(cursor, self.size);
+    }
+
     /// Composite the damaged rectangles, pack them, serialise them, and write once.
     ///
     /// The only exit. Damage is marked by the drawing verbs and cleared here, and neither is
@@ -959,11 +1075,20 @@ impl Screen {
         }
         self.layers.take_damage_into(&mut self.frame);
 
+        // What the two setters have to say, and it is asked here so that the idle path below can be
+        // about *nothing to do* rather than about *no cells to write*.
+        let actuation = self.actuators.pending();
+
         // The idle path, and it is one scan of a couple of summary words rather than of the bitset:
         // an idle frame costs nanoseconds and clears nothing. **Nothing is owed here**, and that is
         // the whole difference from the `Lease::Busy` arm below: there is no damage waiting for a
         // frame, so `wait` has nothing to come back for and parks indefinitely.
-        if self.frame.damage().is_empty() {
+        //
+        // A quiet actuation is what makes *free when unchanged* free in the strong sense: an
+        // unchanged `set_mouse` after every frame does not merely emit nothing, it does not get
+        // here. A caret that moved with nothing else changing is the other arm — no damage, a frame
+        // to send, and it is a handful of bytes.
+        if self.frame.damage().is_empty() && actuation.is_quiet() {
             return self.not_submitted(false);
         }
 
@@ -1027,6 +1152,7 @@ impl Screen {
             &self.frame,
             self.layers.tables(),
             std::mem::take(&mut self.repaint),
+            actuation,
             self.generation,
         );
 
@@ -1067,6 +1193,11 @@ impl Screen {
         // raises the flag. Without it, an owed frame could be recorded against a stale `false` and
         // the app thread would park on a renderer that had already let go.
         self.wakes.frame_submitted();
+        // **After the last early return and before the submit.** What the setters asked for is owed
+        // until a packet carrying it actually goes out: a frame discarded for a resize leaves the
+        // mouse level and the caret exactly as they were, to be carried by the frame that replaces
+        // it, in the same shape as `repaint` above.
+        self.actuators.handed();
         self.mailbox.submit(packet);
         // The gap starts at the submit, not at the write: what is being paced is how often frames are
         // handed on, and §12's refusal 7 is that the engine cannot say when one was shown.
@@ -1152,6 +1283,9 @@ impl Screen {
     /// [`Screen::next_event`] applies here on its way past.
     pub(crate) fn resize(&mut self, w: u16, h: u16) {
         self.size = (w, h);
+        // The caret was clamped to the screen it was set on. See [`Actuators::resized`] for why the
+        // clamp is the only part of it that needs redoing.
+        self.actuators.resized(self.size);
         self.frame = Surface::new(w, h);
         self.frame.damage_mut().mark_all();
         self.runs = Vec::with_capacity(h as usize * 4);
@@ -1535,19 +1669,6 @@ fn merge_touching(runs: &mut Vec<Run>) {
     runs.truncate(kept + 1);
 }
 
-/// Write the whole frame, retrying what the kernel would not take.
-///
-/// **The frame is never split on purpose.** A synchronised-output block spanning two `write` calls
-/// is still one block to the terminal; a frame split into two blocks tears. This loop is only about
-/// the kernel's buffer being smaller than the frame (spec §8).
-///
-/// A write error is dropped on the floor here. Ticket 22 owns shutdown, and it is what will have
-/// somewhere to put one.
-/// DECAWM off. Once, on entering the alt screen (spec §8).
-const DISABLE_AUTO_WRAP: &[u8] = b"\x1b[?7l";
-/// DECAWM on, which is what the terminal had before this process took it.
-const ENABLE_AUTO_WRAP: &[u8] = b"\x1b[?7h";
-
 impl Drop for Screen {
     fn drop(&mut self) {
         self.reclaim_renderer();
@@ -1622,6 +1743,14 @@ fn render_loop(mailbox: &Mailbox, wakes: &WakeSource, renderer: &mut Renderer) {
     }
 }
 
+/// Write the whole frame, retrying what the kernel would not take.
+///
+/// **The frame is never split on purpose.** A synchronised-output block spanning two `write` calls
+/// is still one block to the terminal; a frame split into two blocks tears. This loop is only about
+/// the kernel's buffer being smaller than the frame (spec §8).
+///
+/// A write error is dropped on the floor here. Ticket 22 owns shutdown, and it is what will have
+/// somewhere to put one.
 fn write_frame(sink: &mut (dyn Write + Send), bytes: &[u8]) {
     let mut at = 0;
     while at < bytes.len() {
@@ -1638,6 +1767,7 @@ fn write_frame(sink: &mut (dyn Write + Send), bytes: &[u8]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::actuate::{CursorShape, DISABLE_AUTO_WRAP, ENABLE_AUTO_WRAP};
 
     /// A `Config` that is the default in every way **except that it reaches for no terminal**.
     ///
@@ -1655,6 +1785,277 @@ mod tests {
             output: Output::Sink(Box::new(Vec::new())),
             ..Config::default()
         }
+    }
+
+    /// A terminal that can do everything, so that a gate about what was *asked for* is not a gate
+    /// about what could be.
+    fn everything() -> Capabilities {
+        Capabilities::with_input(true, true, true, true, crate::caps::KITTY_ALL)
+    }
+
+    /// **The startup negotiation, asserted by what is written before any frame exists.**
+    ///
+    /// The kitty flags go as one set; mouse tracking, focus reporting and bracketed paste go only
+    /// when the application declared them; the caret is hidden because nothing has asked for one.
+    /// Read through the terminal model rather than as a byte string, because what matters is the
+    /// state the terminal is left in.
+    #[test]
+    fn the_startup_negotiation_asks_for_what_was_declared_and_nothing_else() {
+        // Nothing declared.
+        let quiet = crate::testing::Harness::declaring(8, 1, everything(), InputConfig::default());
+        assert_eq!(
+            quiet.terminal().modes(),
+            Vec::<u32>::new(),
+            "nothing asked for"
+        );
+        assert_eq!(
+            quiet.terminal().kitty(),
+            [crate::caps::KITTY_ALL],
+            "the flags cost nothing in idle and go as one set"
+        );
+        assert_eq!(
+            quiet.terminal().caret(),
+            None,
+            "no caret until one is asked for"
+        );
+
+        // Everything declared. **Focus reporting is opt-in**, which is what the pair of harnesses
+        // says and one could not.
+        let loud = crate::testing::Harness::declaring(
+            8,
+            1,
+            everything(),
+            InputConfig {
+                mouse: MouseMode::Drag,
+                focus: true,
+                paste: true,
+                ..InputConfig::default()
+            },
+        );
+        assert_eq!(loud.terminal().modes(), vec![1002, 1004, 1006, 2004]);
+    }
+
+    /// **A subset that stuck is still pushed as the whole set**, per kitty's own instruction that
+    /// implementing part of the stack makes no sense.
+    #[test]
+    fn the_kitty_flags_are_never_cherry_picked_to_what_survived() {
+        let partial = Capabilities::with_input(false, false, false, false, 0b0_0011);
+        let h = crate::testing::Harness::declaring(8, 1, partial, InputConfig::default());
+        assert_eq!(h.terminal().kitty(), [crate::caps::KITTY_ALL]);
+    }
+
+    /// **`Config::input` is a floor**: a declared level is active on the very first frame, before
+    /// anything has drawn.
+    ///
+    /// The frame that first paints a hover-wanting modal did not yet have tracking on, which is the
+    /// whole reason a floor exists — so the assertion is taken *before* a single drawing verb has run.
+    #[test]
+    fn a_declared_mouse_level_is_active_before_anything_has_drawn() {
+        let h = crate::testing::Harness::declaring(
+            8,
+            1,
+            everything(),
+            InputConfig {
+                mouse: MouseMode::Motion,
+                ..InputConfig::default()
+            },
+        );
+        assert_eq!(h.terminal().modes(), vec![1003, 1006], "no blind frame");
+        assert!(
+            String::from_utf8_lossy(&h.prologue()).contains("?1006h"),
+            "SGR encoding arrives with the mouse, or a press past column 223 is unreportable"
+        );
+    }
+
+    /// **A terminal without a mouse takes `set_mouse` silently**, and returns nothing.
+    ///
+    /// Clamp-and-discard, never a `Result`: an application that did not ask `capabilities` will not
+    /// handle an error usefully, and one that did already knows.
+    #[test]
+    fn set_mouse_on_a_terminal_without_a_mouse_is_silent() {
+        let mut h = crate::testing::Harness::declaring(
+            8,
+            1,
+            Capabilities::with_input(false, false, false, false, 0),
+            InputConfig {
+                mouse: MouseMode::Motion,
+                ..InputConfig::default()
+            },
+        );
+        assert_eq!(
+            h.terminal().modes(),
+            Vec::<u32>::new(),
+            "nothing was asked for"
+        );
+        // The signature is `()`, so this line is the assertion that there is nothing to handle.
+        let () = h.screen.set_mouse(MouseMode::Motion);
+        assert!(!h.screen.present().submitted, "and it caused no frame");
+        assert_eq!(h.bytes_written(), 0);
+    }
+
+    /// **The caret is applied after the frame's last write**, asserted by byte order in the sink.
+    ///
+    /// It is the only moment at which it is correct: the frame has just moved the terminal's cursor
+    /// to wherever its last cell was (ADR 0005).
+    #[test]
+    fn the_caret_is_applied_after_the_frames_last_write() {
+        let mut h = crate::testing::Harness::new(20, 2);
+        let id = h
+            .screen
+            .layers()
+            .add_content(0, crate::geom::Rect::new(0, 0, 20, 2), true);
+        h.screen
+            .layers()
+            .view(id)
+            .unwrap()
+            .text(0, 1, "hello", crate::style::Style::new());
+        h.screen.set_cursor(Some(Cursor {
+            x: 0,
+            y: 0,
+            shape: CursorShape::Bar,
+        }));
+        h.present();
+
+        let wire = h.wire();
+        let seen = String::from_utf8_lossy(&wire).replace('\x1b', "^[");
+        // Shape, then position, then visibility, and all three after the last cell. The order is the
+        // one that cannot be seen going wrong: a shape set after the caret is shown changes it under
+        // the eye, and a caret shown before it is placed appears where the last write ended.
+        assert!(
+            seen.ends_with("^[[5 q^[[1;1H^[[?25h"),
+            "the caret is the last thing the frame says: {seen}"
+        );
+        assert!(
+            seen.find("hello").expect("the cells went out") < seen.rfind("^[[5 q").unwrap(),
+            "and the cells are before it: {seen}"
+        );
+        assert_eq!(h.terminal().caret(), Some((0, 0)));
+        assert_eq!(
+            h.terminal().caret_shape(),
+            5,
+            "a blinking bar is DECSCUSR 5"
+        );
+    }
+
+    /// A caret that moved with nothing else changing is still a frame, and hiding it is another.
+    ///
+    /// The other half of *free when unchanged*: unchanged is free, and changed is not silently
+    /// dropped because no cell moved.
+    #[test]
+    fn a_caret_that_moved_with_nothing_else_changing_is_a_frame_of_its_own() {
+        let mut h = crate::testing::Harness::new(20, 2);
+        let id = h
+            .screen
+            .layers()
+            .add_content(0, crate::geom::Rect::new(0, 0, 20, 2), true);
+        h.screen
+            .layers()
+            .view(id)
+            .unwrap()
+            .text(0, 0, "x", crate::style::Style::new());
+        h.screen.set_cursor(Some(Cursor::default()));
+        h.present();
+
+        h.screen.set_cursor(Some(Cursor {
+            x: 7,
+            y: 1,
+            shape: CursorShape::Terminal,
+        }));
+        assert!(
+            h.present().submitted,
+            "no damage, and still a frame to send"
+        );
+        assert_eq!(h.terminal().caret(), Some((7, 1)));
+
+        h.screen.set_cursor(None);
+        assert!(h.present().submitted);
+        assert_eq!(h.terminal().caret(), None);
+
+        assert!(!h.present().submitted, "and then nothing at all");
+    }
+
+    /// A caret set on a screen that then shrank is clamped to the screen it is on, not left off it.
+    ///
+    /// Nothing else about it moves: the terminal's `DECTCEM` and `DECSCUSR` survive a reflow, and its
+    /// cursor position does not need to, because a resize damages every cell and the frame that
+    /// follows re-places the caret against a mirror that knows nothing.
+    #[test]
+    fn a_caret_is_reclamped_when_the_screen_shrinks_under_it() {
+        let mut h = crate::testing::Harness::new(40, 8);
+        let id = h
+            .screen
+            .layers()
+            .add_content(0, crate::geom::Rect::new(0, 0, 40, 8), true);
+        h.screen.set_cursor(Some(Cursor {
+            x: 39,
+            y: 7,
+            shape: CursorShape::Block,
+        }));
+        h.present();
+        assert_eq!(h.terminal().caret(), Some((39, 7)));
+
+        h.resize(10, 2);
+        h.screen
+            .layers()
+            .set_rect(id, crate::geom::Rect::new(0, 0, 10, 2));
+        h.present();
+        assert_eq!(
+            h.terminal().caret(),
+            Some((9, 1)),
+            "clamped, not off the screen"
+        );
+        assert_eq!(h.terminal().caret_shape(), 1, "and still a block");
+    }
+
+    /// A frame discarded for a resize leaves the caret and the mouse **owed**, in the same shape as
+    /// `repaint`: what the setters asked for is not spent until a packet carrying it goes out.
+    #[test]
+    fn a_frame_discarded_for_a_resize_leaves_the_setters_owed() {
+        let mut h = crate::testing::Harness::declaring(20, 2, everything(), InputConfig::default());
+        let id = h
+            .screen
+            .layers()
+            .add_content(0, crate::geom::Rect::new(0, 0, 20, 2), true);
+        h.screen
+            .layers()
+            .view(id)
+            .unwrap()
+            .text(0, 0, "x", crate::style::Style::new());
+        h.screen.set_mouse(MouseMode::Buttons);
+        h.screen.resize_during_next_frame(20, 2);
+        // The size does not actually move, so nothing is discarded — this is the control, and it is
+        // what says the assertion below is about the discard rather than about the setter.
+        assert!(h.screen.present().submitted);
+        assert_eq!(h.terminal().modes(), Vec::<u32>::new(), "not replayed yet");
+
+        let mut h = crate::testing::Harness::declaring(20, 2, everything(), InputConfig::default());
+        let id = h
+            .screen
+            .layers()
+            .add_content(0, crate::geom::Rect::new(0, 0, 20, 2), true);
+        h.screen
+            .layers()
+            .view(id)
+            .unwrap()
+            .text(0, 0, "x", crate::style::Style::new());
+        h.screen.set_mouse(MouseMode::Buttons);
+        h.screen.resize_during_next_frame(10, 1);
+        let discarded = h.screen.present();
+        assert!(discarded.discarded_for_resize && !discarded.submitted);
+        assert_eq!(h.bytes_written(), 0, "nothing reached the wire");
+
+        // The screen catches up, and the level the discarded frame was carrying is still owed.
+        h.resize(10, 1);
+        h.screen
+            .layers()
+            .set_rect(id, crate::geom::Rect::new(0, 0, 10, 1));
+        h.screen
+            .layers()
+            .view(id)
+            .unwrap()
+            .text(0, 0, "x", crate::style::Style::new());
+        assert!(h.present().submitted);
+        assert_eq!(h.terminal().modes(), vec![1000, 1006]);
     }
 
     /// A resize is applied on the way past, and the application still receives it.
@@ -1984,7 +2385,11 @@ mod tests {
             .expect("attaching to a sink cannot fail");
 
             let prologue = recording.lock().unwrap().bytes.clone();
-            assert_eq!(prologue, DISABLE_AUTO_WRAP, "before any frame");
+            // First, and before any frame. What follows it is ticket 21's negotiation, which
+            // `crate::actuate` asserts in full and
+            // [`the_startup_negotiation_asks_for_what_was_declared_and_nothing_else`] asserts
+            // through a `Screen`.
+            assert!(prologue.starts_with(DISABLE_AUTO_WRAP), "before any frame");
 
             // And **once**, not once per frame: ten bytes of every frame is what §8 prices this at.
             let id = screen

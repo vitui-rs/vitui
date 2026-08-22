@@ -84,8 +84,9 @@ fn main() {
     .attach()
     .expect("attaching to a sink cannot fail");
 
-    // Everything `attach` wrote: raw mode is not in here, but `DECAWM off` is, and that is the whole
-    // of the session prologue. Whatever arrives after this line is a frame.
+    // Everything `attach` wrote: raw mode is not in here, but `DECAWM off` and impl 21's negotiation
+    // are, and that is the whole of the session prologue. Whatever arrives after this line is a
+    // frame.
     let prologue = written.load(std::sync::atomic::Ordering::Relaxed);
 
     let watchdog = std::thread::spawn(move || {
