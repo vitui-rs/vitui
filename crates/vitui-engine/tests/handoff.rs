@@ -71,6 +71,9 @@ fn screen(clock: Clock) -> (Screen, LayerId) {
         size: (W, H),
         output: Output::Sink(Box::new(Discard)),
         clock,
+        // Unpaced, because nothing here calls `wait`: the gate is the handoff, and a gap would only
+        // be a number these frames never read.
+        max_frame_rate: f32::INFINITY,
         overrides: declared(),
     })
     .attach()

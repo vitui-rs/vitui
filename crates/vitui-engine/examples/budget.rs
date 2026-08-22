@@ -84,6 +84,7 @@ fn sink_screen_with(overrides: Overrides) -> Screen {
     let (screen, _wake) = Engine::new(Config {
         size: (W, H),
         output: Output::Sink(Box::new(Discard)),
+        max_frame_rate: f32::INFINITY,
         overrides,
         // **Every figure in this file is the inline round** — composite, pack, serialise and write
         // on one thread — so the clock is pinned rather than defaulted. `Clock::System` would move
@@ -187,8 +188,10 @@ fn measure(staged: &mut [Staged]) -> Report {
 /// render thread's frame is shorter than the app thread's; on a real 4 MB/s link it would be the
 /// common case, and then this number would be a measurement of the link.
 ///
-/// A parking point is what makes that exact rather than rare, and it is ticket 19's `wait`. Until it
-/// exists this is a report and could not honestly be a gate.
+/// A parking point is what makes that exact rather than rare, and impl 19 delivered it —
+/// `Screen::wait`. This loop deliberately does not use it: it pins an unlimited rate and spins,
+/// because what is being timed is the composite and a gap would be a sleep inside the sample. So the
+/// tail is still the scheduler's, and this is still a report rather than a gate.
 fn the_app_threads_share() {
     // `staged` first, so that it outlives the bench that borrows it: locals drop in reverse
     // declaration order.
@@ -203,6 +206,11 @@ fn the_app_threads_share() {
                 // The whole point of this report: `attach` spawns a render thread, and it is the one
                 // that serialises.
                 clock: Clock::System,
+                // **Unlimited, and it has to be**: this loop presents as fast as it can to time the
+                // composite, and a 60 Hz ceiling on `wait` would be measuring nothing here — but a
+                // ceiling is exactly the sort of default that turns a budget into a sleep the day
+                // somebody moves the gate.
+                max_frame_rate: f32::INFINITY,
                 overrides: scene.overrides(),
             })
             .attach()
@@ -255,10 +263,11 @@ fn the_app_threads_share() {
          \x20 order:\n\
          \x20 **The four come under their budgets once serialisation leaves the app thread**, which\n\
          \x20 is what impl 18 was named for on REPORTED_NOT_GATED. They stay reported anyway, and\n\
-         \x20 the reason is on that constant: a sample here can contain a wait, because there is no\n\
-         \x20 parking point until impl 19, and a budget gate has to hold on a runner somebody has\n\
-         \x20 measured, which is impl 26's ledger. A row promoted on one machine's report is the\n\
-         \x20 same mistake as a row exempted on one machine's expectation.\n\
+         \x20 the reason is on that constant: a sample here can contain a wait — this loop spins\n\
+         \x20 rather than parking, because a gap inside a sample is a sleep inside a budget — and a\n\
+         \x20 budget gate has to hold on a runner somebody has measured, which is impl 26's ledger.\n\
+         \x20 A row promoted on one machine's report is the same mistake as a row exempted on one\n\
+         \x20 machine's expectation.\n\
          \x20 **A small frame is dearer here than inline, not cheaper**, and that is the handoff\n\
          \x20 rather than a defect: on a caret the composite is nanoseconds and what is left is a\n\
          \x20 lock, a notify and — when the renderer has not come back round yet — a spin. §7's\n\
@@ -364,7 +373,8 @@ const FULL_SCREEN: [&str; 5] = [
 /// with serialisation on the render thread, which is what §13's budgets are written about. What it
 /// did not deliver is a *gate*, and two things are missing for one. A sample on the threaded path can
 /// contain a wait — `present` answers at once when the renderer is still holding the last packet, and
-/// there is no parking point until impl 19's `wait` — so the distribution has a tail that is the
+/// this loop spins rather than parking in impl 19's `wait`, because a gap inside a sample is a sleep
+/// inside a budget — so the distribution has a tail that is the
 /// scheduler's rather than the engine's. And a budget gate has to hold on a runner somebody has
 /// measured, which is impl 26's ledger. Promoting a row on the strength of one machine's report is
 /// the same mistake as exempting one on the strength of an expectation.
@@ -438,9 +448,11 @@ fn the_two_budget_gates(report: &Report) {
 ///
 /// **Derived, and a report may never be load-bearing for a gate** (§14's second refinement). The
 /// arithmetic is one animated frame's cost times sixty against one second of one core, which is an
-/// estimate of the app thread's share and not a process measurement — nothing parks yet, so there
-/// is no steady state to measure. Impl 26 carries this report in its own criteria and is where the
-/// arithmetic is replaced by a measured steady state; entry #17's idle gate arrives at impl 19.
+/// estimate of the app thread's share and not a process measurement. Impl 26 carries this report in
+/// its own criteria and is where the arithmetic is replaced by a measured steady state — a *sixty
+/// frames a second* one, which is a different question from entry #17's, and #17's is answered:
+/// `scripts/idle-gate.sh` measures thirty **idle** seconds at `0.00 user 0.00 sys` and zero
+/// voluntary context switches.
 fn the_steady_state_share(report: &Report) {
     let frame_ns = report
         .get("caret-blink")
@@ -596,6 +608,7 @@ fn the_hyperlinked_page_under_an_animating_operator() {
             },
             // The inline round, as everywhere else here. See `sink_screen_with`.
             clock: Clock::Manual,
+            max_frame_rate: f32::INFINITY,
         })
         .attach()
         .expect("attaching to a sink cannot fail");

@@ -1,4 +1,4 @@
-# The same three gates as `.github/workflows/ci.yml`, on a runner that is on this machine.
+# The same gates as `.github/workflows/ci.yml`, on a runner that is on this machine.
 #
 # Why both exist: a CI job nobody has watched go green is not a gate, whatever it checks. This
 # repository has no hosted CI yet, so `infra/` stands up a GitLab and a runner in Docker and this
@@ -58,8 +58,10 @@ default:
 stages:
   - check
 
-# The three gates are independent and share one stage on purpose, so they run concurrently and the
-# pipeline is as long as its slowest job rather than the sum of them.
+# The four gates are independent and share one stage on purpose, so they run concurrently and the
+# pipeline is as long as its slowest job rather than the sum of them. With three concurrent runner
+# slots the fourth queues behind whichever finishes first, which costs the pipeline the `idle` job's
+# thirty seconds and nothing else — it is the cheapest of the four to be behind.
 
 test:
   stage: check
@@ -190,3 +192,30 @@ budget:
       - target
   script:
     - cargo run --release --example budget -p vitui-engine
+
+# Register entry #17: an idle application costs nothing at all.
+#
+# The count half is a unit test in the `test` job and costs 150 ms. This is the half that is a claim
+# about a *process* — `0.00 user 0.00 sys` — and it needs thirty seconds, because at three the
+# difference between a parked application and a 120 Hz ticker is below the tool's resolution.
+#
+# One runner here and two on GitHub: `/usr/bin/time` is GNU's on this image and BSD's on macOS, with
+# `-v` and `-l` respectively, and the script picks its own flavour. This file is the GNU half.
+idle:
+  stage: check
+  timeout: 10m
+  cache:
+    key:
+      files:
+        - Cargo.lock
+      prefix: idle
+    paths:
+      - .cargo/registry/index
+      - .cargo/registry/cache
+      - target
+  script:
+    # GNU `time` is a separate package from the shell builtin, and the official `rust` images do not
+    # carry it. Without this the script exits naming the flag it could not use, which is the right
+    # failure and still a failure.
+    - apt-get update && apt-get install -y --no-install-recommends time
+    - scripts/idle-gate.sh 30

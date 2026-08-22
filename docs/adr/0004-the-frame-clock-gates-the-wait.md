@@ -73,3 +73,57 @@ The knob is `Config::max_frame_rate`, in hertz, because hertz is what a platform
 never asks the hardware — a tty cannot answer — so the application discovers it and sets it, and
 `Screen::set_max_frame_rate` handles a monitor changing under a running program. The same number sets
 ticket 18's frame-budget overrun threshold, which is one frame interval.
+
+## Amendment, 2026-08-21 — implemented, and the fifth wake reason
+
+Implementation ticket 19 built this. The decision stands unchanged and every number in it was
+reproduced; three things the prototype could not have found are recorded here because they are what a
+reader of the code will hit.
+
+**The renderer going free is a fifth wake reason and there are four `Wake` variants.** Spec §7 has
+the wake source multiplex *an input event, the renderer going free, a deadline, and an external
+post*; §12 fixes `Wake` at `Input | Posted | Deadline | Quit`. Those are not the same four, and the
+gap is load-bearing rather than cosmetic: when `present` refuses a frame because the renderer has not
+taken the last packet, the damage stays in the damage structure and **nothing else is guaranteed to
+ask for a frame again.** On a slow link, a user who stops typing while the renderer is inside a
+200 ms write loses that keystroke's echo for good — unbounded, not merely late.
+
+So the frame is *owed*, the wait releases when the renderer takes the packet, and it answers
+`Wake::Deadline`. Three reasons that is the right spelling and not a convenience: what released the
+app thread really is the clock, since an owed frame is one the pacing gate deferred and is released
+against the same gap; the runtime's mapping for `Deadline` is *re-view, and the phase falls out of
+`elapsed()`*, which is correct because time has genuinely passed, where `Posted` would send it looking
+for a background result that does not exist; and a fifth variant is a public surface this backlog has
+not decided. **If the runtime ever needs to tell the two apart — to skip re-running reactivity, say —
+the answer is that fifth variant and it costs one enum.**
+
+**The mailbox's *free* condvar is not what `wait` parks on.** One thread cannot park on two condvars,
+so the wake source owns the park and the render thread signals it from `take`. `Mailbox::wait_until_free`
+stayed where it was and is now blocked on only by the gates, where *do not go on until the renderer has
+taken that frame* is a question about the handoff rather than about a wake.
+
+**250 ns is the unparked leading edge, and it is not what a keystroke costs.** The figure above is the
+gate's own cost when a reason is already pending, so `wait` returns without touching the condvar —
+reproduced at 83 ns p50 in a debug build. A genuinely idle app thread woken by a post from another
+thread pays a scheduler hop instead, measured at **4.3 µs p50 / 24 µs p99 / 46 µs max** over 256
+samples — the same order as this crate's own 4.58 µs handoff figure, and unavoidable. Two quantities,
+both reported, because printing only the first advertises 250 ns for something twenty times dearer.
+
+**`Clock::Manual` is not paced at all**, which is the promise that variant was already carrying —
+*time only moves when the caller moves it*, so the deterministic mode is reproducible in its timing as
+well as in its interleaving. `set_max_frame_rate` is **ignored** there: not rejected, because §12's
+signature has nothing to reject with and setting a ceiling at startup while choosing the clock
+elsewhere is a reasonable thing for an application to do. Registered deadlines still hold: an `Instant`
+the caller chose is the caller's own clock.
+
+**`request_wake_at` is one slot and not a set**, and *outstanding* in §7's phrasing reads as though it
+were several. Two components registering `+8 ms` and `+500 ms` in one frame leave only the 8 ms, and
+once it fires nothing is registered. That is a sink rather than a loss because the caller re-registers
+every frame — the runtime keeps its own set and flushes the earliest of it once per settle — and an
+engine holding the set would be the scheduler §12's refusal 9 says there isn't. Written down because
+the phrasing invites the opposite reading.
+
+**Idle, measured at the full thirty seconds** rather than three: `30.01 real, 0.00 user, 0.00 sys, 0
+voluntary context switches`, where a 120 Hz ticker would have woken 3 600 times. Three seconds was
+below the tool's resolution, which is why the gate is `scripts/idle-gate.sh` around a release binary
+rather than a test — libtest's harness is in the same process, and so is cargo.

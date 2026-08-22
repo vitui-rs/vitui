@@ -19,9 +19,10 @@
 //! straight-line program — draw, present, assert on the sink — with no condvar, no join, no timeout
 //! and no flake.
 //!
-//! `wait`, `next_event`, the frame clock and the caret arrive with tickets 19, 20 and 21. Until
-//! `wait` exists there is no multiplexed parking point, so the only waiter on *the renderer is free*
-//! is [`Mailbox::wait_until_free`](crate::handoff::Mailbox::wait_until_free).
+//! `next_event` and the caret arrive with tickets 20 and 21. The parking point is here since ticket
+//! 19: [`Screen::wait`] is the app thread's only blocking call, the frame clock gates it rather than
+//! `present` (ADR 0004), and *the renderer is free* reaches it through [`crate::clock::WakeSource`]
+//! rather than through the mailbox's own condvar — one thread cannot park on two of them.
 //!
 //! # The three threads, and what each one owns
 //!
@@ -56,10 +57,11 @@
 use std::io::{ErrorKind, Write};
 use std::marker::PhantomData;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::thread::JoinHandle;
+use std::time::Instant;
 
 use crate::caps::{Capabilities, Env, Ground, Overrides, assemble};
+use crate::clock::{FrameClock, Wake, WakeSource};
 use crate::damage::Run;
 use crate::detect::{CEILING, Tty, detect};
 use crate::exts::LinkId;
@@ -87,8 +89,19 @@ use crate::surface::Surface;
 /// taken on the threaded path is the app thread's share of a frame, which is a different number and
 /// a better one.
 ///
-/// Ticket 19 is the second reader: `wait` is where a deadline is gated, and `Manual` is what makes
-/// *time* reproducible once *interleaving* already is.
+/// It is also what decides whether the frame clock **paces** anything. `Manual` is unpaced, which is
+/// the promise this variant was already carrying — *time only moves when the caller moves it* — and it
+/// makes `Manual` reproducible in its timing as well as in its interleaving. A registered deadline
+/// still holds on that path: an `Instant` the caller chose is the caller's own clock, not this one's.
+/// [`Screen::set_max_frame_rate`] is **ignored** on this clock. Not rejected — there is nothing in
+/// §12's signature to reject with, and a `debug_assert` would fire on a caller doing something
+/// perfectly reasonable: setting the ceiling once at startup and choosing the clock elsewhere. So it
+/// returns having done nothing, and this sentence is where that is written down.
+///
+/// **[`Screen::wait`] still blocks on this clock**, and it has to: what `Manual` removes is the
+/// *pacing*, not the parking. A deterministic test does not call it — there is no thread to be woken
+/// by, so an unpaced indefinite wait is an indefinite wait — and a deterministic *application* posts
+/// through its [`WakeHandle`] from wherever its work happens, exactly as it would on `System`.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum Clock {
     /// Real time, and a render thread that owns the write direction.
@@ -154,6 +167,25 @@ impl std::fmt::Debug for Output {
 pub struct Config {
     /// Where the frame clock takes its time from.
     pub clock: Clock,
+    /// The ceiling on frames per second, in hertz.
+    ///
+    /// **Set by the application, never discovered.** A tty cannot report a refresh rate, so nothing
+    /// in this crate asks a display anything — §12's refusal 10, and
+    /// `crate::gates::nothing_anywhere_queries_a_display` is what keeps it true. The application
+    /// learns the number from the platform and says so here;
+    /// [`Screen::set_max_frame_rate`] covers a monitor changing under a running program.
+    ///
+    /// It is a **minimum gap and not a tick** (ADR 0004): the first damage after a quiet period
+    /// paints immediately and everything arriving inside the gap coalesces into one frame at the end
+    /// of it. The gate sits on [`Screen::wait`], so a frame nobody will see costs neither a composite
+    /// nor a layout.
+    ///
+    /// `f32::INFINITY` is unlimited, and so is any value at or below zero — *never paint* is a frozen
+    /// application and not a configuration worth being able to reach by arithmetic.
+    ///
+    /// Ignored on [`Clock::Manual`], where nothing is paced — and so is
+    /// [`Screen::set_max_frame_rate`] for the life of such a screen.
+    pub max_frame_rate: f32,
     /// Where the frame's bytes go.
     pub output: Output,
     /// The size to use when there is no terminal to ask. A real one is asked, and answers.
@@ -169,12 +201,19 @@ pub struct Config {
 impl Config {
     /// The size a terminal that has never been asked is assumed to be.
     const DEFAULT_SIZE: (u16, u16) = (80, 24);
+
+    /// The ceiling an application that has not said anything gets: spec §7's `MIN_GAP` of 16.6 ms.
+    ///
+    /// A default rather than a discovery, and the two are not close: the engine cannot ask, so the
+    /// alternative to a default is refusing to start.
+    const DEFAULT_MAX_FRAME_RATE: f32 = 60.0;
 }
 
 impl Default for Config {
     fn default() -> Config {
         Config {
             clock: Clock::default(),
+            max_frame_rate: Config::DEFAULT_MAX_FRAME_RATE,
             output: Output::default(),
             size: Config::DEFAULT_SIZE,
             overrides: Overrides::default(),
@@ -274,7 +313,11 @@ impl Engine {
                 .unwrap_or(self.config.size),
             _ => self.config.size,
         };
-        let wakes = Arc::new(AtomicU32::new(0));
+        // **The one thing that can wake the app thread**, minted here so that both halves of the
+        // split — `Screen`'s `wait` and `WakeHandle`'s `post` — are the same source. ADR 0003's
+        // split handles are internal after ticket 12: what stays public is `Screen` (`!Send`) and
+        // `WakeHandle` (`Send + Sync + Clone`, two verbs).
+        let wakes = Arc::new(WakeSource::new());
         let renderer = Renderer {
             serializer: Serializer::new(w, h),
             size: (w, h),
@@ -296,6 +339,14 @@ impl Engine {
             renderer: Some(renderer),
             render: None,
             clock: self.config.clock,
+            // **The gap belongs to the app thread and the wake source belongs to everyone**, which
+            // is why they are two fields rather than one: `next_allowed` is read on every `wait` and
+            // written on every submit, both on this thread, so it never needs a lock.
+            frame_clock: FrameClock::new(
+                self.config.max_frame_rate,
+                self.config.clock == Clock::System,
+            ),
+            wakes: Arc::clone(&wakes),
             terminal_size: TerminalSize::new((w, h)),
             generation: 0,
             coalesced: 0,
@@ -366,26 +417,46 @@ pub struct Presented {
 /// ```
 #[derive(Clone, Debug)]
 pub struct WakeHandle {
-    wakes: Arc<AtomicU32>,
+    wakes: Arc<WakeSource>,
 }
 
 impl WakeHandle {
-    const POSTED: u32 = 1;
-    const QUIT: u32 = 2;
-
     /// Ask the app thread to wake and run a frame.
+    ///
+    /// This is the whole of how work done somewhere else enters the app thread: a worker finishes,
+    /// leaves its result where the application can take it, and posts. The wake arrives as
+    /// [`Wake::Posted`] and **never as a callback on the worker's own thread**, which is what keeps
+    /// the reactive layer above this crate single-threaded by construction.
+    ///
+    /// Paced like everything else except a quit — a background result that lands 1 ms after a paint
+    /// is held to the end of the gap.
     pub fn post(&self) {
-        self.wakes.fetch_or(WakeHandle::POSTED, Ordering::Release);
+        self.wakes.post();
     }
 
-    /// Ask the app thread to stop. Never paced.
+    /// Ask the app thread to stop. **Never paced.**
+    ///
+    /// At a 1 Hz ceiling, checking the clock before this flag hangs shutdown for a second, so
+    /// [`Screen::wait`] checks it first. Writing the test is what found it.
     pub fn quit(&self) {
-        self.wakes.fetch_or(WakeHandle::QUIT, Ordering::Release);
+        self.wakes.quit();
     }
 
+    /// The input thread parsed something.
+    ///
+    /// `pub(crate)` and it stays that way: §12 gives this handle two verbs, and the third is the
+    /// input thread's — spawned by `attach`, never held by an application. **Ticket 20 is the first
+    /// production caller**, in the same shape as [`TerminalSize::set`].
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn input(&self) {
+        self.wakes.input();
+    }
+
+    /// The wake source itself, for the gate that reads the park counters while the app thread is
+    /// parked in them. `Arc<WakeSource>` is `Send + Sync`, so it travels where `Screen` cannot.
     #[cfg(test)]
-    fn pending(&self) -> u32 {
-        self.wakes.load(Ordering::Acquire)
+    pub(crate) fn source(&self) -> Arc<WakeSource> {
+        Arc::clone(&self.wakes)
     }
 }
 
@@ -434,6 +505,12 @@ pub struct Screen {
     render: Option<JoinHandle<Renderer>>,
     /// Which path `present` takes. Immutable for the life of this screen.
     clock: Clock,
+    /// The minimum gap between two frames, and when the last one went out. **The app thread's
+    /// alone**, which is why it is not behind the wake source's lock.
+    frame_clock: FrameClock,
+    /// The one thing that can wake this thread: an input event, a post, a deadline, or the renderer
+    /// going free with a frame owed. Shared with every [`WakeHandle`] and with the render thread.
+    wakes: Arc<WakeSource>,
     /// The authoritative size of the terminal: sampled at frame start, re-checked at submit.
     terminal_size: TerminalSize,
     /// How many packs have happened. Stamped into every packet, and never reused.
@@ -592,6 +669,7 @@ impl Screen {
             .take()
             .expect("attach has not handed the renderer anywhere yet");
         let mailbox = Arc::clone(&self.mailbox);
+        let wakes = Arc::clone(&self.wakes);
         // **The renderer is handed over after the spawn succeeded, not moved into the closure.**
         // `Builder::spawn` does not give a failed closure back, and a renderer lost that way takes
         // the sink with it — so the thread waits for it on a channel that carries exactly one
@@ -605,7 +683,7 @@ impl Screen {
             .name("vitui-render".to_string())
             .spawn(move || {
                 let mut renderer: Renderer = rx.recv().expect("attach sends before it returns");
-                render_loop(&mailbox, &mut renderer);
+                render_loop(&mailbox, &wakes, &mut renderer);
                 renderer
             }) {
             Ok(handle) => {
@@ -665,6 +743,107 @@ impl Screen {
         )
     }
 
+    /// Block until there is a reason to run a frame, and until the frame clock allows one.
+    ///
+    /// **The one place the app thread blocks.** Everything that can wake it is multiplexed here — an
+    /// input event, a [`WakeHandle::post`] from another thread, a deadline registered through
+    /// [`Screen::request_wake_at`], and the render thread taking a packet the last `present` could
+    /// not hand over.
+    ///
+    /// # The clock gates here, not `present`
+    ///
+    /// See `docs/adr/0004-the-frame-clock-gates-the-wait.md`. Refusing the frame at `present` is half
+    /// a solution: by
+    /// then the runtime has already run its layout, its reactivity and every drawing verb for a frame
+    /// nobody will see. Measured against an event storm at 1000 Hz with a 167 µs frame standing in
+    /// for one iteration of runtime work, gating at `present` runs 800.4 iterations a second to show
+    /// 114.7 frames — **14% useful** — against 114.5 for 114.5 and nothing wasted. And at a sparse
+    /// event rate it *delivers fewer frames*, 83.8 fps against 110.8, because it can only paint when
+    /// an event happens to arrive. The cheaper scheme is the smoother one, so there is no trade.
+    ///
+    /// The consequence, stated rather than buried: **a keystroke arriving 1 ms after a paint is held
+    /// for the rest of the gap** — 7.3 ms at a 120 Hz ceiling — before the runtime is told about it.
+    /// Input latency is bounded by one frame interval by design, and the delay is only observable
+    /// through a repaint, which was going to cost the same wait anyway.
+    ///
+    /// # A minimum gap, not a tick, and an idle that is zero
+    ///
+    /// The first damage after a quiet period returns immediately; everything arriving inside the gap
+    /// coalesces into one return at the end of it. With nothing pending and no deadline registered
+    /// **the wait is indefinite** — there is no timer anywhere in this crate — so an idle application
+    /// costs no wakeups and no CPU at all. A fixed-rate ticker would cost 3 600 wakeups over thirty
+    /// idle seconds at 120 Hz, and add up to half a frame of latency to the first keystroke.
+    ///
+    /// **[`Wake::Quit`] is checked before the clock.** At a 1 Hz ceiling, checking the clock first
+    /// hangs shutdown for a second; shutdown latency must not be a function of the refresh rate.
+    ///
+    /// # The ceiling is achieved from below
+    ///
+    /// `wait_timeout` overshoots — a hold measures 10.18 ms p50 against an 8.333 ms gap on macOS —
+    /// so a configured 120 Hz yields about 110 fps under load. Undershooting a ceiling is safe by
+    /// construction, and the number is written down so nobody spends a day rediscovering it.
+    ///
+    /// ```
+    /// use vitui_engine::{Config, Engine, Output, Wake};
+    ///
+    /// let (mut screen, wake) = Engine::new(Config {
+    ///     output: Output::Sink(Box::new(Vec::new())),
+    ///     ..Default::default()
+    /// })
+    /// .attach()
+    /// .unwrap();
+    ///
+    /// // Nothing is pending, so this would park for ever. A quit is never paced.
+    /// wake.quit();
+    /// assert_eq!(screen.wait(), Wake::Quit);
+    /// ```
+    pub fn wait(&mut self) -> Wake {
+        self.wakes.wait(self.frame_clock.next_allowed())
+    }
+
+    /// Wake at `when`, unless something wakes the app thread sooner.
+    ///
+    /// **The engine has no animation concept and this is the whole of what it offers one.** Timelines,
+    /// easing and interpolation are the runtime's. There is no cancel: *deregistration is simply not
+    /// renewing it*, because a deadline that has arrived and been reported is already gone and a
+    /// caller that no longer wants one only has to stop asking.
+    ///
+    /// # It is one slot, not a set
+    ///
+    /// The earliest instant wins and **a later one is dropped rather than queued**. Two components
+    /// registering `+8 ms` and `+500 ms` in one frame leave only the 8 ms, and once it has fired
+    /// nothing is registered at all.
+    ///
+    /// That is a sink and not a loss, because **the caller re-registers every frame**: the runtime
+    /// keeps its own set and flushes the earliest of it once per settle, so the 500 ms deadline is
+    /// re-supplied on the frame the 8 ms one bought. An engine that held the set would be a
+    /// scheduler, and §12's refusal 9 is that there isn't one. A caller that registers once and never
+    /// again gets exactly one wake, which is what it asked for.
+    ///
+    /// It is `&self` because it only writes to the wake source, which is shared: an animating
+    /// component can register a deadline while holding a [`View`](crate::View) borrowed out of the
+    /// layer stack.
+    ///
+    /// A deadline is paced like any other reason: one arriving inside the gap is held to the end of
+    /// it. So the wake is *not before* `when`, and never far after it.
+    pub fn request_wake_at(&self, when: Instant) {
+        self.wakes.request_wake_at(when);
+    }
+
+    /// A monitor changed under the running program.
+    ///
+    /// The engine never asks the hardware — a tty cannot answer — so the ceiling is the
+    /// application's to discover and to say. See [`Config::max_frame_rate`] for what the number
+    /// means; the same rules apply, `f32::INFINITY` and anything at or below zero being unlimited.
+    ///
+    /// **Ignored on [`Clock::Manual`]**, which is not paced at all: a deterministic mode that
+    /// contained a real sleep would be reproducible in its interleaving and not in its timing. Ignored
+    /// and not rejected — §12's signature has nothing to reject with, and setting a ceiling at startup
+    /// while choosing the clock elsewhere is a reasonable thing for an application to do.
+    pub fn set_max_frame_rate(&mut self, hz: f32) {
+        self.frame_clock.set_rate(hz);
+    }
+
     /// Composite the damaged rectangles, pack them, serialise them, and write once.
     ///
     /// The only exit. Damage is marked by the drawing verbs and cleared here, and neither is
@@ -680,8 +859,9 @@ impl Screen {
         self.layers.take_damage_into(&mut self.frame);
 
         // The idle path, and it is one scan of a couple of summary words rather than of the bitset:
-        // an idle frame costs nanoseconds and clears nothing. This is the question ticket 19's
-        // condvar path will interrogate, asked here first.
+        // an idle frame costs nanoseconds and clears nothing. **Nothing is owed here**, and that is
+        // the whole difference from the `Lease::Busy` arm below: there is no damage waiting for a
+        // frame, so `wait` has nothing to come back for and parks indefinitely.
         if self.frame.damage().is_empty() {
             return self.not_submitted(false);
         }
@@ -699,6 +879,12 @@ impl Screen {
             Lease::Ready(packet) => packet,
             Lease::Busy => {
                 self.coalesced += 1;
+                // **The damage is owed a frame, and `wait` is what pays it.** Without this the app
+                // thread parks with a composite nobody asked it to throw away: on a slow link, a
+                // user who stops typing while the renderer is inside a 200 ms write never sees the
+                // last keystroke, because nothing else is going to happen. The wake source releases
+                // when the renderer takes the packet it is holding. See `crate::clock`.
+                self.wakes.owe_frame();
                 return self.not_submitted(false);
             }
             // Unreachable at a pool of two, and register entry #8 is the count that says so over
@@ -713,6 +899,7 @@ impl Screen {
                      unreachable: one packet is being filled and one is in the renderer's hands, \
                      and there is no third"
                 );
+                self.wakes.owe_frame();
                 return self.not_submitted(false);
             }
         };
@@ -756,6 +943,10 @@ impl Screen {
         // the new size and agrees with itself.
         if self.terminal_size.get() != sampled {
             self.mailbox.give_back(packet);
+            // Owed, exactly as a coalesced frame is: the damage below is going to need a frame and
+            // nothing else is guaranteed to ask for one. The renderer is free — the packet went back
+            // to the pool rather than into the slot — so the next `wait` releases at the gap.
+            self.wakes.owe_frame();
             // Two things at once, and they are the same thing: the `repaint` this frame took out of
             // the latch goes back in, and a resize needs one anyway — the mirror is describing a
             // terminal that has just reflowed under it.
@@ -764,12 +955,27 @@ impl Screen {
             return self.not_submitted(true);
         }
 
+        // **Before the submit, and the order is load-bearing.** `submit` notifies the render thread,
+        // which may take the packet and call `mark_renderer_free` before this thread runs again — and
+        // then a `frame_submitted` afterwards would write `free = false` over a renderer that is
+        // free. Setting it first closes the window by construction: the renderer cannot learn there
+        // is a packet until `submit`, so nothing can raise the flag before this line lowers it.
+        //
+        // What that buys is an invariant `wait` rests on: **whenever the mailbox says ready, `free`
+        // is true**, because the only thing that makes the mailbox ready is a take and every take
+        // raises the flag. Without it, an owed frame could be recorded against a stale `false` and
+        // the app thread would park on a renderer that had already let go.
+        self.wakes.frame_submitted();
         self.mailbox.submit(packet);
+        // The gap starts at the submit, not at the write: what is being paced is how often frames are
+        // handed on, and §12's refusal 7 is that the engine cannot say when one was shown.
+        self.frame_clock.submitted();
         // The deterministic path: this thread is the render thread, so it does the render thread's
         // work here, through the same mailbox and the same renderer. `take_now` cannot answer `None`
         // — the submit above put a packet in the slot and nothing else can take it.
         if let Some(renderer) = self.renderer.as_mut() {
             if let Some(packet) = self.mailbox.take_now() {
+                self.wakes.mark_renderer_free();
                 renderer.render(&packet);
                 self.mailbox.finish(packet);
             }
@@ -799,9 +1005,11 @@ impl Screen {
 
     /// Block until the render thread has taken the last packet.
     ///
-    /// **Ticket 19 is what makes this public**, as one arm of `wait() -> Wake` with the frame clock
-    /// on it. Until then it is what a caller on the threaded path has instead of a parking point,
-    /// and what keeps *the renderer is free* from being a condvar nobody blocks on.
+    /// **Not the parking point, and ticket 19 is where that was decided.** [`Screen::wait`] is the
+    /// app thread's blocking call and it multiplexes the renderer going free along with everything
+    /// else — through [`crate::clock::WakeSource`], because a thread cannot park on two condvars. What
+    /// this is for is the gates: *do not go on until the renderer has taken that frame* is an
+    /// ordering over the handoff, and asking it through `wait` would be asking it through the clock.
     ///
     /// Returns at once on the deterministic path, where the renderer is never busy.
     #[cfg_attr(not(test), allow(dead_code))]
@@ -950,6 +1158,44 @@ impl Screen {
     #[cfg(test)]
     pub(crate) fn with_packet<R>(&self, f: impl FnOnce(&Packet) -> R) -> Option<R> {
         self.mailbox.with_last_packed(f)
+    }
+
+    /// How many times the render thread's wait has returned. Register entry #17's other half:
+    /// **zero over an idle window**, where a fixed-rate ticker would put one per tick.
+    #[cfg(test)]
+    pub(crate) fn render_wakeups(&self) -> u64 {
+        self.mailbox.wakeups()
+    }
+
+    /// App submit to the render thread holding the packet, one entry per frame it took.
+    ///
+    /// Register entry #26, and the distribution is a **report**: it is OS scheduler latency on the
+    /// way to the wire rather than app-thread CPU work, so it does not spend §13's 100 µs budget and
+    /// it is not the sort of number a shared runner can gate.
+    #[cfg(test)]
+    pub(crate) fn wake_latencies(&self) -> Vec<std::time::Duration> {
+        self.mailbox.latencies()
+    }
+
+    /// Forget what the birth frames recorded.
+    #[cfg(test)]
+    pub(crate) fn reset_wake_latencies(&self) {
+        self.mailbox.reset_latencies();
+    }
+
+    /// Whether `present` left a frame owed to the damage it refused to composite.
+    #[cfg(test)]
+    pub(crate) fn owes_a_frame(&self) -> bool {
+        self.wakes.owes_a_frame()
+    }
+
+    /// The earliest instant at which the frame clock would allow another frame.
+    ///
+    /// `None` when nothing is paced — an unlimited rate, the deterministic clock, or a screen that
+    /// has not submitted a frame yet, which is the leading edge.
+    #[cfg(test)]
+    pub(crate) fn next_frame_allowed(&self) -> Option<Instant> {
+        self.frame_clock.next_allowed()
     }
 
     /// How many packets a submit dropped on the floor, how many leases found the pool empty, and how
@@ -1229,18 +1475,27 @@ impl Renderer {
 /// condvar nobody will signal — `quit` is set from `Screen::drop`, which cannot run while the app
 /// thread is parked. A `Drop` runs on the way out of an unwind as well as on the way out of a
 /// return, so one guard covers both exits and there is no `catch_unwind` anywhere.
-fn render_loop(mailbox: &Mailbox, renderer: &mut Renderer) {
+fn render_loop(mailbox: &Mailbox, wakes: &WakeSource, renderer: &mut Renderer) {
     /// Tell the app thread the renderer has left, however it left.
-    struct Guard<'a>(&'a Mailbox);
+    ///
+    /// **Both sides, and the wake source is the one that matters since ticket 19**: the mailbox's
+    /// flag releases a `wait_until_free`, and the app thread does not park there any more — it parks
+    /// in [`Screen::wait`], which is released from here.
+    struct Guard<'a>(&'a Mailbox, &'a WakeSource);
 
     impl Drop for Guard<'_> {
         fn drop(&mut self) {
             self.0.renderer_gone();
+            self.1.renderer_gone();
         }
     }
 
-    let _guard = Guard(mailbox);
+    let _guard = Guard(mailbox, wakes);
     while let Some(packet) = mailbox.take() {
+        // **The take is what frees the renderer, not the write** (spec §7, and it is what fixes the
+        // pool at two). So the app thread is told here, before a 200 ms write rather than after it,
+        // and the composite of the next frame overlaps this one's bytes.
+        wakes.mark_renderer_free();
         renderer.render(&packet);
         mailbox.finish(packet);
     }
@@ -1297,22 +1552,29 @@ mod tests {
         let _ = Engine::new(Config::default()).attach();
     }
 
+    /// **A post and a quit are separate reasons, and the quit is reported first.**
+    ///
+    /// It used to assert on the raised bits, which was a test of the flag layout. Since ticket 19
+    /// there is a `wait` to ask instead, and asking it is strictly stronger: it covers the priority
+    /// as well as the recording, and the priority is the part that had a defect in it.
     #[test]
     fn a_wake_handle_records_a_post_and_a_quit_separately() {
-        let (_screen, wake) = Engine::new(headless()).attach().unwrap();
-        assert_eq!(wake.pending(), 0);
+        let (mut screen, wake) = Engine::new(headless()).attach().unwrap();
         wake.post();
-        assert_eq!(wake.pending(), WakeHandle::POSTED);
         wake.quit();
-        assert_eq!(wake.pending(), WakeHandle::POSTED | WakeHandle::QUIT);
+        assert_eq!(
+            screen.wait(),
+            Wake::Quit,
+            "shutdown queued behind a frame somebody asked for"
+        );
+        assert_eq!(screen.wait(), Wake::Posted);
     }
 
     #[test]
-    fn a_wake_handle_clone_shares_the_same_flags() {
-        let (_screen, wake) = Engine::new(headless()).attach().unwrap();
-        let other = wake.clone();
-        other.post();
-        assert_eq!(wake.pending(), WakeHandle::POSTED);
+    fn a_wake_handle_clone_shares_the_same_source() {
+        let (mut screen, wake) = Engine::new(headless()).attach().unwrap();
+        wake.clone().post();
+        assert_eq!(screen.wait(), Wake::Posted);
     }
 
     #[test]
@@ -1529,6 +1791,7 @@ mod tests {
                 size: (8, 1),
                 output: Output::Sink(Box::new(sink)),
                 clock: Clock::Manual,
+                max_frame_rate: f32::INFINITY,
                 overrides: Overrides::default(),
             })
             .attach()

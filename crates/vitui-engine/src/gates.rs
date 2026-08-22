@@ -20,6 +20,7 @@
 //! builds, presents once, and starts measuring at the frame after.
 
 use crate::caps::Overrides;
+use crate::clock::Wake;
 use crate::damage::Run;
 use crate::engine::Screen;
 use crate::geom::Rect;
@@ -2586,15 +2587,27 @@ impl Counting {
 /// about the handoff, and §14's own note says so — *the properties that are about threads cannot be
 /// tested in the mode that removes them.*
 fn threaded(sink: Box<dyn std::io::Write + Send>) -> Screen {
-    let (screen, _wake) = crate::engine::Engine::new(crate::engine::Config {
+    threaded_at(f32::INFINITY, sink).0
+}
+
+/// The same, with a ceiling, and keeping the [`crate::WakeHandle`] the pacing gates need.
+///
+/// `threaded` throws the handle away and pins the rate at unlimited, because every gate that came
+/// before ticket 19 is about the handoff and would otherwise be measuring a gap it never reads. The
+/// clock gates are the ones that want both.
+fn threaded_at(
+    hz: f32,
+    sink: Box<dyn std::io::Write + Send>,
+) -> (Screen, crate::engine::WakeHandle) {
+    crate::engine::Engine::new(crate::engine::Config {
         size: (W, H),
         output: crate::engine::Output::Sink(sink),
         clock: crate::engine::Clock::System,
+        max_frame_rate: hz,
         overrides: crate::testing::pinned_truecolor(),
     })
     .attach()
-    .expect("attaching to a sink cannot fail");
-    screen
+    .expect("attaching to a sink cannot fail")
 }
 
 /// Wait until the render thread has finished `want` frames, or give up and let the caller's
@@ -2709,6 +2722,7 @@ fn the_threaded_path_writes_the_bytes_the_deterministic_path_writes() {
                 size: (W, H),
                 output: crate::engine::Output::Sink(Box::new(recorder)),
                 clock: crate::engine::Clock::System,
+                max_frame_rate: f32::INFINITY,
                 overrides: scene.overrides(),
             })
             .attach()
@@ -3430,5 +3444,646 @@ fn the_packet_accessor_answers_by_identity_or_not_at_all() {
         h.screen.with_packet(|p| p.generation()),
         Some(3),
         "a discarded frame still consumed a generation and still packed over the buffer"
+    );
+}
+
+// ---------------------------------------------------------------------------------------------
+// The frame clock, and an idle that is zero (ticket 19).
+//
+// The gate is on `wait` rather than on `present` — ADR 0004 — so every gate below drives `wait`
+// and reads what it answered. Two of them are counts and the rest are reports, which is §14's own
+// split: a wake-up latency is a distribution on a shared runner and cannot be a gate, while zero
+// wakeups over an idle window is a number that does not move.
+// ---------------------------------------------------------------------------------------------
+
+/// **Register entry #17, as a count, and it is the standing requirement rather than a health check.**
+///
+/// Three threads exist and the app thread is the one that had no parking point until this ticket:
+/// the render thread has parked on the mailbox since impl 18, and an idle process still turned in
+/// whatever loop its caller wrote. So an idle measured before `wait` was a measurement of the caller.
+///
+/// Four numbers, and the second is the one that matters:
+///
+/// - the app thread entered its blocking wait **once**;
+/// - it came back **zero** times before something actually happened — a 120 Hz ticker would put 18
+///   in this number over the window below, and 3 600 over the thirty seconds the process-level half
+///   of this entry runs for;
+/// - the render thread's wait came back zero times;
+/// - no frame was painted.
+///
+/// The window is short on purpose. This is the *count* half, and a count does not need thirty
+/// seconds to be zero; `examples/idle.rs` under `/usr/bin/time` is the half that needs the wall
+/// clock, because `0.00 user 0.00 sys` is below the tool's resolution at three seconds.
+///
+/// The counters are read from **another thread**, which is forced rather than chosen: the thread
+/// under test is parked inside the wait being measured, and a thread cannot assert about a park it
+/// is in. `Arc<WakeSource>` is `Send + Sync` and travels where `Screen` deliberately cannot.
+#[test]
+fn an_idle_application_parks_once_and_wakes_for_nothing() {
+    let (mut screen, wake) = threaded_at(120.0, Box::new(Counting::default()));
+    let source = wake.source();
+    let quiet = std::time::Duration::from_millis(150);
+    let observer = std::thread::spawn(move || {
+        std::thread::sleep(quiet);
+        let counts = source.park_counts();
+        wake.quit();
+        counts
+    });
+
+    let began = std::time::Instant::now();
+    assert_eq!(screen.wait(), Wake::Quit);
+    let (parks, wakeups) = observer.join().expect("the observer does not panic");
+
+    assert!(
+        began.elapsed() >= quiet,
+        "the wait came back before anything had happened"
+    );
+    assert_eq!(parks, 1, "an indefinite park re-entered the wait");
+    assert_eq!(
+        wakeups, 0,
+        "something woke the app thread while it was idle: a 120 Hz ticker would put 18 here"
+    );
+    assert_eq!(
+        screen.render_wakeups(),
+        0,
+        "the render thread woke with nothing in the slot"
+    );
+    assert_eq!(
+        screen.handoff_counts().2,
+        0,
+        "an idle application painted a frame"
+    );
+}
+
+/// **Quit is checked before the clock, and the fixture is the one that found the defect.**
+///
+/// A 1 Hz ceiling and a frame just submitted, so the gap has 999 ms left in it. Checking the clock
+/// first holds the shutdown for all of it — shutdown latency becoming a function of the refresh rate,
+/// which is exactly backwards.
+///
+/// It is a **gate** rather than a report even though it reads a stopwatch, because the cliff is three
+/// orders of magnitude wide: the bound below is 200 ms against a second, and no runner is slow enough
+/// to make that ambiguous.
+#[test]
+fn quit_is_never_paced_by_the_frame_clock() {
+    let (mut screen, wake) = threaded_at(1.0, Box::new(Counting::default()));
+    let id = screen.layers().add_content(0, Rect::new(0, 0, W, H), true);
+    {
+        let mut view = screen.layers().view(id).expect("the layer was just added");
+        view.text(0, 0, "paced", Style::new());
+    }
+    assert!(screen.present().submitted);
+    assert!(
+        screen.next_frame_allowed().is_some(),
+        "a 1 Hz ceiling did not arm the gap"
+    );
+
+    wake.quit();
+    let began = std::time::Instant::now();
+    assert_eq!(screen.wait(), Wake::Quit);
+    assert!(
+        began.elapsed() < std::time::Duration::from_millis(200),
+        "shutdown waited out a second of frame gap"
+    );
+}
+
+/// **A minimum gap, not a tick**, and both halves are asserted: the leading edge is immediate and
+/// everything inside the gap is held to the end of it.
+///
+/// The first `wait` is the leading edge — no frame has gone out, so nothing is paced and a post
+/// returns at once. The second is the gap: a post arriving immediately after a frame is held until
+/// the instant the clock allows the next one.
+#[test]
+fn the_first_wake_after_a_quiet_period_is_immediate_and_the_next_one_is_held() {
+    const HZ: f32 = 25.0;
+    let (mut screen, wake) = threaded_at(HZ, Box::new(Counting::default()));
+
+    wake.post();
+    let began = std::time::Instant::now();
+    assert_eq!(screen.wait(), Wake::Posted);
+    assert!(
+        began.elapsed() < std::time::Duration::from_millis(10),
+        "the leading edge was paced: {:?}",
+        began.elapsed()
+    );
+
+    let id = screen.layers().add_content(0, Rect::new(0, 0, W, H), true);
+    {
+        let mut view = screen.layers().view(id).expect("the layer was just added");
+        view.text(0, 0, "paced", Style::new());
+    }
+    assert!(screen.present().submitted);
+    let allowed = screen
+        .next_frame_allowed()
+        .expect("a submitted frame arms the gap");
+
+    wake.post();
+    assert_eq!(screen.wait(), Wake::Posted);
+    assert!(
+        std::time::Instant::now() >= allowed,
+        "a frame was released {:?} before the clock allowed one",
+        allowed - std::time::Instant::now()
+    );
+}
+
+/// A deadline is what ends an indefinite wait, and **the earliest one is the one that is kept**.
+///
+/// The later deadline is registered first so that keeping it would be the passing answer — a test
+/// that registers them in the other order passes whether the comparison is there or not.
+#[test]
+fn the_earliest_deadline_ends_the_wait_and_a_later_one_does_not_replace_it() {
+    let (mut screen, _wake) = threaded_at(f32::INFINITY, Box::new(Counting::default()));
+    let began = std::time::Instant::now();
+    screen.request_wake_at(began + std::time::Duration::from_secs(30));
+    screen.request_wake_at(began + std::time::Duration::from_millis(30));
+    assert_eq!(screen.wait(), Wake::Deadline);
+    assert!(began.elapsed() >= std::time::Duration::from_millis(30));
+    assert!(
+        began.elapsed() < std::time::Duration::from_secs(5),
+        "the later deadline replaced the earlier one"
+    );
+}
+
+/// **The frame a busy renderer refused is owed, and `wait` is what pays it.**
+///
+/// This is the case with no `Wake` variant of its own, and the reason it cannot be ignored. A slow
+/// link, and the user stops typing exactly while the renderer is inside a write: `present` refused,
+/// the damage is still in §6's structure, and **nothing else is going to happen**. Without the owed
+/// frame the app thread parks for ever and the last keystroke's echo never reaches the terminal —
+/// unbounded, not merely late.
+///
+/// Three things are asserted, and the middle one is what makes it a debt rather than a poll:
+///
+/// - `present` refusing leaves a frame owed;
+/// - the wait does **not** return while the renderer is still holding the packet, because a frame
+///   released then is a frame `present` would only refuse again;
+/// - when the renderer takes it, the wait returns and the frame that follows submits.
+///
+/// See `crate::clock` for why the answer is [`Wake::Deadline`] and not a fifth variant.
+#[test]
+fn a_frame_a_busy_renderer_refused_is_owed_and_the_wait_pays_it() {
+    /// A sink that will not take a frame until the test lets it. One `recv` per write.
+    struct Gated(std::sync::mpsc::Receiver<()>);
+
+    impl std::io::Write for Gated {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            let _ = self.0.recv();
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    let (tx, rx) = std::sync::mpsc::channel();
+    // The prologue, written by `attach` before any second thread exists.
+    tx.send(()).expect("the receiver is alive");
+    let (mut screen, _wake) = threaded_at(f32::INFINITY, Box::new(Gated(rx)));
+    let id = screen.layers().add_content(0, Rect::new(0, 0, W, H), true);
+    let row: String = std::iter::repeat_n('m', W as usize).collect();
+    let paint = |screen: &mut Screen, y: i32, style: Style| {
+        let mut view = screen.layers().view(id).expect("the layer was just added");
+        view.text(0, y, &row, style);
+    };
+
+    // Frame one is taken and the renderer is now blocked inside its write. Frame two fills the pool's
+    // second packet and lands in the slot, which the renderer has not taken.
+    paint(&mut screen, 0, Style::new());
+    assert!(screen.present().submitted);
+    screen.wait_for_renderer();
+    paint(&mut screen, 1, Style::new());
+    assert!(screen.present().submitted);
+
+    // Frame three is not composited at all, and it is owed.
+    paint(&mut screen, 2, Style::new().bold());
+    let folded = screen.present();
+    assert!(!folded.submitted);
+    assert!(
+        screen.owes_a_frame(),
+        "a refused frame left nothing for `wait` to come back for"
+    );
+
+    // The wait does not return while the renderer holds the packet. Asserted as an absence, with a
+    // deadline as the only other way out: a wait that answered `Deadline` because the owed frame was
+    // released early would come back before the deadline and the elapsed time is what says which.
+    let held = std::time::Duration::from_millis(80);
+    let began = std::time::Instant::now();
+    screen.request_wake_at(began + held);
+    assert_eq!(screen.wait(), Wake::Deadline);
+    assert!(
+        began.elapsed() >= held,
+        "the owed frame was released while the renderer still held the packet"
+    );
+
+    // Let the writes through. Now the take frees the renderer, and the owed frame is what the wait
+    // comes back for — with no deadline registered, so nothing else could have released it.
+    tx.send(()).expect("the receiver is alive");
+    tx.send(()).expect("the receiver is alive");
+    assert_eq!(screen.wait(), Wake::Deadline);
+    assert!(!screen.owes_a_frame(), "the debt was reported twice");
+    let caught_up = screen.present();
+    assert!(
+        caught_up.submitted,
+        "the frame the renderer was too busy for never went out"
+    );
+    assert_eq!(caught_up.coalesced, 1);
+    drop(tx);
+}
+
+/// A frame discarded because the terminal resized under it is owed exactly as a refused one is.
+///
+/// The renderer is free — the packet went back to the pool rather than into the slot — so this is the
+/// arm of the debt that does not wait for anything, and the whole screen is marked damaged behind it.
+#[test]
+fn a_frame_discarded_for_a_resize_is_owed_too() {
+    let mut h = Harness::truecolor(W, H);
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, W, H), true);
+    {
+        let mut view = h
+            .screen
+            .layers()
+            .view(id)
+            .expect("the layer was just added");
+        view.text(0, 0, "resized under", Style::new());
+    }
+    h.screen.resize_during_next_frame(W / 2, H / 2);
+    assert!(h.screen.present().discarded_for_resize);
+    assert!(
+        h.screen.owes_a_frame(),
+        "a discarded frame left nothing for `wait` to come back for"
+    );
+    assert_eq!(
+        h.screen.wait(),
+        Wake::Deadline,
+        "the owed frame did not release the wait"
+    );
+}
+
+/// **`Wake::Input` is a reason of its own, and it outranks a post.**
+///
+/// The input thread is ticket 20's and nothing raises this in a release build yet — `WakeHandle::input`
+/// is `pub(crate)` for exactly that reason, in the same shape as `TerminalSize::set`. What is gated
+/// here is the multiplexing rather than the parser: an input event and a post are two reasons, the
+/// wait reports them one at a time, and each is consumed by the return that carries it.
+///
+/// Filed as a gate rather than left until ticket 20 because the alternative is a `Wake` variant
+/// nothing has ever produced, which is indistinguishable from one that was decided against.
+#[test]
+fn an_input_event_is_a_reason_of_its_own_and_is_reported_before_a_post() {
+    let (mut screen, wake) = threaded_at(f32::INFINITY, Box::new(Counting::default()));
+    wake.post();
+    wake.input();
+    assert_eq!(screen.wait(), Wake::Input);
+    assert_eq!(screen.wait(), Wake::Posted);
+
+    // And each is consumed: a third wait would park for ever, so the absence is asserted by giving
+    // it something else to come back for and checking that it is what comes back.
+    screen.request_wake_at(std::time::Instant::now());
+    assert_eq!(screen.wait(), Wake::Deadline);
+}
+
+/// **Register entry #26, and it is a report because a scheduler latency is not ours to gate.**
+///
+/// App submit to the render thread holding the packet, with the app thread **genuinely parked** —
+/// which is what impl 18 could not do and this ticket can. §7's figures, for comparison:
+/// p50 4.58 µs · p90 6.96 · p99 16.4 · p99.9 30.3 · max 71.5 µs over 5 000 samples.
+///
+/// **This does not spend the 100 µs frame budget**, and the distinction is worth keeping rather than
+/// letting a reader assume the worst: that budget is app-thread CPU work and the app thread has
+/// already returned. This is wall-clock delay on the way to the wire, and it is the OS scheduler's
+/// rather than ours. Against a 16.6 ms gap the median is a few hundredths of a percent of a frame.
+///
+/// The park is real and it is what makes the number the right one: each iteration submits, then
+/// registers a short deadline and calls `wait`, so the render thread's take happens while this
+/// thread is inside a condvar rather than inside a spin.
+#[test]
+fn what_a_wake_up_costs_with_the_app_thread_parked() {
+    const SAMPLES: usize = 512;
+    let (mut screen, _wake) = threaded_at(f32::INFINITY, Box::new(Counting::default()));
+    let id = screen.layers().add_content(0, Rect::new(0, 0, W, H), true);
+    screen.reset_wake_latencies();
+
+    for i in 0..SAMPLES {
+        {
+            let mut view = screen.layers().view(id).expect("the layer was just added");
+            view.text(
+                0,
+                (i % usize::from(H)) as i32,
+                if i % 2 == 0 { "x" } else { "y" },
+                Style::new(),
+            );
+        }
+        while !screen.present().submitted {
+            screen.wait();
+        }
+        // Parked, for as long as it takes the render thread to be scheduled and take the packet. The
+        // deadline is what gets this thread back out; the sample is stamped on the other one.
+        screen.request_wake_at(std::time::Instant::now() + std::time::Duration::from_micros(300));
+        screen.wait();
+    }
+
+    let mut samples = screen.wake_latencies();
+    assert!(
+        samples.len() >= SAMPLES / 2,
+        "only {} of {SAMPLES} submits were observed by the render thread",
+        samples.len()
+    );
+    samples.sort_unstable();
+    let at = |q: f64| samples[((samples.len() - 1) as f64 * q) as usize];
+    println!(
+        "wake-up latency, app submit -> render holding the packet, app thread parked (n = {}): \
+         p50 {:?} p90 {:?} p99 {:?} max {:?} \
+         -- scheduler latency on the way to the wire, NOT frame budget",
+        samples.len(),
+        at(0.50),
+        at(0.90),
+        at(0.99),
+        samples[samples.len() - 1],
+    );
+}
+
+/// **Leading-edge latency after a quiet period**, which is the property the move to `wait` most
+/// threatened, in **two arms** — and the second arm is a correction to how §7's figure reads.
+///
+/// §7 reports 250 ns p50 / 1.04 µs p99 / 16.75 µs max over 2 000 samples. That is the **unparked**
+/// leading edge: a reason that was already pending when `wait` was called, which returns without
+/// touching the condvar at all. It is the number that says *the gate itself is free*, and it is
+/// reproduced here as the first arm.
+///
+/// It is **not** what a keystroke after a genuinely idle application costs. That one is a cross-thread
+/// condvar wakeup and therefore a scheduler hop, and it lands at the same order as §7's own handoff
+/// figure of 4.58 µs p50 — measured here as the second arm, with the app thread parked in the
+/// indefinite wait the idle guarantee is about. **Neither number is wrong; they are two quantities**,
+/// and printing only the first would advertise 250 ns for something that costs twenty times it.
+///
+/// Both are leading edges in the sense that matters: no frame is ever submitted here, so the clock
+/// never arms and nothing is ever held to a gap.
+#[test]
+fn what_a_leading_edge_costs_after_a_quiet_period() {
+    const SAMPLES: usize = 256;
+    let (mut screen, wake) = threaded_at(120.0, Box::new(Counting::default()));
+
+    // Arm one: the reason is already pending, so `wait` never parks. This is the gate's own cost.
+    let mut unparked = Vec::with_capacity(SAMPLES);
+    for _ in 0..SAMPLES {
+        wake.post();
+        let began = std::time::Instant::now();
+        assert_eq!(screen.wait(), Wake::Posted);
+        unparked.push(began.elapsed());
+    }
+    unparked.sort_unstable();
+    let pick = |s: &[std::time::Duration], q: f64| s[((s.len() - 1) as f64 * q) as usize];
+    println!(
+        "leading edge, nothing to park for -- the gate's own cost (n = {}): p50 {:?} p99 {:?} max {:?}",
+        unparked.len(),
+        pick(&unparked, 0.50),
+        pick(&unparked, 0.99),
+        unparked[unparked.len() - 1],
+    );
+
+    // **One post outstanding at a time, and it is a handshake rather than a sleep.**
+    //
+    // `POSTED` is one bit, so two posts inside one park fold into one return — and the first draft
+    // relied on a 200 µs sleep to keep them apart. That is not a slow test, it is a **hanging** one:
+    // the app thread only has to be delayed past 200 µs between a return and the next park, which is
+    // inside one scheduler quantum and above this gate's own measured 46 µs max, and then there are
+    // fewer returns than samples and the last `wait` parks for ever. A hang is worse than a failure,
+    // and a hang in a report is fifteen minutes of CI saying nothing.
+    //
+    // So the app thread says *I am about to park* and the poster posts exactly once for it. The sleep
+    // stays, because its job is the other half — letting the park actually happen, so the sample is a
+    // cross-thread wakeup rather than arm one again — but nothing depends on it any more.
+    let (ready_tx, ready_rx) = std::sync::mpsc::channel::<()>();
+    let (stamp_tx, stamp_rx) = std::sync::mpsc::channel::<std::time::Instant>();
+    let poster = std::thread::spawn(move || {
+        while ready_rx.recv().is_ok() {
+            std::thread::sleep(std::time::Duration::from_micros(200));
+            // Stamped immediately before the post and sent immediately after it. The other order
+            // puts a channel send inside the interval, which is what the first draft measured.
+            let at = std::time::Instant::now();
+            wake.post();
+            let _ = stamp_tx.send(at);
+        }
+    });
+
+    let mut samples = Vec::with_capacity(SAMPLES);
+    for _ in 0..SAMPLES {
+        ready_tx.send(()).expect("the poster is alive");
+        assert_eq!(screen.wait(), Wake::Posted);
+        let woke = std::time::Instant::now();
+        let posted = stamp_rx.recv().expect("the poster sends after it posts");
+        samples.push(woke.saturating_duration_since(posted));
+    }
+    // Dropping the sender is what ends the poster's loop, so it needs no count of its own and cannot
+    // be one post out of step with this one.
+    drop(ready_tx);
+    poster.join().expect("the poster does not panic");
+
+    samples.sort_unstable();
+    println!(
+        "leading edge, post -> wait returns with the app thread parked (n = {}): \
+         p50 {:?} p99 {:?} max {:?} \
+         -- a cross-thread condvar wakeup, so the same order as the 4.58 us handoff and NOT the \
+         250 ns above. The tail is the handshake's: two threads ping-pong through channels to keep \
+         one post outstanding, so the p99 is scheduler contention this arm creates and not something \
+         a real post pays",
+        samples.len(),
+        pick(&samples, 0.50),
+        pick(&samples, 0.99),
+        samples[samples.len() - 1],
+    );
+}
+
+/// **The ceiling is achieved from below**, and the number is here so nobody spends a day
+/// rediscovering it.
+///
+/// `wait_timeout` overshoots: §7 measured a hold at 10.18 ms p50 against an 8.333 ms gap on macOS, so
+/// a configured 120 Hz yields about 110 fps under load. Undershooting a ceiling is safe by
+/// construction — a ceiling achieved from below is still a ceiling — so the only assertion is the one
+/// that would catch the clock being absent altogether.
+///
+/// A storm rather than a sparse rate, because a sparse rate measures the storm and not the clock: at
+/// 200 Hz of events, gating at `present` delivers 83.8 fps against 110.8 for the same ceiling, and
+/// that comparison is ADR 0004's rather than this report's.
+#[test]
+fn the_achieved_rate_lands_under_the_configured_ceiling() {
+    const HZ: f32 = 120.0;
+    const WINDOW: std::time::Duration = std::time::Duration::from_millis(500);
+    let (mut screen, wake) = threaded_at(HZ, Box::new(Counting::default()));
+    let id = screen.layers().add_content(0, Rect::new(0, 0, W, H), true);
+    let storming = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+
+    let flag = std::sync::Arc::clone(&storming);
+    let storm = std::thread::spawn(move || {
+        while flag.load(std::sync::atomic::Ordering::Relaxed) {
+            wake.post();
+            std::thread::sleep(std::time::Duration::from_micros(500));
+        }
+        // The app thread is inside the gap when the flag drops; one last post lets it out.
+        wake.post();
+    });
+
+    let began = std::time::Instant::now();
+    let mut frames = 0u32;
+    let mut iterations = 0u32;
+    while began.elapsed() < WINDOW {
+        screen.wait();
+        iterations += 1;
+        {
+            let mut view = screen.layers().view(id).expect("the layer was just added");
+            view.text(
+                0,
+                (frames % u32::from(H)) as i32,
+                if frames % 2 == 0 { "x" } else { "y" },
+                Style::new(),
+            );
+        }
+        if screen.present().submitted {
+            frames += 1;
+        }
+    }
+    let elapsed = began.elapsed();
+    storming.store(false, std::sync::atomic::Ordering::Relaxed);
+    storm.join().expect("the storm does not panic");
+
+    let fps = f64::from(frames) / elapsed.as_secs_f64();
+    println!(
+        "achieved rate against a configured {HZ} Hz: {fps:.1} fps over {elapsed:?}, \
+         {iterations} iterations for {frames} frames \
+         -- wait_timeout overshoots (10.18 ms p50 against an 8.333 ms gap on macOS), so a ceiling is \
+         approached from below"
+    );
+    assert!(
+        fps <= f64::from(HZ) * 1.5,
+        "{fps:.1} fps against a {HZ} Hz ceiling: the clock is not gating anything"
+    );
+    assert!(
+        frames > 0,
+        "the clock held every frame of the window, which is not a ceiling"
+    );
+}
+
+/// **Nothing anywhere queries a display**, which is §12's refusal 10 and an absence rather than a
+/// behaviour.
+///
+/// A tty cannot report a refresh rate, so `Config::max_frame_rate` is the application's to set and
+/// `Screen::set_max_frame_rate` is how it changes one. An absence cannot be asserted by calling
+/// anything, so this reads the crate's own source: the platform APIs a future contributor would reach
+/// for are named, and none of them may appear.
+///
+/// It is a cheap gate and a real one. `deny.toml` already forbids the dependency that would make one
+/// of these easy, and this catches the other route — a raw `extern "C"` block, or an `ioctl` bolted
+/// onto `crate::detect` beside the one that legitimately asks for the size in cells.
+#[test]
+fn nothing_anywhere_queries_a_display_for_a_refresh_rate() {
+    /// What a display query would have to name, whichever platform it was written for.
+    const FORBIDDEN: &[&str] = &[
+        "CGDisplay",
+        "NSScreen",
+        "CVDisplayLink",
+        "XRRGetScreenInfo",
+        "XRRGetScreenResources",
+        "randr",
+        "DwmGetCompositionTimingInfo",
+        "EnumDisplaySettings",
+        "GetDeviceCaps",
+        "VREFRESH",
+        "refresh_rate",
+        "refreshRate",
+    ];
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut files = Vec::new();
+    collect_rust_files(&root, &mut files);
+    assert!(
+        files.len() > 20,
+        "the source walk found {} files, so it is not walking the crate",
+        files.len()
+    );
+    for path in files {
+        // This file, and only this file: it is the one whose purpose is to name them, and it is
+        // `cfg(test)` — nothing it says reaches a release binary. Excluded by name rather than by
+        // excluding every `cfg(test)` module, because that list is a thing to forget to update and
+        // this is one line that fails loudly if the file is renamed.
+        if path.ends_with("gates.rs") {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path).expect("the crate's own source is readable");
+        for needle in FORBIDDEN {
+            assert!(
+                !text.contains(needle),
+                "{} names `{needle}`: the engine never asks a display anything, and the frame rate \
+                 is the application's to set (spec §12's refusal 10)",
+                path.display()
+            );
+        }
+    }
+}
+
+/// Every `.rs` file under `root`, recursively.
+#[cfg(test)]
+fn collect_rust_files(root: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+    let entries = std::fs::read_dir(root).expect("the crate's own source is readable");
+    for entry in entries {
+        let path = entry.expect("the crate's own source is readable").path();
+        if path.is_dir() {
+            collect_rust_files(&path, out);
+        } else if path.extension().is_some_and(|e| e == "rs") {
+            out.push(path);
+        }
+    }
+}
+
+/// `set_max_frame_rate` moves the gap, and the deterministic clock refuses to be given one.
+///
+/// The second half is the one worth a gate: a `Clock::Manual` screen that could be paced would make
+/// the deterministic mode reproducible in its interleaving and not in its timing, which is half of
+/// what it is for.
+#[test]
+fn setting_the_frame_rate_moves_the_gap_and_never_paces_the_deterministic_clock() {
+    let (mut screen, _wake) = threaded_at(1.0, Box::new(Counting::default()));
+    let id = screen.layers().add_content(0, Rect::new(0, 0, W, H), true);
+    let paint = |screen: &mut Screen, y: i32| {
+        let mut view = screen.layers().view(id).expect("the layer was just added");
+        view.text(0, y, "hz", Style::new());
+    };
+    paint(&mut screen, 0);
+    assert!(screen.present().submitted);
+    let slow = screen
+        .next_frame_allowed()
+        .expect("a 1 Hz ceiling arms the gap");
+
+    screen.set_max_frame_rate(f32::INFINITY);
+    paint(&mut screen, 1);
+    screen.wait_for_renderer();
+    assert!(screen.present().submitted);
+    assert_eq!(
+        screen.next_frame_allowed(),
+        None,
+        "an unlimited rate left a gap armed"
+    );
+    assert!(
+        slow > std::time::Instant::now(),
+        "the 1 Hz gap was not a second"
+    );
+
+    let mut h = Harness::truecolor(8, 2);
+    h.screen.set_max_frame_rate(1.0);
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, 8, 2), true);
+    {
+        let mut view = h.screen.layers().view(id).expect("just added");
+        view.text(0, 0, "manual", Style::new());
+    }
+    assert!(h.screen.present().submitted);
+    assert_eq!(
+        h.screen.next_frame_allowed(),
+        None,
+        "the deterministic clock accepted a ceiling"
     );
 }

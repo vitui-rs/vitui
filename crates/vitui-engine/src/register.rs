@@ -329,12 +329,19 @@ pub const REGISTER: [Entry; 27] = [
         kind: Kind::Gate,
         qualifier: "count, 30 s minimum per run",
         source: "arch 09, 18",
-        state: State::Red {
-            inverted_by: "impl 19",
-            why: "the render thread parks on the mailbox since impl 18, and it is the app thread \
-                  that cannot: there is no `wait` to park in, so an idle process still turns in \
-                  whatever loop its caller wrote. An idle measured against that is a measurement of \
-                  the caller",
+        state: State::Wired {
+            at: "in two halves, because the two numbers need two instruments. The **count** is \
+                 crate::gates::an_idle_application_parks_once_and_wakes_for_nothing — the app \
+                 thread enters its blocking wait once and comes back zero times, the render \
+                 thread's wait comes back zero times, and no frame is painted; a 120 Hz ticker \
+                 would put 18 in the second number over the 150 ms window and 3 600 over thirty \
+                 seconds. The **process** half is `scripts/idle-gate.sh`, which runs \
+                 `examples/idle.rs` under /usr/bin/time for thirty seconds and reads user time, \
+                 system time and voluntary context switches out of the report: measured \
+                 `30.01 real, 0.00 user, 0.00 sys, 0 voluntary context switches`. Thirty is a \
+                 floor rather than a preference — at three the difference is below the tool's \
+                 resolution — and it is a two-runner job, `-l` on macOS and `-v` on GNU, because \
+                 Windows has neither",
         },
     },
     Entry {
@@ -412,8 +419,9 @@ pub const REGISTER: [Entry; 27] = [
                  the gate: `the_app_threads_share` measures `present` with serialisation on the \
                  render thread, which is what §13's budget is written about, and all four come \
                  under their budgets there. They stay reported because a sample on that path can \
-                 contain a wait until impl 19's parking point, and because a budget gate has to \
-                 hold on a runner somebody has measured — impl 26's ledger",
+                 contain a wait — that loop spins rather than parking in impl 19's `wait`, since a \
+                 frame gap inside a sample is a sleep inside a budget — and because a budget gate \
+                 has to hold on a runner somebody has measured, which is impl 26's ledger",
         },
     },
     Entry {
@@ -444,12 +452,18 @@ pub const REGISTER: [Entry; 27] = [
         kind: Kind::Report,
         qualifier: "distribution over a real run",
         source: "arch 09",
-        state: State::Red {
-            inverted_by: "impl 19",
-            why: "there is a wake-up to time since impl 18 — app submit to the render thread \
-                  holding the packet — and no instrument on the render thread to stamp it, because \
-                  the distribution §7 reports is taken with the app thread genuinely parked and \
-                  impl 19 is what parks it",
+        state: State::Wired {
+            at: "crate::gates::what_a_wake_up_costs_with_the_app_thread_parked, stamped in \
+                 crate::handoff on submit and on take, with the app thread parked in `wait` for \
+                 every sample — which is what impl 19 added and impl 18 could not do. Beside it, \
+                 crate::gates::what_a_leading_edge_costs_after_a_quiet_period reports the same \
+                 hop from the other end and **in two arms**, which is a correction rather than a \
+                 flourish: §7's 250 ns p50 is the leading edge with a reason already pending, so \
+                 `wait` never touches the condvar, and a genuinely parked app thread costs a \
+                 scheduler hop at the same order as §7's own 4.58 µs handoff figure. Two \
+                 quantities, and printing only the first would advertise 250 ns for something \
+                 that costs twenty times it. Reports, not gates: this is OS scheduler latency on \
+                 the way to the wire and it does not spend §13's 100 µs of app-thread CPU",
         },
     },
     Entry {

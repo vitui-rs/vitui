@@ -117,6 +117,9 @@ fn screen_with(overrides: Overrides) -> (Screen, LayerId) {
         // See the attribution window at the top of this file: the default clock spawns a render
         // thread, and a render thread inside these windows is the case the rule is about.
         clock: Clock::Manual,
+        // Ignored on the deterministic clock, and spelled anyway: an allocation window must not
+        // depend on a field somebody changed the default of.
+        max_frame_rate: f32::INFINITY,
     })
     .attach()
     .expect("attaching to a sink cannot fail");
@@ -264,6 +267,7 @@ fn the_operator_reaches_the_wire_at_the_depth_the_gate_pins() {
             overrides: hyperlinks_and_truecolor(),
             // Inline, so the bytes are in the tap by the time `present` returns.
             clock: Clock::Manual,
+            max_frame_rate: f32::INFINITY,
         })
         .attach()
         .expect("attaching to a sink cannot fail");

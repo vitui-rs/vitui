@@ -107,8 +107,29 @@
 //! byte it did**, which is a gate rather than a claim: the same scene through both paths is compared
 //! recording against recording.
 //!
-//! Not here yet, each with the ticket that brings it: the frame clock and `wait` (19), and input
-//! (20, 21).
+//! And **the frame clock, on the one gate that does not waste a core** (ticket 19): [`Screen::wait`]
+//! is the app thread's only blocking call, and the clock gates *it* rather than `present` (ADR 0004)
+//! — gating at `present` runs 800.4 iterations a second to show 114.7 frames, 14% useful, where
+//! gating at `wait` runs 114.5 for 114.5 and at a *sparse* event rate delivers **more** frames, not
+//! fewer, because it can wake at the gap boundary rather than only when an event happens to arrive.
+//! It is a **minimum gap and not a tick**: the first damage after a quiet period returns
+//! immediately, everything inside the gap coalesces into one return at the end of it, and with no
+//! deadline registered the wait is indefinite — **`30.01 s real, 0.00 user, 0.00 sys, 0 voluntary
+//! context switches`** over thirty idle seconds, where a 120 Hz ticker would have woken 3 600 times.
+//! [`Wake::Quit`] is checked before the clock, because at a 1 Hz ceiling checking it after hangs
+//! shutdown for a second. `request_wake_at` keeps the earliest deadline and deregistration is simply
+//! not renewing it; timelines and easing are the runtime's, and **nothing anywhere asks a display
+//! what its refresh rate is** — the application says.
+//!
+//! One thing the settled architecture did not have a name for turned up here and is worth the
+//! sentence: §7 has the wake source multiplex *the renderer going free* and §12 has four `Wake`
+//! variants, and those are not the same four. It is not cosmetic — a user who stops typing while the
+//! renderer is inside a 200 ms write loses that keystroke's echo for ever, because `present` refused
+//! and nothing else is going to happen. So the frame is **owed**, `wait` releases when the renderer
+//! takes the packet, and it answers [`Wake::Deadline`]: what released the app thread really is the
+//! clock, and a fifth variant is a public surface this backlog has not decided. See `crate::clock`.
+//!
+//! Not here yet, each with the ticket that brings it: input (20, 21).
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]
@@ -125,6 +146,7 @@ mod ucd;
 
 mod caps;
 mod cell;
+mod clock;
 mod damage;
 mod detect;
 mod engine;
@@ -174,6 +196,7 @@ mod view;
 mod roundtrip;
 
 pub use caps::{Capabilities, ColorDepth, GlyphSet, Overrides, Rgb, WidthSource};
+pub use clock::Wake;
 pub use engine::{AttachError, Clock, Config, Engine, Output, Presented, Screen, WakeHandle};
 pub use exts::LinkId;
 pub use geom::Rect;

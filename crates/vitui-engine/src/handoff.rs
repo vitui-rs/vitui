@@ -109,7 +109,7 @@ struct Shared {
     /// one gate that says frames are never composed to be thrown away. So the app is released from
     /// the wait and every frame after answers `submitted: false`: nothing can be painted, because
     /// the sink went with the thread. **Ticket 22 owns what happens next** — a restoration that is
-    /// idempotent from any thread — and ticket 19's `wait` is where `Wake::Quit` belongs.
+    /// idempotent from any thread — and `Screen::wait`'s `Wake::Quit` is where it surfaces.
     gone: bool,
     /// How many packets were dropped on the floor by a submit landing on a full slot. **Zero, for
     /// ever**: register entry #9.
@@ -118,6 +118,10 @@ struct Shared {
     starved: u32,
     /// How many packets the render thread has finished writing.
     painted: u64,
+    /// How many times the render thread's wait on *a packet landed* has returned — a notification, a
+    /// spurious wakeup, anything. **Zero over an idle window**, which is the render thread's half of
+    /// register entry #17: the app thread's half is `crate::clock::WakeSource`'s park counters.
+    wakeups: u64,
     /// The **address** of the packet most recently returned to the pool, or zero before any has been.
     ///
     /// An index was what this held first, and the review found two ways it was wrong. `finish` pushes
@@ -134,6 +138,16 @@ struct Shared {
     /// name that claimed otherwise would be describing a copy that does not exist.
     #[cfg(test)]
     last_returned: usize,
+    /// When the packet in the slot was submitted, for register entry #26.
+    ///
+    /// `cfg(test)`, and not because the number is uninteresting: it is one `Instant::now()` per
+    /// submit on a path §7 prices in nanoseconds, and the distribution it feeds is a **report** that
+    /// may never be load-bearing for a gate. A release build has nothing to read it.
+    #[cfg(test)]
+    submitted_at: Option<std::time::Instant>,
+    /// App submit to the render thread holding the packet, one entry per take.
+    #[cfg(test)]
+    latencies: Vec<std::time::Duration>,
 }
 
 #[cfg(test)]
@@ -168,8 +182,13 @@ impl Mailbox {
                 superseded: 0,
                 starved: 0,
                 painted: 0,
+                wakeups: 0,
                 #[cfg(test)]
                 last_returned: 0,
+                #[cfg(test)]
+                submitted_at: None,
+                #[cfg(test)]
+                latencies: Vec::new(),
             }),
             landed: Condvar::new(),
             free: Condvar::new(),
@@ -207,6 +226,10 @@ impl Mailbox {
                 shared.free.push(dropped);
             }
             shared.ready = false;
+            #[cfg(test)]
+            {
+                shared.submitted_at = Some(std::time::Instant::now());
+            }
         }
         self.landed.notify_one();
     }
@@ -237,6 +260,13 @@ impl Mailbox {
             }
             if let Some(packet) = shared.slot.take() {
                 shared.ready = true;
+                // Stamped here rather than after the write: what §7 reports is *app submit to the
+                // render thread holding the packet*, which is a scheduler latency and ends the
+                // moment this thread has it.
+                #[cfg(test)]
+                if let Some(at) = shared.submitted_at.take() {
+                    shared.latencies.push(at.elapsed());
+                }
                 drop(shared);
                 self.free.notify_one();
                 return Some(packet);
@@ -245,6 +275,7 @@ impl Mailbox {
                 .landed
                 .wait(shared)
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
+            shared.wakeups += 1;
         }
     }
 
@@ -285,10 +316,17 @@ impl Mailbox {
 
     /// Block until the render thread has taken whatever was submitted.
     ///
-    /// **Ticket 19 is what makes this public and multiplexed**: `wait() -> Wake` folds the renderer
-    /// going free together with an input event, a deadline and a post from another thread, and it is
-    /// the frame clock's seat. Until then this is the one waiter on the *free* condvar, which is
-    /// what keeps the second condvar of the design from being a primitive nobody blocks on.
+    /// **Ticket 19 did not make this public, and the reason is worth the paragraph.** `wait() -> Wake`
+    /// does multiplex the renderer going free with an input event, a deadline and a post — but a
+    /// thread cannot park on two condvars, so it parks on `crate::clock::WakeSource`'s and the render
+    /// thread signals *that* one from its `take`. This condvar stayed where it was: it is what the
+    /// gates use to order a frame against the renderer having taken it, which is a question about the
+    /// handoff and not about a wake.
+    ///
+    /// So the second condvar of the design is now blocked on only by tests. That is a smaller claim
+    /// than it sounds — the *notification* is in the frame path either way, and what changed is which
+    /// waiter it releases — but it is a claim, and it is written here rather than left for a reader to
+    /// notice.
     pub(crate) fn wait_until_free(&self) {
         let mut shared = self.lock();
         while !shared.ready && !shared.quit && !shared.gone {
@@ -309,14 +347,25 @@ impl Mailbox {
         self.landed.notify_all();
     }
 
-    /// Whether the render thread has left. `present` answers `submitted: false` for ever after.
+    /// Whether the render thread has left.
+    ///
+    /// **`present` answers `submitted: false` from the frame after, not from this one.** `lease` gates
+    /// on `ready`, and this flag does not lower it — deliberately, because raising `ready` would let
+    /// the app submit into a slot nobody empties and move register entry #9's counter. So a thread
+    /// that dies while `ready` is true leaves exactly one frame that leases, composites, packs and
+    /// submits into a slot that will never be emptied, and reports `submitted: true` for bytes that
+    /// cannot reach the wire. One wasted composite; the frame after finds `ready` false and every
+    /// frame after that too.
     ///
     /// `cfg(test)`, and the reason is a scope boundary rather than a shortcut: a dead renderer is
     /// **indistinguishable from a permanently busy one** through the public surface, because
     /// `Presented` has no field for it and the engine offers no completion anywhere (§12's refusal
     /// 7). What this ticket owed was that the app thread does not *hang*; telling the application
-    /// its renderer is gone is a `Wake::Quit` (ticket 19) or a shutdown (ticket 22), and inventing a
-    /// third spelling here would be a public API this backlog has not decided.
+    /// its renderer is gone is a `Wake::Quit` or a shutdown (ticket 22), and inventing a third
+    /// spelling here would be a public API this backlog has not decided. Ticket 19's half of the same
+    /// question is [`crate::clock::WakeSource::renderer_gone`], which **cancels** an owed frame
+    /// rather than releasing it — releasing it spins at the frame gap against a sink that is gone —
+    /// so the app thread parks and any `post` or `quit` gets it out.
     #[cfg(test)]
     pub(crate) fn renderer_is_gone(&self) -> bool {
         self.lock().gone
@@ -352,6 +401,26 @@ impl Mailbox {
     #[cfg(test)]
     pub(crate) fn painted(&self) -> u64 {
         self.lock().painted
+    }
+
+    /// How many times the render thread's wait has returned. Register entry #17's other half.
+    #[cfg(test)]
+    pub(crate) fn wakeups(&self) -> u64 {
+        self.lock().wakeups
+    }
+
+    /// Every app-submit-to-render-holding-it delay recorded so far. Register entry #26.
+    #[cfg(test)]
+    pub(crate) fn latencies(&self) -> Vec<std::time::Duration> {
+        self.lock().latencies.clone()
+    }
+
+    /// Throw away what the birth frames recorded, so a report is about the loop that follows.
+    #[cfg(test)]
+    pub(crate) fn reset_latencies(&self) {
+        let mut shared = self.lock();
+        shared.latencies.clear();
+        shared.submitted_at = None;
     }
 
     /// A poisoned mailbox is a thread that panicked inside a critical section that runs no caller's

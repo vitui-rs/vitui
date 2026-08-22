@@ -80,12 +80,8 @@ jobs:
   # (round-robin, minimum of forty) and a gate is an `assert_under` inside one of them, so a
   # regression fails the job rather than appearing in a report nobody reads.
   #
-  # Not here yet, and each for a stated reason:
-  #   - the idle-cost gate needs `/usr/bin/time -l` on macOS and `-v` on GNU and has no equivalent
-  #     on Windows, so it is a two-runner job, not a matrix one, and it needs 30 s per run because
-  #     at 3 s the difference is below the tool's resolution;
-  #   - the comparative suite needs ratatui, Textual and notcurses installed, so it is a separate
-  #     workflow on a pinned runner and it reports rather than gates.
+  # Not here, and for a stated reason: the comparative suite needs ratatui, Textual and notcurses
+  # installed, so it is a separate workflow on a pinned runner and it reports rather than gates.
   budget:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -94,3 +90,30 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo run --release --example budget -p vitui-engine
+
+  # Register entry #17: an idle application costs nothing at all.
+  #
+  # **A two-runner job and deliberately not a matrix one.** `/usr/bin/time` is BSD's on macOS and
+  # GNU's on Linux, with `-l` and `-v` respectively, and Windows has neither — so a third leg would
+  # be a third branch of shell for a property two runners already establish. The script picks its
+  # own flavour; this file only picks the runners.
+  #
+  # Thirty seconds per run, because at three the difference between a parked application and a
+  # 120 Hz ticker is below the tool's resolution. The count half of the same entry is a unit test in
+  # the `test` job above and costs 150 ms.
+  idle:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # GNU `time` is a separate package from the shell builtin and the Ubuntu images do not all
+      # carry it. macOS ships BSD's at /usr/bin/time and needs nothing.
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y time
+      - run: scripts/idle-gate.sh 30

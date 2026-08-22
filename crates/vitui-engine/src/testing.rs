@@ -329,6 +329,9 @@ impl Harness {
             // packs, serialises and writes inline on this thread, so a test is a straight-line
             // program with no condvar, no join, no timeout and no flake.
             clock: Clock::Manual,
+            // Unpaced by construction on this clock, and spelled so that a harness never inherits a
+            // ceiling: the deterministic mode's promise is that a test is a straight-line program.
+            max_frame_rate: f32::INFINITY,
             overrides,
         })
         .attach()

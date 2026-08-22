@@ -294,6 +294,13 @@ engine holds it, so how often a runtime offers frames is not what decides how of
 deadline passed, or the program was asked to quit. Distinct from an **event**, which is *what
 happened*; a wake is only the reason for looking.
 
+**Owed frame** — a frame the pacing gate deferred rather than a frame that was dropped. Damage was
+marked, the composite was refused because the render thread had not taken the last packet, and the
+damage is still there — so the app thread is *owed* a frame and the wait releases when the renderer
+lets go. It is the fifth thing that can wake the app thread and it has no **wake** of its own: it
+arrives as a deadline, because what deferred it was the clock. Nothing is ever owed when nothing was
+damaged, which is what keeps an idle application at zero wakeups.
+
 **Event** — what happened: a key, a mouse action, a paste, a resize, focus arriving or leaving.
 Distinct from a wake, which is only the reason the thread looked. An event is owned outright, carries
 the moment the input thread read it, and says nothing about which widget it concerns.
