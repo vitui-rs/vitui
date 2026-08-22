@@ -482,8 +482,8 @@ fn refuse_in_tests() {}
 /// thread is the one that will adopt this channel rather than opening its own.
 ///
 /// Raw mode is entered here because a line-buffered terminal answers nothing until a newline that
-/// is never coming. Restoring it on drop is the floor rather than the design: **ticket 22 owns
-/// shutdown** — the alt screen, the panic hook, and restoration that is idempotent under both.
+/// is never coming, and giving it back is this type's `Drop` — see below for where that sits beside
+/// [`crate::shutdown`], which owns everything the terminal is told in escape sequences.
 pub(crate) struct Tty {
     /// `None` once the input thread has adopted it, which is the last thing `attach` does. Detection
     /// is over by then, so nothing here reads again — and the `Tty` itself is kept, because raw mode
@@ -585,10 +585,22 @@ impl Drop for Tty {
     /// back to plain output — left the user's shell in grapheme-cluster mode it did not have before,
     /// with nothing on screen to say so.
     ///
-    /// This is a floor and not the design: **ticket 22 owns shutdown** — the alt screen, the panic
-    /// hook, and a restoration that is idempotent under both. It lives here because `Tty` is what
-    /// changed these two things, and a `Drop` that restores less than its constructor took is the
-    /// bug this is.
+    /// # Why these two are here and the rest of the epilogue is not
+    ///
+    /// [`crate::shutdown`] gives back everything that is an escape sequence *this engine chose to
+    /// send*: the alt screen, auto-wrap, the caret, the kitty flags and the three input modes, from
+    /// any thread, under a panic. These two are neither of those. Raw mode is a `termios` call and
+    /// not a byte on the wire, and mode 2027 was set by **detection** — before `attach` had decided
+    /// there would be a session at all, and still owed back by an `attach` that failed with
+    /// `NoAnswer` and returned no `Screen` for a site to be armed on.
+    ///
+    /// So the boundary is where the thing was taken, and it is worth being exact about what that
+    /// costs. A panic that unwinds through the thread holding the `Screen` runs this too, because
+    /// the `Screen` owns the `Tty`. A panic on the **render** thread does not: the hook gives the
+    /// terminal its modes back immediately, and raw mode comes back a moment later, when the app
+    /// thread reads its `Wake::Quit` and drops the `Screen`. A shell that is briefly in raw mode is
+    /// a shell that echoes nothing for one keystroke; a shell with the kitty flags still pushed is
+    /// broken until somebody runs `reset`, which is why the two are not given equal urgency.
     fn drop(&mut self) {
         if self.requested_2027 {
             let mut out = std::io::stdout();

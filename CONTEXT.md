@@ -584,6 +584,14 @@ either: the keyboard flags cost nothing at rest and are asked for unconditionall
 three convert an idle application into a woken one and are asked for only when the application
 declared them.
 
+**Restoration** — the negotiation backwards, plus the alt screen: every mode this session set, given
+back in the order it was taken, ending with auto-wrap and then the page. It is **not** a method
+anybody calls. It is an idempotent function guarded by one atomic and callable from any thread,
+reached from the process's panic hook and from the `Screen`'s own `Drop` — so a normal return, a `?`
+out of `main` and a panic on any of the three threads all produce exactly one of it. A mode this
+session did not take is a mode it may not give back. Raw mode and the detection-time modes are not
+part of it: those were taken before there was a session, and they come back with the `Tty`.
+
 **Actuator** — a call that changes what the terminal *is* rather than what it shows. There are two,
 `set_mouse` and `set_cursor`, and both **record rather than write**: the write direction is the render
 thread's, so what an actuator produces is carried by the next frame's packet. An actuator is

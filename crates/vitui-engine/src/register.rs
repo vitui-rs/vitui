@@ -310,12 +310,15 @@ pub const REGISTER: [Entry; 27] = [
         kind: Kind::Gate,
         qualifier: "byte sequence",
         source: "arch 10, 01",
-        state: State::Red {
-            inverted_by: "impl 22",
-            why: "impl 21 takes all four and gives all four back on `Screen::drop`, gated by \
-                   `the_epilogue_undoes_the_prologue`. What is missing is the word this entry \
-                   turns on: panic. There is no hook, and a restoration that runs only on an \
-                   ordinary drop does not run while the process is unwinding",
+        state: State::Wired {
+            at: "crate::gates::a_panic_restores_the_terminal_before_the_backtrace_prints — a child \
+                 process that declared all four, raised the mouse above its floor and then \
+                 panicked, with its two output streams on one open file so that the parent reads \
+                 them in write order. The whole epilogue is captured: the kitty pop, all three \
+                 input modes, the caret, auto-wrap and the alt screen. It is there **before** the \
+                 panic message rather than painted into a page the terminal is about to discard, \
+                 and it is there **once** although both the hook and the unwinding `Screen`'s \
+                 `Drop` ran",
         },
     },
     Entry {

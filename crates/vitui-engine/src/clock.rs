@@ -339,8 +339,10 @@ impl WakeSource {
     /// from a permanently busy one through the public surface** (§12's refusal 7), and a permanently
     /// busy one parks the app thread in exactly the same place. What this call buys is that the park
     /// is not *waiting on the renderer*: any `post` or `quit` gets the app thread out, and `present`
-    /// answers `submitted: false` for ever after. **Ticket 22 owns telling the application**, which is
-    /// a `Wake::Quit` and a restoration rather than a fifth spelling invented here.
+    /// answers `submitted: false` for ever after. Telling the application is a `Wake::Quit` and a
+    /// restoration rather than a fifth spelling invented here — and the restoration is
+    /// [`crate::shutdown`]'s, which the render thread's own unwind has already performed by the time
+    /// this is read: the panic hook runs on whichever thread panicked.
     pub(crate) fn renderer_gone(&self) {
         let mut state = self.lock();
         state.owed = false;
@@ -760,7 +762,7 @@ mod tests {
             std::thread::sleep(Duration::from_millis(20));
             dying.renderer_gone();
             // Nothing is owed and nothing is free, so `wait` needs a reason of its own to come back
-            // — the shutdown ticket 22 owns. Here it is the quit that proves the park ended.
+            // — a shutdown. Here it is the quit that proves the park ended.
             std::thread::sleep(Duration::from_millis(40));
             dying.quit();
         });

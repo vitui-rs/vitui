@@ -68,12 +68,22 @@ rust-version = "1.85"
 # crate already has the single reader that detection needs for its deadline. So the parser is ours
 # (`crate::input::parse`) and nothing here calls into `crossterm::event` at all.
 #
-# The feature is left on rather than removed, because removing it is a decision about the dependency
-# surface and not a consequence of writing a parser: it takes `mio`, `signal-hook`, `signal-hook-mio`
-# and `filedescriptor` out of the tree, and it forecloses the only `SIGWINCH` this crate could ever
-# reach — which is the open half of impl 20's resize story. **Whoever takes the terminal-lifecycle
-# ticket owns the choice**, and the two arms are recorded in that ticket's answer. Verified with the
-# feature off: the workspace builds and the whole suite passes.
+# The feature is left on, and impl 22 is where that stopped being *handed forward* and became a
+# decision with a condition on it. Impl 20 left it here as the terminal-lifecycle ticket's to take,
+# on the grounds that removing it forecloses the only `SIGWINCH` this crate could reach. **That
+# ground does not survive**: crossterm registers `SIGWINCH` inside the same reader whose bytes this
+# crate cannot let it have, so nothing reachable is foreclosed. What removing it buys is four crates
+# — `mio`, `signal-hook`, `signal-hook-mio`, `filedescriptor` — and no behaviour.
+#
+# It stays on for a reason that is about evidence rather than about the tree. The only calls left are
+# `IsTty`, `enable_raw_mode`, `disable_raw_mode` and `terminal::size`, and whether those compile
+# without `events` is a **per-platform** question: `.github/workflows/ci.yml` names a three-OS matrix
+# and this repository has no hosted CI to run it, so one green macOS build is one third of the answer
+# to *does this still build on Windows*. A dependency-surface change whose failure mode is an
+# operating system nobody watched is not one to take on a third of the evidence, for a benefit that
+# is tree size. **It comes off with the first ticket that has a three-OS matrix watched green.**
+# Verified again at impl 22 with the feature off: the workspace builds on macOS/arm64 and the four
+# crates leave the tree.
 crossterm = { version = "0.29", default-features = false, features = [
     "bracketed-paste",
     "events",

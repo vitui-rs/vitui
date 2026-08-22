@@ -200,9 +200,35 @@
 //! refusal: `DECSCUSR` conflates shape with blink, so [`CursorShape`] offers the blinking spellings
 //! and `Terminal`, which is the user's own configuration and the default.
 //!
-//! Not here yet: shutdown, the panic hook and restoration (22). The ordinary drop path already gives
-//! back all four modes the negotiation took; what has no answer is a restoration that runs while the
-//! process is unwinding.
+//! And **the terminal comes back** (ticket 22). The alt screen is entered as the session's first
+//! byte and left as its last, and everything between is given back in the order it was taken — but
+//! the sequence is the easy half. *Only the render thread writes* narrows to **only the render
+//! thread writes frames**: a panic hook runs on whichever thread panicked, and joining the render
+//! thread from inside one deadlocks when the render thread is the one that died. So restoration is
+//! an **idempotent function guarded by one atomic, callable from any thread** — eight threads race
+//! it and exactly one performs it — reached from the hook and from `Screen`'s own `Drop`, which is
+//! why a normal return and a `?` out of `main` need no ceremony and why a panic mid-frame needs no
+//! `catch_unwind`. It runs **before** the default hook prints, because a backtrace painted into the
+//! alt screen is discarded with the page a moment later, and the gate is a child process whose two
+//! output streams share one open file so that *before* is a fact about the bytes rather than a
+//! claim. **Restoration is the input state and not only the screen**: the kitty flags are popped,
+//! mouse tracking, focus reporting and bracketed paste go off, and auto-wrap comes back before the
+//! page does — a crashed process that leaves the flags pushed breaks the shell that outlives it,
+//! and a shell whose line editor cannot wrap overwrites its own prompt. **All three tracking modes
+//! go off, not the one this side believes in**, because the level the app thread holds is the one the
+//! next packet will ask for and the mode the terminal is actually in is one of two until that packet
+//! is written; a session that never asked for a mouse still says nothing about one. And the
+//! restoration **stops the render thread** before its first byte, because a renderer that takes one
+//! more packet after the alt screen is gone paints cells onto the user's shell — which on a worker
+//! thread's panic, where the process does not end, it would go on doing. On the way out the render
+//! thread **is**
+//! joined — it is parked on a condvar or inside a bounded `write`, both finite — the input thread
+//! never is, and *the last frame is not flushed*: a packet still in the slot when `quit` arrives is
+//! left there, which is one write fewer on the wire and no exit latency spent showing state that is
+//! already stale.
+//!
+//! Not here yet: the unblockable app thread (23), the public surface and its negative corpus (24),
+//! fuzzing (25), and the budget ledger and comparative suite (26).
 
 #![forbid(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]
@@ -236,6 +262,7 @@ mod quant;
 mod quirks;
 mod reader;
 mod serial;
+mod shutdown;
 mod tables;
 
 // The scene list, the reference compositor and the register. All three are the instruments spec

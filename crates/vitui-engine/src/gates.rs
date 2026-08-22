@@ -4679,3 +4679,480 @@ fn an_idle_application_with_a_caret_on_screen_still_wakes_for_nothing() {
         "one frame, and it is the birth frame"
     );
 }
+
+// ---------------------------------------------------------------------------------------------
+// Shutdown: three exits, one restoration, and the frame that is deliberately not written.
+//
+// Spec §7's *resize, shutdown and panic*, and the property register's entry #15. The three exits
+// below are three **child processes** rather than three in-process cases, and that is forced rather
+// than chosen: the panic hook is process-global and installed once, so an in-process gate about it
+// would be a gate about which test armed `crate::shutdown`'s site last — which under `cargo test`
+// is whichever test the scheduler happened to run beside it. A child process has exactly one
+// screen, one hook and one exit.
+//
+// It also buys the ordering the property is really about. The child's stdout and stderr are two
+// handles on **one open file**, so what the parent reads back is the two streams interleaved in
+// write order — and *the backtrace prints outside the alt screen* is exactly a statement about that
+// order. A pty would show the same order for the same reason; this crate's dependency policy has no
+// way to open one (`deny.toml`), and `.gitlab-ci.yml` runs the whole suite a second time under
+// `script` so that this gate is executed with a real terminal on the process's other end anyway.
+// ---------------------------------------------------------------------------------------------
+
+/// Turns this test binary into the child of one of the three exit gates, and says which exit.
+const EXIT_MODE: &str = "VITUI_SHUTDOWN_EXIT";
+
+/// What the panicking child says, so that the parent can find it in the stream.
+const CHILD_PANIC: &str = "the child is going down on purpose";
+
+/// Everything the epilogue has to give back, as bytes, in the order [`crate::actuate::restoration`]
+/// writes them.
+///
+/// One definition for all three exits, because *they all take the same path* is the property and
+/// three copies of this string could quietly stop saying so.
+pub(crate) const EPILOGUE: &str = "\x1b[?2004l\x1b[?1004l\x1b[?1003l\x1b[?1002l\x1b[?1000l\x1b[?1006l\x1b[<u\x1b[?25h\x1b[?7h\x1b[?1049l";
+
+/// The same, with the escapes made readable — for the failure messages, and for
+/// [`crate::shutdown`]'s unit tests, which assert the same sequence one level down.
+pub(crate) const EPILOGUE_ESCAPED: &str =
+    "^[[?2004l^[[?1004l^[[?1003l^[[?1002l^[[?1000l^[[?1006l^[[<u^[[?25h^[[?7h^[[?1049l";
+
+/// The same, on a screen that declared nothing and was answered nothing.
+///
+/// A caller-supplied sink is asked no questions, so all eight input facts are false and the six
+/// modes above are neither set nor reset — **which is the property and not a shortcut**: a mode this
+/// session did not take is a mode it may not give back, because `CSI ? 1004 l` sent to a terminal
+/// whose user had focus reporting on for their own reasons turns it off for them. What is left is
+/// the three every session takes unconditionally.
+const EPILOGUE_PLAIN: &str = "\x1b[?25h\x1b[?7h\x1b[?1049l";
+
+/// Run this same test binary again as a child, and give back everything it wrote — **stdout and
+/// stderr in one stream, in write order**.
+fn child_output(test: &str, mode: &str) -> String {
+    use std::process::{Command, Stdio};
+
+    let path =
+        std::env::temp_dir().join(format!("vitui-shutdown-{}-{mode}.out", std::process::id()));
+    let file = std::fs::File::create(&path).expect("a file in the temp directory");
+    // **`try_clone`, not a second `open`.** Two handles on one open file share one offset, which is
+    // what makes the interleaving below the child's write order rather than two races to byte zero.
+    let merged = file.try_clone().expect("the same open file, twice");
+    let status = Command::new(std::env::current_exe().expect("the test binary's own path"))
+        .args(["--exact", test, "--nocapture", "--test-threads=1"])
+        .env(EXIT_MODE, mode)
+        // libtest's capture would otherwise swallow the panic message, which is half of what the
+        // panic gate is reading.
+        .env("RUST_BACKTRACE", "0")
+        .stdin(Stdio::null())
+        .stdout(Stdio::from(file))
+        .stderr(Stdio::from(merged))
+        .status()
+        .expect("the test binary is runnable");
+    let out = std::fs::read_to_string(&path).expect("what the child wrote");
+    let _ = std::fs::remove_file(&path);
+    assert!(
+        out.contains("running 1 test"),
+        "the child exited {status:?} without running `{test}` — the name in the parent and the name \
+         of the test have to agree, and nothing else checks that: {out}"
+    );
+    out
+}
+
+/// The child of all three gates: take the terminal, paint one frame, and leave by the named exit.
+///
+/// Every optional input mode is declared **and** answered for, so that the epilogue's every arm is
+/// on the wire rather than skipped as inapplicable. The mouse is then raised above its floor,
+/// because the level the terminal has to be given back is the one it was **last told** and not the
+/// one the negotiation set.
+fn exit_through(mode: &str) {
+    let engine = crate::engine::Engine::new(crate::engine::Config {
+        size: (20, 4),
+        output: crate::engine::Output::Sink(Box::new(std::io::stdout())),
+        clock: crate::engine::Clock::Manual,
+        max_frame_rate: f32::INFINITY,
+        overrides: Overrides::default(),
+        input: crate::input::InputConfig {
+            mouse: crate::input::MouseMode::Buttons,
+            focus: true,
+            paste: true,
+            ..crate::input::InputConfig::default()
+        },
+    });
+    // The frames go to this child's standard output and so does the panic path's restoration, which
+    // is what puts both in one stream for the parent to read an order out of.
+    let (mut screen, _wake) = engine
+        .attach_restoring_into(Some(every_input_protocol()), Box::new(std::io::stdout()))
+        .expect("attaching to a sink cannot fail");
+    screen.set_mouse(crate::input::MouseMode::Motion);
+    let id = screen.layers().add_content(0, Rect::new(0, 0, 20, 4), true);
+    screen
+        .layers()
+        .view(id)
+        .expect("the layer was just added")
+        .text(0, 0, "on the alt screen", Style::new());
+    assert!(screen.present().submitted);
+
+    match mode {
+        // The application's `main` returns, and the guard on the type is what restores.
+        "return" => {}
+        // A `?` propagates out from under a live `Screen`, which is the same guard reached by the
+        // other of the two ordinary exits.
+        "question" => {
+            fn out_of_main(screen: crate::engine::Screen) -> Result<(), std::fmt::Error> {
+                // Held across the `?`, so that what drops it is the unwinding of this frame rather
+                // than a line somebody remembered to write.
+                let _screen = screen;
+                Err(std::fmt::Error)?;
+                unreachable!("the `?` above always propagates")
+            }
+            assert!(out_of_main(screen).is_err());
+        }
+        // And the one that is not a return at all.
+        "panic" => panic!("{CHILD_PANIC}"),
+        other => unreachable!("no such exit: {other}"),
+    }
+}
+
+/// **A normal return restores the terminal**, and the guard is the type.
+#[test]
+fn a_normal_return_restores_the_terminal() {
+    if std::env::var(EXIT_MODE).is_ok() {
+        return exit_through("return");
+    }
+    let out = child_output("gates::a_normal_return_restores_the_terminal", "return");
+    assert_restored_exactly_once(&out);
+}
+
+/// **A `?` out of `main` takes the same path**, because it drops the same value.
+///
+/// It is the exit that is easiest to have working by accident and easiest to break: an epilogue
+/// written by a method somebody has to call is an epilogue a `?` walks straight past.
+#[test]
+fn a_question_mark_out_of_main_restores_the_terminal() {
+    if std::env::var(EXIT_MODE).is_ok() {
+        return exit_through("question");
+    }
+    let out = child_output(
+        "gates::a_question_mark_out_of_main_restores_the_terminal",
+        "question",
+    );
+    assert_restored_exactly_once(&out);
+}
+
+/// **Register entry #15, and it is the word *panic* that this entry turns on.**
+///
+/// > Panic restore pops keyboard flags and disables mouse, focus reporting and bracketed paste.
+///
+/// Three things are asserted and the second is the one that costs a debugging session to find out
+/// about the hard way:
+///
+/// - the whole epilogue is on the wire, **captured** rather than inspected — the kitty pop, all
+///   three input modes, the caret, auto-wrap and the alt screen;
+/// - it is there **before** the panic message, because restoration that runs after the default hook
+///   paints the backtrace into a page the terminal is about to discard;
+/// - it is there **once**, although both the hook and the unwinding `Screen`'s `Drop` ran. That is
+///   the atomic, observed from the outside.
+#[test]
+fn a_panic_restores_the_terminal_before_the_backtrace_prints() {
+    if std::env::var(EXIT_MODE).is_ok() {
+        return exit_through("panic");
+    }
+    let out = child_output(
+        "gates::a_panic_restores_the_terminal_before_the_backtrace_prints",
+        "panic",
+    );
+    assert_restored_exactly_once(&out);
+
+    let restored = out.find(EPILOGUE).expect("asserted just above");
+    let printed = out
+        .find(CHILD_PANIC)
+        .unwrap_or_else(|| panic!("the child never printed its panic: {}", escaped(&out)));
+    assert!(
+        restored < printed,
+        "the backtrace was printed into the alt screen, at {printed} against a restoration at \
+         {restored}: {}",
+        escaped(&out)
+    );
+}
+
+/// What every exit owes the terminal, and it owes it exactly once.
+fn assert_restored_exactly_once(out: &str) {
+    assert_eq!(
+        out.matches("\x1b[?1049h").count(),
+        1,
+        "the alt screen was entered {} times: {}",
+        out.matches("\x1b[?1049h").count(),
+        escaped(out)
+    );
+    assert!(
+        out.contains(EPILOGUE),
+        "the epilogue is not on the wire in one piece: {}",
+        escaped(out)
+    );
+    assert_eq!(
+        out.matches("\x1b[?1049l").count(),
+        1,
+        "the restoration ran more than once: {}",
+        escaped(out)
+    );
+}
+
+/// Escapes made visible, because a failure message full of raw `ESC` reprograms the reader's own
+/// terminal instead of telling them anything.
+fn escaped(out: &str) -> String {
+    out.replace('\x1b', "^[")
+}
+
+/// **The render thread is joined; the input thread is not** (spec §7).
+///
+/// The join is not observable as a join, so it is observed as its consequence: the renderer — and
+/// the sink inside it — comes back to the app thread, and the epilogue is written from **this**
+/// thread while the frames were written from another. Nothing but a join produces that, and a
+/// `Screen::drop` that skipped it would either write the epilogue through a sink two threads hold or
+/// find no sink at all.
+///
+/// The input thread's asymmetry is not gated and cannot usefully be: it sits in a blocking `read`
+/// with nothing to wake it short of a signal, so it dies with the process, and a headless screen
+/// does not have one at all. The reason is a comment where the second join would go, in
+/// `Screen::reclaim_renderer`.
+#[test]
+fn the_render_thread_is_joined_and_the_app_thread_writes_the_epilogue() {
+    /// Every write, with the thread that made it.
+    type Writes = std::sync::Arc<std::sync::Mutex<Vec<(std::thread::ThreadId, Vec<u8>)>>>;
+
+    #[derive(Clone)]
+    struct WhoWrote(Writes);
+
+    impl std::io::Write for WhoWrote {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0
+                .lock()
+                .expect("never poisoned")
+                .push((std::thread::current().id(), buf.to_vec()));
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    let log = WhoWrote(std::sync::Arc::new(std::sync::Mutex::new(Vec::new())));
+    let seen = log.clone();
+    let here = std::thread::current().id();
+
+    let mut screen = threaded(Box::new(log));
+    let id = screen.layers().add_content(0, Rect::new(0, 0, W, H), true);
+    screen
+        .layers()
+        .view(id)
+        .expect("the layer was just added")
+        .text(0, 0, "one frame", Style::new());
+    assert!(screen.present().submitted);
+    drained(&screen, 1);
+    drop(screen);
+
+    let writes = seen.0.lock().expect("never poisoned");
+    let (prologue_thread, _) = writes.first().expect("the prologue is a write");
+    assert_eq!(
+        *prologue_thread, here,
+        "the prologue goes out before a second thread exists"
+    );
+    assert!(
+        writes.iter().any(|(who, _)| *who != here),
+        "no frame was written by a render thread, so this gate is about nothing"
+    );
+    let (epilogue_thread, epilogue) = writes.last().expect("the epilogue is a write");
+    assert_eq!(
+        String::from_utf8_lossy(epilogue).replace('\x1b', "^["),
+        escaped(EPILOGUE_PLAIN)
+    );
+    assert_eq!(
+        *epilogue_thread, here,
+        "the epilogue was written by a thread that should have been joined by then"
+    );
+}
+
+/// A sink that records every write and takes none of them until the test lets go.
+///
+/// One token per write, and **a dropped sender releases it for ever** — which is how the epilogue
+/// gets out at the end without a test having to count the writes it did not make.
+struct GatedLog {
+    gate: std::sync::mpsc::Receiver<()>,
+    writes: std::sync::Arc<std::sync::Mutex<Vec<Vec<u8>>>>,
+}
+
+impl std::io::Write for GatedLog {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let _ = self.gate.recv();
+        self.writes
+            .lock()
+            .expect("never poisoned")
+            .push(buf.to_vec());
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+/// **The last frame is not flushed on quit** (spec §7), as a count of writes.
+///
+/// Showing state that is already stale buys nothing and costs exit latency, so a packet still in the
+/// slot when `quit` arrives goes nowhere. Two frames are submitted and the renderer is held inside
+/// the first one's write for the whole of it, so the second is sitting in the slot at the moment
+/// `Screen::drop` sets `quit` — and `Mailbox::take` answers `None` before it answers with a packet.
+///
+/// # Why this is an ordering and not a sleep
+///
+/// The gate opens strictly **after** `quit` is set, because the thread that opens it spins on
+/// [`Mailbox::quit_requested`](crate::handoff::Mailbox) rather than on a clock. A sleep here would
+/// be a flake with a budget's clothes on: the whole property is *which of two things happened
+/// first*.
+#[test]
+fn the_last_frame_is_not_flushed_on_quit() {
+    let (tx, gate) = std::sync::mpsc::channel();
+    // The prologue, which `attach` writes on this thread before a second one exists. Gating it would
+    // deadlock the constructor.
+    tx.send(()).expect("the receiver is alive");
+    let writes = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mut screen = threaded(Box::new(GatedLog {
+        gate,
+        writes: std::sync::Arc::clone(&writes),
+    }));
+    let id = screen.layers().add_content(0, Rect::new(0, 0, W, H), true);
+    let paint = |screen: &mut Screen, text: &str| {
+        screen
+            .layers()
+            .view(id)
+            .expect("the layer was just added")
+            .text(0, 0, text, Style::new());
+    };
+
+    // Frame one is taken and the renderer is now inside its write, holding the gate shut.
+    paint(&mut screen, "first");
+    assert!(screen.present().submitted);
+    screen.wait_for_renderer();
+
+    // Frame two fills the pool's other packet and lands in the slot. Nothing will ever take it.
+    paint(&mut screen, "second");
+    assert!(
+        screen.present().submitted,
+        "the pool's second packet was there to fill"
+    );
+
+    let mailbox = screen.mailbox_handle();
+    let releaser = std::thread::spawn(move || {
+        while !mailbox.quit_requested() {
+            std::hint::spin_loop();
+        }
+        drop(tx);
+    });
+    drop(screen);
+    releaser.join().expect("the releaser cannot panic");
+
+    let writes = writes.lock().expect("never poisoned");
+    assert_eq!(
+        writes.len(),
+        3,
+        "the prologue, one frame and the epilogue — and a fourth write is the stale frame: {:?}",
+        writes
+            .iter()
+            .map(|w| escaped(&String::from_utf8_lossy(w)))
+            .collect::<Vec<_>>()
+    );
+    let all = writes.concat();
+    let seen = String::from_utf8_lossy(&all);
+    assert!(seen.contains("first"), "the frame that was taken: {seen:?}");
+    assert!(
+        !seen.contains("second"),
+        "the last frame was flushed on quit: {seen:?}"
+    );
+    assert!(seen.ends_with(EPILOGUE_PLAIN), "{}", escaped(&seen));
+}
+
+/// **The restoration stops the render thread, so nothing is painted after the terminal is given
+/// back.**
+///
+/// This is the failure the panic path invites and `Screen::drop` does not cover: the hook runs on
+/// whichever thread panicked, and until this ticket the only thing that set `quit` was the drop —
+/// which comes *after* the hook, and on a worker thread's panic may never come at all, because a
+/// panic off the main thread does not end the process. In between, the epilogue leaves the alt
+/// screen and the render thread takes the next packet and paints cells onto the user's shell.
+///
+/// Two frames are submitted with the renderer held inside the first one's write, so the second is in
+/// the slot when the restoration happens. It is then never written — and the gate is an ordering
+/// rather than a sleep, because the sink's gate opens strictly after the restoration has returned.
+#[test]
+fn the_restoration_stops_the_renderer_before_the_terminal_is_given_back() {
+    let (tx, gate) = std::sync::mpsc::channel();
+    tx.send(()).expect("the receiver is alive");
+    let writes = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let epilogue = crate::testing::Recorder::new();
+
+    let (mut screen, _wake) = crate::engine::Engine::new(crate::engine::Config {
+        size: (W, H),
+        output: crate::engine::Output::Sink(Box::new(GatedLog {
+            gate,
+            writes: std::sync::Arc::clone(&writes),
+        })),
+        clock: crate::engine::Clock::System,
+        max_frame_rate: f32::INFINITY,
+        overrides: crate::testing::pinned_truecolor(),
+        input: crate::input::InputConfig::default(),
+    })
+    // The panic path's sink, which over a caller-supplied output would otherwise not exist.
+    .attach_restoring_into(None, Box::new(epilogue.clone()))
+    .expect("attaching to a sink cannot fail");
+
+    let id = screen.layers().add_content(0, Rect::new(0, 0, W, H), true);
+    let paint = |screen: &mut Screen, text: &str| {
+        screen
+            .layers()
+            .view(id)
+            .expect("the layer was just added")
+            .text(0, 0, text, Style::new());
+    };
+
+    paint(&mut screen, "first");
+    assert!(screen.present().submitted);
+    screen.wait_for_renderer();
+    paint(&mut screen, "second");
+    assert!(screen.present().submitted, "and it lands in the slot");
+
+    assert!(screen.restore_as_a_panic_would());
+    assert_eq!(
+        String::from_utf8_lossy(&epilogue.handle().lock().expect("never poisoned").bytes)
+            .replace('\x1b', "^["),
+        escaped(EPILOGUE_PLAIN),
+        "the panic path wrote the epilogue through its own sink"
+    );
+
+    // Only now can the renderer move at all, and by then it has already been told to stop. It
+    // finishes the write it is inside and then leaves, which is the **observable** consequence and
+    // the one this gate turns on: a renderer that was not told would take the packet in the slot and
+    // paint it, and would then still be parked on `take` when the deadline expired.
+    drop(tx);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    while !screen.renderer_is_gone() && std::time::Instant::now() < deadline {
+        std::hint::spin_loop();
+    }
+    assert!(
+        screen.renderer_is_gone(),
+        "the restoration left the render thread running with a packet in the slot"
+    );
+    drop(screen);
+
+    let writes = writes.lock().expect("never poisoned");
+    let seen = String::from_utf8_lossy(&writes.concat()).into_owned();
+    assert!(seen.contains("first"), "the frame that was taken: {seen:?}");
+    assert!(
+        !seen.contains("second"),
+        "a frame was painted onto the user's shell after the terminal was restored: {seen:?}"
+    );
+    assert!(
+        !seen.contains("\x1b[?1049l"),
+        "the epilogue went out twice, once through each sink: {}",
+        escaped(&seen)
+    );
+}

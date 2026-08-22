@@ -393,6 +393,11 @@ const MODE_DECTCEM: u32 = 25;
 /// parser arm and a `Capabilities` field, and none of the three is this ticket's.
 pub(crate) fn negotiation(config: &InputConfig, caps: &Capabilities) -> Vec<u8> {
     let mut out = Vec::with_capacity(64);
+    // **First, because everything after it is a mode set on the page this enters.** The alt screen
+    // is what makes a full-screen application a full-screen application: the user's scrollback is
+    // untouched, and leaving it puts their shell back exactly as they left it rather than eight
+    // hundred lines further down.
+    out.extend_from_slice(ENTER_ALT_SCREEN);
     // Auto-wrap off, once, for the lifetime of the session (spec §8). Every `shortest` move in the
     // serializer is priced on the assumption that nothing wrapped.
     out.extend_from_slice(DISABLE_AUTO_WRAP);
@@ -419,15 +424,27 @@ pub(crate) fn negotiation(config: &InputConfig, caps: &Capabilities) -> Vec<u8> 
 
 /// Give back everything [`negotiation`] took, in the order it took it.
 ///
-/// **Ticket 22 owns shutdown** — the alt screen, the panic hook, and a restoration that is
-/// idempotent from any thread under an unwind. This is the floor, and it is here rather than there
-/// for the reason [`negotiation`] is: whatever changed a mode is what knows how to change it back,
-/// and §9's *restoration includes input state* is not satisfied by a list somewhere else.
+/// These are the **bytes**; [`crate::shutdown`] is what decides who writes them and how often, and
+/// the split is the reason the bytes stayed here: whatever changed a mode is what knows how to
+/// change it back, and §9's *restoration includes input state* is not satisfied by a list somewhere
+/// else. What the site adds is the atomic — a panic hook runs on whichever thread panicked, so the
+/// same sequence has to be reachable from a thread that owns none of this.
 ///
-/// `mouse` is what the terminal was **last told**, not the floor: an application that raised the
-/// level through [`Screen::set_mouse`](crate::Screen::set_mouse) has to have that level reset rather
-/// than the one it started with.
-pub(crate) fn restoration(config: &InputConfig, caps: &Capabilities, mouse: MouseMode) -> Vec<u8> {
+/// # `mouse_on` is a boolean, and every tracking mode is reset
+///
+/// It was a [`MouseMode`] first — *the level the terminal was last told* — and that turned out not
+/// to be knowable. The level the app thread holds is the one the **next packet** will ask for; the
+/// bytes that change the mode are written later, by the render thread, so there is a window in which
+/// the terminal is in either the old mode or the new one and nothing on the app thread can say
+/// which. Resetting only the level this side believes in leaves the other one standing, and a shell
+/// that outlives the crash goes on receiving mouse reports — which is exactly the property register
+/// entry #15 is about.
+///
+/// So all three tracking modes go off whenever the session asked for a mouse at all, and the extra
+/// eighteen bytes are spent once, at shutdown. **A session that never asked says nothing**, which is
+/// the rule that matters here: a mode this process did not set is a mode it may not clear, because
+/// the person at the terminal may have set it for their own reasons.
+pub(crate) fn restoration(config: &InputConfig, caps: &Capabilities, mouse_on: bool) -> Vec<u8> {
     let mut out = Vec::with_capacity(64);
     if config.paste && caps.bracketed_paste {
         private_mode(&mut out, MODE_BRACKETED_PASTE, false);
@@ -435,10 +452,13 @@ pub(crate) fn restoration(config: &InputConfig, caps: &Capabilities, mouse: Mous
     if config.focus && caps.focus_events {
         private_mode(&mut out, MODE_FOCUS, false);
     }
-    // Guarded rather than unconditional, because `write_mouse(Off, Off)` still resets the SGR
-    // encoding — which is one mode nobody set, on a terminal that may not have the mouse at all.
-    if mouse != MouseMode::Off {
-        write_mouse(&mut out, mouse, MouseMode::Off);
+    if mouse_on {
+        // Highest first, which is only for a reader: they are three independent modes and the
+        // terminal does not care about the order they go off in.
+        for level in [MouseMode::Motion, MouseMode::Drag, MouseMode::Buttons] {
+            private_mode(&mut out, tracking(level).expect("not Off"), false);
+        }
+        private_mode(&mut out, MODE_SGR_MOUSE, false);
     }
     if caps.kitty_flags() != 0 {
         // Pop, which is the protocol's own undo: the push at startup was one entry on the
@@ -447,6 +467,12 @@ pub(crate) fn restoration(config: &InputConfig, caps: &Capabilities, mouse: Mous
     }
     write_visibility(&mut out, true);
     out.extend_from_slice(ENABLE_AUTO_WRAP);
+    // **Last, and after auto-wrap.** Both halves of that are load-bearing. Last, because everything
+    // above it is a mode this session set and the terminal keeps modes across the switch — leaving
+    // first would put the user's shell back and then go on resetting things behind their prompt.
+    // And after auto-wrap specifically, because DECAWM is the one mode a shell notices immediately:
+    // a shell whose line editor cannot wrap is a shell that overwrites its own prompt.
+    out.extend_from_slice(LEAVE_ALT_SCREEN);
     out
 }
 
@@ -459,6 +485,17 @@ const MODE_BRACKETED_PASTE: u32 = 2004;
 pub(crate) const DISABLE_AUTO_WRAP: &[u8] = b"\x1b[?7l";
 /// DECAWM on, which is what the terminal had before this process took it.
 pub(crate) const ENABLE_AUTO_WRAP: &[u8] = b"\x1b[?7h";
+
+/// Mode 1049 — the alternate screen buffer, with the cursor saved and the page cleared.
+///
+/// 1049 rather than 47 or 1047: it is the composite that saves the cursor position on the way in and
+/// restores it on the way out, which is the difference between a shell prompt that comes back where
+/// the user left it and one that comes back somewhere down the page. Every terminal this engine
+/// targets has it and there is no query for it in §10's probe set, so it goes out unconditionally —
+/// the same reasoning [`MODE_DECTCEM`] is written unconditionally for.
+pub(crate) const ENTER_ALT_SCREEN: &[u8] = b"\x1b[?1049h";
+/// Mode 1049 off: the user's own screen, their scrollback and their cursor, back.
+pub(crate) const LEAVE_ALT_SCREEN: &[u8] = b"\x1b[?1049l";
 
 #[cfg(test)]
 mod tests {
@@ -716,13 +753,14 @@ mod tests {
         let prologue = text(&negotiation(&config, &caps));
         assert_eq!(
             prologue,
-            format!("^[[?7l^[[?25l^[[>{KITTY_ALL}u^[[?1006h^[[?1000h^[[?1004h^[[?2004h"),
+            format!("^[[?1049h^[[?7l^[[?25l^[[>{KITTY_ALL}u^[[?1006h^[[?1000h^[[?1004h^[[?2004h"),
             "{prologue}"
         );
         // The level the application raised it to, not the one it started at.
-        let epilogue = text(&restoration(&config, &caps, MouseMode::Motion));
+        let epilogue = text(&restoration(&config, &caps, true));
         assert_eq!(
-            epilogue, "^[[?2004l^[[?1004l^[[?1003l^[[?1006l^[[<u^[[?25h^[[?7h",
+            epilogue,
+            "^[[?2004l^[[?1004l^[[?1003l^[[?1002l^[[?1000l^[[?1006l^[[<u^[[?25h^[[?7h^[[?1049l",
             "{epilogue}"
         );
     }
@@ -737,10 +775,10 @@ mod tests {
             paste: true,
             ..InputConfig::default()
         };
-        assert_eq!(text(&negotiation(&config, &caps)), "^[[?7l^[[?25l");
+        assert_eq!(text(&negotiation(&config, &caps)), "^[[?1049h^[[?7l^[[?25l");
         assert_eq!(
-            text(&restoration(&config, &caps, MouseMode::Off)),
-            "^[[?25h^[[?7h"
+            text(&restoration(&config, &caps, false)),
+            "^[[?25h^[[?7h^[[?1049l"
         );
     }
 }

@@ -71,6 +71,7 @@ use crate::layer::LayerStack;
 use crate::packet::Packet;
 use crate::quirks::Quirks;
 use crate::serial::Serializer;
+use crate::shutdown::Site;
 use crate::surface::Surface;
 
 /// Where the frame clock takes its time from.
@@ -124,8 +125,9 @@ pub enum Clock {
 /// write an adapter for a trait std already has.
 #[derive(Default)]
 pub enum Output {
-    /// The process's standard output. Ticket 22 is what puts a terminal into a state where that is
-    /// the right thing to do.
+    /// The process's standard output, on the **alternate screen**: `begin_session` enters it before
+    /// a frame exists and the restoration leaves it, so a full-screen application writing here never
+    /// touches the user's scrollback.
     ///
     /// **This is what decides whether anything is detected.** A real terminal is queried; a
     /// standard output that turns out to be a pipe or a file is not, because there is nobody to
@@ -293,7 +295,7 @@ impl Engine {
     /// [`AttachError::NoAnswer`] when standard output is a terminal and **nothing at all** came
     /// back inside the ceiling.
     pub fn attach(self) -> Result<(Screen, WakeHandle), AttachError> {
-        self.attach_as(None)
+        self.attach_as(None, None)
     }
 
     /// Attach with the capabilities handed in rather than detected.
@@ -309,12 +311,30 @@ impl Engine {
         self,
         caps: Capabilities,
     ) -> Result<(Screen, WakeHandle), AttachError> {
-        self.attach_as(Some(caps))
+        self.attach_as(Some(caps), None)
+    }
+
+    /// Attach with somewhere for the **panic** path's restoration to go.
+    ///
+    /// The ordinary epilogue goes through the renderer's sink, which a headless gate already holds a
+    /// handle to. The panic path cannot: it may be the render thread's own unwind, so it writes
+    /// through [`crate::shutdown::Site`]'s sink — `std::io::stdout()` for a real terminal, and
+    /// nowhere at all for a caller-supplied one, because a file is not a terminal and has no modes
+    /// to give back. This door swaps that one field, so that register entry #15 can be **captured**
+    /// rather than inspected.
+    #[cfg(test)]
+    pub(crate) fn attach_restoring_into(
+        self,
+        declared: Option<Capabilities>,
+        restore: Box<dyn Write + Send>,
+    ) -> Result<(Screen, WakeHandle), AttachError> {
+        self.attach_as(declared, Some(restore))
     }
 
     fn attach_as(
         self,
         declared: Option<Capabilities>,
+        restore: Option<Box<dyn Write + Send>>,
     ) -> Result<(Screen, WakeHandle), AttachError> {
         let env = Env::from_process();
         let headless = matches!(self.config.output, Output::Sink(_));
@@ -362,6 +382,30 @@ impl Engine {
         let terminal_size = Arc::new(TerminalSize::new((w, h)));
         let input = Arc::new(crate::input::Queue::new());
         let paste_limit = self.config.input.paste_limit;
+        // **Where the terminal's restoration lives, and it outlives the `Screen` on purpose.** A
+        // panic hook runs on whichever thread panicked, so what gives the terminal back cannot be a
+        // method on a `!Send` type the app thread owns — it is one atomic and the two things the
+        // epilogue is computed from. See `crate::shutdown`.
+        let mailbox = Arc::new(Mailbox::new());
+        let shutdown = Site::new(
+            self.config.input,
+            caps.clone(),
+            restore.or_else(|| match headless {
+                // A caller-supplied sink is not a terminal: nothing pushed a kitty flag at a file,
+                // and the epilogue the ordinary path writes into it is a courtesy rather than a
+                // rescue. The panic path has no second handle to it and invents none — and,
+                // crucially, does not claim to have restored anything either.
+                true => None,
+                // The same descriptor every frame goes to. `std::io::stdout()` is a handle to one
+                // process-global, internally locked stream, so this is not a second writer.
+                false => Some(Box::new(std::io::stdout()) as Box<dyn Write + Send>),
+            }),
+            // Whether the negotiation below is about to switch a tracking mode on, which is the only
+            // thing about the mouse the restoration needs. See `crate::shutdown::Site::mouse`.
+            Actuators::new(&self.config.input, &caps).mouse() != MouseMode::Off,
+            Arc::clone(&mailbox),
+        );
+        crate::shutdown::arm(&shutdown);
         let renderer = Renderer {
             serializer: Serializer::new(w, h),
             size: (w, h),
@@ -376,7 +420,7 @@ impl Engine {
             layers: LayerStack::new(),
             frame: Surface::new(w, h),
             runs: Vec::with_capacity(h as usize * 4),
-            mailbox: Arc::new(Mailbox::new()),
+            mailbox,
             // Nothing is spawned here. The prologue below writes through this sink, and the render
             // thread cannot exist before the terminal is set up — that is the whole of why setup
             // happens where no concurrency does.
@@ -397,6 +441,7 @@ impl Engine {
             coalesced: 0,
             actuators: Actuators::new(&self.config.input, &caps),
             input_config: self.config.input,
+            shutdown,
             caps,
             repaint: false,
             tty,
@@ -597,6 +642,13 @@ pub struct Screen {
     /// and the two questions the epilogue asks of it — *was focus reporting declared* and *was paste*
     /// — have no other home.
     input_config: InputConfig,
+    /// What the terminal is owed back, and the one atomic that says whether it has had it.
+    ///
+    /// **Shared with the process's panic hook**, which is the whole reason it is not three fields on
+    /// this struct: a hook runs on whichever thread panicked, and this type is `!Send`. `Drop`
+    /// restores through it and the hook restores through it, and the atomic inside is what makes
+    /// *both of those happening* still one restoration. See [`crate::shutdown`].
+    shutdown: Arc<Site>,
     /// Whether a sweep has renumbered a handle table since the last packet went out.
     ///
     /// Latched here rather than passed straight through, because the sweep and the frame are not the
@@ -706,14 +758,20 @@ impl Screen {
     /// margin can no longer flow into the next row's, and §8 measured that at *zero*: 73 290 bytes
     /// either way, because damage already splits at row boundaries.
     ///
-    /// # Why this is the alt screen's prologue without an alt screen in it
+    /// # The alt screen, and why auto-wrap is switched off *inside* it
     ///
-    /// §8 says *for the lifetime of the alt screen*, and **ticket 22 owns the alt screen** — entering
-    /// it, the panic hook, and a restoration that is idempotent under both. So this pair of methods
-    /// is the two points that ticket adds `?1049h` and `?1049l` to, and auto-wrap is here now because
-    /// impl 13 is what makes the serializer depend on it: every `shortest` move is priced on the
-    /// assumption that nothing wrapped, and a serializer that assumed it without asking for it would
-    /// be right on most terminals and silently wrong on one.
+    /// §8 says *for the lifetime of the alt screen*, and this is where that lifetime begins:
+    /// `?1049h` is the first thing on the wire and every mode after it is set on the page this
+    /// session owns. The restoration is the same list backwards, ending with `?1049l` — see
+    /// [`crate::actuate::restoration`] and [`crate::shutdown`], which is what makes it happen under
+    /// a panic as well as under this type's `Drop`.
+    ///
+    /// Auto-wrap is a mode rather than a page, so switching it off is not undone by leaving: it has
+    /// to be given back explicitly, and **before** the page is, or the last bytes of the session
+    /// reprogram the terminal behind the user's returned prompt. Every `shortest` move in the
+    /// serializer is priced on the assumption that nothing wrapped (impl 13), and a serializer that
+    /// assumed it without asking for it would be right on most terminals and silently wrong on
+    /// one.
     fn begin_session(&mut self) {
         let bytes = crate::actuate::negotiation(&self.input_config, &self.caps);
         let sink = &mut self.inline_renderer_mut().sink;
@@ -722,19 +780,24 @@ impl Screen {
 
     /// Give back what [`begin_session`](Screen::begin_session) took.
     ///
-    /// A `Drop` rather than a method, for the reason `Tty`'s own `Drop` states: a restoration that
-    /// happens only when somebody remembers to ask for it is a restoration that does not happen when
-    /// `attach` fails, when a `?` propagates, or when the process is unwinding. This is the floor and
-    /// not the design — **ticket 22 owns shutdown** — and it lives here because this is what changed
-    /// the mode.
-    /// Nothing at all when the render thread panicked and took the sink with it. **Ticket 22 owns
-    /// what the terminal is left in** after that; here there is no longer anywhere to write.
+    /// Reached from [`Screen::drop`] and from nowhere else, for the reason `Tty`'s own `Drop`
+    /// states: a restoration that happens only when somebody remembers to ask for it is a
+    /// restoration that does not happen when `attach` fails, when a `?` propagates, or when the
+    /// process is unwinding.
+    ///
+    /// **The renderer's sink when there still is one, and [`crate::shutdown`]'s otherwise.** A
+    /// render thread that panicked took the sink with it, and a terminal is not left in raw mode with
+    /// kitty flags pushed because the thread that owned the descriptor is the one that died — so the
+    /// site's own sink is what catches that, exactly as it catches a panic on any other thread.
+    ///
+    /// Either way it goes through [`Site::restore`], so a `Drop` that follows a panic hook writes
+    /// nothing: one atomic, one restoration, whichever arrived first.
     fn end_session(&mut self) {
-        let bytes =
-            crate::actuate::restoration(&self.input_config, &self.caps, self.actuators.mouse());
-        if let Some(renderer) = self.renderer.as_mut() {
-            write_frame(&mut *renderer.sink, &bytes);
-        }
+        let site = Arc::clone(&self.shutdown);
+        match self.renderer.as_mut() {
+            Some(renderer) => site.restore(Some(&mut *renderer.sink)),
+            None => site.restore(None),
+        };
     }
 
     /// Hand the renderer to a thread of its own, if the clock says there is one.
@@ -794,13 +857,18 @@ impl Screen {
     /// that asymmetry is here rather than in a document because this is the function where the second
     /// join would go.
     ///
-    /// **Ticket 22 owns shutdown**, and what it adds is the alt screen, the input state and a
-    /// restoration that is idempotent from any thread under a panic. This is the floor: without the
-    /// quit the render thread parks for ever and the process does not exit.
+    /// It happens **before** the epilogue, and that ordering is the whole reason this is a separate
+    /// method: the sink is inside the renderer, and writing the epilogue while a frame is still in
+    /// flight interleaves two writes on one descriptor.
     fn reclaim_renderer(&mut self) {
         let Some(handle) = self.render.take() else {
             return;
         };
+        // And **here is where the input thread's join would go**, and it is deliberately not here.
+        // It sits in a blocking `read` on the tty with nothing to wake it short of a signal, so
+        // joining it would hang every exit; it dies with the process instead. Nothing it owns needs
+        // giving back — the terminal's read direction is a mode, and modes are `Tty`'s `Drop` and
+        // `crate::shutdown`'s bytes.
         self.mailbox.quit();
         // A panicked render thread has already dropped the sink. There is nothing to recover and
         // nothing to write through, and `end_session` is what handles that.
@@ -1205,6 +1273,13 @@ impl Screen {
         // mouse level and the caret exactly as they were, to be carried by the frame that replaces
         // it, in the same shape as `repaint` above.
         self.actuators.handed();
+        // One relaxed store, so that the thread that restores the terminal — which is not this one
+        // when the process is unwinding — knows the session has asked for a mouse. It is a flag and
+        // not a level, and it is never cleared: the packet carrying this actuation has not been
+        // written yet, so what the terminal is *in* is one of two modes until it has been. Here
+        // rather than inside `handed`, because `Actuators` is `Copy` and knows nothing about a site.
+        self.shutdown
+            .mouse_may_be_on(self.actuators.mouse() != MouseMode::Off);
         self.mailbox.submit(packet);
         // The gap starts at the submit, not at the write: what is being paced is how often frames are
         // handed on, and §12's refusal 7 is that the engine cannot say when one was shown.
@@ -1254,6 +1329,26 @@ impl Screen {
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn wait_for_renderer(&self) {
         self.mailbox.wait_until_free();
+    }
+
+    /// Do what the panic hook would do, on this thread and without a panic.
+    ///
+    /// The hook reaches `crate::shutdown`'s process-global site, and a test that panicked to get at
+    /// it would be a test about which of its siblings attached last. This is the same call the hook
+    /// makes, against this screen's own site.
+    #[cfg(test)]
+    pub(crate) fn restore_as_a_panic_would(&self) -> bool {
+        self.shutdown.restore(None)
+    }
+
+    /// A handle to the mailbox that outlives this `Screen`.
+    ///
+    /// For the one gate that has to watch what `Screen::drop` does *from another thread* — the drop
+    /// is what sets `quit`, and a test that wants to act on that ordering cannot borrow a value that
+    /// is being dropped.
+    #[cfg(test)]
+    pub(crate) fn mailbox_handle(&self) -> Arc<Mailbox> {
+        Arc::clone(&self.mailbox)
     }
 
     /// Start again at a new size.
@@ -1677,9 +1772,18 @@ fn merge_touching(runs: &mut Vec<Run>) {
 }
 
 impl Drop for Screen {
+    /// **The guard spec §7 asks for**, and it is the type itself rather than a separate one: a
+    /// normal return and a `?` out of `main` both drop the `Screen`, so both take this path and
+    /// neither needs the application to remember anything.
+    ///
+    /// The order is the order it has to be. The render thread is joined **first**, because it owns
+    /// the write direction and the sink, and an epilogue written while a frame is in flight
+    /// interleaves with it. Then the restoration. Then the site is disarmed, so that a panic later
+    /// in the same process does not restore a terminal this screen no longer has.
     fn drop(&mut self) {
         self.reclaim_renderer();
         self.end_session();
+        crate::shutdown::disarm(&self.shutdown);
     }
 }
 
@@ -1756,9 +1860,13 @@ fn render_loop(mailbox: &Mailbox, wakes: &WakeSource, renderer: &mut Renderer) {
 /// is still one block to the terminal; a frame split into two blocks tears. This loop is only about
 /// the kernel's buffer being smaller than the frame (spec §8).
 ///
-/// A write error is dropped on the floor here. Ticket 22 owns shutdown, and it is what will have
-/// somewhere to put one.
-fn write_frame(sink: &mut (dyn Write + Send), bytes: &[u8]) {
+/// A write error is still dropped on the floor here, and shutdown turned out not to be where that
+/// gets an answer: the render thread has nowhere upward to report one — `Presented` has no field
+/// for it and the engine offers no completion anywhere (§12's refusal 7) — and a terminal whose
+/// descriptor has stopped taking bytes is a terminal the epilogue cannot reach either. **No ticket
+/// on this backlog owns it**, and that is a statement rather than an omission: it is a public
+/// surface decision, and ticket 24 is where the public surface is settled.
+pub(crate) fn write_frame(sink: &mut (dyn Write + Send), bytes: &[u8]) {
     let mut at = 0;
     while at < bytes.len() {
         match sink.write(&bytes[at..]) {
@@ -1774,7 +1882,9 @@ fn write_frame(sink: &mut (dyn Write + Send), bytes: &[u8]) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::actuate::{CursorShape, DISABLE_AUTO_WRAP, ENABLE_AUTO_WRAP};
+    use crate::actuate::{
+        CursorShape, DISABLE_AUTO_WRAP, ENABLE_AUTO_WRAP, ENTER_ALT_SCREEN, LEAVE_ALT_SCREEN,
+    };
 
     /// A `Config` that is the default in every way **except that it reaches for no terminal**.
     ///
@@ -2369,14 +2479,25 @@ mod tests {
         }
     }
 
-    /// **Gate, both directions: auto-wrap is switched off once and given back.**
+    /// **Gate, both directions: the alt screen is entered and left, and auto-wrap is switched off
+    /// once inside it and given back before it is.**
     ///
-    /// §8 makes this a decision rather than an implementation detail, and both halves have a way of
-    /// going missing separately — `Tty`'s own `Drop` exists because mode 2027 was being set and never
-    /// reset. So the sequence is asserted as a *pair*, and asserted through the terminal model rather
-    /// than as two byte strings, because what matters is the state the terminal is left in.
+    /// §8 makes auto-wrap a decision rather than an implementation detail, and both halves have a
+    /// way of going missing separately — `Tty`'s own `Drop` exists because mode 2027 was being set
+    /// and never reset. So the sequence is asserted as a *pair*, and asserted through the terminal
+    /// model rather than as two byte strings, because what matters is the state the terminal is left
+    /// in.
+    ///
+    /// # The order of the last two is the part that is not decoration
+    ///
+    /// Auto-wrap is restored **and then** the alt screen is left, and never the other way round.
+    /// Mode 1049 switches the page, not the modes: everything this session set is still set
+    /// afterwards, so leaving first means the last bytes of the session are reprogramming the
+    /// terminal *behind the user's returned prompt*. DECAWM is the one where that is immediately
+    /// visible — a shell whose line editor cannot wrap overwrites its own prompt — and it is the last
+    /// thing this sequence says before it gives the page back.
     #[test]
-    fn auto_wrap_is_disabled_once_on_entry_and_restored_on_leaving() {
+    fn the_alt_screen_is_entered_and_left_and_auto_wrap_goes_off_inside_it() {
         let sink = crate::testing::Recorder::new();
         let recording = sink.handle();
         {
@@ -2392,11 +2513,15 @@ mod tests {
             .expect("attaching to a sink cannot fail");
 
             let prologue = recording.lock().unwrap().bytes.clone();
-            // First, and before any frame. What follows it is ticket 21's negotiation, which
-            // `crate::actuate` asserts in full and
+            // The alt screen first and auto-wrap immediately inside it, both before any frame. What
+            // follows is ticket 21's negotiation, which `crate::actuate` asserts in full and
             // [`the_startup_negotiation_asks_for_what_was_declared_and_nothing_else`] asserts
             // through a `Screen`.
-            assert!(prologue.starts_with(DISABLE_AUTO_WRAP), "before any frame");
+            assert!(prologue.starts_with(ENTER_ALT_SCREEN), "before any frame");
+            assert!(
+                prologue[ENTER_ALT_SCREEN.len()..].starts_with(DISABLE_AUTO_WRAP),
+                "auto-wrap is switched off on the page this session owns"
+            );
 
             // And **once**, not once per frame: ten bytes of every frame is what §8 prices this at.
             let id = screen
@@ -2428,9 +2553,16 @@ mod tests {
         term.feed(&bytes, &mut tables);
         assert_eq!(term.unrecognised(), 0, "every byte of the session parses");
         assert!(term.autowrap(), "restored on leaving");
+        assert!(!term.alt_screen(), "the user's own screen is back");
         assert!(
-            bytes.ends_with(ENABLE_AUTO_WRAP),
-            "and it is the last thing said"
+            bytes.ends_with(LEAVE_ALT_SCREEN),
+            "leaving the alt screen is the last thing said"
+        );
+        let restored = bytes.len() - LEAVE_ALT_SCREEN.len();
+        assert!(
+            bytes[..restored].ends_with(ENABLE_AUTO_WRAP),
+            "auto-wrap was given back after the user's screen was, which is a mode change \
+             behind their prompt"
         );
     }
 

@@ -108,8 +108,10 @@ struct Shared {
     /// slot nobody empties, which moves register entry #9's counter and destroys the meaning of the
     /// one gate that says frames are never composed to be thrown away. So the app is released from
     /// the wait and every frame after answers `submitted: false`: nothing can be painted, because
-    /// the sink went with the thread. **Ticket 22 owns what happens next** — a restoration that is
-    /// idempotent from any thread — and `Screen::wait`'s `Wake::Quit` is where it surfaces.
+    /// the sink went with the thread. `Screen::wait`'s `Wake::Quit` is where it surfaces, and
+    /// [`crate::shutdown`] is what gives the terminal back afterwards: `Screen::drop` finds no
+    /// renderer to write the epilogue through and the site's own sink catches it, which is the same
+    /// arm a panic on any other thread takes.
     gone: bool,
     /// How many packets were dropped on the floor by a submit landing on a full slot. **Zero, for
     /// ever**: register entry #9.
@@ -253,8 +255,9 @@ impl Mailbox {
         let mut shared = self.lock();
         loop {
             // **Quit first, and the last frame is not flushed** (spec §7): showing state that is
-            // already stale buys nothing and costs exit latency. Ticket 22 is where that becomes a
-            // byte count, and it is asserted here as an absence.
+            // already stale buys nothing and costs exit latency. Asserted here as an absence, and
+            // as a write count on the wire at
+            // `crate::gates::the_last_frame_is_not_flushed_on_quit`.
             if shared.quit {
                 return None;
             }
@@ -277,6 +280,15 @@ impl Mailbox {
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
             shared.wakeups += 1;
         }
+    }
+
+    /// Whether the app thread has said stop.
+    ///
+    /// The one thing a test can watch to know that `Screen::drop` has reached its join, which is
+    /// what lets a gate about *the last frame is not flushed* be an ordering rather than a sleep.
+    #[cfg(test)]
+    pub(crate) fn quit_requested(&self) -> bool {
+        self.lock().quit
     }
 
     /// Take whatever is in the slot without waiting: the deterministic mode's renderer, which is
@@ -361,7 +373,7 @@ impl Mailbox {
     /// **indistinguishable from a permanently busy one** through the public surface, because
     /// `Presented` has no field for it and the engine offers no completion anywhere (§12's refusal
     /// 7). What this ticket owed was that the app thread does not *hang*; telling the application
-    /// its renderer is gone is a `Wake::Quit` or a shutdown (ticket 22), and inventing a third
+    /// its renderer is gone is a `Wake::Quit` or a shutdown, and inventing a third
     /// spelling here would be a public API this backlog has not decided. Ticket 19's half of the same
     /// question is [`crate::clock::WakeSource::renderer_gone`], which **cancels** an owed frame
     /// rather than releasing it — releasing it spins at the frame gap against a sink that is gone —
@@ -373,8 +385,11 @@ impl Mailbox {
 
     /// Tell the render thread to stop after the packet it is holding, if any.
     ///
-    /// **Ticket 22 owns shutdown.** This is the floor: without it the render thread parks for ever
-    /// on a condvar nobody will signal and the process never exits.
+    /// **The first thing `Screen::drop` does**, and it has to be: what follows it is the join, and a
+    /// render thread parked on a condvar nobody signalled is a process that never exits. It is also
+    /// what `crate::gates::the_last_frame_is_not_flushed_on_quit` watches through
+    /// [`quit_requested`](Mailbox::quit_requested), because *quit arrived before the renderer could
+    /// take the next packet* is an ordering and not a duration.
     pub(crate) fn quit(&self) {
         self.lock().quit = true;
         self.landed.notify_one();
@@ -424,9 +439,10 @@ impl Mailbox {
     }
 
     /// A poisoned mailbox is a thread that panicked inside a critical section that runs no caller's
-    /// code, so the state behind the lock is intact whoever died holding it. **Ticket 22 owns
-    /// panic**; recovering the guard here is what keeps a panic on one thread from turning into a
-    /// second, unrelated panic on the other two.
+    /// code, so the state behind the lock is intact whoever died holding it. Recovering the guard
+    /// here is what keeps a panic on one thread from turning into a second, unrelated panic on the
+    /// other two — and [`crate::shutdown::Site::restore`] recovers its own for the same reason, one
+    /// level up.
     fn lock(&self) -> std::sync::MutexGuard<'_, Shared> {
         self.shared
             .lock()
@@ -599,8 +615,9 @@ mod tests {
     }
 
     /// **The last frame is not flushed on quit** (spec §7). A packet already in the slot is left
-    /// there: showing state that is already stale buys nothing and costs exit latency, and ticket 22
-    /// is where that becomes a byte count on the wire.
+    /// there: showing state that is already stale buys nothing and costs exit latency. The same
+    /// property as a write count on the wire is
+    /// `crate::gates::the_last_frame_is_not_flushed_on_quit`.
     #[test]
     fn a_packet_already_in_the_slot_is_not_written_after_quit() {
         let mailbox = Mailbox::new();

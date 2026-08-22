@@ -117,6 +117,13 @@ pub(crate) struct TermModel {
     /// wants is the screen: a model that took the whole screen for granted would agree with a
     /// serializer that had set a region and forgotten to reset it.
     region: (u16, u16),
+    /// Mode 1049 — the alternate screen buffer.
+    ///
+    /// **Off until the prologue enters it**, which is the state a terminal is in: this model is the
+    /// user's own screen until an application takes it. Tracked as its own field rather than as one
+    /// of [`modes`](TermModel::modes) because it is not an input mode, and because the round trip's
+    /// question about it is *are we still in it* rather than *which modes are set*.
+    alt_screen: bool,
     /// `DECTCEM`. **On until the prologue turns it off**, which is the state a terminal is in and
     /// which is why the negotiation's `?25l` is not decoration: without it the terminal's own cursor
     /// sits wherever the frame's last write landed, blinking, in a place the application did not put
@@ -161,6 +168,7 @@ impl TermModel {
             sync_open: false,
             sync_blocks: 0,
             region: (0, height.saturating_sub(1)),
+            alt_screen: false,
             caret_visible: true,
             caret_shape: 0,
             modes: Vec::new(),
@@ -187,6 +195,15 @@ impl TermModel {
     #[cfg(test)]
     pub(crate) fn autowrap(&self) -> bool {
         self.autowrap
+    }
+
+    /// Whether the terminal is showing the alternate screen buffer.
+    ///
+    /// The prologue enters it and the epilogue leaves it, and a session that ended in it left the
+    /// user's shell painted over a page that is about to be discarded.
+    #[cfg(test)]
+    pub(crate) fn alt_screen(&self) -> bool {
+        self.alt_screen
     }
 
     /// How many synchronised-output blocks have opened and closed.
@@ -436,6 +453,9 @@ impl TermModel {
         match first(digits) {
             // DECAWM.
             7 => self.autowrap = set,
+            // The alternate screen buffer. Not one of the input modes below, and not the caret's:
+            // it is the page everything else is happening on.
+            1049 => self.alt_screen = set,
             // `DECTCEM`, and the caret's position with it: hiding one does not move it, so the
             // position is remembered and only forgotten when the caret is switched off.
             25 => self.caret_visible = set,

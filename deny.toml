@@ -54,9 +54,14 @@ deny = [
 ]
 
 # NOT banned, deliberately: `mio` and `signal-hook`. crossterm's `events` feature pulls them on every
-# platform as its polling implementation — this is not `event-stream` and not an async runtime, and
-# `events` is the entire reason crossterm is a dependency at all. Verified against crossterm 0.29.0,
-# whose feature table reads `events = [dep:mio, dep:signal-hook, dep:signal-hook-mio]`.
+# platform as its polling implementation — this is not `event-stream` and not an async runtime.
+# Verified against crossterm 0.29.0, whose feature table reads
+# `events = [dep:mio, dep:signal-hook, dep:signal-hook-mio]`.
+#
+# The sentence that used to be here — *`events` is the entire reason crossterm is a dependency at
+# all* — was **false from impl 20 onward**: the parser is this crate's, crossterm's is unreachable
+# without crossterm's reader, and nothing calls into `crossterm::event`. The feature is still on, and
+# `Cargo.toml` carries the condition under which it comes off.
 #
 # NOT used, deliberately: `[bans] allow`, cargo-deny's whole-graph allowlist. It would make
 # "`vitui-runtime` takes no dependencies" enforceable *positively* rather than by banning the
