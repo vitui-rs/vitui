@@ -319,3 +319,21 @@ fn ghostty_reports_its_own_default_colours_and_they_are_not_the_xterm_guess() {
         )
     );
 }
+
+#[test]
+fn the_ghostty_capture_still_has_the_carriage_returns_the_terminal_sent() {
+    // **The fixture is bytes, and git does not know that.** With `core.autocrlf = input` — the
+    // setting on the machine this was captured on — `git add` rewrote CRLF to LF on the way into the
+    // index, and 1949 bytes of what a terminal really sent became a 1926-byte blob. Every test above
+    // still passed, because the parser skips CR the way a terminal does, so the fixture stopped
+    // being evidence with nothing to show for it.
+    //
+    // `.gitattributes` marks `*.vt` as `-text`. This is the assertion that says so out loud, because
+    // an attributes file nobody checks is the same kind of thing as an MSRV nobody compiles.
+    let crlf = SCENE01.windows(2).filter(|w| w == b"\r\n").count();
+    assert_eq!(
+        crlf, 23,
+        "the Ghostty capture is CRLF-separated and this one is not — check `.gitattributes`, \
+         and do not regenerate the fixture to make this pass"
+    );
+}

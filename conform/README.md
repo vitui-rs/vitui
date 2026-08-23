@@ -84,6 +84,12 @@ form — the missing row hiding inside a green one.
 Raw bytes, as captured. Do not regenerate them to make a test pass: they are evidence, and a fixture
 that moves because the code moved is not evidence of anything.
 
+**`.gitattributes` marks `*.vt` as `-text`, and that line is load-bearing.** Without it,
+`core.autocrlf = input` rewrote CRLF to LF inside the Ghostty capture on the way into the index —
+1949 bytes became 1926, twenty-three carriage returns disappeared, and every test still passed
+because the parser skips CR the way a terminal does. A test now asserts the twenty-three are there.
+See `FINDINGS.md`.
+
 ## The engine is a dev-dependency, and that is on purpose
 
 The library depends on nothing. `vitui-engine` is a **dev**-dependency, so it is linked into the

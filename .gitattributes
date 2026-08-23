@@ -1,0 +1,16 @@
+# **A captured byte is not text, and git's line-ending normalisation does not know that.**
+#
+# `core.autocrlf = input` on the machine this was found on rewrote CRLF to LF inside
+# `conform/fixtures/ghostty-1.3.1-scene01-attrs.vt` on the way into the index: 1949 bytes of what a
+# terminal actually sent became a 1926-byte blob, and **every test still passed**, because the dump
+# parser skips CR the way a terminal does. A fixture that is evidence, silently not being the
+# evidence, is the exact failure `conform/` exists to prevent one level up.
+#
+# `-text` and not `binary`: `binary` is `-text -diff` together, and the diff is worth keeping — a
+# capture that changes should be reviewable as a diff, which is the whole mechanism by which a
+# report that reports rather than gates still catches a regression.
+*.vt -text
+
+# `fuzz/corpus/` is the same claim for the same reason: the committed corpus is the gate, and a
+# corpus entry whose bytes were adjusted on the way into the index is testing something else.
+fuzz/corpus/** -text

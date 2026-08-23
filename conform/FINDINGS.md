@@ -57,6 +57,22 @@ It also generalises past this arm: **any capture of a window an emulator has jus
 capture of a screen that may still be settling**, and the tmux arm is exempt only because
 `capture-pane` runs against a pane whose size the harness set.
 
+### Git rewrote the first committed capture, and every test still passed
+
+Found while committing stage 1. `core.autocrlf = input` on this machine, and `git add` rewrote CRLF
+to LF on the way into the index: **1949 bytes of what Ghostty actually sent became a 1926-byte
+blob.** Twenty-three carriage returns, gone.
+
+Nothing went red. The parser skips CR the way a terminal does, so the fixture stopped being the
+bytes a terminal sent and carried on passing every assertion over it — a capture that is evidence,
+silently not being the evidence, which is this directory's own failure mode one level up. `*.vt` is
+`-text` in `.gitattributes` now, and there is a test asserting the twenty-three are still there,
+because an attributes file nobody checks is the same kind of thing as an MSRV nobody compiles.
+
+`-text` and not `binary`: `binary` means `-text -diff` together, and the diff is worth keeping. A
+capture that changes must be reviewable *as a diff* — that is the entire mechanism by which
+something which reports rather than gates still catches a regression.
+
 ## 2026-08-22 — stage 0, and the capture format is the finding
 
 The instrument does not exist yet. What exists is the answer to *what can a dump-based capture see*,
