@@ -1,0 +1,24 @@
+# A detached workspace, like `compare/` and for the same reason: the third-party thing is the subject.
+# Not a member of the root workspace, so `cargo test --workspace` at the root does not reach it and
+# the engine's dependency policy does not govern it.
+#
+# **No `deny.toml`**, and that is the difference from `fuzz/`. `fuzz/` is a loophole in the dependency
+# policy and needs its own gate to stay honest about it; here the emulator under test is the point.
+# Detached from the root workspace by this empty table, which is how `compare/` and `fuzz/` do it.
+# Without it cargo refuses to build: a manifest inside a workspace directory is assumed to be a member.
+[workspace]
+
+[package]
+name = "vitui-conform"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.88"
+publish = false
+license = "MIT OR Apache-2.0"
+
+# No dependencies, matching the engine's and runtime's posture. A dump parser is a state machine over
+# bytes and does not need a crate to be one.
+[dependencies]
+
+[lints.rust]
+warnings = "deny"
