@@ -98,11 +98,13 @@ impl Underlines {
 ///
 /// Ghostty was added by production ticket 05, which asked for it to be **measured**. It could not be:
 /// a force-flush is a *rendering* event, and nothing a process inside the terminal can ask reports
-/// whether the terminal painted. Only a screen capture can, and the capture this repository has costs
-/// **623 ms** of AppleScript round trip — four times Alacritty's whole limit — which is recorded in
-/// `conform/REPORT-ghostty.md` beside every run. So the number here has the same provenance as the
-/// three above it: the implementation, read. That is what `quirks.rs` can honestly hold, and it is
-/// worth saying rather than leaving a fourth row blank.
+/// whether the terminal painted. Only a screen capture can, and this repository's capture is an
+/// AppleScript round trip that four runs on 2026-08-23 put between **136 ms and 623 ms** — the same
+/// order as Alacritty's entire 150 ms limit, and confirming ticket 04's prediction rather than
+/// discovering it. Every run prints its own figure into `conform/REPORT-ghostty.md`, so the reason is
+/// a measurement with a spread and not an assertion. The number here therefore has the same
+/// provenance as the three above it: the implementation, read. That is what `quirks.rs` can honestly
+/// hold, and it is worth saying rather than leaving a fourth row blank.
 ///
 /// **No entry sets this field, and nothing reads it.** The engine's own block is opened and closed
 /// inside one `write` (§8's twenty bytes of fixed framing), so a frame cannot approach the smallest
