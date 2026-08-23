@@ -102,11 +102,16 @@ test:
     key:
       files:
         - Cargo.lock
+        - conform/Cargo.lock
       prefix: test
     paths:
       - .cargo/registry/index
       - .cargo/registry/cache
       - target
+      # `conform/` is a detached workspace with a target directory of its own, and this job is the
+      # only one that builds it. Without this line its dev-dependency on the engine is compiled cold
+      # on every run.
+      - conform/target
   script:
     # Not redundant, and do not delete it: the official `rust` images are built with rustup's
     # `minimal` profile, so `cargo fmt` and `cargo clippy` are both absent and the next two lines
@@ -176,6 +181,24 @@ test:
     # lints a copy of the template with one `std::thread::sleep` in it and requires that to fail,
     # because a clean result on its own passes for any reason including the fragment being inert.
     - scripts/lint-rung-gate.sh
+    # **`conform/`'s gate, folded in rather than added as a sixth job** — the same runner-slot
+    # decision the note above these jobs makes for the observer gate and the lint rung, and the one
+    # that note says the *next* gate would have to make.
+    #
+    # What runs here is only the half that can: the parser and comparator over the captures committed
+    # in `conform/fixtures/`, which is bytes a real terminal really sent, replayed with no emulator,
+    # no window server and no macOS automation grant in the loop. The **live** arm —
+    # `cargo run --example ghostty` — is a soak and never runs here, for the reason
+    # `conform/README.md` gives at length: an emulator's version cannot gate this repository's pull
+    # requests, and a fresh runner has neither a window server nor a TCC grant to be asked for.
+    #
+    # `cargo test` and not `cargo test --lib`: the live arm is an example, and an example nothing
+    # compiles is an example that rots. Compiling it is what keeps the driver honest against the
+    # engine's public surface, which is the thing most likely to move underneath it.
+    #
+    # A subshell, so a failure is still this job's failure and the cached working directory is not
+    # left somewhere else — the same shape as the `fuzz` line in `deny`.
+    - (cd conform && cargo fmt --all --check && cargo clippy --all-targets && cargo test)
 
 # The MSRV, and until this job existed `rust-version` was a comment with a colon in it.
 #

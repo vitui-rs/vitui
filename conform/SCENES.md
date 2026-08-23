@@ -26,14 +26,30 @@ defect. **A missing row reads as a win, and that is the single easiest way for t
 dishonest** — more so than in `compare/`, because a capture that silently returns nothing looks like
 agreement rather than absence.
 
-## 01 — the eleven attributes, one per row
+## 01 — the eleven attribute bits, one per row
 
-12×12. Each row sets one of the eleven attribute facts `Capabilities::attrs_dropped` covers, writes a
-label, and resets. Assertion: eleven booleans — did the dump carry each attribute back.
+Eleven rows, at the top left of **whatever size the window is**. `surface configuration` offers a
+font size and no rows or columns, and `TIOCSWINSZ` changes what the *program* believes rather than
+what the emulator renders, so the size is recorded in `REPORT.md` and never demanded. Two live runs
+on the same machine were given 156×45 and 72×24.
 
-Chosen as the first scene because `attrs_dropped` is the field with **no query** — the eleven facts are
-in the capability set precisely because nothing can ask for them — and a dump *is* a query for them.
-No column arithmetic, no width tables, no timing. It emits `quirks.rs` rows directly.
+Each row lights **exactly one** of the eleven attribute bits of the engine's style word — eight
+flags and a three-bit underline field — writes a label with it, and leaves the rest of the row
+alone. The three underline rows are single, double and dotted because `4:1`, `4:2` and `4:4` are the
+three values with one bit set; curly (`4:3`) and dashed (`4:5`) light two bits each and so cannot be
+a per-bit row. They are covered by the committed-fixture tests instead.
+
+Assertion: eleven rows, and a row agrees only when all three of these hold.
+
+1. The label survived, ignoring the padding the engine paints across the rest of the surface.
+2. **Every** cluster of the label wears exactly that attribute — an invented attribute is a
+   disagreement in the same way a missing one is.
+3. The attribute **stopped where the label did**. A reverse block running to the right edge is a
+   real defect, and comparing the first cell alone would call it a pass.
+
+Chosen as the first scene because `attrs_dropped` is the field with **no query** — the eleven facts
+are in the capability set precisely because nothing can ask for them — and a dump *is* a query for
+them. No column arithmetic, no width tables, no timing. It emits `quirks.rs` rows directly.
 
 ## 02 — a wide glyph between ASCII sentinels
 

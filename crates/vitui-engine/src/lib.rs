@@ -153,7 +153,7 @@
 //! everything stands on (ticket 02), the tracer bullet through every stage of the sequence above
 //! (ticket 03) in the deterministic single-thread mode, the instruments that keep both honest
 //! (ticket 04) — spec §14's twelve scenes as a normative list, a reference compositor that generates
-//! the damage gate rather than agreeing with it, and all twenty-seven register entries either wired
+//! the damage gate rather than agreeing with it, and all twenty-eight register entries either wired
 //! or pinned red against the ticket that lights them — grapheme clusters in cells (ticket 06): the
 //! interner, the five repair rules, and [`graphemes`] and [`width_of`] over the same tables the
 //! verbs segment with — the extended-style bit with the verb that owns it (ticket 07):
@@ -452,7 +452,7 @@
 #![warn(missing_docs)]
 
 // `crate::scenes` and `crate::register` are `#[path]`-included by `examples/budget.rs` as well as
-// compiled here, so that the twelve scenes and the twenty-seven register entries have exactly one
+// compiled here, so that the twelve scenes and the twenty-eight register entries have exactly one
 // definition. They are written against the public API — `use vitui_engine::…` — and this alias is
 // what makes that resolve inside the library too. Spec §14's rule for the comparative suite is that
 // a scene is defined by what the user sees rather than by what a framework does, and a scene that

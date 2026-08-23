@@ -85,6 +85,24 @@ jobs:
       # operating-system question, so two of the three runners establish it.
       - if: runner.os != 'Windows'
         run: bash scripts/lint-rung-gate.sh
+      # `conform/`'s gate. A detached workspace, so `--workspace` above does not reach it.
+      #
+      # Only the half that can run here: the parser and comparator over the captures committed in
+      # `conform/fixtures/`, replayed with no emulator, no window server and no macOS automation
+      # grant in the loop. The **live** arm — `cargo run --example ghostty` — is a soak and never
+      # runs in CI, for the reason `conform/README.md` gives at length: an emulator's version cannot
+      # gate this repository's pull requests, and a hosted runner has neither a window server nor a
+      # TCC grant to be asked for.
+      #
+      # On all three runners deliberately. The comparator is pure byte handling and the captures are
+      # committed bytes, so nothing here is platform-specific — which makes Windows the interesting
+      # one: it is the arm production ticket 09 says has never been run at all.
+      - run: cargo fmt --all --check
+        working-directory: conform
+      - run: cargo clippy --all-targets
+        working-directory: conform
+      - run: cargo test
+        working-directory: conform
 
   # The dependency policy is a decision, not a preference: the engine takes crossterm and nothing
   # else, and the runtime takes nothing at all. See docs/adr/0001-crossterm-behind-a-seam.md.

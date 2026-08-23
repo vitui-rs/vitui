@@ -1033,7 +1033,7 @@ fn print_what_is_red() {
             .count();
     if red == 0 {
         println!(
-            "red on purpose: nothing. All twelve scenes and all twenty-seven register entries are \
+            "red on purpose: nothing. All twelve scenes and all twenty-eight register entries are \
              wired,\n                as of impl 26, which ran the comparative suite (#27) — the \
              last red row.\n                What is *not* covered is a different list and is not \
              this one: the impl\n                backlog's \"Deliberately not sliced\" is where §15's \

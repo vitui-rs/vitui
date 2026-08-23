@@ -3,6 +3,60 @@
 Hand-written and dated, because a number and what it means are two different artefacts with two
 different lifetimes. `REPORT.md` is generated; this is not.
 
+## 2026-08-23 — stage 1, and the instrument found its first defect in itself
+
+Ghostty 1.3.1 agreed with the engine **11/11** on scene 01. Three things are worth more than that
+number.
+
+### The dump carries all eleven attributes, and the design note said it carried five
+
+Ticket 04's table recorded Ghostty's `vt` writer as preserving *"attributes 1/3/4/7/9 and underline
+colour 58"*. A control probe — raw `printf` into a Ghostty window, no engine anywhere in it — run
+before the driver was written says otherwise:
+
+| sent | returned |
+|---|---|
+| `1` `2` `3` `5` `7` `8` `9` `53` | all eight, unchanged |
+| `4` | `4` |
+| `4:2` `4:3` `4:4` | `4:2` `4:3` `4:4` |
+| `58:2::0:0:255` | `58;2;0;0;255` |
+
+**Dim, blink, conceal, overline and the underline *styles* all survive**, which is what makes an
+eleven-boolean assertion answerable at all. Running the control before the instrument is what
+separated *the terminal does not render it* from *the dump does not serialise it*; with only the
+engine's own arm, an absent overline would have had two explanations and no way to choose.
+
+### `4:2` is one parameter, and the committed parser was reading it as two
+
+The stage 0 parser split an SGR body on `;` **and** `:` into one flat token stream, because that
+makes the two colour spellings read through a single path. The control probe's `4:2` came back
+through it as SGR 4 followed by SGR 2 — **double underline read as underline plus dim**, an
+attribute the terminal never rendered and the instrument invented.
+
+ECMA-48 separates parameters with `;` and a parameter's sub-parameters with `:`, and the parser now
+does too; the colour arms accept either spelling by looking for the tail in the two places it can
+be. Six tests hold it, and the shape of the mistake is worth keeping in mind: **the flattening was
+correct for every case stage 0 had captures for.** It took bytes from a second emulator, produced by
+a scene nobody had written yet, to make it wrong.
+
+### The handshake proves a frame exists; it does not prove the window stopped moving
+
+The first live run photographed a screen whose top two rows had scrolled off, and every row of the
+report was wrong by two. The scene had presented — the readiness handshake was satisfied — but a
+Ghostty window **settles its size after the process inside it starts**, and the frame painted at the
+first geometry was reflowed at the second. Two runs on this machine were handed 156×45 and 72×24, so
+this is not a rare race.
+
+The fix is not a longer delay. The scene now redraws on every wake and stamps a frame counter, and
+the driver waits for that stamp to **stand still** for 500 ms before photographing. An idle vitui
+application costs zero wakeups, so a stamp that stops moving is a screen that has stopped moving —
+an observed condition, in the same shape as the readiness handshake it extends, rather than a sleep
+tuned until it passed.
+
+It also generalises past this arm: **any capture of a window an emulator has just opened is a
+capture of a screen that may still be settling**, and the tmux arm is exempt only because
+`capture-pane` runs against a pane whose size the harness set.
+
 ## 2026-08-22 — stage 0, and the capture format is the finding
 
 The instrument does not exist yet. What exists is the answer to *what can a dump-based capture see*,

@@ -15,19 +15,31 @@ that arrangement cannot catch:
 This directory is the missing fourth party. It is
 [production ticket 04](../.scratch/vitui-engine-production/issues/04-the-conformance-harness.md).
 
-## Status: stages 0 and 2
+## Status: stages 0, 1 and 2
 
-**No driver and no report yet, and the parser is already gated.** What exists is `FINDINGS.md`,
-`SCENES.md`, two committed captures, and the parser and comparator over them — eleven tests, no
-emulator in the loop. The captures changed the plan before a harness was written, which is the point
-of doing stage 0 first, and the parser was built next because it is the half that does not depend on
-the engine's public API, which ticket 03 is rewriting.
-
-What is left for a live run: the driver, which needs the settled API, and the OSC 10/11 header reader.
+**Ghostty 1.3.1 agreed with the engine 11/11 on scene 01, and the run's own capture is now a
+fixture.** Nineteen tests, no emulator in the loop for any of them.
 
 ```sh
-cd conform && cargo test        # a detached workspace: its own graph, its own gate
+cd conform && cargo test              # the gate: the comparator over committed captures
+cd conform && cargo run --example ghostty     # the soak: one real window, and REPORT.md
 ```
+
+The live arm opens a Ghostty window, drives the engine inside it, photographs the screen and closes
+the window again — about a second and a half, and it **takes focus for that second and a half**,
+which is inherent to driving a window server and not something the driver can avoid. Whatever is
+typed into it while it is up is drained and ignored.
+
+The instrument is one executable with two halves: with no arguments it is the driver, with
+`--scene 01` it is the scene, and the driver launches the scene by re-running its own
+`current_exe()`. That is not a trick to save a file — it makes the two halves the same build by
+construction, where a sibling binary path can silently be yesterday's.
+
+`CONFORM_SAVE_CAPTURE=<path>` writes the raw bytes out. It is **opt-in and never automatic**: a
+driver that rewrote its own fixtures on every run would turn the gate into a mirror.
+
+Stages 3 (CPR and the width questions), 4 (a second emulator family) and 5 (mode 2026) are open.
+See [ticket 04](../.scratch/vitui-engine-production/issues/04-the-conformance-harness.md).
 
 ## Why it reports and never gates
 
@@ -67,6 +79,31 @@ form — the missing row hiding inside a green one.
 |---|---|
 | `tmux-3.7c-attrs-and-colours.vt` | both SGR spellings resolving to the same channels; bold, underline, underline colour, reverse, italic, strikethrough; and the `ESC[39m`-versus-`ESC[0m` reset asymmetry |
 | `tmux-3.7c-wide-no-padding.vt` | that `AB漢CD` comes back with **no padding cell and no continuation marker** — 28 bytes that decide how ticket 06's scene has to be built |
+| `ghostty-1.3.1-scene01-attrs.vt` | scene 01 as Ghostty gave it back: all eleven attribute bits, each on its own row, each stopping where its label does; and the OSC 10/11 header this machine's Ghostty leads with, which is the only statement anywhere of what `Colour::Default` actually resolves to |
 
 Raw bytes, as captured. Do not regenerate them to make a test pass: they are evidence, and a fixture
 that moves because the code moved is not evidence of anything.
+
+## The engine is a dev-dependency, and that is on purpose
+
+The library depends on nothing. `vitui-engine` is a **dev**-dependency, so it is linked into the
+examples and not into the code the gate runs through — the same rule as `Row` deliberately having no
+`cell_at(column)`. A comparator that linked the engine would be checking the engine against itself
+again, which is the exact arrangement architecture ticket 20 found and this directory exists to
+break.
+
+## What this instrument cannot see
+
+Written down because a limit nobody wrote down becomes a claim.
+
+- **Which column a glyph is in.** Both capture formats emit a double-width glyph with no padding
+  cell and no continuation marker, so architecture ticket 20 is not answerable by any dump. It waits
+  on production ticket 06's ASCII sentinels or on CPR. See `FINDINGS.md`.
+- **Curly and dashed underlines as per-bit rows.** They light two of the three underline bits each;
+  the committed fixtures cover them instead.
+- **What the pixels look like.** The `vt` dump is Ghostty's own cell state re-serialised, so it says
+  what the terminal *recorded*, not what it *drew*. A terminal that stores an attribute and renders
+  nothing agrees here and disagrees on screen.
+- **Anything about timing.** Mode 2026 is stage 5, and the expectation is already recorded: the
+  AppleScript round trip's jitter is the same order as Alacritty's 150 ms force-flush limit, so the
+  sub-200 ms end may be unanswerable on this machine.

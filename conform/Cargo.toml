@@ -20,5 +20,13 @@ license = "MIT OR Apache-2.0"
 # bytes and does not need a crate to be one.
 [dependencies]
 
+# **The engine is reachable from the examples and not from the library**, which is the same rule as
+# `Row` having no `cell_at(column)`: the comparator must not link the code under test, or the
+# committed-fixture gate would be checking the engine against itself again — the exact arrangement
+# ticket 04 exists because of. Cargo gives examples the dev-dependencies, so the live arm can drive
+# the engine while `cargo test`'s gate still runs over a library that has never heard of it.
+[dev-dependencies]
+vitui-engine = { path = "../crates/vitui-engine" }
+
 [lints.rust]
 warnings = "deny"

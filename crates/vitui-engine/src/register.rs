@@ -1,4 +1,5 @@
-//! Spec §14's register: twenty-seven properties, each one either wired or pinned red.
+//! Spec §14's register: twenty-seven properties, each one either wired or pinned red — and one
+//! more that §14 could not have had.
 //!
 //! > **A gate is a count, a ratio, an equality or a compile outcome. A timing is a report, and is a
 //! > gate only at cliff granularity, with the headroom written next to the number.**
@@ -33,6 +34,21 @@
 //! (`.scratch/vitui-engine-architecture/issues/`); `inverted_by` names the **implementation**
 //! ticket that lights it (`.scratch/vitui-engine-impl/issues/`). The two are different numbering
 //! schemes and confusing them sends a reader to the wrong document.
+//!
+//! # Entry 28, and why the list is no longer exactly §14's
+//!
+//! Entries 1–27 are §14's table. **Entry 28 is not**, and it is here rather than in a document
+//! because of what it is about: §14 could enumerate twenty-seven properties of the engine and had
+//! no entry for *whether the engine's bytes mean to a real terminal what they mean to the engine's
+//! model of one*. Architecture ticket 20 is where that gap was noticed, from the inside:
+//!
+//! > Every gate stays green with §3's pairing invariant **false**, because the serializer and the
+//! > terminal model are wrong in the same direction.
+//!
+//! A register whose whole purpose is that *a property which quietly never arrives is
+//! indistinguishable from one that was decided against* cannot answer that by staying at
+//! twenty-seven. The count test below therefore asserts the split rather than the total, so a
+//! twenty-ninth entry has to say which side of the line it is on.
 
 /// What a register entry costs when it disagrees with the code.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -135,7 +151,7 @@ pub struct Entry {
 }
 
 /// Spec §14's register, entry for entry.
-pub const REGISTER: [Entry; 27] = [
+pub const REGISTER: [Entry; 28] = [
     Entry {
         number: 1,
         property: "No damage structure under-reports",
@@ -597,6 +613,16 @@ pub const REGISTER: [Entry; 27] = [
                  worsening number arrives as a review-visible diff",
         },
     },
+    Entry {
+        number: 28,
+        property: "Conformance against a real terminal emulator",
+        kind: Kind::Report,
+        qualifier: "committed file, on a machine with a window server",
+        source: "arch 20",
+        state: State::Wired {
+            at: "`conform/` — a detached workspace, `SCENES.md` normative,                  `cargo run --example ghostty` the instrument, `REPORT.md` committed and                  regenerated, `FINDINGS.md` written by hand and dated. **The first instrument in                  this repository that asks a terminal rather than our model of one.** Every other                  entry above is checked by code that lives in this crate: `roundtrip` replays the                  serializer's bytes through `term_model` and `testing` asserts a three-way                  agreement between the frame, `serial::Mirror` and `TermModel` — **two of those                  three are this engine's own code**, which is arch 20's finding and the reason                  this row exists. Scene 01 is the eleven attribute bits of the style word, one per                  row, because `attrs_dropped` is the field with **no query**: the eleven facts are                  in the capability set precisely because nothing can ask a terminal for them, and                  a screen dump is the only thing that can. Ghostty 1.3.1 agreed 11/11 on                  2026-08-23, and the run's own capture is committed to `conform/fixtures/` where                  `cargo test` compares it with no emulator, no window server and no automation                  grant in the loop — the same trade `fuzz/` makes, the committed corpus being the                  gate and the live run the soak. **It reports; it does not block**, and here that                  is stronger than in `compare/`: the run needs a macOS automation grant a fresh                  runner cannot have, and the `vt` dump format it reads is undocumented, found by                  probing `+validate-config`. A worsening result arrives as a review-visible diff                  in a committed REPORT.md. **What it cannot see is written down beside it**: a                  grid-to-text dump emits a double-width glyph with no padding cell, so arch 20's                  own question is not answerable by this instrument and waits on production ticket                  06's sentinels or on CPR",
+        },
+    },
 ];
 
 /// How many entries are wired, and how many are pinned red.
@@ -651,19 +677,33 @@ mod tests {
 
     /// §14's "the gate list has twenty-seven entries and nothing to run them against" stops being
     /// true here, and this is what keeps it from becoming true again.
+    ///
+    /// **The assertion is the split, not the total.** Entries 1–27 are §14's table and 28 is the one
+    /// production ticket 04 added for a property §14 had no way to state — see the module docs. A
+    /// bare length check would let a twenty-ninth entry arrive without anyone deciding which of
+    /// those two things it is.
     #[test]
     fn every_entry_of_spec_14s_register_is_present_exactly_once() {
-        assert_eq!(REGISTER.len(), 27);
-        let mut seen = [false; 28];
+        const FROM_SPEC_14: usize = 27;
+        assert_eq!(REGISTER.len(), FROM_SPEC_14 + 1);
+        let mut seen = [false; 29];
         for e in REGISTER {
             let n = e.number as usize;
-            assert!((1..=27).contains(&n), "entry {n} is not in §14's table");
+            assert!(
+                (1..=REGISTER.len()).contains(&n),
+                "entry {n} is neither in §14's table nor an entry this repository added"
+            );
             assert!(!seen[n], "entry {n} appears twice");
             seen[n] = true;
         }
-        for (n, present) in seen.iter().enumerate().skip(1) {
+        for (n, present) in seen.iter().enumerate().skip(1).take(REGISTER.len()) {
             assert!(present, "entry {n} is silently absent");
         }
+        assert_eq!(
+            REGISTER[FROM_SPEC_14].source, "arch 20",
+            "entry 28 is the conformance suite, and it exists because arch 20 found that every \
+             instrument in this crate is checked against code in this crate"
+        );
     }
 
     /// Every entry is in exactly one of two states, and both of them name somewhere to look.
@@ -702,16 +742,16 @@ mod tests {
         }
     }
 
-    /// A report may never be load-bearing for a gate (§14's second refinement), so the three
-    /// entries that are reports say so in their own kind rather than in a comment.
+    /// A report may never be load-bearing for a gate (§14's second refinement), so the entries
+    /// that are reports say so in their own kind rather than in a comment.
     #[test]
-    fn the_three_reports_are_marked_as_reports() {
+    fn the_reports_are_marked_as_reports() {
         let reports: Vec<u8> = REGISTER
             .iter()
             .filter(|e| e.kind == Kind::Report)
             .map(|e| e.number)
             .collect();
-        assert_eq!(reports, vec![25, 26, 27]);
+        assert_eq!(reports, vec![25, 26, 27, 28]);
     }
 
     #[test]

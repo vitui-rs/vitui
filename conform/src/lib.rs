@@ -23,6 +23,19 @@
 //! successor. Pretending to a column index here would put the assumption under test inside the
 //! instrument.
 //!
+//! # A parameter is not a token, and flattening the two separators is a defect
+//!
+//! The first version of this parser split an SGR body on `;` **and** `:` into one flat token stream,
+//! because that makes the two colour spellings read through one path. A Ghostty control probe run
+//! while building the live arm showed what that costs: `CSI 4:2 m` is *double underline*, and
+//! flattened it reads as `4` then `2` — underline **and dim**. An attribute the terminal never
+//! rendered, invented by the instrument.
+//!
+//! ECMA-48 is explicit that `;` separates parameters and `:` separates a parameter's
+//! **sub**-parameters, so that is what [`sgr`] does now. The colour arms accept either spelling
+//! because they must — that is the question scene 03 asks — but they accept it by looking for the
+//! tail in two places, not by pretending the two separators mean the same thing.
+//!
 //! # The refusal comes first
 //!
 //! `screen -X hardcopy` was observed to exit 0 and write a **zero-byte file**. Parsed permissively,
@@ -86,11 +99,56 @@ pub enum Colour {
     Rgb(u8, u8, u8),
 }
 
-/// The eleven attribute facts, as a dump can report them.
+/// How a cell is underlined, numbered as SGR `4:n` numbers it.
 ///
-/// One `u16` rather than eleven `bool`s because the comparison is an equality on the whole style and
+/// Its own axis rather than a bit in [`Attrs`], and that is not a tidiness choice: the style word
+/// the engine serialises from spends **three** of its eleven attribute bits on this field, so a
+/// single underline boolean here could not tell a dotted underline from a double one and scene 01
+/// needs exactly that distinction to light one bit per row.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum Underline {
+    /// SGR 24, and the initial state.
+    #[default]
+    None,
+    /// `4` or `4:1`.
+    Single,
+    /// `4:2`. **Never SGR 21** — ECMA-48 assigns 21 to doubly-underlined and a meaningful
+    /// population of terminals implements it as bold-off, so nothing emits it and nothing here
+    /// reads it.
+    Double,
+    /// `4:3`.
+    Curly,
+    /// `4:4`.
+    Dotted,
+    /// `4:5`.
+    Dashed,
+    /// A style number nobody has defined. Kept rather than folded into [`Underline::Single`], so a
+    /// terminal inventing one is visible as a disagreement instead of silently becoming a match.
+    Other(u8),
+}
+
+impl Underline {
+    fn from_sgr(n: u8) -> Self {
+        match n {
+            0 => Self::None,
+            1 => Self::Single,
+            2 => Self::Double,
+            3 => Self::Curly,
+            4 => Self::Dotted,
+            5 => Self::Dashed,
+            n => Self::Other(n),
+        }
+    }
+}
+
+/// The eight attribute flags, as a dump can report them.
+///
+/// One `u16` rather than eight `bool`s because the comparison is an equality on the whole style and
 /// a bitset makes that one instruction. The bit order is this type's own and matches nothing in the
 /// engine on purpose: a dump is not a cell.
+///
+/// **Eight here plus [`Underline`]'s three-bit field is the engine's eleven.** Underline is not a
+/// flag; see [`Underline`].
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub struct Attrs(u16);
 
@@ -101,16 +159,17 @@ impl Attrs {
     pub const DIM: Self = Self(1 << 1);
     /// SGR 3.
     pub const ITALIC: Self = Self(1 << 2);
-    /// SGR 4.
-    pub const UNDERLINE: Self = Self(1 << 3);
     /// SGR 5.
-    pub const BLINK: Self = Self(1 << 4);
+    pub const BLINK: Self = Self(1 << 3);
     /// SGR 7.
-    pub const REVERSE: Self = Self(1 << 5);
-    /// SGR 8.
-    pub const HIDDEN: Self = Self(1 << 6);
+    pub const REVERSE: Self = Self(1 << 4);
+    /// SGR 8. Named for what the SGR does rather than for what the screen shows: a dump reports the
+    /// cell's text whether or not the terminal painted it.
+    pub const HIDDEN: Self = Self(1 << 5);
     /// SGR 9.
-    pub const STRIKE: Self = Self(1 << 7);
+    pub const STRIKE: Self = Self(1 << 6);
+    /// SGR 53.
+    pub const OVERLINE: Self = Self(1 << 7);
 
     /// Whether every bit of `other` is set here.
     #[must_use]
@@ -142,8 +201,10 @@ pub struct Style {
     pub bg: Colour,
     /// Underline colour, SGR 58 — **its own axis**, because a terminal can want the semicolon
     /// spelling for 58 and never be asked about 38.
-    pub underline: Colour,
-    /// The attribute bits.
+    pub underline_colour: Colour,
+    /// How the cell is underlined, SGR 4 and 24.
+    pub underline: Underline,
+    /// The attribute flags.
     pub attrs: Attrs,
 }
 
@@ -305,32 +366,45 @@ fn escape(bytes: &[u8], style: Style) -> Result<(usize, Style), DumpError> {
 
 /// Apply one SGR sequence's parameters to the style.
 ///
-/// Accepts **both spellings** of the parameterised colours, which is not a convenience: the scene
-/// that asks whether a terminal parses ITU-T T.416's colon form has to be able to read either answer
-/// back. Both emulators measured normalise to semicolons on output, and agreement on the normalised
-/// channels is what makes it evidence about the *parse*.
+/// **`;` separates parameters and `:` separates sub-parameters**, and the difference is load-bearing:
+/// `4:2` is one parameter meaning double underline, and reading it as two parameters produces
+/// underline plus dim — an attribute the terminal never rendered. See the module docs.
+///
+/// Both colour spellings are accepted, which is not a convenience: the scene that asks whether a
+/// terminal parses ITU-T T.416's colon form has to be able to read either answer back. They are
+/// accepted by looking for the tail in the two places it can be — inside this parameter's
+/// sub-parameters, or in the parameters that follow — never by flattening the separators.
 fn sgr(params: &[u8], mut style: Style) -> Style {
     let text = String::from_utf8_lossy(params);
-    // Colon and semicolon are both separators here. A colon-form colour arrives as one
-    // semicolon-separated parameter containing colons; splitting on both flattens the two spellings
-    // into one token stream, and the colour arms below then read the same shape either way.
-    let tokens: Vec<&str> = text.split([';', ':']).collect();
+    // An empty body is `CSI m`, which ECMA-48 defines as `CSI 0 m`.
+    if text.is_empty() {
+        return Style::default();
+    }
+    let parameters: Vec<Vec<&str>> = text.split(';').map(|p| p.split(':').collect()).collect();
     let mut k = 0;
-    while k < tokens.len() {
-        let code: u16 = tokens[k].parse().unwrap_or(0);
+    while k < parameters.len() {
+        let parameter = &parameters[k];
+        let code: u16 = parameter[0].parse().unwrap_or(0);
         match code {
             0 => style = Style::default(),
             1 => style.attrs.set(Attrs::BOLD),
             2 => style.attrs.set(Attrs::DIM),
             3 => style.attrs.set(Attrs::ITALIC),
-            4 => style.attrs.set(Attrs::UNDERLINE),
+            // The one parameter with a sub-parameter that is not a colour. Bare `4` is single;
+            // `4:n` is the style the engine's three-bit underline field spells.
+            4 => {
+                style.underline = match parameter.get(1) {
+                    Some(n) => Underline::from_sgr(n.parse().unwrap_or(1)),
+                    None => Underline::Single,
+                }
+            }
             5 => style.attrs.set(Attrs::BLINK),
             7 => style.attrs.set(Attrs::REVERSE),
             8 => style.attrs.set(Attrs::HIDDEN),
             9 => style.attrs.set(Attrs::STRIKE),
             22 => style.attrs.clear(Attrs(Attrs::BOLD.0 | Attrs::DIM.0)),
             23 => style.attrs.clear(Attrs::ITALIC),
-            24 => style.attrs.clear(Attrs::UNDERLINE),
+            24 => style.underline = Underline::None,
             25 => style.attrs.clear(Attrs::BLINK),
             27 => style.attrs.clear(Attrs::REVERSE),
             28 => style.attrs.clear(Attrs::HIDDEN),
@@ -341,15 +415,28 @@ fn sgr(params: &[u8], mut style: Style) -> Style {
             100..=107 => style.bg = Colour::Indexed((code - 100 + 8) as u8),
             39 => style.fg = Colour::Default,
             49 => style.bg = Colour::Default,
-            59 => style.underline = Colour::Default,
+            53 => style.attrs.set(Attrs::OVERLINE),
+            55 => style.attrs.clear(Attrs::OVERLINE),
+            59 => style.underline_colour = Colour::Default,
             38 | 48 | 58 => {
-                let (colour, used) = parameterised(&tokens[k + 1..]);
+                // The colon form carries its tail inside this parameter; the semicolon form carries
+                // it in the parameters after it, each of which is a one-element sub-parameter list.
+                let colour = if parameter.len() > 1 {
+                    parameterised(&parameter[1..]).0
+                } else {
+                    let tail: Vec<&str> = parameters[k + 1..]
+                        .iter()
+                        .map(|p| p.first().copied().unwrap_or(""))
+                        .collect();
+                    let (colour, used) = parameterised(&tail);
+                    k += used;
+                    colour
+                };
                 match code {
                     38 => style.fg = colour,
                     48 => style.bg = colour,
-                    _ => style.underline = colour,
+                    _ => style.underline_colour = colour,
                 }
-                k += used;
             }
             _ => {}
         }
@@ -361,8 +448,8 @@ fn sgr(params: &[u8], mut style: Style) -> Style {
 /// Read a `5;n` or `2;r;g;b` tail, tolerating T.416's empty colour-space id.
 ///
 /// The empty id is what makes the colon spelling one byte longer than the semicolon one, and it
-/// arrives here as an empty token. Skipping empties is therefore the whole of what makes both
-/// spellings parse through one path.
+/// arrives here as an empty token. Skipping empties is therefore the whole of what lets one function
+/// read both a sub-parameter list and a run of following parameters.
 fn parameterised(tail: &[&str]) -> (Colour, usize) {
     let mut nums = Vec::new();
     let mut used = 0;
@@ -386,6 +473,37 @@ fn parameterised(tail: &[&str]) -> (Colour, usize) {
         _ => Colour::Default,
     };
     (colour, used)
+}
+
+/// The terminal's own default foreground and background, from the `vt` dump's OSC 10/11 header.
+///
+/// **Not decoration.** A scene that writes with [`Colour::Default`] can only be checked against what
+/// the emulator resolves that to, and the emulator is the only party that knows. Ghostty leads every
+/// dump with the pair; a capture without one returns `None` for that side rather than the xterm
+/// guess, because guessing here would be the instrument inventing the answer it came to measure.
+///
+/// Returns `(foreground, background)`.
+#[must_use]
+pub fn default_colours(bytes: &[u8]) -> (Option<Colour>, Option<Colour>) {
+    let text = String::from_utf8_lossy(bytes);
+    let read = |code: &str| {
+        let at = text.find(&format!("\x1b]{code};rgb:"))?;
+        // `\x1b` `]` code `;rgb:` — two chars, the code, then five.
+        let rest = &text[at + code.len() + 7..];
+        let spec = rest.split(['\x1b', '\x07']).next()?;
+        let mut channels = spec.split('/').map(|c| {
+            // `rgb:ea/ea/ea` is 8-bit per channel; the X spec also allows 4 and 16. Scale from
+            // whatever width arrived rather than assuming two hex digits.
+            let value = u32::from_str_radix(c, 16).ok()?;
+            let max = (1u32 << (4 * c.len() as u32)) - 1;
+            Some((value * 255 / max) as u8)
+        });
+        match (channels.next()?, channels.next()?, channels.next()?) {
+            (Some(r), Some(g), Some(b)) => Some(Colour::Rgb(r, g, b)),
+            _ => None,
+        }
+    };
+    (read("10"), read("11"))
 }
 
 #[cfg(test)]
