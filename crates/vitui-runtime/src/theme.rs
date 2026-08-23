@@ -56,7 +56,7 @@
 
 pub mod wire;
 
-use vitui_engine::{Color, ColorDepth, LinkId, Restyle, Rgb, Style};
+use vitui_engine::{Color, ColorDepth, Restyle, Rgb, Style};
 
 pub use vitui_engine::GlyphSet;
 
@@ -124,17 +124,17 @@ impl Paint {
     }
 }
 
-/// A runtime newtype over the engine's opaque link handle. **No `u32` crosses the seam.**
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct Link(pub(crate) LinkId);
-
-impl Link {
-    /// Wrap the engine's handle. `pub(crate)` — a component receives one from `Ctx::link` and can do
-    /// nothing else with it, which is what keeps `u32` off the seam.
-    pub(crate) const fn from_engine(id: LinkId) -> Link {
-        Link(id)
-    }
-}
+// ── the `Link` newtype is not here, and it has nothing left to wrap ──────────────────────────────
+//
+// It was `Link(LinkId)`, a runtime newtype over the engine's opaque handle, and its whole reason was
+// *no `u32` crosses the seam*. Engine architecture ticket 21 put the URI at the drawing verb, so the
+// engine's own `Link<'a>` is `None | Uri(&str)` — there is no handle, no number, and nothing for a
+// newtype to hide. Wrapping it would only mean a component could not write the URI it already has.
+//
+// So the engine's type is re-exported here under the name this crate's own spec §3 uses for it. The
+// name was taken by the newtype and this frees it, which is why `Hyperlink<'a>` — the sanctioned
+// fallback spelling — is not needed.
+pub use vitui_engine::Link;
 
 /// The thirteen roles.
 ///
@@ -577,7 +577,7 @@ impl Glyph {
 ///
 /// **`clear` is applied before `set`**, so an attribute named in both ends up set.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
-pub struct Repaint {
+pub struct Repaint<'a> {
     /// The new foreground, or leave it.
     pub fg: Option<Role>,
     /// The new background, or leave it.
@@ -588,11 +588,17 @@ pub struct Repaint {
     pub clear: u16,
     /// The new underline colour, or leave it.
     pub ul: Option<Role>,
-    /// The new hyperlink, or leave it.
-    pub link: Option<Link>,
+    /// The new hyperlink, as a URI, or leave it.
+    ///
+    /// [`Link::None`] clears it and `None` leaves it alone. **The URI is the datum**, which is what
+    /// gives this descriptor its lifetime: the engine interns it at the verb, so a component names
+    /// the address it already has instead of a handle it would have had to get from somewhere it
+    /// cannot reach. See engine architecture ticket 21, and the note where `Ctx::link` used to be
+    /// explained why it could not exist.
+    pub link: Option<Link<'a>>,
 }
 
-impl Repaint {
+impl<'a> Repaint<'a> {
     /// Bold.
     pub const BOLD: u16 = Restyle::BOLD;
     /// Dim.
@@ -633,7 +639,7 @@ impl Repaint {
     // would hand a component an `engine::Restyle` with `Color`s in it, which is the thing ADR 0018
     // keeps out of a component's hands.
     #[allow(dead_code)]
-    pub(crate) fn lower(self, theme: &Theme) -> Restyle {
+    pub(crate) fn lower(self, theme: &Theme) -> Restyle<'a> {
         let colour = |r: Option<Role>| r.map(|r| theme.spec(r).style_fg());
         Restyle {
             fg: colour(self.fg),
@@ -641,7 +647,9 @@ impl Repaint {
             set: self.set,
             clear: self.clear,
             ul: colour(self.ul),
-            link: self.link.map(|l| l.0),
+            // Straight across: the URI is the engine's own `Link` and there is nothing to resolve.
+            // A role is the runtime's vocabulary and an address is not.
+            link: self.link,
         }
     }
 }
@@ -1087,6 +1095,22 @@ mod tests {
         assert!(lowered.link.is_none());
         // A `Repaint` that names nothing lowers to a descriptor that changes nothing.
         assert_eq!(Repaint::default().lower(&theme), Restyle::default());
+
+        // **The URI goes straight across, and that is the whole of what replaced `Ctx::link`.** A
+        // role is the runtime's vocabulary and is resolved here; an address is the component's own
+        // datum and there is nothing to resolve it against. The engine interns it at the verb.
+        let linked = Repaint {
+            link: Some(Link::Uri("https://example.com/")),
+            ..Default::default()
+        }
+        .lower(&theme);
+        assert_eq!(linked.link, Some(Link::Uri("https://example.com/")));
+        let cleared = Repaint {
+            link: Some(Link::None),
+            ..Default::default()
+        }
+        .lower(&theme);
+        assert_eq!(cleared.link, Some(Link::None), "and a clear stays a clear");
     }
 
     /// The paint a role hands out is the style the theme built for it.

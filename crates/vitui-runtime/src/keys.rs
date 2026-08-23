@@ -522,10 +522,10 @@ impl KeyMap {
         }
         // Expire first, so a key arriving after the timeout starts something rather than finishing
         // something the user has forgotten about.
-        if let Some(deadline) = p.deadline(timeout) {
-            if k.at >= deadline {
-                *p = Pending::none();
-            }
+        if let Some(deadline) = p.deadline(timeout)
+            && k.at >= deadline
+        {
+            *p = Pending::none();
         }
         if let Some(ix) = p.seq {
             let seq = self.seqs[ix].seq.as_slice();

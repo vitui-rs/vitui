@@ -82,11 +82,13 @@ pub(crate) fn run(wiring: Wiring) {
         // one packed word spec §7 makes authoritative. See `resize` below for what this does not
         // catch and why the alternative was not available.
         let before = size.get();
-        if let Some(now) = measure() {
-            if now != before && now.0 > 0 && now.1 > 0 {
-                size.set(now);
-                queue.push(Event::Resize(now.0, now.1));
-            }
+        if let Some(now) = measure()
+            && now != before
+            && now.0 > 0
+            && now.1 > 0
+        {
+            size.set(now);
+            queue.push(Event::Resize(now.0, now.1));
         }
         let woke = drain(&mut parser, &bytes, &queue, &mut published) || size.get() != before;
         if woke {

@@ -1370,21 +1370,21 @@ fn fit(rect: Rect, size: (u16, u16)) -> Rect {
 
 /// The link id a donated one becomes.
 ///
-/// # An id the donor's table does not name is passed through, not cleared
+/// # The walk is total, and architecture ticket 21 is what made it so
 ///
-/// [`Screen::link`](crate::Screen::link) is the **only** public mint, and it mints into the layer
-/// stack's table. So the only link id a caller can put on a standalone [`Surface`] is one that
-/// already belongs to this stack's handle space, and every publicly reachable donation arrives with
-/// an **empty** donor link table and ids that are already right. Renumbering them would map them
-/// onto whatever the donor happened to hold, and clearing them would **delete a hyperlink
-/// silently** — which is the one failure this whole area exists to prevent: the prototype spec §5
-/// records deleted a hyperlink under a shadow, and `Style::with_fg_bg` was removed for the same
-/// thing.
+/// **Every `LinkId` in a donated surface's cells was minted by that surface's own table.** A
+/// descriptor names a hyperlink as a URI ([`Link`](crate::Link)) and the verb interns it into the
+/// handle space it is drawing into, so a link written through `Surface::root` lands in the
+/// standalone surface's own link table by construction — exactly as a grapheme cluster does. There
+/// is no public mint for a caller to bring an id from anywhere else, so the id is always in range
+/// and the lookup always answers.
 ///
-/// The case the two rules disagree about — a surface carrying ids from **both** tables — is not
-/// reachable from the public API, because there is no second mint for one of them to come from.
-/// That is a gap in spec §3/§4/§12 rather than a decision this file may take, and it is filed as
-/// [architecture ticket 21](../../../.scratch/vitui-engine-architecture/issues/21-a-hyperlink-on-a-standalone-surface-has-no-mint.md).
+/// That is why the `None` arm is an [`Option::expect`] beside the grapheme walk's rather than a
+/// `debug_assert` and a pass-through. It **was** a pass-through, because clearing would have
+/// deleted a hyperlink silently — the failure spec §5's prototype shipped and `Style::with_fg_bg`
+/// was removed for — and because a stack-minted id landing in range of a non-empty donor table
+/// would have been silently rewritten to the *donor's* URI at that slot, which is the same class
+/// and harder to see. Neither is expressible now.
 /// What one of a donor's extended-style handles becomes in this stack's handle space.
 ///
 /// **Not always another handle, which is the whole reason this is a type.** On a terminal with no
@@ -1404,27 +1404,16 @@ fn remapped(links: &[LinkId], id: LinkId) -> LinkId {
     let Some(i) = id.index() else {
         return LinkId::NONE;
     };
-    match links.get(i) {
-        Some(mapped) => *mapped,
-        None => {
-            // The undecidable case, made loud in debug rather than left to be discovered: a donor
-            // that minted links of its own **and** a cell naming an id past the end of them. There
-            // is no public way to build one today, and if there ever is, pass-through stops being
-            // obviously right and ticket 21 has to have answered first.
-            debug_assert!(
-                links.is_empty(),
-                "a donated surface carries link ids from two handle spaces at once"
-            );
-            id
-        }
-    }
+    *links
+        .get(i)
+        .expect("a link id in a surface's table was minted by that table (spec §3, ADR 0011)")
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::caps::ColorDepth;
-    use crate::restyle::Restyle;
+    use crate::restyle::{Link, Restyle};
     use crate::style::{Color, Style};
     use crate::testing::terminal::{mixing, silent};
     use crate::testing::{Harness, assert_pairing_holds};
@@ -2098,11 +2087,10 @@ mod tests {
         // count would be zero either way and would prove nothing.
         let linked = |operator: bool| {
             let (mut stack, frame) = one_white_row(8, "ab");
-            let link = stack.tables_mut().link("https://example.com/vitui");
             stack.view(stack.order()[0].0).unwrap().restyle(
                 Rect::new(0, 0, 8, 1),
                 &Restyle {
-                    link: Some(link),
+                    link: Some(Link::Uri("https://example.com/vitui")),
                     ..Default::default()
                 },
             );
@@ -2165,8 +2153,8 @@ mod tests {
         // **The defect the prototype shipped**, at the level it shipped at: a shadow across a
         // hyperlink deleted the hyperlink, silently, because `Style::with_fg_bg` cleared bit 63 and
         // overwrote the 52-bit handle with two colours.
+        const URI: &str = "https://example.com/vitui";
         let mut stack = LayerStack::new();
-        let link = stack.tables_mut().link("https://example.com/vitui");
         let base = stack.add_content(0, Rect::new(0, 0, 4, 1), true);
         {
             let mut view = stack.view(base).expect("just added");
@@ -2174,7 +2162,7 @@ mod tests {
             view.restyle(
                 Rect::new(0, 0, 4, 1),
                 &Restyle {
-                    link: Some(link),
+                    link: Some(Link::Uri(URI)),
                     ..Default::default()
                 },
             );
@@ -2189,7 +2177,11 @@ mod tests {
                 .ext_handle()
                 .unwrap_or_else(|| panic!("column {x} is still extended"));
             let e = stack.tables().exts.get(handle).expect("minted here");
-            assert_eq!(e.link, link, "column {x} kept its hyperlink");
+            assert_eq!(
+                stack.tables().links.uri(e.link),
+                Some(URI),
+                "column {x} kept its hyperlink"
+            );
             let expected = if (1..3).contains(&x) { 127 } else { 255 };
             assert_eq!(
                 e.bg,
@@ -2205,7 +2197,6 @@ mod tests {
         // gate takes, and the reason the correct form is 3.2x cheaper than the prototype's.
         const W: u16 = 300;
         let mut stack = LayerStack::new();
-        let link = stack.tables_mut().link("https://example.com/vitui");
         let base = stack.add_content(0, Rect::new(0, 0, W, 1), true);
         {
             let mut view = stack.view(base).expect("just added");
@@ -2213,7 +2204,7 @@ mod tests {
             view.restyle(
                 Rect::new(0, 0, W, 1),
                 &Restyle {
-                    link: Some(link),
+                    link: Some(Link::Uri("https://example.com/vitui")),
                     ..Default::default()
                 },
             );
@@ -2894,13 +2885,12 @@ mod tests {
         const URI: &str = "https://example.com/donated";
         let mut off = Surface::new(2, 1);
         {
-            let link = off.tables_mut().link(URI);
             let mut view = off.root();
             view.text(0, 0, "ab", Style::new());
             view.restyle(
                 Rect::new(0, 0, 2, 1),
                 &Restyle {
-                    link: Some(link),
+                    link: Some(Link::Uri(URI)),
                     ..Default::default()
                 },
             );
@@ -2964,7 +2954,6 @@ mod tests {
 
         fn donated() -> Surface {
             let mut off = Surface::new(2, 1);
-            let link = off.tables_mut().link(URI);
             {
                 let mut view = off.root();
                 // Explicit colours, so the inline word this must become is distinguishable from a
@@ -2979,7 +2968,7 @@ mod tests {
                 view.restyle(
                     Rect::new(0, 0, 2, 1),
                     &Restyle {
-                        link: Some(link),
+                        link: Some(Link::Uri(URI)),
                         ..Default::default()
                     },
                 );
@@ -3029,14 +3018,20 @@ mod tests {
     }
 
     #[test]
-    fn a_screen_minted_link_survives_a_donation_it_was_not_minted_for() {
-        // The only publicly reachable hyperlink-plus-donation flow, because `Screen::link` is the
-        // only mint: the id is already in this stack's space and arrives on a surface whose own
-        // link table is empty. Clearing it here would delete a hyperlink silently, which is the
-        // defect this area exists to prevent. See `remapped` and architecture ticket 21.
-        const URI: &str = "https://example.com/minted-by-the-screen";
+    fn a_link_on_a_standalone_surface_is_minted_there_and_renumbered_at_donation() {
+        // **Architecture ticket 21, as the property that replaced a holding position.** This test
+        // used to pin the opposite: `Screen::link` was the only mint, so a hyperlink on a standalone
+        // surface arrived with the *stack's* id on a surface whose own link table was empty, and
+        // `remapped` passed it through because clearing would have deleted a hyperlink silently.
+        //
+        // The URI travels at the verb now, so the donor mints its own id — the donor table is
+        // **not** empty, which is what makes `remapped`'s walk total — and the id the stack ends up
+        // with is the stack's own. Both halves are asserted, because either one alone is satisfied
+        // by two tables happening to agree.
+        const URI: &str = "https://example.com/drawn-off-to-one-side";
         let mut stack = LayerStack::new();
-        let link = stack.tables_mut().link(URI);
+        // One URI this stack minted first, so the donor's id 1 is not the stack's id for `URI`.
+        stack.tables_mut().link("https://example.com/already-here");
 
         let mut off = Surface::new(2, 1);
         {
@@ -3045,12 +3040,26 @@ mod tests {
             view.restyle(
                 Rect::new(0, 0, 2, 1),
                 &Restyle {
-                    link: Some(link),
+                    link: Some(Link::Uri(URI)),
                     ..Default::default()
                 },
             );
         }
-        assert!(off.tables().links.is_empty(), "no second mint exists");
+        assert!(
+            !off.tables().links.is_empty(),
+            "the verb interned into the standalone surface's own table"
+        );
+        let donated_link = off
+            .tables()
+            .exts
+            .get(
+                off.row(0)[0]
+                    .style
+                    .ext_handle()
+                    .expect("extended over there"),
+            )
+            .expect("interned over there")
+            .link;
 
         stack.add_content_with(0, Rect::new(0, 0, 2, 1), true, off);
         let mut frame = Surface::new(2, 1);
@@ -3060,6 +3069,7 @@ mod tests {
             .ext_handle()
             .expect("the cell is extended");
         let entry = stack.tables().exts.get(handle).expect("interned here");
+        assert_ne!(entry.link, donated_link, "the link id was renumbered");
         assert_eq!(stack.tables().links.uri(entry.link), Some(URI));
     }
 
@@ -3646,7 +3656,7 @@ mod tests {
         /// mix and an arm that mixed nothing would report the content layer's cost twice.
         fn screen(every: i32, operator: bool) -> (LayerStack, Surface) {
             let mut stack = LayerStack::new();
-            let link = stack.tables_mut().link("https://example.com/vitui");
+            const URI: &str = "https://example.com/vitui";
             let base = stack.add_content(0, Rect::new(0, 0, W, H), true);
             let row: String = std::iter::repeat_n('m', W as usize).collect();
             {
@@ -3655,7 +3665,7 @@ mod tests {
                     view.text(0, y, &row, white());
                 }
                 let hyperlink = Restyle {
-                    link: Some(link),
+                    link: Some(Link::Uri(URI)),
                     ..Default::default()
                 };
                 if every == 1 {

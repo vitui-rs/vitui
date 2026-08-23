@@ -27,7 +27,7 @@ use crate::geom::Rect;
 use crate::mix::Mix;
 use crate::reference;
 use crate::register::State;
-use crate::restyle::Restyle;
+use crate::restyle::{Link, Restyle};
 use crate::scenes::{H, Scene, W, scenes, table_two_ways, virtualised_tree};
 use crate::serial::Filter;
 use crate::style::{Color, Style};
@@ -2018,8 +2018,8 @@ fn a_fading_operator_mints_per_distinct_style_and_never_per_cell() {
     // channel the mix never touches (§5's *it is not preserved here, it is simply never named*), so
     // four links are four distinct results at **every** amount, by construction.
     let distinct = 4usize;
-    let links: Vec<_> = (0..distinct)
-        .map(|i| h.screen.link(&format!("https://example.com/{i}")))
+    let links: Vec<String> = (0..distinct)
+        .map(|i| format!("https://example.com/{i}"))
         .collect();
     {
         let mut view = h
@@ -2031,7 +2031,7 @@ fn a_fading_operator_mints_per_distinct_style_and_never_per_cell() {
             view.restyle(
                 Rect::new(0, y as i32, 8, 1),
                 &Restyle {
-                    link: Some(links[y as usize % distinct]),
+                    link: Some(Link::Uri(&links[y as usize % distinct])),
                     ..Default::default()
                 },
             );
@@ -2467,21 +2467,21 @@ fn dropping_an_inexpressible_channel_from_the_key_costs_entries_and_no_bytes() {
             .screen
             .layers()
             .add_content(0, Rect::new(0, 0, LINKS, 2), true);
-        let links: Vec<_> = (0..LINKS)
-            .map(|i| h.screen.link(&format!("https://example.com/vitui#{i}")))
+        let links: Vec<String> = (0..LINKS)
+            .map(|i| format!("https://example.com/vitui#{i}"))
             .collect();
         {
             let row: String = std::iter::repeat_n('m', LINKS as usize).collect();
             let mut v = h.screen.layers().view(id).expect("just added");
             v.text(0, 0, &row, Style::new().fg(Color::indexed(15)));
             v.text(0, 1, &row, Style::new().fg(Color::indexed(15)));
-            for (i, link) in links.iter().enumerate() {
+            for (i, uri) in links.iter().enumerate() {
                 v.restyle(
                     Rect::new(i as i32, 0, 1, 2),
                     &Restyle {
                         set: Restyle::UNDERLINE_CURLY,
                         ul: Some(Color::rgb((i as u16 % ULS) as u8 + 1, 0, 0)),
-                        link: Some(*link),
+                        link: Some(Link::Uri(uri)),
                         ..Restyle::default()
                     },
                 );
@@ -3286,7 +3286,7 @@ fn packing_density(which: &str) -> Screen {
         .add_content(0, Rect::new(0, 0, W, H), true);
     let row: String = std::iter::repeat_n('m', W as usize).collect();
     let link = if which == "linked 100%" {
-        Some(h.screen.link("https://example.com/vitui"))
+        Some(Link::Uri("https://example.com/vitui"))
     } else {
         None
     };
@@ -4169,7 +4169,7 @@ fn the_achieved_rate_lands_under_the_configured_ceiling() {
             view.text(
                 0,
                 (frames % u32::from(H)) as i32,
-                if frames % 2 == 0 { "x" } else { "y" },
+                if frames.is_multiple_of(2) { "x" } else { "y" },
                 Style::new(),
             );
         }

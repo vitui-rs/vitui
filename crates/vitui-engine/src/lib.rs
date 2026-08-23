@@ -75,12 +75,30 @@
 //! ```
 //!
 //! **Refusal 11 — no cells, no grapheme handles, no style bits** (ADR 0023). A caller cannot read
-//! back what is on screen, which is why the oracle over cells lives inside this crate and why the
-//! one handle that *is* public — [`LinkId`] — is opaque and mints only through
-//! [`Screen::link`].
+//! back what is on screen, which is why the oracle over cells lives inside this crate — and since
+//! architecture ticket 21 it holds with **no exception beside it**. There *was* one: `LinkId`, the
+//! one handle that was public, opaque and minted by `Screen::link`. The URI travels at the drawing
+//! verb now ([`Link`]), so the handle is internal and the exception is unnecessary rather than
+//! rewritten.
 //!
 //! ```compile_fail,E0433
 //! let _ = vitui_engine::Cell::default();
+//! ```
+//!
+//! ```compile_fail,E0433
+//! let _: vitui_engine::LinkId = Default::default();
+//! ```
+//!
+//! And the mint that went with it, which is the half a name check cannot see — a method is not a
+//! re-export:
+//!
+//! ```compile_fail,E0599
+//! let config = vitui_engine::Config {
+//!     output: vitui_engine::Output::Sink(Box::new(Vec::new())),
+//!     ..Default::default()
+//! };
+//! let (mut screen, _wake) = vitui_engine::Engine::new(config).attach().unwrap();
+//! let _ = screen.link("https://example.com/");
 //! ```
 //!
 //! And the two names §12 lists or prices that are not here either — `Resolver`, which appears once
@@ -95,17 +113,26 @@
 //! let _ = vitui_engine::Options::default();
 //! ```
 //!
-//! The twin for all five, naming by path what stands in each one's place — the drawing verb a
+//! The twin for all seven, naming by path what stands in each one's place — the drawing verb a
 //! `Painter` would have been called from, the slot a pool would have fed, the write that replaces
-//! reading a cell, the capabilities an operator's colour is resolved against, and the config that
-//! carries every serializer axis there is:
+//! reading a cell, the descriptor field and the URI that replace the handle and its mint, the
+//! capabilities an operator's colour is resolved against, and the config that carries every
+//! serializer axis there is:
 //!
 //! ```
-//! use vitui_engine::{Capabilities, Config, Engine, Output, Rect, Screen, Slot, Style, Surface, View};
+//! use vitui_engine::{
+//!     Capabilities, Config, Engine, Link, Output, Rect, Restyle, Screen, Slot, Style, Surface, View,
+//! };
 //!
 //! let mut surface = Surface::new(4, 1);
 //! let mut view = surface.root();
 //! assert_eq!(View::set(&mut view, 0, 0, "x", Style::new()).cells, 1);
+//! let hyperlink: Restyle<'_> = Restyle {
+//!     link: Some(Link::Uri("https://example.com/")),
+//!     ..Default::default()
+//! };
+//! View::restyle(&mut view, Rect::new(0, 0, 1, 1), &hyperlink);
+//! assert_eq!(hyperlink.link, Some(Link::Uri("https://example.com/")));
 //! let slot: Slot<u32> = Slot::new();
 //! assert_eq!(Slot::take(&slot), None);
 //! let (screen, _wake) = Engine::new(Config {
@@ -130,7 +157,7 @@
 //! or pinned red against the ticket that lights them — grapheme clusters in cells (ticket 06): the
 //! interner, the five repair rules, and [`graphemes`] and [`width_of`] over the same tables the
 //! verbs segment with — the extended-style bit with the verb that owns it (ticket 07):
-//! [`Restyle`], [`LinkId`] and the two side tables the packet now carries — and the clip, the
+//! [`Restyle`], [`Link`] and the two side tables the packet now carries — and the clip, the
 //! viewport and the visibility query (ticket 09): [`View::child`], [`View::scrolled`],
 //! [`View::visible_rows`] and [`View::visible_cols`], which are what make a component's rectangle
 //! inescapable and a 1M-row tree cost what a 1k-row one costs — and the whole of the layer stack
@@ -544,7 +571,6 @@ pub use actuate::{Cursor, CursorShape};
 pub use caps::{Capabilities, ColorDepth, GlyphSet, Overrides, Rgb, WidthSource};
 pub use clock::Wake;
 pub use engine::{AttachError, Clock, Config, Engine, Output, Presented, Screen, WakeHandle};
-pub use exts::LinkId;
 pub use geom::Rect;
 pub use input::{
     Button, Buttons, Event, InputConfig, InputDiagnostics, Key, KeyCode, KeyKind, KeyText, Keypad,
@@ -553,7 +579,7 @@ pub use input::{
 pub use layer::{LayerId, LayerStack};
 pub use mix::Mix;
 pub use perf::Permit;
-pub use restyle::Restyle;
+pub use restyle::{Link, Restyle};
 pub use slot::Slot;
 pub use style::{Color, Style};
 pub use surface::Surface;

@@ -31,7 +31,7 @@ use std::io::{Result, Write};
 
 use vitui_alloc_probe::{CountingAllocator, steady};
 use vitui_engine::{
-    Clock, Color, ColorDepth, Config, Engine, InputConfig, LayerId, Output, Overrides, Rect,
+    Clock, Color, ColorDepth, Config, Engine, InputConfig, LayerId, Link, Output, Overrides, Rect,
     Restyle, Screen, Style,
 };
 
@@ -176,13 +176,12 @@ fn pack_allocates_nothing_at_every_density() {
     for density in ["plain", "realistic 1%", "linked 100%", "hostile 100%"] {
         let (mut screen, id) = screen(Clock::Manual);
         let row: String = std::iter::repeat_n('m', W as usize).collect();
-        let link = screen.link("https://example.com/vitui");
         let ink = Style::new().fg(Color::indexed(15)).bg(Color::indexed(8));
 
         let frame = |screen: &mut Screen, t: u32| {
             let mut view = screen.layers().view(id).expect("the layer was just added");
             // A different weight every frame, so every cell changes and the whole screen is packed.
-            let ink = if t % 2 == 0 { ink } else { ink.bold() };
+            let ink = if t.is_multiple_of(2) { ink } else { ink.bold() };
             for y in 0..H as i32 {
                 view.text(0, y, &row, ink);
             }
@@ -207,7 +206,7 @@ fn pack_allocates_nothing_at_every_density() {
                 "linked 100%" => view.restyle(
                     Rect::new(0, 0, W, H),
                     &Restyle {
-                        link: Some(link),
+                        link: Some(Link::Uri("https://example.com/vitui")),
                         ..Default::default()
                     },
                 ),

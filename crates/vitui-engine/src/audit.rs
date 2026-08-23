@@ -22,14 +22,19 @@
 //! prose count is ticket 12's and was never true of the block beside it; the block is what ticket 24
 //! means by *§12's listing*, and the block is what the inventory is checked against.
 //!
-//! The surface as built is **forty-nine types and one hundred and five functions**:
+//! The surface as built is **forty-nine types and one hundred and four functions**:
 //!
 //! | | types | functions |
 //! |---|---|---|
-//! | §12's block | 41 | 42 named, plus the 28 inside the four types it blesses wholesale |
+//! | §12's block | 41 | 41 named, plus the 28 inside the four types it blesses wholesale |
 //! | absent, and recorded rather than resurrected | −1 (`Resolver`) | — |
 //! | added by implementation tickets, each naming one | +9 | +35 |
-//! | **built** | **49** | **105** |
+//! | **built** | **49** | **104** |
+//!
+//! **Architecture ticket 21 moved both columns and left the type count where it was.** §12's block
+//! lost `LinkId` and gained `Link<'a>`, so forty-one is still forty-one; it lost `Screen::link`,
+//! which is why the named functions are forty-one rather than forty-two. Both absent names are in
+//! [`REFUSED_NAMES`], which is what makes the subtraction checkable rather than remembered.
 //!
 //! Not one of the nine types and not one of the thirty-five functions breaches a refusal: none is a
 //! layout, a widget, a signal, a trait, an alpha, a blocking primitive, an executor, a clock, a
@@ -153,7 +158,33 @@ pub struct Item {
 /// The first is §12's own, and the rest are the refusals. Each is checked against the crate root's
 /// re-exports by [`the_refused_names_are_not_re_exported`], whose positive twin names a type that
 /// *is* there — a list of absences passes for any reason at all, including the file having moved.
+///
+/// **A name spelled `Type::verb` is checked against that type's verbs instead**, and architecture
+/// ticket 21 is why the second form exists: `Screen::link` is a method, so a check over the crate
+/// root's re-exports would have passed for it on the day it was written and every day after,
+/// whatever `Screen` grew back. A refusal nothing can fail is not a refusal.
 pub const REFUSED_NAMES: &[(&str, &str)] = &[
+    (
+        "LinkId",
+        "architecture ticket 21: the URI travels at the drawing verb (`Link`), so no handle is \
+         public and refusal 11 holds with no exception beside it. A second mint is what made an \
+         in-range collision between two handle spaces reachable",
+    ),
+    (
+        "Screen::link",
+        "architecture ticket 21: the only mint, deleted rather than joined by a second one. \
+         `Restyle::link` names a URI and the `View` interns it into the handle space it draws into",
+    ),
+    (
+        "Surface::link",
+        "architecture ticket 21: the shape the question was asked in, and refused — a standalone \
+         mint gives two handle spaces one opaque type and no way to tell them apart",
+    ),
+    (
+        "View::link",
+        "architecture ticket 21: strictly better than `Surface::link` and refused for the same \
+         residue. Making the value unobtainable is what closes it",
+    ),
     (
         "Resolver",
         "§12's compositing line names it once and nothing else in the architecture mentions it \
@@ -595,8 +626,8 @@ pub const SURFACE: &[Item] = &[
         ],
     },
     Item {
-        name: "LinkId",
-        kind: Kind::Struct,
+        name: "Link",
+        kind: Kind::Enum,
         origin: Origin::Spec12,
         verbs: &[],
     },
@@ -926,11 +957,6 @@ pub const SURFACE: &[Item] = &[
             },
             Verb {
                 name: "layers",
-                recv: Recv::RefMut,
-                origin: Origin::Spec12,
-            },
-            Verb {
-                name: "link",
                 recv: Recv::RefMut,
                 origin: Origin::Spec12,
             },
@@ -1511,8 +1537,16 @@ pub const REFUSALS: &[Refusal] = &[
 ///
 /// An equality and not a floor, because the number is a property of the mechanism rather than of the
 /// data: **the pair is the unit**, and a case deleted without its twin is precisely the edit this
-/// number exists to catch. Impl 23 left sixteen; ticket 24 brought the corpus to thirty-six.
-pub const NEGATIVE_CASES: usize = 36;
+/// number exists to catch. Impl 23 left sixteen; ticket 24 brought the corpus to thirty-six;
+/// architecture ticket 21 made it thirty-seven.
+///
+/// **Its arithmetic is worth spelling out, because it went up while two public items went away.**
+/// `LinkId`'s own `E0423` case — *you cannot build one from a number* — went with the type, and two
+/// took its place on the crate root: the type does not exist, and neither does the mint that made
+/// one. Their twin is the crate root's, which now names `Restyle::link` and `Link::Uri` by path
+/// alongside the five it already named; `Screen::link`'s own runnable example went with the verb,
+/// which is why [`RUNNABLE_EXAMPLES`] fell by two while this rose by one.
+pub const NEGATIVE_CASES: usize = 37;
 
 /// How many **runnable** doc examples the crate carries — the positive twins, and the ordinary
 /// examples beside them.
@@ -1523,7 +1557,11 @@ pub const NEGATIVE_CASES: usize = 36;
 /// lib tests and all 84 doc examples green, at which point a later rename would make the surviving
 /// negative case fail for the wrong error and report `ok` — exactly the failure the pairing exists
 /// to close.
-pub const RUNNABLE_EXAMPLES: usize = 48;
+///
+/// Forty-six since architecture ticket 21: `LinkId`'s twin and `Screen::link`'s own example both
+/// named items that no longer exist, and what replaced them is one more path inside the crate
+/// root's existing twin rather than a fence of its own.
+pub const RUNNABLE_EXAMPLES: usize = 46;
 
 #[cfg(test)]
 mod tests {
@@ -2047,16 +2085,19 @@ mod tests {
 
     /// **The counts, as the audit recorded them.**
     ///
-    /// Forty-nine types and one hundred and five functions, against §12's *twenty-one public types
+    /// Forty-nine types and one hundred and four functions, against §12's *twenty-one public types
     /// and about sixty-three functions* — a sentence its own block never agreed with. The
     /// arithmetic is stated so that a reader can check it rather than trust it: 41 − 1 + 9 = 49.
+    ///
+    /// It was one hundred and five until architecture ticket 21 deleted `Screen::link`; the type
+    /// count did not move, because `LinkId` left the listing and `Link<'a>` joined it.
     #[test]
     fn the_counts_are_the_ones_the_audit_recorded() {
         let types = SURFACE.iter().filter(|i| i.kind != Kind::Function).count();
         let functions = SURFACE.iter().map(|i| i.verbs.len()).sum::<usize>()
             + SURFACE.iter().filter(|i| i.kind == Kind::Function).count();
         assert_eq!(types, 49, "the public type count moved");
-        assert_eq!(functions, 105, "the public function count moved");
+        assert_eq!(functions, 104, "the public function count moved");
         let added = SURFACE
             .iter()
             .filter(|i| i.kind != Kind::Function)
@@ -2277,14 +2318,35 @@ mod tests {
     /// A list of absences passes for any reason at all, including the crate root having been
     /// renamed out from under it — which is exactly the failure mode register #19's pairs exist to
     /// close.
+    ///
+    /// **A `Type::verb` entry is checked against the source's verbs**, because a method is not a
+    /// re-export and a name check over `lib.rs` cannot see one. The twin for that half is the
+    /// receiving type being *found*: an entry naming a type nothing declares fails here, so a
+    /// refused verb cannot be satisfied by its type having gone away.
     #[test]
     fn the_refused_names_are_not_re_exported() {
         let exported = public_names();
+        let verbs = verbs_in_source();
         for (name, why) in REFUSED_NAMES {
-            assert!(
-                !exported.contains(*name),
-                "`{name}` is on the public surface: {why}"
-            );
+            match name.split_once("::") {
+                Some((target, verb)) => {
+                    assert!(
+                        exported.contains(target),
+                        "`{name}` names `{target}`, which is not on the public surface — a refused \
+                         verb whose type has gone away is a refusal nothing can fail"
+                    );
+                    let empty = BTreeMap::new();
+                    let found = verbs.get(target).unwrap_or(&empty);
+                    assert!(
+                        !found.contains_key(verb),
+                        "`{name}` is on the public surface: {why}"
+                    );
+                }
+                None => assert!(
+                    !exported.contains(*name),
+                    "`{name}` is on the public surface: {why}"
+                ),
+            }
         }
         for present in ["Capabilities", "Screen", "Slot", "View"] {
             assert!(
@@ -2292,6 +2354,11 @@ mod tests {
                 "`{present}` is not re-exported, so this gate is reading a file that moved"
             );
         }
+        assert!(
+            verbs["Screen"].contains_key("layers"),
+            "the verb scan found no `Screen::layers`, so the `Type::verb` half of this gate is \
+             reading a source it cannot parse rather than a crate with no `Screen::link`"
+        );
     }
 
     /// **Refusal 12 is a lint on the crate and not a claim in a document.**

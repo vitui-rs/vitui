@@ -155,7 +155,7 @@ fn main() {
         // animation registers a deadline and nothing more; the engine has no animation concept
         // (arch 09), and without the deadline above `wait` would park indefinitely — which is
         // exactly the property `examples/idle.rs` measures from the other side.
-        screen.set_cursor(if painted % 2 == 0 {
+        screen.set_cursor(if painted.is_multiple_of(2) {
             Some(Cursor {
                 x: 6,
                 y: 0,

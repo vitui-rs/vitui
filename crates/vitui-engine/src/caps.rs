@@ -565,7 +565,8 @@ pub(crate) struct Private {
     /// Mode 69, `DECSLRM`. Nothing in the serializer depends on it (§15); it is queried because the
     /// query is free inside the batch and because "we never asked" is a worse answer than "no".
     pub(crate) decslrm: bool,
-    /// The pre-ITU-T colon form of SGR 38/48.
+    /// Whether SGR 38/48 take the pre-ITU-T **semicolon** form. See [`Capabilities::legacy_sgr`],
+    /// which is where this axis is defined; `false` — the colon form — is the default (§10, arch 23).
     pub(crate) legacy_sgr: bool,
     /// Which escape spells an underline colour.
     pub(crate) underlines: Underlines,
@@ -771,7 +772,24 @@ impl Capabilities {
         self.private.sync_output
     }
 
-    /// Whether SGR 38/48 must be spelled the pre-ITU-T way.
+    /// Whether SGR 38/48 must be spelled the pre-ITU-T way — **the single home for this axis**.
+    ///
+    /// The parameterised forms exist twice over: ITU-T T.416's colon spelling, `38:2::r:g:b` and
+    /// `38:5:n`, and xterm's pre-ITU-T semicolon spelling, `38;2;r;g;b` and `38;5;n`. **The colon
+    /// spelling is the default** — this returns `false` unless something moved it, and the only
+    /// things that can are `Overrides::legacy_sgr`, `VITUI_FORCE_LEGACY_SGR` and the three quirk
+    /// entries.
+    ///
+    /// The argument is the type rather than the prose, which is why the spec could disagree with
+    /// itself about it for as long as it did (arch 23): [`crate::quirks::Quirks::legacy_sgr`] is a
+    /// `bool` and `apply` can only ever set it to `true`, so a one-way override is coherent in
+    /// exactly one direction. A default of `true` would need the three entries to force a value
+    /// their terminals already have.
+    ///
+    /// **SGR 58 is a separate axis** — see [`Self::underlines`] — because a terminal can want the
+    /// semicolon form for 58 and never be asked about 38. `serial::emit_color` keeps only the byte
+    /// fact neither of these knows: the empty colour-space id, and that an *indexed* colour is the
+    /// same length either way.
     pub(crate) fn legacy_sgr(&self) -> bool {
         self.private.legacy_sgr
     }

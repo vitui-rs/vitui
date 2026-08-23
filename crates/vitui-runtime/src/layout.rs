@@ -314,10 +314,10 @@ pub fn solve(avail: u32, spec: &[Constraint], out: &mut [Rect]) -> (usize, Fit) 
     let pool = remaining;
     loop {
         for i in 0..n {
-            if let Some((_, lo, _)) = spec[i].weighted() {
-                if out[i].x == 0 {
-                    out[i].w = clamp_u16(lo);
-                }
+            if let Some((_, lo, _)) = spec[i].weighted()
+                && out[i].x == 0
+            {
+                out[i].w = clamp_u16(lo);
             }
         }
         let used: u32 = (0..n)
@@ -373,12 +373,12 @@ pub fn solve(avail: u32, spec: &[Constraint], out: &mut [Rect]) -> (usize, Fit) 
             if out[i].x != 0 {
                 continue;
             }
-            if let Some((_, _, hi)) = spec[i].weighted() {
-                if u32::from(out[i].w) > hi {
-                    out[i].w = clamp_u16(hi);
-                    out[i].x = 1;
-                    froze_something = true;
-                }
+            if let Some((_, _, hi)) = spec[i].weighted()
+                && u32::from(out[i].w) > hi
+            {
+                out[i].w = clamp_u16(hi);
+                out[i].x = 1;
+                froze_something = true;
             }
         }
         fit.rounds += 1;
@@ -934,11 +934,12 @@ mod tests {
         // The first version of this helper absorbed at the last *weighted* lane instead, which closed
         // every gap and reported the naive scheme as flawless over all 36 503 specs. A model of the
         // thing being compared against has to be able to lose.
-        if let Some(Weight(w)) = spec.last() {
-            if *w > 0 && total_weight > 0 {
-                let used: u32 = out[..spec.len()].iter().sum();
-                out[spec.len() - 1] += avail.saturating_sub(used);
-            }
+        if let Some(Weight(w)) = spec.last()
+            && *w > 0
+            && total_weight > 0
+        {
+            let used: u32 = out[..spec.len()].iter().sum();
+            out[spec.len() - 1] += avail.saturating_sub(used);
         }
     }
 

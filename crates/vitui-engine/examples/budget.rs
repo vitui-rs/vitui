@@ -66,7 +66,7 @@ use std::time::{Duration, Instant};
 
 use vitui_bench::{Bench, Report};
 use vitui_engine::{
-    Clock, Color, ColorDepth, Config, Engine, InputConfig, LayerId, Output, Overrides, Rect,
+    Clock, Color, ColorDepth, Config, Engine, InputConfig, LayerId, Link, Output, Overrides, Rect,
     Restyle, Screen, Style, Surface,
 };
 
@@ -767,10 +767,9 @@ struct Linked {
 fn linked(case: &'static str, every: i32) -> Linked {
     let mut screen = sink_screen_with(hyperlinks_and_truecolor());
     let layer = screen.layers().add_content(0, Rect::new(0, 0, W, H), true);
-    let link = screen.link("https://example.com/vitui");
     let row: String = std::iter::repeat_n('m', W as usize).collect();
     let hyperlink = Restyle {
-        link: Some(link),
+        link: Some(Link::Uri("https://example.com/vitui")),
         ..Default::default()
     };
     {

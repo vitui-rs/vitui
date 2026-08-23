@@ -71,7 +71,10 @@ pub(crate) struct Quirks {
     /// The name [`Capabilities::report`](crate::Capabilities::report) prints when detection found no
     /// identity of its own.
     pub(crate) name: Option<&'static str>,
-    /// Force the pre-ITU-T colon form of SGR 38/48.
+    /// Force the pre-ITU-T **semicolon** form of SGR 38/48, for a terminal that mis-parses the
+    /// modern colon one. A `bool` and not an `Option<bool>` deliberately: [`Quirks::apply`] can
+    /// only ever set it to `true`, and that one-way shape is what settled which spelling is the
+    /// default (arch 23). See [`crate::caps::Capabilities::legacy_sgr`].
     pub(crate) legacy_sgr: bool,
     /// Which escape spells an underline colour.
     pub(crate) underlines: Underlines,

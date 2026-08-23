@@ -27,35 +27,23 @@ use crate::sweep;
 
 /// A hyperlink's identity, stable for the life of the table that minted it.
 ///
-/// Opaque: no public field, no `From<u32>`, and [`Screen::link`](crate::Screen::link) is the only
-/// mint. A caller must be able to say *this hyperlink again* without being able to say *entry 7* —
-/// exactly the rule [`LayerId`](crate::LayerId) already follows, and the reason this does not
-/// breach `docs/adr/0023-the-cell-is-never-visible-in-the-public-api.md`: it names a handle's
-/// identity and exposes no table, no index arithmetic and no way to build one from a number.
+/// **Crate-internal, and that is architecture ticket 21's answer.** It was public and opaque, minted
+/// by `Screen::link`, and the URI now travels at the drawing verb instead — see
+/// [`Link`](crate::Link). Nothing outside this crate holds one, so the question the ticket was asked
+/// about cannot be posed: there is no second mint, no second handle space for a caller to confuse
+/// with the first, and no id that means one thing in the table that minted it and something else in
+/// the table it is used against. `crate::audit::REFUSED_NAMES` is where the absence is gated.
 ///
-/// The last clause is gated rather than promised, and paired with a positive twin naming the type
-/// by path so that renaming it away breaks both halves rather than quietly satisfying the first:
-///
-/// ```compile_fail,E0423
-/// let _ = vitui_engine::LinkId(7);
-/// ```
-///
-/// ```
-/// let config = vitui_engine::Config {
-///     // Headless, because a doctest must not reach for the developer's terminal.
-///     output: vitui_engine::Output::Sink(Box::new(Vec::new())),
-///     ..Default::default()
-/// };
-/// let (mut screen, _wake) = vitui_engine::Engine::new(config).attach().unwrap();
-/// let _: vitui_engine::LinkId = screen.link("https://example.com/");
-/// ```
+/// It is also one exception fewer to argue about
+/// `docs/adr/0023-the-cell-is-never-visible-in-the-public-api.md`: §12's refusal 11 — *no cells, no
+/// grapheme handles, no style bits* — now holds with nothing beside it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Default)]
-pub struct LinkId(u32);
+pub(crate) struct LinkId(u32);
 
 impl LinkId {
     /// No hyperlink. What a cell holds unless something put one there, and what
-    /// [`Restyle::link`](crate::Restyle::link) is set to in order to take one away.
-    pub const NONE: LinkId = LinkId(0);
+    /// [`Link::None`](crate::Link::None) resolves to in order to take one away.
+    pub(crate) const NONE: LinkId = LinkId(0);
 
     /// Whether this names a hyperlink at all.
     pub(crate) const fn is_none(self) -> bool {
@@ -89,9 +77,10 @@ impl Links {
 
     /// The id for one URI, minting one if this is the first sight of it.
     ///
-    /// Deduplicated, because §3's sentence — *link ids are few, an application holds handles to
-    /// them* — is only true if asking twice for the same URI answers the same thing. A page of a
-    /// hundred distinct links is a hundred entries however many cells carry them.
+    /// Deduplicated, and since architecture ticket 21 that is the *only* thing keeping the table
+    /// small: the URI arrives at every verb call that names a hyperlink, so asking twice for the
+    /// same one has to answer the same thing. A page of a hundred distinct links is a hundred
+    /// entries however many cells carry them and however many times they are redrawn.
     pub(crate) fn mint(&mut self, uri: &str) -> LinkId {
         if let Some(id) = self.index.get(uri) {
             return *id;
@@ -222,8 +211,10 @@ impl ExtStyles {
     /// to rewrite a single cell for.
     ///
     /// **The `link` inside a surviving entry is left alone**, because the URI table is not swept
-    /// (spec §3): an application holds [`LinkId`]s across frames, so renumbering them would
-    /// invalidate values a caller is still holding. See [`crate::sweep`].
+    /// (spec §3). The reason it *was* not swept — an application holds [`LinkId`]s across frames —
+    /// stopped being true at architecture ticket 21, which took the handle off the public surface;
+    /// the decision stands on the measurement, which is that link ids are few and nothing suggests
+    /// it matters. See [`crate::sweep`].
     pub(crate) fn compact(&mut self, live: &[bool]) -> Option<Vec<u32>> {
         debug_assert_eq!(
             live.len(),

@@ -199,14 +199,14 @@ impl Write for Recorder {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         let mut r = self.shared.lock().expect("the recorder is never poisoned");
         r.calls += 1;
-        if let Some(n) = self.would_block_every {
-            if r.calls % n == 0 {
-                r.retries += 1;
-                return Err(Error::new(
-                    ErrorKind::WouldBlock,
-                    "the sink is being awkward",
-                ));
-            }
+        if let Some(n) = self.would_block_every
+            && r.calls.is_multiple_of(n)
+        {
+            r.retries += 1;
+            return Err(Error::new(
+                ErrorKind::WouldBlock,
+                "the sink is being awkward",
+            ));
         }
         let take = self.chunk.map_or(buf.len(), |c| c.min(buf.len()));
         r.bytes.extend_from_slice(&buf[..take]);
@@ -243,9 +243,11 @@ pub(crate) fn pinned_truecolor() -> Overrides {
 /// one ticket away from being one — because a gate can be written today and go vacuous later, and
 /// nothing in the gate changes. What changes is a capability arriving with a reader.
 ///
-/// The audit that finds them is a grep and not a list: `rg 'screen\.link\('` over `src/`, `tests/`
-/// and `examples/`. Three of the six were missed by a reading that enumerated instead, and two of
-/// those three are not in `src/` at all.
+/// The audit that finds them is a grep and not a list: `rg 'Link::Uri'` over `src/`, `tests/` and
+/// `examples/`. Three of the instances it found were missed by a reading that enumerated instead, and
+/// two of those three are not in `src/` at all. The needle was `screen.link(` until architecture
+/// ticket 21 deleted that mint and put the URI at the drawing verb; the grep is what had to move, not
+/// the audit.
 pub(crate) fn pinned_extended() -> Overrides {
     Overrides {
         hyperlinks: Some(true),

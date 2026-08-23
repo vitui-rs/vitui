@@ -10,9 +10,11 @@ handle to the colours that did not fit inline. Both point into tables that live 
 not once per surface and not once per process. Drawing verbs reach them through the draw context; a
 `Surface` does not hold them and no public signature names one.
 
-> **Amended 2026-08-20 — see the Amendment below.** "Once per engine" is once per **layer stack**, and
-> a surface that is not in one carries a local, usually empty, interner that compositing never reads.
-> The decision below and every number in it stand unchanged.
+> **Amended 2026-08-20 and again 2026-08-22 — see the two Amendments below.** "Once per engine" is
+> once per **layer stack**, and a surface that is not in one carries a local, usually empty, interner
+> that compositing never reads. And the *mint* is reached through the draw context too, not only the
+> tables: a hyperlink's URI arrives at the drawing verb and there is no public handle at all. The
+> decision below and every number in it stand unchanged.
 
 When a frame is packed, every handle it carries is **resolved into a side table the packet owns** —
 cluster bytes into the packet's arena, extended styles into the packet's own list, hyperlink URIs
@@ -100,3 +102,43 @@ and the layer-stack ticket pays it.
 The invariant is restated in the words that survive a donated surface: ***every surface in a layer
 stack speaks that stack's handle space*** — by construction for `add_content`, by renumbering for
 `add_content_with`.
+
+## Amendment, 2026-08-22: the mint is reached through the draw context too
+
+Found while resolving the ticket the amendment above came from —
+`.scratch/vitui-engine-architecture/issues/21-a-hyperlink-on-a-standalone-surface-has-no-mint.md`.
+
+**"Drawing verbs reach them through the draw context" was true of both tables and of only one of the
+two mints.** A grapheme cluster is interned by `text`, through the `View`, so a cluster written
+through `Surface::root` lands in that surface's own table by construction. A hyperlink was not: the
+only mint was `Screen::link`, one level above the `View`, and the id it handed back belonged to the
+layer stack's table whichever surface it was then drawn onto. That is the asymmetry, and it is the
+whole of the defect — a standalone `Surface` could carry a hyperlinked cell and could not mint the id
+one needed.
+
+The amendment, in three sentences:
+
+- **A hyperlink's URI travels with the drawing verb**, as `Restyle { link: Some(Link::Uri(uri)) }`,
+  and the `View` interns it into whatever handle space it is drawing into. The two halves of one
+  table set are now reached the same way.
+- **`LinkId` is crate-internal and there is no public mint.** Nothing outside the engine holds a
+  handle of any kind, which is one exception fewer to argue against ADR 0023 and makes §12's
+  refusal 11 hold with nothing beside it.
+- **`add_content_with`'s walk is therefore total**: every link id in a donated surface's cells was
+  minted by that surface's own table, so the not-in-range arm is unreachable by construction and is
+  an `expect` beside the grapheme one.
+
+**Nothing in the decision above changes, and no number in it moves.** This ADR is about where the
+tables live and what the packet carries; the packet already resolved every URI into its own arena
+keyed by the handle, and it still does. What changed is which type owns the *entry* to the link
+table, and that type — the draw context — is the one this ADR named for the grapheme interner in the
+first place.
+
+A second mint was the shape the question was asked in and was refused, on a ground worth recording
+here because it is about handle identity, which is this ADR's subject. `Links::mint` numbers from 1
+in **every** table, so two handle spaces hand out the same first id: an id from one landing in range
+of the other is silently rewritten to a *different* URI, with no assertion able to fire. Detecting
+that needs a handle-space stamp inside `LinkId` — four bytes to eight, `ExtStyle` sixteen to
+twenty-four, and a rehash of the one table that can grow without bound. The general rule this ADR
+already carries covers it: *nothing the render thread compares across frames may be derived from a
+position* — and an unstamped handle from an unknown space is exactly that, one table along.

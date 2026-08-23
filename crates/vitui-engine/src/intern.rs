@@ -72,10 +72,10 @@ impl Interner {
     /// the verb steps over it.
     pub(crate) fn handle(&mut self, cluster: &str) -> Option<GraphemeId> {
         // The path nearly every cell takes: one byte of printable ASCII, one column, its own handle.
-        if let [b] = *cluster.as_bytes() {
-            if b.is_ascii_graphic() || b == b' ' {
-                return Some(GraphemeId::scalar(b as char));
-            }
+        if let [b] = *cluster.as_bytes()
+            && (b.is_ascii_graphic() || b == b' ')
+        {
+            return Some(GraphemeId::scalar(b as char));
         }
         let width = ucd::cluster_width(cluster);
         if width == 0 {

@@ -44,7 +44,7 @@ use std::time::Instant;
 
 use vitui_alloc_probe::{CountingAllocator, steady};
 use vitui_engine::{
-    Clock, Color, ColorDepth, Config, Cursor, CursorShape, Engine, InputConfig, LayerId, Mix,
+    Clock, Color, ColorDepth, Config, Cursor, CursorShape, Engine, InputConfig, LayerId, Link, Mix,
     MouseMode, Output, Overrides, Rect, Restyle, Screen, Style,
 };
 
@@ -99,8 +99,9 @@ fn screen() -> (Screen, LayerId) {
 /// > exist* but *will the subject still be reached once every ticket that reads a capability has
 /// > landed*.
 ///
-/// The audit that finds these is a grep and not a list — `rg 'screen\.link\('` over `src/`, `tests/`
-/// and `examples/` — and **two of the six it finds are in this file**, which is not `src/`.
+/// The audit that finds these is a grep and not a list — `rg 'Link::Uri'` over `src/`, `tests/` and
+/// `examples/` — and **two of what it finds are in this file**, which is not `src/`. It was
+/// `screen.link(` until architecture ticket 21 deleted that mint and put the URI at the verb.
 fn hyperlinks_and_truecolor() -> Overrides {
     Overrides {
         colors: Some(ColorDepth::TrueColor),
@@ -300,13 +301,12 @@ fn a_settled_operator_over_a_hyperlinked_screen_allocates_nothing() {
         &row,
         Style::new().fg(Color::indexed(15)).bg(Color::indexed(8)),
     );
-    let link = screen.link("https://example.com/vitui");
     {
         let mut v = screen.layers().view(id).expect("the layer was just added");
         v.restyle(
             Rect::new(0, 0, W, H),
             &Restyle {
-                link: Some(link),
+                link: Some(Link::Uri("https://example.com/vitui")),
                 ..Default::default()
             },
         );
@@ -432,10 +432,9 @@ fn a_settled_restyle_over_a_hyperlinked_screen_allocates_nothing() {
     let (mut screen, id) = screen_with(hyperlinks_and_truecolor());
     let row: String = std::iter::repeat_n('m', W as usize).collect();
     full_screen(&mut screen, id, &row, Style::new());
-    let link = screen.link("https://example.com/vitui");
     let all = Rect::new(0, 0, W, H);
     let hyperlink = Restyle {
-        link: Some(link),
+        link: Some(Link::Uri("https://example.com/vitui")),
         ..Default::default()
     };
     let shadow = Restyle {

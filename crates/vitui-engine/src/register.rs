@@ -403,7 +403,7 @@ pub const REGISTER: [Entry; 27] = [
         source: "arch 18, 13",
         state: State::Wired {
             at: "the paired doctests on Screen, Config, View, LayerStack, Slot, Permit, Mix, \
-                 Style, LinkId, Overrides, Capabilities and the crate root — **thirty-six** \
+                 Style, Overrides, Capabilities and the crate root — **thirty-seven** \
                  compile_fail cases, each with a positive twin that names the protected item by \
                  path, because a compile_fail alone passes for any reason including the type having \
                  been renamed, at which point it fails for E0433 instead of E0277 and this \
@@ -414,10 +414,12 @@ pub const REGISTER: [Entry; 27] = [
                  to hang on, three on the crate root for the ones that do not, `Overrides.mouse` \
                  for *a declaration cannot make an event arrive*, and `Config.packets` / \
                  `Config.resolver` for the two of §12's six fields that the implementation \
-                 settled away — and **both** counts are gates in `crate::audit`, the thirty-six \
-                 hostile lines and the forty-eight runnable examples beside them, since a case \
+                 settled away — and **both** counts are gates in `crate::audit`, the thirty-seven \
+                 hostile lines and the forty-six runnable examples beside them, since a case \
                  deleted together with its twin leaves every other test green and a twin deleted \
-                 alone leaves the rename undetectable",
+                 alone leaves the rename undetectable. Arch 21 moved both: `LinkId`'s own case went \
+                 with the type, two took its place on the crate root — the type and the mint that \
+                 made one — and `Screen::link`'s runnable example went with the verb",
         },
     },
     Entry {

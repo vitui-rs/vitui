@@ -89,7 +89,9 @@ handle identity is the one thing the mirror compares across frames.
 
 The composited frame is one of the live surfaces: its cells were copied out of the layers and name
 the same tables, and only its damaged runs are recomposited. The **URI table is not swept**, because
-an application holds link ids across frames.
+link ids are few and nothing measured suggests it matters. It used to be *because an application
+holds link ids across frames*, and that stopped being true when the URI moved to the drawing verb:
+no handle is public, so the table could be swept whenever anyone wants it to be.
 
 **High-water mark** — the table size at which the next sweep is due, and the trigger for one. It is
 twice the live count at the last sweep, with a floor — *a starting value and not a decision*: the

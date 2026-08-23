@@ -506,10 +506,10 @@ fn difference(expected: &str, rendered: &str, shown: &Path, h: u16) -> Option<St
     let (e, r): (Vec<&str>, Vec<&str>) = (expected.lines().collect(), rendered.lines().collect());
     for i in 0..e.len().max(r.len()) {
         let (a, b) = (e.get(i), r.get(i));
-        if let (Some(a), Some(b)) = (a, b) {
-            if a == b {
-                continue;
-            }
+        if let (Some(a), Some(b)) = (a, b)
+            && a == b
+        {
+            continue;
         }
         let at = Section::of(i, h);
         let mut msg = format!(
@@ -518,10 +518,10 @@ fn difference(expected: &str, rendered: &str, shown: &Path, h: u16) -> Option<St
             a.copied().unwrap_or("<the file ends here>"),
             b.copied().unwrap_or("<the frame ends here>")
         );
-        if let (Some(a), Some(b)) = (a, b) {
-            if let Some(c) = a.chars().zip(b.chars()).position(|(x, y)| x != y) {
-                let _ = write!(msg, "\n  first at {}", position(at, c));
-            }
+        if let (Some(a), Some(b)) = (a, b)
+            && let Some(c) = a.chars().zip(b.chars()).position(|(x, y)| x != y)
+        {
+            let _ = write!(msg, "\n  first at {}", position(at, c));
         }
         msg.push_str("\nrun `VITUI_BLESS=1 cargo test -p vitui-engine golden` to update it");
         return Some(msg);
@@ -771,7 +771,6 @@ mod tests {
     #[test]
     fn the_legend_spells_every_channel_a_cell_can_carry() {
         let mut s = Surface::new(5, 1);
-        let link = s.tables_mut().link("https://example.invalid/1");
         {
             let mut v = s.root();
             v.text(
@@ -789,7 +788,7 @@ mod tests {
                 &Restyle {
                     set: Restyle::UNDERLINE_CURLY,
                     ul: Some(Color::rgb(0xff, 0, 0)),
-                    link: Some(link),
+                    link: Some(crate::restyle::Link::Uri("https://example.invalid/1")),
                     ..Restyle::default()
                 },
             );

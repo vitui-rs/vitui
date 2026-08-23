@@ -231,10 +231,12 @@ pub fn draw_sequence(data: &[u8]) {
     let w = 4 + u16::from(input.below(13));
     let h = 2 + u16::from(input.below(5));
     let mut screen = screen(w, h);
-    // One hyperlink for the whole program, minted before anything draws. It is how a cell becomes
-    // extended without an operator's arithmetic also being in the picture — the same fixture choice
-    // `crate::testing::pinned_extended` exists for, and the reason OSC 8 is pinned above.
-    let link = screen.link("https://example.invalid/fuzz");
+    // One hyperlink for the whole program. It is how a cell becomes extended without an operator's
+    // arithmetic also being in the picture — the same fixture choice `crate::testing::pinned_extended`
+    // exists for, and the reason OSC 8 is pinned above. The URI travels at the verb (architecture
+    // ticket 21), so there is nothing to mint here and the table is reached by the first `restyle`
+    // that names it.
+    const URI: &str = "https://example.invalid/fuzz";
     let mut ids: Vec<LayerId> = Vec::new();
     let mut before = screen.reference();
     let mut frames = 0;
@@ -319,8 +321,8 @@ pub fn draw_sequence(data: &[u8]) {
                             // byte says so — taken off again, which is §3's *extended is a cost,
                             // not a state* and the one path that puts a cell back inline.
                             link: (flags & 8 != 0).then_some(match flags & 16 {
-                                0 => link,
-                                _ => crate::exts::LinkId::NONE,
+                                0 => crate::restyle::Link::Uri(URI),
+                                _ => crate::restyle::Link::None,
                             }),
                         };
                         view.restyle(rect, &restyle);

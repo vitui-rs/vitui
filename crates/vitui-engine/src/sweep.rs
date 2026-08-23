@@ -48,12 +48,17 @@
 //!
 //! # The URI table is not swept, and that is a decision
 //!
-//! Link ids are few and **an application holds handles to them**: [`LinkId`](crate::LinkId) is
-//! public and [`Screen::link`](crate::Screen::link) hands one back across frames. Renumbering the
-//! URI table would therefore invalidate values a caller is still holding, which is a different
-//! class of failure from the one this file exists to bound — the two handle spaces the sweep does
-//! touch are unreachable from outside the crate. Recorded here as a decision rather than left to be
-//! read as an omission (spec §3, §15).
+//! **Link ids are few, and nothing measured suggests it matters.** Recorded here as a decision
+//! rather than left to be read as an omission (spec §3, §15).
+//!
+//! The reason it *used* to rest on is gone, and saying so is the point of this paragraph rather
+//! than a footnote to it. It was *an application holds handles to them* — `LinkId` was public and
+//! `Screen::link` handed one back across frames, so renumbering would have invalidated a value a
+//! caller was still holding. Architecture ticket 21 put the URI at the drawing verb, so **nothing
+//! outside this crate holds one any more** and the URI table could join the two the sweep already
+//! touches whenever anyone wants it to. **Not taken here**, because the measurement the decision
+//! rests on has not changed: the table grows once per distinct URI a frame draws, and a page of a
+//! hundred links is a hundred entries however often it is redrawn.
 //!
 //! # What breaks, and the general rule it comes from
 //!
@@ -431,9 +436,7 @@ mod tests {
                     let mark = char::from_u32('\u{0300}' as u32 + pass).expect("a combining mark");
                     let base = char::from_u32('a' as u32 + i as u32 % 26).expect("a letter");
                     let cluster = format!("{base}{mark}");
-                    let link = h
-                        .screen
-                        .link(&format!("https://example.com/vitui#layer{i}pass{pass}"));
+                    let uri = format!("https://example.com/vitui#layer{i}pass{pass}");
                     let mut view = h.screen.layers().view(id).expect("just added");
                     for y in 0..H as i32 {
                         view.text(0, y, &row, ink);
@@ -442,7 +445,7 @@ mod tests {
                     view.restyle(
                         Rect::new(0, 0, W, H),
                         &crate::restyle::Restyle {
-                            link: Some(link),
+                            link: Some(crate::restyle::Link::Uri(&uri)),
                             ..Default::default()
                         },
                     );

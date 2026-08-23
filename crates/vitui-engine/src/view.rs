@@ -19,7 +19,7 @@ use std::ops::Range;
 use crate::cell::{Cell, GraphemeId};
 use crate::damage::RowBits;
 use crate::geom::Rect;
-use crate::restyle::{Restyle, apply};
+use crate::restyle::{Restyle, apply, intern_link};
 use crate::style::Style;
 use crate::tables::Tables;
 use crate::ucd;
@@ -765,6 +765,18 @@ impl<'a> View<'a> {
     /// deleting it. A descriptor that clears both extended channels puts the cell back inline:
     /// *extended is a cost, not a state*.
     ///
+    /// # The URI is interned once, above the memo
+    ///
+    /// A descriptor names a hyperlink as a URI ([`Link`](crate::Link)) rather than as a handle the
+    /// caller minted somewhere else, and **this verb is what interns it** — into whatever handle
+    /// space it is drawing into, exactly as [`text`](Self::text) interns a grapheme cluster
+    /// (architecture ticket 21). It happens once, before the loop below, so the cost is **one hash
+    /// probe per verb call that names a URI** — not one per cell and not one per distinct style
+    /// word.
+    ///
+    /// It happens *after* the clip test, so a verb that lands nowhere mints nothing: ADR 0022's
+    /// clamp-and-discard reaches the table as well as the cells.
+    ///
     /// # The memo, which is the whole implementation
     ///
     /// Cells in a run are contiguous and share a `u64`, so one entry remembering the previous
@@ -785,7 +797,7 @@ impl<'a> View<'a> {
     /// of a pair would leave the frame saying something the wire cannot express. A pair bisected by
     /// the rectangle is therefore restyled whole — and left alone when its other half is outside
     /// the clip, because a view may not widen itself (spec §4).
-    pub fn restyle(&mut self, r: Rect, d: &Restyle) {
+    pub fn restyle(&mut self, r: Rect, d: &Restyle<'_>) {
         let r = self.absolute(r);
         let View {
             cells,
@@ -800,6 +812,8 @@ impl<'a> View<'a> {
         if area.is_empty() {
             return;
         }
+        // The URI, resolved **once** for the whole verb and above the memo below.
+        let link = intern_link(tables, d);
         // One entry, on the *input* style word. Runs of equal style are what a drawing verb
         // produces, so this hits on nearly every cell and misses once per distinct style.
         let mut memo: Option<(Style, Style)> = None;
@@ -814,7 +828,7 @@ impl<'a> View<'a> {
                 cell.style = match memo {
                     Some((was, now)) if was == old => now,
                     _ => {
-                        let now = apply(tables, d, old);
+                        let now = apply(tables, d, link, old);
                         memo = Some((old, now));
                         now
                     }
@@ -830,6 +844,7 @@ mod tests {
     use super::*;
     use crate::damage::Run;
     use crate::layer::LayerStack;
+    use crate::restyle::Link;
     use crate::style::Color;
     use crate::surface::Surface;
     use crate::testing::{assert_pairing_holds, terminal};
@@ -1419,14 +1434,14 @@ mod tests {
         // cleared bit 63 and overwritten the handle, deleting the hyperlink with nothing to see.
         let mut stack = LayerStack::new();
         let id = stack.add_content(0, Rect::new(0, 0, 4, 1), true);
-        let link = stack.tables_mut().link("https://example.com/");
+        const URI: &str = "https://example.com/";
         {
             let mut v = stack.view(id).unwrap();
             v.text(0, 0, "abcd", Style::new());
             v.restyle(
                 Rect::new(0, 0, 4, 1),
                 &Restyle {
-                    link: Some(link),
+                    link: Some(Link::Uri(URI)),
                     ..Default::default()
                 },
             );
@@ -1448,7 +1463,11 @@ mod tests {
         for x in 0..4usize {
             let handle = frame.row(0)[x].style.ext_handle().expect("still extended");
             let e = stack.tables().exts.get(handle).unwrap();
-            assert_eq!(e.link, link, "column {x} kept its hyperlink");
+            assert_eq!(
+                stack.tables().links.uri(e.link),
+                Some(URI),
+                "column {x} kept its hyperlink"
+            );
         }
         assert_eq!(
             stack
@@ -1468,14 +1487,13 @@ mod tests {
         // table is reached once however many cells the verb covers.
         let mut stack = LayerStack::new();
         let id = stack.add_content(0, Rect::new(0, 0, 300, 1), true);
-        let link = stack.tables_mut().link("https://example.com/");
         {
             let mut v = stack.view(id).unwrap();
             v.fill(Rect::new(0, 0, 300, 1), ".", Style::new());
             v.restyle(
                 Rect::new(0, 0, 300, 1),
                 &Restyle {
-                    link: Some(link),
+                    link: Some(Link::Uri("https://example.com/")),
                     ..Default::default()
                 },
             );
@@ -1488,15 +1506,19 @@ mod tests {
         // What makes a settled operator converge after one frame.
         let mut stack = LayerStack::new();
         let id = stack.add_content(0, Rect::new(0, 0, 8, 1), true);
-        let link = stack.tables_mut().link("https://example.com/");
         let d = Restyle {
-            link: Some(link),
+            link: Some(Link::Uri("https://example.com/")),
             ..Default::default()
         };
         for _ in 0..10 {
             stack.view(id).unwrap().restyle(Rect::new(0, 0, 8, 1), &d);
         }
         assert_eq!(stack.tables().exts.len(), 1);
+        assert_eq!(
+            stack.tables().links.entries().len(),
+            1,
+            "and the URI interned once, however many verbs named it"
+        );
     }
 
     #[test]

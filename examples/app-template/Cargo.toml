@@ -13,7 +13,10 @@ name = "vitui-app-template"
 version = "0.0.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
-rust-version = "1.85"
+# Follows the workspace next door, which was corrected from 1.85 on 2026-08-22: let-chains need
+# 1.88, and nothing had ever built against the declared floor. A detached non-member, so no gate here
+# catches it drifting again — the root's `msrv` job covers the library, not this template.
+rust-version = "1.88"
 publish = false
 
 [dependencies]

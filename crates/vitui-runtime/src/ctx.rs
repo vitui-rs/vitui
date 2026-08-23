@@ -85,7 +85,7 @@ use vitui_engine::{
 use crate::id::IdStack;
 use crate::keys::Matches;
 use crate::route::{self, KeyQueue};
-use crate::theme::{Link, Paint, Repaint, Theme};
+use crate::theme::{Paint, Repaint, Theme};
 
 /// The engine's capabilities, re-exported and not redefined.
 ///
@@ -682,26 +682,26 @@ impl Frame {
                 vitui_engine::MouseKind::Wheel(w) => {
                     // **The wheel is withheld while a grab is held.** A drag is one gesture and a
                     // scroll in the middle of it is not part of it.
-                    if self.grab.is_none() {
-                        if let Some(id) = self.topmost_scrollable() {
-                            let (dx, dy) = match w {
-                                vitui_engine::Wheel::Up => (0, -1),
-                                vitui_engine::Wheel::Down => (0, 1),
-                                vitui_engine::Wheel::Left => (-1, 0),
-                                vitui_engine::Wheel::Right => (1, 0),
-                            };
-                            // **Notches in one batch add up.** A wheel click folds into a frame
-                            // (ADR 0016) and it is intent (ADR 0008), and the two are only
-                            // compatible if folding is a sum: overwriting made three notches in one
-                            // batch scroll one row, which is dropping intent by another name. The
-                            // 1006 encoding carries no magnitude, so counting the notches is the
-                            // only place the count can come from.
-                            a.wheel = Some(match a.wheel {
-                                Some((held, (hx, hy))) if held == id => (id, (hx + dx, hy + dy)),
-                                // A different target mid-batch: the newer one wins, whole.
-                                _ => (id, (dx, dy)),
-                            });
-                        }
+                    if self.grab.is_none()
+                        && let Some(id) = self.topmost_scrollable()
+                    {
+                        let (dx, dy) = match w {
+                            vitui_engine::Wheel::Up => (0, -1),
+                            vitui_engine::Wheel::Down => (0, 1),
+                            vitui_engine::Wheel::Left => (-1, 0),
+                            vitui_engine::Wheel::Right => (1, 0),
+                        };
+                        // **Notches in one batch add up.** A wheel click folds into a frame
+                        // (ADR 0016) and it is intent (ADR 0008), and the two are only
+                        // compatible if folding is a sum: overwriting made three notches in one
+                        // batch scroll one row, which is dropping intent by another name. The
+                        // 1006 encoding carries no magnitude, so counting the notches is the
+                        // only place the count can come from.
+                        a.wheel = Some(match a.wheel {
+                            Some((held, (hx, hy))) if held == id => (id, (hx + dx, hy + dy)),
+                            // A different target mid-batch: the newer one wins, whole.
+                            _ => (id, (dx, dy)),
+                        });
                     }
                 }
                 vitui_engine::MouseKind::Move => {}
@@ -713,10 +713,10 @@ impl Frame {
         // arrives while a button is held. Attributed to the runtime's own call site: blaming a
         // component for a wake the runtime asked for is worse than no attribution at all.
         if let Some((id, _)) = self.press_origin {
-            if let Some((_, since)) = self.click_record.filter(|(held, _)| *held == id) {
-                if since.elapsed() >= self.pointer_config.long_press {
-                    a.long_pressed = Some(id);
-                }
+            if let Some((_, since)) = self.click_record.filter(|(held, _)| *held == id)
+                && since.elapsed() >= self.pointer_config.long_press
+            {
+                a.long_pressed = Some(id);
             }
             self.deadline = Some(match self.deadline {
                 Some(at) => at.min(Instant::now() + self.pointer_config.long_press),
@@ -760,23 +760,23 @@ impl Frame {
     /// screen.
     fn sweep(&mut self) {
         let drew = |id: Id, hits: &[Hit]| hits.iter().any(|h| h.id == id);
-        if let Some(id) = self.grab {
-            if !drew(id, &self.hits) {
-                self.grab = None;
-                // The press origin goes with the grab: it is the same interaction, and a press origin
-                // without a grab is a drag nobody is holding.
-                self.press_origin = None;
-            }
+        if let Some(id) = self.grab
+            && !drew(id, &self.hits)
+        {
+            self.grab = None;
+            // The press origin goes with the grab: it is the same interaction, and a press origin
+            // without a grab is a drag nobody is holding.
+            self.press_origin = None;
         }
-        if let Some((id, _)) = self.press_origin {
-            if !drew(id, &self.hits) {
-                self.press_origin = None;
-            }
+        if let Some((id, _)) = self.press_origin
+            && !drew(id, &self.hits)
+        {
+            self.press_origin = None;
         }
-        if let Some(id) = self.focused {
-            if !drew(id, &self.hits) {
-                self.focused = None;
-            }
+        if let Some(id) = self.focused
+            && !drew(id, &self.hits)
+        {
+            self.focused = None;
         }
         // The click record is **not** swept. See this function's documentation.
     }
@@ -1111,7 +1111,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// **A descriptor and never a closure**, which is the deviation that closed the fourth compile
     /// outcome: a closure over styles could return one it invented, and there would be a hole for a
     /// component to mint a paint through. See [`Repaint`].
-    pub fn restyle(&mut self, r: Rect, d: &Repaint) {
+    pub fn restyle(&mut self, r: Rect, d: &Repaint<'_>) {
         let lowered = d.lower(self.env.theme());
         self.view.restyle(r, &lowered);
     }
@@ -1146,29 +1146,18 @@ impl<'f, 'v> Ctx<'f, 'v> {
         self.blit(x, y, st)
     }
 
-    // ── `Ctx::link` is not here, and it cannot be ────────────────────────────────────────────────
+    // ── `Ctx::link` is not here, and it is **unnecessary** rather than unblocked ─────────────────
     //
-    // **The ticket asks for `link(uri) -> Link` on `Ctx`, and it is unimplementable over the engine's
-    // current public surface.** Minting a link is `Screen::link(&mut self, &str) -> LinkId` and there
-    // is no other public route — `Tables::link` and `Interner::mint` are both `pub(crate)`. A `Ctx`
-    // holds a `View`, which was handed out by `LayerStack::view`, which borrows the `LayerStack`,
-    // which borrows the `Screen`. So the one call that mints and the one type that draws cannot be
-    // held at the same time, by construction rather than by oversight.
+    // It was specified — `link(uri) -> Link` on `Ctx` — and recorded here as unimplementable, in
+    // twenty-three lines ending *"The fix is one method on `View` or on `LayerStack`, and it is the
+    // engine map's to make."* Minting needed `&mut Screen`; a `Ctx` holds a `View` borrowed from it
+    // through `LayerStack::view`, so the call that minted and the type that draws could not be held
+    // at once, by construction rather than by oversight.
     //
-    // Three things do not fix it, and it is worth saying why so nobody re-tries them:
-    //
-    // - **Pre-minting a pool** needs the URIs before the draw, and a URI is a component's own datum.
-    // - **Deferring** — record the URI now, resolve it at `end` — returns a `Link` that is wrong on
-    //   the frame it was asked for, and the frame it was asked for is the one the component puts it
-    //   in a `Repaint` on.
-    // - **A runtime-side handle** mapped to a real `LinkId` later needs the mapping to happen inside
-    //   `Repaint::lower`, which also cannot reach the `Screen`.
-    //
-    // So `Driver::link` ships instead: it is the same verb where the borrow is available, and it
-    // serves an application that knows its URIs. **A component still cannot make one**, and that is
-    // filed as a finding against the engine↔runtime seam rather than worked around: ADR 0011 put
-    // minting on `Screen`, and a component draws through a `View`. The fix is one method on `View` or
-    // on `LayerStack`, and it is the engine map's to make.
+    // Engine architecture ticket 21 answered it by deleting the mint. There is no handle to get, so
+    // there is no verb to put anywhere: a component writes `Repaint { link: Some(Link::Uri(uri)) }`
+    // and `Ctx::restyle` lowers it, which is a field a component was already writing rather than a
+    // borrow it could not obtain. `Driver::link` went with `Screen::link` for the same reason.
 
     /// This widget's id, from the call site.
     ///
@@ -1804,15 +1793,6 @@ impl Driver {
 
         self.env.theme_changed = false;
         self.screen.present()
-    }
-
-    /// Mint a hyperlink.
-    ///
-    /// **Here rather than on `Ctx`, and not by choice** — see the note where `Ctx::link` would have
-    /// been. Minting needs `&mut Screen` and a `Ctx` holds a `View` borrowed from it, so a component
-    /// cannot mint one and an application can.
-    pub fn link(&mut self, uri: &str) -> Link {
-        Link::from_engine(self.screen.link(uri))
     }
 
     /// Swap the theme. **A move into `Env`**, and the next frame reports it changed.

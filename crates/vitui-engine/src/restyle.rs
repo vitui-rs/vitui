@@ -21,6 +21,29 @@ use crate::exts::{ExtStyle, LinkId};
 use crate::style::{Color, Style, UNDERLINE_SHIFT};
 use crate::tables::Tables;
 
+/// A hyperlink named at the drawing verb: the URI itself, or *none*.
+///
+/// **The URI travels with the verb.** The [`View`](crate::View) interns it into whatever handle space
+/// it draws into — a layer's surface into the stack's tables, a standalone
+/// [`Surface`](crate::Surface) into its own — which is exactly what
+/// [`text`](crate::View::text) has always done with a grapheme cluster. That symmetry is the whole of
+/// architecture ticket 21: a handle a caller holds belongs to one table and cannot say which, and a
+/// URI belongs to none of them, so there is no second mint for a surface outside a stack to need.
+///
+/// The table deduplicates on the URI, so *this hyperlink again* is the same URI again and costs one
+/// hash probe per verb call that names one.
+///
+/// **[`Link::None`] clears the hyperlink**; a descriptor whose [`link`](Restyle::link) field is
+/// `None` leaves it alone. The two spellings are the descriptor's usual *name it or do not*, one
+/// level in.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Link<'a> {
+    /// No hyperlink: whatever the cell carried is taken away.
+    None,
+    /// This URI.
+    Uri(&'a str),
+}
+
 /// Which attributes a [`Restyle`] adds or removes.
 ///
 /// The eleven attribute bits of the style word, shifted down to 0: bit 10 is bold and bits 2..0 are
@@ -52,7 +75,7 @@ const UNDERLINE_MAX: u16 = 5;
 /// assert_eq!(selection.fg, None);
 /// ```
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
-pub struct Restyle {
+pub struct Restyle<'a> {
     /// The new foreground, or `None` to keep the old one.
     pub fg: Option<Color>,
     /// The new background, or `None` to keep the old one.
@@ -68,11 +91,14 @@ pub struct Restyle {
     /// The underline's own colour. `Some(Color::DEFAULT)` clears it — that is SGR 59, *underline
     /// in the text's colour* — and `None` leaves it alone.
     pub ul: Option<Color>,
-    /// The hyperlink. `Some(LinkId::NONE)` clears it and `None` leaves it alone.
-    pub link: Option<LinkId>,
+    /// The hyperlink, as a URI. `Some(`[`Link::None`]`)` clears it and `None` leaves it alone.
+    ///
+    /// This is the field that gives the descriptor its lifetime, and the only one — see [`Link`] for
+    /// why the URI is here rather than a handle the caller minted somewhere else.
+    pub link: Option<Link<'a>>,
 }
 
-impl Restyle {
+impl Restyle<'_> {
     /// Bold.
     pub const BOLD: u16 = 1 << 10;
     /// Dim.
@@ -124,7 +150,7 @@ impl Restyle {
 }
 
 /// The eleven attribute bits after a descriptor has been applied to them, still shifted down to 0.
-fn attrs_of(old: Style, d: &Restyle) -> u16 {
+fn attrs_of(old: Style, d: &Restyle<'_>) -> u16 {
     let mut attrs = (old.attr_word() >> UNDERLINE_SHIFT) as u16;
     attrs = (attrs & !(d.clear & FLAGS)) | (d.set & FLAGS);
 
@@ -162,11 +188,32 @@ pub(crate) fn channels(tables: &Tables, old: Style) -> ExtStyle {
     }
 }
 
+/// The [`LinkId`] a descriptor names, interned into `tables` — **once per verb call**.
+///
+/// Separate from [`apply`] and called above `restyle`'s memo, which is what makes the hash probe
+/// per *verb* rather than per cell or per distinct style word. `None` means the descriptor names no
+/// hyperlink and the channel is left alone; `Some(LinkId::NONE)` is [`Link::None`], which clears it.
+pub(crate) fn intern_link(tables: &mut Tables, d: &Restyle<'_>) -> Option<LinkId> {
+    match d.link? {
+        Link::None => Some(LinkId::NONE),
+        Link::Uri(uri) => Some(tables.link(uri)),
+    }
+}
+
 /// Apply a descriptor to one style word, minting a table entry only if the result needs one.
 ///
 /// This is the whole of the contract: every channel the descriptor does not name is carried across
 /// untouched, and the result lands inline whenever both extended channels are clear.
-pub(crate) fn apply(tables: &mut Tables, d: &Restyle, old: Style) -> Style {
+///
+/// **`link` arrives already interned**, from [`intern_link`], because this function runs once per
+/// distinct style word and interning a URI runs once per verb call. The two are different rates and
+/// the descriptor's own field is the URI, so the resolved handle is a parameter rather than a field.
+pub(crate) fn apply(
+    tables: &mut Tables,
+    d: &Restyle<'_>,
+    link: Option<LinkId>,
+    old: Style,
+) -> Style {
     let attrs = (attrs_of(old, d) as u64) << UNDERLINE_SHIFT;
     let mut e = channels(tables, old);
     if let Some(c) = d.fg {
@@ -178,7 +225,7 @@ pub(crate) fn apply(tables: &mut Tables, d: &Restyle, old: Style) -> Style {
     if let Some(c) = d.ul {
         e.ul = c;
     }
-    if let Some(l) = d.link {
+    if let Some(l) = link {
         e.link = l;
     }
     // **The key, not the entry**, and on a terminal with no OSC 8 the two differ by a hyperlink —
@@ -198,18 +245,28 @@ pub(crate) fn apply(tables: &mut Tables, d: &Restyle, old: Style) -> Style {
 mod tests {
     use super::*;
 
+    const URI: &str = "https://example.com/";
+
+    /// The verb's own two steps in the order [`crate::View::restyle`] takes them: intern the URI
+    /// once, then apply the descriptor to a style word. Every test below goes through this rather
+    /// than calling [`apply`] with a handle, so none of them can pass a link the tables never saw.
+    fn applied(tables: &mut Tables, d: &Restyle<'_>, old: Style) -> Style {
+        let link = intern_link(tables, d);
+        apply(tables, d, link, old)
+    }
+
+    /// The id `URI` has in `tables`, for the assertions that compare handles.
     fn link(tables: &mut Tables) -> LinkId {
-        tables.link("https://example.com/")
+        tables.link(URI)
     }
 
     /// An extended cell: default colours, one hyperlink, one underline colour.
     fn extended(tables: &mut Tables) -> Style {
-        let l = link(tables);
-        let s = apply(
+        let s = applied(
             tables,
             &Restyle {
                 ul: Some(Color::rgb(9, 9, 9)),
-                link: Some(l),
+                link: Some(Link::Uri(URI)),
                 ..Default::default()
             },
             Style::new().fg(Color::indexed(1)).bg(Color::indexed(2)),
@@ -231,7 +288,7 @@ mod tests {
             .underline_dotted()
             .fg(Color::indexed(1))
             .bg(Color::indexed(2));
-        let new = apply(
+        let new = applied(
             &mut t,
             &Restyle {
                 bg: Some(Color::rgb(1, 2, 3)),
@@ -249,20 +306,20 @@ mod tests {
     #[test]
     fn inline_to_extended_carries_the_colours_and_the_attributes_across() {
         let mut t = Tables::new();
-        let l = link(&mut t);
         let old = Style::new()
             .italic()
             .underline_curly()
             .fg(Color::indexed(1))
             .bg(Color::indexed(2));
-        let new = apply(
+        let new = applied(
             &mut t,
             &Restyle {
-                link: Some(l),
+                link: Some(Link::Uri(URI)),
                 ..Default::default()
             },
             old,
         );
+        let l = link(&mut t);
         assert!(new.is_extended());
         let e = t.exts.get(new.ext_handle().unwrap()).unwrap();
         assert_eq!(e.fg, Color::indexed(1));
@@ -277,7 +334,7 @@ mod tests {
         let mut t = Tables::new();
         let old = extended(&mut t);
         let was = t.exts.get(old.ext_handle().unwrap()).unwrap();
-        let new = apply(
+        let new = applied(
             &mut t,
             &Restyle {
                 bg: Some(Color::rgb(4, 5, 6)),
@@ -301,7 +358,7 @@ mod tests {
         // as a test rather than as a paragraph.
         let mut t = Tables::new();
         let old = extended(&mut t);
-        let new = apply(
+        let new = applied(
             &mut t,
             &Restyle {
                 fg: Some(Color::indexed(7)),
@@ -320,10 +377,10 @@ mod tests {
         let mut t = Tables::new();
         let old = extended(&mut t);
 
-        let one = apply(
+        let one = applied(
             &mut t,
             &Restyle {
-                link: Some(LinkId::NONE),
+                link: Some(Link::None),
                 ..Default::default()
             },
             old,
@@ -333,10 +390,10 @@ mod tests {
             "the underline colour is still a reason to be extended"
         );
 
-        let both = apply(
+        let both = applied(
             &mut t,
             &Restyle {
-                link: Some(LinkId::NONE),
+                link: Some(Link::None),
                 ul: Some(Color::DEFAULT),
                 ..Default::default()
             },
@@ -359,11 +416,11 @@ mod tests {
         let mut t = Tables::new();
         let plain = Style::new().fg(Color::indexed(1)).bg(Color::indexed(2));
         let old = extended(&mut t);
-        let there_and_back = apply(
+        let there_and_back = applied(
             &mut t,
             &Restyle {
                 ul: Some(Color::DEFAULT),
-                link: Some(LinkId::NONE),
+                link: Some(Link::None),
                 ..Default::default()
             },
             old,
@@ -384,7 +441,7 @@ mod tests {
             | Restyle::STRIKETHROUGH
             | Restyle::CONCEAL
             | Restyle::OVERLINE;
-        let new = apply(
+        let new = applied(
             &mut t,
             &Restyle {
                 set: all,
@@ -408,7 +465,7 @@ mod tests {
     fn clear_removes_only_what_it_names() {
         let mut t = Tables::new();
         let old = Style::new().bold().italic();
-        let new = apply(
+        let new = applied(
             &mut t,
             &Restyle {
                 clear: Restyle::BOLD,
@@ -423,7 +480,7 @@ mod tests {
     fn an_underline_style_replaces_the_field_rather_than_or_ing_into_it() {
         // Dotted is 4 and single is 1; a per-bit rule would make "set single" mean dashed.
         let mut t = Tables::new();
-        let new = apply(
+        let new = applied(
             &mut t,
             &Restyle {
                 set: Restyle::UNDERLINE,
@@ -445,7 +502,7 @@ mod tests {
             Restyle::UNDERLINE_DOUBLE | Restyle::UNDERLINE_DOTTED,
             Restyle::UNDERLINE_ANY,
         ] {
-            let new = apply(
+            let new = applied(
                 &mut t,
                 &Restyle {
                     set,
@@ -461,7 +518,7 @@ mod tests {
     #[test]
     fn a_set_that_names_no_style_leaves_clear_to_act() {
         let mut t = Tables::new();
-        let new = apply(
+        let new = applied(
             &mut t,
             &Restyle {
                 set: Restyle::UNDERLINE_ANY,
@@ -476,7 +533,7 @@ mod tests {
     #[test]
     fn clearing_any_underline_takes_the_whole_field() {
         let mut t = Tables::new();
-        let new = apply(
+        let new = applied(
             &mut t,
             &Restyle {
                 clear: Restyle::UNDERLINE_ANY,
@@ -490,7 +547,7 @@ mod tests {
     #[test]
     fn an_attribute_named_by_both_masks_ends_up_set() {
         let mut t = Tables::new();
-        let new = apply(
+        let new = applied(
             &mut t,
             &Restyle {
                 set: Restyle::BOLD,
@@ -507,7 +564,7 @@ mod tests {
         // There is nothing above the style word's eleven attribute bits for 15..11 to be about.
         let mut t = Tables::new();
         let old = Style::new().bold();
-        let new = apply(
+        let new = applied(
             &mut t,
             &Restyle {
                 set: 0xF800,
@@ -523,7 +580,7 @@ mod tests {
     fn a_descriptor_that_names_nothing_changes_nothing() {
         let mut t = Tables::new();
         let old = Style::new().bold().fg(Color::indexed(3));
-        assert_eq!(apply(&mut t, &Restyle::default(), old), old);
+        assert_eq!(applied(&mut t, &Restyle::default(), old), old);
         assert!(t.exts.is_empty());
     }
 
@@ -531,7 +588,7 @@ mod tests {
     fn a_descriptor_that_names_nothing_leaves_an_extended_cell_extended() {
         let mut t = Tables::new();
         let old = extended(&mut t);
-        assert_eq!(apply(&mut t, &Restyle::default(), old), old);
+        assert_eq!(applied(&mut t, &Restyle::default(), old), old);
         assert_eq!(t.exts.len(), 1, "and mints nothing a second time");
     }
 
@@ -540,14 +597,46 @@ mod tests {
         // What makes a settled operator converge after one frame, and what keeps two cells that
         // look identical comparing equal.
         let mut t = Tables::new();
-        let l = link(&mut t);
         let d = Restyle {
-            link: Some(l),
+            link: Some(Link::Uri(URI)),
             ..Default::default()
         };
-        let a = apply(&mut t, &d, Style::new().fg(Color::indexed(1)));
-        let b = apply(&mut t, &d, Style::new().fg(Color::indexed(1)));
+        let a = applied(&mut t, &d, Style::new().fg(Color::indexed(1)));
+        let b = applied(&mut t, &d, Style::new().fg(Color::indexed(1)));
         assert_eq!(a, b);
         assert_eq!(t.exts.len(), 1);
+    }
+
+    #[test]
+    fn the_same_uri_twice_is_the_same_id_and_mints_once() {
+        // The other half of *this hyperlink again* now that no caller holds a handle: the token an
+        // application lost is the URI it already had, and asking for it twice costs one entry.
+        let mut t = Tables::new();
+        let d = Restyle {
+            link: Some(Link::Uri(URI)),
+            ..Default::default()
+        };
+        let first = intern_link(&mut t, &d);
+        let second = intern_link(&mut t, &d);
+        assert_eq!(first, second);
+        assert_eq!(t.links.entries().len(), 1);
+    }
+
+    #[test]
+    fn a_descriptor_that_names_no_link_interns_nothing() {
+        let mut t = Tables::new();
+        assert_eq!(intern_link(&mut t, &Restyle::default()), None);
+        assert_eq!(
+            intern_link(
+                &mut t,
+                &Restyle {
+                    link: Some(Link::None),
+                    ..Default::default()
+                }
+            ),
+            Some(LinkId::NONE),
+            "`Link::None` is a clear, and a clear reaches no table"
+        );
+        assert!(t.links.is_empty());
     }
 }

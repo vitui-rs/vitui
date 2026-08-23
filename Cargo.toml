@@ -56,8 +56,41 @@ warnings = "deny"
 version = "0.0.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/REPLACE-ME/vitui"
-rust-version = "1.85"
+# `repository` is deliberately absent and MUST be set before the first `cargo publish`: it read
+# `https://github.com/REPLACE-ME/vitui`, there is no public URL for this project yet, and a guessed
+# one is a link crates.io would serve to every reader — worse than an absent field, which at least
+# says nothing. The only remote is the shared local GitLab, which nobody outside this machine can
+# resolve. Removing the key means the six crate manifests lost their `repository.workspace = true`
+# too; putting it back means putting those back.
+#
+# **Verified, not declared, and it was wrong by three releases.** It read `1.85`, which is the
+# edition-2024 floor rather than anything measured against this code. `cargo +1.85.0 check
+# --workspace --all-targets` and `+1.87.0` both fail with the same fourteen `error[E0658]: 'let'
+# expressions in this position are unstable` — ten in `crates/vitui-engine/src/sweep.rs` and four in
+# `layer.rs` — because **let-chains stabilised in 1.88**, in edition 2024 only. The compile stops at
+# `vitui-engine`, so fourteen is a lower bound on the sites and 1.88 is not: `cargo +1.88.0 check
+# --workspace --all-targets` builds every crate and every target clean, as does `-p vitui-engine
+# --features fuzz`, the one configuration `cargo test` misses.
+#
+# The `msrv` job in `.gitlab-ci.yml` is what keeps this number honest. A `rust-version` nothing
+# builds against is a claim, not a constraint — and note that raising it here is itself half a gate:
+# with `1.88` declared, `cargo +1.87.0 check` now refuses with *rustc 1.87.0 is not supported by the
+# following packages* before it compiles anything, which is only useful if some job actually runs an
+# old toolchain. Nothing did until that job existed.
+#
+# **This key is a clippy input, and correcting it is not a no-op — read this before bumping it.**
+# Clippy suppresses any lint whose suggested fix needs a newer compiler than the declared MSRV, so a
+# `rust-version` that is too low silently switches lints off. Measured on one tree with nothing but
+# this line changed: `1.85` gives `cargo clippy --workspace --all-targets` zero errors, `1.88` gives
+# **sixteen** — thirteen `clippy::collapsible_if` (the let-chain collapse needs 1.88) and three
+# `clippy::manual_is_multiple_of` (`is_multiple_of` landed in 1.87), across ten files in
+# `vitui-engine/src/`. Under `[workspace.lints.rust] warnings = "deny"` above, those are errors.
+#
+# The lints are real and were hidden by a false declaration; they are not an argument for putting
+# `1.85` back, and suppressing them with a `[workspace.lints.clippy]` table would be re-hiding them
+# by hand. They are a Rust-source fix, `cargo clippy --fix --workspace --all-targets` gets most of
+# it, and it is its own change rather than a rider on this one.
+rust-version = "1.88"
 
 [workspace.dependencies]
 # The engine's only permitted runtime dependency. See docs/adr/0001-crossterm-behind-a-seam.md.

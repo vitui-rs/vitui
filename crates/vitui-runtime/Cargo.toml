@@ -4,7 +4,8 @@ description = "Layout, identity, focus, hit-testing, routing, key maps and themi
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-repository.workspace = true
+# `repository` is absent from `workspace.package` on purpose; see the root `Cargo.toml`. Restore
+# `repository.workspace = true` here when the key goes back.
 rust-version.workspace = true
 
 # Dependency policy, from the map and restated by runtime ticket 14: vitui-runtime takes NO

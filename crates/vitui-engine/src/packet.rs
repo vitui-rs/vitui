@@ -440,12 +440,11 @@ mod tests {
     /// A surface whose whole row carries one hyperlink and one underline colour.
     fn hyperlinked_row() -> Surface {
         let mut s = Surface::new(8, 1);
-        let link = s.tables_mut().link("https://example.com/");
         s.root().text(0, 0, "abcdefgh", Style::new());
         s.root().restyle(
             crate::geom::Rect::new(0, 0, 8, 1),
             &crate::restyle::Restyle {
-                link: Some(link),
+                link: Some(crate::restyle::Link::Uri("https://example.com/")),
                 ul: Some(crate::style::Color::rgb(1, 2, 3)),
                 ..Default::default()
             },

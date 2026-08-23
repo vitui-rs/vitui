@@ -276,7 +276,7 @@ impl Scene for CaretBlink {
     }
 
     fn step(&mut self, screen: &mut Screen, t: u32) -> u32 {
-        let style = if t % 2 == 0 {
+        let style = if t.is_multiple_of(2) {
             Style::new().reverse()
         } else {
             Style::new()
@@ -932,8 +932,14 @@ pub struct HyperlinkedPageUnderAnOperator {
     operator: Option<LayerId>,
     /// The row buffer, so a step allocates nothing after the first.
     row: String,
-    /// The page's hyperlinks, minted once and re-applied every frame.
-    links: Vec<vitui_engine::LinkId>,
+    /// The page's hyperlink URIs, built once and re-applied every frame.
+    ///
+    /// The URIs and not their ids, because architecture ticket 21 put the URI at the verb: the
+    /// descriptor names `Link::Uri(&str)` and the verb interns it, so what a scene holds between
+    /// frames is the string it drew with. Re-applying it costs one hash probe per band per frame
+    /// and mints nothing after the first, which is what keeps this scene's own growth the
+    /// operator's.
+    links: Vec<String>,
 }
 
 impl HyperlinkedPageUnderAnOperator {
@@ -1022,12 +1028,12 @@ impl HyperlinkedPageUnderAnOperator {
         // One verb per band over the full height rather than one per band per row: ninety-six calls
         // against seven thousand, for the same ninety-six distinct styles, because the memo is what
         // makes the per-row cost a per-distinct-style one either way.
-        for (b, &link) in self.links.iter().enumerate() {
+        for (b, uri) in self.links.iter().enumerate() {
             let (x, w) = HyperlinkedPageUnderAnOperator::band(b as u16);
             view.restyle(
                 Rect::new(x, 0, w, H),
                 &Restyle {
-                    link: Some(link),
+                    link: Some(vitui_engine::Link::Uri(uri)),
                     ..Default::default()
                 },
             );
@@ -1095,7 +1101,7 @@ impl Scene for HyperlinkedPageUnderAnOperator {
         self.page = Some(page);
         self.row = std::iter::repeat_n('m', W as usize).collect();
         self.links = (0..HyperlinkedPageUnderAnOperator::LINKS)
-            .map(|i| screen.link(&format!("https://example.com/vitui#{i}")))
+            .map(|i| format!("https://example.com/vitui#{i}"))
             .collect();
         self.draw_page(screen);
         self.set_mix(screen, HyperlinkedPageUnderAnOperator::settled());

@@ -593,10 +593,11 @@ pub(crate) mod parse {
                     // the same byte the legacy path would have delivered. **From the primary field
                     // and not from `code`** — `code` may now be the base layout, and a Cyrillic `ф`
                     // whose base layout is `a` must not be reported as having printed an `a`.
-                    if text.is_empty() && mods.is_typing() {
-                        if let Some(c) = char::from_u32(primary).filter(|c| !c.is_control()) {
-                            text.push_char(c);
-                        }
+                    if text.is_empty()
+                        && mods.is_typing()
+                        && let Some(c) = char::from_u32(primary).filter(|c| !c.is_control())
+                    {
+                        text.push_char(c);
                     }
                     sink(Event::Key(Key {
                         code,
@@ -1824,17 +1825,16 @@ impl Queue {
                 ..
             })
         );
-        if moving {
-            if let Some(
+        if moving
+            && let Some(
                 back @ Event::Mouse(Mouse {
                     kind: MouseKind::Move,
                     ..
                 }),
             ) = inner.events.back_mut()
-            {
-                *back = event;
-                return;
-            }
+        {
+            *back = event;
+            return;
         }
         inner.events.push_back(event);
     }

@@ -360,7 +360,7 @@ impl<'a> Mixer<'a> {
             },
             ..Restyle::default()
         };
-        Some(restyle::apply(tables, &d, old))
+        Some(restyle::apply(tables, &d, None, old))
     }
 }
 
@@ -369,6 +369,25 @@ mod tests {
     use super::*;
     use crate::caps::ColorDepth;
     use crate::exts::LinkId;
+    use crate::restyle::Link;
+
+    /// The verb's own two steps, as `View::restyle` takes them: intern the URI once, then apply.
+    fn applied(tables: &mut Tables, d: &Restyle<'_>, old: Style) -> Style {
+        let link = crate::restyle::intern_link(tables, d);
+        restyle::apply(tables, d, link, old)
+    }
+
+    /// A style word carrying `uri`, built through the descriptor the way a caller would.
+    fn extended_with_link(tables: &mut Tables, uri: &str, base: Style) -> Style {
+        applied(
+            tables,
+            &Restyle {
+                link: Some(Link::Uri(uri)),
+                ..Default::default()
+            },
+            base,
+        )
+    }
 
     /// A terminal that answered OSC 10 and OSC 11, at truecolor.
     fn answering() -> Capabilities {
@@ -644,13 +663,10 @@ mod tests {
         // clearing bit 63 and the 52-bit handle with it, silently. This goes through the descriptor
         // that names only the colours, so the link is not preserved — it is never named.
         let mut t = Tables::new();
-        let link = t.link("https://example.com/vitui");
-        let old = restyle::apply(
+        const URI: &str = "https://example.com/vitui";
+        let old = extended_with_link(
             &mut t,
-            &Restyle {
-                link: Some(link),
-                ..Default::default()
-            },
+            URI,
             Style::new()
                 .fg(Color::rgb(200, 200, 200))
                 .bg(Color::rgb(100, 100, 100)),
@@ -663,7 +679,11 @@ mod tests {
             .exts
             .get(now.ext_handle().expect("still extended"))
             .expect("minted here");
-        assert_eq!(e.link, link, "the hyperlink survived the shadow");
+        assert_eq!(
+            t.links.uri(e.link),
+            Some(URI),
+            "the hyperlink survived the shadow"
+        );
         assert_eq!(e.fg, Color::rgb(100, 100, 100));
         assert_eq!(e.bg, Color::rgb(50, 50, 50));
     }
@@ -671,7 +691,7 @@ mod tests {
     #[test]
     fn a_mix_over_an_underline_colour_moves_it_with_the_text() {
         let mut t = Tables::new();
-        let old = restyle::apply(
+        let old = applied(
             &mut t,
             &Restyle {
                 ul: Some(Color::rgb(200, 0, 0)),
@@ -735,13 +755,9 @@ mod tests {
         // which is why the memo's own number is a report (`crate::layer`'s bench) and the growth is
         // impl 08's, with the sweep.
         let mut t = Tables::new();
-        let link = t.link("https://example.com/vitui");
-        let old = restyle::apply(
+        let old = extended_with_link(
             &mut t,
-            &Restyle {
-                link: Some(link),
-                ..Default::default()
-            },
+            "https://example.com/vitui",
             Style::new()
                 .fg(Color::rgb(3, 3, 3))
                 .bg(Color::rgb(30, 30, 30)),
@@ -801,7 +817,7 @@ mod tests {
                 },
                 ..Restyle::default()
             };
-            Some(restyle::apply(tables, &d, old))
+            Some(restyle::apply(tables, &d, None, old))
         }
 
         // A full screen's worth of *distinct* inline style words, so neither arm can be helped by a

@@ -4,7 +4,8 @@ description = "Cells, surfaces, layers, compositing and damage tracking for term
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-repository.workspace = true
+# `repository` is absent from `workspace.package` on purpose; see the root `Cargo.toml`. Restore
+# `repository.workspace = true` here when the key goes back.
 rust-version.workspace = true
 
 # **The one feature this crate has, and it is not a knob.** It compiles the reference compositor and

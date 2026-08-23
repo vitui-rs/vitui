@@ -753,10 +753,10 @@ impl Serializer {
         if let Some(shape) = actuation.shape {
             crate::actuate::write_shape(&mut self.out, shape);
         }
-        if let Some(caret) = actuation.caret {
-            if actuation.moved || actuation.show == Some(true) || self.frame_open {
-                self.move_to(caret.x, caret.y, false);
-            }
+        if let Some(caret) = actuation.caret
+            && (actuation.moved || actuation.show == Some(true) || self.frame_open)
+        {
+            self.move_to(caret.x, caret.y, false);
         }
         if let Some(show) = actuation.show {
             crate::actuate::write_visibility(&mut self.out, show);
@@ -1182,10 +1182,10 @@ impl Serializer {
                 if compare && cell == self.mirror.cell(x, y) {
                     continue;
                 }
-                if let Some(from) = emitted {
-                    if x > from + 1 {
-                        self.consider_gap(row, from, x, packet, caps);
-                    }
+                if let Some(from) = emitted
+                    && x > from + 1
+                {
+                    self.consider_gap(row, from, x, packet, caps);
                 }
                 self.emit_cell(x, y, cell, packet, caps);
                 emitted = Some(x);
@@ -1515,10 +1515,12 @@ impl Serializer {
         // was chosen and the `CUF` that was refused. Zero on every move where `CUF` would not have
         // won anyway, which is most of them.
         #[cfg(test)]
-        if let Some((cx, cy)) = was {
-            if y == cy && x > cx && self.non_ascii_on_row {
-                self.cha_rule_bytes += cost.saturating_sub(3 + omissible((x - cx) as u32));
-            }
+        if let Some((cx, cy)) = was
+            && y == cy
+            && x > cx
+            && self.non_ascii_on_row
+        {
+            self.cha_rule_bytes += cost.saturating_sub(3 + omissible((x - cx) as u32));
         }
         #[cfg(not(test))]
         let _ = cost;
@@ -2351,14 +2353,13 @@ mod tests {
         // look like. That is `Style::with_fg_bg`'s silent wrong answer one layer down, and it is a
         // *release* failure — the `debug_assert` on `Style::foreground` only catches the debug half.
         let mut frame = Surface::new(4, 1);
-        let link = frame.tables_mut().link("https://example.com/");
         frame.root().text(0, 0, "ab", Style::new());
         frame.root().restyle(
             Rect::new(0, 0, 2, 1),
             &crate::restyle::Restyle {
                 fg: Some(Color::indexed(3)),
                 bg: Some(Color::rgb(1, 2, 255)),
-                link: Some(link),
+                link: Some(crate::restyle::Link::Uri("https://example.com/")),
                 ..Default::default()
             },
         );
@@ -2373,12 +2374,11 @@ mod tests {
     /// A hyperlinked surface, and the one URI on it.
     fn hyperlinked(uri: &str) -> Surface {
         let mut frame = Surface::new(4, 1);
-        let link = frame.tables_mut().link(uri);
         frame.root().text(0, 0, "ab", Style::new());
         frame.root().restyle(
             Rect::new(0, 0, 2, 1),
             &crate::restyle::Restyle {
-                link: Some(link),
+                link: Some(crate::restyle::Link::Uri(uri)),
                 ..Default::default()
             },
         );
@@ -3486,7 +3486,6 @@ mod tests {
         /// The frame every arm replays: one of everything the encoding set can spell.
         fn frame() -> Surface {
             let mut f = Surface::new(24, 2);
-            let link = f.tables_mut().link("https://example.com/vitui#1");
             f.root()
                 .text(0, 0, "漢a\u{301}b", Style::new().bold().dim());
             f.root().text(
@@ -3504,7 +3503,7 @@ mod tests {
                 Rect::new(0, 1, 2, 1),
                 &crate::restyle::Restyle {
                     ul: Some(Color::rgb(9, 8, 7)),
-                    link: Some(link),
+                    link: Some(crate::restyle::Link::Uri("https://example.com/vitui#1")),
                     ..Default::default()
                 },
             );

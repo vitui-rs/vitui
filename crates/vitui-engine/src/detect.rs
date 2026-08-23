@@ -389,10 +389,10 @@ fn string(payload: &[u8], is_dcs: bool, out: &mut Detected) {
         Some("4") => {
             let index = fields.next().and_then(|i| i.trim().parse::<usize>().ok());
             let value = fields.next().and_then(colour);
-            if let (Some(i), Some(v)) = (index, value) {
-                if i < out.palette.len() {
-                    out.palette[i] = Some(v);
-                }
+            if let (Some(i), Some(v)) = (index, value)
+                && i < out.palette.len()
+            {
+                out.palette[i] = Some(v);
             }
         }
         _ => {}

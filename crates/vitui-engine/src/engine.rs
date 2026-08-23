@@ -65,7 +65,6 @@ use crate::caps::{Capabilities, Env, Ground, Overrides, assemble};
 use crate::clock::{FrameClock, Wake, WakeSource};
 use crate::damage::Run;
 use crate::detect::{CEILING, Tty, detect};
-use crate::exts::LinkId;
 use crate::handoff::{Lease, Mailbox, TerminalSize};
 use crate::input::{Event, InputConfig, InputDiagnostics, MouseMode};
 use crate::layer::LayerStack;
@@ -1271,10 +1270,10 @@ impl Screen {
     /// ```
     pub fn next_event(&mut self) -> Option<Event> {
         let event = self.input.pop()?;
-        if let Event::Resize(w, h) = event {
-            if (w, h) != self.size {
-                self.resize(w, h);
-            }
+        if let Event::Resize(w, h) = event
+            && (w, h) != self.size
+        {
+            self.resize(w, h);
         }
         Some(event)
     }
@@ -1690,12 +1689,12 @@ impl Screen {
         // The deterministic path: this thread is the render thread, so it does the render thread's
         // work here, through the same mailbox and the same renderer. `take_now` cannot answer `None`
         // — the submit above put a packet in the slot and nothing else can take it.
-        if let Some(renderer) = self.renderer.as_mut() {
-            if let Some(packet) = self.mailbox.take_now() {
-                self.wakes.mark_renderer_free();
-                renderer.render(&packet);
-                self.mailbox.finish(packet);
-            }
+        if let Some(renderer) = self.renderer.as_mut()
+            && let Some(packet) = self.mailbox.take_now()
+        {
+            self.wakes.mark_renderer_free();
+            renderer.render(&packet);
+            self.mailbox.finish(packet);
         }
 
         self.frame.damage_mut().clear();
@@ -1830,40 +1829,23 @@ impl Screen {
         self.layers.forget_damage();
     }
 
-    /// Mint a hyperlink id for `uri`, or return the one this screen already minted for it.
-    ///
-    /// The only way to get a [`LinkId`], which is what makes the type opaque in the sense ADR 0023
-    /// asks for: a caller can say *this hyperlink again* without being able to say *entry 7*. Ids
-    /// are deduplicated, so a page of a hundred distinct links costs a hundred entries however many
-    /// cells carry them.
-    ///
-    /// The id is then handed to [`View::restyle`](crate::View::restyle) through
-    /// [`Restyle::link`](crate::Restyle::link).
-    ///
-    /// # It belongs to this screen's handle space
-    ///
-    /// Spec §3's invariant is that *every surface in a layer stack speaks that stack's handle
-    /// space*, and this id is part of that space. Using it on a **standalone** [`Surface`] — one
-    /// reached through [`Surface::root`](crate::Surface::root) rather than through
-    /// [`LayerStack::view`](crate::LayerStack::view) — puts a handle into a table that never minted
-    /// it, and the URI does not travel with the cell. `add_content_with` is what reconciles a
-    /// surface drawn off to one side, by renumbering it once at donation (ticket 10); until then,
-    /// a hyperlink belongs in a layer of the screen that minted it.
-    ///
-    /// ```
-    /// let config = vitui_engine::Config {
-    ///     // Headless, because a doctest must not reach for the developer's terminal.
-    ///     output: vitui_engine::Output::Sink(Box::new(Vec::new())),
-    ///     ..Default::default()
-    /// };
-    /// let (mut screen, _wake) = vitui_engine::Engine::new(config).attach().unwrap();
-    /// let a = screen.link("https://example.com/");
-    /// assert_eq!(a, screen.link("https://example.com/"));
-    /// assert_ne!(a, vitui_engine::LinkId::NONE);
-    /// ```
-    pub fn link(&mut self, uri: &str) -> LinkId {
-        self.layers.tables_mut().link(uri)
-    }
+    // ── `Screen::link` is not here, and it is not missing ────────────────────────────────────────
+    //
+    // It minted a `LinkId` and was the only mint, which is what architecture ticket 21 deleted: the
+    // URI travels at the drawing verb now — `Restyle { link: Some(Link::Uri(uri)), .. }` — and the
+    // `View` interns it into whatever handle space it draws into, exactly as `text` has always done
+    // with a grapheme cluster.
+    //
+    // The defect it closed is not the one it was filed for. A standalone `Surface` could carry a
+    // hyperlink and could not mint the id one needed, so the only id a caller could put there was
+    // this screen's — in a table that never minted it. Both answers to *what should that mean* were
+    // wrong: clearing deletes a hyperlink silently, and pass-through is undecidable the moment a
+    // second mint exists, because `Links::mint` numbers from 1 in **every** table and an in-range
+    // collision rewrites the cell to the *donor's* URI at that slot with nothing firing.
+    //
+    // A second mint — `Surface::link`, or the strictly better `View::link` — makes that reachable
+    // rather than closing it. Making the value unobtainable closes it, and `crate::audit`'s
+    // `REFUSED_NAMES` is where the absence of both names is gated.
 
     /// The handle space this screen's layers speak, for the terminal model to mint back into.
     ///

@@ -11,6 +11,12 @@
 # What this does NOT cover, and the GitHub workflow does: the `test` job there is a three-OS matrix
 # (ubuntu, macos, windows). A local Docker runner is one OS and one architecture — here,
 # linux/arm64. Green here means the gates pass; it does not mean they pass on Windows.
+#
+# And one gate this file has that the GitHub workflow does not: **`msrv`**. That side deliberately
+# tracks `stable` everywhere — it is the early warning that a new release breaks us — and a job
+# pinned to the oldest supported toolchain is the opposite question, so it belongs here, on the side
+# that pins. The first line above is therefore no longer literally true: these are the same gates
+# *plus one*.
 
 workflow:
   rules:
@@ -63,13 +69,19 @@ default:
 stages:
   - check
 
-# The four gates are independent and share one stage on purpose, so they run concurrently and the
+# The five gates are independent and share one stage on purpose, so they run concurrently and the
 # pipeline is as long as its slowest job rather than the sum of them. The shared runner allows six
-# concurrent jobs, so all four can run at once — but those six are shared with every other repo on
+# concurrent jobs, so all five can run at once — but those six are shared with every other repo on
 # the machine, so a full pipeline elsewhere can still push one of these into a queue.
 #
+# It was four until `msrv` was added, and that is the last one that fits: a sixth job means this
+# pipeline alone can saturate the runner and starve every other repo on the machine. The next gate
+# folds into an existing job, the way the two below already do.
+#
 # **Engine ticket 23's two gates are folded into existing jobs rather than added as a fifth and a
-# sixth**, and that is a runner-slot decision with a reason on both counts. `scripts/observer-gate.sh`
+# sixth**, and that is a runner-slot decision with a reason on both counts. The ordinals in that
+# sentence and in the `idle` job's note are the counts as those tickets found them, and are left as
+# written — they record a decision, not the current job list. `scripts/observer-gate.sh`
 # needs a release build and a debug build of one example, and `budget` already has a warm release
 # target directory — a job of its own would compile the workspace twice more for two greps.
 # `scripts/lint-rung-gate.sh` needs clippy and a check build of a crate that is deliberately outside
@@ -164,6 +176,63 @@ test:
     # lints a copy of the template with one `std::thread::sleep` in it and requires that to fail,
     # because a clean result on its own passes for any reason including the fragment being inert.
     - scripts/lint-rung-gate.sh
+
+# The MSRV, and until this job existed `rust-version` was a comment with a colon in it.
+#
+# `Cargo.toml` declared `1.85`, every job in this file pins `rust:1.97.1-bookworm` and the GitHub
+# workflow tracks `stable`, so **nothing anywhere compiled this workspace on the version it claims to
+# support**. It was wrong by three releases: let-chains stabilised in 1.88 and `vitui-engine` uses
+# fourteen of them. The same shape as the two failures the notes above record — *a check that is
+# weaker than the gate is not a check* — arriving as a check that did not exist at all.
+#
+# The image names the MSRV rather than installing a toolchain into `rust:1.97.1-bookworm`, because
+# `rustup toolchain install 1.88.0` downloads a second toolchain on every run and the tag is the
+# thing being tested. **Bump it and `rust-version` in the same commit, never one of them**: a diff
+# where they disagree is the defect this job exists to catch, and it should be visible as one.
+#
+# `check` rather than `clippy`, and that is deliberate rather than lazy. This job asks *does the MSRV
+# still compile the workspace*, and clippy's lint set moves between releases — a lint added in 1.90
+# that fires here would fail the job for a reason that has nothing to do with the MSRV, and `RUSTFLAGS:
+# -D warnings` above turns it into an error rather than a warning. The `test` job on the pinned recent
+# toolchain is where linting belongs. For the same reason nothing here runs `cargo test`: a test
+# failure on an old rustc is a fact about the test, and this job is about the compiler.
+#
+# `--all-targets` is load-bearing — without it the examples, benches and test targets are not built,
+# and `examples/` is where a newer-than-MSRV call would most plausibly land unnoticed.
+#
+# `--features fuzz` gets its own line for the same reason the `test` job gives at length: that
+# configuration is *feature on, `cfg(test)` off*, and it is compiled nowhere else in this file.
+msrv:
+  stage: check
+  timeout: 15m
+  # The MSRV declared in `[workspace.package] rust-version`. See the comment on that key. Named
+  # explicitly, like every job here must be: the shared runner has no default image.
+  #
+  # `bookworm` to match the pinned tag above rather than `-slim` or `-alpine`, so this job differs
+  # from `test` in exactly one variable — the toolchain — and a failure here is about rustc and not
+  # about a missing system library. Checked multi-arch before pinning: the tag publishes
+  # linux/arm64/v8, which is what this runner is.
+  image: rust:1.88.0-bookworm
+  # Per-job cache key, like its neighbours, and for the reason `test` states: concurrent jobs sharing
+  # one key race on upload and the last writer wins. This one holds a *different toolchain's* build
+  # artefacts than every other job here, so sharing a prefix with them would thrash rather than hit.
+  cache:
+    key:
+      files:
+        - Cargo.lock
+      prefix: msrv
+    paths:
+      - .cargo/registry/index
+      - .cargo/registry/cache
+      - target
+  script:
+    # Prove the image is the toolchain this job claims to test. Without it a retagged or mismatched
+    # image turns a green MSRV gate into a second run of `test` on a different rustc, which is the
+    # failure mode that is invisible in a log nobody reads.
+    - cargo --version
+    - rustc --version | grep -q '1\.88\.0'
+    - cargo check --workspace --all-targets
+    - cargo check -p vitui-engine --all-targets --features fuzz
 
 deny:
   stage: check
