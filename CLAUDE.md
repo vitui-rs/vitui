@@ -17,6 +17,7 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
 
 - **`vitui-engine` is implementation-complete**: all 26 tickets of `.scratch/vitui-engine-impl/`
   resolved, all 27 entries of the verification register wired with none pinned red, ~30k lines.
+  Production readiness added a 28th, `conform/`, which spec §14 had no way to state.
 - **`vitui-runtime` is in progress**: 9 of 20 tickets resolved. `data`, `layout`, `theme`, `keys`,
   `ctx`, `id`, `route` exist; focus, overlays, scrolling, sizing, async work and the standard theme
   set do not.
@@ -138,8 +139,9 @@ on. A frame consumes at most one routing edge; there are no per-id inboxes (ADR 
 **The verification machinery is itself architecture**, and it is the part most likely to be
 misunderstood as test scaffolding:
 
-- `register.rs` — the 27 properties of spec §14 as a value, each with its instrument and provenance.
-  A property may be *pinned red* with the ticket that will invert it. Currently 27 wired, 0 red.
+- `register.rs` — spec §14's 27 properties as a value, each with its instrument and provenance, plus
+  a 28th the production backlog added for what §14 could not state. A property may be *pinned red*
+  with the ticket that will invert it. Currently 28 wired, 0 red.
 - `roundtrip.rs` / `testing.rs` — the primary instrument: composite, serialise, replay the bytes
   through the terminal model, assert the replayed screen equals the frame. It stores nothing. All
   four defects the architecture map found were found this way. A golden *byte string* is refused

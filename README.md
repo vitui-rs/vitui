@@ -16,24 +16,27 @@ this section before the numbers below it.
 
 | crate | state |
 |---|---|
-| `vitui-engine` | **implementation-complete.** All 26 implementation tickets resolved, all 27 verification-register entries wired, none pinned red. A production-readiness backlog of 9 tickets is open. |
+| `vitui-engine` | **implementation-complete.** All 26 implementation tickets resolved, all 28 verification-register entries wired, none pinned red. A production-readiness backlog of 9 tickets is open. |
 | `vitui-runtime` | **9 of 20 tickets in.** `data`, `layout`, `layout::text`, `theme`, `keys`, `ctx`, `id`, `route` and the hit index exist. Focus, overlays, scrolling, sizing, async work, animation, the standard theme set and the verification ledger do not. |
 | `vitui-components` | **empty.** One `lib.rs` with module documentation and no components. Out of scope for the current effort; it gets its own architecture map afterwards. |
 | `vitui` | facade re-export of the three. |
 
 Three things a prospective user should know, stated here rather than discovered:
 
-- **No instrument in this repository has ever compared the engine's bytes against a real terminal
-  emulator's screen.** The round-trip suite and the reference compositor both live inside the crate,
-  and so does the terminal model they are checked against — which means a case where the model and
-  the serializer are wrong *in the same direction* is invisible to every gate that exists. Closing
-  that is the spine of the production-readiness backlog, not a chore on it.
+- **One terminal emulator has been asked, once.** Until 2026-08-23 no instrument here had ever
+  compared the engine's bytes against a real emulator's screen: the round-trip suite, the reference
+  compositor and the terminal model they are checked against all live inside the crate, so a case
+  where the model and the serializer are wrong *in the same direction* was invisible to every gate.
+  `conform/` is the missing fourth party, and Ghostty 1.3.1 agrees with the engine on all eleven
+  attribute bits. That is one scene on one emulator on one machine. The width questions are not
+  answerable by a screen dump at all and are still open.
 - **Windows has never been run.** `.github/workflows/ci.yml` declares a three-OS matrix and no hosted
   CI has been watched go green. Every green run behind the numbers below is a shared local GitLab on
   one machine: linux/arm64, one OS, one architecture.
-- **Three architecture questions are still open**, all filed by the implementation sessions that hit
-  them: the default SGR spelling, a hyperlink on a standalone surface, and a clip-edge pair. They are
-  recorded in `.scratch/vitui-engine-architecture/issues/` as 20, 21 and 23.
+- **One architecture question is still open**: the clip-edge pair, `.scratch/vitui-engine-architecture/issues/20`.
+  Its central unknown is what a terminal does with a bisected double-width glyph, and both emulators
+  measured re-serialise their grid as text with no padding cell — so no screen dump can settle it. The
+  default SGR spelling (23) and a hyperlink on a standalone surface (21) were closed on 2026-08-22.
 
 ## The frame, as a sequence
 

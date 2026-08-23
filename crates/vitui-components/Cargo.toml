@@ -8,6 +8,18 @@ license.workspace = true
 # `repository.workspace = true` here when the key goes back.
 rust-version.workspace = true
 
+# **Explicit, and cargo would have found it anyway.** A README in the package directory is
+# auto-detected, so this line changes nothing about what gets published — it is here because
+# ticket 01's whole finding was that a `rust-version` nobody checked had been switching lints off
+# for three releases. A key that is written down is a key a reader can see is wrong.
+#
+# It is **not** `readme.workspace = true`, and cannot usefully be: the four publishable crates have
+# genuinely different stories — the engine is complete, the runtime is half built, the components
+# crate is empty — and one shared file would put "components is empty scaffolding" on the engine's
+# crates.io page. Nothing gates this; a missing README surfaces as a `cargo publish` that ships a
+# blank front page, which is the first publish and not this commit.
+readme = "README.md"
+
 [dependencies]
 vitui-runtime.workspace = true
 
