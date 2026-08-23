@@ -20,3 +20,9 @@
 /compare/target
 /compare/arms/textual/.venv
 /compare/arms/notcurses/arm
+
+# The conformance suite (`conform/`) is a detached workspace on the same terms: its lock file **is**
+# committed and nothing built is. This line arrived late — 522 files and 25 MB of `conform/target`
+# were committed with the directory on 2026-08-22, because the pattern above is anchored at the root
+# and a new detached workspace does not inherit it. A third one will need a fourth line.
+/conform/target
