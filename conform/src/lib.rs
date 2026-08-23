@@ -23,6 +23,32 @@
 //! successor. Pretending to a column index here would put the assumption under test inside the
 //! instrument.
 //!
+//! # A capture format is a dialect, and two of them are not the same language
+//!
+//! [`parse`] takes a [`Dialect`] because the two capture formats this instrument reads **disagree
+//! about what a colon means**, and reading one as the other invents attributes.
+//!
+//! Ghostty's `vt` dump is ECMA-48: `4:2` is parameter 4 with sub-parameter 2, double underline.
+//! tmux's `capture-pane -e` is not. `grid.c`'s `grid_string_cells_code` writes every attribute code
+//! it knows, and then:
+//!
+//! ```c
+//! if (s[i] < 10)
+//!         xsnprintf(tmp, sizeof tmp, "%d", s[i]);
+//! else
+//!         xsnprintf(tmp, sizeof tmp, "%d:%d", s[i] / 10, s[i] % 10);
+//! ```
+//!
+//! **A colon there is a divided-by-ten, not a sub-parameter.** tmux's own codes for the underline
+//! styles are 42–45, chosen so that the division lands on ECMA-48's `4:2`–`4:5` — the two readings
+//! agree, and that is why one parser got away with it. **Overline is 53, and it rides the same
+//! branch**: it comes back as `5:3`, which in ECMA-48 is *blink*.
+//!
+//! So a parser told nothing reports blink for a cell tmux is holding an overline in — the exact
+//! defect `FINDINGS.md` records for `4:2` a stage earlier, and the reason the dialect is a required
+//! parameter rather than a default. A caller that does not know which format it captured cannot be
+//! trusted to have captured either.
+//!
 //! # A parameter is not a token, and flattening the two separators is a defect
 //!
 //! The first version of this parser split an SGR body on `;` **and** `:` into one flat token stream,
@@ -48,6 +74,45 @@
 #![warn(missing_docs)]
 
 use std::fmt;
+
+/// Which serialisation a capture is written in. See the module docs — this is not a formatting
+/// preference, the two disagree about what a colon means.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Dialect {
+    /// ECMA-48, as a terminal emits it: `;` separates parameters and `:` separates a parameter's
+    /// sub-parameters. Ghostty's `write_screen_file:…,vt`.
+    Ecma48,
+    /// tmux's `capture-pane -e`, where a colon is `code / 10` and `code % 10` rather than a
+    /// sub-parameter.
+    ///
+    /// The fold is deliberately **not** applied to 38, 48 and 58: those carry a real ITU-T T.416
+    /// tail, and tmux was observed to write all three with semicolons anyway
+    /// (`fixtures/tmux-3.7c-attrs-and-colours.vt`), so nothing is lost by refusing to guess there
+    /// and a genuine colon colour would survive unmangled.
+    TmuxCapturePane,
+}
+
+impl Dialect {
+    /// Fold one parameter's colon form back into the code it stands for, where this dialect says a
+    /// colon is arithmetic. `None` leaves the parameter to be read as ECMA-48 wrote it.
+    fn fold(self, parameter: &[&str]) -> Option<u16> {
+        if self != Self::TmuxCapturePane || parameter.len() != 2 {
+            return None;
+        }
+        let tens: u16 = parameter[0].parse().ok()?;
+        let units: u16 = parameter[1].parse().ok()?;
+        // One digit each, which is all the `%d:%d` above can produce.
+        if !(1..=9).contains(&tens) || units > 9 {
+            return None;
+        }
+        match tens * 10 + units {
+            // The three that carry a real T.416 tail, so a colon after them is a sub-parameter and
+            // not arithmetic. `3:8`, `4:8` and `5:8` are the only spellings this can reach.
+            38 | 48 | 58 => None,
+            code => Some(code),
+        }
+    }
+}
 
 /// Why a dump was refused. **Never a short screen and never an empty one** — see the module docs.
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -153,6 +218,9 @@ impl Underline {
 pub struct Attrs(u16);
 
 impl Attrs {
+    /// Nothing set. [`Attrs::default`]'s value as a constant, because a table of expectations wants
+    /// to be a `const` and `Default::default` is not callable in one.
+    pub const NONE: Self = Self(0);
     /// SGR 1.
     pub const BOLD: Self = Self(1 << 0);
     /// SGR 2.
@@ -246,11 +314,15 @@ pub struct Dump {
 /// because the refusal is the point: a caller that does not know how many rows it asked for cannot
 /// tell a raced capture from a blank screen.
 ///
+/// `dialect` is which capture format these bytes are, and it has no default for the same reason. See
+/// the module docs: the two formats disagree about what a colon means, and a caller that cannot say
+/// which one it captured cannot be trusted to have captured either.
+///
 /// # Errors
 ///
 /// [`DumpError::Empty`] for no rows at all, [`DumpError::ShortScreen`] for fewer than declared, and
 /// [`DumpError::UnterminatedEscape`] for a truncated CSI.
-pub fn parse(bytes: &[u8], expected_rows: usize) -> Result<Dump, DumpError> {
+pub fn parse(bytes: &[u8], expected_rows: usize, dialect: Dialect) -> Result<Dump, DumpError> {
     if bytes.iter().all(|b| matches!(b, b'\n' | b'\r' | b' ')) {
         return Err(DumpError::Empty);
     }
@@ -268,7 +340,7 @@ pub fn parse(bytes: &[u8], expected_rows: usize) -> Result<Dump, DumpError> {
         match bytes[i] {
             0x1b => {
                 flush(&mut row, &mut pending, style);
-                let (consumed, next) = escape(&bytes[i..], style)?;
+                let (consumed, next) = escape(&bytes[i..], style, dialect)?;
                 style = next;
                 i += consumed;
             }
@@ -331,7 +403,7 @@ fn flush(row: &mut Row, pending: &mut Vec<u8>, style: Style) {
 }
 
 /// Consume one escape sequence, returning its length and the style after it.
-fn escape(bytes: &[u8], style: Style) -> Result<(usize, Style), DumpError> {
+fn escape(bytes: &[u8], style: Style, dialect: Dialect) -> Result<(usize, Style), DumpError> {
     // Only CSI is interpreted. An OSC — the OSC 10/11 default-colour header an emulator may lead
     // with — is skipped to its terminator, because the instrument reads the header separately.
     if bytes.len() < 2 {
@@ -345,7 +417,7 @@ fn escape(bytes: &[u8], style: Style) -> Result<(usize, Style), DumpError> {
                 .ok_or(DumpError::UnterminatedEscape)?
                 + 2;
             let next = if bytes[end] == b'm' {
-                sgr(&bytes[2..end], style)
+                sgr(&bytes[2..end], style, dialect)
             } else {
                 style
             };
@@ -374,7 +446,7 @@ fn escape(bytes: &[u8], style: Style) -> Result<(usize, Style), DumpError> {
 /// terminal parses ITU-T T.416's colon form has to be able to read either answer back. They are
 /// accepted by looking for the tail in the two places it can be — inside this parameter's
 /// sub-parameters, or in the parameters that follow — never by flattening the separators.
-fn sgr(params: &[u8], mut style: Style) -> Style {
+fn sgr(params: &[u8], mut style: Style, dialect: Dialect) -> Style {
     let text = String::from_utf8_lossy(params);
     // An empty body is `CSI m`, which ECMA-48 defines as `CSI 0 m`.
     if text.is_empty() {
@@ -384,7 +456,14 @@ fn sgr(params: &[u8], mut style: Style) -> Style {
     let mut k = 0;
     while k < parameters.len() {
         let parameter = &parameters[k];
-        let code: u16 = parameter[0].parse().unwrap_or(0);
+        // **The dialect decides what the colon was.** In a tmux capture `5:3` is the number 53 and
+        // in an ECMA-48 one it is parameter 5 with a sub-parameter — blink either way if nobody asks.
+        let folded = dialect.fold(parameter);
+        let code: u16 = folded.unwrap_or_else(|| parameter[0].parse().unwrap_or(0));
+        let subs: &[&str] = match folded {
+            Some(_) => &[],
+            None => &parameter[1..],
+        };
         match code {
             0 => style = Style::default(),
             1 => style.attrs.set(Attrs::BOLD),
@@ -393,10 +472,19 @@ fn sgr(params: &[u8], mut style: Style) -> Style {
             // The one parameter with a sub-parameter that is not a colour. Bare `4` is single;
             // `4:n` is the style the engine's three-bit underline field spells.
             4 => {
-                style.underline = match parameter.get(1) {
+                style.underline = match subs.first() {
                     Some(n) => Underline::from_sgr(n.parse().unwrap_or(1)),
                     None => Underline::Single,
                 }
+            }
+            // tmux's own numbering for the underline styles, and **the guard is the whole of why
+            // this is safe**: 42–45 sit inside ECMA-48's 40–47 background colours, so without
+            // `folded.is_some()` this arm would shadow them and a green background would become a
+            // double underline. It is reachable only from a colon that
+            // [`Dialect::TmuxCapturePane`] folded — a bare `CSI 42 m` is a background colour
+            // everywhere, tmux included.
+            42..=45 if folded.is_some() => {
+                style.underline = Underline::from_sgr((code - 40) as u8);
             }
             5 => style.attrs.set(Attrs::BLINK),
             7 => style.attrs.set(Attrs::REVERSE),
@@ -421,8 +509,8 @@ fn sgr(params: &[u8], mut style: Style) -> Style {
             38 | 48 | 58 => {
                 // The colon form carries its tail inside this parameter; the semicolon form carries
                 // it in the parameters after it, each of which is a one-element sub-parameter list.
-                let colour = if parameter.len() > 1 {
-                    parameterised(&parameter[1..]).0
+                let colour = if !subs.is_empty() {
+                    parameterised(subs).0
                 } else {
                     let tail: Vec<&str> = parameters[k + 1..]
                         .iter()

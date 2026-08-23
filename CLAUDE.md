@@ -17,7 +17,10 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
 
 - **`vitui-engine` is implementation-complete**: all 26 tickets of `.scratch/vitui-engine-impl/`
   resolved, all 27 entries of the verification register wired with none pinned red, ~30k lines.
-  Production readiness added a 28th, `conform/`, which spec §14 had no way to state.
+  Production readiness added a 28th, `conform/`, which spec §14 had no way to state — and that
+  instrument has already earned its keep twice: `quirks.rs`'s fourth entry (tmux accepts SGR 53,
+  stores it, and never forwards it) and production ticket 10 (`attrs_dropped` is populated, printed,
+  and read by nothing).
 - **`vitui-runtime` is in progress**: 9 of 20 tickets resolved. `data`, `layout`, `theme`, `keys`,
   `ctx`, `id`, `route` exist; focus, overlays, scrolling, sizing, async work and the standard theme
   set do not.
@@ -61,6 +64,13 @@ examples/app-template     copy-this-directory starting point, and the home of sp
 compare/                  the comparative suite: SCENES.md normative, harness.py the instrument,
                           REPORT.md committed and regenerated, FINDINGS.md written by hand
                           └ detached workspace; reports, never gates
+conform/                  the only instrument that asks a real terminal rather than our model of one:
+                          SCENES.md normative, three arms as examples, one committed
+                          REPORT-<arm>.md each, FINDINGS.md written by hand
+                          └ detached workspace, no deny.toml — the third-party thing IS the subject.
+                            The live arms are soaks; the gate is `cargo test` over fixtures/, which
+                            runs inside the `test` CI job. The engine is a DEV-dependency, so the
+                            comparator cannot link the code it is checking.
 fuzz/                     two libFuzzer targets and the committed corpus that is their gate
                           └ a detached workspace: cargo-fuzz needs nightly and libfuzzer-sys,
                             which the engine's dependency policy will not have. That is a loophole,
@@ -81,6 +91,8 @@ cargo fmt --all
 cargo doc --workspace --no-deps             # a gate: a broken intra-doc link fails the job
 cargo deny check                            # needs `cargo install cargo-deny`
 (cd fuzz && cargo deny check)               # detached workspace: its own graph, its own gate
+(cd conform && cargo test)                  # the conformance gate, over committed captures
+(cd conform && cargo run --example tmux)    # the one conformance soak that is headless
 ```
 
 Warnings are denied workspace-wide (`[workspace.lints.rust] warnings = "deny"`), so an enum variant

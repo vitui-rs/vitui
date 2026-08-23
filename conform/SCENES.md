@@ -13,11 +13,15 @@ conclusion and wrote its own list for the same reason.
 
 | arm | measures | |
 |---|---|---|
-| **tmux** | **tmux** | `capture-pane` re-serialises *tmux's* grid, so the emulator behind it never sees the engine's bytes. A legitimate target — tmux is in §10's tier-1 list — and **never a proxy for one.** Headless, which makes it the only CI-shaped arm |
+| **tmux** | **what tmux stores** | `capture-pane` re-serialises *tmux's* grid, so the emulator behind it never sees the engine's bytes. A legitimate target — tmux is in §10's tier-1 list — and **never a proxy for one.** Headless, and the only arm that can *set* the pane size, which makes it the CI-shaped one |
 | **Ghostty** | Ghostty | its own screen dump, over an AppleScript surface. Needs a window server and a macOS automation grant |
+| **Ghostty-via-tmux** | **what tmux forwards** | the engine into tmux into Ghostty, photographing Ghostty. Ghostty alone agrees 11/11, so a disagreement here is tmux's. **The only arm that can see this**, because `capture-pane` and tmux's redraw path are different code and `attrs_dropped` is about what is rendered |
 | **Terminal.app** | Terminal.app | plain text only, so glyph-grid scenes and nothing else |
 
-A row that does not say which of these it came from is not a result.
+A row that does not say which of these it came from is not a result. **The tmux pair is why that
+sentence needed a fourth row**: *tmux* and *what tmux does to a terminal downstream of it* gave
+different answers on the same scene, and a table with one tmux column could only have printed one of
+them.
 
 ## The three kinds of non-number, inherited from `compare/`
 
@@ -49,7 +53,13 @@ Assertion: eleven rows, and a row agrees only when all three of these hold.
 
 Chosen as the first scene because `attrs_dropped` is the field with **no query** — the eleven facts
 are in the capability set precisely because nothing can ask for them — and a dump *is* a query for
-them. No column arithmetic, no width tables, no timing. It emits `quirks.rs` rows directly.
+them. No column arithmetic, no width tables, no timing. It emits `quirks.rs` rows directly, and it
+has: **Ghostty 1.3.1 agrees on eleven, tmux 3.7c stores eleven and forwards ten**, and the missing one
+is `quirks.rs`'s fourth entry.
+
+**Read across the three arms, never down one.** Overline is present in Ghostty's dump and present in
+tmux's grid and absent past tmux, and no single arm could have said which of the three parties lost
+it. That is the scene's real assertion: eleven booleans *per path*, compared.
 
 ## 02 — a wide glyph between ASCII sentinels
 

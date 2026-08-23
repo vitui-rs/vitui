@@ -36,6 +36,13 @@
 //! detection refused. Eleven attribute booleans would be eleven inventions. They live in the quirk
 //! table ([`crate::quirks`]), and an unsupported one is dropped silently at serialise time —
 //! nothing above needs to ask, because an absent attribute still draws the correct text.
+//!
+//! **That last clause is what §10 says and not yet what the code does.** `Quirks::apply` fills
+//! `attrs_dropped` and `serial.rs` never reads it, so the mask reaches a human through
+//! [`Capabilities::report`] and reaches the wire nowhere. Production ticket 05 populated the field
+//! with its first observed entry; production ticket 10 is the one that makes this sentence true.
+//! Written here rather than only in the ticket, because this paragraph is where a reader would
+//! otherwise take it on trust.
 
 use std::fmt::Write as _;
 
@@ -1507,6 +1514,62 @@ mod tests {
             Quirks::lookup(Some("kitty(0.32.2)"), &env),
         );
         assert!(!forced.legacy_sgr());
+    }
+
+    /// The fourth quirk entry, and the first this repository gathered rather than inherited.
+    ///
+    /// tmux answers XTVERSION with `tmux 3.7c`, so it is the one entry recognised by a **query** —
+    /// the version arrives with the identity and neither is inferred from a name. What it overrides
+    /// is `attrs_dropped`, and the evidence is three committed captures of one scene in `conform/`:
+    /// Ghostty renders overline, tmux's own grid holds it, and tmux never puts it on the wire.
+    ///
+    /// The other ten bits are asserted here too, because *overline and nothing else* is the claim.
+    /// An entry that dropped more than it was observed to drop would be this table inventing a
+    /// misbehaviour, which is the failure it exists to avoid.
+    #[test]
+    fn tmux_drops_overline_and_nothing_else() {
+        let env = Env::default();
+        let quirks = Quirks::lookup(Some("tmux 3.7c"), &env);
+        assert_eq!(quirks.attrs_dropped, crate::style::OVERLINE);
+        assert_eq!(
+            quirks.attrs_dropped & !crate::style::OVERLINE,
+            0,
+            "overline and nothing else — the other ten bits survived the same trip"
+        );
+        assert!(
+            !quirks.legacy_sgr,
+            "tmux was observed to parse the colon form correctly; see conform/FINDINGS.md"
+        );
+
+        let caps = assemble(Overrides::default(), &env, Ground::Tty, &modern(), quirks);
+        assert_eq!(caps.attrs_dropped(), crate::style::OVERLINE);
+        assert!(
+            caps.report().contains("attrs_dropped"),
+            "and `report` is the only door it reaches a human through until production ticket 10 \
+             wires the mask into the serializer"
+        );
+    }
+
+    /// A query beats an environment variable it was handed by inheritance.
+    ///
+    /// `$TERM_PROGRAM` and `$TERMUX_VERSION` are inherited by a tmux pane's environment, and one
+    /// entry applies rather than a union of them — so the order in [`Quirks::lookup`] decides which.
+    /// Inside tmux the thing at the other end of the pty **is** tmux, and forcing `legacy_sgr` for a
+    /// multiplexer that parses the colon form correctly would be the table making a terminal worse
+    /// on the strength of a variable about a different one.
+    #[test]
+    fn tmux_inside_vscode_is_tmux() {
+        let env = Env {
+            term_program: Some("vscode".to_string()),
+            ..Env::default()
+        };
+        let quirks = Quirks::lookup(Some("tmux 3.7c"), &env);
+        assert_eq!(quirks.attrs_dropped, crate::style::OVERLINE);
+        assert!(!quirks.legacy_sgr, "the tmux entry is the one that applies");
+
+        // And with nothing answering XTVERSION, the environment is all there is and VSCode's entry
+        // is right again.
+        assert!(Quirks::lookup(None, &env).legacy_sgr);
     }
 
     /// `$COLORTERM` is a cheap fast path and nothing more: it is corroborated, and it loses to a

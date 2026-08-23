@@ -3,6 +3,116 @@
 Hand-written and dated, because a number and what it means are two different artefacts with two
 different lifetimes. `REPORT.md` is generated; this is not.
 
+## 2026-08-23 — the second family, and it disagreed
+
+Production ticket 05 asked for the eleven attribute facts on two emulator families. The second family
+is tmux 3.7c, and the answer is **not one number**: tmux stores eleven of eleven and forwards ten.
+
+### tmux accepts overline, stores it, hands it back, and never sends it
+
+Three captures of scene 01, all three committed to `fixtures/`:
+
+| path | overline |
+|---|---|
+| the engine → Ghostty 1.3.1, `write_screen_file:…,vt` | present |
+| the engine → tmux 3.7c, `capture-pane -p -e` | present |
+| the engine → tmux 3.7c → Ghostty, `write_screen_file:…,vt` | **gone** |
+
+Ten of the eleven bits survive all three paths, so this is one attribute and not a broken route. And
+**no engine is needed to reproduce any of it.** A raw `printf '\033[53moverline\033[0m'` into a tmux
+pane comes back from `capture-pane -e` as `ESC[5:3m`, and the bytes tmux writes to its own attaching
+client — captured with `script -q out tmux attach`, which has neither this engine nor Ghostty in it —
+contain **no `53` anywhere at all**. The row arrives with no SGR while its neighbours arrive with
+`ESC[5m` and `ESC[9m`.
+
+**The mechanism, and it makes the entry's shape a decision rather than a guess.** tmux 3.0's CHANGES:
+
+> Add support for the overline attribute (SGR 53). The `Smol` capability is needed in
+> `terminal-overrides`.
+
+`Smol` is defined in none of `xterm-ghostty`, `xterm-256color`, `tmux-256color` or `screen-256color`
+on this machine. `Smulx` **is** defined in `xterm-ghostty`, which is exactly why the underline styles
+survive the trip and overline does not. Enabling it closes the loop: with
+`set -as terminal-features ",xterm-ghostty:overline"` tmux emits `ESC[53m` and the attribute arrives.
+
+So the quirk has no version boundary — every tmux drops it by default, and before 3.0 there was no
+overline output at all. What varies is a configuration, not a release.
+
+**And Ghostty renders SGR 53**, which is the first row of that table. So `xterm-ghostty`'s terminfo
+omits a capability the terminal it describes actually has, and tmux believes the terminfo. That is
+spec §10's refusal of terminfo arriving as field evidence from a direction nothing planned for: the
+refusal was argued as *do not infer capabilities from a name*, and this is the same refusal earning
+its keep against a description the terminal's own author ships.
+
+### The instrument's second defect was, again, in the instrument
+
+The first tmux run reported overline as **blink**. tmux never rendered blink there; the parser
+invented it — which is word for word the defect stage 1 recorded one level up, arriving again from a
+place that had been checked.
+
+`grid.c`'s `grid_string_cells_code`:
+
+```c
+if (s[i] < 10)
+        xsnprintf(tmp, sizeof tmp, "%d", s[i]);
+else
+        xsnprintf(tmp, sizeof tmp, "%d:%d", s[i] / 10, s[i] % 10);
+```
+
+**A colon in a tmux capture is a divided-by-ten, not a sub-parameter.** tmux numbers its underline
+styles 42–45 *so that* the division lands on ECMA-48's `4:2`–`4:5`, and the two readings agree — which
+is precisely why a parser that knew nothing about this passed every test stages 0 and 1 had. Overline
+is 53 and rides the same branch, so it comes back as `5:3`, and `5:3` in ECMA-48 is blink.
+
+There is no reading of those five bytes that is correct for both formats. So `parse` now takes a
+`Dialect` and **has no default**: a caller that cannot say which format it captured cannot be trusted
+to have captured either — the same argument as `expected_rows` being a parameter. Both readings are
+pinned by tests, so the dialect is asserted rather than assumed.
+
+The generalisation is worth more than the fix. Stage 1's lesson was *the flattening was correct for
+every capture stage 0 had*. This one is a level up: **the parser was correct for every capture that
+had ever been taken, and a second source of captures is what made it wrong.** An instrument gains a
+new failure mode from each arm it grows, and the arm that finds it is the one that was added last.
+
+### And the fold's own trap, caught by writing the test for it
+
+tmux's underline codes are 42–45. **ECMA-48's background colours are 40–47.** So the arm that reads a
+folded `4:2` as 42 sits inside the arm that reads a bare `42` as a green background, and in a `match` the
+first one written wins — the fold's arm was, so `ESC[42m` came back as a double underline in *both*
+dialects. None of the five committed fixtures has a background colour on a row that would have shown it.
+
+The arm is guarded on the fold now (`42..=45 if folded.is_some()`), and there is a test that fails
+without the guard. Worth its paragraph because the trap is in the numbering rather than in the code: any
+future reading of tmux's colon form lands in the same overlap.
+
+### `attrs_dropped` is populated and nothing reads it
+
+Found while writing the entry the evidence above earned. `Quirks::apply` fills
+`caps.private.attrs_dropped`, `Capabilities::report` prints it, and **`serial.rs` never reads the
+mask** — while `caps.rs`'s own module docs and spec §10 both say *an unsupported one is dropped
+silently at serialise time*.
+
+So the field scene 01 was built to feed is not wired to the thing it claims to control. The tmux entry
+is therefore a recorded observation and not yet a behaviour, and both files now say so where a reader
+would otherwise take it on trust. Wiring it is production ticket 10 — and it is not a one-line mask,
+because `quant::OnTheWire` has to narrow the expectation too, the way it already drops a hyperlink the
+terminal cannot express, or the round trip will fail on a bit the engine correctly declined to send.
+
+This is the backlog's opening finding a third time: a declaration that is load-bearing for the silence
+around it. The round trip agreeing with itself, an MSRV agreeing with the lints it disabled, and a mask
+agreeing with a serializer that never asked.
+
+### Two operational notes
+
+- **A Ghostty window's `command` runs with the GUI application's `PATH`**, which is
+  `/usr/bin:/bin:/usr/sbin:/sbin` — Homebrew's `/opt/homebrew/bin` is not on it. The first
+  `--through-tmux` run opened a window, failed to exec `tmux`, and reported *the scene never presented
+  a frame*: the readiness timeout doing its job and saying nothing about the cause. The path is
+  resolved in the driver now, which has the developer's `PATH`, so the refusal names what is missing.
+- **A tmux server outlives the client in it.** Closing the window kills the client and leaves the
+  session detached, so the arm kills the server explicitly. Without that, a run leaves litter the
+  *next* run's socket-collision refusal fires on.
+
 ## 2026-08-23 — stage 1, and the instrument found its first defect in itself
 
 Ghostty 1.3.1 agreed with the engine **11/11** on scene 01. Three things are worth more than that
