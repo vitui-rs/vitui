@@ -1,8 +1,8 @@
 //! **`layout` allocates nothing, at every arity.**
 //!
-//! A count, which is what §14's rule wants: *a gate is a count, a ratio, an equality or a compile
-//! outcome.* Zero is a count, it is the same number on every machine, and it is the one property of
-//! this module that a stopwatch could not have told us.
+//! A count, which is what spec §20's rule wants: *a gate is a count, a ratio, an equality or a
+//! compile outcome.* Zero is a count, it is the same number on every machine, and it is the one
+//! property of this module that a stopwatch could not have told us.
 //!
 //! # Why this is its own binary
 //!
@@ -11,6 +11,20 @@
 //! sibling lands in the number — which is why the workspace's one test command is
 //! `cargo test --workspace -- --test-threads=1`, and why this lives beside the library rather than
 //! inside it.
+//!
+//! # The attribution window, which is the rule this binary keeps by having nothing to keep it from
+//!
+//! Spec §20: **a gate has an attribution window.** The probe counts `alloc` calls, not `alloc` calls
+//! *by the app thread*, so a window opened around a frame while a worker is decoding attributes the
+//! worker's growth to the frame. The rule is that **an allocation gate with a background job in it
+//! runs on a deterministic spawner, or joins before it measures.**
+//!
+//! Nothing in this file starts a thread, which is why the rule costs it nothing — and that is the
+//! statement, not an accident: `tests/work_alloc.rs` is a **second** binary precisely because
+//! `work`'s last gate runs a real worker *inside* a window on purpose, to show that the count is
+//! not zero and therefore that the rule is necessary. Every other gate there runs on
+//! `Worker::queueing`, which has no thread at all. If a gate here ever needs one, it belongs beside
+//! that one rather than beside these.
 //!
 //! # What is actually being asserted
 //!

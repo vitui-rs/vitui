@@ -158,6 +158,11 @@ use crate::layout::text;
 /// assert_eq!(children.iter_mut().map(|c| c.measure(20)).sum::<u16>(), 0);
 /// ```
 ///
+/// **Protects:** `sizing::check`, `Agreement` — and not `Extent`, which is where this pair *sits*
+/// rather than what it is *about*. The `E0499` above is the trait that was not built (the module
+/// comment says so in as many words), so a rename of `check` or `Agreement` is what would leave the
+/// hostile half passing for the wrong reason. Ticket 19's twin gate reads this line.
+///
 /// and the twin that names what shipped instead, by path: two children over **one** `&mut`, drawn
 /// one after another, because a sizing function does not hold a child at all.
 ///

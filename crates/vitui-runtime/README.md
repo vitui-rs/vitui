@@ -5,14 +5,17 @@ Layout, identity, focus, hit-testing, routing, key maps and theming on top of
 
 **Nothing is published. The version is `0.0.0` and there is no stability promise before 0.x.**
 
-## Status: 18 of 21 tickets, and this crate is under construction
+## Status: 20 of 21 tickets, and this crate is under construction
 
 `data`, `layout`, `layout::text`, `theme` with its standard set, `keys`, `ctx`, `id`, `route`, the
 hit index, `focus`, `sizing`, `work`, `anim`, `overlay` and `scroll` exist, and the crate line is
 built rather than counted: the component-facing surface is checked by a crate that cannot name the
 engine, so `use vitui_engine::…` there is an `E0432` and the boundary is cargo's rather than a
-reviewer's. **The facade's signals and the verification ledger do not exist.** Nothing above the
-engine can draw a full screen yet.
+reviewer's. Spec §20's register and scene list exist as values — 39 gates and 20 scenes — and
+**every instrument names a file a test opens**, which is what makes them registers rather than
+documents. **The headroom ledger does not exist**, and the register's one red row is its: the dense
+frame under the budget is measured in two places and gated in neither. Nothing above the engine can
+draw a full screen yet.
 
 **This crate is `#![forbid(unsafe_code)]`, and so are `vitui-components` and the `vitui` facade**
 (`docs/adr/0034`). `overlay` used to carry the crate's only `unsafe` — a crate-private bump region

@@ -1196,9 +1196,46 @@ impl Frame {
     /// **A read, never a move.** The walk is not a verb a component can call: one that could would
     /// move the focus during the draw, over a ring that is half built — the stale-ring defect this
     /// ticket removed, reintroduced from above. The only focus verb is [`Ctx::focus`], which names a
-    /// widget rather than a direction, and there is no shape to ask for the other:
+    /// widget rather than a direction.
     ///
-    /// ```compile_fail
+    /// # The positive twin, naming the protected items by path
+    ///
+    /// Ticket 19's refinement 3: **a lone `compile_fail` also passes when the protected item has
+    /// been renamed**, because `E0599` for *the method you meant is now spelled differently* and
+    /// `E0599` for *the method you must not have was never built* are the same diagnostic. This pair
+    /// was the one case in the corpus written without a twin, so both halves below would have gone
+    /// on passing through a rename of either [`Frame::tab_walk`] or [`Frame::ring`]. The twin names
+    /// both by path first, and a rename now fails **here**:
+    ///
+    /// ```
+    /// use vitui_engine::Rect;
+    /// use vitui_runtime::ctx::{Driver, Frame};
+    /// use vitui_runtime::focus::Stop;
+    /// use vitui_runtime::{Id, Interest};
+    ///
+    /// fn protected(f: &Frame) -> (Vec<Id>, usize) {
+    ///     let walk: Vec<Id> = Frame::tab_walk(f).collect();
+    ///     let ring: &[Stop] = Frame::ring(f);
+    ///     (walk, ring.len())
+    /// }
+    ///
+    /// let mut d = Driver::headless(20, 3).expect("sink");
+    /// d.frame(|cx| {
+    ///     cx.interact(Id::named("field"), Rect::new(0, 0, 4, 1), Interest::FOCUS);
+    /// });
+    /// let (walk, stops) = protected(d.inspect());
+    /// assert_eq!(stops, 1, "one widget asked to be in the ring");
+    /// assert_eq!(walk.len(), stops, "the walk visits the ring and nothing else");
+    /// ```
+    ///
+    /// # And the negative cases: there is no shape to ask for a move, or to reorder the ring
+    ///
+    /// The codes are declared and **rustdoc does not check them** — measured on rustc 1.97.1, not
+    /// assumed; `register::tests::every_negative_case_declares_the_error_it_expects` carries the
+    /// evidence. They are here as documentation of which error the author meant, and the twin above
+    /// is what actually holds these two halves to their subject.
+    ///
+    /// ```compile_fail,E0599
     /// use vitui_runtime::ctx::Driver;
     ///
     /// let mut d = Driver::headless(20, 3).expect("sink");
@@ -1211,7 +1248,7 @@ impl Frame {
     /// ring is the reading order of the source* is only true while that stays so. A widget that
     /// wants to be visited earlier moves its call.
     ///
-    /// ```compile_fail
+    /// ```compile_fail,E0596
     /// use vitui_runtime::ctx::Driver;
     ///
     /// let mut d = Driver::headless(20, 3).expect("sink");
@@ -2042,7 +2079,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// });
     /// ```
     ///
-    /// ```compile_fail
+    /// ```compile_fail,E0599
     /// use vitui_runtime::ctx::Driver;
     /// use vitui_runtime::Id;
     ///
@@ -2307,7 +2344,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// routing and at least one allocation a frame against zero, and this is the gate that says it
     /// was never built:
     ///
-    /// ```compile_fail
+    /// ```compile_fail,E0599
     /// use vitui_runtime::ctx::Driver;
     /// use vitui_runtime::Id;
     ///

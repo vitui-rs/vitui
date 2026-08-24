@@ -632,6 +632,9 @@ mod tests {
 /// m.insert(Id::named("a"), 1);
 /// ```
 ///
+/// **Protects:** `Id`. This type is a `#[cfg(doc)]` marker that exists only to hold the pair, so the
+/// item a rename would move is `Id` and not the marker. Ticket 19's twin gate reads this line.
+///
 /// and the twin, which is the one collection an `Id` belongs in — keyed within a frame, thrown away
 /// with it:
 ///

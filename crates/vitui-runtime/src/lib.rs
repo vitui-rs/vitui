@@ -104,6 +104,18 @@ pub mod work;
 #[path = "screen.rs"]
 mod screen;
 
+// **Spec §20's register, as a value.** Ticket 19. Every gate this crate ships, each naming the
+// instruments that run it — and every instrument is checked against the source, which is the whole
+// difference between a register and a document. `#[cfg(test)]` for `crate::line`'s reason and the
+// engine's (`crates/vitui-engine/src/audit.rs`): an instrument is not part of the library.
+#[cfg(test)]
+mod register;
+
+// **Spec §20's twenty scenes, as a normative list.** Ticket 19, and `#[cfg(test)]` on the same
+// terms. A scene is removed only by a ticket naming the property it can no longer distinguish.
+#[cfg(test)]
+mod scenes;
+
 // **The crate line, as a value.** Ticket 17's module map, the visibility count and the four manifest
 // decisions that had been comments — `#[cfg(test)]` for `screen`'s reason and for the engine's
 // (`crates/vitui-engine/src/audit.rs`): an instrument is not part of the library. The *build* behind

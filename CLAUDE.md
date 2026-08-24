@@ -30,15 +30,22 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   asked three families what they do with a cluster printed over one half of a double-width glyph, all
   three blank the orphaned half themselves, and *they disagree about what it wears*, which is what
   made the engine's own repair mandatory rather than merely tidy.
-- **`vitui-runtime` is in progress**: 19 of 21 tickets resolved. 05, 12, 15 and 16 landed together
-  on 2026-08-23 and 06, 13 and 14 on 2026-08-24, then 21 and 17 together on 2026-08-24, and 18 after
-  them the same day; all built in parallel worktrees and integrated one pipeline at a time. `data`,
-  `layout`, `theme` with its fourteen shipped schemes, `keys`, `ctx`, `id`, `route`, `focus`,
+- **`vitui-runtime` is in progress**: 20 of 21 tickets resolved. 05, 12, 15 and 16 landed together
+  on 2026-08-23 and 06, 13 and 14 on 2026-08-24, then 21 and 17 together on 2026-08-24, and 18 and 19
+  after them the same day; all built in parallel worktrees and integrated one pipeline at a time.
+  `data`, `layout`, `theme` with its fourteen shipped schemes, `keys`, `ctx`, `id`, `route`, `focus`,
   `sizing`, `work`, `anim`, `overlay` and `scroll` exist, and **the crate line is now built rather
   than counted** — the component-facing surface is checked by a crate that cannot name the engine
   (`crates/vitui-components/tests/crate_line.rs`), which is what the 0-restricted-items count had
-  been standing in for. Only the verification ledger (19, 20) remains.
-  **Five of the nine found defects in code that was already green**, which is the argument for a
+  been standing in for. **The register and the scene list exist and the register has one red row**
+  (ticket 19): `src/register.rs` is 39 entries and `src/scenes.rs` is spec §20's twenty scenes, and
+  what makes them registers rather than documents is that an `Instrument` is a **value with a file in
+  it** — a test name, a hostile line that must sit inside a `compile_fail` block, or a trimmed
+  attribute — which a test opens the file and checks. That is what turned entry 12 red: *the dense
+  frame under the budget* is measured in two places and **gated in neither**, because the in-binary
+  arm returns early without `line=1` and the example is one no CI job runs. **Only the headroom
+  ledger (20) remains**, and it owns entry 12.
+  **Six of the ten found defects in code that was already green**, which is the argument for a
   consumer over another gate: ticket 15 found `Ctx::hover_style` translating from `rect` rather than
   from an accumulated origin, wrong at every level below the first two; ticket 16 found a stale
   landing able to destroy a fresh one in `Slot::put`, which is where `Generation`'s ordering earns
@@ -46,7 +53,16 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   one channel whose reader is inside the draw; ticket 06 found the runtime had two wakeup sinks and
   flushed one; and ticket 21 found the frame arena **leaking** a body requested inside `Ctx::measured`
   — a sizing dry run builds a throwaway `Frame` no pass ever runs over, so a body owning a `String`
-  was never dropped, and the one gate that could have caught it only ever exercised the real pass.
+  was never dropped, and the one gate that could have caught it only ever exercised the real pass;
+  and ticket 19 found `ctx::Frame::tab_walk` carrying **two `compile_fail` fences and no twin**,
+  neither of them naming `tab_walk` or `ring` by path — so renaming either would have left both
+  halves failing identically and reporting `ok`, `E0599` for *the method you meant moved* and
+  `E0599` for *the method you must not have was never built* being the same diagnostic. **The twin
+  is the only half of a pair that holds**, and that is a measured fact rather than a preference:
+  rustdoc on stable ignores the error code beside `compile_fail`, so ` ```compile_fail,E0599 ` over
+  a body whose real error is `E0432` still reports `ok`. The codes are documentation of intent; a
+  pair is held to its subject by a twin that names the protected item, and where the pair does not
+  sit on that item a `**Protects:**` line says which one it is.
 - **`vitui-signals` exists, and it is a detached workspace because the rule taken literally required
   one** (ticket 18, 2026-08-24). 112 lines of code above `vitui-runtime` — `Signal<T>`, `Graph`,
   `Computed<T>` — and the facade deliberately does not re-export it. `deny.toml` has carried
