@@ -39,13 +39,14 @@ would report *kitty does not render dotted underlines*, which is false, and woul
 entry the table exists to keep out.
 
 So it is not the same cell as `cannot express`, and collapsing the two would put a real capability
-behind a word that means the terminal lacks one. Three rules keep the new cell from becoming an
-excuse:
+behind a word that means the terminal lacks one. Three rules keep an uncompared row from becoming an
+excuse, and they hold for the fifth kind below as well as this one:
 
-1. **An arm declares its unaskable rows before the run, with the reason.** A limitation discovered
-   after seeing the answer is an excuse, not a declaration.
+1. **An arm declares the rows it will not compare before the run, with the reason**, and declares them
+   as a hand-written constant rather than by asking the engine. A limitation discovered after seeing
+   the answer is an excuse, not a declaration; one read out of the code under test is not evidence.
 2. **The row is still printed, with what was nonetheless observed.** It leaves the numerator and the
-   denominator both; it does not leave the table.
+   denominator; it does not leave the table.
 3. **A declared row that agrees anyway is `STALE` and counts as a failure.** An excuse nobody
    rechecks is the same kind of thing as an MSRV nobody compiles.
 
@@ -71,9 +72,8 @@ itself, which is the arrangement `conform/` exists to break. **The committed fix
 the evidence**, captured while the engine still sent the bit, and it is the sharpest reason yet for
 the rule that a capture is never regenerated to make something pass.
 
-The same three rules apply to both new cells, and the third is worth reading twice for `by design`: a
-row the engine promised to withhold that arrives anyway means the declaration and `quirks.rs` no
-longer describe the same terminal.
+The third rule above is worth reading twice for this cell: a row the engine promised to withhold that
+arrives anyway means the declaration and `quirks.rs` no longer describe the same terminal.
 
 ## 01 — the eleven attribute bits, one per row
 
