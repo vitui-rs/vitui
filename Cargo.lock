@@ -213,6 +213,7 @@ version = "0.0.0"
 name = "vitui-components"
 version = "0.0.0"
 dependencies = [
+ "vitui-alloc-probe",
  "vitui-runtime",
 ]
 

@@ -23,5 +23,20 @@ readme = "README.md"
 [dependencies]
 vitui-runtime.workspace = true
 
+# **Dev only, and constraint C6 above is untouched.** `vitui-alloc-probe` is the counting global
+# allocator; the engine and the runtime both take it in exactly this place for exactly this reason —
+# *no allocation* is a count, and a count needs something that counts.
+#
+# It does not weaken the one gate that reads this file. `line::tests::the_components_manifest_names_
+# only_the_runtime` asserts `dependencies_of(manifest) == ["vitui-runtime"]`, and that helper sets
+# `inside = s == "[dependencies]"` on **every** line beginning with `[` — so this table turns it off
+# rather than adding to it. The C6 that matters is what a component-facing *library* links, and a
+# dev-dependency is not in it: `publish = false`, and no consumer of `vitui` ever compiles it.
+#
+# What it buys is `tests/budget.rs`, where the two standing budget counts run for the first time from
+# a crate that cannot name the engine. See that file's header.
+[dev-dependencies]
+vitui-alloc-probe.workspace = true
+
 [lints]
 workspace = true
