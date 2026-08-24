@@ -49,6 +49,10 @@
 //!   object**: every helper is a closed form over `(now, start, duration)`, a `Tween` is 48 bytes of
 //!   the component's own state, and the runtime holds nothing but the wake accounting — which is
 //!   unconditional, because a detector armed only in a debug build never sees the application.
+//! - [`overlay`] — `Z`, `Placement`, `place`, `Scrim`, `OverlayOpts` and the frame arena. Spec §10;
+//!   ADR 0017. **Request during the draw, satisfy after it, answer next frame**, with the owner id
+//!   handed over rather than derived — and the crate's only `unsafe`, all of it in one bump region
+//!   that holds a body between the two passes.
 //! - [`work`] — `Slot` (the engine's, re-exported), `Drain`, `Task`, `Worker`, `Landing`, `Cancel`.
 //!   Spec §17. **A worker is a noun, not a spawned future**: the runtime has no executor to lean on,
 //!   so the handoff is a resident thread with a one-slot inbox and eight bytes of generation that
@@ -72,6 +76,7 @@ pub mod focus;
 pub mod id;
 pub mod keys;
 pub mod layout;
+pub mod overlay;
 pub mod route;
 pub mod scroll;
 pub mod sizing;
@@ -99,6 +104,9 @@ pub use data::{Edit, Memo, Revision, Versioned};
 pub use focus::{ScopeKind, Stop};
 pub use id::{Id, IdTable};
 pub use keys::{ActionId, Binding, Chord, Chords, KeyMap, Match, MatchMode, On};
+// The four an application names on the line that opens a menu. `place`, `Side` and `Align` stay in
+// the module: a caller that needs them is already reading about placement.
+pub use overlay::{OverlayOpts, Placement, Scrim, Z};
 pub use scroll::{IntoView, Scrollable};
 pub use theme::{Density, Distinction, Glyph, GlyphSet, Paint, Repaint, Role, Roles, Theme};
 // Ticket 05's two: the shipped palette as data, and the set that holds which one is current. At the

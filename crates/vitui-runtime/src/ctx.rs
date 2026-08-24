@@ -85,6 +85,7 @@ use vitui_engine::{
 use crate::focus::{ScopeKind, Stop};
 use crate::id::IdStack;
 use crate::keys::Matches;
+use crate::overlay::{Arena, OverlayOpts, OverlayRequest, Z, place};
 use crate::route::{self, KeyQueue};
 use crate::scroll::{Area, IntoView, Scrollable, Wheel};
 use crate::sizing::{Consulted, Extent, Measured};
@@ -313,7 +314,7 @@ pub struct Frame {
     ///    **the previous frame's copy of both** — one more swapped buffer, which is the whole
     ///    storage cost of the vanish rule. See [`crate::focus`].
     ring: crate::focus::Ring,
-    /// 3. The overlay request queue, ordered `(z, seq)`. Ticket 13 fills it.
+    /// 3. The overlay request queue, ordered `(z, seq)` by the pass that drains it.
     overlays: Vec<OverlayRequest>,
     /// 4. The deadline sink: **the earliest requested wake, and one value rather than a list**,
     ///    because `end` folds it into one wake anyway.
@@ -454,6 +455,23 @@ pub struct Frame {
     /// What the body asked a measured world for that a measured world cannot answer.
     consulted: Consulted,
 
+    // ── overlays (ticket 13) ───────────────────────────────────────────────────────────────────
+    /// **The frame arena**: where an overlay body lives between being requested and being run.
+    /// Reset in `begin`, never freed. See [`crate::overlay`].
+    arena: Arena,
+    /// The `z` of the layer being drawn into right now, and **0 during the base pass**.
+    ///
+    /// One field rather than a `Ctx` field, deliberately: every `Ctx` in a body's subtree shares the
+    /// frame, so *which layer is being drawn into* is a property of the pass and not of a context.
+    /// It is what makes a nested overlay's `z` count from its parent's layer.
+    layer_z: i32,
+    /// How many rounds the overlay pass ran. **The bound is a limit, not a hang.**
+    overlay_rounds: u32,
+    /// How many overlays were placed into a layer this frame.
+    overlays_placed: u32,
+    /// How many requests named an owner that had already asked this frame, and were therefore inert.
+    overlays_merged: u32,
+
     /// The `max` of every declared interest, which is what `settle` hands to `set_mouse`.
     tracking: MouseMode,
     /// Where the caret goes, if anything asked.
@@ -490,21 +508,35 @@ struct Awarded {
     mods: vitui_engine::Mods,
 }
 
-/// A queued overlay. **Ticket 13 owns `OverlayOpts` and placement**; this is the shape of the request
-/// so that the queue is a real structure with nothing in it.
-#[derive(Debug)]
-struct OverlayRequest {
-    #[expect(
-        dead_code,
-        reason = "ticket 13 reads these; the queue exists so it has somewhere to go"
-    )]
+/// A layer this driver is keeping alive for an owner, and what it currently is.
+///
+/// **The lifecycle is keyed by the owner id and the census is not §5's identity sweep**, which is a
+/// distinction with a case behind it: an owner whose dropdown is *closed* is still drawing, so the
+/// sweep sees a live id and would keep a layer nothing asked for. The census asks a different
+/// question — *was this layer requested this frame* — and `seen` is where the answer is kept.
+#[derive(Clone, Copy, Debug)]
+struct Placed {
     owner: Id,
-    #[expect(dead_code, reason = "ticket 13 reads these")]
-    anchor: Rect,
-    #[expect(dead_code, reason = "ticket 13 reads these")]
+    layer: LayerId,
+    /// The operator layer under it, when the overlay has a scrim.
+    scrim: Option<ScrimLayer>,
+    rect: Rect,
     z: i32,
-    #[expect(dead_code, reason = "ticket 13 reads these")]
-    seq: u32,
+    /// The frame number this layer was last requested on.
+    seen: u64,
+}
+
+/// The scrim's operator layer, and enough of what it was made from to notice a change.
+///
+/// The `Scrim` is kept beside the id because a theme swap changes the operator: a light scheme
+/// arriving under a standing modal has to replace the layer, not keep a darkening that was chosen
+/// for the scheme before it.
+#[derive(Clone, Copy, Debug)]
+struct ScrimLayer {
+    layer: LayerId,
+    spec: crate::overlay::Scrim,
+    rect: Rect,
+    z: i32,
 }
 
 /// The thresholds double-click and long-press inference uses.
@@ -583,6 +615,11 @@ impl Frame {
             extent: None,
             measure_extent: false,
             consulted: Consulted::NONE,
+            arena: Arena::new(),
+            layer_z: Z::BASE,
+            overlay_rounds: 0,
+            overlays_placed: 0,
+            overlays_merged: 0,
             tracking: MouseMode::Off,
             caret: None,
             wakes: crate::anim::WakeLedger::new(),
@@ -615,7 +652,17 @@ impl Frame {
 
         self.hits.clear();
         self.ring.begin();
-        self.overlays.clear();
+        // **The arena is reset, and the reset is only sound once every body has been dropped.** The
+        // pass drains the queue and drops as it goes, so this is normally a no-op over an empty
+        // `Vec`; it is written as a drain rather than a `clear` because a frame that never reached
+        // its pass — a panic caught above, a `Frame` driven by something other than `Driver::frame`
+        // in a later ticket — would otherwise leave a `String` in the arena and reset over it.
+        self.discard_overlays();
+        self.arena.begin();
+        self.layer_z = Z::BASE;
+        self.overlay_rounds = 0;
+        self.overlays_placed = 0;
+        self.overlays_merged = 0;
         self.deadline = None;
         self.keys.begin();
         self.maps.clear();
@@ -683,6 +730,16 @@ impl Frame {
                 | vitui_engine::Event::FocusGained
                 | vitui_engine::Event::FocusLost => {}
             }
+        }
+    }
+
+    /// Drop every queued overlay body that the pass will not reach.
+    ///
+    /// **The arena drops nothing itself**, so this is where a body owning a `String` stops leaking.
+    /// Called by the pass when the round bound is reached and by `begin` for anything left over.
+    fn discard_overlays(&mut self) {
+        while let Some(req) = self.overlays.pop() {
+            self.arena.discard(&req.body);
         }
     }
 
@@ -1247,9 +1304,37 @@ impl Frame {
         self.ring.probes()
     }
 
-    /// How many overlays were requested.
+    /// How many overlay requests are still queued. **Zero after a frame**, because the pass drains
+    /// the queue rather than reading it — which is what makes it a queue and not a log.
     pub fn overlays_requested(&self) -> usize {
         self.overlays.len()
+    }
+
+    /// How many overlays the pass gave a layer to this frame.
+    pub fn overlays_placed(&self) -> u32 {
+        self.overlays_placed
+    }
+
+    /// How many requests named an owner that had already asked this frame and were therefore inert.
+    ///
+    /// **The same policy as [`Ctx::interact`]'s merge, for the same reason**: one owner keys one
+    /// layer, so a second request under one id would have two rectangles for one surface. It is a
+    /// count rather than a panic because the failure is cosmetic and visible on screen.
+    pub fn overlays_merged(&self) -> u32 {
+        self.overlays_merged
+    }
+
+    /// How many rounds the overlay pass ran, out of [`OVERLAY_ROUNDS`].
+    ///
+    /// **A body that requests itself for ever reaches the bound**, and the gate reads this to say so
+    /// — a limit, not a hang.
+    pub fn overlay_rounds(&self) -> u32 {
+        self.overlay_rounds
+    }
+
+    /// The frame arena's high-water mark, in bytes. **32 with a dropdown standing.**
+    pub fn arena_high_water(&self) -> usize {
+        self.arena.high_water()
     }
 
     /// The id table.
@@ -1352,13 +1437,14 @@ impl Frame {
 ///
 /// ```compile_fail,E0373
 /// use vitui_runtime::ctx::{Ctx, Driver, Id};
+/// use vitui_runtime::overlay::OverlayOpts;
 /// use vitui_engine::Rect;
 ///
 /// let mut driver = Driver::headless(20, 5).expect("sink");
 /// driver.frame(|cx| {
 ///     let base_pass_local = String::from("dies at the end of the base pass");
 ///     // No `move`: the closure borrows, and the borrow is what cannot outlive the frame.
-///     cx.overlay(Id::ROOT, Rect::new(0, 0, 4, 1), 0, |_inner| {
+///     cx.overlay(Id::ROOT, Rect::new(0, 0, 4, 1), OverlayOpts::sized(4, 1), |_inner| {
 ///         let _ = &base_pass_local;
 ///     });
 /// });
@@ -1374,15 +1460,21 @@ impl Frame {
 ///
 /// ```
 /// use vitui_runtime::ctx::{Ctx, Driver, Id};
+/// use vitui_runtime::overlay::OverlayOpts;
 /// use vitui_engine::Rect;
 ///
 /// static MENU: [&str; 2] = ["Open", "Save"];
 /// let mut driver = Driver::headless(20, 5).expect("sink");
 /// driver.frame(|cx: &mut Ctx<'_, '_>| {
 ///     let selected = 1usize;
-///     cx.overlay(Id::ROOT, Rect::new(0, 0, 4, 1), 0, move |inner: &mut Ctx<'_, '_>| {
-///         let _ = (MENU[selected], inner.area());
-///     });
+///     cx.overlay(
+///         Id::ROOT,
+///         Rect::new(0, 0, 4, 1),
+///         OverlayOpts::sized(4, 1),
+///         move |inner: &mut Ctx<'_, '_>| {
+///             let _ = (MENU[selected], inner.area());
+///         },
+///     );
 /// });
 /// ```
 ///
@@ -2115,6 +2207,21 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// **One index into the hit index**, which is already in draw order — so modality is an *ordering*
     /// and not a membership, and nothing needs a layer id. Everything declared from here on is inside
     /// the modal; everything before it is withheld from the pointer.
+    ///
+    /// # The barrier stops the pointer and only the pointer
+    ///
+    /// A modal is three mechanisms and this is one of them: the overlay is
+    /// [`Ctx::overlay`]'s, the keyboard half is a [`ScopeKind::Trap`], and the scrim is
+    /// [`crate::overlay::Scrim`]. **A barrier with no trap around it lets `Tab` walk straight out of
+    /// the modal**, which is gated rather than assumed —
+    /// `overlay_tests::a_barrier_alone_lets_tab_out`.
+    ///
+    /// # Where to call it
+    ///
+    /// **From inside the overlay body, as its first statement.** The base pass has finished by then,
+    /// so `hits.len()` is exactly the boundary between *under the modal* and *in it*, and nothing
+    /// depends on the owner having drawn last. Called during the base pass instead it is still an
+    /// index, and every widget drawn after it — siblings included — is inside the modal.
     pub fn modal_barrier_here(&mut self) {
         self.frame.modal_from = Some(self.frame.hits.len());
     }
@@ -2306,27 +2413,95 @@ impl<'f, 'v> Ctx<'f, 'v> {
         self.frame.maps.declare_in(map, scope);
     }
 
-    /// Queue an overlay.
+    /// Queue an overlay: **request during the draw, satisfy after it, answer next frame.**
     ///
-    /// The body is bounded by `+ 'f` — see the type's documentation for the paired compile outcome
-    /// and for the three things that have to be true for that bound to bite.
+    /// A component cannot open a layer mid-draw — `LayerStack::view` holds `&mut` of the stack for
+    /// the life of the view, so a second one is `E0499` (engine architecture ticket 14 R2). The body
+    /// therefore runs in the second pass, after every base-pass draw context has been dropped, and
+    /// anything it produces reaches its owner on the frame after through whatever the owner is
+    /// already reading — a press it declared, a key it took, its own `&mut` state.
     ///
-    /// **Ticket 13 runs it.** Here the request is queued and the pass loops over it doing nothing,
-    /// bounded at [`OVERLAY_ROUNDS`].
-    pub fn overlay<F>(&mut self, owner: Id, anchor: Rect, z: i32, body: F)
+    /// # The owner is an argument, and there is no spelling that derives one
+    ///
+    /// `owner` is the id the calling component already claimed. It cannot be derived here: a
+    /// component carries `#[track_caller]` and the attribute reaches *into* the body, so a derived
+    /// id would be the id the owner claimed one line earlier, [`Ctx::interact`]'s merge would make
+    /// the second claimant inert, and **the overlay would be silently dropped**. This verb is
+    /// deliberately not `#[track_caller]` and mints no id at all.
+    ///
+    /// It does two jobs. It **keys the layer across frames**, so a layer requested again is reused
+    /// rather than rebuilt; and it **roots the body's id stack**, so the same body drawn inline and
+    /// drawn in an overlay produces *different* ids. An overlay is a different place for identity,
+    /// not only for geometry.
+    ///
+    /// # What the body may capture
+    ///
+    /// The bound is `+ 'f`, and `'f` is the frame call's, not the borrow's — see [`Ctx`]'s own
+    /// documentation for the paired compile outcome and for the three things that have to be true
+    /// for it to bite. A body may capture application data and `Copy` state; it may **not** capture
+    /// a local of the base pass, because that local is gone by the time the body runs.
+    ///
+    /// **"A body may not capture `&mut` state" is a convention and not a bound.** It compiles, it
+    /// runs, and nothing here refuses it. The reason to keep the convention anyway is that an
+    /// outcome reaching its owner the ordinary way keeps a `select` mutating its state in one place
+    /// instead of two.
+    ///
+    /// # The z it actually gets
+    ///
+    /// `opts.z` at the base pass. Inside another overlay it is the **parent's** layer plus
+    /// [`Z::NESTED`], because a dropdown inside a modal sorted into its own band would draw below
+    /// the barrier that exists to protect it.
+    ///
+    /// ```
+    /// use vitui_engine::Rect;
+    /// use vitui_runtime::ctx::{Driver, Id};
+    /// use vitui_runtime::overlay::{OverlayOpts, Z};
+    /// use vitui_runtime::Role;
+    ///
+    /// static ITEMS: [&str; 2] = ["Open", "Save"];
+    ///
+    /// let mut driver = Driver::headless(40, 12).expect("sink");
+    /// driver.frame(|cx| {
+    ///     let owner = Id::from_raw(7);
+    ///     cx.overlay(owner, Rect::new(2, 2, 8, 1), OverlayOpts::sized(10, 2), move |cx| {
+    ///         let body = cx.theme().paint(Role::Body);
+    ///         for (row, item) in ITEMS.iter().enumerate() {
+    ///             cx.text(0, row as i32, item, body);
+    ///         }
+    ///     });
+    /// });
+    /// assert_eq!(driver.inspect().overlays_placed(), 1);
+    /// ```
+    pub fn overlay<F>(&mut self, owner: Id, anchor: Rect, opts: OverlayOpts, body: F)
     where
         F: FnMut(&mut Ctx<'f, '_>) + 'f,
     {
-        // The body is dropped rather than stored: ticket 13 adds the frame arena and the drop thunk
-        // beside it, and storing a boxed closure here would be inventing that mechanism early and
-        // wrongly. The *bound* is what this ticket owes, and the bound is on the signature.
-        drop(body);
+        // **Root coordinates, translated here.** The pass runs after every context in this subtree
+        // has been dropped, so an anchor in this context's own coordinates would name a cell nobody
+        // can find. The same translation, and the same reason, as `hover_style`.
+        let anchor = Rect::new(
+            self.origin.0 + anchor.x,
+            self.origin.1 + anchor.y,
+            anchor.w,
+            anchor.h,
+        );
+        let z = if self.frame.layer_z == Z::BASE {
+            self.frame.layer_z + opts.z
+        } else {
+            self.frame.layer_z + Z::NESTED
+        };
         let seq = u32::try_from(self.frame.overlays.len()).unwrap_or(u32::MAX);
+        // The body is moved into the frame arena and the request carries its drop thunk beside it,
+        // so a body owning anything is dropped exactly once — by the pass that ran it, or by the
+        // discard that did not.
+        let body = self.frame.arena.push(body);
         self.frame.overlays.push(OverlayRequest {
             owner,
             anchor,
+            opts,
             z,
             seq,
+            body,
         });
     }
 
@@ -2588,6 +2763,23 @@ pub struct Driver {
     pending_at: usize,
     /// Whether the frame clock is pinned rather than sampled. See [`Driver::pin_clock`].
     pinned: bool,
+    /// **The overlay layers, keyed by owner id and kept across frames.** The only structure in this
+    /// crate that outlives a frame on purpose and is not one of ADR 0012's four id-keyed facts —
+    /// because it is not a fact about a widget, it is a resource the engine is holding on one's
+    /// behalf, and dropping it every frame would rebuild every surface every frame.
+    ///
+    /// A `Vec` and not a map: a screen with a menu, a submenu, a modal and a tooltip on it at once
+    /// has four entries, and a reverse scan over four is cheaper than hashing one.
+    placed: Vec<Placed>,
+    /// The round the overlay pass is running, swapped out of the frame so that a body can queue into
+    /// the frame while its own round is being walked. Kept for its capacity.
+    round: Vec<OverlayRequest>,
+    /// How many surface reallocations the layer lifecycle has cost since this driver was made.
+    ///
+    /// **A move is 0 and a resize is 1**, which is the engine's own rule for `LayerStack::set_rect`
+    /// counted on this side of the seam — *no reallocation* is true of one and false of the other,
+    /// and the gate is the pair rather than either number.
+    reallocs: u64,
 }
 
 impl Driver {
@@ -2610,6 +2802,9 @@ impl Driver {
             pending: Vec::new(),
             pending_at: 0,
             pinned: false,
+            placed: Vec::new(),
+            round: Vec::new(),
+            reallocs: 0,
         })
     }
 
@@ -2697,14 +2892,9 @@ impl Driver {
             view(&mut cx);
         }
 
-        // overlay pass — bounded at sixteen rounds. Ticket 13 runs the bodies; the loop is here so
-        // that the bound is not something 13 also has to invent.
-        for _ in 0..OVERLAY_ROUNDS {
-            if self.frame.overlays.is_empty() {
-                break;
-            }
-            self.frame.overlays.clear();
-        }
+        // overlay pass — each request in (z, seq) order, repeating while bodies request more,
+        // bounded at sixteen rounds.
+        self.overlay_pass(Rect::new(0, 0, w, h));
 
         // end.
         let wake = self.frame.end(self.env.now);
@@ -2752,6 +2942,246 @@ impl Driver {
     /// Step a pinned clock. Pins it at `now + by` if it was not pinned already.
     pub fn advance(&mut self, by: Duration) {
         self.pin_clock(self.env.now + by);
+    }
+
+    /// **The second pass**: each request in `(z, seq)` order, in rounds, bounded at
+    /// [`OVERLAY_ROUNDS`].
+    ///
+    /// # Why it is rounds and not a queue walked to exhaustion
+    ///
+    /// A body may request another overlay — a submenu, a tooltip over a menu item — and the request
+    /// has to be satisfied on the same frame or a submenu would trail its parent by one. So the pass
+    /// repeats while anything was queued, and **sixteen is where that stops being a menu and starts
+    /// being a loop**: a body that requests itself for ever gets a limit rather than a hang, and
+    /// [`Frame::overlay_rounds`] is how a gate sees which happened.
+    ///
+    /// # The three things each round has to do in order
+    ///
+    /// 1. **Swap the queue out of the frame.** The bodies about to run will queue into it.
+    /// 2. **Take the arena's chunk.** A body that queues while its own round is running would
+    ///    otherwise grow the buffer it is executing out of, freeing itself mid-call.
+    /// 3. **Sort by `(z, seq)`.** `seq` is the request order and is unique, so the pair is a total
+    ///    order and the sort is deterministic. A menu below a modal therefore draws — and takes its
+    ///    hit entries — *before* the modal's barrier goes down, which is what withholds it from the
+    ///    pointer.
+    fn overlay_pass(&mut self, screen: Rect) {
+        for _ in 0..OVERLAY_ROUNDS {
+            if self.frame.overlays.is_empty() {
+                break;
+            }
+            self.frame.overlay_rounds += 1;
+            core::mem::swap(&mut self.frame.overlays, &mut self.round);
+            self.round.sort_unstable_by_key(|r| (r.z, r.seq));
+            let mut round = self.frame.arena.take_round();
+            for i in 0..self.round.len() {
+                // Lifted out by value — `OverlayRequest` is `Copy` — because everything below needs
+                // `&mut self` and the `Vec` it came from is a field of it.
+                let req = self.round[i];
+                self.run_overlay(&req, &mut round, screen);
+            }
+            self.round.clear();
+            self.frame.arena.put_round(round);
+        }
+        // **Anything still queued after the bound is dropped rather than leaked.** The arena drops
+        // nothing itself; a body that owns a `String` is dropped by the thunk beside it.
+        self.frame.discard_overlays();
+        self.frame.layer_z = Z::BASE;
+        self.layer_census();
+    }
+
+    /// Place one overlay, ensure its layer, and run its body inside it.
+    fn run_overlay(
+        &mut self,
+        req: &OverlayRequest,
+        round: &mut crate::overlay::Round,
+        screen: Rect,
+    ) {
+        let this_frame = self.frame.frames;
+        // **One owner keys one layer**, so a second request under one id this frame is inert — the
+        // same policy as `Ctx::interact`'s merge and for the same reason: two rectangles for one
+        // surface is not a thing the lifecycle can express.
+        if self
+            .placed
+            .iter()
+            .any(|p| p.owner == req.owner && p.seen == this_frame)
+        {
+            self.frame.overlays_merged += 1;
+            round.drop_body(&req.body);
+            return;
+        }
+
+        let rect = place(req.anchor, req.opts.size, screen, req.opts.placement);
+        let layer = self.ensure_layer(req, rect, screen);
+
+        // The body draws in the layer's own coordinates, so its origin is the layer's position and
+        // the pointer arrives translated by the same amount — the transform every `Ctx` applies on
+        // the way down, applied once at the top of a new one.
+        let pointer = self.frame.pointer.map(|(x, y)| (x - rect.x, y - rect.y));
+        let parent_z = self.frame.layer_z;
+        self.frame.layer_z = req.z;
+        // **The owner roots the body's id stack.** This is the half that makes an overlay a
+        // different *place* for identity: without it a body drawn inline and the same body drawn
+        // here produce the same ids, and the second one is inert by the collision policy.
+        self.frame.stack.push(req.owner);
+        if let Some(view) = self.screen.layers().view(layer) {
+            let mut cx = Ctx {
+                view,
+                frame: &mut self.frame,
+                env: &self.env,
+                rect: Rect::new(0, 0, rect.w, rect.h),
+                origin: (rect.x, rect.y),
+                pointer,
+                content: (0, 0),
+                _frame: PhantomData,
+                _not_send: PhantomData,
+            };
+            round.run(&req.body, &mut cx);
+        } else {
+            // An operator layer has no cells and cannot be drawn into. Nothing here mints one as a
+            // content layer, so this arm is unreachable in practice — and it drops the body rather
+            // than leaking it, because *unreachable* is not a reason to leak.
+            round.drop_body(&req.body);
+        }
+        self.frame.stack.pop();
+        self.frame.layer_z = parent_z;
+        self.frame.overlays_placed += 1;
+    }
+
+    /// Find or make the layer for an owner, and reconcile its rectangle, its band and its scrim.
+    ///
+    /// **A layer requested again is reused.** The engine's `set_rect` keeps a moved layer's cells
+    /// and reallocates a resized one's, so *no reallocation* is true of a move and false of a
+    /// resize; [`Driver::surface_reallocs`] counts the difference on this side of the seam.
+    fn ensure_layer(&mut self, req: &OverlayRequest, rect: Rect, screen: Rect) -> LayerId {
+        let this_frame = self.frame.frames;
+        if let Some(at) = self.placed.iter().position(|p| p.owner == req.owner) {
+            let old = self.placed[at];
+            if old.z != req.z {
+                self.screen.layers().set_z(old.layer, req.z);
+            }
+            if old.rect != rect {
+                if (old.rect.w, old.rect.h) != (rect.w, rect.h) {
+                    self.reallocs += 1;
+                }
+                self.screen.layers().set_rect(old.layer, rect);
+            }
+            let scrim = self.reconcile_scrim(old.scrim, req, screen);
+            self.placed[at] = Placed {
+                owner: req.owner,
+                layer: old.layer,
+                scrim,
+                rect,
+                z: req.z,
+                seen: this_frame,
+            };
+            return old.layer;
+        }
+        let layer = self
+            .screen
+            .layers()
+            .add_content(req.z, rect, req.opts.opaque);
+        let scrim = self.reconcile_scrim(None, req, screen);
+        self.placed.push(Placed {
+            owner: req.owner,
+            layer,
+            scrim,
+            rect,
+            z: req.z,
+            seen: this_frame,
+        });
+        layer
+    }
+
+    /// Bring the scrim into line with what was asked for.
+    ///
+    /// **At `z - 1`, covering the whole screen**, because a scrim is proportional to the screen it
+    /// darkens and not to the overlay it belongs to. That is what makes it the expensive half of a
+    /// modal, and why the two obligations in [`crate::overlay`]'s documentation exist.
+    fn reconcile_scrim(
+        &mut self,
+        existing: Option<ScrimLayer>,
+        req: &OverlayRequest,
+        screen: Rect,
+    ) -> Option<ScrimLayer> {
+        let want = req.opts.scrim;
+        match (existing, want) {
+            (None, None) => None,
+            (Some(had), None) => {
+                self.screen.layers().remove(had.layer);
+                None
+            }
+            (Some(had), Some(spec)) if had.spec == spec => {
+                // A move or a resize of the screen, and neither is a new layer. The engine's
+                // `set_rect` on an operator marks damage, so it is called only when something
+                // actually changed — a scrim re-set to the rectangle it already had would repaint
+                // the whole screen every frame, which is the 117% number from the other direction.
+                let z = req.z - 1;
+                if had.z != z {
+                    self.screen.layers().set_z(had.layer, z);
+                }
+                if had.rect != screen {
+                    self.screen.layers().set_rect(had.layer, screen);
+                }
+                Some(ScrimLayer {
+                    layer: had.layer,
+                    spec,
+                    rect: screen,
+                    z,
+                })
+            }
+            (had, Some(spec)) => {
+                if let Some(had) = had {
+                    self.screen.layers().remove(had.layer);
+                }
+                let z = req.z - 1;
+                let layer = self.screen.layers().add_operator(z, screen, spec.mix());
+                Some(ScrimLayer {
+                    layer,
+                    spec,
+                    rect: screen,
+                    z,
+                })
+            }
+        }
+    }
+
+    /// Remove the layers nothing asked for this frame.
+    ///
+    /// **The census is not §5's identity sweep and cannot be.** The sweep asks *did this id draw*;
+    /// an owner whose dropdown is closed is still drawing, so the sweep would keep a layer nothing
+    /// wants. This asks *was this layer requested*, which is a different question about a different
+    /// thing, and the two cannot share a pass.
+    fn layer_census(&mut self) {
+        let this_frame = self.frame.frames;
+        let mut at = 0;
+        while at < self.placed.len() {
+            if self.placed[at].seen == this_frame {
+                at += 1;
+                continue;
+            }
+            // `swap_remove`, because the order of this list decides nothing: the stack sorts by z.
+            let gone = self.placed.swap_remove(at);
+            self.screen.layers().remove(gone.layer);
+            if let Some(scrim) = gone.scrim {
+                self.screen.layers().remove(scrim.layer);
+            }
+        }
+    }
+
+    /// How many overlay layers this driver is keeping alive.
+    ///
+    /// **The census's number.** A dropdown that closes takes its layer with it on the frame after it
+    /// stopped being requested, and an owner that is still drawing keeps nothing alive by itself.
+    pub fn layers_live(&self) -> usize {
+        self.placed.len()
+    }
+
+    /// How many surfaces the layer lifecycle has reallocated since this driver was made.
+    ///
+    /// **A move is 0 and a resize is 1.** The gate is the pair: *no reallocation* said of a layer
+    /// that was moved is a true sentence, and said of one that was resized it is not.
+    pub fn surface_reallocs(&self) -> u64 {
+        self.reallocs
     }
 
     /// Swap the theme. **A move into `Env`**, and the next frame reports it changed.
@@ -3478,7 +3908,12 @@ mod tests {
                     Interest::CLICK.with(Interest::FOCUS),
                 );
             }
-            cx.overlay(Id::ROOT, Rect::new(0, 0, 4, 1), 0, |_inner| {});
+            cx.overlay(
+                Id::ROOT,
+                Rect::new(0, 0, 4, 1),
+                OverlayOpts::sized(4, 1),
+                |_inner| {},
+            );
             cx.deadline(cx.now() + std::time::Duration::from_millis(5));
         });
         assert_eq!(d.inspect().hits().len(), 8);
@@ -3704,7 +4139,12 @@ mod tests {
         let mut d = driver();
         d.frame(|cx| {
             for i in 0..4u64 {
-                cx.overlay(Id::from_raw(i), Rect::new(0, 0, 4, 1), 0, |_inner| {});
+                cx.overlay(
+                    Id::from_raw(i),
+                    Rect::new(0, 0, 4, 1),
+                    OverlayOpts::sized(4, 1),
+                    |_inner| {},
+                );
             }
         });
         // Drained by the pass, which is what makes the queue a queue rather than a log.
@@ -5317,4 +5757,635 @@ mod focus_tests {
             "nothing was queued for a repaint: a software caret would be two wakeups a second"
         );
     }
+}
+
+#[cfg(test)]
+mod overlay_tests {
+    //! Ticket 13's gates: **request during the draw, satisfy after it, answer next frame** — the
+    //! half that needs a whole frame.
+    //!
+    //! Placement, the arena's drop thunk and the z bands have unit tests in [`crate::overlay`], and
+    //! the paired compile outcome on the `'f` bound is on [`Ctx`] itself, where it shipped four
+    //! tickets before overlays needed it. What is here is the pass: the owner rooting identity, the
+    //! layer lifecycle and its census, the barrier that stops the pointer and only the pointer, the
+    //! nested band, and the bound that makes a self-requesting body a limit rather than a hang.
+
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    use super::*;
+    use crate::focus::ScopeKind;
+    use crate::id::Id;
+    use crate::overlay::{Align, OverlayOpts, Placement, Scrim, Side, Z, place};
+    use crate::theme::Role;
+    use vitui_engine::{Button, Buttons, Key, KeyCode, KeyKind, KeyText, Mouse, MouseKind};
+
+    fn driver() -> Driver {
+        Driver::headless(300, 80).expect("attaching to a sink cannot fail")
+    }
+
+    fn press(x: u16, y: u16) -> Mouse {
+        Mouse {
+            x,
+            y,
+            kind: MouseKind::Down(Button::Left),
+            buttons: Buttons::NONE,
+            mods: vitui_engine::Mods::NONE,
+            at: Instant::now(),
+        }
+    }
+
+    fn tab() -> Key {
+        Key {
+            code: KeyCode::Tab,
+            mods: vitui_engine::Mods::NONE,
+            kind: KeyKind::Press,
+            text: KeyText::EMPTY,
+            at: Instant::now(),
+        }
+    }
+
+    /// Run frames until the queue is empty, and answer how many it took.
+    fn drain(d: &mut Driver, mut draw: impl FnMut(&mut Ctx<'_, '_>)) -> usize {
+        let mut frames = 0;
+        loop {
+            d.frame(&mut draw);
+            frames += 1;
+            if d.queued() == 0 {
+                break;
+            }
+            assert!(frames < 64, "the drain did not terminate");
+        }
+        frames
+    }
+
+    /// The same, and then **one more frame**.
+    ///
+    /// The press is awarded at `end` from the index that has just drawn and **delivered on the next
+    /// frame's draw**, so the frame that consumes a `Down` is never the frame that reports the click.
+    /// A test that asserts a click has to draw once more; a test that asserts the *absence* of one
+    /// does not, which is why both spellings exist.
+    fn settle(d: &mut Driver, mut draw: impl FnMut(&mut Ctx<'_, '_>)) {
+        drain(d, &mut draw);
+        d.frame(&mut draw);
+    }
+
+    /// **The failing test that designed the verb.** A body drawn inline and the same body drawn in an
+    /// overlay produce **different** ids.
+    ///
+    /// Rooted at [`Id::ROOT`] instead — which is what a derived owner amounts to — the two produce
+    /// the same four ids, [`Ctx::interact`]'s collision policy makes the second set inert, and the
+    /// overlay draws nothing. One source function called from both places, because two copies of the
+    /// body would differ by call site and the assertion would pass for the one reason that is not
+    /// interesting.
+    ///
+    /// The `Rc` is also the positive half of what a body may capture: it is **owned and moved**, so
+    /// it satisfies `: 'f` for every `'f`, which is exactly the distinction the compile-fail pair on
+    /// [`Ctx`] draws.
+    #[test]
+    fn a_body_drawn_inline_and_in_an_overlay_produce_different_ids() {
+        fn menu(cx: &mut Ctx<'_, '_>, out: &mut Vec<Id>) {
+            for item in 0..4u64 {
+                cx.with_key(item, |cx| out.push(cx.id()));
+            }
+        }
+
+        let mut d = driver();
+        let owner = Id::named("picker");
+        let inline = Rc::new(RefCell::new(Vec::new()));
+        let inside = Rc::new(RefCell::new(Vec::new()));
+        let inline_sink = Rc::clone(&inline);
+        let inside_sink = Rc::clone(&inside);
+        d.frame(move |cx| {
+            menu(cx, &mut inline_sink.borrow_mut());
+            cx.overlay(
+                owner,
+                Rect::new(10, 10, 8, 1),
+                OverlayOpts::sized(8, 4),
+                move |cx| menu(cx, &mut inside_sink.borrow_mut()),
+            );
+        });
+
+        let inline = inline.borrow();
+        let inside = inside.borrow();
+        assert_eq!((inline.len(), inside.len()), (4, 4), "both bodies ran");
+        for (i, id) in inline.iter().enumerate() {
+            assert!(
+                !inside.contains(id),
+                "inline id {i} was reused inside the overlay: the owner did not root the stack"
+            );
+        }
+    }
+
+    /// **The arena is 32 bytes at high water with a dropdown standing**, and it is reset rather than
+    /// freed, so a hundred frames do not move the number.
+    ///
+    /// The body captures a `&'static [&str]`, a `usize` and an [`Id`] — 16 + 8 + 8 — which is what a
+    /// dropdown's body actually holds: its items, its selection, and the owner it reports to.
+    #[test]
+    fn the_arena_is_thirty_two_bytes_at_high_water() {
+        static ITEMS: [&str; 3] = ["Open", "Save", "Close"];
+        let mut d = driver();
+        let owner = Id::named("dropdown");
+        let selected = 1usize;
+        let items: &[&str] = &ITEMS;
+        for _ in 0..100 {
+            d.frame(|cx| {
+                cx.overlay(
+                    owner,
+                    Rect::new(4, 4, 10, 1),
+                    OverlayOpts::sized(10, 3),
+                    move |cx| {
+                        let body = cx.theme().paint(Role::Body);
+                        for (row, item) in items.iter().enumerate() {
+                            let row = i32::try_from(row).unwrap_or(0);
+                            cx.text(0, row, item, body);
+                        }
+                        let _ = (selected, owner);
+                    },
+                );
+            });
+        }
+        assert_eq!(
+            d.inspect().arena_high_water(),
+            32,
+            "one chunk, and a hundred frames did not move it"
+        );
+        assert_eq!(d.inspect().overlays_placed(), 1);
+        assert_eq!(d.layers_live(), 1, "one layer, reused a hundred times");
+    }
+
+    /// **Lifecycle by owner id: a move reallocates 0 and a resize reallocates 1.**
+    ///
+    /// *No reallocation* is a true sentence about one and a false one about the other, which is why
+    /// the gate is the pair rather than either number on its own.
+    #[test]
+    fn a_move_reallocates_nothing_and_a_resize_reallocates_one_surface() {
+        let mut d = driver();
+        let owner = Id::named("menu");
+        fn show(d: &mut Driver, owner: Id, anchor: Rect, size: (u16, u16)) {
+            d.frame(|cx| {
+                cx.overlay(owner, anchor, OverlayOpts::sized(size.0, size.1), |_cx| {});
+            });
+        }
+
+        show(&mut d, owner, Rect::new(2, 2, 8, 1), (10, 3));
+        let after_open = d.surface_reallocs();
+
+        // A move: the same size at a different anchor.
+        show(&mut d, owner, Rect::new(40, 20, 8, 1), (10, 3));
+        assert_eq!(
+            d.surface_reallocs(),
+            after_open,
+            "a move keeps the layer's cells"
+        );
+        assert_eq!(d.layers_live(), 1, "and it is the same layer");
+
+        // A resize: one surface, reallocated, and the caller redraws — which the body does every
+        // frame anyway, because there is no retained structure to redraw from.
+        show(&mut d, owner, Rect::new(40, 20, 8, 1), (10, 6));
+        assert_eq!(
+            d.surface_reallocs(),
+            after_open + 1,
+            "a resize is one surface"
+        );
+    }
+
+    /// **The layer census is not §5's identity sweep and cannot be**: an owner with a closed dropdown
+    /// is still drawing.
+    ///
+    /// The owner declares an interactive region on every frame, so the sweep sees a live id
+    /// throughout. Only the *request* stops, and only the census notices.
+    #[test]
+    fn the_census_is_separate_from_the_identity_sweep() {
+        let mut d = driver();
+        let owner = Id::named("owner");
+        fn frame(d: &mut Driver, owner: Id, open: bool) {
+            d.frame(|cx| {
+                cx.interact(owner, Rect::new(0, 0, 8, 1), Interest::CLICK);
+                if open {
+                    cx.overlay(
+                        owner,
+                        Rect::new(0, 0, 8, 1),
+                        OverlayOpts::sized(8, 4),
+                        |_cx| {},
+                    );
+                }
+            });
+        }
+
+        frame(&mut d, owner, true);
+        assert_eq!(d.layers_live(), 1);
+        assert!(d.inspect().ids().drew(owner), "the owner drew");
+
+        frame(&mut d, owner, false);
+        assert!(
+            d.inspect().ids().drew(owner),
+            "the owner is STILL drawing, so the sweep has nothing to sweep"
+        );
+        assert_eq!(
+            d.layers_live(),
+            0,
+            "and the layer is gone anyway, because nothing requested it"
+        );
+    }
+
+    /// **With a modal standing, a press over the base pass reaches nothing** — and the same press one
+    /// frame after the modal is dismissed reaches the widget under it.
+    ///
+    /// The barrier goes down as the body's first statement, which is where `hits.len()` is exactly the
+    /// boundary between *under the modal* and *in it*.
+    #[test]
+    fn a_press_under_a_standing_modal_reaches_nothing_and_reaches_it_again_after() {
+        let mut d = driver();
+        let button = Id::named("button");
+        let owner = Id::named("dialog");
+        let theme = *d.env().theme();
+
+        let hit = Rc::new(RefCell::new(false));
+        let sink = Rc::clone(&hit);
+        d.post_mouse(press(2, 2));
+        settle(&mut d, |cx| {
+            // **`pressed`, not `clicked`**: one `Down` is the whole event here, and a click needs an
+            // `Up` too. `pressed` is the grab, awarded at `end` from the index that has just drawn
+            // and readable on the next draw — which is what `settle` runs.
+            let r = cx.interact(button, Rect::new(0, 0, 8, 4), Interest::CLICK);
+            if r.pressed {
+                *sink.borrow_mut() = true;
+            }
+            cx.overlay(
+                owner,
+                Rect::new(0, 0, 300, 80),
+                OverlayOpts::modal(40, 10, &theme),
+                |cx| {
+                    cx.modal_barrier_here();
+                    cx.interact(Id::named("ok"), Rect::new(0, 0, 6, 1), Interest::CLICK);
+                },
+            );
+        });
+        assert!(
+            !*hit.borrow(),
+            "the press was over the button and the modal withheld it"
+        );
+        assert!(
+            d.inspect().modal_from().is_some(),
+            "and the barrier is an ordering into an index that already exists"
+        );
+
+        // Dismissed: no request, so no layer, no barrier and no scrim.
+        let after = Rc::new(RefCell::new(false));
+        let sink = Rc::clone(&after);
+        d.post_mouse(press(2, 2));
+        settle(&mut d, |cx| {
+            let r = cx.interact(button, Rect::new(0, 0, 8, 4), Interest::CLICK);
+            if r.pressed {
+                *sink.borrow_mut() = true;
+            }
+        });
+        assert!(
+            *after.borrow(),
+            "and the widget under it is reachable again"
+        );
+        assert_eq!(d.layers_live(), 0, "the census took the modal's two layers");
+    }
+
+    /// **The barrier stops the pointer and only the pointer.** A barrier with no trap around it lets
+    /// `Tab` walk straight out of the modal.
+    ///
+    /// The keyboard half is ticket 12's [`ScopeKind::Trap`], and this is the gate that keeps the two
+    /// from being quietly merged into one mechanism: the same frame, with a trap, keeps the focus
+    /// inside.
+    #[test]
+    fn a_barrier_alone_lets_tab_out() {
+        let outside = Id::named("outside");
+        let inside = Id::named("inside");
+        let owner = Id::named("dialog");
+
+        let run = |trapped: bool| {
+            let mut d = driver();
+            d.plant(None, Some(inside), None);
+            d.post_key(tab());
+            drain(&mut d, |cx| {
+                cx.interact(outside, Rect::new(0, 0, 8, 1), Interest::FOCUS);
+                cx.overlay(
+                    owner,
+                    Rect::new(0, 10, 8, 1),
+                    OverlayOpts::sized(20, 4),
+                    move |cx| {
+                        cx.modal_barrier_here();
+                        if trapped {
+                            cx.scope(owner, ScopeKind::Trap, |cx| {
+                                cx.interact(inside, Rect::new(0, 0, 6, 1), Interest::FOCUS);
+                            });
+                        } else {
+                            cx.interact(inside, Rect::new(0, 0, 6, 1), Interest::FOCUS);
+                        }
+                    },
+                );
+            });
+            d.inspect().focused()
+        };
+
+        assert_eq!(
+            run(false),
+            Some(outside),
+            "a barrier is not a trap: Tab walked out of the modal"
+        );
+        assert_eq!(
+            run(true),
+            Some(inside),
+            "and the trap is what keeps it in — ticket 12's mechanism, not a second one"
+        );
+    }
+
+    /// **A nested overlay's z counts from its parent's layer**, so a dropdown inside a modal draws
+    /// above the barrier that exists to protect it.
+    ///
+    /// Sorted into its own band instead, the dropdown is at [`Z::MENU`] — *below* [`Z::MODAL`] — and
+    /// it draws under the dialog it belongs to and takes no clicks. It asks for `Z::MENU` here and
+    /// does not get it, which is the assertion.
+    #[test]
+    fn a_dropdown_inside_a_modal_draws_above_the_barrier() {
+        let mut d = driver();
+        let dialog = Id::named("dialog");
+        let picker = Id::named("picker");
+        let item = Id::named("item");
+        let theme = *d.env().theme();
+
+        d.post_mouse(press(131, 36));
+        // **`move`, and the reason is a finding rather than a formality.** `drain` runs many frames,
+        // so it takes `impl FnMut(&mut Ctx<'_, '_>)` — a higher-ranked `'f`, which forces every
+        // overlay body inside it to `'static`. A `Driver::frame` call gets the true rule from
+        // `&'f mut self`; a helper that loops over frames cannot, because each call needs its own
+        // reborrow. Moving the `Copy` ids in is what satisfies it.
+        drain(&mut d, move |cx| {
+            cx.interact(
+                Id::named("under"),
+                Rect::new(0, 0, 300, 80),
+                Interest::CLICK,
+            );
+            cx.overlay(
+                dialog,
+                Rect::new(0, 0, 300, 80),
+                OverlayOpts::modal(40, 10, &theme),
+                move |cx| {
+                    cx.modal_barrier_here();
+                    cx.overlay(
+                        picker,
+                        Rect::new(0, 0, 8, 1),
+                        OverlayOpts {
+                            z: Z::MENU,
+                            ..OverlayOpts::sized(8, 3)
+                        },
+                        move |cx| {
+                            cx.interact(item, Rect::new(0, 0, 8, 3), Interest::CLICK);
+                        },
+                    );
+                },
+            );
+        });
+        assert_eq!(
+            d.inspect().overlay_rounds(),
+            2,
+            "the dropdown was requested by a body, so the pass ran a second round"
+        );
+        assert_eq!(d.layers_live(), 2, "the dialog and the dropdown");
+
+        let from = d.inspect().modal_from().expect("the barrier went down");
+        let hits = d.inspect().hits();
+        assert!(
+            hits[from..].iter().any(|h| h.id == item),
+            "the dropdown is inside the modal's range and therefore reachable"
+        );
+        const {
+            assert!(
+                Z::MENU < Z::MODAL,
+                "which is the whole hazard: its own band is below its parent's"
+            );
+        }
+    }
+
+    /// **The overlay pass is bounded at sixteen rounds**, so a body that requests itself for ever is a
+    /// limit and not a hang.
+    ///
+    /// A fresh owner each round, because one owner keys one layer and a second request under the same
+    /// id is inert by design — which would end the recursion for the wrong reason and prove nothing
+    /// about the bound. The seventeenth request is dropped, body and all.
+    #[test]
+    fn a_self_requesting_body_hits_a_limit_and_not_a_hang() {
+        assert_eq!(OVERLAY_ROUNDS, 16);
+        fn again(cx: &mut Ctx<'_, '_>, depth: u64) {
+            cx.overlay(
+                Id::from_raw(depth),
+                Rect::new(0, 0, 4, 1),
+                OverlayOpts::sized(4, 1),
+                move |cx| again(cx, depth + 1),
+            );
+        }
+        let mut d = driver();
+        d.frame(|cx| again(cx, 0));
+        assert_eq!(
+            d.inspect().overlay_rounds(),
+            16,
+            "sixteen rounds, and the frame returned"
+        );
+        assert_eq!(
+            d.inspect().overlays_requested(),
+            0,
+            "the seventeenth request was discarded, body and all"
+        );
+        assert_eq!(d.inspect().overlays_placed(), 16);
+    }
+
+    /// **One owner keys one layer**, so a second request under the same id this frame is inert — the
+    /// same policy as [`Ctx::interact`]'s merge, and counted rather than silent.
+    #[test]
+    fn a_second_request_under_one_owner_is_inert_and_counted() {
+        let mut d = driver();
+        let owner = Id::named("twice");
+        d.frame(|cx| {
+            cx.overlay(
+                owner,
+                Rect::new(0, 0, 4, 1),
+                OverlayOpts::sized(4, 1),
+                |_cx| {},
+            );
+            cx.overlay(
+                owner,
+                Rect::new(9, 9, 4, 1),
+                OverlayOpts::sized(9, 2),
+                |_cx| {},
+            );
+        });
+        assert_eq!(d.inspect().overlays_placed(), 1);
+        assert_eq!(d.inspect().overlays_merged(), 1);
+        assert_eq!(d.layers_live(), 1);
+    }
+
+    /// The requests run in `(z, seq)` order, which is what puts a menu's hits *before* a modal's
+    /// barrier and therefore out of the pointer's reach.
+    #[test]
+    fn the_pass_runs_in_z_then_seq_order() {
+        let mut d = driver();
+        let theme = *d.env().theme();
+        let menu_item = Id::named("menu-item");
+        let ok = Id::named("ok");
+        d.frame(|cx| {
+            // Requested modal-first, deliberately: the order it runs in is the z's, not the queue's.
+            cx.overlay(
+                Id::named("dialog"),
+                Rect::new(0, 0, 300, 80),
+                OverlayOpts::modal(40, 10, &theme),
+                |cx| {
+                    cx.modal_barrier_here();
+                    cx.interact(ok, Rect::new(0, 0, 6, 1), Interest::CLICK);
+                },
+            );
+            cx.overlay(
+                Id::named("menu"),
+                Rect::new(0, 0, 8, 1),
+                OverlayOpts::sized(8, 3),
+                |cx| {
+                    cx.interact(menu_item, Rect::new(0, 0, 8, 1), Interest::CLICK);
+                },
+            );
+        });
+        let hits: Vec<Id> = d.inspect().hits().iter().map(|h| h.id).collect();
+        let at = |id: Id| hits.iter().position(|h| *h == id).expect("it drew");
+        assert!(
+            at(menu_item) < at(ok),
+            "MENU sorts below MODAL, so the menu drew first"
+        );
+        let from = d.inspect().modal_from().expect("the barrier went down");
+        assert!(
+            at(menu_item) < from,
+            "and the menu is under the barrier, where the pointer cannot reach it"
+        );
+    }
+
+    /// A scrim is an operator layer under the overlay, and it is what makes an overlay a modal.
+    #[test]
+    fn a_modal_carries_a_scrim_and_a_dropdown_does_not() {
+        let mut d = driver();
+        let theme = *d.env().theme();
+        assert_eq!(
+            Scrim::for_theme(&theme),
+            Scrim::shadow(Scrim::DEFAULT_AMOUNT),
+            "the shipped theme is dark, so the scrim darkens"
+        );
+        assert!(OverlayOpts::modal(40, 10, &theme).scrim.is_some());
+        assert!(OverlayOpts::sized(8, 3).scrim.is_none());
+        d.frame(|cx| {
+            cx.overlay(
+                Id::named("dialog"),
+                Rect::new(0, 0, 300, 80),
+                OverlayOpts::modal(40, 10, &theme),
+                |_cx| {},
+            );
+        });
+        assert_eq!(d.layers_live(), 1, "one owner, two engine layers");
+        d.frame(|_cx| {});
+        assert_eq!(d.layers_live(), 0, "and the census took both");
+    }
+
+    /// The anchor is translated to root coordinates at the request, because the pass runs after every
+    /// context in the subtree has been dropped.
+    ///
+    /// A container two levels down anchors at its own `(0, 0)`, and the overlay lands under *that*
+    /// cell rather than under the screen's origin. The body reads its own origin back through the
+    /// pointer it was handed, which is the only coordinate a body can observe from inside.
+    #[test]
+    fn the_anchor_is_translated_to_root_coordinates() {
+        let mut d = driver();
+        let owner = Id::named("nested");
+        let local = Rc::new(RefCell::new(None));
+        let sink = Rc::clone(&local);
+        d.post_mouse(press(25, 14));
+        drain(&mut d, |cx| {
+            let mut outer = cx.child(Rect::new(20, 10, 40, 20));
+            let mut inner = outer.child(Rect::new(5, 3, 20, 10));
+            let sink = Rc::clone(&sink);
+            inner.overlay(
+                owner,
+                Rect::new(0, 0, 8, 1),
+                OverlayOpts {
+                    placement: Placement::new(Side::Below, Align::Start),
+                    ..OverlayOpts::sized(8, 2)
+                },
+                move |cx| {
+                    let r = cx.interact(Id::named("row"), Rect::new(0, 0, 8, 2), Interest::CLICK);
+                    if let Some(at) = r.local {
+                        *sink.borrow_mut() = Some(at);
+                    }
+                },
+            );
+        });
+        // 20 + 5 = 25 across and 10 + 3 = 13 down is the anchor, so the overlay is at (25, 14) —
+        // which is the cell the pointer was put on, and the body sees it as its own (0, 0).
+        assert_eq!(
+            place(
+                Rect::new(25, 13, 8, 1),
+                (8, 2),
+                Rect::new(0, 0, 300, 80),
+                Placement::BELOW
+            ),
+            Rect::new(25, 14, 8, 2)
+        );
+        assert_eq!(
+            *local.borrow(),
+            Some((0, 0)),
+            "the pointer arrived translated into the layer's own coordinates"
+        );
+    }
+
+    /// **Every component draws its text before its padding**, and this is the count that says why.
+    ///
+    /// A component that fills its rectangle and *then* draws into it writes the cells under its text
+    /// twice, for an identical picture, every frame, for as long as it is on screen.
+    ///
+    /// The map measured **10 814 of 24 000** on its own dense screen; this fixture's number is its
+    /// own and is asserted for the reason `screen_frame`'s `(32, 119)` is. **What is a property of the
+    /// mechanism is the pair**: text-first writes nothing twice, and the picture is identical.
+    ///
+    /// # The half of the map's claim that does not survive the shipped engine
+    ///
+    /// The map also priced this at the difference between 1.19 µs and 87 µs. That does not follow
+    /// here, and the reason is structural: the engine's damage is a **per-row bitset**, so a second
+    /// write inside a range that is already marked adds **no damaged cell**. A scrim therefore
+    /// composites the same set either way, and what a redundant fill costs is the redundant *writes*
+    /// — real, and nowhere near a cliff. The map's arm was measured against a prototype whose damage
+    /// was not a bitset. **So this count is the obligation's only detector**, which is why it is a
+    /// gate and why `examples/overlay_numbers.rs` prints that arm's timing without asserting on it.
+    ///
+    /// The contract is on the component library and cannot be enforced from here — nothing in the
+    /// runtime's surface can tell a legitimate second write from a wasteful one.
+    /// `examples/overlay_numbers.rs` carries the two frame timings that hang off it.
+    #[test]
+    fn padding_before_text_re_damages_cells_and_text_before_padding_re_damages_none() {
+        let mut d = Driver::headless(300, 80).expect("attaching to a sink cannot fail");
+        let pad_first = Rc::new(RefCell::new(0u32));
+        let text_first = Rc::new(RefCell::new(0u32));
+        let sink = Rc::clone(&pad_first);
+        d.frame(move |cx| *sink.borrow_mut() = crate::screen::dense_draw(cx, false));
+        let sink = Rc::clone(&text_first);
+        d.frame(move |cx| *sink.borrow_mut() = crate::screen::dense_draw(cx, true));
+        assert_eq!(
+            *text_first.borrow(),
+            0,
+            "text before padding writes nothing twice"
+        );
+        assert_eq!(
+            *pad_first.borrow(),
+            PAD_FIRST_TWICE,
+            "and padding before text writes this many cells twice, every frame, for nothing"
+        );
+        assert_eq!(300 * 80, 24_000, "of a screen this size");
+    }
+
+    /// How many of the dense screen's 24 000 cells a pad-then-text component writes twice.
+    ///
+    /// A property of `crate::screen::dense_draw` and asserted as one, exactly as `screen_frame`'s
+    /// `(32, 119)` is: a report that quietly started measuring a smaller screen would otherwise look
+    /// good rather than fail.
+    const PAD_FIRST_TWICE: u32 = 5_902;
 }

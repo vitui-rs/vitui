@@ -808,3 +808,136 @@ fn a_hundred_animating_frames_with_four_animations_allocate_nothing() {
     assert_eq!(wakes.lines_lost(), 0, "and none of them was dropped");
     assert!(wakes.frames() >= 100);
 }
+
+/// **A frame with a dropdown standing allocates nothing, a hundred times over.**
+///
+/// The one number spec §10 states as a count: *one chunk, 32 bytes at high water, **zero**
+/// allocations across a hundred frames with a dropdown standing.* All three are asserted here,
+/// because they are one claim — a chunk that grew would move the high water, and a body boxed
+/// per frame would move the count.
+///
+/// # What would fail this
+///
+/// `Box<dyn FnMut>` for the body: one allocation per request per frame, which is a hundred here and
+/// one per open menu per frame in an application. That is the shape the frame arena exists instead
+/// of, and this gate is the only thing that stops someone reintroducing it — every other test in the
+/// crate passes with a boxed body.
+#[test]
+fn a_standing_overlay_allocates_nothing() {
+    use vitui_engine::Rect;
+    use vitui_runtime::ctx::{Driver, Id};
+    use vitui_runtime::overlay::OverlayOpts;
+    use vitui_runtime::{Interest, Role};
+
+    static ITEMS: [&str; 3] = ["Open", "Save", "Close"];
+
+    let mut driver = Driver::headless(300, 80).expect("attaching to a sink cannot fail");
+    let owner = Id::named("dropdown");
+    let items: &[&str] = &ITEMS;
+    let selected = 1usize;
+
+    // A dropdown standing over a base pass that is doing ordinary work, because the interesting
+    // claim is *no allocation for having an overlay* rather than *no allocation for an empty frame*.
+    let one_frame = |driver: &mut Driver| {
+        driver.frame(|cx| {
+            let body = cx.theme().paint(Role::Body);
+            for row in 0..24i32 {
+                cx.text(0, row, "a row of the list under the menu", body);
+            }
+            cx.interact(owner, Rect::new(0, 0, 12, 1), Interest::CLICK);
+            cx.overlay(
+                owner,
+                Rect::new(0, 0, 12, 1),
+                OverlayOpts::sized(12, 3),
+                move |cx| {
+                    let body = cx.theme().paint(Role::Body);
+                    for (row, item) in items.iter().enumerate() {
+                        let row = i32::try_from(row).unwrap_or(0);
+                        cx.text(0, row, item, body);
+                    }
+                    let _ = (selected, owner);
+                },
+            );
+        });
+    };
+
+    // Warm, for the first-touch reason every other gate here gives: the chunk, the layer and the
+    // engine's surface for it are all first allocated on the frame that opens the menu.
+    one_frame(&mut driver);
+    one_frame(&mut driver);
+
+    steady(|| {
+        for _ in 0..100 {
+            one_frame(&mut driver);
+        }
+    });
+    assert_eq!(
+        driver.inspect().arena_high_water(),
+        32,
+        "one chunk, and a hundred frames did not move the high water"
+    );
+    assert_eq!(driver.inspect().overlays_placed(), 1);
+    assert_eq!(
+        driver.layers_live(),
+        1,
+        "the layer was reused rather than rebuilt"
+    );
+    assert_eq!(
+        driver.surface_reallocs(),
+        0,
+        "and nothing was resized, so no surface was reallocated"
+    );
+}
+
+/// **A body that owns something is dropped by its thunk**, and a hundred frames of it neither leak
+/// nor allocate twice.
+///
+/// The arena drops nothing itself. A body owning a heap value therefore allocates once when it is
+/// built — every frame, because the value is built every frame — and must be *deallocated* the same
+/// number of times. A count that is not a zero is still a count, and the pair is the gate: allocation
+/// and deallocation move together, which is what says the drop thunk runs.
+#[test]
+fn an_owning_body_is_dropped_as_many_times_as_it_is_built() {
+    use vitui_engine::Rect;
+    use vitui_runtime::ctx::{Driver, Id};
+    use vitui_runtime::overlay::OverlayOpts;
+
+    let mut driver = Driver::headless(80, 24).expect("attaching to a sink cannot fail");
+    let owner = Id::named("owner");
+    let one_frame = |driver: &mut Driver| {
+        driver.frame(|cx| {
+            let owned = String::from("a label the body owns rather than borrows");
+            cx.overlay(
+                owner,
+                Rect::new(0, 0, 8, 1),
+                OverlayOpts::sized(40, 1),
+                move |cx| {
+                    let paint = cx.theme().paint(vitui_runtime::Role::Body);
+                    cx.text(0, 0, &owned, paint);
+                },
+            );
+        });
+    };
+    // **Warmed with the identical workload**, for the reason `steady` documents: the engine's own
+    // buffers reach their high water somewhere inside a hundred frames, not on the first one, and a
+    // window that includes that is measuring the loader.
+    for _ in 0..100 {
+        one_frame(&mut driver);
+    }
+
+    let before_alloc = vitui_alloc_probe::allocation_count();
+    let before_free = vitui_alloc_probe::deallocation_count();
+    for _ in 0..100 {
+        one_frame(&mut driver);
+    }
+    let allocated = vitui_alloc_probe::allocation_count() - before_alloc;
+    let freed = vitui_alloc_probe::deallocation_count() - before_free;
+    assert_eq!(
+        allocated, 100,
+        "one `String` a frame, and nothing else: the arena itself allocated nothing"
+    );
+    assert_eq!(
+        freed, allocated,
+        "and every one of them was dropped, by the thunk the request carried beside it"
+    );
+}

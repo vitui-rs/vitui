@@ -39,6 +39,7 @@ use vitui_runtime::layout::{
     Constraint::{Fixed, Weight},
     Row,
 };
+use vitui_runtime::{Ctx, Role};
 
 /// How many list rows the sidebar holds.
 pub const LIST_ROWS: usize = 24;
@@ -126,6 +127,111 @@ pub const ROWS: [&str; LIST_ROWS] = [
     "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}",
     "done",
 ];
+
+// ── the dense screen, drawn rather than only laid out ────────────────────────────────────────────
+//
+// Ticket 13's obligation needs a screen that *writes cells*, not one that only computes rectangles:
+// the number it turns on is how many cells a frame writes **twice**, and `screen_frame` above writes
+// none at all. The two live in one file because they are one screen — a report that measured layout
+// over one shape and drawing over another would be two screens with one name, which is the defect
+// `screen_frame` was extracted to remove.
+
+/// How many interactive regions the drawn screen has. **312**, which is spec §20's dense IDE screen.
+pub const REGIONS: usize = 312;
+
+/// What the drawn regions are labelled with.
+///
+/// **Not [`ROWS`]**, and the difference is the whole reason there are two corpora in this file.
+/// `ROWS` exists to make *text measurement* expensive — stacked combining marks, family emoji, CJK
+/// with nothing to break on — because that is what the wrap report is measuring. A frame drawn out of
+/// it costs 245 µs on the dense screen, which is a measurement of UAX #29 and not of a frame.
+///
+/// These are what a dense IDE screen actually holds: paths, statuses, counts and short prose, all
+/// Latin, each of them its own handle in the engine's interner and none of them touching a table.
+pub const LABELS: [&str; 12] = [
+    "src/main.rs",
+    "modified",
+    "a status line long enough to fill most of its own region",
+    "42",
+    "crates/vitui-runtime/src/overlay.rs",
+    "ok",
+    "warning: the value did not fit in the column it was given",
+    "build",
+    "0.0.0",
+    "a moderately long label",
+    "target/release/deps",
+    "done",
+];
+
+/// How many columns each region gets, and how many of them sit on a row.
+///
+/// **Twenty-four, not seventy-five.** Four regions of seventy-five tile the screen exactly, and a
+/// screen every one of whose cells is filled by a component every frame is not the dense IDE screen —
+/// it is a full repaint with widgets drawn on it, and it costs 192 µs on this machine because the
+/// serialiser has 24 000 damaged cells to encode. A real dense screen is mostly *not* covered: a
+/// sidebar of names, a detail pane of labels, a footer of buttons. Twelve regions of twenty-four on
+/// twenty-six rows is 7 488 of 24 000 cells, which is the shape the map's ~33 µs was measured on.
+const REGION_W: u16 = 24;
+
+/// How many regions sit on one row.
+const PER_ROW: i32 = 12;
+
+/// Draw the dense screen as 312 padded, labelled regions, and answer **how many cells were written
+/// twice**.
+///
+/// # The obligation this measures
+///
+/// > **Every component draws its text before its padding.**
+///
+/// Damage is marked at write time and never derived by diffing (ADR 0004, engine §4), so a component
+/// that fills its rectangle and *then* writes its label damages the cells under the label twice — for
+/// identical output, every frame, for as long as it is on screen. The cost only becomes visible when
+/// something recomposites in proportion to damage, and a modal's scrim is exactly that: an operator
+/// layer over the whole screen at 3.41 ns a cell.
+///
+/// `text_first` picks the order:
+///
+/// - `false` — fill the whole region, then write the label over it. The label's cells are written
+///   twice.
+/// - `true` — write the label, then fill only the columns the label did not reach. Nothing is written
+///   twice, and **the picture is identical**, which is the point: this is not a trade.
+///
+/// The return value is the double-written count. It is a property of this fixture rather than of the
+/// runtime, which is why every caller asserts it — the same rule, and the same reason, as
+/// [`screen_frame`]'s `(32, 119)`.
+pub fn dense_draw(cx: &mut Ctx<'_, '_>, text_first: bool) -> u32 {
+    let face = cx.theme().paint(Role::Face);
+    let body = cx.theme().paint(Role::Body);
+    let space = " ";
+    let mut twice = 0u32;
+    let mut region = 0usize;
+    'rows: for y in 0..80i32 {
+        for col in 0..PER_ROW {
+            if region == REGIONS {
+                break 'rows;
+            }
+            let x = col * i32::from(REGION_W);
+            let label = LABELS[region % LABELS.len()];
+            let rect = Rect::new(x, y, REGION_W, 1);
+            if text_first {
+                let w = cx.text(x, y, label, body).cells;
+                // Only the padding, and `saturating_sub` because a label wider than its region
+                // leaves none — a truncating cell is ordinary traffic, not an edge case.
+                cx.fill(
+                    Rect::new(x + i32::from(w), y, REGION_W.saturating_sub(w), 1),
+                    space,
+                    face,
+                );
+            } else {
+                cx.fill(rect, space, face);
+                let w = cx.text(x, y, label, body).cells;
+                twice += u32::from(w);
+            }
+            region += 1;
+        }
+    }
+    twice
+}
 
 #[cfg(test)]
 mod tests {
