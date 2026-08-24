@@ -56,8 +56,13 @@
 //!
 //! Provenance: **R 20**, 2026-08-24, Apple M1 Max, macOS 26.5.2, rustc 1.97.1, `--release`,
 //! unloaded, minimum of 40 rounds. Three quiet runs read 89.79 / 89.92 / 89.88 µs, a 0.15% spread;
-//! under a concurrent `cargo build` the same frame reads 94.2 µs, which is the load penalty a CI
-//! container should be expected to show.
+//! under a concurrent `cargo build` the same frame reads 94.2 µs.
+//!
+//! **Confirmed on the devkit GitLab runner by pipeline 52: 91.88 µs**, 1.09× of headroom — 2.2%
+//! slower than this laptop, which is the whole of the runner penalty on an idle six-slot machine
+//! and well inside the load penalty measured above. That number is why the gate sits where it
+//! does rather than at the budget: 91.88 against 100 is 8% of margin on a runner shared with every
+//! other repository on the machine, and a competing pipeline is worth more than 8%.
 
 use std::hint::black_box;
 
@@ -86,9 +91,18 @@ fn main() {
     let budget = frame_budget_ns();
 
     println!("runtime ticket 20 — the headroom ledger, and the one timing that is a gate");
+    // **Two machines, named separately, because this example runs on both.** The first draft
+    // printed `machine Apple M1 Max` unconditionally — copied from `overlay_numbers.rs`, which only
+    // ever runs by hand — and pipeline 52 duly printed it from inside a linux/arm64 container. A
+    // provenance line that names the wrong machine is worse than none: it is the exact defect this
+    // ticket exists to fix, wearing the costume of the fix. So the recorded figure names where it
+    // was recorded, and the run below names nothing it cannot know.
     println!(
-        "machine Apple M1 Max, macOS 26.5.2, --release, minimum of 40 rounds, round robin.\n\
-         \x20       the dense screen: 300x80 = 24 000 cells, {REGIONS} interactive regions."
+        "recorded on  Apple M1 Max, macOS 26.5.2, rustc 1.97.1, --release, unloaded — R 20,\n\
+         \x20            2026-08-24, and confirmed on the devkit GitLab runner by pipeline 52 at\n\
+         \x20            91.88 us, 2.2% slower than this laptop's 89.88.\n\
+         measured now  this run, on whatever machine is executing it, minimum of 40 rounds,\n\
+         \x20            round robin. The dense screen: 300x80 = 24 000 cells, {REGIONS} regions."
     );
     println!("lto:    {lto}\n");
 
