@@ -30,14 +30,25 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   asked three families what they do with a cluster printed over one half of a double-width glyph, all
   three blank the orphaned half themselves, and *they disagree about what it wears*, which is what
   made the engine's own repair mandatory rather than merely tidy.
-- **`vitui-runtime` is in progress**: 13 of 20 tickets resolved — 05, 12, 15 and 16 landed together
-  on 2026-08-23, built in parallel worktrees and integrated one pipeline at a time. `data`, `layout`,
-  `theme` with its fourteen shipped schemes, `keys`, `ctx`, `id`, `route`, `focus`, `sizing` and
-  `work` exist; overlays, scrolling, animation, the crate line and the verification ledger do not.
-  Two of the four found defects in code that was already green — ticket 15 found `Ctx::hover_style`
-  translating from `rect` rather than from an accumulated origin, wrong at every level below the
-  first two, and ticket 16 found a stale landing able to destroy a fresh one in `Slot::put`, which is
-  where `Generation`'s ordering earns its keep.
+- **`vitui-runtime` is in progress**: 16 of 20 tickets resolved. 05, 12, 15 and 16 landed together
+  on 2026-08-23 and 06, 13 and 14 on 2026-08-24, all built in parallel worktrees and integrated one
+  pipeline at a time. `data`, `layout`, `theme` with its fourteen shipped schemes, `keys`, `ctx`,
+  `id`, `route`, `focus`, `sizing`, `work`, `anim`, `overlay` and `scroll` exist; only the crate line
+  (17), the facade's signals (18) and the verification ledger (19, 20) remain.
+  **Four of the seven found defects in code that was already green**, which is the argument for a
+  consumer over another gate: ticket 15 found `Ctx::hover_style` translating from `rect` rather than
+  from an accumulated origin, wrong at every level below the first two; ticket 16 found a stale
+  landing able to destroy a fresh one in `Slot::put`, which is where `Generation`'s ordering earns
+  its keep; ticket 14 found the wheel riding `Awarded` and so arriving a frame late, wrong for the
+  one channel whose reader is inside the draw; and ticket 06 found the runtime had two wakeup sinks
+  and flushed one.
+- **`overlay` is the runtime's only `unsafe`** — a crate-private bump arena holding a type-erased
+  overlay body between the two passes, because a `Box<dyn FnMut>` per request per frame is one
+  allocation against a budget of zero. Four blocks, a safety comment each, and the aliasing hazard
+  (growing the buffer you are executing out of frees the running closure) is solved by double
+  buffering rather than documented. The engine's `#![forbid(unsafe_code)]` is unchanged and this does
+  not touch it. **There is no Miri job**, which is the gap this leaves — see the note in ticket 13's
+  answer.
 - **`vitui-components` is empty scaffolding.** Its architecture is settled (43 tickets sliced), no
   code written.
 - Nothing above the engine can draw a screen yet, so no application exists to run.

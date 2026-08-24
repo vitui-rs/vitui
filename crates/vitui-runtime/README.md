@@ -5,11 +5,15 @@ Layout, identity, focus, hit-testing, routing, key maps and theming on top of
 
 **Nothing is published. The version is `0.0.0` and there is no stability promise before 0.x.**
 
-## Status: 13 of 20 tickets, and this crate is under construction
+## Status: 16 of 20 tickets, and this crate is under construction
 
 `data`, `layout`, `layout::text`, `theme` with its standard set, `keys`, `ctx`, `id`, `route`, the
-hit index, `focus`, `sizing` and `work` exist. **Overlays, scrolling, animation, the crate line and
-the verification ledger do not.** Nothing above the engine can draw a full screen yet.
+hit index, `focus`, `sizing`, `work`, `anim`, `overlay` and `scroll` exist. **The crate line, the
+facade's signals, and the verification ledger do not.** Nothing above the engine can draw a full
+screen yet.
+
+`overlay` carries the crate's only `unsafe` — one crate-private bump region, four blocks with a
+safety comment each. Everything else here is safe Rust.
 
 Depend on this today only if you intend to follow its development.
 
