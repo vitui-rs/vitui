@@ -162,8 +162,20 @@ pub const KEYBOARD_REGISTERED: &[&str] = &[];
 
 /// The scenes that exist, as `(component, axis)` pairs. O5's evidence.
 ///
-/// **Fourteen of thirty-four, and components ticket 10 did not move it.** Ticket 04 put twelve here
-/// off spec §21's own rows and ticket 09 added two.
+/// **Fourteen of thirty-four, and neither components ticket 10 nor components ticket 11 moved it.**
+/// Ticket 04 put twelve here off spec §21's own rows and ticket 09 added two.
+///
+/// **Ticket 11 built five scenes for `collection` and added no pair either, for a reason worth
+/// separating from ticket 10's.** Ticket 10's was *a component is not a scene*; this one is *a
+/// standing is not a pair*. The three pairs `collection` declares — scrolled, shrunk, wheeled — were
+/// already claimed here by ticket 04, off §21's own **scene** rows 4, 5 and 6. What ticket 11 changed is that
+/// those three scenes stopped being `Unsubjected` and became `Red` with an exact failing set, and
+/// [`axis_scenes_of`](crate::scenes::axis_scenes_of) does not read `standing` at all: its one filter
+/// is `owed`, because §21's `(owed)` marks a scene *whose number was never measured*, and a red
+/// scene's numbers are measured. The fifth scene, the narrow collection, deliberately claims **no**
+/// pair — `INVENTORY` sets `narrow: false` on `collection` because a row truncates through
+/// `text::fit`, which is `text`'s flag, and scene 28 already carries `(text, narrow)`. A pair here
+/// for an axis the freeze does not set is evidence for nothing and would inflate the count silently.
 ///
 /// Ticket 10 built four components and added no pair, which is not an oversight and is worth the
 /// sentence: `panel` and `button` declare **no** hostile axis at all, and the axes `text` and `chip`

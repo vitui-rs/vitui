@@ -29,7 +29,7 @@
 //! - [`obligations`] — §17's five obligations as queries over the freeze, each returning a count or
 //!   an equality. **Not one of them can be met yet, and every one of them says so out loud** rather
 //!   than returning green over an empty population.
-//! - [`gates`] — §21's register: **sixty-five gates as rows, forty-one of them evaluated**, three
+//! - [`gates`] — §21's register: **sixty-seven gates as rows, forty-two of them evaluated**, four
 //!   pinned red with their failing sets, six unreachable across the crate line with what would have
 //!   to become public, and fifteen with nothing yet to run over. An instrument is a value with a
 //!   file in it, so a row that has stopped running turns the register red here. **One of those rows
@@ -45,11 +45,11 @@
 //!   on purpose.
 //! - [`counters`] — §20's nine per-frame counters, **eight of which this crate can read**. The
 //!   ninth, `marked`, panics rather than answering `0`, and so does the sentinel probe.
-//! - [`scenes`] — the normative scene list: **twenty-eight screens, twenty-seven of them §21's
-//!   table, twenty-five `Unsubjected` and three `Evaluated`**, each with the size it is played at, the
-//!   content it stands up, the gestures it plays and the property it decided. Three of them exist
-//!   because a defect survived every gate then in force by not being on any screen anybody had
-//!   built.
+//! - [`scenes`] — the normative scene list: **twenty-nine screens, twenty-seven of them §21's
+//!   table, twenty-one `Unsubjected`, five `Red` and three `Evaluated`**, each with the size it is
+//!   played at, the content it stands up, the gestures it plays and the property it decided. Three
+//!   of them exist because a defect survived every gate then in force by not being on any screen
+//!   anybody had built.
 //! - [`runner`] — *render one scene two ways and compare it cell for cell*, reporting **n cells over
 //!   m rows**. Three of the four hostile axes were caught only by this, and every one of them made
 //!   the defective build look **healthier**. The reference arm is this crate's own, and
@@ -65,6 +65,16 @@
 //!   absorbed — [`dense::CHIP_FILLED_FACE`] is 1 095 where ticket 09 measured 1 149.
 //! - The module tree, one module per family (§19), joined to the freeze by
 //!   [`Component::families`].
+//!
+//! - [`listing`] — **the collection's screen**: 40x80, one collection and eighty rows a window, and
+//!   the four hostile axes standing on it instead of in a table — 75 of 80 rows for the inverted
+//!   scroll sign, 71 of 80 (2 840 cells) for the stale tail, one cell a row for the missing
+//!   ellipsis, and **0 against 20** for the unconditional `scroll_into_view` `CONTEXT.md` forbids
+//!   and four *resolved* tickets wrote anyway. Its five scenes are **red**, and two different
+//!   reasons are kept apart: four wait for `collection` (components 12) and the wheel gate waits for
+//!   the fix (components 20). Its own finding is that *writes flat 1k -> 1M* is **green** on a
+//!   listing that declares a million hit entries, which is why the equality it registers is on
+//!   `regions`.
 //!
 //! **And all seven of spec §3's helpers now exist**, which is the first code here that a component
 //! will call rather than be measured by: [`text::fit`] and [`frame::block`] are the two partition
@@ -110,6 +120,7 @@ pub mod glyphs;
 pub mod ink;
 pub mod inventory;
 pub mod keys;
+pub mod listing;
 pub mod obligations;
 pub mod runner;
 pub mod scenes;

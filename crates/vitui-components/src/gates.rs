@@ -1,5 +1,5 @@
-//! Spec §21's register: **sixty-one gates as a value, one row per gate, and a number for how many of
-//! them anything runs.**
+//! Spec §21's register: **sixty-seven gates as a value, one row per gate, and a number for how many
+//! of them anything runs.**
 //!
 //! > The register is data, not prose — one row per gate with its kind, its owner, where it stood at
 //! > the branch point and where it stands now, so the delta is a number a test asserts. The reason
@@ -54,8 +54,8 @@
 //!   to run over** — no component exists — and a register that filed those as `Evaluated` would be
 //!   claiming fifteen green gates over an empty population.
 //!
-//! **Thirty-six evaluated, four red, six unreachable, fifteen unsubjected**, and
-//! `tests::thirty_six_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
+//! **Forty-two evaluated, four red, six unreachable, fifteen unsubjected**, and
+//! `tests::forty_two_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
 //! deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
 //! and subjected row 27, the cross-family collapse gate; ticket 07 added five, and none of them
@@ -73,6 +73,19 @@
 //! that fails because the code is wrong are the same failure unless the message separates them, so
 //! the failing set is computed by opening the four files components 10 will declare in and the
 //! panic names all four and the ticket.
+//!
+//! **Components ticket 11 added two and rewrote a third, and the three are three different kinds of
+//! change.** Row 66 is `Evaluated` — *regions identical at 1 000, 100 000 and 1 000 000 rows*, over
+//! the listing's two arms, and it exists because **row 4 cannot see the defect it is about**: the
+//! engine reports a fully clipped verb as zero columns, so a listing that iterates its whole content
+//! writes exactly what a windowed one writes — 3 200 at every volume — while declaring 1 000 001 hit
+//! entries against 81. *Writes flat 1k -> 1M* is green on that build. Row 67 is `Red` and is row 61
+//! one ticket later: five scenes are pinned because `collection` is undeclared, and the sentence
+//! that says which failure that is is the whole of components 11's criterion 7. **Row 29 kept its
+//! standing and gained its missing half**: the wheel gate's *twenty wheel clicks move the offset
+//! twenty* direction now runs, with the click's delta handed to `Response::scrolled`'s own
+//! arithmetic on both arms — the `Mouse` barrier is untouched and is *still the reason the click
+//! cannot be posted*, which is the distinction row 5 got wrong.
 //!
 //! # Row 5 was not *not yet*. It was wrong, and an `Unreachable` that is wrong is the worst standing
 //!
@@ -313,15 +326,18 @@ pub struct Row {
 /// The dense screen's own file, which is where components ticket 09's four rows run.
 const DENSE: &str = "crates/vitui-components/src/dense.rs";
 
+/// The listing's own file, which is where components ticket 11's two rows run.
+const LISTING: &str = "crates/vitui-components/src/listing.rs";
+
 /// How many rows of [`REGISTER`] are spec §21's own table. **Thirty-two, and it is closed** — a
 /// thirty-third would be a spec change.
 pub const SPEC_ROWS: usize = 32;
 
-/// How many rows anything evaluates today. **Forty-one.**
+/// How many rows anything evaluates today. **Forty-two.**
 ///
 /// The number is the point of the file. §21 counted **2 of 18** at the branch point and **11 of 18**
 /// after C11's own pass, both over the prototypes; this is the first count taken over shipped code,
-/// and it is forty-one of sixty-five because twenty-four of the rows are about components that do
+/// and it is forty-two of sixty-seven because twenty-five of the rows are about components that do
 /// not exist or need a name the crate line refuses.
 ///
 /// **It was fourteen of forty until ticket 04**, which added the reference-render runner and its
@@ -342,6 +358,12 @@ pub const SPEC_ROWS: usize = 32;
 /// rather than supplying a *subject*, and it is the one worth being suspicious about the next time
 /// an `Unreachable` is written.
 ///
+/// **Components ticket 11 moved it from forty-one to forty-two, and the one row is row 66** — the
+/// regions equality, `Evaluated` over the listing's two arms rather than over `collection`, which is
+/// components ticket 04's standing and its reason: what it gates is that *the instrument separates a
+/// correct build from a defective one*. The **scene** stays red, and `crate::scenes` says at length
+/// why those are not one claim. Its second row, 67, is `Red` on purpose.
+///
 /// **Components ticket 10 moved it from thirty-six to forty-one, and one of the five is not a new
 /// row.** Rows 62–65 are the four primitives' — the partition sweep, the fill scan, the clear and
 /// the hovered chip — and the fifth is **row 61**, the one row on this register whose gate was a
@@ -349,10 +371,10 @@ pub const SPEC_ROWS: usize = 32;
 /// row still asserting *the four components do not exist* would now be asserting they are gone.
 /// That is the second inversion here worth being suspicious about: a red row phrased as an absence
 /// cannot be turned green by editing one field.
-pub const EVALUATED: usize = 41;
+pub const EVALUATED: usize = 42;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 65] = [
+pub const REGISTER: [Row; 67] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -822,8 +844,21 @@ pub const REGISTER: [Row; 65] = [
         kind: Kind::Count,
         owner: "C07, C10",
         section: "spec §12",
+        // **Components ticket 11 made the other half run, and the barrier did not lift.** The row
+        // said *half cannot: a wheel click is a posted `Mouse`* and that is still true — what
+        // changed is that the click's **delta** is handed to the arithmetic `Response::scrolled`
+        // would have delivered it to, on **both** arms, so what is under test is the reveal and not
+        // the wire. See `crate::listing`'s header, which states the substitution rather than
+        // burying it, and note the difference from row 5: this barrier was checked by trying it,
+        // and a `Mouse` needs a `Buttons` and a `MouseKind`, neither of which is in `ENGINE_NAMES`
+        // at all.
         standing: Standing::Red {
             by: &[
+                Instrument::Unit {
+                    file: LISTING,
+                    name: "twenty_wheel_clicks_move_the_offset_twenty_and_an_unconditional_reveal_\
+                           takes_it_back",
+                },
                 Instrument::Unit {
                     file: "crates/vitui-components/tests/gates.rs",
                     name: "a_frame_that_asks_for_no_reveal_moves_no_offset_and_one_that_asks_does",
@@ -832,12 +867,18 @@ pub const REGISTER: [Row; 65] = [
                     file: "crates/vitui-runtime/src/line.rs",
                     line: "name: \"Mouse\",",
                 },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/listing_numbers.rs",
+                },
             ],
             failing: "0 against 16 over twenty clicks, in four *resolved* tickets' code, each \
-                      written by someone who had read the rule in `CONTEXT.md` forbidding it. Half \
-                      the gate runs here — an offset that moves when nothing asked is a failure, \
-                      which is the direction that stops the fix being *delete the call* — and half \
-                      cannot: a wheel click is a posted `Mouse`, and `Mouse` is `reachable_as: None`",
+                      written by someone who had read the rule in `CONTEXT.md` forbidding it. **0 \
+                      against 20 here**, and both directions are pinned: `Reveal::EveryFrame` \
+                      settles the offset at 0 where the conditional arm settles at 20, and \
+                      `Reveal::Never` — deleting the call, which passes that half — moves the \
+                      offset 0 when a keyboard reveal really asks. The click itself is still \
+                      unpostable: a wheel click is a `Mouse` and `Mouse` is `reachable_as: None`, \
+                      so the delta is handed to `Response::scrolled`'s own arithmetic on both arms",
             inverted_by: "components 20",
         },
     },
@@ -1752,6 +1793,89 @@ pub const REGISTER: [Row; 65] = [
             ],
         },
     },
+    // ── components ticket 11's two, and they are two different kinds of row ──────────────────────
+    Row {
+        number: 66,
+        on_spec_table: false,
+        gate: "regions identical at 1 000, 100 000 and 1 000 000 rows",
+        kind: Kind::Equality,
+        owner: "C11",
+        section: "spec §5, §20",
+        // **This is not row 4 restated, and the difference is the finding.** Row 4 is *writes flat
+        // 1k -> 1M* and it is `Unsubjected`; this row asks about the **hit index**, and the reason
+        // it has to is that the write count cannot see the defect at all: the engine reports a
+        // fully clipped verb as zero columns, so a listing that iterates its whole content and lets
+        // the clip reject the rest writes exactly what the windowed one writes — 3 200 at every
+        // volume — while declaring 1 000 001 regions against 81. Row 4 would be green on it.
+        //
+        // `Evaluated` over the listing rather than over `collection`, which is the same standing
+        // components ticket 04's four rows have and for the same reason: what it gates is that
+        // *the instrument separates a correct build from a defective one*, watched in both
+        // directions. The **scene** stays red, and `crate::scenes` says why the two are not one
+        // claim.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: LISTING,
+                    name: "the_listing_writes_and_declares_the_same_at_a_thousand_rows_and_at_a_\
+                           million",
+                },
+                Instrument::Unit {
+                    file: LISTING,
+                    name: "a_listing_that_iterates_its_whole_content_writes_the_same_and_declares_\
+                           a_thousand_times_more",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/listing_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 67,
+        on_spec_table: false,
+        gate: "a scene with no subject fails differently from a scene whose code is wrong",
+        kind: Kind::CompileOutcome,
+        owner: "C11",
+        section: "spec §21",
+        // **The fourth red row, and it is row 61 one ticket later.** Ticket 09 pinned the dense
+        // screen's three scenes in exactly this shape and ticket 10 inverted it; this is the same
+        // distinction for `collection`, and it is a row rather than a comment because the whole
+        // argument of §21 is that an obligation stated as a sentence gets broken by someone who has
+        // read it.
+        //
+        // `CompileOutcome` for row 61's reason: what is asserted is that a *file* declares an item,
+        // read by opening it — the one thing a `compile_fail` fence cannot say, because a fence
+        // over a missing item passes today and passes again the day the module is renamed.
+        standing: Standing::Red {
+            by: &[
+                Instrument::Unit {
+                    file: LISTING,
+                    name: "the_listing_is_red_because_collection_is_not_declared",
+                },
+                Instrument::Unit {
+                    file: LISTING,
+                    name: "the_waiting_message_separates_unimplemented_from_wrong",
+                },
+                Instrument::Unit {
+                    file: LISTING,
+                    name: "the_subject_scan_finds_a_declaration_when_there_is_one",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/scenes.rs",
+                    name: "twenty_one_scenes_have_nothing_to_run_over_five_are_red_and_three_are_\
+                           stood_up",
+                },
+            ],
+            failing: "`collection` is undeclared, so five scenes are pinned red — 3, 4, 5, 6 and \
+                      29 — and four of the five are waiting for it. `crates/vitui-components/src/\
+                      collect.rs` carries no `pub fn collection(`, which is what \
+                      `crate::listing::subjects_declared` opens the file to find out, and \
+                      `crate::listing::standing` is `Unmet { over: 1, failing: 1 }` rather than \
+                      `Met` over nothing",
+            inverted_by: "components 12",
+        },
+    },
 ];
 
 /// **The compile-outcome pair row 31 names, and its positive twin.**
@@ -2015,14 +2139,14 @@ mod tests {
         assert_eq!(seen, expected);
     }
 
-    /// **Forty-one evaluated, and the other twenty-four each say why not.**
+    /// **Forty-two evaluated, and the other twenty-five each say why not.**
     ///
     /// This is the number §21 asks for: *how many gates are actually evaluated is a number a test
     /// asserts rather than a claim in a document*. Saying it out loud is what stops the next change
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn forty_one_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn forty_two_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -2038,11 +2162,12 @@ mod tests {
         assert_eq!(evaluated, EVALUATED, "the count §21 asks a test to assert");
         assert_eq!(
             red,
-            vec![7, 8, 29],
-            "the three gates that are red and pinned: the sentinel, the palette after a swap and \
-             twenty wheel clicks. The glyph-set count was one of them and components ticket 05 \
-             inverted it; row 61 was the fourth and components ticket 10 inverted it, which took \
-             rewriting the gate rather than the standing — the row asserted an *absence*"
+            vec![7, 8, 29, 67],
+            "the four gates that are red and pinned: the sentinel, the palette after a swap, \
+             twenty wheel clicks and the collection's five scenes waiting for their subject. The \
+             glyph-set count was one of them and components ticket 05 inverted it; row 61 was \
+             another and components ticket 10 inverted it, which took rewriting the gate rather \
+             than the standing — the row asserted an *absence*"
         );
         assert_eq!(
             unreachable,
@@ -2053,7 +2178,7 @@ mod tests {
              the value anyway, so a chord can be pressed after all"
         );
         assert_eq!(unsubjected, 15, "and the fifteen with nothing to run over");
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 65);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 67);
     }
 
     /// **The split, not the total.**
@@ -2064,10 +2189,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_thirty_three_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_thirty_five_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 33);
+        assert_eq!(REGISTER.len() - on_table, 35);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -2370,6 +2495,7 @@ mod tests {
                 "gates_numbers.rs".to_string(),
                 "glyph_numbers.rs".to_string(),
                 "keys_numbers.rs".to_string(),
+                "listing_numbers.rs".to_string(),
                 "nav_numbers.rs".to_string(),
                 "partition_numbers.rs".to_string(),
                 "press_numbers.rs".to_string(),

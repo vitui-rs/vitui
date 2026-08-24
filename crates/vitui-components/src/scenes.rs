@@ -17,12 +17,12 @@
 //! later ticket disagrees with it** (ADR 0033), and a scene deleted to make a count come out is
 //! exactly the deletion the rule at the top of this module forbids.
 //!
-//! # There are twenty-eight rows, and the twenty-eighth says so in a field
+//! # There are twenty-nine rows, and the two that are not §21's say so in a field
 //!
 //! §21's table is closed at twenty-seven and this list is longer, because **the backlog asks for
-//! scenes §21 does not carry**: `issues/09`'s narrow axis is one, `issues/11` asks for a *narrow
-//! collection* beside §21's four collection rows, and `issues/23` for the cluster corpus. The
-//! arrangement is [`crate::gates::Row::on_spec_table`]'s, arriving here for its reason —
+//! scenes §21 does not carry**: `issues/09`'s narrow axis is one, `issues/11`'s *narrow collection*
+//! beside §21's four collection rows is the second, and `issues/23` will ask for the cluster corpus.
+//! The arrangement is [`crate::gates::Row::on_spec_table`]'s, arriving here for its reason —
 //! `tests::the_specs_table_is_twenty_seven_rows_and_this_list_carries_them_all` counts the spec's
 //! rows against the rows that *claim* to be the spec's, so a twenty-eighth cannot arrive as a
 //! one-line diff pretending to be §21's.
@@ -34,12 +34,28 @@
 //! ([`Scene::owed`] and [`Scene::from_a_survived_defect`]), because the value can hold both and a
 //! count cannot.
 //!
-//! # Twenty-five scenes are `Unsubjected` and three are `Evaluated`, and none is `Red`
+//! # Twenty-one scenes are `Unsubjected`, five are `Red` and three are `Evaluated`
 //!
 //! [`crate::gates::Standing::Unsubjected`] means *it could run and there is nothing to run it over*.
-//! Twenty-five of the twenty-nine components do not exist, so twenty-five of these screens cannot be
-//! stood up at all. Filing any of them as `Evaluated` would be
+//! Twenty-four of the twenty-nine components do not exist, so most of these screens cannot be stood
+//! up at all. Filing any of them as `Evaluated` would be
 //! [`crate::obligations::Verdict::of`]'s vacuity accident arriving on the scene list.
+//!
+//! **Components ticket 11 moved four rows off `Unsubjected` and added a fifth**, and the direction
+//! is *up*: `Unsubjected` says *nothing runs*, and scenes 3, 4, 5, 6 and 29 now run a great deal —
+//! the inverted sign is refused by an equality at 75 of 80 rows, the stale tail at 71 of 80, the
+//! missing ellipsis at one cell a row, and the three volumes agree on writes, regions and tab stops
+//! to the unit. What they do not have is `collection`, which is [`crate::listing::standing`]'s
+//! verdict and components ticket 12's job.
+//!
+//! **One of the five is not waiting for a subject and that is the point of the split.** Scene 6, the
+//! twenty wheel clicks, is pinned to **components 20**: its failing set is the unconditional
+//! `scroll_into_view` itself, which `CONTEXT.md` forbids and which four *resolved* tickets wrote
+//! anyway. Ticket 12's own criterion says so — *every scene of ticket 11 is green except the wheel
+//! gate, which stays pinned red for ticket 20* — and
+//! `tests::twenty_one_scenes_have_nothing_to_run_over_five_are_red_and_three_are_stood_up` asserts
+//! the pairing rather than the count alone, because a single `inverted_by` across the five would
+//! erase the distinction while keeping the number right.
 //!
 //! **Scenes 1, 2 and 28 are `Evaluated`, and components ticket 10 is what moved them.** They were
 //! `Red` for one ticket, which is the state worth reading this file for: ticket 09 built the dense
@@ -359,11 +375,120 @@ const RUNNER: &str = "crates/vitui-components/src/runner.rs";
 /// The dense screen's own file, which is where components ticket 09's three scenes are played.
 const DENSE: &str = "crates/vitui-components/src/dense.rs";
 
+/// The listing's own file, which is where components ticket 11's five scenes are played.
+const LISTING: &str = "crates/vitui-components/src/listing.rs";
+
 /// **What the dense screen is a screen of, and none of the four is declared yet.**
 ///
 /// [`crate::dense::SUBJECTS`], reached through this alias so the three rows below cannot drift from
 /// the list the failing set is computed over.
 const SUBJECTS: &[&str] = &crate::dense::SUBJECTS;
+
+/// **What the listing is a screen of, and it is not declared yet.**
+///
+/// [`crate::listing::SUBJECTS`], reached through this alias for [`SUBJECTS`]'s reason: five rows
+/// below claim `collection` stands on their screen, and the failing set they are pinned in is
+/// computed by opening the file the freeze homes `collection` in.
+const COLLECTION: &[&str] = &crate::listing::SUBJECTS;
+
+/// **The pair every one of components ticket 11's five scenes is pinned by**, written once because
+/// it is one fact: `collection` is not declared, and the listing says which failure that is.
+///
+/// This is ticket 09's `STANDS_ON_ITS_COMPONENTS` one ticket later and on the other side of the
+/// line. There it had already been inverted; here it is live, and the two halves are the two
+/// directions criterion 7 asks for — [`crate::listing::standing`] is the verdict over the one
+/// subject, and [`crate::listing::owed_message`] is the sentence that separates *waiting for its
+/// subject* from *the code is wrong*.
+const WAITING_FOR_COLLECTION: &[Instrument] = &[
+    Instrument::Unit {
+        file: LISTING,
+        name: "the_listing_is_red_because_collection_is_not_declared",
+    },
+    Instrument::Unit {
+        file: LISTING,
+        name: "the_waiting_message_separates_unimplemented_from_wrong",
+    },
+];
+
+/// The failing set every scene of components ticket 11 except the wheel is pinned in.
+///
+/// One sentence and not five, because it is one fact: the screen is measured and green and the
+/// component is missing. The wheel scene's failing set is a **different** fact and carries its own —
+/// see [`PINS_SCENE_6`].
+const OWED_ITS_COLLECTION: &str = "`collection` is not declared in `crates/vitui-components/src/collect.rs`, so the five screens \
+     stand on a stand-in row loop. Everything the screens themselves can be asked is measured and \
+     green — 75 of 80 rows for the inverted sign, 71 of 80 for the stale tail, one cell a row for \
+     the missing ellipsis, and identical writes, regions and tab stops at 1 000, 100 000 and \
+     1 000 000. What is missing is the subject";
+
+/// What pins scene 3, beyond the pair all five share.
+const PINS_SCENE_3: &[Instrument] = &[
+    Instrument::Unit {
+        file: LISTING,
+        name: "the_listing_writes_and_declares_the_same_at_a_thousand_rows_and_at_a_million",
+    },
+    Instrument::Unit {
+        file: LISTING,
+        name: "a_listing_that_iterates_its_whole_content_writes_the_same_and_declares_a_thousand_\
+               times_more",
+    },
+    WAITING_FOR_COLLECTION[0],
+    WAITING_FOR_COLLECTION[1],
+];
+
+/// What pins scene 4. See [`PINS_SCENE_3`].
+const PINS_SCENE_4: &[Instrument] = &[
+    Instrument::Unit {
+        file: LISTING,
+        name: "the_scrolled_listing_is_refused_by_the_equality_and_approved_by_every_counter",
+    },
+    WAITING_FOR_COLLECTION[0],
+    WAITING_FOR_COLLECTION[1],
+];
+
+/// What pins scene 5. See [`PINS_SCENE_3`].
+const PINS_SCENE_5: &[Instrument] = &[
+    Instrument::Unit {
+        file: LISTING,
+        name: "the_stale_tail_is_seventy_one_of_eighty_rows_and_the_resize_spelling_misses_it",
+    },
+    WAITING_FOR_COLLECTION[0],
+    WAITING_FOR_COLLECTION[1],
+];
+
+/// What pins scene 6, **the wheel gate**, and it is the one of the five that is not waiting for a
+/// subject.
+///
+/// It is red because of the defect: `CONTEXT.md` forbids the unconditional `scroll_into_view` and
+/// four *resolved* tickets wrote it anyway. Inverted by components 20 and not by components 12,
+/// which is ticket 12's own criterion — *every scene of ticket 11 is green except the wheel gate,
+/// which stays pinned red for ticket 20*.
+const PINS_SCENE_6: &[Instrument] = &[
+    Instrument::Unit {
+        file: LISTING,
+        name: "twenty_wheel_clicks_move_the_offset_twenty_and_an_unconditional_reveal_takes_it_back",
+    },
+    Instrument::Unit {
+        file: "crates/vitui-components/tests/gates.rs",
+        name: "a_frame_that_asks_for_no_reveal_moves_no_offset_and_one_that_asks_does",
+    },
+    Instrument::Barrier {
+        file: "crates/vitui-runtime/src/line.rs",
+        line: "name: \"Mouse\",",
+    },
+    WAITING_FOR_COLLECTION[0],
+    WAITING_FOR_COLLECTION[1],
+];
+
+/// What pins scene 29, the narrow collection. See [`PINS_SCENE_3`].
+const PINS_SCENE_29: &[Instrument] = &[
+    Instrument::Unit {
+        file: LISTING,
+        name: "a_listing_row_narrows_through_fit_and_the_ellipsis_is_one_cell",
+    },
+    WAITING_FOR_COLLECTION[0],
+    WAITING_FOR_COLLECTION[1],
+];
 
 /// **What stands scenes 1, 2 and 28 up**, written once because it is one fact: the four components
 /// are declared, and the screen is drawn through them.
@@ -483,7 +608,7 @@ const STANDS_SCENE_28: &[Instrument] = &[
 
 /// Spec §21's scene list, row for row, and this backlog's scenes beside it. **Twenty-eight, of which
 /// twenty-seven are §21's table and §21's table is the authority.**
-pub const SCENES: [Scene; 28] = [
+pub const SCENES: [Scene; 29] = [
     Scene {
         number: 1,
         on_spec_table: true,
@@ -539,13 +664,20 @@ pub const SCENES: [Scene; 28] = [
             Gesture::Volume { rows: 100_000 },
             Gesture::Volume { rows: 1_000_000 },
         ],
-        decided: "one store, one `Mode`; 63.87 / 63.87 / 64.08 us",
+        decided: "one store, one `Mode`; 63.87 / 63.87 / 64.08 us. Identical writes (3 200), \
+                  regions (81) and tab stops (1) at all three volumes",
         covers: &[],
-        stands: &[],
+        stands: COLLECTION,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Unsubjected {
-            inverted_by: "components 11",
+        // **The one of the five that is not a hostile axis**, and the one that found why criterion
+        // 6 asks for `regions`: a listing that iterates its whole content writes *exactly* what the
+        // windowed one writes, because the engine reports a fully clipped verb as zero columns. So
+        // §21's register row 4 — *writes flat 1k -> 1M* — is green on it and the hit index is not.
+        standing: Standing::Red {
+            by: PINS_SCENE_3,
+            failing: OWED_ITS_COLLECTION,
+            inverted_by: "components 12",
         },
         rehearsed_by: &[],
     },
@@ -560,13 +692,16 @@ pub const SCENES: [Scene; 28] = [
             cols: 0,
         }],
         decided: "the inverted scroll sign: 12.21 us / 3 058 writes against 62.96 / 20 418, and \
-                  *faster*. Found three times independently",
+                  *faster*. Found three times independently. 75 of 80 rows here, and every counter \
+                  this crate can read approves of the arm that is wrong",
         covers: &[("collection", Axis::Scrolled)],
-        stands: &[],
+        stands: COLLECTION,
         owed: false,
         from_a_survived_defect: true,
-        standing: Standing::Unsubjected {
-            inverted_by: "components 11",
+        standing: Standing::Red {
+            by: PINS_SCENE_4,
+            failing: OWED_ITS_COLLECTION,
+            inverted_by: "components 12",
         },
         rehearsed_by: &[Instrument::Unit {
             file: RUNNER,
@@ -580,13 +715,17 @@ pub const SCENES: [Scene; 28] = [
         size: Size::Unstated,
         content: Content::Rows { rows: 9 },
         gestures: &[Gesture::Shrink { to_rows: 9 }],
-        decided: "the stale tail: 71 of 80 rows, the defective build 2.3x faster marking 226x less",
+        decided: "the stale tail: 71 of 80 rows, the defective build 2.3x faster marking 226x less. \
+                  2 840 cells, and the resize spelling of the same gate scores the same painter \
+                  clean",
         covers: &[("collection", Axis::Shrunk)],
-        stands: &[],
+        stands: COLLECTION,
         owed: false,
         from_a_survived_defect: true,
-        standing: Standing::Unsubjected {
-            inverted_by: "components 11",
+        standing: Standing::Red {
+            by: PINS_SCENE_5,
+            failing: OWED_ITS_COLLECTION,
+            inverted_by: "components 12",
         },
         rehearsed_by: &[Instrument::Unit {
             file: RUNNER,
@@ -601,13 +740,27 @@ pub const SCENES: [Scene; 28] = [
         size: Size::Unstated,
         content: Content::Rows { rows: 1_000_000 },
         gestures: &[Gesture::Wheel { clicks: 20 }],
-        decided: "the unconditional scroll-into-view: 0 against 16, in four resolved tickets' code",
+        decided: "the unconditional scroll-into-view: 0 against 16, in four resolved tickets' code. \
+                  0 against 20 here, and deleting the call passes that half while losing the \
+                  keyboard reveal, which is why the gate is pinned in both directions",
         covers: &[("collection", Axis::Wheeled)],
-        stands: &[],
+        stands: COLLECTION,
         owed: false,
         from_a_survived_defect: true,
-        standing: Standing::Unsubjected {
-            inverted_by: "components 11",
+        // **The one scene of the five that components 12 does not turn.** Its failing set is the
+        // defect and not the missing subject, and ticket 12's own criterion says so: *every scene
+        // of ticket 11 is green except the wheel gate, which stays pinned red for ticket 20.*
+        standing: Standing::Red {
+            by: PINS_SCENE_6,
+            failing: "0 against 20 over twenty wheel clicks. `CONTEXT.md` forbids the \
+                      unconditional `scroll_into_view` and four *resolved* tickets wrote it \
+                      anyway, each by someone who had read the rule. Both directions are pinned: \
+                      `Reveal::EveryFrame` settles at 0 against 20, and `Reveal::Never` — deleting \
+                      the call, which passes that half — moves the offset 0 when a keyboard reveal \
+                      really asks. The click's *delta* is handed to the arithmetic \
+                      `Response::scrolled` would have delivered it to, because a `Mouse` cannot be \
+                      named from this crate; the substitution is on both arms",
+            inverted_by: "components 20",
         },
         rehearsed_by: &[Instrument::Unit {
             file: RUNNER,
@@ -1080,6 +1233,48 @@ pub const SCENES: [Scene; 28] = [
         // Empty for scene 1's reason, with `chip`'s own narrowing sweep joining the three.
         rehearsed_by: &[],
     },
+    // **The second scene §21 does not carry**, and the ticket that asked for it says so:
+    // `issues/11` asks for a *narrow collection* beside §21's four collection rows. §21's table is
+    // closed at twenty-seven and `on_spec_table` is what keeps a twenty-ninth from reading as a
+    // spec change.
+    Scene {
+        number: 29,
+        on_spec_table: false,
+        name: "a narrow collection, at 40x80 and 16x80",
+        size: Size::Two {
+            wide: (40, 80),
+            narrow: (16, 80),
+        },
+        content: Content::Rows { rows: 80 },
+        // **A resize and not a shrink**, and that is the pairing §21 sanctions rather than the
+        // conflation it warns about: scene 5 is this component's shrink — *content shrinking inside
+        // a rectangle that does not move* — so the resize spelling here stands **beside** it and
+        // not instead of it. The narrow axis is the one axis on which the rectangle really is what
+        // changed.
+        gestures: &[Gesture::Resize { w: 16, h: 80 }],
+        decided: "truncation and §16's one-cell ellipsis inside a row: 80 cells over 80 rows at 16 \
+                  columns and 0 of 3 200 at 40, which is the last cell of every row",
+        // **No `(collection, narrow)` pair, deliberately.** The freeze sets `narrow: false` on
+        // `collection` and says why in a comment on the row: *three of the four axes are literally
+        // this component's defects; the fourth is not — a collection's rows truncate through
+        // `text::fit`, which is `text`'s flag*, and scene 28 already carries `(text, narrow)`. A
+        // scene covering an axis the freeze does not set would inflate O5 silently, which
+        // `tests::fourteen_of_the_thirty_four_axis_obligations_have_a_scene_and_twenty_do_not`
+        // refuses. What this row does is *stand `collection` up*, which is the other question.
+        covers: &[],
+        stands: COLLECTION,
+        owed: false,
+        from_a_survived_defect: false,
+        standing: Standing::Red {
+            by: PINS_SCENE_29,
+            failing: OWED_ITS_COLLECTION,
+            inverted_by: "components 12",
+        },
+        rehearsed_by: &[Instrument::Unit {
+            file: RUNNER,
+            name: "a_construction_that_changes_with_the_width_is_green_wide_and_red_narrow",
+        }],
+    },
 ];
 
 /// **Every scene that stands `component` up.** Criterion 2's enumeration, from the scene's side.
@@ -1182,10 +1377,20 @@ pub fn report(rehearsals: &[(u8, crate::runner::MetricRow)]) -> String {
     for scene in SCENES {
         let label = format!("{:>3}  {}", scene.number, scene.name);
         match rehearsals.iter().find(|(n, _)| *n == scene.number) {
+            // **A measured line still says where the scene stands.** A rehearsal replacing the
+            // standing outright would print components ticket 11's wheel gate as a healthy frame,
+            // which is the defective build's own self-portrait one column further left: three of
+            // the four axes were *faster*.
             Some((_, row)) => {
+                let pin = match scene.standing {
+                    Standing::Red { inverted_by, .. } => {
+                        format!("; red, pinned: `{inverted_by}` inverts it")
+                    }
+                    _ => String::new(),
+                };
                 let _ = writeln!(
                     out,
-                    "{label:<52}  {}  [rehearsed over a fixture]",
+                    "{label:<52}  {}  [rehearsed over a fixture{pin}]",
                     row.columns()
                 );
             }
@@ -1205,6 +1410,20 @@ pub fn report(rehearsals: &[(u8, crate::runner::MetricRow)]) -> String {
                     let _ = writeln!(
                         out,
                         "{label:<52}  stood up on its own components, by {} instruments",
+                        by.len()
+                    );
+                }
+                // **A red scene is not an unplayed one, and the line has to say which.** Components
+                // ticket 11's five screens are drawn and measured; four are waiting for
+                // `collection` and one is pinned on the defect itself. Printing them as *not
+                // played* would lose the distinction criterion 7 exists for, and printing them as
+                // *stood up* would claim a component that does not exist.
+                Standing::Red {
+                    by, inverted_by, ..
+                } => {
+                    let _ = writeln!(
+                        out,
+                        "{label:<52}  red, pinned: `{inverted_by}` inverts it, by {} instruments",
                         by.len()
                     );
                 }
@@ -1239,9 +1458,9 @@ mod tests {
     /// has twenty-seven rows; the spec is the authority and the count below reads the spec.
     #[test]
     fn the_specs_table_is_twenty_seven_rows_and_this_list_carries_them_all() {
-        assert_eq!(SCENES.len(), 28);
+        assert_eq!(SCENES.len(), 29);
         let numbers: BTreeSet<u8> = SCENES.iter().map(|s| s.number).collect();
-        assert_eq!(numbers, (1..=28).collect::<BTreeSet<u8>>());
+        assert_eq!(numbers, (1..=29).collect::<BTreeSet<u8>>());
         let names: BTreeSet<&str> = SCENES.iter().map(|s| s.name).collect();
         assert_eq!(names.len(), SCENES.len(), "two scenes share a name");
 
@@ -1250,7 +1469,11 @@ mod tests {
         // well as about a flag.
         let on_table = SCENES.iter().filter(|s| s.on_spec_table).count();
         assert_eq!(on_table, 27);
-        assert_eq!(SCENES.len() - on_table, 1, "components 09's narrow axis");
+        assert_eq!(
+            SCENES.len() - on_table,
+            2,
+            "components 09's narrow axis and components 11's narrow collection"
+        );
         for (index, scene) in SCENES.iter().enumerate() {
             assert_eq!(
                 scene.on_spec_table,
@@ -1296,15 +1519,24 @@ mod tests {
         }
     }
 
-    /// **Twenty-five scenes have nothing to run over, three are stood up, and none is red.**
+    /// **Twenty-one scenes have nothing to run over, five are pinned red and three are stood up.**
     ///
-    /// `obligations.rs`'s arrangement and `gates.rs`'s: a count makes the first scene to be stood up
-    /// a deliberate edit here rather than a quiet change of colour, and **this is that edit**.
-    /// Twenty-five of the twenty-nine components' screens still cannot be built at all; the three
-    /// components ticket 09 built were red for one ticket, because their screen existed and its four
-    /// components did not, and components ticket 10 declared all four.
+    /// `obligations.rs`'s arrangement and `gates.rs`'s: a count makes every change of colour a
+    /// deliberate edit here rather than a quiet one. It was **twenty-five, none and three** until
+    /// components ticket 11, and the four that moved off `Unsubjected` moved *up*: `Unsubjected`
+    /// says *it could run and there is nothing to run it over*, and a great deal now runs.
+    ///
+    /// # Four of the five are pinned to components 12 and the fifth to components 20
+    ///
+    /// That split is the whole of criterion 7 and it is asserted rather than described. Scenes 3, 4,
+    /// 5 and 29 are waiting for `collection` — their screens are drawn and their numbers measured,
+    /// and what is missing is the subject. **Scene 6 is not waiting for anything**: it is red
+    /// because the defect is real, `CONTEXT.md` forbids it and four *resolved* tickets wrote it
+    /// anyway. Components ticket 12's own criterion says so — *every scene of ticket 11 is green
+    /// except the wheel gate, which stays pinned red for ticket 20* — and a single `inverted_by`
+    /// across the five would erase it.
     #[test]
-    fn twenty_five_scenes_have_nothing_to_run_over_and_three_are_stood_up() {
+    fn twenty_one_scenes_have_nothing_to_run_over_five_are_red_and_three_are_stood_up() {
         let red: Vec<u8> = SCENES
             .iter()
             .filter(|s| matches!(s.standing, Standing::Red { .. }))
@@ -1312,9 +1544,10 @@ mod tests {
             .collect();
         assert_eq!(
             red,
-            Vec::<u8>::new(),
-            "a scene is pinned red. That is a new one, and it owes an exact failing set and a \
-             ticket that inverts it"
+            vec![3, 4, 5, 6, 29],
+            "components ticket 11's five: the three volumes, the inverted sign, the stale tail, \
+             the twenty wheel clicks and the narrow collection. A sixth is a new one, and it owes \
+             an exact failing set and a ticket that inverts it"
         );
         let evaluated: Vec<u8> = SCENES
             .iter()
@@ -1329,8 +1562,9 @@ mod tests {
              fourth arriving here is a deliberate edit to this module's header and to \
              `crate::gates::REGISTER`"
         );
-        assert_eq!(SCENES.len() - evaluated.len(), 25);
+        assert_eq!(SCENES.len() - evaluated.len() - red.len(), 21);
 
+        let mut pinned_to = Vec::new();
         for scene in SCENES {
             let inverted_by = match scene.standing {
                 Standing::Unsubjected { inverted_by } => Some(inverted_by),
@@ -1342,6 +1576,25 @@ mod tests {
                     );
                     None
                 }
+                Standing::Red {
+                    by,
+                    failing,
+                    inverted_by,
+                } => {
+                    assert!(
+                        !by.is_empty(),
+                        "scene #{} is pinned red by nothing, which is a claim and not a gate",
+                        scene.number
+                    );
+                    assert!(
+                        failing.len() > 60 && failing.chars().any(|c| c.is_ascii_digit()),
+                        "scene #{} is red without an exact failing set. §21: a red gate asserts \
+                         its exact failing set, fires in both directions and says what to invert",
+                        scene.number
+                    );
+                    pinned_to.push((scene.number, inverted_by));
+                    Some(inverted_by)
+                }
                 other => panic!("scene #{} is {}", scene.number, other.word()),
             };
             if let Some(inverted_by) = inverted_by {
@@ -1352,6 +1605,18 @@ mod tests {
                 );
             }
         }
+        assert_eq!(
+            pinned_to,
+            vec![
+                (3, "components 12"),
+                (4, "components 12"),
+                (5, "components 12"),
+                (6, "components 20"),
+                (29, "components 12"),
+            ],
+            "the wheel gate is not waiting for its subject and the other four are. Merging the two \
+             loses the distinction components 11's criterion 7 is about"
+        );
     }
 
     /// **The three scenes stand on the same four components, and the fact is computed rather than
@@ -1504,9 +1769,31 @@ mod tests {
         let collection: Vec<u8> = scenes_for("collection").map(|s| s.number).collect();
         assert_eq!(
             collection,
-            vec![4, 5, 6],
-            "the three that exist because a defect survived every gate"
+            vec![3, 4, 5, 6, 29],
+            "components ticket 11's five: the three that exist because a defect survived every \
+             gate, the three volumes and the narrow collection"
         );
+
+        // **Criterion 1, and it is the reason the narrow collection is a scene at all**: those five
+        // answer for all four axis columns. Three come through `covers`, because `collection`
+        // declares those three axes; the fourth comes through `stands`, because the freeze sets
+        // `narrow: false` on `collection` — a row truncates through `text::fit`, which is `text`'s
+        // flag — and a `(collection, narrow)` pair here would be evidence for an axis the freeze
+        // does not claim.
+        let claimed: Vec<Axis> = SCENES
+            .iter()
+            .filter(|s| collection.contains(&s.number))
+            .flat_map(|s| s.covers.iter().filter(|(id, _)| *id == "collection"))
+            .map(|(_, axis)| *axis)
+            .collect();
+        assert_eq!(claimed, vec![Axis::Scrolled, Axis::Shrunk, Axis::Wheeled]);
+        let narrow = SCENES
+            .iter()
+            .find(|s| s.number == 29)
+            .expect("the narrow collection");
+        assert_eq!(narrow.covers, &[] as &[(&str, Axis)]);
+        assert_eq!(narrow.stands, ["collection"]);
+        assert!(matches!(narrow.gestures, [Gesture::Resize { .. }]));
         assert_eq!(
             scenes_for("table").map(|s| s.number).collect::<Vec<_>>(),
             vec![7]
@@ -1549,7 +1836,7 @@ mod tests {
             .filter(|s| !s.rehearsed_by.is_empty())
             .map(|s| s.number)
             .collect();
-        assert_eq!(rehearsed, vec![2, 4, 5, 6, 15, 20, 21]);
+        assert_eq!(rehearsed, vec![2, 4, 5, 6, 15, 20, 21, 29]);
 
         for scene in SCENES {
             for instrument in scene.rehearsed_by {
@@ -1596,30 +1883,42 @@ mod tests {
     /// over the components it is a screen of, which is what the file check below is — every
     /// instrument standing one of the three up lives in `crate::dense` or in a component's own
     /// module, and none of them is a `crate::runner` fixture.
+    ///
+    /// # A red scene is held to the same rule, and it is the rule that makes red mean anything
+    ///
+    /// Components ticket 11's five are pinned red on instruments in `crate::listing` — the screen's
+    /// own file — and on the one barrier that keeps half the wheel gate unwritable. **A red row
+    /// pinned on a `crate::runner` fixture would be claiming a screen it does not have**, which is
+    /// exactly the promotion this test refuses one arm over.
     #[test]
     fn a_rehearsal_is_never_what_stands_a_scene_up() {
-        const COMPONENT_FILES: [&str; 4] = [
+        // The files where a screen or one of its components is measured. `crate::runner`'s is not
+        // one of them, and that is the whole check.
+        const SCREEN_FILES: [&str; 6] = [
             DENSE,
+            LISTING,
             "crates/vitui-components/src/text.rs",
             "crates/vitui-components/src/input.rs",
             "crates/vitui-components/src/structure.rs",
+            "crates/vitui-components/tests/gates.rs",
         ];
         for scene in SCENES {
             match scene.standing {
                 Standing::Unsubjected { .. } => {}
-                Standing::Evaluated { by } => {
+                Standing::Evaluated { by } | Standing::Red { by, .. } => {
                     for instrument in by {
+                        let file = instrument.file();
+                        let barrier = matches!(instrument, Instrument::Barrier { .. });
                         assert!(
-                            COMPONENT_FILES.contains(&instrument.file()),
-                            "scene #{} is stood up by `{}`, which is not a file where this screen \
-                             or one of its components is measured. A fixture is a rehearsal",
+                            barrier || SCREEN_FILES.contains(&file),
+                            "scene #{} rests on `{file}`, which is not a file where this screen or \
+                             one of its components is measured. A fixture is a rehearsal",
                             scene.number,
-                            instrument.file()
                         );
                     }
                     assert!(
                         by.len() >= 3,
-                        "scene #{} is stood up by fewer than three instruments",
+                        "scene #{} rests on fewer than three instruments",
                         scene.number
                     );
                 }
@@ -1670,7 +1969,12 @@ mod tests {
             .map(|s| s.number)
             .collect();
         assert_eq!(shrinks, vec![5, 28]);
-        assert_eq!(resizes, vec![13, 15]);
+        assert_eq!(
+            resizes,
+            vec![13, 15, 29],
+            "components ticket 11's narrow collection is a resize, and it stands **beside** scene \
+             5's shrink rather than instead of it — which is the pairing §21 sanctions"
+        );
         assert!(
             shrinks.iter().all(|n| !resizes.contains(n)),
             "one scene spelling both is the conflation §21 warns about"
@@ -1700,7 +2004,7 @@ mod tests {
             SCENES.len() + 1,
             "one line a scene, plus the heading"
         );
-        assert_eq!(printed.matches("not played: `components ").count(), 24);
+        assert_eq!(printed.matches("not played: `components ").count(), 21);
         assert_eq!(
             printed
                 .matches("stood up on its own components, by ")
@@ -1708,7 +2012,17 @@ mod tests {
             3,
             "a stood-up scene says what stands it up, rather than reading as unplayed"
         );
-        assert_eq!(printed.matches("[rehearsed over a fixture]").count(), 1);
+        assert_eq!(
+            printed.matches("red, pinned: `components ").count(),
+            5,
+            "components ticket 11's five, and a red line is neither *not played* nor *stood up*"
+        );
+        assert_eq!(printed.matches("[rehearsed over a fixture").count(), 1);
+        assert!(
+            printed.contains("[rehearsed over a fixture; red, pinned: `components 12` inverts it]"),
+            "a measured line over a red scene still says it is red, or a report of the wheel gate \
+             would read as a healthy frame: {printed}"
+        );
         assert!(
             printed.contains("marked=unreachable"),
             "the one measured line names the counter this crate cannot read"
@@ -1740,6 +2054,6 @@ mod tests {
             .map(|s| s.number)
             .collect();
         assert_eq!(still, vec![1, 2, 26]);
-        assert_eq!(SCENES.len() - still.len(), 25);
+        assert_eq!(SCENES.len() - still.len(), 26);
     }
 }

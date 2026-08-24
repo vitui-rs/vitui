@@ -7,6 +7,13 @@ Windows, panels, charts, lists, trees, forms and pickers built on
 instruments — the freeze, the gate register, the scene list, the counters and the screens they are
 measured on.
 
+Two of those screens are built: `dense.rs`, the 338-region screen the four primitives are proved
+against, and `listing.rs`, the 40x80 collection screen where the four hostile axes stand instead of
+sitting in a table. The listing's five scenes are **red on purpose** — four waiting for
+`collection`, and the wheel gate waiting for the unconditional `scroll_into_view` to come out — and
+the failure message says which of the two it is, because a scene that fails because it is
+unimplemented and one that fails because the code is wrong are the same failure otherwise.
+
 Do not depend on this yet. It is published as part of the workspace and it does not have a component
 library in it.
 
@@ -41,6 +48,7 @@ its first frame and on a resize**, which is `app::Clears`.
 ```sh
 cargo run --release --example primitive_numbers -p vitui-components   # the four, and clearing once
 cargo run --release --example dense_numbers -p vitui-components       # the 338-region screen
+cargo run --release --example listing_numbers -p vitui-components     # the collection's four axes
 ```
 
 ## Licence

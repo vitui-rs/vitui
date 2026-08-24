@@ -8,11 +8,13 @@
 //!
 //! # What it prints, and why each half is here
 //!
-//! 1. **The scene list, one line a scene, in §21's column order.** Twenty-four of the twenty-eight
+//! 1. **The scene list, one line a scene, in §21's column order.** Twenty-one of the twenty-nine
 //!    print the ticket that will build their subject rather than a row of zeros — see
 //!    [`vitui_components::scenes::report`], which argues that at length. One is a rehearsal over a
-//!    fixture and says so, and **three are pinned red**: components ticket 09 built their screen
-//!    and their four components are components 10's.
+//!    fixture and says so, three are stood up on their own components, and **five are pinned red**:
+//!    components ticket 11 built the collection's screens, four of them wait for `collection` and
+//!    the wheel gate waits for the fix. `examples/listing_numbers.rs` is where those five are
+//!    measured.
 //! 2. **The four hostile axes, each caught.** *n cells over m rows*, beside what the defective build
 //!    cost — because the whole argument for an equality against a reference render is that **every
 //!    one of the four made the defective build look healthier**, and a report that printed only the
@@ -27,6 +29,7 @@
 
 use vitui_alloc_probe::{CountingAllocator, count_allocations};
 use vitui_components::counters::Allocations;
+use vitui_components::gates::Standing;
 use vitui_components::runner::{
     Fixture, at_two_sizes, compare, defective, play, reference, rows_at_a_time,
 };
@@ -217,14 +220,23 @@ fn main() {
         count(|s| s.on_spec_table),
         count(|s| !s.on_spec_table)
     );
-    assert_eq!(SCENES.len(), 28, "the scene list's shape has changed");
+    // **No second copy of the scene count here**, and it used to be one. `examples/gates_numbers.rs`
+    // records what that costs: a hardcoded length in a file `cargo test` compiles and never runs is
+    // not a gate, it is a second home for a number, and the register reached fifty-six before
+    // anybody noticed the copy said forty-seven. `scenes::tests` owns that figure. What stays are
+    // the counts that are relations rather than lengths.
     assert_eq!(count(|s| s.owed), 1);
     assert_eq!(count(|s| s.from_a_survived_defect), 3);
-    // Seven, and it was nine until components ticket 10: scenes 1 and 28 lost their
-    // rehearsals entirely and scene 2 kept one, because what those instruments run over stopped
-    // being a stand-in. See `scenes::tests::a_rehearsal_is_never_what_stands_a_scene_up`.
-    assert_eq!(count(|s| !s.rehearsed_by.is_empty()), 7);
+    // Eight, and it was seven until components ticket 11 added the narrow collection: the runner's
+    // own green-wide-red-narrow fixture rehearses it. See
+    // `scenes::tests::a_rehearsal_is_never_what_stands_a_scene_up`.
+    assert_eq!(count(|s| !s.rehearsed_by.is_empty()), 8);
     assert_eq!(count(|s| s.standing.evaluated()), 3);
+    assert_eq!(
+        count(|s| matches!(s.standing, Standing::Red { .. })),
+        5,
+        "components ticket 11's five, four pinned to components 12 and one to components 20"
+    );
 }
 
 fn count(f: impl Fn(&Scene) -> bool) -> usize {
