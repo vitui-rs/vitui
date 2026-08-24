@@ -734,7 +734,6 @@ fn scrolling_allocates_nothing() {
     );
 }
 
-
 /// **A hundred animating frames with four animations live allocate nothing** — spec §16's headline,
 /// and the whole of *there is no animation object*.
 ///
