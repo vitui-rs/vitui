@@ -317,11 +317,11 @@ const DENSE: &str = "crates/vitui-components/src/dense.rs";
 /// thirty-third would be a spec change.
 pub const SPEC_ROWS: usize = 32;
 
-/// How many rows anything evaluates today. **Thirty-six.**
+/// How many rows anything evaluates today. **Forty-one.**
 ///
 /// The number is the point of the file. §21 counted **2 of 18** at the branch point and **11 of 18**
 /// after C11's own pass, both over the prototypes; this is the first count taken over shipped code,
-/// and it is thirty-two of fifty-six because twenty-four of the rows are about components that do
+/// and it is forty-one of sixty-five because twenty-four of the rows are about components that do
 /// not exist or need a name the crate line refuses.
 ///
 /// **It was fourteen of forty until ticket 04**, which added the reference-render runner and its
@@ -341,10 +341,18 @@ pub const SPEC_ROWS: usize = 32;
 /// this module's header: that is the only inversion on this register that corrected a *standing*
 /// rather than supplying a *subject*, and it is the one worth being suspicious about the next time
 /// an `Unreachable` is written.
-pub const EVALUATED: usize = 36;
+///
+/// **Components ticket 10 moved it from thirty-six to forty-one, and one of the five is not a new
+/// row.** Rows 62–65 are the four primitives' — the partition sweep, the fill scan, the clear and
+/// the hovered chip — and the fifth is **row 61**, the one row on this register whose gate was a
+/// statement about an absence. Inverting it rewrote the *gate* and not only the standing, because a
+/// row still asserting *the four components do not exist* would now be asserting they are gone.
+/// That is the second inversion here worth being suspicious about: a red row phrased as an absence
+/// cannot be turned green by editing one field.
+pub const EVALUATED: usize = 41;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 61] = [
+pub const REGISTER: [Row; 65] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -896,6 +904,14 @@ pub const REGISTER: [Row; 61] = [
                 Instrument::Unit {
                     file: "crates/vitui-components/tests/gates.rs",
                     name: "the_two_partition_helpers_allocate_nothing_as_a_total_over_the_run",
+                },
+                // **Components ticket 10: the same budget on a frame of components**, which is the
+                // first time this row has had one to run over. Fifty frames of the 338-region
+                // screen, drawn through `text`, `chip`, `button` and `panel` with `Direct`, and the
+                // assertion is on the total — one allocation on one of the fifty fails it.
+                Instrument::Unit {
+                    file: "crates/vitui-components/tests/budget.rs",
+                    name: "a_steady_frame_of_the_dense_screen_allocates_nothing_as_a_total",
                 },
             ],
         },
@@ -1572,46 +1588,168 @@ pub const REGISTER: [Row; 61] = [
             ],
         },
     },
-    // ── and the row that is red on purpose ───────────────────────────────────────────────────────
+    // ── the row that was red on purpose, inverted by components ticket 10 ────────────────────────
+    //
+    // **It read *scenes 1, 2 and 28 are red because their four components do not exist, and the
+    // failure says so*, with `0 of 4` as its failing set.** That is the one row on this register
+    // whose gate was a statement about an *absence*, and inverting it therefore had to rewrite the
+    // gate rather than only its standing — a row still asserting the absence would now be a row
+    // asserting the components are gone.
     Row {
         number: 61,
         on_spec_table: false,
-        gate: "scenes 1, 2 and 28 are red because their four components do not exist, and the \
-               failure says so",
+        gate: "scenes 1, 2 and 28 stand on `text`, `chip`, `button` and `panel`, and the failure a \
+               missing one produces still says which failure it is",
         kind: Kind::Count,
         owner: "C11",
         section: "spec §21",
-        standing: Standing::Red {
+        standing: Standing::Evaluated {
             by: &[
                 Instrument::Unit {
                     file: DENSE,
-                    name: "the_dense_screen_is_red_because_its_four_components_are_not_declared",
+                    name: "the_dense_screen_stands_on_its_four_declared_components",
                 },
-                // Watched panicking, and watched saying which of the two failures it is. **A scene
-                // that fails because it is unimplemented is indistinguishable from one that fails
-                // because the code is wrong, unless the message distinguishes them.**
+                // The other direction, and it is the half that would otherwise have been deleted
+                // with the red row. **A scene that fails because it is unimplemented is
+                // indistinguishable from one that fails because the code is wrong, unless the
+                // message distinguishes them** — so the message takes a declaration list and the
+                // hostile case is one call away for ever.
                 Instrument::Unit {
                     file: DENSE,
-                    name: "a_scene_that_is_waiting_for_its_subject_says_so",
+                    name: "the_waiting_message_still_says_which_failure_it_is",
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "the_three_red_scenes_are_waiting_for_the_same_four_components",
+                    name: "the_three_stood_up_scenes_rest_on_the_same_four_components",
                 },
-                // The other direction of the scan: it finds a declaration when there is one, so
-                // *nothing is declared* is an answer rather than a scanner that has stopped looking.
+                // The scan finds a declaration when there is one and not when there is a comment,
+                // so *all four declared* is an answer rather than a scanner that matches anything.
                 Instrument::Unit {
                     file: DENSE,
                     name: "the_subject_scan_finds_a_declaration_when_there_is_one",
                 },
             ],
-            failing: "0 of 4 — `text`, `chip`, `button` and `panel` are undeclared, so the dense \
-                      screen is drawn out of their construction (`fit`, `block`, `press`) and not \
-                      out of them. Everything the screen itself can be asked is green: 338 regions, \
-                      24 000 of 24 000 cells written exactly once, 0 cells apart from the naive \
-                      twin at both sizes, and all five re-damage instances measured — 9 024 / \
-                      1 149 / 324 / 600 / 15 against a correct arm's 0",
-            inverted_by: "components 10",
+        },
+    },
+    // ── components ticket 10's rows: the four primitives ─────────────────────────────────────────
+    Row {
+        number: 62,
+        on_spec_table: false,
+        gate: "each of `text`, `chip`, `button` and `panel` writes a partition of its rectangle, at \
+               every width and every justification",
+        kind: Kind::Equality,
+        owner: "C01, C02",
+        section: "spec §2",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/text.rs",
+                    name: "text_writes_a_partition_of_its_whole_rectangle",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/text.rs",
+                    name: "chip_writes_a_partition_of_its_rectangle_and_narrows_into_it",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/input.rs",
+                    name: "button_writes_a_partition_of_its_whole_rectangle",
+                },
+                // **The container's form of the same rule**, and the one that needs both halves of
+                // §2's sentence: `distinct == w × h − interior`, with the interior the panel named
+                // in its return value.
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/structure.rs",
+                    name: "a_panel_writes_its_frame_exactly_once_and_hands_the_interior_over_\
+                           untouched",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/primitive_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 63,
+        on_spec_table: false,
+        gate: "no primitive names a fill, and every one of them reaches `fit` or `block`",
+        kind: Kind::Invariant,
+        owner: "C01",
+        section: "spec §3",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: DENSE,
+                    name: "no_primitive_names_a_fill_and_every_one_reaches_a_partition_helper",
+                },
+                // Watched failing, in **two different ways**: the filled face breaks
+                // `writes == distinct` and covers exactly the right cells; the unnarrowed label
+                // keeps `writes == distinct` and covers too many. One gate catches one of them.
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/text.rs",
+                    name: "a_chip_that_fills_its_face_and_one_that_does_not_narrow_fail_two_\
+                           different_gates",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/structure.rs",
+                    name: "a_panel_that_writes_its_title_over_its_border_costs_fifteen_cells",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 64,
+        on_spec_table: false,
+        gate: "the application clears once — its first frame and each resize — and a steady frame \
+               re-damages 0 rather than 9 024",
+        kind: Kind::Count,
+        owner: "C01",
+        section: "spec §2",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/app.rs",
+                    name: "one_clear_a_size_and_never_a_third",
+                },
+                // **Both directions are defects**, and the third spelling is the one worth reading
+                // twice: a clear keyed on nothing passes every steady-frame gate on this register
+                // and still misses the resize.
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/app.rs",
+                    name: "the_every_frame_spelling_clears_every_frame_and_the_deaf_one_misses_the_\
+                           resize",
+                },
+                Instrument::Unit {
+                    file: DENSE,
+                    name: "clearing_once_re_damages_nothing_and_clearing_every_frame_costs_nine_\
+                           thousand_cells",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 65,
+        on_spec_table: false,
+        gate: "the frame one chip is hovered re-damages 8 cells and not the screen",
+        kind: Kind::Count,
+        owner: "C01",
+        section: "spec §2",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/text.rs",
+                    name: "a_hovered_chip_re_damages_its_own_eight_cells_and_not_the_screen",
+                },
+                // Row 48 is ticket 07's form of the same eight cells, measured through `press`
+                // rather than through `chip`. **This one is the component's**, and it is where the
+                // label's own paint stopped being a second one — see `crate::text::ChipOpts`.
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/state.rs",
+                    name: "the_hand_written_chip_passes_every_gate_that_existed_before_this_one",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/primitive_numbers.rs",
+                },
+            ],
         },
     },
 ];
@@ -1877,14 +2015,14 @@ mod tests {
         assert_eq!(seen, expected);
     }
 
-    /// **Thirty-six evaluated, and the other twenty-five each say why not.**
+    /// **Forty-one evaluated, and the other twenty-four each say why not.**
     ///
     /// This is the number §21 asks for: *how many gates are actually evaluated is a number a test
     /// asserts rather than a claim in a document*. Saying it out loud is what stops the next change
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn thirty_six_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn forty_one_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -1900,11 +2038,11 @@ mod tests {
         assert_eq!(evaluated, EVALUATED, "the count §21 asks a test to assert");
         assert_eq!(
             red,
-            vec![7, 8, 29, 61],
-            "the four gates that are red and pinned: the sentinel, the palette after a swap, twenty \
-             wheel clicks, and the three scenes waiting for the four components they are screens \
-             of. The glyph-set count was one of them, and components ticket 05 inverted it by \
-             writing the first code in this workspace that has to spell a glyph"
+            vec![7, 8, 29],
+            "the three gates that are red and pinned: the sentinel, the palette after a swap and \
+             twenty wheel clicks. The glyph-set count was one of them and components ticket 05 \
+             inverted it; row 61 was the fourth and components ticket 10 inverted it, which took \
+             rewriting the gate rather than the standing — the row asserted an *absence*"
         );
         assert_eq!(
             unreachable,
@@ -1915,7 +2053,7 @@ mod tests {
              the value anyway, so a chord can be pressed after all"
         );
         assert_eq!(unsubjected, 15, "and the fifteen with nothing to run over");
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 61);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 65);
     }
 
     /// **The split, not the total.**
@@ -1926,10 +2064,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_twenty_nine_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_thirty_three_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 29);
+        assert_eq!(REGISTER.len() - on_table, 33);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -2235,6 +2373,7 @@ mod tests {
                 "nav_numbers.rs".to_string(),
                 "partition_numbers.rs".to_string(),
                 "press_numbers.rs".to_string(),
+                "primitive_numbers.rs".to_string(),
                 "scene_numbers.rs".to_string()
             ],
             "the count on this lineage was 0 against the runtime's 19"

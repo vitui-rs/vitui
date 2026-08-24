@@ -240,3 +240,80 @@ fn drive(
     }
     frames
 }
+
+/// **Components ticket 10, criterion 9: a steady frame of the dense screen allocates nothing, and
+/// the figure is a total.**
+///
+/// # It is a total and this type has no `mean`
+///
+/// > A mean cannot see anything below `n`; a total can see one. (§21, refinement 2)
+///
+/// Every component prototype reported `allocs / n` with `n` between 40 and 200, so a frame
+/// allocating on `n − 1` of `n` frames reported **0**. [`count_allocations`] hands back a total and
+/// the assertion below is on the total, over **fifty** frames of a screen with 338 interactive
+/// regions on it — so one allocation on one of those fifty fails it.
+///
+/// # Why this frame and not `list_frame`
+///
+/// The frame above is twenty-two lanes and one formatted cell each. This one is spec §2's own
+/// screen: three panels, 222 chips, 111 buttons, 338 regions, 333 tab stops and 24 000 cells written
+/// exactly once — and it is drawn through `text`, `chip`, `button` and `panel` rather than through
+/// their construction. *Zero allocations during frame composition* is a budget every component
+/// inherits, and until components ticket 10 there was no frame of components to inherit it on.
+///
+/// The path it puts under the window is the one that matters: `crate::ink::Direct::run` builds every
+/// padding band, border run and label through `Ctx::stage` and `Ctx::blit`, which format into the
+/// frame's own reusable buffer. The `Tally` and `Pen` implementations beside it materialise the same
+/// string with `str::repeat`, and **an instrument allocating is not a defect** — which is exactly
+/// why the gate has to run with `Direct` and cannot be a counter's report.
+#[test]
+fn a_steady_frame_of_the_dense_screen_allocates_nothing_as_a_total() {
+    use vitui_alloc_probe::count_allocations;
+    use vitui_components::counters::Allocations;
+    use vitui_components::dense::{self, Arm};
+    use vitui_components::ink::Direct;
+    use vitui_components::runner::driver_at;
+    use vitui_runtime::Density;
+
+    let mut driver = driver_at(dense::W, dense::H, Density::Compact);
+    let mut shape = None;
+    let mut one_frame = |driver: &mut Driver| {
+        driver.frame(|cx| {
+            shape = Some(dense::draw_into(
+                &mut Direct,
+                cx,
+                Arm::Correct,
+                dense::REQUESTED,
+            ));
+        });
+    };
+    // Warmed with the identical workload before the window opens: the five frame structures take
+    // their allocation on the first frame that needs one and keep it, so a window containing first
+    // touch measures the loader rather than the steady state.
+    one_frame(&mut driver);
+    one_frame(&mut driver);
+
+    const FRAMES: u32 = 50;
+    let (_, total) = count_allocations(|| {
+        for _ in 0..FRAMES {
+            one_frame(&mut driver);
+        }
+    });
+    let measured = Allocations::over(FRAMES, total as u64);
+    assert_eq!(
+        measured.total(),
+        0,
+        "{} allocations over {} frames of the dense screen. A mean would have reported 0 for any \
+         total below {}",
+        measured.total(),
+        measured.frames(),
+        measured.frames()
+    );
+
+    // And it drew what it claimed on the last of those fifty frames, so the zero is not a zero over
+    // a frame that quietly stopped drawing.
+    let shape = shape.expect("fifty frames ran");
+    assert_eq!(shape.declared, dense::REGIONS);
+    assert_eq!(driver.inspect().hits().len(), dense::REGIONS);
+    assert_eq!(driver.inspect().stop_count(), 333);
+}

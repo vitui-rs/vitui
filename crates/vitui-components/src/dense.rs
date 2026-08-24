@@ -43,14 +43,27 @@
 //! has nothing for a clear to fix and pays 0 where the every-frame spelling pays
 //! [`CLEARED_EVERY_FRAME`].
 //!
-//! # Four components that do not exist, drawn by the three helpers that do
+//! # Four components, and the screen is now drawn through them
 //!
-//! `text`, `chip`, `button` and `panel` are components 10's. What stands here in their place is
-//! their *construction* — [`crate::text::fit`] for `text`, [`crate::frame::block`] for `panel`,
-//! [`crate::state::press`] plus `fit`'s two role fields for `chip` and `button` — which is exactly
-//! what spec §17's freeze says each of them is: `constructions: 1`, one apiece. So the screen is
-//! real and the four subjects are not, and [`crate::scenes`] files scenes 1, 2 and 28 **red** with
-//! that as the failing set rather than green over a stand-in. See [`standing`].
+//! `text`, `chip`, `button` and `panel` are components ticket 10's, and they exist:
+//! [`crate::text::text`], [`crate::text::chip`], [`crate::input::button`],
+//! [`crate::structure::panel`]. For one ticket this screen stood on their **construction** instead
+//! — [`crate::text::fit`], [`crate::frame::block`] and [`crate::state::press`], which is exactly
+//! what spec §17's freeze says each of them is, `constructions: 1` apiece — and [`crate::scenes`]
+//! filed scenes 1, 2 and 28 **red** with that as the failing set rather than green over a stand-in.
+//! They are `Evaluated` now. See [`standing`].
+//!
+//! **Every defective arm is a defective component too**, which is what makes the five instances
+//! statements about the library rather than about this file: `Arm::ChipFillsItsFace` reaches
+//! [`crate::text::defective::chip_that_fills_its_face`], `Arm::BorderOverTheTitle` reaches
+//! [`crate::structure::defective::panel_over_title`], and `Arm::ClearsEveryFrame` reaches
+//! [`crate::app::defective::every_frame`]. One function with one boolean between it and the correct
+//! one, in each case, so the diff a reviewer would have to catch is the diff a register can point
+//! at.
+//!
+//! **One figure moved when the components landed**, and it is written down rather than absorbed:
+//! [`CHIP_FILLED_FACE`] is 1 095 where ticket 09 measured 1 149, because a chip's label wears its
+//! own face. See that constant — the 54 is a defect the stand-in had and the component does not.
 //!
 //! # Density is theme data and it changes rectangles, so 338 is a `Compact` figure
 //!
@@ -62,13 +75,14 @@
 
 use vitui_runtime::{Ctx, Density, Interest, Paint, Role};
 
+use crate::app::Clears;
 use crate::cells::Cells;
-use crate::frame::{BlockOpts, block_into, defective::block_over_title};
 use crate::ink::Ink;
+use crate::input::{ButtonOpts, button_into};
 use crate::obligations::Verdict;
 use crate::runner::{Canvas, Diff, Fixture, MetricRow, Painter, Pen, Run, compare_at, play_at};
-use crate::state::{Faces, press_into};
-use crate::text::{FitOpts, Justify, fit_into};
+use crate::structure::{PanelOpts, defective::panel_over_title, panel_into};
+use crate::text::{ChipOpts, Justify, TextOpts, chip_into, defective as text_defective, text_into};
 
 // ── the screen ───────────────────────────────────────────────────────────────────────────────────
 
@@ -181,10 +195,24 @@ pub const CLEARED_EVERY_FRAME: u64 = 9_024;
 /// §2 remembers **2 648**, R07's original. The quantity is the *label* cells of every chip and not
 /// the chip's: the fill writes the face over all twelve, the padding cells it lands on already carry
 /// the face and cost nothing, and the label writes itself back over the rest. So it is
-/// `Σ written label width` over 222 chips, and it is arithmetic —
-/// `3 panels × (18 × (2 + 3 + 4 + 12) + 2 + 3)` for the four values a row cycles through, the fourth
-/// of which is elided to the chip's own twelve columns.
-pub const CHIP_FILLED_FACE: u64 = 1_149;
+/// `Σ label cells whose value differs from a space in the face` over 222 chips, and it is
+/// arithmetic — `3 panels × (18 × (2 + 3 + 4 + 11) + 2 + 3)` for the four values a row cycles
+/// through, the fourth of which is elided to the chip's own twelve columns.
+///
+/// # It was 1 149 until components ticket 10, and the 54 that went is a finding
+///
+/// Ticket 09's stand-in chip painted its label [`Role::Dim`] on a face painted `Role::Face`, so
+/// **every** cell of the label differed from the fill and the fourth value contributed all twelve of
+/// its columns. `chip` does not: its label wears its face, because a label in a second paint is
+/// repainted by the hover award every frame the pointer rests on it — [`crate::text::ChipOpts`]
+/// carries the argument and `text::tests::a_hovered_chip_re_damages_its_own_eight_cells_and_not_
+/// the_screen` is the eight cells it would otherwise have been ten.
+///
+/// So the one **space** inside `"degraded, r…"` now carries exactly what the fill wrote, and the
+/// engine's equality filter drops it: `18 rows × 1 space × 3 panels = 54`. The instance is smaller
+/// and the defect is the same defect; what shrank is the part of it that was being counted twice —
+/// once as a fill-then-draw and once as a label wearing a role its face does not.
+pub const CHIP_FILLED_FACE: u64 = 1_095;
 /// **Cells re-damaged every steady frame by a chip that does not narrow.**
 ///
 /// §2 remembers **432**. The quantity is `overrunning chips × overrun width`: one value in four is
@@ -340,35 +368,36 @@ pub fn draw_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, arm: Arm, requested:
         ..Shape::default()
     };
 
-    // **The screen clear that is a defect.** ADR 0026's largest instance. The correct arm has
-    // nothing for it to fix, because the branches below cover all 24 000 cells between them.
+    // **The screen clear that is a defect.** ADR 0026's largest instance, and it is
+    // [`crate::app::defective::every_frame`] rather than a local wash so that the defect belongs to
+    // the helper whose correct spelling is [`Clears`]. The correct arm has nothing for it to fix,
+    // because the branches below cover all 24 000 cells between them.
     if arm.clears_the_screen() {
-        wash(ink, cx, screen, body);
+        crate::app::defective::every_frame(ink, cx);
     }
 
     let (header, rest) = screen.split_at_v(1);
     let (band, footer) = rest.split_at_v(rest.h().saturating_sub(1));
-    fit_into(
-        ink,
-        cx,
-        header,
-        HEADER,
-        &how(Justify::Start, Role::Title, Role::Title),
-    );
-    fit_into(
-        ink,
-        cx,
-        footer,
-        FOOTER,
-        &how(Justify::End, Role::Dim, Role::Dim),
-    );
+    // **`text`, twice, and each declares its own region.** The chrome is clickable and the labels
+    // below are not, which is [`TextOpts::interest`]'s whole reason: a label that took a hit entry
+    // would put 222 more regions on this screen and swallow every click that landed on one.
     let _ = cx.with_key(u64::MAX, |cx| {
-        let id = cx.id();
-        header.interact(cx, id, Interest::CLICK)
+        text_into(
+            ink,
+            cx,
+            header,
+            HEADER,
+            &clickable(Justify::Start, Role::Title, Role::Title),
+        )
     });
     let _ = cx.with_key(u64::MAX - 1, |cx| {
-        let id = cx.id();
-        footer.interact(cx, id, Interest::CLICK)
+        text_into(
+            ink,
+            cx,
+            footer,
+            FOOTER,
+            &clickable(Justify::End, Role::Dim, Role::Dim),
+        )
     });
     shape.declared += 2;
 
@@ -377,20 +406,26 @@ pub fn draw_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, arm: Arm, requested:
         let (slot, next) = left.split_at_h(band.w() / PANELS);
         left = next;
 
-        let opts = BlockOpts {
-            title: TITLE,
+        let opts = PanelOpts {
             border: if panel == 0 {
                 Role::Focus
             } else {
                 Role::Border
             },
-            ..BlockOpts::default()
+            ..PanelOpts::default()
         };
-        let interior = if arm == Arm::BorderOverTheTitle {
-            block_over_title(ink, cx, slot, &opts)
-        } else {
-            block_into(ink, cx, slot, &opts)
-        };
+        // **`panel`, and it declares its own region.** Ticket 09's stand-in declared the panel
+        // *after* its rows, which puts the container in front of its children in a reverse-scanned
+        // index; the component fixes the order once.
+        let stood = cx.with_key(u64::MAX - 2 - u64::from(panel), |cx| {
+            if arm == Arm::BorderOverTheTitle {
+                panel_over_title(ink, cx, slot, TITLE, &opts)
+            } else {
+                panel_into(ink, cx, slot, TITLE, &opts)
+            }
+        });
+        shape.declared += 1;
+        let interior = stood.interior;
         shape.handed_over += interior.count();
 
         // **A panel that clears what `block` handed it.** The 22 200-cell instance `crate::form`
@@ -416,7 +451,7 @@ pub fn draw_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, arm: Arm, requested:
                     // **The tail is written by its owner**, which is the other half of §2's rule and
                     // what makes the equality below an equality over 24 000 cells rather than over
                     // the cells somebody happened to draw.
-                    fit_into(
+                    text_into(
                         ink,
                         cx,
                         line,
@@ -428,12 +463,6 @@ pub fn draw_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, arm: Arm, requested:
             declared
         });
         shape.declared += declared;
-
-        let _ = cx.with_key(u64::MAX - 2 - u64::from(panel), |cx| {
-            let id = cx.id();
-            slot.interact(cx, id, Interest::HOVER)
-        });
-        shape.declared += 1;
     }
 
     if let Some(under) = arm.scrim() {
@@ -448,76 +477,56 @@ pub fn draw_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, arm: Arm, requested:
 /// **Every cell of the row is written exactly once**, by exactly one of the three, and the three
 /// rectangles are a partition of the row because they come out of [`Cells::split_at_h`].
 fn widget_row<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, arm: Arm, line: Cells, i: usize) -> usize {
-    let theme = cx.theme();
     let (label, tail) = line.split_at_h(line.w().saturating_sub(CHIP + ACTION));
     let (chip, action) = tail.split_at_h(CHIP);
 
     // ── `text`: the row's label ──────────────────────────────────────────────────────────────────
+    let label_opts = how(Justify::Start, Role::Body, Role::Body);
     if arm == Arm::LabelDoesNotNarrow {
-        overrunning(
+        text_defective::text_that_does_not_narrow(
             ink,
             cx,
             label,
             LABELS[i % LABELS.len()],
-            theme.paint(Role::Body),
-            theme.paint(Role::Body),
+            &label_opts,
         );
     } else {
-        fit_into(
-            ink,
-            cx,
-            label,
-            LABELS[i % LABELS.len()],
-            &how(Justify::Start, Role::Body, Role::Body),
-        );
+        text_into(ink, cx, label, LABELS[i % LABELS.len()], &label_opts);
     }
 
-    // ── `chip`: one face out of `press`, and the label written into it ───────────────────────────
-    let face = cx.with_key((i as u64) * 2, |cx| {
-        let id = cx.id();
-        let resp = chip.interact(
-            cx,
-            id,
-            Interest::CLICK.with(Interest::HOVER).with(Interest::FOCUS),
-        );
-        press_into(ink, cx, chip, &resp, &Faces::default())
-    });
+    // ── `chip` ───────────────────────────────────────────────────────────────────────────────────
+    //
+    // **One key a widget and the component mints its own id inside it**, which is what keeps the
+    // `#[track_caller]` on `chip` honest here: every chip on this screen shares a call site and no
+    // two share a key.
     let value = VALUES[i % VALUES.len()];
-    if arm.fills_the_face() {
-        // **R07's order**: the face is filled and the label is drawn into it. The screen is right on
-        // every frame and the label's own cells are written twice, every frame, for ever.
-        wash(ink, cx, chip, theme.paint(face));
-        fit_into(ink, cx, chip, value, &how(Justify::Middle, Role::Dim, face));
-    } else if arm == Arm::ChipDoesNotNarrow {
-        overrunning(
-            ink,
-            cx,
-            chip,
-            value,
-            theme.paint(Role::Dim),
-            theme.paint(face),
-        );
-    } else {
-        fit_into(ink, cx, chip, value, &how(Justify::Middle, Role::Dim, face));
-    }
+    let chip_opts = ChipOpts::default();
+    cx.with_key((i as u64) * 2, |cx| {
+        if arm.fills_the_face() {
+            // **R07's order**: the face is filled and the label is drawn into it. The screen is
+            // right on every frame and the label's own cells are written twice, every frame.
+            text_defective::chip_that_fills_its_face(ink, cx, chip, value, &chip_opts)
+        } else if arm == Arm::ChipDoesNotNarrow {
+            text_defective::chip_that_does_not_narrow(ink, cx, chip, value, &chip_opts)
+        } else {
+            chip_into(ink, cx, chip, value, &chip_opts)
+        }
+    });
 
     // ── `button` on an even row, `text` on an odd one ────────────────────────────────────────────
     if i.is_multiple_of(2) {
-        let face = cx.with_key((i as u64) * 2 + 1, |cx| {
-            let id = cx.id();
-            let resp = action.interact(cx, id, Interest::CLICK.with(Interest::FOCUS));
-            press_into(ink, cx, action, &resp, &Faces::default())
+        cx.with_key((i as u64) * 2 + 1, |cx| {
+            button_into(
+                ink,
+                cx,
+                action,
+                ACTIONS[i % ACTIONS.len()],
+                &ButtonOpts::default(),
+            )
         });
-        fit_into(
-            ink,
-            cx,
-            action,
-            ACTIONS[i % ACTIONS.len()],
-            &how(Justify::Middle, Role::Title, face),
-        );
         2
     } else {
-        fit_into(
+        text_into(
             ink,
             cx,
             action,
@@ -554,21 +563,28 @@ fn modal<I: Ink>(
         wash(ink, cx, right, scrim);
     }
 
-    let interior = block_into(
-        ink,
-        cx,
-        dialog,
-        &BlockOpts {
-            title: DIALOG_TITLE,
-            ..BlockOpts::default()
-        },
-    );
+    // The barrier is the panel's own region: the dialog swallows what the base pass would otherwise
+    // hear, and a container declared **before** its children is what makes a reverse-scanned index
+    // give the innermost widget.
+    let stood = cx.with_key(u64::MAX - 32, |cx| {
+        panel_into(
+            ink,
+            cx,
+            dialog,
+            DIALOG_TITLE,
+            &PanelOpts {
+                interest: Interest::CLICK,
+                ..PanelOpts::default()
+            },
+        )
+    });
+    let interior = stood.interior;
     let mut rows = interior;
     let last = interior.h().saturating_sub(1);
     for r in 0..last {
         let (line, below) = rows.split_at_v(1);
         rows = below;
-        fit_into(
+        text_into(
             ink,
             cx,
             line,
@@ -583,25 +599,11 @@ fn modal<I: Ink>(
         .into_iter()
         .enumerate()
     {
-        let face = cx.with_key(u64::MAX - 16 - n as u64, |cx| {
-            let id = cx.id();
-            let resp = cells.interact(cx, id, Interest::CLICK.with(Interest::FOCUS));
-            press_into(ink, cx, cells, &resp, &Faces::default())
+        cx.with_key(u64::MAX - 16 - n as u64, |cx| {
+            button_into(ink, cx, cells, word, &ButtonOpts::default())
         });
-        fit_into(
-            ink,
-            cx,
-            cells,
-            word,
-            &how(Justify::Middle, Role::Title, face),
-        );
         declared += 1;
     }
-    // The barrier: the dialog swallows what the base pass would otherwise hear.
-    let _ = cx.with_key(u64::MAX - 32, |cx| {
-        let id = cx.id();
-        dialog.interact(cx, id, Interest::CLICK)
-    });
     declared + 1
 }
 
@@ -612,9 +614,27 @@ pub fn dialog_at(screen: Cells) -> Cells {
     Cells::at((screen.w() - w) / 2, (screen.h() - h) / 2, w, h)
 }
 
-/// The three roles a row is drawn with, as one value.
-const fn how(justify: Justify, role: Role, pad: Role) -> FitOpts {
-    FitOpts { justify, role, pad }
+/// The three roles a label is drawn with, as one value. **No region** — see
+/// [`TextOpts::interest`].
+const fn how(justify: Justify, role: Role, pad: Role) -> TextOpts {
+    TextOpts {
+        justify,
+        role,
+        pad,
+        interest: None,
+    }
+}
+
+/// [`how`], for the two pieces of chrome that are clickable. The header and the footer are `text`
+/// and they take a hit entry; the 222 labels below them do not, which is the difference between 338
+/// regions and 560.
+const fn clickable(justify: Justify, role: Role, pad: Role) -> TextOpts {
+    TextOpts {
+        justify,
+        role,
+        pad,
+        interest: Some(Interest::CLICK),
+    }
 }
 
 /// Write every cell of `cells` as a space. **The verb every fill-shaped defect on this screen is
@@ -628,37 +648,6 @@ fn wash<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, cells: Cells, st: Paint) {
     for r in 0..cells.h() {
         ink.run(cx, x, i32::from(cells.y() + r), " ", cells.w(), st);
     }
-}
-
-/// **Write `s` without truncating it, then pad whatever is left.** The one branch shared by the two
-/// arms that do not narrow.
-///
-/// The extent is the engine's: [`Ink::text`] returns how many columns landed after clipping, so a
-/// string longer than its rectangle is reported at its full width and the padding run is empty. What
-/// it wrote into is the *neighbour's* rectangle, and the neighbour writes it back on the next frame
-/// — which is what makes an unnarrowed label re-damage rather than merely look wrong.
-fn overrunning<I: Ink>(
-    ink: &mut I,
-    cx: &mut Ctx<'_, '_>,
-    area: Cells,
-    s: &str,
-    text: Paint,
-    pad: Paint,
-) {
-    let (band, _) = area.split_at_v(1);
-    if band.is_empty() {
-        return;
-    }
-    let (x, y) = (i32::from(band.x()), i32::from(band.y()));
-    let used = ink.text(cx, x, y, s, text);
-    ink.run(
-        cx,
-        x + i32::from(used),
-        y,
-        " ",
-        band.w().saturating_sub(used),
-        pad,
-    );
 }
 
 // ── the painters ─────────────────────────────────────────────────────────────────────────────────
@@ -826,6 +815,23 @@ pub fn steady(arm: Arm, frames: u32) -> Redamage {
     })
 }
 
+/// **The application loop §2's clearing rule is about, drawn for `frames` frames.**
+///
+/// Components ticket 10, criterion 5. [`Clears`] at the top of every frame and the correct screen
+/// under it: the first frame clears, and every frame after it re-damages **0** — against
+/// [`CLEARED_EVERY_FRAME`]'s 9 024 for the same call written without the state.
+///
+/// The resize half is [`crate::app`]'s, because [`crate::runner::play`] refuses a step that moves
+/// the rectangle and this loop holds one driver: a resize needs two, and that is
+/// `app::tests::one_clear_a_size_and_never_a_third`.
+pub fn steady_clearing(frames: u32) -> Redamage {
+    let mut clears = Clears::new();
+    run_frames(frames, move |_, pen, cx| {
+        clears.frame_into(pen, cx);
+        let _ = draw_into(pen, cx, Arm::Correct, REQUESTED);
+    })
+}
+
 /// **The modal's re-damage, with the base pass drawn once.**
 ///
 /// # The substitution, named rather than hidden
@@ -885,26 +891,31 @@ fn run_frames(frames: u32, mut paint: impl FnMut(u32, &mut Pen, &mut Ctx<'_, '_>
     }
 }
 
-// ── why the scenes are red ───────────────────────────────────────────────────────────────────────
+// ── the four subjects, and the scan that says whether they are here ──────────────────────────────
 
 /// **The four components this screen is a screen of.** Spec §17's freeze gives each of them
-/// `constructions: 1`, and none of them is declared in this crate.
+/// `constructions: 1`, and **components ticket 10 declared all four**.
 pub const SUBJECTS: [&str; 4] = ["text", "chip", "button", "panel"];
 
-/// Where components 10 will declare each of [`SUBJECTS`], as `(module file, the declaration)`.
+/// Where each of [`SUBJECTS`] is declared, as `(module file, the declaration)`.
 ///
 /// The home is the freeze's, joined through [`crate::Family`]: `text` and `chip` are F1 and are
 /// homed in `text.rs`, `button` is F6 and `panel` is F2. A component is
-/// `fn(&mut Ctx, Rect, …) -> Response` (spec §1, rule 1), so the thing to look for is a public
-/// function of the component's own name in its own family's module.
-const DECLARATIONS: [(&str, &str); 4] = [
+/// `fn(&mut Ctx, Rect, …) -> Response` (spec §1, rule 1) — with `Cells` in `Rect`'s place, which is
+/// [`crate::cells`]'s argument — so the thing to look for is a public function of the component's
+/// own name in its own family's module.
+///
+/// **`pub`, because ticket 10's own criterion 2 reads it**: *every one of them routes its writing
+/// through `fit` and `block`, and none contains a fill-then-draw order* is a statement about these
+/// four bodies, and a second list of them would be a second thing to keep in step.
+pub const DECLARATIONS: [(&str, &str); 4] = [
     ("text.rs", "pub fn text("),
     ("text.rs", "pub fn chip("),
     ("input.rs", "pub fn button("),
     ("structure.rs", "pub fn panel("),
 ];
 
-/// **Which of [`SUBJECTS`] this crate actually declares. Today: none.**
+/// **Which of [`SUBJECTS`] this crate actually declares. Today: all four.**
 ///
 /// A source scan and not a `use`, because *the item does not exist* has no expression: a
 /// `compile_fail` fence would pass today and pass again the day somebody renames the module, which
@@ -926,27 +937,31 @@ pub fn subjects_declared() -> Vec<&'static str> {
 /// Whether `source` carries `needle` on a line that is not a comment. One predicate for the scan and
 /// for both of its negative halves, which is what makes *fires in both directions* mean something:
 /// a hostile fixture run through a second copy of the logic proves the copy and not the gate.
-fn declares(source: &str, needle: &str) -> bool {
+///
+/// **`pub(crate)`, because ticket 10's criterion 2 scans the same four bodies for what must *not* be
+/// in them.** One predicate, one definition of *a line that is not a comment*.
+pub(crate) fn declares(source: &str, needle: &str) -> bool {
     source
         .lines()
         .map(str::trim)
         .any(|line| !line.starts_with("//") && line.contains(needle))
 }
 
-/// **Why scenes 1, 2 and 28 are red, as a verdict rather than as a sentence.**
+/// **Whether the screen stands on its subjects, as a verdict rather than as a sentence.**
 ///
 /// [`Verdict::of`] refuses vacuity in its constructor, which is what makes this the right shape: the
-/// population is the four subjects, not the scene list, so *no component exists* is `Unmet` over
-/// four rather than `Met` over nothing.
+/// population is the four subjects, not the scene list, so *no component exists* was `Unmet` over
+/// four rather than `Met` over nothing — and now that all four are declared it is `Met` over four
+/// rather than `Met` over an empty list.
 ///
-/// # This is the distinction criterion 7 is about
+/// # This is the distinction criterion 7 was about, and it is kept in both directions
 ///
 /// A scene that fails because it is unimplemented and a scene that fails because the code is wrong
-/// are the same failure unless the message separates them. [`assert_stands_up`] is the message: it
-/// names the four subjects, names the file each of them will be declared in, and names
-/// `components 10`. Everything this file *does* measure — the region count, the metric row, the
-/// equality, the five instances — is asserted green in `tests` below, so a real defect in the screen
-/// fails as itself and never as *waiting for its components*.
+/// are the same failure unless the message separates them. [`owed_message`] is the message and it
+/// is still live: it names the missing subjects, the file each is declared in, and the ticket. What
+/// changed is which side of it the crate is on, not whether the sentence exists —
+/// `tests::the_waiting_message_still_says_which_failure_it_is` hands it an empty declaration list
+/// and reads what comes out.
 pub fn standing() -> Verdict {
     let declared = subjects_declared();
     Verdict::of(
@@ -960,15 +975,16 @@ pub fn standing() -> Verdict {
     )
 }
 
-/// **Fail with the four subjects, the files they will be declared in, and the ticket.**
+/// **The sentence a scene waiting for its subject fails with**, or `None` when every subject is
+/// declared.
 ///
-/// # Panics
-///
-/// Panics while any of [`SUBJECTS`] is undeclared, which is every day until components 10 lands.
-pub fn assert_stands_up(scene: &str) {
-    let declared = subjects_declared();
+/// Separated from [`assert_stands_up`] because the message is the mechanism and the panic is only
+/// how it is delivered: with all four subjects now declared, a `#[should_panic]` test can no longer
+/// reach it, and a message no test can read is a message that rots. This takes the declaration list
+/// as an argument, so the hostile case is one call away for ever.
+pub fn owed_message(declared: &[&str], scene: &str) -> Option<String> {
     if declared.len() == SUBJECTS.len() {
-        return;
+        return None;
     }
     let owed: Vec<String> = SUBJECTS
         .into_iter()
@@ -976,7 +992,7 @@ pub fn assert_stands_up(scene: &str) {
         .filter(|(id, _)| !declared.contains(id))
         .map(|(id, (file, declaration))| format!("`{id}` (`src/{file}`: `{declaration}…)`)"))
         .collect();
-    panic!(
+    Some(format!(
         "{scene} is not standing, and it is waiting for its subject rather than failing: {} of {} \
          components are undeclared — {}. This is not a defect in the screen. The screen is drawn, \
          its regions are counted, its equality against the naive twin holds at both sizes and every \
@@ -985,7 +1001,21 @@ pub fn assert_stands_up(scene: &str) {
         owed.len(),
         SUBJECTS.len(),
         owed.join(", "),
-    );
+    ))
+}
+
+/// **Fail with the subjects that are missing, the files they belong in, and the ticket.**
+///
+/// # Panics
+///
+/// Panics while any of [`SUBJECTS`] is undeclared. **It no longer does** — components 10 declared
+/// all four — and the call is kept rather than deleted because it is what a later ticket that moves
+/// a component out of its family module will hit, with a sentence that names the file rather than a
+/// scene that has quietly stopped being about anything.
+pub fn assert_stands_up(scene: &str) {
+    if let Some(message) = owed_message(&subjects_declared(), scene) {
+        panic!("{message}");
+    }
 }
 
 #[cfg(test)]
@@ -1371,34 +1401,201 @@ mod tests {
         assert!(shape.dropped > 0, "the panels are asked for more than fits");
     }
 
-    /// **Criterion 7: the scenes are red because their subject does not exist, and the message says
-    /// so.**
+    /// **Components ticket 10: the screen stands on its four subjects, and the verdict says so.**
     ///
-    /// The exact failing set, in both directions: four subjects, none declared, and the verdict is
-    /// `Unmet` over four rather than `Met` over nothing.
+    /// The exact set, in both directions: four subjects, all four declared, and the verdict is `Met`
+    /// over four rather than `Met` over nothing — which is [`Verdict::of`]'s vacuity refusal doing
+    /// the one job it was written for on the day the population stopped being empty.
+    ///
+    /// **This test is the inversion of `the_dense_screen_is_red_because_its_four_components_are_not_
+    /// declared`**, which was pinned red by ticket 09 and named by `crate::gates::REGISTER`'s row 61
+    /// and by `crate::scenes`'s three standings. Changing it back is a deliberate edit in all three
+    /// places.
     #[test]
-    fn the_dense_screen_is_red_because_its_four_components_are_not_declared() {
+    fn the_dense_screen_stands_on_its_four_declared_components() {
         assert_eq!(
             subjects_declared(),
-            Vec::<&str>::new(),
-            "a component of the dense screen has been declared. That is components 10 landing, and \
-             it is a deliberate edit here, to `crate::scenes`'s three standings and to \
-             `crate::gates::REGISTER`"
+            SUBJECTS.to_vec(),
+            "a component of the dense screen has stopped being declared where the freeze homes it. \
+             That is not a defect in the screen: `crate::dense::DECLARATIONS` names the file and \
+             the signature each of the four is looked for at"
         );
         let verdict = standing();
-        assert!(!verdict.met());
+        assert!(verdict.met());
         match verdict {
-            Verdict::Unmet {
-                over,
-                failing,
-                inverted_by,
-                ..
-            } => {
-                assert_eq!((over, failing), (4, 4));
-                assert_eq!(inverted_by, "components 10");
+            Verdict::Met { over } => assert_eq!(over, 4),
+            Verdict::Unmet { over, failing, .. } => {
+                unreachable!("{failing} of {over} undeclared, which the assertion above caught")
             }
-            Verdict::Met { .. } => unreachable!("checked above"),
         }
+        // And the scene does not panic any more, which is the whole ticket in one call.
+        assert_stands_up("the dense screen, 300x80, 338 regions");
+    }
+
+    /// **Criterion 5: the application clears once, and a steady frame re-damages 0 rather than
+    /// 9 024.**
+    ///
+    /// §2's own rule — *the correct build clears once, on its first frame and on a resize* — on the
+    /// screen the 9 024 was measured on. The first frame paints all 24 000 cells and every frame
+    /// after it changes **nothing**, which is the same number [`Arm::Correct`] posts without
+    /// clearing at all; the clear costs nothing on a screen that covers itself, and it is what makes
+    /// one that does not the same screen.
+    ///
+    /// The resize half needs two drivers and lives in `crate::app::tests::one_clear_a_size_and_
+    /// never_a_third`, because [`crate::runner::play`] refuses a step that moves the rectangle.
+    #[test]
+    fn clearing_once_re_damages_nothing_and_clearing_every_frame_costs_nine_thousand_cells() {
+        let once = steady_clearing(4);
+        assert_eq!(
+            once.per_frame, 0,
+            "a screen that clears once and then covers itself re-damages nothing"
+        );
+        assert_eq!(once.first, SCREEN, "the first frame paints the screen");
+        assert_eq!(once.steady, 0);
+
+        // The same call written without the state, which is ADR 0026's largest row.
+        let every = steady(Arm::ClearsEveryFrame, 4);
+        assert_eq!(every.per_frame, CLEARED_EVERY_FRAME);
+        assert_eq!(
+            every.per_frame,
+            once.per_frame + CLEARED_EVERY_FRAME,
+            "the difference between once and every frame *is* the instance"
+        );
+
+        // And the clear is a `Clears`, watched clearing exactly once over those frames.
+        let mut clears = Clears::new();
+        let mut driver = crate::runner::driver_at(W, H, Density::Compact);
+        for _ in 0..4 {
+            driver.frame(|cx| {
+                clears.frame_into(&mut crate::counters::Tally::new(), cx);
+            });
+        }
+        assert_eq!(clears.cleared(), 1, "four frames, one clear");
+    }
+
+    /// **Criterion 2: every primitive routes its writing through `fit` or `block`, and not one of
+    /// them names a fill.**
+    ///
+    /// Two halves, and neither is the other.
+    ///
+    /// The **lexical** half is this one: `Ctx::fill` returns `()`, so a cell it writes is modelled
+    /// rather than reported and both sides of `writes == reported` become this crate's own
+    /// arithmetic — [`crate::ink`]'s header, and the reason the trait has `run` and not `fill`. A
+    /// primitive that reached for it would take its own writing out of the instrument's sight, which
+    /// no counter can then object to. So the scan is over the four bodies and everything they reach.
+    ///
+    /// The **behavioural** half — *no fill-then-draw order* — is `writes == distinct`, and it is in
+    /// each component's own module, swept over widths and watched firing on the defective arms. A
+    /// scan cannot make that statement: `crate::text::defective::chip_that_fills_its_face` fills
+    /// with the same verb the correct chip pads with.
+    #[test]
+    fn no_primitive_names_a_fill_and_every_one_reaches_a_partition_helper() {
+        // The bodies of every `fn` in the files a primitive's call chain runs through.
+        let mut bodies: Vec<(String, String)> = Vec::new();
+        for file in [
+            "text.rs",
+            "input.rs",
+            "structure.rs",
+            "frame.rs",
+            "state.rs",
+        ] {
+            let source = source_of(file);
+            let mut lines = source.lines().peekable();
+            while let Some(line) = lines.next() {
+                let trimmed = line.trim();
+                let Some(rest) = trimmed
+                    .strip_prefix("pub fn ")
+                    .or_else(|| trimmed.strip_prefix("fn "))
+                    .or_else(|| trimmed.strip_prefix("pub(crate) fn "))
+                else {
+                    continue;
+                };
+                let name = rest
+                    .split(['(', '<'])
+                    .next()
+                    .expect("a split always yields one")
+                    .to_string();
+                let indent = line.len() - line.trim_start().len();
+                let close = format!("{}}}", " ".repeat(indent));
+                let mut body = String::new();
+                for next in lines.by_ref() {
+                    if next == close {
+                        break;
+                    }
+                    body.push_str(next);
+                    body.push('\n');
+                }
+                bodies.push((name, body));
+            }
+        }
+        assert!(
+            bodies.len() > 20,
+            "the body scan found {} functions, which is not this crate",
+            bodies.len()
+        );
+        let body_of = |want: &str| -> String {
+            bodies
+                .iter()
+                .filter(|(name, _)| name == want)
+                .map(|(_, body)| body.clone())
+                .collect::<Vec<_>>()
+                .concat()
+        };
+
+        // Walk from each primitive through the crate functions it names, and stop at a partition
+        // helper. Four hops is more than any of them needs; a chain that needed more would be a
+        // primitive that is not one.
+        for (subject, entry) in [
+            ("text", "text_into"),
+            ("chip", "chip_drawn"),
+            ("button", "button_drawn"),
+            ("panel", "panel_into"),
+        ] {
+            let mut frontier = vec![entry.to_string()];
+            let mut seen: Vec<String> = Vec::new();
+            let mut reached = None;
+            for _ in 0..4 {
+                let mut next = Vec::new();
+                for name in frontier.drain(..) {
+                    let body = body_of(&name);
+                    assert!(
+                        !body.contains("cx.fill(") && !body.contains(".fill(cx"),
+                        "`{subject}` reaches `{name}`, which writes through `Ctx::fill` — a cell \
+                         the pair cannot see. See `crate::ink`"
+                    );
+                    if body.contains("fit_into(") || body.contains("block_into(") {
+                        reached = Some(name.clone());
+                    }
+                    for (candidate, _) in &bodies {
+                        if body.contains(&format!("{candidate}(")) && !seen.contains(candidate) {
+                            seen.push(candidate.clone());
+                            next.push(candidate.clone());
+                        }
+                    }
+                }
+                if reached.is_some() {
+                    break;
+                }
+                frontier = next;
+            }
+            let reached = reached.unwrap_or_else(|| {
+                panic!(
+                    "`{subject}` reaches neither `fit` nor `block`, so its writing is its own and \
+                     spec §3's two partition primitives are decoration"
+                )
+            });
+            assert!(
+                ["text_into", "fit_into", "face_and_label", "panel_into"].contains(&&*reached),
+                "`{subject}` reaches a partition helper at `{reached}`, which is not one of the \
+                 places this crate expects one"
+            );
+        }
+    }
+
+    /// The source of one file of this crate, for the two scans above.
+    fn source_of(file: &str) -> String {
+        let path = std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/src")).join(file);
+        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("src/{file}: {e}"))
     }
 
     /// **The scan fires in both directions**, which is what stops it reporting *nothing is declared*
@@ -1424,11 +1621,34 @@ mod tests {
         }
     }
 
-    /// **The failure names the ticket and does not read as a defect** — criterion 7's own sentence.
+    /// **The failure names the ticket and does not read as a defect** — ticket 09's criterion 7,
+    /// kept alive after the condition that produced it was inverted.
+    ///
+    /// A `#[should_panic]` over [`assert_stands_up`] cannot reach this any more, because all four
+    /// subjects are declared and the call returns. A message no test can read is a message that
+    /// rots, so the declaration list is an argument to [`owed_message`] and the hostile case is one
+    /// call: **none declared, and the sentence still separates *unimplemented* from *wrong*.**
     #[test]
-    #[should_panic(expected = "components 10")]
-    fn a_scene_that_is_waiting_for_its_subject_says_so() {
-        assert_stands_up("the dense screen, 300x80, 338 regions");
+    fn the_waiting_message_still_says_which_failure_it_is() {
+        let message = owed_message(&[], "the dense screen, 300x80, 338 regions")
+            .expect("no subject declared is a scene that is not standing");
+        assert!(message.contains("components 10"), "{message}");
+        assert!(
+            message.contains("waiting for its subject rather than failing"),
+            "a failure that could be read as a defect in the screen: {message}"
+        );
+        // Every missing subject named, with the file it belongs in.
+        for (id, (file, _)) in SUBJECTS.into_iter().zip(DECLARATIONS) {
+            assert!(message.contains(id), "{id} is not named: {message}");
+            assert!(message.contains(file), "src/{file} is not named: {message}");
+        }
+        // Three of four is not four of four, so the count is the failing set and not a constant.
+        let partial = owed_message(&["text", "chip", "button"], "scene 1").expect("one is missing");
+        assert!(partial.contains("1 of 4"), "{partial}");
+        assert!(partial.contains("`panel`"), "{partial}");
+        // And the met direction answers nothing at all.
+        assert_eq!(owed_message(&SUBJECTS, "scene 1"), None);
+        assert_eq!(owed_message(&subjects_declared(), "scene 1"), None);
     }
 
     /// **No two widgets on this screen share an id** — ADR 0027's free detector, on a screen with

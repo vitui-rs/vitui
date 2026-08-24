@@ -34,26 +34,36 @@
 //! ([`Scene::owed`] and [`Scene::from_a_survived_defect`]), because the value can hold both and a
 //! count cannot.
 //!
-//! # Twenty-five scenes are `Unsubjected` and three are `Red`, and neither is `Evaluated`
+//! # Twenty-five scenes are `Unsubjected` and three are `Evaluated`, and none is `Red`
 //!
 //! [`crate::gates::Standing::Unsubjected`] means *it could run and there is nothing to run it over*.
-//! Not one of the twenty-nine components exists, so twenty-five of these screens cannot be stood up
-//! at all. Filing any of them as `Evaluated` would be [`crate::obligations::Verdict::of`]'s vacuity
-//! accident arriving on the scene list.
+//! Twenty-five of the twenty-nine components do not exist, so twenty-five of these screens cannot be
+//! stood up at all. Filing any of them as `Evaluated` would be
+//! [`crate::obligations::Verdict::of`]'s vacuity accident arriving on the scene list.
 //!
-//! **Scenes 1, 2 and 28 are `Red` instead, and the difference is that their screen exists.**
-//! Components ticket 09 built the dense screen out of the three helpers that ship — `fit`, `block`
-//! and `press` — so the 338 regions, the metric row, the equality against the naive twin at both
-//! sizes and all five of ADR 0026's re-damage instances are measured rather than owed. What is
-//! missing is the **subject**: `text`, `chip`, `button` and `panel` are components 10's, and a
-//! screen made of their construction is not a screen made of them. So the three rows are pinned in
-//! their failing state with that as the exact failing set, which is §21's own rule for a red gate —
-//! *it asserts its exact failing set, fires in both directions, and says what to invert*.
+//! **Scenes 1, 2 and 28 are `Evaluated`, and components ticket 10 is what moved them.** They were
+//! `Red` for one ticket, which is the state worth reading this file for: ticket 09 built the dense
+//! screen out of the three helpers that ship — `fit`, `block` and `press` — so the 338 regions, the
+//! metric row, the equality against the naive twin at both sizes and all five of ADR 0026's
+//! re-damage instances were measured rather than owed, and the only thing missing was the
+//! **subject**. A screen made of a component's construction is not a screen made of the component,
+//! so the three rows were pinned in their failing state with that as the exact failing set — §21's
+//! own rule for a red gate, *it asserts its exact failing set, fires in both directions, and says
+//! what to invert*.
 //!
-//! Filing them `Unsubjected` instead would have been the softer lie: it says *nothing can run*,
-//! and a great deal runs. Filing them `Evaluated` would have been the harder one.
+//! Ticket 10 declared `text`, `chip`, `button` and `panel`, and [`crate::dense`]'s screen is now
+//! drawn **through** them: the same 338 regions, the same 24 000-of-24 000 partition, the same
+//! equality at both sizes. Filing them `Unsubjected` at the time would have been the softer lie —
+//! it says *nothing can run*, and a great deal ran; filing them `Evaluated` would have been the
+//! harder one. **Which is why the move is a deliberate edit in three files**, here, in
+//! `crate::dense`'s two inverted tests and in [`crate::gates::REGISTER`]'s row 61.
 //!
-//! What **is** run today is the *shape* of ten of them, over a fixture or over a stand-in screen, by
+//! One number moved with them and it is written down rather than absorbed:
+//! [`crate::dense::CHIP_FILLED_FACE`] is **1 095** where ticket 09 measured 1 149, because a chip's
+//! label wears its own face and the space inside the elided fourth value stopped differing from the
+//! fill. See that constant.
+//!
+//! What is run over a fixture rather than over a component is still the *shape* of ten of these, by
 //! [`crate::runner`] and [`crate::dense`] — that is [`Scene::rehearsed_by`], and it is deliberately
 //! not `standing`. A rehearsal says *the instrument catches this defect*; a standing says *this
 //! screen is on a terminal*. Conflating them is how a register comes to report a gate that nothing
@@ -355,29 +365,119 @@ const DENSE: &str = "crates/vitui-components/src/dense.rs";
 /// the list the failing set is computed over.
 const SUBJECTS: &[&str] = &crate::dense::SUBJECTS;
 
-/// **The failing set scenes 1, 2 and 28 are pinned on**, written once because it is one fact.
+/// **What stands scenes 1, 2 and 28 up**, written once because it is one fact: the four components
+/// are declared, and the screen is drawn through them.
 ///
-/// Criterion 7's distinction, and it is the subtle one: *a scene that fails because it is
-/// unimplemented is indistinguishable from one that fails because the code is wrong, unless the
-/// message distinguishes them*. The screen is drawn, its regions are counted, its equality against
-/// the naive twin holds at both sizes and every one of ADR 0026's five re-damage instances is
-/// measured — all of that is green in `crate::dense::tests`. What is missing is the **subject**,
-/// and [`crate::dense::assert_stands_up`] is the sentence that says so and names the ticket.
-const WAITING_FOR_ITS_COMPONENTS: &str = "0 of the 4 components this screen is a screen of - `text`, `chip`, `button`, `panel` - is \
-     declared in this crate, so what stands on it is their construction (`fit`, `block`, `press`) \
-     and not the components. Everything the screen itself can be asked is green: 338 regions at \
-     300x80, 24 000 of 24 000 cells written exactly once, 0 cells apart from the naive twin at \
-     both sizes, and all five re-damage instances measured";
-
-/// The pair that pins the three red rows: the exact failing set, and the same set watched panicking.
-const WAITING: &[Instrument] = &[
+/// It was the *failing set* of three red rows for exactly one ticket, and ticket 09's criterion 7 is
+/// why the pair below still has two halves. The distinction it draws is the subtle one — *a scene
+/// that fails because it is unimplemented is indistinguishable from one that fails because the code
+/// is wrong, unless the message distinguishes them* — and both directions are still live:
+/// [`crate::dense::owed_message`] builds the waiting sentence over any declaration list, so the day
+/// a component moves out of the file the freeze homes it in, the failure names the file rather than
+/// reading as a defect in the screen.
+#[cfg(test)]
+const STANDS_ON_ITS_COMPONENTS: &[Instrument] = &[
     Instrument::Unit {
         file: DENSE,
-        name: "the_dense_screen_is_red_because_its_four_components_are_not_declared",
+        name: "the_dense_screen_stands_on_its_four_declared_components",
     },
     Instrument::Unit {
         file: DENSE,
-        name: "a_scene_that_is_waiting_for_its_subject_says_so",
+        name: "the_waiting_message_still_says_which_failure_it_is",
+    },
+];
+
+/// What stands scene 1 up, beyond the pair every one of the three shares.
+///
+/// **These three were `rehearsed_by` until components ticket 10** and they are `standing` now,
+/// because what they run over changed underneath them without one character of the tests moving:
+/// [`crate::dense::draw_into`] used to call `fit`, `block` and `press` directly and now calls
+/// `text`, `chip`, `button` and `panel`. That is the whole distinction [`Scene::rehearsed_by`]
+/// draws — *over a fixture or a stand-in* against *over the thing itself* — and it is why the field
+/// is separate from `standing` rather than a flag on it.
+const STANDS_SCENE_1: &[Instrument] = &[
+    Instrument::Unit {
+        file: DENSE,
+        name: "the_dense_screen_stands_three_hundred_and_thirty_eight_regions_at_three_hundred_by_\
+               eighty",
+    },
+    Instrument::Unit {
+        file: DENSE,
+        name: "the_dense_screen_declares_no_colliding_ids",
+    },
+    Instrument::Unit {
+        file: DENSE,
+        name: "the_dense_screen_reports_the_metric_row_and_never_prints_marked_zero",
+    },
+    Instrument::Unit {
+        file: DENSE,
+        name: "all_five_re_damage_instances_are_measured_on_this_screen",
+    },
+    Instrument::Unit {
+        file: DENSE,
+        name: "clearing_once_re_damages_nothing_and_clearing_every_frame_costs_nine_thousand_cells",
+    },
+    Instrument::Unit {
+        file: DENSE,
+        name: "the_dense_screen_stands_on_its_four_declared_components",
+    },
+    Instrument::Unit {
+        file: DENSE,
+        name: "the_waiting_message_still_says_which_failure_it_is",
+    },
+];
+
+/// What stands scene 2 up. See [`STANDS_SCENE_1`].
+const STANDS_SCENE_2: &[Instrument] = &[
+    Instrument::Unit {
+        file: DENSE,
+        name: "the_same_screen_drawn_naive_and_correct_is_zero_cells_apart_at_both_sizes",
+    },
+    Instrument::Unit {
+        file: DENSE,
+        name: "the_naive_twin_is_declared_in_this_file_and_named_by_path",
+    },
+    Instrument::Unit {
+        file: DENSE,
+        name: "the_correct_screen_is_a_partition_of_twenty_four_thousand_cells",
+    },
+    Instrument::Unit {
+        file: DENSE,
+        name: "the_dense_screen_stands_on_its_four_declared_components",
+    },
+    Instrument::Unit {
+        file: DENSE,
+        name: "the_waiting_message_still_says_which_failure_it_is",
+    },
+];
+
+/// What stands scene 28 up. See [`STANDS_SCENE_1`].
+const STANDS_SCENE_28: &[Instrument] = &[
+    Instrument::Unit {
+        file: DENSE,
+        name: "a_label_that_does_not_narrow_is_green_at_three_hundred_and_red_at_a_hundred_and_\
+               twenty",
+    },
+    Instrument::Unit {
+        file: DENSE,
+        name: "the_narrow_screen_shrinks_its_content_inside_a_rectangle_that_does_not_move",
+    },
+    Instrument::Unit {
+        file: DENSE,
+        name: "at_a_hundred_and_twenty_columns_the_label_column_truncates_and_the_ellipsis_is_one_\
+               cell",
+    },
+    Instrument::Unit {
+        file: "crates/vitui-components/src/text.rs",
+        name: "chip_writes_a_partition_of_its_rectangle_and_narrows_into_it",
+    },
+    Instrument::Unit {
+        file: DENSE,
+        name: "the_dense_screen_stands_on_its_four_declared_components",
+    },
+    Instrument::Unit {
+        file: DENSE,
+        name: "the_waiting_message_still_says_which_failure_it_is",
     },
 ];
 
@@ -396,26 +496,10 @@ pub const SCENES: [Scene; 28] = [
         stands: SUBJECTS,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Red {
-            by: WAITING,
-            failing: WAITING_FOR_ITS_COMPONENTS,
-            inverted_by: "components 10",
-        },
-        rehearsed_by: &[
-            Instrument::Unit {
-                file: DENSE,
-                name: "the_dense_screen_stands_three_hundred_and_thirty_eight_regions_at_three_\
-                       hundred_by_eighty",
-            },
-            Instrument::Unit {
-                file: DENSE,
-                name: "the_dense_screen_reports_the_metric_row_and_never_prints_marked_zero",
-            },
-            Instrument::Unit {
-                file: DENSE,
-                name: "all_five_re_damage_instances_are_measured_on_this_screen",
-            },
-        ],
+        standing: Standing::Evaluated { by: STANDS_SCENE_1 },
+        // **Empty, and it was three entries until components ticket 10.** Everything that ran over
+        // a stand-in now runs over the components, so it is a standing and not a rehearsal.
+        rehearsed_by: &[],
     },
     Scene {
         number: 2,
@@ -435,25 +519,14 @@ pub const SCENES: [Scene; 28] = [
         stands: SUBJECTS,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Red {
-            by: WAITING,
-            failing: WAITING_FOR_ITS_COMPONENTS,
-            inverted_by: "components 10",
-        },
-        rehearsed_by: &[
-            Instrument::Unit {
-                file: RUNNER,
-                name: "the_same_screen_drawn_both_ways_is_equal_cell_for_cell",
-            },
-            Instrument::Unit {
-                file: DENSE,
-                name: "the_same_screen_drawn_naive_and_correct_is_zero_cells_apart_at_both_sizes",
-            },
-            Instrument::Unit {
-                file: DENSE,
-                name: "the_naive_twin_is_declared_in_this_file_and_named_by_path",
-            },
-        ],
+        standing: Standing::Evaluated { by: STANDS_SCENE_2 },
+        // **One entry left, and it is a real rehearsal.** `runner`'s own equality runs over a
+        // synthetic fixture and not over this screen, so it stays on the side of the line that says
+        // *the instrument catches this defect* rather than *this screen is drawn*.
+        rehearsed_by: &[Instrument::Unit {
+            file: RUNNER,
+            name: "the_same_screen_drawn_both_ways_is_equal_cell_for_cell",
+        }],
     },
     Scene {
         number: 3,
@@ -1001,27 +1074,11 @@ pub const SCENES: [Scene; 28] = [
         stands: SUBJECTS,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Red {
-            by: WAITING,
-            failing: WAITING_FOR_ITS_COMPONENTS,
-            inverted_by: "components 10",
+        standing: Standing::Evaluated {
+            by: STANDS_SCENE_28,
         },
-        rehearsed_by: &[
-            Instrument::Unit {
-                file: DENSE,
-                name: "a_label_that_does_not_narrow_is_green_at_three_hundred_and_red_at_a_hundred_\
-                       and_twenty",
-            },
-            Instrument::Unit {
-                file: DENSE,
-                name: "the_narrow_screen_shrinks_its_content_inside_a_rectangle_that_does_not_move",
-            },
-            Instrument::Unit {
-                file: DENSE,
-                name: "at_a_hundred_and_twenty_columns_the_label_column_truncates_and_the_ellipsis_\
-                       is_one_cell",
-            },
-        ],
+        // Empty for scene 1's reason, with `chip`'s own narrowing sweep joining the three.
+        rehearsed_by: &[],
     },
 ];
 
@@ -1139,13 +1196,16 @@ pub fn report(rehearsals: &[(u8, crate::runner::MetricRow)]) -> String {
                         "{label:<52}  not played: `{inverted_by}` builds the subject"
                     );
                 }
-                // **A red scene says it is red and names the ticket.** Not *not played*: the screen
-                // is drawn and measured, and what it is waiting for is its subject — criterion 7's
-                // whole distinction, on the line a reader actually looks at.
-                Standing::Red { inverted_by, .. } => {
+                // **A stood-up scene says what stands it up.** Not *not played*: the screen is
+                // drawn, its components exist and its numbers are asserted — this line is where a
+                // reader sees which of the twenty-eight are screens rather than intentions. It was
+                // `red, pinned: waiting for its components` for exactly one ticket, which is
+                // criterion 7's distinction on the line a reader actually looks at.
+                Standing::Evaluated { by } => {
                     let _ = writeln!(
                         out,
-                        "{label:<52}  red, pinned: waiting for its components, `{inverted_by}`"
+                        "{label:<52}  stood up on its own components, by {} instruments",
+                        by.len()
                     );
                 }
                 other => {
@@ -1236,14 +1296,15 @@ mod tests {
         }
     }
 
-    /// **Twenty-five scenes have nothing to run over, three are pinned red, and none is evaluated.**
+    /// **Twenty-five scenes have nothing to run over, three are stood up, and none is red.**
     ///
     /// `obligations.rs`'s arrangement and `gates.rs`'s: a count makes the first scene to be stood up
-    /// a deliberate edit here rather than a quiet change of colour. Twenty-five of the twenty-nine
-    /// components' screens cannot be built at all; the three components ticket 09 built are red
-    /// because their screen exists and its four components do not.
+    /// a deliberate edit here rather than a quiet change of colour, and **this is that edit**.
+    /// Twenty-five of the twenty-nine components' screens still cannot be built at all; the three
+    /// components ticket 09 built were red for one ticket, because their screen existed and its four
+    /// components did not, and components ticket 10 declared all four.
     #[test]
-    fn twenty_five_scenes_have_nothing_to_run_over_and_three_are_pinned_red() {
+    fn twenty_five_scenes_have_nothing_to_run_over_and_three_are_stood_up() {
         let red: Vec<u8> = SCENES
             .iter()
             .filter(|s| matches!(s.standing, Standing::Red { .. }))
@@ -1251,8 +1312,9 @@ mod tests {
             .collect();
         assert_eq!(
             red,
-            vec![1, 2, 28],
-            "the dense screen, the same screen drawn naive and correct, and the narrow axis"
+            Vec::<u8>::new(),
+            "a scene is pinned red. That is a new one, and it owes an exact failing set and a \
+             ticket that inverts it"
         );
         let evaluated: Vec<u8> = SCENES
             .iter()
@@ -1261,76 +1323,76 @@ mod tests {
             .collect();
         assert_eq!(
             evaluated,
-            Vec::<u8>::new(),
-            "a scene claims to be evaluated. A screen played over a stand-in for its components is \
-             rehearsed and not stood up, and that is a deliberate edit here, to this module's \
-             header and to `crate::gates::REGISTER`"
+            vec![1, 2, 28],
+            "the dense screen, the same screen drawn naive and correct, and the narrow axis. A \
+             screen played over a stand-in for its components is rehearsed and not stood up, so a \
+             fourth arriving here is a deliberate edit to this module's header and to \
+             `crate::gates::REGISTER`"
         );
-        assert_eq!(SCENES.len() - red.len(), 25);
+        assert_eq!(SCENES.len() - evaluated.len(), 25);
 
         for scene in SCENES {
             let inverted_by = match scene.standing {
-                Standing::Unsubjected { inverted_by } => inverted_by,
-                Standing::Red {
-                    by,
-                    failing,
-                    inverted_by,
-                } => {
+                Standing::Unsubjected { inverted_by } => Some(inverted_by),
+                Standing::Evaluated { by } => {
                     assert!(
                         !by.is_empty(),
-                        "scene #{} is red without an instrument. A red row that nothing runs is a \
-                         sentence about a gate",
+                        "scene #{} is evaluated by nothing, which is a sentence about a screen",
                         scene.number
                     );
-                    assert!(
-                        failing.chars().any(|c| c.is_ascii_digit()),
-                        "scene #{} is pinned red without a number in its failing set",
-                        scene.number
-                    );
-                    inverted_by
+                    None
                 }
                 other => panic!("scene #{} is {}", scene.number, other.word()),
             };
-            assert!(
-                inverted_by.starts_with("components "),
-                "scene #{} does not name the ticket that will stand it up",
-                scene.number
-            );
+            if let Some(inverted_by) = inverted_by {
+                assert!(
+                    inverted_by.starts_with("components "),
+                    "scene #{} does not name the ticket that will stand it up",
+                    scene.number
+                );
+            }
         }
     }
 
-    /// **A red scene is red because its subject is missing, and the message says which subject.**
+    /// **The three scenes stand on the same four components, and the fact is computed rather than
+    /// typed.**
     ///
-    /// Criterion 7. The three rows share one failing set because it is one fact, and the fact is
-    /// computed rather than typed: [`crate::dense::subjects_declared`] opens the four files
-    /// components 10 will declare in, so the day one of them lands this test fails and the standing
-    /// is a deliberate edit.
+    /// Ticket 09's criterion 7, inverted by ticket 10. [`crate::dense::subjects_declared`] opens the
+    /// four files the freeze homes the components in and reads what is declared there, so the day
+    /// one of them moves this test fails and the standing is a deliberate edit — in the same
+    /// direction it was made in.
     #[test]
-    fn the_three_red_scenes_are_waiting_for_the_same_four_components() {
+    fn the_three_stood_up_scenes_rest_on_the_same_four_components() {
         assert_eq!(SUBJECTS, ["text", "chip", "button", "panel"]);
         assert_eq!(
             crate::dense::subjects_declared(),
-            Vec::<&str>::new(),
-            "a component of the dense screen exists, so scenes 1, 2 and 28 are no longer red for \
-             this reason"
+            SUBJECTS.to_vec(),
+            "a component of the dense screen is no longer declared where the freeze homes it, so \
+             scenes 1, 2 and 28 are standing on a screen made of their construction again"
         );
         for number in [1u8, 2, 28] {
             let scene = SCENES
                 .iter()
                 .find(|s| s.number == number)
                 .expect("a numbered scene");
-            let Standing::Red { failing, .. } = scene.standing else {
-                panic!("scene #{number} is not red");
+            let Standing::Evaluated { by } = scene.standing else {
+                panic!("scene #{number} is not evaluated");
             };
-            assert_eq!(failing, WAITING_FOR_ITS_COMPONENTS);
+            // **The pair every one of the three shares**, whatever else stands each of them up: the
+            // four subjects are declared, and the sentence for the day one of them is not.
+            for shared in STANDS_ON_ITS_COMPONENTS {
+                assert!(
+                    by.contains(shared),
+                    "scene #{number} does not name `{shared:?}`, so its standing no longer rests \
+                     on the four components being declared"
+                );
+            }
             assert_eq!(scene.stands, SUBJECTS);
         }
-        // And the sentence a reader actually sees, watched saying it.
-        let panicked = std::panic::catch_unwind(|| crate::dense::assert_stands_up("scene 1"));
-        let message = *panicked
-            .expect_err("the four components do not exist")
-            .downcast::<String>()
-            .expect("a formatted message");
+        // And the sentence a reader would see if one of them went away, watched saying it — over a
+        // declaration list rather than over the crate, because the crate no longer produces it.
+        let message = crate::dense::owed_message(&["text", "chip"], "scene 1")
+            .expect("two of the four missing is a scene that is not standing");
         assert!(message.contains("components 10"), "{message}");
         assert!(
             message.contains("waiting for its subject rather than failing"),
@@ -1470,7 +1532,12 @@ mod tests {
         }
     }
 
-    /// **Ten scenes are rehearsed, and a rehearsal names a live test.**
+    /// **Seven scenes are rehearsed, and a rehearsal names a live test.**
+    ///
+    /// It was ten until components ticket 10. Scenes 1 and 28 lost theirs entirely and scene 2 kept
+    /// one, because what those instruments run over stopped being a stand-in: they are `standing`
+    /// now, and `a_rehearsal_is_never_what_stands_a_scene_up` is where the line between the two is
+    /// asserted rather than described.
     ///
     /// The same non-vacuity rule [`crate::gates`] is built around, and it is what stops
     /// `rehearsed_by` becoming a citation: a `#[test]` demoted to a helper, or left in place with
@@ -1482,7 +1549,7 @@ mod tests {
             .filter(|s| !s.rehearsed_by.is_empty())
             .map(|s| s.number)
             .collect();
-        assert_eq!(rehearsed, vec![1, 2, 4, 5, 6, 15, 20, 21, 28]);
+        assert_eq!(rehearsed, vec![2, 4, 5, 6, 15, 20, 21]);
 
         for scene in SCENES {
             for instrument in scene.rehearsed_by {
@@ -1519,24 +1586,60 @@ mod tests {
     /// report a gate that nothing runs, which is §21's three-for-three finding from the other
     /// direction.
     ///
-    /// **The three rows components 09 built are the case that made this sharper.** Their screen
-    /// really is drawn and really is measured, which is exactly the shape that argues for promotion
-    /// — and it is drawn out of the four components' *construction* rather than out of the four
-    /// components. So a rehearsed scene may be `Unsubjected` or `Red` and may never be `Evaluated`.
+    /// **The three rows components 09 built are the case that made this sharper**, and components
+    /// ticket 10 is where the line was crossed *by the code moving rather than by the field moving*.
+    /// Their screen was drawn out of the four components' **construction**; it is now drawn out of
+    /// the four components, so the instruments that were `rehearsed_by` are `standing` and not one
+    /// character of them changed.
+    ///
+    /// What the rule still forbids is promotion by rehearsal: a scene may be `Evaluated` **only**
+    /// over the components it is a screen of, which is what the file check below is — every
+    /// instrument standing one of the three up lives in `crate::dense` or in a component's own
+    /// module, and none of them is a `crate::runner` fixture.
     #[test]
-    fn a_rehearsed_scene_is_never_evaluated() {
+    fn a_rehearsal_is_never_what_stands_a_scene_up() {
+        const COMPONENT_FILES: [&str; 4] = [
+            DENSE,
+            "crates/vitui-components/src/text.rs",
+            "crates/vitui-components/src/input.rs",
+            "crates/vitui-components/src/structure.rs",
+        ];
         for scene in SCENES {
-            if scene.rehearsed_by.is_empty() {
-                continue;
+            match scene.standing {
+                Standing::Unsubjected { .. } => {}
+                Standing::Evaluated { by } => {
+                    for instrument in by {
+                        assert!(
+                            COMPONENT_FILES.contains(&instrument.file()),
+                            "scene #{} is stood up by `{}`, which is not a file where this screen \
+                             or one of its components is measured. A fixture is a rehearsal",
+                            scene.number,
+                            instrument.file()
+                        );
+                    }
+                    assert!(
+                        by.len() >= 3,
+                        "scene #{} is stood up by fewer than three instruments",
+                        scene.number
+                    );
+                }
+                other => panic!("scene #{} is {}", scene.number, other.word()),
             }
-            assert!(
-                matches!(
-                    scene.standing,
-                    Standing::Unsubjected { .. } | Standing::Red { .. }
-                ),
-                "scene #{} is rehearsed and claims to be run",
-                scene.number
-            );
+            // And nothing rehearses a scene that is already stood up on its own components: a
+            // rehearsal beside a standing would let the standing be argued from the fixture.
+            if scene.standing.evaluated() {
+                for instrument in scene.rehearsed_by {
+                    assert_eq!(
+                        instrument.file(),
+                        RUNNER,
+                        "scene #{} is stood up and still rehearsed in `{}`. The runner's own \
+                         fixtures are the one thing that may sit beside a standing, because they \
+                         are about the instrument and not about the screen",
+                        scene.number,
+                        instrument.file()
+                    );
+                }
+            }
         }
     }
 
@@ -1600,10 +1703,10 @@ mod tests {
         assert_eq!(printed.matches("not played: `components ").count(), 24);
         assert_eq!(
             printed
-                .matches("red, pinned: waiting for its components, `components 10`")
+                .matches("stood up on its own components, by ")
                 .count(),
             3,
-            "a red scene says it is red and names the ticket, rather than reading as unplayed"
+            "a stood-up scene says what stands it up, rather than reading as unplayed"
         );
         assert_eq!(printed.matches("[rehearsed over a fixture]").count(), 1);
         assert!(

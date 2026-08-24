@@ -3,9 +3,24 @@
 //! # Status
 //!
 //! Being built one ticket at a time from `.scratch/vitui-components-architecture/spec.md`, whose
-//! map is closed; the backlog is `.scratch/vitui-components-impl/`, forty-three tickets. **No
-//! component is written yet.** What exists is the instruments the other forty are enumerable
-//! against, and every one of them is a value rather than a paragraph:
+//! map is closed; the backlog is `.scratch/vitui-components-impl/`, forty-three tickets.
+//!
+//! **Four of the twenty-nine components are written** — [`text::text`], [`text::chip`],
+//! [`input::button`] and [`structure::panel`], components ticket 10 — and the dense screen is now
+//! drawn *through* them rather than through their construction. They are spec §1's four rules with
+//! **two stated substitutions**: [`Cells`] stands in for `Rect`, which cannot be named from a
+//! package whose dependency table is `vitui-runtime` and nothing else ([`cells`]); and
+//! [`structure::Panel`] stands in for a bare `Response`, because §2's *the cells it does not write
+//! are named in its return value* is unwritable in one and the closure form that would make it
+//! writable is refused on two measurements ([`frame`]). Neither is the rule being ignored, and each
+//! says so where a reader coming from §1 will look.
+//!
+//! Beside them is [`app::Clears`], which is not a component and cannot be: *the correct build clears
+//! once, on its first frame and on a resize* is a statement about a **sequence** of frames, so it
+//! needs a value the application keeps.
+//!
+//! The rest of what exists is the instruments the other twenty-five are enumerable against, and
+//! every one of them is a value rather than a paragraph:
 //!
 //! - [`INVENTORY`] — spec §17's v1 freeze as a value: **twenty-nine components in three tiers**,
 //!   eleven columns each, with [`MOVED`] and [`COMPOSITIONS`] beside it. Not a paragraph, because
@@ -14,12 +29,14 @@
 //! - [`obligations`] — §17's five obligations as queries over the freeze, each returning a count or
 //!   an equality. **Not one of them can be met yet, and every one of them says so out loud** rather
 //!   than returning green over an empty population.
-//! - [`gates`] — §21's register: **fifty-six gates as rows, thirty-two of them evaluated**, three
+//! - [`gates`] — §21's register: **sixty-five gates as rows, forty-one of them evaluated**, three
 //!   pinned red with their failing sets, six unreachable across the crate line with what would have
 //!   to become public, and fifteen with nothing yet to run over. An instrument is a value with a
 //!   file in it, so a row that has stopped running turns the register red here. **One of those rows
 //!   was not unreachable and had said it was for five tickets** — see that module's header, because
-//!   the shape it names is the one an `Unreachable` invites.
+//!   the shape it names is the one an `Unreachable` invites. **A fourth was red and is now green,
+//!   and inverting it rewrote the gate**: row 61 asserted an *absence*, and a row still asserting
+//!   the four primitives do not exist would now be asserting they are gone.
 //! - [`glyphs`] — §16's catalogue as a value: **six families over twenty entries and ten
 //!   distinctions**, with the demand column of [`INVENTORY`] joined against it. A distinction
 //!   survives the whole matrix iff it is carried on both axes (ADR 0032), and seven of the ten name
@@ -29,7 +46,7 @@
 //! - [`counters`] — §20's nine per-frame counters, **eight of which this crate can read**. The
 //!   ninth, `marked`, panics rather than answering `0`, and so does the sentinel probe.
 //! - [`scenes`] — the normative scene list: **twenty-eight screens, twenty-seven of them §21's
-//!   table, twenty-five `Unsubjected` and three `Red`**, each with the size it is played at, the
+//!   table, twenty-five `Unsubjected` and three `Evaluated`**, each with the size it is played at, the
 //!   content it stands up, the gestures it plays and the property it decided. Three of them exist
 //!   because a defect survived every gate then in force by not being on any screen anybody had
 //!   built.
@@ -39,11 +56,13 @@
 //!   `runner`'s header names the four barriers that make the engine's unreachable — the first three
 //!   of which are about `mod reference;` and the fourth about ADR 0023.
 //! - [`dense`] — **the dense screen**: 300×80, 338 interactive regions, and ADR 0026's five
-//!   re-damage instances each standing on a screen instead of in a sentence — 9 024 / 1 149 / 324 /
+//!   re-damage instances each standing on a screen instead of in a sentence — 9 024 / 1 095 / 324 /
 //!   600 / 15 against a correct arm's **0**, with the naive twin kept beside it and proved equal
 //!   cell for cell at 300×80 and at 120×40. It is the screen components ticket 10 is proved
-//!   against, and its three scenes are `Red` because the four components it is a screen *of* do not
-//!   exist yet.
+//!   against, and **its three scenes now stand**: the screen is drawn through `text`, `chip`,
+//!   `button` and `panel`, and every defective arm is a defective *component* rather than a branch
+//!   in the screen. One figure moved when the components landed and it is written down rather than
+//!   absorbed — [`dense::CHIP_FILLED_FACE`] is 1 095 where ticket 09 measured 1 149.
 //! - The module tree, one module per family (§19), joined to the freeze by
 //!   [`Component::families`].
 //!
@@ -80,6 +99,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod app;
 pub mod cells;
 pub mod counters;
 pub mod dense;

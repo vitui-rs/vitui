@@ -240,10 +240,14 @@ fn main() {
         "                                      is ink. 37.6% here against C01's 27.8%. The relation",
         "                                      to the correct arm's 0 reproduces, and so does its",
         "                                      being the largest of the five.",
-        "  2 648 for a chip filling   1 149    does not, and it is arithmetic: 3 x (18 x (2+3+4+12)",
+        "  2 648 for a chip filling   1 095    does not, and it is arithmetic: 3 x (18 x (2+3+4+11)",
         "  its face                            + 2 + 3) over the four values a row cycles through.",
         "                                      Both factors — how many chips, how wide their labels",
-        "                                      — are this screen's rather than the rule's.",
+        "                                      — are this screen's rather than the rule's. It was",
+        "                                      1 149 until components 10: a chip's label wears its",
+        "                                      own face, so the one space inside `degraded, r…` now",
+        "                                      carries what the fill wrote and the engine drops it.",
+        "                                      18 rows x 1 space x 3 panels = 54.",
         "  432 for a chip that does   324      does not. 54 of 222 chips overrun 6 columns each, and",
         "  not narrow                          `54 x 6` is the whole number. The *identity*",
         "                                      reproduces: the cells re-damaged are exactly the ones",
@@ -285,15 +289,12 @@ fn main() {
         }
     }
     println!();
-    println!("  Red, and not green and not unplayed. The screen is drawn and measured; what is");
-    println!(
-        "  missing is its subject — `text`, `chip`, `button` and `panel` are components 10's."
-    );
-    println!(
-        "  A scene that fails because it is unimplemented and one that fails because the code"
-    );
-    println!("  is wrong are the same failure unless the message separates them, and");
-    println!("  `dense::assert_stands_up` is the sentence that separates them.");
+    println!("  Stood up, and components ticket 10 is what moved them. They were `Red` for one");
+    println!("  ticket: the screen was drawn and measured out of `fit`, `block` and `press`, and");
+    println!("  what was missing was the subject — `text`, `chip`, `button` and `panel`. A scene");
+    println!("  that fails because it is unimplemented and one that fails because the code is");
+    println!("  wrong are the same failure unless the message separates them, and");
+    println!("  `dense::owed_message` is still the sentence that separates them.");
 
     // The **shape**, so that a report which has quietly started measuring something smaller fails
     // rather than looking good. R15's rule, and the reason a report is allowed to carry asserts.
@@ -311,8 +312,8 @@ fn main() {
     assert_eq!(wide.regions, dense::REGIONS);
     assert_eq!(narrow.regions, dense::NARROW_REGIONS);
     assert!(
-        !dense::standing().met(),
-        "the three scenes are red until components 10 lands"
+        dense::standing().met(),
+        "the three scenes stand on four declared components since components 10"
     );
     assert!(matches!(
         Reading::Measured(1).get(Counter::Writes),

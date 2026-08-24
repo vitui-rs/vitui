@@ -305,6 +305,26 @@ impl Cells {
         cx.interact(id, rect_in!(cx, self), interest)
     }
 
+    /// **A [`Response`] that names this rectangle and declares nothing.** The fourth verb that needs
+    /// a real `Rect`.
+    ///
+    /// # Why a pure drawer needs this at all
+    ///
+    /// Spec §1's rule 4 is *return `Response`, **even from a pure drawer***, and a label is the pure
+    /// drawer the rule is about. The obvious spelling — `interact(cx, id, Interest::NONE)` — is a
+    /// different statement: `Interest::NONE` is documented as *hit-tested and nothing more*, so it
+    /// appends a hit entry, takes the id, and sits in the index between the pointer and whatever is
+    /// under it. **A label that swallows a click is not a pure drawer**, and on
+    /// [`crate::dense`]'s screen it would move the region count from 338 to 560 — one entry per
+    /// label, one per reading, and none of them wanted.
+    ///
+    /// So the two are kept apart: `None` interest means *no region*, and `Some(Interest::NONE)`
+    /// means *a region that asks for nothing and is still in the index*. Both are reachable through
+    /// [`crate::text::TextOpts::interest`], and neither is the other's default.
+    pub fn inert(self, cx: &Ctx<'_, '_>, id: Id) -> Response {
+        Response::inert(id, rect_in!(cx, self))
+    }
+
     /// **Declare the face this rectangle is to be awarded if it wins the hover.** The third verb
     /// that needs a real `Rect`.
     ///

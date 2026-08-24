@@ -2521,6 +2521,25 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// });
     /// assert_eq!(driver.inspect().overlays_placed(), 1);
     /// ```
+    ///
+    /// # The body answers through the inbox, and a `&'f mut` capture costs you the state
+    ///
+    /// **Capture what the body reads by value or by shared reference; let it answer through the
+    /// inbox.** A `&'f mut` capture *compiles* — the bound above is `+ 'f`, and a mutable borrow of
+    /// a frame-lived local satisfies it — and it costs the caller that state for **the rest of the
+    /// frame**, because the body is held in the queue until the satisfy pass and the borrow lives
+    /// exactly as long.
+    ///
+    /// This is worth a heading rather than a sentence because **the diagnostic never mentions the
+    /// overlay.** The failure arrives at the *caller*, one level away, as `E0503` — *cannot use
+    /// `x` because it was mutably borrowed* — pointing at the next ordinary read of a local whose
+    /// only unusual property is that a closure three lines up captured it. Worse, rustc's own
+    /// `help:` line for the shape suggests a borrow that compiles here, so following the compiler's
+    /// advice produces a build that works and a frame that has quietly lost a variable.
+    ///
+    /// Components ticket 10 owed this note and could not write it: the crate that meets the mistake
+    /// cannot edit the item it belongs on, and the item is this one — a note on the *caller's* side
+    /// would have to be repeated at every call site, which is where a rule goes to rot.
     pub fn overlay<F>(&mut self, owner: Id, anchor: Rect, opts: OverlayOpts, body: F)
     where
         F: FnMut(&mut Ctx<'f, '_>) + 'f,

@@ -124,7 +124,11 @@ impl Verdict {
 
 /// The ids that carry a rustdoc page with a **compiled** example. O1's evidence.
 ///
-/// Empty, and ticket 36 fills it. `deny(missing_docs)` plus `cargo test --doc` is the compile
+/// Empty, and ticket 36 fills it. **Four of the twenty-nine now have one** — `text`, `chip`,
+/// `button` and `panel` each carry a doctest that calls them from outside, which is C01's actual
+/// question — and this list stays empty anyway, because filling it is ticket 36's job and a list
+/// filled by whichever ticket happened to write a doctest is a list nobody audits. What ticket 10
+/// changed is that O1 has a population it can be asked about at all. `deny(missing_docs)` plus `cargo test --doc` is the compile
 /// outcome; the count beside it is *components with 0 doc-tests == 0*, because a page that carries
 /// no example does not catch what O1 exists to catch — **an API that cannot be called from outside
 /// the crate**, which was C01's actual question.
@@ -158,8 +162,15 @@ pub const KEYBOARD_REGISTERED: &[&str] = &[];
 
 /// The scenes that exist, as `(component, axis)` pairs. O5's evidence.
 ///
-/// **Fourteen of thirty-four.** Ticket 04 put twelve here off spec §21's own rows and ticket 09
-/// added two. Each names a component **and** the mechanism of an axis it declares; the join lives on
+/// **Fourteen of thirty-four, and components ticket 10 did not move it.** Ticket 04 put twelve here
+/// off spec §21's own rows and ticket 09 added two.
+///
+/// Ticket 10 built four components and added no pair, which is not an oversight and is worth the
+/// sentence: `panel` and `button` declare **no** hostile axis at all, and the axes `text` and `chip`
+/// do declare — [`Axis::Narrow`], both of them — already have scene 28, which ticket 09 wrote
+/// *before* either component existed. **O5 is a query about axes and not about components**, which
+/// is exactly why it was written over `INVENTORY` rather than over the scene list: building a
+/// component cannot move it, and only a scene can. Each names a component **and** the mechanism of an axis it declares; the join lives on
 /// [`crate::scenes::Scene::covers`] and
 /// `scenes::tests::fourteen_of_the_thirty_four_axis_obligations_have_a_scene_and_twenty_do_not`
 /// asserts that this constant and [`crate::scenes::axis_scenes`] have not drifted.

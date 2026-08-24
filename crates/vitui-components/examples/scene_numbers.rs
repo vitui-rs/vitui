@@ -220,7 +220,11 @@ fn main() {
     assert_eq!(SCENES.len(), 28, "the scene list's shape has changed");
     assert_eq!(count(|s| s.owed), 1);
     assert_eq!(count(|s| s.from_a_survived_defect), 3);
-    assert_eq!(count(|s| !s.rehearsed_by.is_empty()), 9);
+    // Seven, and it was nine until components ticket 10: scenes 1 and 28 lost their
+    // rehearsals entirely and scene 2 kept one, because what those instruments run over stopped
+    // being a stand-in. See `scenes::tests::a_rehearsal_is_never_what_stands_a_scene_up`.
+    assert_eq!(count(|s| !s.rehearsed_by.is_empty()), 7);
+    assert_eq!(count(|s| s.standing.evaluated()), 3);
 }
 
 fn count(f: impl Fn(&Scene) -> bool) -> usize {

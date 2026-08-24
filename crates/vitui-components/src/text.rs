@@ -22,11 +22,12 @@
 //! keeps.
 
 use vitui_runtime::layout::text as measure;
-use vitui_runtime::{Ctx, Role};
+use vitui_runtime::{Ctx, Interest, Paint, Response, Role};
 
 use crate::cells::Cells;
 use crate::glyphs::elide;
 use crate::ink::{Direct, Ink};
+use crate::state::{Faces, press_into};
 
 /// The components homed in this module. See [`crate::Family::members`].
 pub const MEMBERS: &[&str] = &["text", "chip"];
@@ -172,10 +173,416 @@ pub fn fit_into<I: Ink>(
     rest
 }
 
+// ── `text` and `chip`, the two components this module homes ──────────────────────────────────────
+//
+// **Spec §1's four rules, with one substitution, and the substitution is stated rather than
+// silent.** Rule 1 is `fn(&mut Ctx, Rect, …) -> Response`, and `Rect` **cannot be named in this
+// package at all**: it is `vitui_engine::Rect`, named by twenty-seven of the runtime's public
+// declarations and re-exported by none of them, and constraint C6 says this crate's
+// `[dependencies]` table is `vitui-runtime` and nothing else. So every component here takes
+// [`Cells`], which is this crate's own rectangle in the `Ctx`'s own coordinates, swept operator for
+// operator against `vitui_runtime::layout::rect`. See [`crate::cells`]'s header for the four
+// candidate answers and why this is the one. **The rule is obeyed, not ignored** — a reader coming
+// from spec §1 is looking at `fn(&mut Ctx, Cells, …) -> Response`.
+//
+// The other three rules are as written: data by shared reference, options a `Default` struct with an
+// `_with` sibling, and a `Response` back even from a pure drawer.
+//
+// # Why a component writes **all** of its rectangle and `fit` returns the rest
+//
+// §2 states the rule in two halves — *the owner of a rectangle writes all of it; a component handed
+// a rectangle writes all of that* — and the two halves land on two different items. [`fit`] is a
+// **helper**: it writes one row and returns the rows below it, so a caller can chain it down a
+// rectangle it owns. [`text`] is a **component**: it was handed a rectangle and it writes every cell
+// of it, padding the rows its one line does not take. A component that wrote only its first row
+// would leave the rest carrying whatever was there before, which is §2's *no cell never* and the
+// defect C11's sentinel counted at 9 956 cells of 53 280.
+//
+// [`crate::structure::panel`] is the exception the rule names: it *returns* the interior it did not
+// write, because §2's own sentence is *the cells it does not write are named in its return value*.
+
+/// [`text`]'s options.
+///
+/// Spec §1's rule 3: a `Default` struct, never a required builder.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct TextOpts {
+    /// Where the line sits in its row.
+    pub justify: Justify,
+    /// The role the line is painted in.
+    pub role: Role,
+    /// The role the padding — the rest of the row, and every row the line does not take — is painted
+    /// in.
+    pub pad: Role,
+    /// **Whether to declare a region at all**, and what it asks for.
+    ///
+    /// `None` is the default and means *no hit entry*: a label is a pure drawer, and the `Response`
+    /// it returns is [`Cells::inert`]'s. `Some(interest)` declares a region — a clickable heading, a
+    /// footer that opens a log. See [`Cells::inert`] for why `None` and `Some(Interest::NONE)` are
+    /// two different statements and neither is the other spelled differently.
+    pub interest: Option<Interest>,
+}
+
+impl Default for TextOpts {
+    fn default() -> TextOpts {
+        TextOpts {
+            justify: Justify::Start,
+            role: Role::Body,
+            pad: Role::Body,
+            interest: None,
+        }
+    }
+}
+
+/// **One line of text, filling the rectangle it was handed.** Spec §1's pure drawer.
+///
+/// ```
+/// use vitui_components::cells::Cells;
+/// use vitui_components::text::text;
+/// use vitui_runtime::ctx::Driver;
+///
+/// let mut driver = Driver::headless(20, 2).expect("a sink attaches");
+/// driver.frame(|cx| {
+///     let resp = text(cx, Cells::of(cx), "a label");
+///     // A pure drawer still answers, which is rule 4 — and it declared nothing, so nothing
+///     // happened to it.
+///     assert!(!resp.clicked && !resp.hovered && !resp.focused);
+/// });
+/// ```
+#[track_caller]
+pub fn text(cx: &mut Ctx<'_, '_>, area: Cells, s: &str) -> Response {
+    text_with(cx, area, s, &TextOpts::default())
+}
+
+/// [`text`], with the options spelled out.
+#[track_caller]
+pub fn text_with(cx: &mut Ctx<'_, '_>, area: Cells, s: &str, opts: &TextOpts) -> Response {
+    text_into(&mut Direct, cx, area, s, opts)
+}
+
+/// **[`text`], drawing through an [`Ink`] so a counter can see the verbs.**
+///
+/// The entry point a gate takes; `text` is this with [`Direct`]. See [`crate::ink`] for why the seam
+/// exists rather than a second implementation.
+///
+/// # `#[track_caller]` is on the component and not inside it
+///
+/// [`Ctx::id`] carries the attribute, so the id it mints is the **caller's** call site. A component
+/// that draws one widget therefore has to carry it too, or every call in an application collides on
+/// the line inside this file — which is `Ctx::id`'s own documented trap, stated there as *put
+/// `#[track_caller]` on a function that draws one widget, and not on one that draws several*.
+#[track_caller]
+pub fn text_into<I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    area: Cells,
+    s: &str,
+    opts: &TextOpts,
+) -> Response {
+    let id = cx.id();
+    let resp = match opts.interest {
+        Some(interest) => area.interact(cx, id, interest),
+        None => area.inert(cx, id),
+    };
+    let rest = fit_into(
+        ink,
+        cx,
+        area,
+        s,
+        &FitOpts {
+            justify: opts.justify,
+            role: opts.role,
+            pad: opts.pad,
+        },
+    );
+    // **The rows the line did not take are this component's too.** `fit` hands them back because it
+    // is a helper; `text` was handed the rectangle, so it owns them.
+    let pad = cx.theme().paint(opts.pad);
+    pad_rows(ink, cx, rest, pad);
+    resp
+}
+
+/// [`chip`]'s options.
+///
+/// Spec §1's rule 3, and [`Faces`] is inside it rather than beside it for [`crate::state::press`]'s
+/// reason: the face drawn and the face awarded have to come out of **one** value.
+/// # There is no `label` role here, and its absence cost two cells a frame to find
+///
+/// The obvious third field is *the role the label is painted in*, and ticket 09's stand-in screen
+/// used one: `Role::Dim` on the chip, `Role::Title` on the button. **It is a defect, and it is
+/// ADR 0026's own rule firing:**
+///
+/// > A restyle is free only when the component's own next draw already produces the value the
+/// > restyle produced.
+///
+/// The deferred hover award restyles the chip's rectangle to the hover face. A cell already carrying
+/// that face is left alone; a cell carrying `Role::Dim` **is not**, so the award repaints it, the
+/// next draw writes `Dim` back, and the award repaints it again — for as long as the pointer rests.
+/// A two-column label costs **2 cells a frame, for ever**, and it is invisible on any screen with no
+/// pointer on it, which is every screen this crate can build. `crate::dense`'s 338-region screen
+/// scored a clean 0 with the defect on it, because `Response::hovered` is false everywhere there.
+///
+/// So the label wears the face, which is what [`crate::state::press`]'s *one role, so the two cannot
+/// disagree* means when it reaches the component: **there is no parameter for a second paint.**
+/// `tests::a_hovered_chip_re_damages_its_own_eight_cells_and_not_the_screen` is the eight cells that
+/// number would otherwise have been ten.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ChipOpts {
+    /// The four faces, handed to [`crate::state::press`] whole.
+    pub faces: Faces,
+    /// Where the label sits on the face.
+    pub justify: Justify,
+    /// What the chip declares.
+    ///
+    /// [`Interest::HOVER`] is not decoration: `press` returns [`Faces::hover`] when
+    /// `Response::hovered` is true, and `hovered` is resolved only for a region that asked for the
+    /// pointer. A chip drawing a hover face without declaring hover is a branch nothing can take.
+    pub interest: Interest,
+}
+
+impl Default for ChipOpts {
+    fn default() -> ChipOpts {
+        ChipOpts {
+            faces: Faces::default(),
+            justify: Justify::Middle,
+            interest: Interest::CLICK.with(Interest::HOVER).with(Interest::FOCUS),
+        }
+    }
+}
+
+/// **A label on a face that reacts.** One rectangle, one paint out of [`crate::state::press`], and
+/// every cell written exactly once.
+///
+/// ```
+/// use vitui_components::cells::Cells;
+/// use vitui_components::text::chip;
+/// use vitui_runtime::ctx::Driver;
+///
+/// let mut driver = Driver::headless(20, 1).expect("a sink attaches");
+/// driver.frame(|cx| {
+///     let resp = chip(cx, Cells::at(2, 0, 12, 1), "degraded, retrying");
+///     // It declared a region, and the label was narrowed into it rather than into its neighbour.
+///     assert_eq!((resp.rect.w, resp.rect.h), (12, 1));
+/// });
+/// ```
+#[track_caller]
+pub fn chip(cx: &mut Ctx<'_, '_>, area: Cells, label: &str) -> Response {
+    chip_with(cx, area, label, &ChipOpts::default())
+}
+
+/// [`chip`], with the options spelled out.
+#[track_caller]
+pub fn chip_with(cx: &mut Ctx<'_, '_>, area: Cells, label: &str, opts: &ChipOpts) -> Response {
+    chip_into(&mut Direct, cx, area, label, opts)
+}
+
+/// **[`chip`], drawing through an [`Ink`] so a counter can see the verbs.**
+#[track_caller]
+pub fn chip_into<I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    area: Cells,
+    label: &str,
+    opts: &ChipOpts,
+) -> Response {
+    let id = cx.id();
+    let resp = area.interact(cx, id, opts.interest);
+    chip_drawn(ink, cx, area, label, &resp, opts);
+    resp
+}
+
+/// **[`chip`]'s drawing half, with the [`Response`] supplied rather than declared.** Returns the
+/// face it drew.
+///
+/// # This is public because the pointer cannot be driven from this crate at all
+///
+/// `Driver::post_mouse` takes a `vitui_engine::Mouse`, and `crates/vitui-runtime/src/line.rs` files
+/// it `EngineName { name: "Mouse", reachable_as: None }`; `Ctx::interact` reads `hovered` off
+/// `frame.hover_guess`, which nothing here can set. So *the frame one chip is hovered* — spec §2's
+/// **8 cells against 6 662, 833×** — has no gesture to play, and the only way to stand it up is to
+/// hand the component the `Response` the runtime would have handed it.
+///
+/// [`crate::state`] made exactly this substitution one ticket earlier, at [`press_into`], and named
+/// it on the number it produces. This is that substitution moved **up to the component**, so the
+/// eight cells are `chip`'s number and not its construction's — see
+/// `tests::a_hovered_chip_re_damages_its_own_eight_cells_and_not_the_screen`.
+///
+/// It is also the entry point a container with an id it already holds wants: a collection row
+/// declares its own region and draws a chip inside it.
+pub fn chip_drawn<I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    area: Cells,
+    label: &str,
+    resp: &Response,
+    opts: &ChipOpts,
+) -> Role {
+    let face = press_into(ink, cx, area, resp, &opts.faces);
+    face_and_label(ink, cx, area, label, face, opts.justify);
+    face
+}
+
+/// **The one order a chip is written in: the label's row through [`fit`], the rest as face.**
+///
+/// Shared by [`chip`] and by [`crate::input::button`], because they are the same construction with
+/// different defaults — spec §17's freeze gives each of them `constructions: 1`, and that is what
+/// *one construction* means. **There is no fill here**: the face is the padding role handed to
+/// `fit`, which is why [`FitOpts`] carries two roles and not one.
+pub(crate) fn face_and_label<I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    area: Cells,
+    label: &str,
+    face: Role,
+    justify: Justify,
+) {
+    let paint = cx.theme().paint(face);
+    // The label sits on the middle row of a taller rectangle, and the rows either side are face.
+    let (above, rest) = area.split_at_v(area.h().saturating_sub(1) / 2);
+    pad_rows(ink, cx, above, paint);
+    let below = fit_into(
+        ink,
+        cx,
+        rest,
+        label,
+        &FitOpts {
+            // **Both roles are the face**, which is the whole of [`ChipOpts`]'s note: a label in a
+            // second paint is a cell the hover award repaints every frame for ever. `FitOpts`
+            // carrying two roles is what lets one value fill both.
+            justify,
+            role: face,
+            pad: face,
+        },
+    );
+    pad_rows(ink, cx, below, paint);
+}
+
+/// Write every row of `cells` as padding. **Runs and never `Ctx::fill`** — see [`crate::ink`]:
+/// `fill` returns `()`, so a filled cell is modelled rather than reported and the pair stops being
+/// a comparison between two sources.
+pub(crate) fn pad_rows<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, cells: Cells, st: Paint) {
+    if cells.is_empty() {
+        return;
+    }
+    let x = i32::from(cells.x());
+    for r in 0..cells.h() {
+        ink.run(cx, x, i32::from(cells.y() + r), PAD, cells.w(), st);
+    }
+}
+
+/// **The two components written the way ADR 0026 prices, kept because a gate nobody has watched
+/// fail is not a gate.**
+///
+/// `pub` for the reason [`crate::frame::defective`] and [`crate::state::defective`] are: an
+/// instrument crate's fixtures are part of the instrument, and a gate validated only against a
+/// correct build reports zero for the same reason a broken one would. Each of these is **the correct
+/// component with one thing changed**, so the diff a reviewer would have to catch is the diff the
+/// register can point at.
+pub mod defective {
+    use super::{
+        Cells, ChipOpts, Ctx, Ink, PAD, Paint, Response, TextOpts, face_and_label, pad_rows,
+        press_into,
+    };
+
+    /// **A `text` that does not narrow**, whose line runs into its neighbour's rectangle.
+    ///
+    /// Green at 300×80 and red at 120×40, which is the whole reason [`crate::dense`]'s equality runs
+    /// at two sizes.
+    pub fn text_that_does_not_narrow<I: Ink>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Cells,
+        s: &str,
+        opts: &TextOpts,
+    ) -> Response {
+        let id = cx.id();
+        let resp = match opts.interest {
+            Some(interest) => area.interact(cx, id, interest),
+            None => area.inert(cx, id),
+        };
+        let theme = cx.theme();
+        let (text, pad) = (theme.paint(opts.role), theme.paint(opts.pad));
+        let rest = overrunning(ink, cx, area, s, text, pad);
+        pad_rows(ink, cx, rest, pad);
+        resp
+    }
+
+    /// **A `chip` that does not narrow.** ADR 0026's third instance: 54 chips of 222 overrun six
+    /// columns each into the column beside them, and the neighbour writes them back every frame —
+    /// `54 × 6 = 324` on [`crate::dense`]'s screen.
+    pub fn chip_that_does_not_narrow<I: Ink>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Cells,
+        label: &str,
+        opts: &ChipOpts,
+    ) -> Response {
+        let id = cx.id();
+        let resp = area.interact(cx, id, opts.interest);
+        let face = press_into(ink, cx, area, &resp, &opts.faces);
+        let theme = cx.theme();
+        let (text, pad) = (theme.paint(face), theme.paint(face));
+        let rest = overrunning(ink, cx, area, label, text, pad);
+        pad_rows(ink, cx, rest, pad);
+        resp
+    }
+
+    /// **A `chip` that fills its face before drawing its label.** R07's original defect: the screen
+    /// is right on every frame and the label's own cells are written twice, every frame, for ever.
+    pub fn chip_that_fills_its_face<I: Ink>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Cells,
+        label: &str,
+        opts: &ChipOpts,
+    ) -> Response {
+        let id = cx.id();
+        let resp = area.interact(cx, id, opts.interest);
+        let face = press_into(ink, cx, area, &resp, &opts.faces);
+        let paint = cx.theme().paint(face);
+        pad_rows(ink, cx, area, paint);
+        face_and_label(ink, cx, area, label, face, opts.justify);
+        resp
+    }
+
+    /// **Write `s` without truncating it, pad what is left of the row, and return the rows below.**
+    ///
+    /// The one branch the two arms above share. The extent is the engine's: [`Ink::text`] returns
+    /// how many columns landed after clipping, so a string longer than its rectangle is reported at
+    /// its full width and the padding run is empty. What it wrote into is the **neighbour's**
+    /// rectangle, and the neighbour writes it back on the next frame — which is what makes an
+    /// unnarrowed label re-damage rather than merely look wrong.
+    fn overrunning<I: Ink>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Cells,
+        s: &str,
+        text: Paint,
+        pad: Paint,
+    ) -> Cells {
+        let (band, rest) = area.split_at_v(1);
+        if band.is_empty() {
+            return rest;
+        }
+        let (x, y) = (i32::from(band.x()), i32::from(band.y()));
+        let used = ink.text(cx, x, y, s, text);
+        ink.run(
+            cx,
+            x + i32::from(used),
+            y,
+            PAD,
+            band.w().saturating_sub(used),
+            pad,
+        );
+        rest
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::counters::Tally;
+    use crate::runner::{Canvas, Pen, driver_at};
+    use vitui_runtime::Density;
     use vitui_runtime::ctx::Driver;
 
     /// A tally over one frame of `f`, on a `w` by `h` sink.
@@ -333,5 +740,271 @@ mod tests {
         for x in 0..9 {
             assert!(tally.touched(x, 0));
         }
+    }
+
+    // ── components ticket 10: `text` and `chip` ──────────────────────────────────────────────────
+
+    /// The corpus every partition sweep below runs over: a rectangle narrower than its label, one
+    /// exactly as wide, one a single cell, and one two rows taller than a line.
+    const SIZES: [(u16, u16); 8] = [
+        (1, 1),
+        (2, 1),
+        (5, 1),
+        (12, 1),
+        (12, 3),
+        (12, 4),
+        (40, 1),
+        (40, 6),
+    ];
+
+    /// The labels the sweeps use. Two of them are wider than every rectangle above but the last.
+    const LABELS: [&str; 4] = [
+        "",
+        "on",
+        "degraded, retrying",
+        "an unusually long metric name",
+    ];
+
+    /// **Criterion 2, behavioural half: `text` writes each cell of its rectangle exactly once, and
+    /// writes every one of them.**
+    ///
+    /// §2's two equalities, on the component rather than on the helper: `writes == distinct` (no
+    /// cell twice) and `distinct == w × h` (no cell never). The second is the one [`fit`] cannot
+    /// make — it returns the rows it did not write, because it is a helper — and it is why `text`
+    /// pads them.
+    #[test]
+    fn text_writes_a_partition_of_its_whole_rectangle() {
+        for (w, h) in SIZES {
+            for label in LABELS {
+                for justify in [Justify::Start, Justify::Middle, Justify::End] {
+                    let opts = TextOpts {
+                        justify,
+                        ..TextOpts::default()
+                    };
+                    let tally = tallied(w, h, |tally, cx| {
+                        text_into(tally, cx, Cells::at(0, 0, w, h), label, &opts);
+                    });
+                    let cells = u64::from(w) * u64::from(h);
+                    assert_eq!(
+                        tally.writes(),
+                        tally.distinct(),
+                        "{w}x{h} {justify:?} `{label}`: {} cells written twice",
+                        tally.writes() - tally.distinct()
+                    );
+                    assert_eq!(
+                        tally.distinct(),
+                        cells,
+                        "{w}x{h} {justify:?} `{label}`: the rectangle is not covered, and a cell \
+                         nobody writes keeps what was there before"
+                    );
+                    assert_eq!(
+                        tally.reported(),
+                        tally.writes(),
+                        "{w}x{h}: a write the engine did not report"
+                    );
+                    assert_eq!(
+                        tally.asked(),
+                        tally.reported(),
+                        "{w}x{h}: a verb was clipped"
+                    );
+                }
+            }
+        }
+    }
+
+    /// **Criterion 1: `text` declares nothing by default, and a region when it is asked for one.**
+    ///
+    /// Rule 4 is *return `Response`, even from a pure drawer*, and [`Cells::inert`]'s header is why
+    /// that is not `Interest::NONE`: `NONE` is a hit entry, and 222 of them is the difference
+    /// between [`crate::dense`]'s 338 regions and 560.
+    #[test]
+    fn text_takes_a_hit_entry_only_when_its_options_ask_for_one() {
+        let mut driver = Driver::headless(20, 1).expect("a sink attaches");
+        driver.frame(|cx| {
+            let resp = text(cx, Cells::at(0, 0, 20, 1), "a label");
+            assert_eq!(
+                (resp.rect.w, resp.rect.h),
+                (20, 1),
+                "it names its rectangle"
+            );
+            assert!(!resp.hovered && !resp.focused && !resp.clicked);
+        });
+        assert_eq!(
+            driver.inspect().hits().len(),
+            0,
+            "a pure drawer is not a region"
+        );
+
+        let mut driver = Driver::headless(20, 1).expect("a sink attaches");
+        driver.frame(|cx| {
+            text_with(
+                cx,
+                Cells::at(0, 0, 20, 1),
+                "a heading",
+                &TextOpts {
+                    interest: Some(Interest::CLICK),
+                    ..TextOpts::default()
+                },
+            );
+        });
+        assert_eq!(driver.inspect().hits().len(), 1);
+        assert_eq!(
+            driver.inspect().stop_count(),
+            0,
+            "and clickable is not focusable"
+        );
+    }
+
+    /// **Criterion 2 and criterion 3: `chip` writes a partition of its rectangle and narrows into
+    /// it.**
+    ///
+    /// The narrowing is the second equality doing the work: a chip whose label ran into its
+    /// sibling's rectangle would report `distinct > w × h`, because [`crate::counters::Tally`] unions
+    /// the spans the verbs actually asked for. That is the same 324 cells
+    /// [`crate::dense::CHIP_NOT_NARROWED`] measures as re-damage on a screen — **two instruments,
+    /// two halves, and neither sees both** (see `crate::dense`).
+    #[test]
+    fn chip_writes_a_partition_of_its_rectangle_and_narrows_into_it() {
+        for (w, h) in SIZES {
+            for label in LABELS {
+                let opts = ChipOpts::default();
+                let tally = tallied(w.max(2), h, |tally, cx| {
+                    chip_into(tally, cx, Cells::at(0, 0, w, h), label, &opts);
+                });
+                let cells = u64::from(w) * u64::from(h);
+                assert_eq!(
+                    tally.writes(),
+                    tally.distinct(),
+                    "{w}x{h} `{label}`: a chip cell written twice, which is R07's own defect"
+                );
+                assert_eq!(
+                    tally.distinct(),
+                    cells,
+                    "{w}x{h} `{label}`: the chip does not cover its own face"
+                );
+                assert_eq!(
+                    tally.asked(),
+                    tally.reported(),
+                    "{w}x{h}: a verb was clipped"
+                );
+            }
+        }
+    }
+
+    /// **The two defective chips, watched failing the two gates above.**
+    ///
+    /// *A gate nobody has watched fail is not a gate*, and the two failures are **different**: the
+    /// filled face fails `writes == distinct` and covers exactly the right cells; the unnarrowed
+    /// label passes `writes == distinct` and covers **too many**. One gate would have caught one of
+    /// them.
+    #[test]
+    fn a_chip_that_fills_its_face_and_one_that_does_not_narrow_fail_two_different_gates() {
+        let opts = ChipOpts::default();
+        let label = "degraded, retrying";
+        let area = Cells::at(0, 0, 12, 1);
+
+        let filled = tallied(24, 1, |tally, cx| {
+            defective::chip_that_fills_its_face(tally, cx, area, label, &opts);
+        });
+        assert!(
+            filled.writes() > filled.distinct(),
+            "the filled face wrote no cell twice, so R07's defect is not what this fixture is"
+        );
+        assert_eq!(
+            filled.distinct(),
+            area.count(),
+            "and it covers exactly the chip, which is why *no cell never* cannot see it"
+        );
+        assert_eq!(
+            filled.writes() - filled.distinct(),
+            u64::from(area.w()),
+            "the double-written cells are the label's — this one elides to exactly the chip's \
+             twelve columns, so the fill buys nothing at all and every cell of it is written twice"
+        );
+
+        let overrun = tallied(24, 1, |tally, cx| {
+            defective::chip_that_does_not_narrow(tally, cx, area, label, &opts);
+        });
+        assert_eq!(
+            overrun.writes(),
+            overrun.distinct(),
+            "the unnarrowed label writes no cell twice, which is why the pair alone misses it"
+        );
+        assert!(
+            overrun.distinct() > area.count(),
+            "the label stayed inside the chip, so this fixture is no longer the defect it is kept as"
+        );
+        assert_eq!(
+            overrun.distinct() - area.count(),
+            u64::from(vitui_runtime::layout::text::width(label)) - u64::from(area.w()),
+            "and what it overran by is exactly the label's overhang into its neighbour"
+        );
+    }
+
+    /// **Criterion 7: the frame a chip is hovered re-damages the chip and nothing else — 8 cells.**
+    ///
+    /// > | | naive | correct |
+    /// > |---|---|---|
+    /// > | C01, the frame one chip is hovered | **6 662 damaged** | **8** — 833× |
+    ///
+    /// **The 8 reproduces exactly, because the number *is* the chip's width** — spec §3 and ADR 0026
+    /// both state it that way, ticket 07 reproduced it at [`crate::state::CHIP`], and this is the
+    /// same eight cells measured through the component instead of through its construction.
+    ///
+    /// # The pointer is fabricated, and that is named rather than hidden
+    ///
+    /// `Driver::post_mouse` takes a `vitui_engine::Mouse` and `crates/vitui-runtime/src/line.rs`
+    /// files it `reachable_as: None`, so **no gesture can be played from this crate**. What is
+    /// supplied instead is the `Response` the runtime would have supplied — [`chip_drawn`]'s whole
+    /// reason for being public — and [`Pen::end_frame`] applies the award where `Driver::frame`
+    /// applies it. The same two substitutions ticket 07 made, one layer up.
+    ///
+    /// # What the other column would be on this map
+    ///
+    /// §2's 6 662 is C01's prototype screen clearing every frame. On [`crate::dense`]'s screen the
+    /// same spelling is [`crate::dense::CLEARED_EVERY_FRAME`] — **9 024** — so the ratio here is
+    /// 1 128× rather than 833×. The magnitude is the screen's and the direction is the rule's; both
+    /// columns are printed by `examples/primitive_numbers.rs` rather than reconciled.
+    #[test]
+    fn a_hovered_chip_re_damages_its_own_eight_cells_and_not_the_screen() {
+        let cells = crate::state::chip();
+        assert_eq!(cells.count(), 8, "the number is the chip's width");
+
+        let mut driver = driver_at(crate::state::W, crate::state::H, Density::Compact);
+        let mut canvas = Canvas::new(crate::state::W, crate::state::H);
+        let mut changed = Vec::new();
+        // Four frames at rest, then one with the pointer on it, then one more resting there.
+        for hovered in [false, false, false, false, true, true] {
+            let mut pen = Pen::over(canvas);
+            driver.frame(|cx| {
+                let opts = ChipOpts::default();
+                let id = cx.id();
+                let mut resp = cells.interact(cx, id, opts.interest);
+                resp.hovered = hovered;
+                chip_drawn(&mut pen, cx, cells, crate::state::LABEL, &resp, &opts);
+            });
+            pen.end_frame();
+            canvas = pen.into_canvas();
+            changed.push(canvas.take_repaints());
+        }
+
+        assert_eq!(
+            changed[0], 8,
+            "the chip appearing: eight cells that were nobody's"
+        );
+        assert_eq!(
+            &changed[1..4],
+            &[0, 0, 0],
+            "a chip nobody is pointing at re-damages nothing"
+        );
+        assert_eq!(
+            changed[4], 8,
+            "the frame the pointer arrives: the chip's own eight cells and not one more"
+        );
+        assert_eq!(
+            changed[5], 0,
+            "and the frame after it, which is `press` collapsing the two statements — the face \
+             drawn already *is* the face awarded, so the restyle writes what is there"
+        );
     }
 }
