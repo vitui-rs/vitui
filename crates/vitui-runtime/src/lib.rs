@@ -21,6 +21,9 @@
 //! - [`theme`] — `Paint`, `Role`, `Roles`, `Theme`, `Repaint`, `Glyph`, `Distinction`, `Density`.
 //!   Spec §3 and §10; ADR 0018, 0021, 0010. A component names a role and can never construct a
 //!   paint.
+//! - [`theme::registry`] — `Scheme`, `Themes`, and the fourteen shipped palettes. Spec §15. The
+//!   import is a `const fn`, so a theme is `.rodata`; the registry is **application state**, because
+//!   a picker reads the set inside the frame while the loop writes it between frames.
 //! - [`keys`] — `Chord`, `Binding`, `KeyMap`, sequences and help. Spec §9. Chords stored inline
 //!   because `&'static [Chord]` cannot be written at a call site, and matching on the intent half of
 //!   eight modifier bits.
@@ -82,3 +85,6 @@ pub use data::{Edit, Memo, Revision, Versioned};
 pub use id::{Id, IdTable};
 pub use keys::{ActionId, Binding, Chord, Chords, KeyMap, Match, MatchMode, On};
 pub use theme::{Density, Distinction, Glyph, GlyphSet, Paint, Repaint, Role, Roles, Theme};
+// Ticket 05's two: the shipped palette as data, and the set that holds which one is current. At the
+// root for the same reason as the four above — an application names both on the line that starts it.
+pub use theme::{Scheme, Themes};

@@ -77,49 +77,58 @@ const W_G: u32 = 4;
 /// See [`W_R`].
 const W_B: u32 = 3;
 
+/// The gap between two bytes, without `abs_diff`, which is not `const`.
+const fn gap(x: u8, y: u8) -> u32 {
+    if x > y {
+        (x - y) as u32
+    } else {
+        (y - x) as u32
+    }
+}
+
 /// The weighted square distance between two colours.
-fn distance(a: Rgb, b: Rgb) -> u32 {
-    let d = |x: u8, y: u8| {
-        let d = u32::from(x.abs_diff(y));
-        d * d
-    };
-    W_R * d(a.r, b.r) + W_G * d(a.g, b.g) + W_B * d(a.b, b.b)
+const fn distance(a: Rgb, b: Rgb) -> u32 {
+    let (dr, dg, db) = (gap(a.r, b.r), gap(a.g, b.g), gap(a.b, b.b));
+    W_R * dr * dr + W_G * dg * dg + W_B * db * db
 }
 
 /// The nearest level of the cube to one channel, as its index 0..6.
 ///
 /// A six-way comparison rather than `v / 51`: the levels are not evenly spaced — the gap from 0 to 95
 /// is more than twice any other — and the arithmetic that looks right puts 48 in the wrong bucket.
-fn cube_level(v: u8) -> usize {
+const fn cube_level(v: u8) -> usize {
     let mut best = 0;
     let mut best_d = u32::MAX;
-    for (i, &level) in CUBE.iter().enumerate() {
-        let d = u32::from(v.abs_diff(level));
+    let mut i = 0;
+    while i < CUBE.len() {
+        let d = gap(v, CUBE[i]);
         if d < best_d {
             best_d = d;
             best = i;
         }
+        i += 1;
     }
     best
 }
 
 /// The channels of a fixed index, 16..=255 — the cube and the greys, which no terminal is asked
 /// about.
-fn fixed_channels(i: u8) -> Rgb {
+const fn fixed_channels(i: u8) -> Rgb {
     if i < GREY_BASE {
-        let n = usize::from(i - CUBE_BASE);
+        let n = (i - CUBE_BASE) as usize;
         Rgb::new(CUBE[n / 36], CUBE[(n / 6) % 6], CUBE[n % 6])
     } else {
-        let level = 8 + 10 * (u16::from(i) - u16::from(GREY_BASE));
-        let level = u8::try_from(level).unwrap_or(u8::MAX);
+        // The last grey is `8 + 10 * 23 == 238`, so the byte cannot overflow and the cast is exact.
+        let level = (8 + 10 * (i as u16 - GREY_BASE as u16)) as u8;
         Rgb::new(level, level, level)
     }
 }
 
 /// The nearest point of the cube, as an index.
-fn nearest_cube(c: Rgb) -> u8 {
+const fn nearest_cube(c: Rgb) -> u8 {
     let (r, g, b) = (cube_level(c.r), cube_level(c.g), cube_level(c.b));
-    CUBE_BASE + u8::try_from(36 * r + 6 * g + b).unwrap_or(u8::MAX)
+    // `36 * 5 + 6 * 5 + 5 == 215`, and `16 + 215 == 231`: both casts are exact by construction.
+    CUBE_BASE + (36 * r + 6 * g + b) as u8
 }
 
 /// The nearest of the twenty-four greys, as an index.
@@ -127,11 +136,12 @@ fn nearest_cube(c: Rgb) -> u8 {
 /// The greys are a line, so the closest point on it is the weighted mean snapped to the nearest step
 /// of ten from eight. **Rounded rather than truncated**: the steps are ten apart, so truncating is a
 /// bias of half a step toward black on every grey in the picture.
-fn nearest_grey(c: Rgb) -> u8 {
-    let mean =
-        (W_R * u32::from(c.r) + W_G * u32::from(c.g) + W_B * u32::from(c.b)) / (W_R + W_G + W_B);
+const fn nearest_grey(c: Rgb) -> u8 {
+    let mean = (W_R * c.r as u32 + W_G * c.g as u32 + W_B * c.b as u32) / (W_R + W_G + W_B);
     let step = (mean.saturating_sub(8) + 5) / 10;
-    GREY_BASE + u8::try_from(step.min(u32::from(GREYS) - 1)).unwrap_or(GREYS - 1)
+    let last = GREYS as u32 - 1;
+    let step = if step > last { last } else { step };
+    GREY_BASE + step as u8
 }
 
 /// The index a 256-colour terminal is given: the nearer of the cube and the greys, **never one of
@@ -140,7 +150,7 @@ fn nearest_grey(c: Rgb) -> u8 {
 /// **The grey ramp is why the recorded 59 was wrong.** Twenty-four greys ten apart resolve a
 /// near-neutral colour four times more closely than a cube whose levels are 95 apart at the dark
 /// end, so any colour near the diagonal lands on a grey. `#313244` is 237, not 59.
-fn index_256(c: Rgb) -> u8 {
+const fn index_256(c: Rgb) -> u8 {
     let cube = nearest_cube(c);
     let grey = nearest_grey(c);
     if distance(c, fixed_channels(cube)) <= distance(c, fixed_channels(grey)) {
@@ -152,15 +162,18 @@ fn index_256(c: Rgb) -> u8 {
 
 /// The index a sixteen-colour terminal is given: a scan over xterm's own sixteen, which is short
 /// enough that a scan is the whole algorithm.
-fn index_16(c: Rgb) -> u8 {
+const fn index_16(c: Rgb) -> u8 {
     let mut best = 0u8;
     let mut best_d = u32::MAX;
-    for (i, &entry) in ANSI16.iter().enumerate() {
-        let d = distance(c, entry);
+    let mut i = 0;
+    while i < ANSI16.len() {
+        let d = distance(c, ANSI16[i]);
         if d < best_d {
             best_d = d;
-            best = u8::try_from(i).unwrap_or(0);
+            // Sixteen entries, so the cast is exact by construction.
+            best = i as u8;
         }
+        i += 1;
     }
     best
 }
@@ -170,13 +183,12 @@ fn index_16(c: Rgb) -> u8 {
 /// A `u32` rather than an enum because it is only ever compared, never read: two roles differ on the
 /// wire exactly when their keys differ, and what the key *means* is this file's business. The tag in
 /// the high byte is what stops an index colliding with a channel triple.
-pub(super) fn key(c: Rgb, tier: ColorDepth) -> u32 {
-    let channels = |c: Rgb| (u32::from(c.r) << 16) | (u32::from(c.g) << 8) | u32::from(c.b);
+pub(super) const fn key(c: Rgb, tier: ColorDepth) -> u32 {
     match tier {
         // Nothing is narrowed, so the colour is its own key.
-        ColorDepth::TrueColor => channels(c),
-        ColorDepth::Indexed256 => 1 << 24 | u32::from(index_256(c)),
-        ColorDepth::Ansi16 => 2 << 24 | u32::from(index_16(c)),
+        ColorDepth::TrueColor => ((c.r as u32) << 16) | ((c.g as u32) << 8) | c.b as u32,
+        ColorDepth::Indexed256 => 1 << 24 | index_256(c) as u32,
+        ColorDepth::Ansi16 => 2 << 24 | index_16(c) as u32,
         // **No colour at all, so every colour is the same colour.** Not a degenerate case to be
         // guarded against: `--no-color` is a supported tier, and on it every pair of roles is
         // indistinguishable by colour, which is exactly what a component asking `shows` needs told.
@@ -186,8 +198,25 @@ pub(super) fn key(c: Rgb, tier: ColorDepth) -> u32 {
 
 /// The index a 256-colour terminal is given. Used by `Roles::from_palette`'s `pick`, which needs to
 /// know whether two candidate colours are the same colour on a 256-colour terminal.
-pub(super) fn at_256(c: Rgb) -> u8 {
+///
+/// **`const`, and that is what puts a shipped theme in `.rodata`.** The import walks the ramp by what
+/// this function can still separate, so an import that runs at compile time needs a quantiser that
+/// runs at compile time — every function in this file is `const` for that one reason. Nothing about
+/// the arithmetic changed, and `against_the_engine` still drives the real engine to say so.
+pub(super) const fn at_256(c: Rgb) -> u8 {
     index_256(c)
+}
+
+/// The index a sixteen-colour terminal is given, for the report that re-takes the C16 pair count
+/// through an operator palette.
+///
+/// **Only ever an instrument, which is why it is `cfg(test)` and not on the public surface.**
+/// ADR 0007 is why it can never be more than one: nothing in this process may read the sixteen
+/// colours the terminal is configured with, so a count taken at sixteen colours is a lower bound, and
+/// an operator palette is a fixture that says *how much* of one — never a fact a component may read.
+#[cfg(test)]
+pub(super) const fn at_16(c: Rgb) -> u8 {
+    index_16(c)
 }
 
 #[cfg(test)]

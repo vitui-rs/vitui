@@ -53,12 +53,25 @@
 //! **The runtime does not edit a declared interest** (ADR 0021). The component reads
 //! [`Theme::hover_interest`] and writes what it says; a component that ignores it still gets
 //! `Motion`, and is therefore **visibly wrong rather than invisibly corrected.**
+//!
+//! # The standard set and live switching
+//!
+//! [`Scheme`] is one shipped application palette as `.rodata` — [`Roles::from_palette`] is a `const
+//! fn`, so the sixteen colours are paired into thirteen roles at compile time — and [`Themes`] is the
+//! registry that holds a set of them, **as application state and never as a field beside the frame
+//! services**. [`STANDARD`] is the fourteen this crate ships. See [`registry`] for the `E0502` that
+//! decides where the registry lives, and [`Theme::memo_key`] for the one rule a memo owes a swap.
 
+pub mod registry;
+pub mod schemes;
 pub mod wire;
 
 use vitui_engine::{Color, ColorDepth, Restyle, Rgb, Style};
 
 pub use vitui_engine::GlyphSet;
+
+pub use registry::{Scheme, Themes};
+pub use schemes::STANDARD;
 
 use crate::data::Revision;
 
@@ -305,100 +318,176 @@ impl Roles {
     ///
     /// `Density` and `GlyphSet` are **parameters and not derived** — no imported scheme carries
     /// either. `dark` *is* derived, from the page colour's luminance.
-    pub fn from_palette(palette: &[u32; 16]) -> Roles {
-        let c = |i: usize| {
-            let v = palette[i];
-            Rgb::new(
-                u8::try_from((v >> 16) & 0xff).unwrap_or(0),
-                u8::try_from((v >> 8) & 0xff).unwrap_or(0),
-                u8::try_from(v & 0xff).unwrap_or(0),
-            )
-        };
-        let page = c(0);
-        let text = c(5);
+    ///
+    /// # It is a `const fn`, and that is what puts a shipped theme in `.rodata`
+    ///
+    /// Every step above — the pick, the derivation, the luminance pairing and the 256-colour
+    /// quantiser they all consult — runs at compile time, so [`crate::theme::Scheme`] holds a
+    /// finished [`Roles`] rather than sixteen numbers waiting for an importer. There is no parser in
+    /// this crate, no `Vec` on the path, and the heap-free requirement is met by construction rather
+    /// than by care:
+    ///
+    /// ```
+    /// use vitui_runtime::theme::Roles;
+    ///
+    /// const NORD: Roles = Roles::from_palette(&[
+    ///     0x2e3440, 0x3b4252, 0x434c5e, 0x4c566a, 0xd8dee9, 0xe5e9f0, 0xeceff4, 0x8fbcbb,
+    ///     0xbf616a, 0xd08770, 0xebcb8b, 0xa3be8c, 0x88c0d0, 0x81a1c1, 0xb48ead, 0x5e81ac,
+    /// ]);
+    /// assert_eq!(NORD, Roles::from_palette(&[
+    ///     0x2e3440, 0x3b4252, 0x434c5e, 0x4c566a, 0xd8dee9, 0xe5e9f0, 0xeceff4, 0x8fbcbb,
+    ///     0xbf616a, 0xd08770, 0xebcb8b, 0xa3be8c, 0x88c0d0, 0x81a1c1, 0xb48ead, 0x5e81ac,
+    /// ]));
+    /// ```
+    pub const fn from_palette(palette: &[u32; 16]) -> Roles {
+        let page = channel(palette[0]);
+        let text = channel(palette[5]);
 
         // Colours already spent, so `pick` can avoid them. Sixteen is the most there can be.
         let mut spent = [0u8; 16];
-        let mut spent_n = 0usize;
-        let spend = |rgb: Rgb, spent: &mut [u8; 16], n: &mut usize| {
-            if *n < spent.len() {
-                spent[*n] = wire::at_256(rgb);
-                *n += 1;
-            }
-        };
-        spend(page, &mut spent, &mut spent_n);
-        spend(text, &mut spent, &mut spent_n);
+        let mut n = 0usize;
+        spend(page, &mut spent, &mut n);
+        spend(text, &mut spent, &mut n);
 
-        let pick = |candidates: &[Rgb], spent: &mut [u8; 16], n: &mut usize| -> Rgb {
-            for &cand in candidates {
-                let idx = wire::at_256(cand);
-                if !spent[..*n].contains(&idx) {
-                    spend(cand, spent, n);
-                    return cand;
-                }
-            }
-            // Nothing in the scheme is left. Derive one by stepping a mix of the scheme's own page
-            // and text colours until it separates — 6% at a time, which is the smallest step that
-            // moves a 256-colour index across the grey ramp.
-            let mut t = 6u32;
-            while t < 100 {
-                let mixed = lerp(page, text, t);
-                let idx = wire::at_256(mixed);
-                if !spent[..*n].contains(&idx) {
-                    spend(mixed, spent, n);
-                    return mixed;
-                }
-                t += 6;
-            }
-            candidates.first().copied().unwrap_or(text)
-        };
-
-        // The monotone rungs, in the order the mapping table gives them.
-        let dim = pick(&[c(4), c(3), c(6)], &mut spent, &mut spent_n);
-        let disabled = pick(&[c(3), c(2), c(4)], &mut spent, &mut spent_n);
-        let border = pick(&[c(2), c(1), c(3)], &mut spent, &mut spent_n);
-        let face_bg = pick(&[c(1), c(2), c(3)], &mut spent, &mut spent_n);
-        let hover_bg = pick(&[c(2), c(3), c(4)], &mut spent, &mut spent_n);
-        let active_bg = pick(&[c(3), c(4), c(2)], &mut spent, &mut spent_n);
-
-        let readable_on = |bg: Rgb| {
-            if luminance(text).abs_diff(luminance(bg)) >= luminance(page).abs_diff(luminance(bg)) {
-                text
-            } else {
-                page
-            }
-        };
+        // The monotone rungs, in the order the mapping table gives them. Written out rather than
+        // built by a helper because a closure cannot be *called* inside a `const fn`, and the table
+        // is the part a reader wants to see anyway.
+        let dim = pick(ramp(palette, 4, 3, 6), page, text, &mut spent, &mut n);
+        let disabled = pick(ramp(palette, 3, 2, 4), page, text, &mut spent, &mut n);
+        let border = pick(ramp(palette, 2, 1, 3), page, text, &mut spent, &mut n);
+        let face_bg = pick(ramp(palette, 1, 2, 3), page, text, &mut spent, &mut n);
+        let hover_bg = pick(ramp(palette, 2, 3, 4), page, text, &mut spent, &mut n);
+        let active_bg = pick(ramp(palette, 3, 4, 2), page, text, &mut spent, &mut n);
+        let selection_bg = channel(palette[13]);
 
         Roles([
-            Spec::new(text, page),                        // Body
-            Spec::new(c(6), page).bold(),                 // Title
-            Spec::new(dim, page),                         // Dim
-            Spec::new(disabled, page),                    // Disabled
-            Spec::new(border, page),                      // Border
-            Spec::new(readable_on(face_bg), face_bg),     // Face
-            Spec::new(readable_on(hover_bg), hover_bg),   // FaceHover
-            Spec::new(readable_on(active_bg), active_bg), // FaceActive
-            Spec::new(readable_on(c(13)), c(13)),         // Selection, on base0D
-            Spec::new(c(13), page),                       // Focus
-            Spec::new(c(8), page),                        // Danger
-            Spec::new(c(10), page),                       // Warn
-            Spec::new(c(11), page),                       // Ok
+            Spec::new(text, page),                                          // Body
+            Spec::new(channel(palette[6]), page).bold(),                    // Title
+            Spec::new(dim, page),                                           // Dim
+            Spec::new(disabled, page),                                      // Disabled
+            Spec::new(border, page),                                        // Border
+            Spec::new(readable_on(face_bg, text, page), face_bg),           // Face
+            Spec::new(readable_on(hover_bg, text, page), hover_bg),         // FaceHover
+            Spec::new(readable_on(active_bg, text, page), active_bg),       // FaceActive
+            Spec::new(readable_on(selection_bg, text, page), selection_bg), // Selection, on base0D
+            Spec::new(selection_bg, page),                                  // Focus
+            Spec::new(channel(palette[8]), page),                           // Danger
+            Spec::new(channel(palette[10]), page),                          // Warn
+            Spec::new(channel(palette[11]), page),                          // Ok
         ])
     }
 }
 
-/// Integer luminance, on the same `2:4:3` weights the quantiser uses.
-fn luminance(c: Rgb) -> u32 {
-    (2 * u32::from(c.r) + 4 * u32::from(c.g) + 3 * u32::from(c.b)) / 9
+/// One `0xRRGGBB` of a base16 palette as a colour.
+pub(super) const fn channel(v: u32) -> Rgb {
+    // Three masked bytes, so every cast is exact.
+    Rgb::new(
+        ((v >> 16) & 0xff) as u8,
+        ((v >> 8) & 0xff) as u8,
+        (v & 0xff) as u8,
+    )
 }
 
-/// `a` toward `b` by `t` per cent.
-fn lerp(a: Rgb, b: Rgb, t: u32) -> Rgb {
-    let m = |x: u8, y: u8| {
-        let v = (u32::from(x) * (100 - t) + u32::from(y) * t) / 100;
-        u8::try_from(v).unwrap_or(u8::MAX)
-    };
-    Rgb::new(m(a.r, b.r), m(a.g, b.g), m(a.b, b.b))
+/// Three slots of a palette as a candidate list, in preference order.
+const fn ramp(palette: &[u32; 16], i: usize, j: usize, k: usize) -> [Rgb; 3] {
+    [
+        channel(palette[i]),
+        channel(palette[j]),
+        channel(palette[k]),
+    ]
+}
+
+/// Record what a colour becomes at 256 colours, so a later `pick` can avoid it.
+const fn spend(rgb: Rgb, spent: &mut [u8; 16], n: &mut usize) {
+    if *n < 16 {
+        spent[*n] = wire::at_256(rgb);
+        *n += 1;
+    }
+}
+
+/// Whether an index is already spent.
+const fn is_spent(spent: &[u8; 16], n: usize, idx: u8) -> bool {
+    let mut i = 0;
+    while i < n {
+        if spent[i] == idx {
+            return true;
+        }
+        i += 1;
+    }
+    false
+}
+
+/// The first candidate the quantiser can still separate from everything already spent, or a colour
+/// **derived** from the scheme's own two ends when it can separate none of them.
+///
+/// The derivation is what ADR 0007 forbids the engine and permits here: the engine may never
+/// synthesise a colour, because it would be lying about what the terminal holds, and an offline
+/// import mixing two of the scheme's own colours is doing once, at compile time, what the author
+/// would have done with a fourth slot. Six per cent at a time is the smallest step that moves a
+/// 256-colour index across the grey ramp.
+///
+/// The last resort is to return the first candidate and collide. A loud failure would be worse: an
+/// import that refuses a scheme ships a set the user's favourite theme is missing from, and the pair
+/// count already says which themes are affected.
+const fn pick(
+    candidates: [Rgb; 3],
+    page: Rgb,
+    text: Rgb,
+    spent: &mut [u8; 16],
+    n: &mut usize,
+) -> Rgb {
+    let mut i = 0;
+    while i < candidates.len() {
+        let cand = candidates[i];
+        if !is_spent(spent, *n, wire::at_256(cand)) {
+            spend(cand, spent, n);
+            return cand;
+        }
+        i += 1;
+    }
+    let mut t = 6u32;
+    while t < 100 {
+        let mixed = lerp(page, text, t);
+        if !is_spent(spent, *n, wire::at_256(mixed)) {
+            spend(mixed, spent, n);
+            return mixed;
+        }
+        t += 6;
+    }
+    candidates[0]
+}
+
+/// Whichever of the scheme's own text and page colours is further from `bg` in luminance.
+///
+/// Nailing `base05` to every face background — the obvious reading of *the scheme's foreground* —
+/// puts `FaceActive` below a 3:1 contrast ratio in 218 of the map's 338 corpus schemes; choosing the
+/// readable end per rung takes it to 55.
+const fn readable_on(bg: Rgb, text: Rgb, page: Rgb) -> Rgb {
+    let l = luminance(bg);
+    if luminance(text).abs_diff(l) >= luminance(page).abs_diff(l) {
+        text
+    } else {
+        page
+    }
+}
+
+/// Integer luminance, on the same `2:4:3` weights the quantiser uses.
+pub(super) const fn luminance(c: Rgb) -> u32 {
+    (2 * c.r as u32 + 4 * c.g as u32 + 3 * c.b as u32) / 9
+}
+
+/// `a` toward `b` by `t` per cent, where `t` is at most a hundred.
+const fn lerp(a: Rgb, b: Rgb, t: u32) -> Rgb {
+    Rgb::new(
+        mix_channel(a.r, b.r, t),
+        mix_channel(a.g, b.g, t),
+        mix_channel(a.b, b.b, t),
+    )
+}
+
+/// One channel of [`lerp`]. A weighted mean of two bytes is a byte, so the cast is exact.
+const fn mix_channel(x: u8, y: u8, t: u32) -> u8 {
+    ((x as u32 * (100 - t) + y as u32 * t) / 100) as u8
 }
 
 /// How much room a theme leaves around things. **It stays because it changes rectangles**, not
@@ -840,6 +929,36 @@ impl Theme {
     /// is the smaller argument: the screens are cell-identical at all nine matrix cells, so the choice
     /// is **cost and vocabulary, never correctness**. Deciding per draw forces a component to name the
     /// axis, and naming the axis is what produced nine divergent fallback tables.
+    ///
+    /// # `Hover` and `Fade` are two questions, and reading only the first is the defect
+    ///
+    /// [`Distinction::Hover`] says *a face under the pointer looks different*. [`Distinction::Fade`]
+    /// says *the animation into it is visible*, which is a strictly harder thing to ask of a palette:
+    /// a fade is a run of intermediate colours, and below truecolor the intermediates collapse onto
+    /// the endpoints. Over the map's corpus every one of 338 themes shows a hover at 256 colours and
+    /// **165** show the animation.
+    ///
+    /// > **A component that reads `shows(Hover)` and then cross-fades pays nineteen wakeups for a
+    /// > switch it cannot show, in 173 themes of 338.** The two are separate readers because they are
+    /// > separate capabilities; asking the first and assuming the second is the wakeup budget spent
+    /// > on a picture nobody receives.
+    ///
+    /// The correct shape is both, in that order: `shows(Hover)` decides whether there is a hover
+    /// state at all, and `shows(Fade)` decides whether to animate into it or to snap.
+    ///
+    /// ```
+    /// use vitui_engine::ColorDepth;
+    /// use vitui_runtime::theme::{Distinction, Theme};
+    ///
+    /// let theme = Theme::default().resolve(ColorDepth::Indexed256);
+    /// if theme.shows(Distinction::Hover) {
+    ///     if theme.shows(Distinction::Fade) {
+    ///         // animate into the hover
+    ///     } else {
+    ///         // snap to it, and ask for no wakeups
+    ///     }
+    /// }
+    /// ```
     pub const fn shows(&self, d: Distinction) -> bool {
         self.distinctions & d.bit() != 0
     }
@@ -903,6 +1022,78 @@ impl Theme {
         self.rev
     }
 
+    /// A memo key that carries this theme as well as the data. **+0.312 ns, 1.247×.**
+    ///
+    /// # The theme is a second memo input the data contract does not cover
+    ///
+    /// [`crate::data::Memo`] takes one [`Revision`] and nothing else, and on a swap frame a
+    /// data-keyed memo answers with the **previous theme's output** — because the data did not
+    /// change. If the value is made of paints, that is a stale picture that persists until the data
+    /// happens to move, which on a settings pane is never.
+    ///
+    /// ```
+    /// use vitui_runtime::data::{Memo, Revision, Versioned};
+    /// use vitui_runtime::theme::{Role, Theme};
+    /// use vitui_engine::ColorDepth;
+    ///
+    /// let rows = Versioned::new(vec![1u32, 2, 3]);
+    /// let dark = Theme::default().resolve(ColorDepth::TrueColor);
+    /// let mut paints: Memo<Vec<_>> = Memo::new();
+    ///
+    /// let build = |t: &Theme| t.paint(Role::Body);
+    /// let first = *paints
+    ///     .get(dark.memo_key(rows.revision()), || vec![build(&dark)])
+    ///     .first()
+    ///     .expect("one row");
+    ///
+    /// // Same data, different theme. The key moves, so the memo misses and rebuilds.
+    /// let light = Theme::authored(&[0xffffff; 16], Default::default(), Default::default());
+    /// let second = *paints
+    ///     .get(light.memo_key(rows.revision()), || vec![build(&light)])
+    ///     .first()
+    ///     .expect("one row");
+    /// assert_eq!(paints.recomputes, 2);
+    /// assert_ne!(first, second);
+    /// ```
+    ///
+    /// # The rule is narrow, and reading it as *every memo* is itself the defect
+    ///
+    /// > **A memo carries the theme in its key exactly when its value is made of paints.**
+    ///
+    /// Both directions. A memo whose value moves with the theme and does not carry it is stale after
+    /// a swap; a memo whose value does not move with the theme and carries it anyway pays a full
+    /// recomputation on every swap **for a value that is bit-identical afterwards** — the map priced
+    /// that at 221 µs and 399 µs with two and four such memos on the dense screen, which is two and
+    /// four times the whole frame budget.
+    ///
+    /// It works only because the theme's revision comes from [`Revision`]'s own **process-global**
+    /// counter. A per-theme counter would put two themes both at revision one, which is exactly the
+    /// two-values-both-at-1 defect the data contract refused.
+    ///
+    /// [`Revision::UNKNOWN`] is preserved rather than folded: *memoise nothing* means nothing,
+    /// including nothing about the theme.
+    pub const fn memo_key(&self, data: Revision) -> Revision {
+        if !data.is_known() {
+            return Revision::UNKNOWN;
+        }
+        // **A rotate, a multiply and an xor — not FNV-1a, and the reason is a measurement.** The
+        // crate's own hash is FNV-1a and `id.rs` uses it, but FNV eats one byte at a time, so folding
+        // two words is sixteen rounds: **5.76 ns against this form's fraction of one**, on a value
+        // that is taken once per memo per frame. The map priced the pair key at +0.312 ns and that is
+        // the budget this fits in.
+        //
+        // What it buys instead of a hash's diffusion is a property that can be *stated*: both halves
+        // are bijections of `u64`, so the fold is **injective in each argument with the other held
+        // fixed**. A swap therefore always moves the key and an edit always moves the key, which is
+        // the whole of what a memo needs. It is not a hash and makes no claim to be one — two
+        // *different* pairs may still collide, exactly as they may under FNV.
+        const GOLDEN: u64 = 0x9e37_79b9_7f4a_7c15;
+        let mixed = data.raw().rotate_left(32) ^ self.rev.raw().wrapping_mul(GOLDEN);
+        // Zero is `UNKNOWN`, which would silently mean *memoise nothing*. One value of 2^64 is worth
+        // a branch rather than a footnote.
+        Revision::from_raw(if mixed == 0 { 1 } else { mixed })
+    }
+
     #[allow(
         dead_code,
         reason = "read by `Repaint::lower`, whose caller is ticket 08's `Ctx`"
@@ -912,9 +1103,101 @@ impl Theme {
     }
 }
 
+/// **Instruments, and they stay `cfg(test)`.**
+///
+/// Both of these read the wire arithmetic a role landed on rather than whether two roles agree, and
+/// that is a different kind of answer: `roles_differ_on_wire` is a fact a component may act on, an
+/// index is a fact ADR 0007 says nothing in this process may act on. They exist so that the
+/// operator-palette gate in [`registry`] can merge two buckets and re-take the count, which is the
+/// only way *a sixteen-colour count is a lower bound* becomes mechanical instead of a caveat.
+#[cfg(test)]
+impl Theme {
+    /// The sixteen-colour indices this role's foreground and background land on.
+    pub(crate) fn wire_indices_at_16(&self, r: Role) -> (u8, u8) {
+        let spec = self.specs[r.index()];
+        (wire::at_16(spec.fg), wire::at_16(spec.bg))
+    }
+
+    /// A role's attribute bits, which are the third component of every pair key.
+    pub(crate) fn attrs_of(&self, r: Role) -> u16 {
+        self.specs[r.index()].attrs
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// WCAG relative luminance, which is a different curve from the quantiser's `2:4:3` weights and
+    /// has to be: the quantiser asks *which index is nearest* and a contrast ratio asks *can this be
+    /// read*. Floating point, because it is a report's arithmetic and never a gate's key.
+    fn relative_luminance(c: Rgb) -> f64 {
+        let channel = |v: u8| {
+            let v = f64::from(v) / 255.0;
+            if v <= 0.03928 {
+                v / 12.92
+            } else {
+                ((v + 0.055) / 1.055).powf(2.4)
+            }
+        };
+        0.2126 * channel(c.r) + 0.7152 * channel(c.g) + 0.0722 * channel(c.b)
+    }
+
+    /// The contrast ratio between two colours, 1.0 to 21.0.
+    fn contrast(fg: Rgb, bg: Rgb) -> f64 {
+        let (a, b) = (relative_luminance(fg), relative_luminance(bg));
+        let (hi, lo) = if a > b { (a, b) } else { (b, a) };
+        (hi + 0.05) / (lo + 0.05)
+    }
+
+    /// **Contrast is a check the pair count structurally cannot make**, and this is the relation that
+    /// keeps `readable_on` from being deleted as a complication.
+    ///
+    /// The pair count compares roles to *each other*; a contrast ratio compares a role to *itself*. A
+    /// mapping judged only by the pair count will happily produce a theme in which nothing is
+    /// readable and everything is distinct — which is what nailing `base05` to every face background
+    /// does: over the map's 338-scheme corpus it puts `FaceActive` below 3:1 in **218** schemes, and
+    /// choosing the readable end per rung takes it to **55**.
+    ///
+    /// The corpus is not vendored, so what is gated is the relation over the shipped set: **the
+    /// shipped pairing is never worse than nailing the foreground, and for at least one theme it is
+    /// better.** A relation rather than either number, because the number belongs to the palettes.
+    #[test]
+    fn pairing_by_luminance_never_costs_contrast_and_usually_buys_it() {
+        // The four roles that carry a background of their own, which are the ones `readable_on`
+        // decides. Every other role sits on the page and has nothing to choose between.
+        const ON_THEIR_OWN_GROUND: [Role; 4] = [
+            Role::Face,
+            Role::FaceHover,
+            Role::FaceActive,
+            Role::Selection,
+        ];
+        let mut improved = 0;
+        for scheme in Themes::standard().schemes() {
+            let theme = scheme.theme(GlyphSet::default(), Density::default());
+            let nailed_fg = theme.spec(Role::Body).fg;
+            let (mut shipped_low, mut nailed_low) = (0, 0);
+            for role in ON_THEIR_OWN_GROUND {
+                let spec = theme.spec(role);
+                shipped_low += usize::from(contrast(spec.fg, spec.bg) < 3.0);
+                nailed_low += usize::from(contrast(nailed_fg, spec.bg) < 3.0);
+            }
+            assert!(
+                shipped_low <= nailed_low,
+                "{}: the readable end is worse than nailing the foreground, {shipped_low} against \
+                 {nailed_low}",
+                scheme.slug()
+            );
+            if shipped_low < nailed_low {
+                improved += 1;
+            }
+        }
+        assert!(
+            improved > 0,
+            "no shipped theme is helped by pairing on luminance, which would make `readable_on` a \
+             complication with nothing behind it"
+        );
+    }
 
     /// The tier the reports and most gates run at.
     const TIERS: [ColorDepth; 4] = [
@@ -1058,6 +1341,46 @@ mod tests {
         );
         let truecolor = resolved(ColorDepth::TrueColor);
         assert!(truecolor.shows(Distinction::Hover) && truecolor.shows(Distinction::Fade));
+    }
+
+    /// **A finding, recorded as a measurement rather than argued: the `Fade` bit is *tier-gated* and
+    /// the palette does not require it to be.**
+    ///
+    /// [`Theme::resolve`] sets `Fade` when the hover pair differs **and** the tier is truecolor, so
+    /// the bit is false below truecolor by construction. Spec §15 describes something narrower —
+    /// *338 themes can show a hover state at C256 and **165** can show the animation into it* — which
+    /// is a statement about palettes, and no palette can reach it through a rule that names the tier.
+    /// Over the shipped fourteen the split is therefore 14 / 0 at 256 colours rather than a
+    /// proportion.
+    ///
+    /// It is measured here and **not changed here**, because the rule is ticket 04's, is shipped,
+    /// documented and gated, and this backlog does not reopen a decision inside another ticket. What
+    /// this test pins is the size of the gap, so that whoever does reopen it starts from a number:
+    /// the default palette's two face backgrounds are two steps of the grey ramp apart, and the ramp
+    /// between them contains a third index the terminal can show.
+    ///
+    /// The consequence is conservative in the safe direction — a component is told *do not animate*
+    /// when it could have — so nothing renders wrong; what it costs is an animation, not a wakeup.
+    #[test]
+    fn the_fade_bit_is_tier_gated_and_the_palette_does_not_require_it() {
+        let theme = resolved(ColorDepth::Indexed256);
+        let (face, hover) = (theme.spec(Role::Face).bg, theme.spec(Role::FaceHover).bg);
+        let mut seen: Vec<u32> = Vec::new();
+        for t in 0..=100 {
+            let key = wire::key(lerp(face, hover, t), ColorDepth::Indexed256);
+            if !seen.contains(&key) {
+                seen.push(key);
+            }
+        }
+        assert!(
+            seen.len() > 2,
+            "the ramp between the two face backgrounds holds only its endpoints, which would make \
+             the tier gate exact rather than conservative"
+        );
+        assert!(
+            !theme.shows(Distinction::Fade),
+            "and the shipped bit is false anyway, because the rule names the tier"
+        );
     }
 
     /// A traffic light is monochrome at sixteen colours, which is what `Status` is for.
