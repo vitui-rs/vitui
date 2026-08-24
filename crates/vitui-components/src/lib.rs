@@ -4,8 +4,8 @@
 //!
 //! Being built one ticket at a time from `.scratch/vitui-components-architecture/spec.md`, whose
 //! map is closed; the backlog is `.scratch/vitui-components-impl/`, forty-three tickets. **No
-//! component is written yet.** What exists is ticket 01's instrument, and it is the instrument the
-//! other forty-two are enumerable against:
+//! component is written yet.** What exists is the instruments the other forty are enumerable
+//! against, and every one of them is a value rather than a paragraph:
 //!
 //! - [`INVENTORY`] — spec §17's v1 freeze as a value: **twenty-nine components in three tiers**,
 //!   eleven columns each, with [`MOVED`] and [`COMPOSITIONS`] beside it. Not a paragraph, because
@@ -14,6 +14,12 @@
 //! - [`obligations`] — §17's five obligations as queries over the freeze, each returning a count or
 //!   an equality. **Not one of them can be met yet, and every one of them says so out loud** rather
 //!   than returning green over an empty population.
+//! - [`gates`] — §21's register: **forty gates as rows, fourteen of them evaluated**, four pinned
+//!   red with their failing sets, six unreachable across the crate line with what would have to
+//!   become public, and sixteen with nothing yet to run over. An instrument is a value with a file
+//!   in it, so a row that has stopped running turns the register red here.
+//! - [`counters`] — §20's nine per-frame counters, **eight of which this crate can read**. The
+//!   ninth, `marked`, panics rather than answering `0`, and so does the sentinel probe.
 //! - The module tree, one module per family (§19), joined to the freeze by
 //!   [`Component::families`].
 //!
@@ -35,6 +41,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod counters;
+pub mod gates;
 pub mod inventory;
 pub mod obligations;
 
