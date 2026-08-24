@@ -14,10 +14,12 @@
 //! - [`obligations`] — §17's five obligations as queries over the freeze, each returning a count or
 //!   an equality. **Not one of them can be met yet, and every one of them says so out loud** rather
 //!   than returning green over an empty population.
-//! - [`gates`] — §21's register: **fifty-two gates as rows, twenty-seven of them evaluated**, three
-//!   pinned red with their failing sets, seven unreachable across the crate line with what would have
+//! - [`gates`] — §21's register: **fifty-six gates as rows, thirty-two of them evaluated**, three
+//!   pinned red with their failing sets, six unreachable across the crate line with what would have
 //!   to become public, and fifteen with nothing yet to run over. An instrument is a value with a
-//!   file in it, so a row that has stopped running turns the register red here.
+//!   file in it, so a row that has stopped running turns the register red here. **One of those rows
+//!   was not unreachable and had said it was for five tickets** — see that module's header, because
+//!   the shape it names is the one an `Unreachable` invites.
 //! - [`glyphs`] — §16's catalogue as a value: **six families over twenty entries and ten
 //!   distinctions**, with the demand column of [`INVENTORY`] joined against it. A distinction
 //!   survives the whole matrix iff it is carried on both axes (ADR 0032), and seven of the ten name
@@ -38,15 +40,20 @@
 //! - The module tree, one module per family (§19), joined to the freeze by
 //!   [`Component::families`].
 //!
-//! **And five of spec §3's helpers now exist**, which is the first code here that a component will
-//! call rather than be measured by: [`text::fit`] and [`frame::block`] are the two partition
+//! **And all seven of spec §3's helpers now exist**, which is the first code here that a component
+//! will call rather than be measured by: [`text::fit`] and [`frame::block`] are the two partition
 //! primitives; [`state::press`] returns **one role** so that the face a widget draws and the face it
 //! asks to be awarded cannot disagree; [`frame::face_paint`] is the one place a row's five
-//! independent bits collapse to a paint, over all **32** states rather than C02's four; and
-//! [`scroll::bar`] draws the thumb before the track. Each of the five carries the number the
-//! alternative costs, watched firing: 15 cells for a border run over its own title, 16 224 for a
-//! `block` that clears what it hands over, **8 a frame for as long as a pointer rests** on a chip
-//! whose two statements disagree, and 224 for a groove written under its own thumb.
+//! independent bits collapse to a paint, over all **32** states rather than C02's four;
+//! [`scroll::bar`] draws the thumb before the track; [`keys::text`] is `CTRL | ALT` with Shift
+//! excluded, which is **one bit narrower than R12's `INTENT` and that bit is the whole helper**; and
+//! [`nav::cursor`] is what a `Group` moves with, arming the one `deadline_for` a type-ahead buffer
+//! owes. Each carries the number the alternative costs, watched firing: 15 cells for a border run
+//! over its own title, 16 224 for a `block` that clears what it hands over, **8 a frame for as long
+//! as a pointer rests** on a chip whose two statements disagree, 224 for a groove written under its
+//! own thumb, `"value 0shi"` against `"value 0hi"` for a field that reads `code` alone — and
+//! `"i"` where `"Hi"` is right for the over-correction beside it — and **138 tab stops against 36**
+//! for twelve collections that did not open a `Group`.
 //!
 //! # The two rules a reader of this crate needs first
 //!
@@ -74,6 +81,7 @@ pub mod gates;
 pub mod glyphs;
 pub mod ink;
 pub mod inventory;
+pub mod keys;
 pub mod obligations;
 pub mod runner;
 pub mod scenes;

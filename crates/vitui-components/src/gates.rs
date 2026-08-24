@@ -54,12 +54,36 @@
 //!   to run over** — no component exists — and a register that filed those as `Evaluated` would be
 //!   claiming sixteen green gates over an empty population.
 //!
-//! **Twenty-seven evaluated, three red, seven unreachable, fifteen unsubjected**, and
-//! `tests::twenty_seven_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
+//! **Thirty-two evaluated, three red, six unreachable, fifteen unsubjected**, and
+//! `tests::thirty_two_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
 //! deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
 //! and subjected row 27, the cross-family collapse gate; ticket 07 added five, and none of them
-//! moved a standing that was already taken.
+//! moved a standing that was already taken. **Ticket 08 added four and inverted one**, and the
+//! inversion is the one to read.
+//!
+//! # Row 5 was not *not yet*. It was wrong, and an `Unreachable` that is wrong is the worst standing
+//!
+//! Row 5 read: *`Mods` … is `reachable_as: None`. So no key can be posted and no chord can be
+//! pressed.* Both halves of that sentence were checked against `crates/vitui-runtime/src/line.rs`
+//! and the first is true. **The second does not follow from it.** A struct literal needs a *value*
+//! for each field and not a name for its type, and `vitui_runtime::keys::Chord` carries a
+//! `pub mods: Mods` field with three `const` builders — so `Chord::key('s').ctrl().mods` is
+//! `Mods::CTRL`, written from a crate that cannot spell `Mods`. `Driver::post_key` is public for
+//! `post_mouse`'s stated reason, and the gate runs.
+//!
+//! That is a standing this register got **wrong for five tickets**, and the shape is worth naming
+//! because [`Standing::Unreachable`] invites it: *it cannot be written from this crate at all* is a
+//! claim about the whole space of programs, and every other standing here is a claim about one. The
+//! discipline that catches it is the one this file already has — `needs` must name *an item, not a
+//! wish* — applied one step further: **the item has to be the thing actually required.** Row 5
+//! needed a `Mods` **value** and filed a barrier against the `Mods` **name**.
+//!
+//! Row 45's barrier survives the same test and rows 7 and 29's do too: those need `Rgb` and `Mouse`,
+//! and neither has any nameable box a value could travel inside — `Mouse` needs a `Buttons` and a
+//! `MouseKind`, and **neither of those is in `ENGINE_NAMES` at all**, reachable or not. The
+//! difference between row 5 and row 45 is not the strength of the barrier, it is that one of them
+//! was checked by trying it.
 //!
 //! **Row 48 is the one to read beside row 1.** Row 1 wants *cells marked on a steady frame == 0*
 //! and is `Unreachable`: `damage.rs` is `pub(crate)` throughout and nothing above the engine can
@@ -278,12 +302,12 @@ pub struct Row {
 /// thirty-third would be a spec change.
 pub const SPEC_ROWS: usize = 32;
 
-/// How many rows anything evaluates today. **Twenty-seven.**
+/// How many rows anything evaluates today. **Thirty-two.**
 ///
 /// The number is the point of the file. §21 counted **2 of 18** at the branch point and **11 of 18**
 /// after C11's own pass, both over the prototypes; this is the first count taken over shipped code,
-/// and it is twenty-seven of fifty-two because thirty-two of the rows are about components that do
-/// not exist.
+/// and it is thirty-two of fifty-six because twenty-four of the rows are about components that do
+/// not exist or need a name the crate line refuses.
 ///
 /// **It was fourteen of forty until ticket 04**, which added the reference-render runner and its
 /// four rows. Every one of the four is `Evaluated` over a **fixture** rather than over a component,
@@ -296,10 +320,16 @@ pub const SPEC_ROWS: usize = 32;
 /// helpers stand up rather than over a component: rows 48–52. Row 48 is the one worth reading
 /// twice — it is the **reachable form of row 1**, which is `Unreachable` and stays that way, and
 /// the two rows now sit side by side saying which question each of them can answer.
-pub const EVALUATED: usize = 27;
+///
+/// **Ticket 08's four are rows 53–56, and its fifth is row 5** — which moved from `Unreachable` to
+/// `Evaluated` without anything in the runtime changing, because the barrier had been misread. See
+/// this module's header: that is the only inversion on this register that corrected a *standing*
+/// rather than supplying a *subject*, and it is the one worth being suspicious about the next time
+/// an `Unreachable` is written.
+pub const EVALUATED: usize = 32;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 52] = [
+pub const REGISTER: [Row; 56] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -363,6 +393,14 @@ pub const REGISTER: [Row; 52] = [
             inverted_by: "components 12",
         },
     },
+    // **Components ticket 08 inverted this row, and the standing it left was wrong rather than
+    // stale.** It read: *`Mods` … is `reachable_as: None`. So no key can be posted and no chord can
+    // be pressed.* The premise is true — there is no path to `Mods` from here and
+    // `crates/vitui-runtime/src/line.rs` is right about that — and **the conclusion does not
+    // follow**: a struct literal needs a *value* for each field, not a name for its type, and
+    // `vitui_runtime::keys::Chord` has a `pub mods: Mods` field with three `const` builders that
+    // set it. `Chord::key('s').ctrl().mods` **is** `Mods::CTRL`, written without the word. See
+    // `crate::keys`'s header, which carries the whole argument and the two barriers that survive it.
     Row {
         number: 5,
         on_spec_table: true,
@@ -370,12 +408,23 @@ pub const REGISTER: [Row; 52] = [
         kind: Kind::Count,
         owner: "C01, C06",
         section: "spec §11",
-        standing: Standing::Unreachable {
-            needs: "`Mods`. A key can be named here — `vitui_runtime::keys::Pressed` is the \
-                    re-export — and cannot be built: its `mods` field is `vitui_engine::Mods`, \
-                    which is `reachable_as: None`. So no key can be posted and no chord can be \
-                    pressed",
-            inverted_by: "runtime architecture issue 22",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/keys.rs",
+                    name: "a_chord_pressed_into_every_focusable_types_nothing",
+                },
+                // The population, named rather than assumed: seven rows of the freeze, none of
+                // which is declared in this crate — so what this row stands over is seven sinks,
+                // and the row says so instead of implying seven components.
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/keys.rs",
+                    name: "every_text_bearing_name_is_in_the_freeze",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/keys_numbers.rs",
+                },
+            ],
         },
     },
     Row {
@@ -1264,6 +1313,124 @@ pub const REGISTER: [Row; 52] = [
             ],
         },
     },
+    // ── components ticket 08's rows ──────────────────────────────────────────────────────────────
+    Row {
+        number: 53,
+        on_spec_table: false,
+        gate: "`keys::text` is `CTRL | ALT` and R12's `INTENT` is exactly one bit wider",
+        kind: Kind::Equality,
+        owner: "C01, C06",
+        section: "spec §3",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/keys.rs",
+                    name: "the_mask_is_ctrl_and_alt_and_shift_is_not_in_it",
+                },
+                // A mask nobody reads and a predicate nobody compares it against are two rules that
+                // drift, so the decomposition is gated against the constant rather than trusted.
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/keys.rs",
+                    name: "the_mask_and_the_predicate_are_one_statement",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/keys.rs",
+                    name: "the_predicate_agrees_with_the_mask_on_every_reachable_state",
+                },
+                // **The barrier that survived the inversion of row 5.** Eight of the 256 modifier
+                // states are constructible here, because `Chord` has three builders and `Mods` has
+                // eight bits — so the *exhaustive table* is short even though the rule is not.
+                Instrument::Barrier {
+                    file: "crates/vitui-runtime/src/line.rs",
+                    line: "name: \"Mods\",",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 54,
+        on_spec_table: false,
+        gate: "the three readings of a key give three different answers on the same two keys",
+        kind: Kind::Equality,
+        owner: "C01, C02, C06",
+        section: "spec §3",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/keys.rs",
+                    name: "the_three_way_measurement_over_a_focused_field",
+                },
+                // Spec §3 changes the input mid sentence and this is why: on `Ctrl+S, h, i` the
+                // `INTENT` reading is indistinguishable from the fix, and its defect is only
+                // visible on a capital.
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/keys.rs",
+                    name: "a_capital_is_not_a_chord_and_the_intent_reading_says_it_is",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/keys.rs",
+                    name: "the_textarea_arithmetic_is_two_and_zero_against_one_and_one",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/keys_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 55,
+        on_spec_table: false,
+        gate: "a type-ahead buffer survives to the next keypress, and the census names the widget \
+               that asked",
+        kind: Kind::Count,
+        owner: "C02",
+        section: "spec §3",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/nav.rs",
+                    name: "the_buffer_survives_to_the_next_keypress_rather_than_expiring_at_it",
+                },
+                // **The direction that matters**: the two arms agree about what was typed on every
+                // frame a key arrives on, so no assertion about the buffer can separate them. What
+                // separates them is that nothing woke the screen at the moment the buffer lapsed.
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/nav.rs",
+                    name: "without_the_deadline_nothing_wakes_the_screen_when_the_buffer_lapses",
+                },
+                // The ticket's own correction to itself, as a number: 1 against 0 in the census,
+                // with the same one line asking either way.
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/nav.rs",
+                    name: "the_id_is_the_census_and_not_the_attribution",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 56,
+        on_spec_table: false,
+        gate: "a collection is one tab stop: the walk collapses to three a panel and the ring keeps \
+               every row",
+        kind: Kind::Count,
+        owner: "C02, C14",
+        section: "spec §3",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/nav.rs",
+                    name: "a_collection_is_one_tab_stop_and_the_ring_still_holds_its_rows",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/nav.rs",
+                    name: "the_collapsed_walk_repeats_no_id",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/nav_numbers.rs",
+                },
+            ],
+        },
+    },
 ];
 
 /// **The compile-outcome pair row 31 names, and its positive twin.**
@@ -1527,14 +1694,14 @@ mod tests {
         assert_eq!(seen, expected);
     }
 
-    /// **Twenty-seven evaluated, and the other twenty-five each say why not.**
+    /// **Thirty-two evaluated, and the other twenty-four each say why not.**
     ///
     /// This is the number §21 asks for: *how many gates are actually evaluated is a number a test
     /// asserts rather than a claim in a document*. Saying it out loud is what stops the next change
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn twenty_seven_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn thirty_two_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -1557,12 +1724,14 @@ mod tests {
         );
         assert_eq!(
             unreachable,
-            vec![1, 2, 5, 21, 28, 33, 45],
-            "the seven that cannot be written from a crate whose dependency list is \
-             `vitui-runtime` and nothing else"
+            vec![1, 2, 21, 28, 33, 45],
+            "the six that cannot be written from a crate whose dependency list is \
+             `vitui-runtime` and nothing else. **It was seven until components ticket 08**, which \
+             found row 5's barrier misread: `Mods` is unnameable here and `Chord::mods` hands over \
+             the value anyway, so a chord can be pressed after all"
         );
         assert_eq!(unsubjected, 15, "and the fifteen with nothing to run over");
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 52);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 56);
     }
 
     /// **The split, not the total.**
@@ -1573,10 +1742,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_twenty_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_twenty_four_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 20);
+        assert_eq!(REGISTER.len() - on_table, 24);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -1877,6 +2046,8 @@ mod tests {
             vec![
                 "gates_numbers.rs".to_string(),
                 "glyph_numbers.rs".to_string(),
+                "keys_numbers.rs".to_string(),
+                "nav_numbers.rs".to_string(),
                 "partition_numbers.rs".to_string(),
                 "press_numbers.rs".to_string(),
                 "scene_numbers.rs".to_string()

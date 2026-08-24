@@ -105,8 +105,14 @@ fn main() {
             Standing::Unsubjected { .. } => unsubjected += 1,
         }
     }
-    assert_eq!(REGISTER.len(), 47, "the register's shape has changed");
-    assert_eq!(evaluated, EVALUATED);
+    // **No second copy of the row count here.** This line used to read `assert_eq!(REGISTER.len(),
+    // 47, ...)`, and the register reached 56 without it noticing — because `cargo test` compiles an
+    // example and evaluates none of it, which is the defect this whole register was built to name.
+    // A hardcoded length in a file nothing runs is not a gate, it is a second home for a number, and
+    // `gates::tests` already owns that one (`the_numbers_are_contiguous_and_unique` and the spec /
+    // lineage split both read `REGISTER.len()`). What stays is the assertion that reads the figure
+    // from its single home rather than restating it.
+    assert_eq!(evaluated, EVALUATED, "`EVALUATED` disagrees with the register it counts");
 
     println!("register  {} rows", REGISTER.len());
     println!("          {evaluated:>3} evaluated      anything `cargo test` runs");
