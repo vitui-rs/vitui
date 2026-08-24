@@ -1,4 +1,4 @@
-//! Spec §21's register: **forty-five gates as a value, one row per gate, and a number for how many of
+//! Spec §21's register: **forty-seven gates as a value, one row per gate, and a number for how many of
 //! them anything runs.**
 //!
 //! > The register is data, not prose — one row per gate with its kind, its owner, where it stood at
@@ -54,7 +54,7 @@
 //!   to run over** — no component exists — and a register that filed those as `Evaluated` would be
 //!   claiming sixteen green gates over an empty population.
 //!
-//! **Twenty evaluated, three red, seven unreachable, fifteen unsubjected**, and
+//! **Twenty-two evaluated, three red, seven unreachable, fifteen unsubjected**, and
 //! `tests::twenty_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
 //! deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
@@ -274,7 +274,7 @@ pub const SPEC_ROWS: usize = 32;
 ///
 /// The number is the point of the file. §21 counted **2 of 18** at the branch point and **11 of 18**
 /// after C11's own pass, both over the prototypes; this is the first count taken over shipped code,
-/// and it is twenty of forty-five because thirty-two of the forty-five rows are about components
+/// and it is twenty-two of forty-seven because thirty-two of the forty-seven rows are about components
 /// that do not exist.
 ///
 /// **It was fourteen of forty until ticket 04**, which added the reference-render runner and its
@@ -283,10 +283,10 @@ pub const SPEC_ROWS: usize = 32;
 /// separates a correct build from a defective one*, and each is watched doing it in both directions.
 /// The scenes themselves stay `Unsubjected` in [`crate::scenes`], and that file says why the two are
 /// not the same claim.
-pub const EVALUATED: usize = 20;
+pub const EVALUATED: usize = 22;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 45] = [
+pub const REGISTER: [Row; 47] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -368,10 +368,41 @@ pub const REGISTER: [Row; 45] = [
         owner: "C02",
         section: "spec §2",
         standing: Standing::Evaluated {
-            by: &[Instrument::Unit {
-                file: "crates/vitui-components/src/counters.rs",
-                name: "writes_equals_distinct_until_two_verbs_overlap",
-            }],
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/counters.rs",
+                    name: "writes_equals_distinct_until_two_verbs_overlap",
+                },
+                // Components ticket 06: the row stops being a property of the instrument and
+                // becomes a **gate over the two helpers every other component writes through**.
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/text.rs",
+                    name: "fit_writes_a_partition_of_its_row_at_every_width_and_justification",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/frame.rs",
+                    name: "block_writes_each_cell_once_and_never_the_interior",
+                },
+                // And over a whole screen built out of nothing but the two, which is the half a
+                // per-helper test cannot reach: the interesting double writes are between two
+                // branches that are each correct alone.
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/form.rs",
+                    name: "neither_helper_writes_a_cell_twice_at_either_density",
+                },
+                // Watched firing, in both directions, on ADR 0026's 15-cell instance.
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/frame.rs",
+                    name: "a_border_run_written_over_its_own_title_is_fifteen_double_writes",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/form.rs",
+                    name: "the_naive_arm_writes_forty_thousand_cells_it_had_already_written",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/partition_numbers.rs",
+                },
+            ],
         },
     },
     Row {
@@ -777,6 +808,13 @@ pub const REGISTER: [Row; 45] = [
                     file: "crates/vitui-components/tests/gates.rs",
                     name: "a_total_sees_one_frame_in_two_hundred_and_a_mean_cannot",
                 },
+                // Components ticket 06: the same budget, on the two helpers every component will
+                // write through. `crate::ink::Direct` stages into the frame's own buffer instead of
+                // materialising a run, and this is the counter behind that sentence.
+                Instrument::Unit {
+                    file: "crates/vitui-components/tests/gates.rs",
+                    name: "the_two_partition_helpers_allocate_nothing_as_a_total_over_the_run",
+                },
             ],
         },
     },
@@ -1025,6 +1063,53 @@ pub const REGISTER: [Row; 45] = [
                     light at sixteen colours are measured in the runtime, which owns the mechanism \
                     and may name both axes: `examples/theme_numbers.rs` prints them",
             inverted_by: "runtime architecture issue 22",
+        },
+    },
+    // ── components ticket 06's two ───────────────────────────────────────────────────────────────
+    Row {
+        number: 46,
+        on_spec_table: false,
+        gate: "`fit` against the same order written by hand is 0 cells apart at equal write counts",
+        kind: Kind::Equality,
+        owner: "C02",
+        section: "spec §3",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/form.rs",
+                    name: "routing_through_fit_is_zero_cells_different_at_equal_write_counts",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/form.rs",
+                    name: "a_block_that_clears_what_it_hands_over_writes_sixteen_thousand_cells_\
+                            twice",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/partition_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 47,
+        on_spec_table: false,
+        gate: "`frame::focus_ring` does not exist, and a twin names `frame::block` by path",
+        kind: Kind::CompileOutcome,
+        owner: "C02, C03",
+        section: "spec §3",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Pair {
+                    file: "crates/vitui-components/src/frame.rs",
+                    hostile: "use vitui_components::frame::focus_ring;",
+                },
+                // The pair catches the item coming back on the **public** surface. This catches it
+                // coming back as a private one, which is how a deleted helper actually returns.
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/frame.rs",
+                    name: "no_source_file_in_this_crate_declares_a_focus_ring",
+                },
+            ],
         },
     },
 ];
@@ -1290,14 +1375,14 @@ mod tests {
         assert_eq!(seen, expected);
     }
 
-    /// **Twenty evaluated, and the other twenty-five each say why not.**
+    /// **Twenty-two evaluated, and the other twenty-five each say why not.**
     ///
     /// This is the number §21 asks for: *how many gates are actually evaluated is a number a test
     /// asserts rather than a claim in a document*. Saying it out loud is what stops the next change
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn twenty_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn twenty_two_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -1325,7 +1410,7 @@ mod tests {
              `vitui-runtime` and nothing else"
         );
         assert_eq!(unsubjected, 15, "and the fifteen with nothing to run over");
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 45);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 47);
     }
 
     /// **The split, not the total.**
@@ -1336,10 +1421,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_thirteen_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_fifteen_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 13);
+        assert_eq!(REGISTER.len() - on_table, 15);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -1640,6 +1725,7 @@ mod tests {
             vec![
                 "gates_numbers.rs".to_string(),
                 "glyph_numbers.rs".to_string(),
+                "partition_numbers.rs".to_string(),
                 "scene_numbers.rs".to_string()
             ],
             "the count on this lineage was 0 against the runtime's 19"
@@ -1697,7 +1783,7 @@ mod tests {
     /// The register prints as a table, which is how a human reads it.
     ///
     /// A test rather than a report, because the `Debug` derive is the only other way to look at this
-    /// value and it is unreadable at forty-five rows.
+    /// value and it is unreadable at forty-seven rows.
     #[test]
     fn the_register_prints() {
         assert_eq!(table().lines().count(), REGISTER.len() + 1);

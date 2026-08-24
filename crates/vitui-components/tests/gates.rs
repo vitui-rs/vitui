@@ -17,7 +17,10 @@
 use std::hint::black_box;
 
 use vitui_alloc_probe::{CountingAllocator, count_allocations};
+use vitui_components::cells::Cells;
 use vitui_components::counters::{Allocations, Counter, Counters, Tally};
+use vitui_components::frame::block;
+use vitui_components::text::{FitOpts, Justify, fit, fit_with};
 use vitui_runtime::ctx::{Ctx, Driver};
 use vitui_runtime::focus::ScopeKind;
 use vitui_runtime::layout::{
@@ -502,4 +505,56 @@ fn changed_greater_than_zero_passes_on_the_exact_set_it_had_to_catch() {
     };
     assert!(!the_gate_that_was_there(&identical));
     assert!(the_gate_it_should_have_been(&identical));
+}
+
+// ── components ticket 06: the two partition primitives, against the same budget ──────────────────
+
+/// A steady frame written **through the two helpers** rather than through the runtime's verbs.
+///
+/// The same claim as [`steady_frame`], one layer up: `fit` and `block` are what every other
+/// component in this library will route its writing through, so a per-frame allocation inside either
+/// of them is a per-frame allocation in every component at once.
+fn steady_helpers(cx: &mut Ctx<'_, '_>) {
+    let mut rest = block(cx, Cells::of(cx), " panel systems ");
+    for _ in 0..12 {
+        rest = fit(cx, rest, "a row that does not move");
+    }
+    let opts = FitOpts {
+        justify: Justify::Middle,
+        role: Role::Dim,
+        pad: Role::Face,
+    };
+    for _ in 0..4 {
+        rest = fit_with(cx, rest, "an unusually long label that will be cut", &opts);
+    }
+}
+
+/// **`fit` and `block` allocate nothing on a steady frame, as a total.**
+///
+/// [`vitui_components::ink::Direct`]'s whole justification is that the shipped path stages into the
+/// frame's own reusable buffer — `Ctx::stage` and `Ctx::blit` — instead of materialising a run with
+/// `str::repeat`, and a justification with no counter behind it is what §21 spent three refinements
+/// on. The instrument path *does* allocate, deliberately, and does not run here.
+#[test]
+fn the_two_partition_helpers_allocate_nothing_as_a_total_over_the_run() {
+    let mut driver = Driver::headless(W, H).expect("a sink cannot fail to attach");
+    driver.frame(steady_helpers);
+    driver.frame(steady_helpers);
+
+    let (_, total) = count_allocations(|| {
+        for _ in 0..FRAMES {
+            driver.frame(steady_helpers);
+        }
+    });
+
+    let seen = Allocations::over(FRAMES, total as u64);
+    assert_eq!(
+        seen.total(),
+        0,
+        "{} allocations over {} frames of `block` and sixteen `fit`s, and the budget is a total of \
+         zero",
+        seen.total(),
+        seen.frames()
+    );
+    black_box(&driver);
 }

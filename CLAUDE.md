@@ -107,7 +107,7 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 5 of 43 tickets resolved (2026-08-24). `INVENTORY` is spec
+- **`vitui-components` has started**: 6 of 43 tickets resolved (2026-08-24). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
   answerable by the machine from here on. All five obligations are `Unmet` and each is watched
@@ -137,6 +137,50 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   `0 / 1 / 2 of 10` reproduces — the shipped palette gives **`0 / 0 / 18`** and **`0 / 1 / 3`** —
   and the palette was deliberately *not* swapped to make them, because the only reason to would have
   been the number.
+- **Ticket 06 is the first component-facing code in the workspace**, and it had to settle **runtime
+  architecture issue 22** to write a signature at all. Spec §3 states both helpers as sentences about
+  a return value — `text::fit` *returns the remainder*, `frame::block` *returns the rectangle it did
+  not write* — and neither is writable here: `vitui_engine::Rect` is `reachable_as: None`, 27 of the
+  runtime's public declarations name it, and C6 says this crate's dependency list is `vitui-runtime`
+  and nothing else. There is no second spelling — Rust has no `typeof`, an `impl Trait` return is
+  opaque to its own crate, and no public runtime trait carries `Rect` as an associated type. **So the
+  crate names its own rectangle**: `Cells`, four scalars in the coordinates of the `Ctx` they came
+  from, its algebra swept against `layout::rect`'s over a corpus, and the two verbs that need a real
+  `Rect` building one **by inference** through a private macro — a function would need a return type.
+  It is deliberately not called `Rect`, because two of those in one workspace makes every mismatch
+  read *expected `Rect`, found `Rect`*.
+  **The closure form was refused on two measurements rather than on taste.** `block(cx, opts, |cx| …)`
+  delivers the interior through `Ctx::child`, which moves the origin: one `Tally` over such a panel
+  reads **124 double writes on a panel that has none**, and split into two tallies the one thing the
+  ticket asks to be measurable — *a `block` that clears what it hands over* — lands in two ledgers and
+  is checked by nothing. Second, `CONTEXT.md`'s identity rule is not negotiable: *a container that
+  returns a rectangle preserves its children's identity and one that takes a closure renames them*.
+  `Cells::child` exists so the **caller** can narrow; what a container may not do is narrow on the
+  caller's behalf.
+  **The gate is watched catching the 15-cell instance.** The correct panel and ADR 0026's defective
+  one are **one function with one boolean between them** (`title_split`), so a reviewer's diff is one
+  line: the defective arm writes **15 cells twice**, touches exactly the same cells, and costs **one
+  verb fewer** — 45 against 46. Every counter but the pair prefers it.
+  **One screen at 300×80, drawn four ways**, is where the rest of the numbers come from: `fit`
+  against the same order written out by hand is **0 of 24 000 cells apart at 18 912 writes against
+  18 912**; the naive form is **40 925 against 0**; a `block` that clears its interior is **16 224**;
+  `Compact` against `Cosy` is 18 912 / 171 against 19 206 / 167 with **four widgets** off the bottom.
+  Spec §3's remembered 20 804 / 267 against 20 992 / 263 is a **prototype screen this ticket does not
+  own** — scenes 1–2, which ticket 09 stands up — so `examples/partition_numbers.rs` prints both
+  columns rather than engineering the difference away. Two structural facts do reproduce exactly: the
+  region delta is four either way, and the density direction (Cosy writes *more* while standing
+  *fewer* widgets) is the same.
+  **The seam that makes the gate measure the shipped path is `ink::Ink`.** A component's shape is
+  `fn(&mut Ctx, …) -> Response` and nothing has decided a component draws through a wrapper, so the
+  helpers cannot take a `Tally` — and a second implementation written against one would be a gate
+  testing a copy. One trait, two methods, three implementations: `Direct` for a component (stages
+  into the frame's buffer, **0 allocations over 200 frames**), `Tally` and `Pen` for a gate. Nothing
+  either helper writes goes through `Ctx::fill`, which returns `()` — so `reported == writes` holds
+  and the pair really is two sources compared.
+  **`frame::focus_ring` is deleted and two gates keep it deleted**: a `compile_fail` naming it by
+  path with a twin naming `block` and `BlockOpts` by path, and a source scan that catches it coming
+  back `pub(crate)` — which is how a deleted helper actually returns. The scan's first run reported
+  **itself**, because a scanner looking for a literal contains that literal.
 - Nothing above the engine can draw a screen yet, so no application exists to run.
 
 Read these before working, in this order:
@@ -166,7 +210,10 @@ crates/vitui-engine       cells, surfaces, layers, compositing, damage, serializ
                           └ crossterm behind a seam: raw mode, input, capability detection
 crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key maps, theming,
                           overlays, the data contract — no scene tree, no reactivity
-crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (not started)
+crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (6 of 43)
+                          └ `Cells` is this crate's own rectangle: `vitui_engine::Rect` is
+                            unnameable across the crate line, so the two partition primitives
+                            return one of these instead (runtime architecture issue 22)
 crates/vitui              facade re-export — engine, runtime, components, and deliberately not signals
 crates/vitui-signals      a fine-grained signal graph, 112 lines above the runtime
                           └ a detached workspace, and the only one detached by a `deny.toml` rule:

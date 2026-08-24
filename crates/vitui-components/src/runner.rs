@@ -74,7 +74,8 @@ use std::time::{Duration, Instant};
 
 use vitui_runtime::ctx::Driver;
 use vitui_runtime::layout::text;
-use vitui_runtime::{Ctx, Paint, Role};
+use vitui_runtime::theme::CATPPUCCIN_MOCHA;
+use vitui_runtime::{Ctx, Density, Paint, Role, Theme};
 
 use crate::counters::{Allocations, Counter, Counters, Tally};
 
@@ -755,6 +756,37 @@ pub fn metric_heading() -> String {
 /// [`crate::obligations::Verdict::of`]'s vacuity refusal arriving one file over. A step that changes
 /// its own rectangle is a resize, and [`at_two_sizes`] is where that question is asked.
 pub fn play(paint: Painter, steps: &[Fixture]) -> Run {
+    play_at(Density::default(), paint, steps)
+}
+
+/// **A headless driver at a chosen density**, which is the one thing `Driver::headless` does not
+/// take an argument for.
+///
+/// The palette, the glyph repertoire and the resolved colour tier are the driver's own answers, read
+/// off the theme it built and handed to the one that replaces it. **The tier is never named** —
+/// `ColorDepth` is `reachable_as: None` in `crates/vitui-runtime/src/line.rs`, so a crate whose
+/// dependency list is `vitui-runtime` and nothing else can hold one and cannot write one down.
+pub fn driver_at(w: u16, h: u16, density: Density) -> Driver {
+    let mut driver = Driver::headless(w, h).expect("a sink cannot fail to attach");
+    let base = *driver.env().theme();
+    driver
+        .set_theme(Theme::authored(&CATPPUCCIN_MOCHA, base.glyphs(), density).resolve(base.tier()));
+    driver
+}
+
+/// **[`play`], at a chosen density.**
+///
+/// Density is theme data and it changes rectangles (spec §3), so a scene measured at one density is
+/// a measurement of one screen and not of the construction. `Driver::headless` builds
+/// `Theme::default()`, which is `Density::default()`; this rebuilds the same palette at the density
+/// asked for and keeps everything else — the glyph repertoire and the resolved colour tier — as the
+/// driver already answered them. `Density::default()` therefore reaches exactly the theme `play`
+/// used to build, which `tests::the_default_density_rebuilds_the_drivers_own_theme` asserts.
+///
+/// # Panics
+///
+/// [`play`]'s two, unchanged.
+pub fn play_at(density: Density, paint: Painter, steps: &[Fixture]) -> Run {
     assert!(
         !steps.is_empty(),
         "a scene played over no steps draws nothing and compares equal to anything"
@@ -768,7 +800,7 @@ pub fn play(paint: Painter, steps: &[Fixture]) -> Run {
         );
     }
 
-    let mut driver = Driver::headless(w, h).expect("a sink cannot fail to attach");
+    let mut driver = driver_at(w, h, density);
     let mut pen = Pen::new(w, h);
     let started = Instant::now();
     for step in steps {
@@ -788,7 +820,18 @@ pub fn play(paint: Painter, steps: &[Fixture]) -> Run {
 /// The primitive. Returns *n cells over m rows*, which is the form every defect on the map was
 /// legible in.
 pub fn compare(a: Painter, b: Painter, steps: &[Fixture]) -> Diff {
-    play(a, steps).canvas().diff(play(b, steps).canvas())
+    compare_at(Density::default(), a, b, steps)
+}
+
+/// **[`compare`], at a chosen density.**
+///
+/// Density changes rectangles (spec §3), so two arms compared at two densities are not being
+/// compared at all. One argument, threaded through both plays, is what stops that being possible to
+/// write by accident.
+pub fn compare_at(density: Density, a: Painter, b: Painter, steps: &[Fixture]) -> Diff {
+    play_at(density, a, steps)
+        .canvas()
+        .diff(play_at(density, b, steps).canvas())
 }
 
 /// The result of rendering one scene at two sizes.

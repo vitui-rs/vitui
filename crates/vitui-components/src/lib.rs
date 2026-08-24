@@ -14,7 +14,7 @@
 //! - [`obligations`] — §17's five obligations as queries over the freeze, each returning a count or
 //!   an equality. **Not one of them can be met yet, and every one of them says so out loud** rather
 //!   than returning green over an empty population.
-//! - [`gates`] — §21's register: **forty-five gates as rows, twenty of them evaluated**, three
+//! - [`gates`] — §21's register: **forty-seven gates as rows, twenty-two of them evaluated**, three
 //!   pinned red with their failing sets, seven unreachable across the crate line with what would have
 //!   to become public, and fifteen with nothing yet to run over. An instrument is a value with a
 //!   file in it, so a row that has stopped running turns the register red here.
@@ -56,9 +56,13 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod cells;
 pub mod counters;
+pub mod form;
+pub mod frame;
 pub mod gates;
 pub mod glyphs;
+pub mod ink;
 pub mod inventory;
 pub mod obligations;
 pub mod runner;
@@ -91,6 +95,7 @@ pub mod text;
 
 mod family;
 
+pub use cells::Cells;
 pub use family::Family;
 // Re-exported at the root because every list, gate and ticket on this backlog names them, and
 // `inventory::` in front of each is noise at the one place they are read. The module stays public:
