@@ -112,7 +112,10 @@ fn main() {
     // `gates::tests` already owns that one (`the_numbers_are_contiguous_and_unique` and the spec /
     // lineage split both read `REGISTER.len()`). What stays is the assertion that reads the figure
     // from its single home rather than restating it.
-    assert_eq!(evaluated, EVALUATED, "`EVALUATED` disagrees with the register it counts");
+    assert_eq!(
+        evaluated, EVALUATED,
+        "`EVALUATED` disagrees with the register it counts"
+    );
 
     println!("register  {} rows", REGISTER.len());
     println!("          {evaluated:>3} evaluated      anything `cargo test` runs");
