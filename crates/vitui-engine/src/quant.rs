@@ -1,6 +1,19 @@
 //! Colour narrowed to what the terminal can express, and the one placement that keeps the equality
 //! filter exact.
 //!
+//! # The second thing narrowed here, and it arrived four tickets later
+//!
+//! Spec §10 says an attribute the terminal does not render is *dropped silently at serialise time*,
+//! and until production ticket 10 nothing did it: `Quirks::apply` filled `attrs_dropped`,
+//! `Capabilities::report` printed it, and the serializer never asked. It is narrowing in exactly this
+//! module's sense — a fact of the far end that the wire must respect and nothing above the packet may
+//! see — so it happens **here**, at [`Quantiser::attrs`], and every argument below about *where*
+//! carries over unchanged: a mirror holding an attribute the terminal was never sent is not a mirror,
+//! and a gap priced against a word that is not going out is priced against a wire nobody writes.
+//!
+//! It is the eight flags and not the eleven attribute bits, and [`crate::style::ATTRS`] is where that
+//! boundary is argued.
+//!
 //! # Where it runs, and why there is only one answer
 //!
 //! **On the render thread, inside the run scan, *before* the comparison with the mirror.** Three
@@ -211,6 +224,16 @@ pub(crate) struct Quantiser {
     /// what the terminal shows can drop a link the terminal never got — the *engine* drops it one
     /// layer up, at intern time, which is [`crate::tables::Tables::links_in_key`].
     hyperlinks: bool,
+    /// The flags this terminal does not render, in the style word's own positions
+    /// ([`crate::style::ATTRS`]), from the quirk table.
+    ///
+    /// **This one is narrowed here for the wire as well as for the instrument**, which is the one way
+    /// it differs from `hyperlinks` above: OSC 8 is already fenced at intern time and at emit time, so
+    /// the field beside it exists only so a comparison can be written once. An attribute has no such
+    /// fence — nothing anywhere dropped it before production ticket 10 — so this is where the drop
+    /// §10 promises actually happens, and [`Quantiser::style`] is the placement that makes the mirror
+    /// hold what was sent.
+    attrs_dropped: u64,
 }
 
 impl Quantiser {
@@ -227,6 +250,7 @@ impl Quantiser {
             depth: ColorDepth::TrueColor,
             palette: ANSI16,
             hyperlinks: true,
+            attrs_dropped: 0,
         }
     }
 
@@ -237,8 +261,16 @@ impl Quantiser {
     /// cells against the mirror's may compare the two **slices** — which is what
     /// `Serializer::row_lands_on` is built on and measured at 2.4x a per-column walk. Where it is
     /// true the walk is the only correct form, and it is bounded by a band rather than by a screen.
+    ///
+    /// **The attribute mask is the second reason it can be true, and forgetting it would have cost a
+    /// scroll rather than a colour.** A truecolor terminal that drops a flag narrows something, so
+    /// `depth` alone would have taken the slice path with a mirror holding masked words and a packet
+    /// holding unmasked ones — every cell carrying that flag reads as a change, and
+    /// `damaged_span_is_on_the_terminal` rejects the scroll it was about to prove. That is impl 17's
+    /// *forfeited every scroll on every terminal that narrows anything*, arriving through a field
+    /// impl 17 did not have.
     pub(crate) fn narrows(self) -> bool {
-        self.depth != ColorDepth::TrueColor
+        self.depth != ColorDepth::TrueColor || self.attrs_dropped != 0
     }
 
     /// The quantiser for one terminal.
@@ -253,6 +285,7 @@ impl Quantiser {
             depth: caps.colors,
             palette,
             hyperlinks: caps.hyperlinks,
+            attrs_dropped: caps.attrs_dropped(),
         }
     }
 
@@ -298,13 +331,32 @@ impl Quantiser {
         }
     }
 
+    /// The flags of one style word, less the ones this terminal does not render.
+    ///
+    /// **Idempotent, like [`color`](Quantiser::color), and for the same reason it has to be**: the run
+    /// scan narrows a word to compare it and `emit_cell` narrows again to be correct whoever called
+    /// it, so `Serializer::narrow`'s memo answers `to` for `to` and needs `to` to be a fixed point.
+    ///
+    /// It is spelled over the whole word rather than over [`Style::attrs`] because it is the one
+    /// narrowing that means the same thing on **either side of the extended bit** — the flags are in
+    /// bits 62..55 whether the low fifty-two are two colours or a handle, which is why this runs
+    /// before [`style`](Quantiser::style)'s early return and not after it.
+    pub(crate) fn attrs(self, s: Style) -> Style {
+        if self.attrs_dropped == 0 {
+            return s;
+        }
+        Style::from_bits(s.bits() & !self.attrs_dropped)
+    }
+
     /// One style word, narrowed.
     ///
-    /// **An extended word comes back unchanged, and that is not an omission.** Bits 51..0 are a
-    /// handle, so there are no colours in the word to narrow — they are in the table, and they are
-    /// narrowed by [`channels`](Quantiser::channels) on the way to the wire. The consequence is
-    /// written down where it can be acted on: see [`crate::serial::Mirror`].
+    /// **An extended word comes back with its colours unchanged, and that is not an omission.** Bits
+    /// 51..0 are a handle, so there are no colours in the word to narrow — they are in the table, and
+    /// they are narrowed by [`channels`](Quantiser::channels) on the way to the wire. The consequence
+    /// is written down where it can be acted on: see [`crate::serial::Mirror`]. Its **flags** are
+    /// narrowed either way, by [`attrs`](Quantiser::attrs) above.
     pub(crate) fn style(self, s: Style) -> Style {
+        let s = self.attrs(s);
         if self.depth == ColorDepth::TrueColor || s.is_extended() {
             return s;
         }
@@ -406,8 +458,8 @@ fn index_channels_fixed(i: u8) -> Rgb {
     }
 }
 
-/// One cell as the wire can say it: the grapheme, the eleven attribute bits, and four channels
-/// resolved out of the handle tables and narrowed.
+/// One cell as the wire can say it: the grapheme, the eleven attribute bits less the flags this
+/// terminal drops, and four channels resolved out of the handle tables and narrowed.
 ///
 /// **The shape a frame is compared against the terminal in, and it exists because quantisation
 /// makes raw cell equality the wrong question.** Ticket 03's round trip compared whole `Cell`s,
@@ -422,6 +474,11 @@ fn index_channels_fixed(i: u8) -> Rgb {
 /// still a failure. What it stops asserting is the *spelling*: whether one screen's cell reached
 /// the wire as an inline word or as a table entry is the engine's business, and the terminal has no
 /// opinion about it.
+///
+/// **A dropped flag is narrowed on both sides and the other ten bits are not**, which is what keeps
+/// production ticket 10's degradation an assertion rather than an exemption: a terminal that lost
+/// *italic* on a frame that asked for overline fails here, and so does one that kept the overline the
+/// quirk table says it throws away.
 #[cfg(test)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) struct OnTheWire {
@@ -439,7 +496,7 @@ pub(crate) struct OnTheWire {
 pub(crate) fn on_the_wire(q: Quantiser, tables: &crate::tables::Tables, c: Cell) -> OnTheWire {
     OnTheWire {
         grapheme: c.grapheme,
-        attrs: c.style.attr_word(),
+        attrs: q.attrs(c.style).attr_word(),
         channels: q.channels(crate::restyle::channels(tables, c.style)),
     }
 }

@@ -146,6 +146,15 @@ would otherwise take it on trust. Wiring it is production ticket 10 — and it i
 because `quant::OnTheWire` has to narrow the expectation too, the way it already drops a hyperlink the
 terminal cannot express, or the round trip will fail on a bit the engine correctly declined to send.
 
+**Resolved the same day, and the prediction in that paragraph held exactly.** Production ticket 10 put
+the mask in `Quantiser` rather than in `serial.rs` — the module whose whole argument is *the one
+placement that keeps the equality filter exact* — so one field narrows the wire, the mirror, the gap
+pricing and `OnTheWire` at once, and the round trip closes on a tmux-identified terminal. The estimate
+was one file short in a way worth recording: `Quantiser::narrows` is the fast path that decides whether
+the scroll pre-pass may compare two **slices**, and a truecolor terminal that drops a flag narrows
+something — so a mask wired without touching that predicate would have forfeited every scroll on tmux
+while every gate stayed green. Nothing in the suite covered it until a gate was written for it.
+
 This is the backlog's opening finding a third time: a declaration that is load-bearing for the silence
 around it. The round trip agreeing with itself, an MSRV agreeing with the lints it disabled, and a mask
 agreeing with a serializer that never asked.

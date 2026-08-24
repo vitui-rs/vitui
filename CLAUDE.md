@@ -19,8 +19,9 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   resolved, all 27 entries of the verification register wired with none pinned red, ~30k lines.
   Production readiness added a 28th, `conform/`, which spec §14 had no way to state — and that
   instrument has already earned its keep twice: `quirks.rs`'s fourth entry (tmux accepts SGR 53,
-  stores it, and never forwards it) and production ticket 10 (`attrs_dropped` is populated, printed,
-  and read by nothing).
+  stores it, and never forwards it) and production ticket 10, which found `attrs_dropped` populated,
+  printed and read by nothing — now wired at `quant::Quantiser::attrs`, where one field narrows the
+  wire, the mirror, the gap pricing and the round trip's expectation together.
 - **`vitui-runtime` is in progress**: 9 of 20 tickets resolved. `data`, `layout`, `theme`, `keys`,
   `ctx`, `id`, `route` exist; focus, overlays, scrolling, sizing, async work and the standard theme
   set do not.

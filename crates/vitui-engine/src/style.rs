@@ -38,6 +38,15 @@ pub(crate) const STRIKETHROUGH: u64 = 1 << 57;
 pub(crate) const CONCEAL: u64 = 1 << 56;
 pub(crate) const OVERLINE: u64 = 1 << 55;
 
+/// The eight flags, 62..55 — [`ATTR_MASK`] less the three-bit underline style.
+///
+/// **The unit `Quirks::attrs_dropped` is in**, and the reason it is these eight and not the eleven is
+/// mechanical: dropping a flag is clearing its bit, and clearing a bit of a three-bit *enumeration*
+/// turns `double` into `none` rather than into `single`. An underline style a terminal does not render
+/// is therefore not expressible as a mask, and `Quirks::apply` says so where it would be tried.
+pub(crate) const ATTRS: u64 =
+    BOLD | DIM | ITALIC | REVERSE | BLINK | STRIKETHROUGH | CONCEAL | OVERLINE;
+
 /// The low bit of the three-bit underline-style field, at 54..52.
 pub(crate) const UNDERLINE_SHIFT: u32 = 52;
 pub(crate) const UNDERLINE_MASK: u64 = 0b111 << UNDERLINE_SHIFT;
@@ -259,7 +268,7 @@ impl Style {
     }
 
     pub(crate) const fn attrs(self) -> u64 {
-        self.bits() & (BOLD | DIM | ITALIC | REVERSE | BLINK | STRIKETHROUGH | CONCEAL | OVERLINE)
+        self.bits() & ATTRS
     }
 
     pub(crate) const fn underline_style(self) -> u8 {

@@ -1792,6 +1792,19 @@ fn is_ascii_scalar(g: GraphemeId) -> bool {
 /// A differential SGR is worth it and costs nothing to decide, because the decision is one style
 /// compare and the decomposition is off the hot path by construction: a realistic full-screen frame
 /// emits **one** SGR sequence for 24 000 cells.
+///
+/// # Both sides lose the flags the terminal does not render, and it is one line for a reason
+///
+/// §10 says an unsupported attribute is *dropped silently at serialise time*, and production ticket 10
+/// is what made that true. The drop is **both sides at once** and nothing below it changes: mask only
+/// `new` and a frame that turns overline off emits `SGR 55` for a bit the terminal never had, which is
+/// a byte spent to undo nothing and a diff computed against a style it was never in.
+///
+/// It is [`Quantiser::attrs`] rather than a mask spelled here, so the wire and
+/// [`crate::quant::OnTheWire`] read the same field through the same function — and it is **repeated**
+/// rather than assumed, exactly as [`Serializer::emit_cell`] repeats the colour narrowing: every word
+/// that arrives here has already been through [`Quantiser::style`], masking is idempotent, and what
+/// the repetition buys is that this function is correct whoever calls it.
 fn emit_sgr_delta(
     out: &mut Vec<u8>,
     old: Style,
@@ -1800,6 +1813,7 @@ fn emit_sgr_delta(
     caps: &Capabilities,
     quant: Quantiser,
 ) {
+    let (old, new) = (quant.attrs(old), quant.attrs(new));
     let mark = out.len();
     out.extend_from_slice(b"\x1b[");
     let mut params = 0u32;
@@ -3589,6 +3603,114 @@ mod tests {
                 }
             }
         }
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // The quirk table on the wire: a flag the terminal does not render.
+    // -----------------------------------------------------------------------------------------
+
+    /// **Gate, equality (production ticket 10): the flag a terminal drops is never sent, in either
+    /// direction.**
+    ///
+    /// §10 has always said an unsupported attribute is *dropped silently at serialise time*, and for
+    /// four tickets nothing did it: `Quirks::apply` filled `attrs_dropped`, `Capabilities::report`
+    /// printed it, and this file never asked. The gate is written against the **version string** and
+    /// not against a mask, so it fails the day the tmux entry is deleted rather than passing over an
+    /// empty table — see `Capabilities::identified_as`.
+    ///
+    /// **The off direction is half the property and the easier half to lose.** Masking only the new
+    /// side leaves `SGR 55` going out to turn off a bit the terminal never had: bytes spent to undo
+    /// nothing, and the next frame's diff computed against a style it was never in.
+    #[test]
+    fn the_flag_tmux_does_not_render_reaches_neither_side_of_the_wire() {
+        let tmux = Capabilities::identified_as("tmux 3.7c");
+        assert_eq!(
+            tmux.attrs_dropped(),
+            crate::style::OVERLINE,
+            "the entry is what this gate is about; without it there is nothing to assert"
+        );
+        let all = Style::new()
+            .bold()
+            .dim()
+            .italic()
+            .reverse()
+            .blink()
+            .strikethrough()
+            .conceal()
+            .overline()
+            .underline_double();
+
+        // Every attribute the encoding set can spell, less the one tmux throws away — and the other
+        // ten asserted by being *there*, because a mask that dropped more than it was observed to
+        // drop is the failure `quirks.rs` exists to avoid.
+        assert_eq!(
+            sgr(Style::new(), all, &tmux),
+            "ESC[1;2;3;5;7;8;9;4:2m",
+            "53 is the only parameter that may be missing"
+        );
+        assert_eq!(
+            sgr(all, Style::new(), &tmux),
+            "ESC[22;23;25;27;28;29;24m",
+            "and 55 does not turn off a bit the terminal never had"
+        );
+
+        // The same two words on a terminal with no entry, which is what says the gate above is about
+        // the quirk table and not about the encoding.
+        let plain =
+            Capabilities::on_the_wire(ColorDepth::TrueColor, false, Underlines::Standard, false);
+        assert_eq!(plain.attrs_dropped(), 0);
+        assert_eq!(sgr(Style::new(), all, &plain), "ESC[1;2;3;5;7;8;9;53;4:2m");
+        assert_eq!(
+            sgr(all, Style::new(), &plain),
+            "ESC[22;23;25;27;28;29;55;24m"
+        );
+    }
+
+    /// **Gate, equality (production ticket 10): the degradation, on a whole frame.**
+    ///
+    /// The SGR gate above pins the parameters; this one pins what the *terminal* ends up holding, and
+    /// the two are not the same statement — an `emit_sgr_delta` that masked correctly while the mirror
+    /// recorded the unmasked word would pass the first and leave the next frame's diff computed
+    /// against a style the terminal was never in.
+    ///
+    /// The shape is `the_round_trip_closes_under_every_wire_configuration`'s OSC 8 arm: where the
+    /// terminal cannot express something the replayed cell is *deliberately* not equal, so the arm
+    /// asserts the **degradation** — same glyph, same colours, same ten other flags, no overline.
+    #[test]
+    fn a_frame_on_tmux_arrives_with_every_attribute_but_the_dropped_one() {
+        let tmux = Capabilities::identified_as("tmux 3.7c");
+        let all = Style::new()
+            .bold()
+            .italic()
+            .conceal()
+            .overline()
+            .fg(Color::rgb(1, 2, 3));
+        let mut frame = Surface::new(4, 1);
+        frame.root().text(0, 0, "ab", all);
+        let want = frame.row(0)[0];
+
+        let bytes = bytes_with(&frame, &tmux);
+        let mut term = TermModel::new(4, 1);
+        term.feed(&bytes, frame.tables_mut());
+        assert_eq!(term.unrecognised(), 0, "{}", text(&bytes));
+
+        let got = term.cell(0, 0);
+        assert_eq!(got.grapheme, want.grapheme);
+        assert_eq!(
+            got.style.attrs(),
+            want.style.attrs() & !crate::style::OVERLINE,
+            "overline and nothing else: {}",
+            text(&bytes)
+        );
+        assert_eq!(
+            got.style.foreground(),
+            want.style.foreground(),
+            "a colour was dropped, not an attribute"
+        );
+        assert!(
+            want.style.attrs() & crate::style::OVERLINE != 0,
+            "the frame has to be asking for the bit, or this closes on nothing"
+        );
     }
 
     /// **Report: the worst case, and the tearing that is a known consequence rather than a bug.**

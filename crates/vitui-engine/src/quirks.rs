@@ -137,13 +137,14 @@ pub(crate) struct Quirks {
     /// Attribute bits the terminal does not render, in the style word's own positions. This is where
     /// the eleven attribute facts live, because there is no query for any of them.
     ///
-    /// **The serializer does not consult this yet**, and that is a defect rather than a design:
-    /// `caps.rs`'s own module docs say *"an unsupported one is dropped silently at serialise time"*
-    /// and no code in `serial.rs` reads the mask. Populating it is production ticket 05; wiring it —
-    /// which also means teaching `quant::OnTheWire` to narrow the expectation, the way it already
-    /// drops a link the terminal cannot express — is production ticket 10. Until then the mask
-    /// reaches a human through [`Capabilities::report`](crate::Capabilities::report) and nothing
-    /// else, and the tmux entry below is a recorded observation rather than a behaviour.
+    /// **The eight flags of [`crate::style::ATTRS`] and not the eleven bits**, and `apply` refuses the
+    /// other three rather than mangling them: clearing a bit of the three-bit underline *enumeration*
+    /// turns `double` into `none`, so an underline style a terminal does not render is not a fact this
+    /// field can hold. A terminal that has one needs a new axis, not a wider mask.
+    ///
+    /// Read on the wire by [`crate::quant::Quantiser::attrs`], which is what makes §10's *dropped
+    /// silently at serialise time* true — production ticket 10, filed by the ticket that populated
+    /// this field and found nothing reading it.
     pub(crate) attrs_dropped: u64,
     /// Overrule what was inferred about OSC 8, in either direction.
     pub(crate) hyperlinks: Option<bool>,
@@ -219,6 +220,11 @@ impl Quirks {
         if self.underlines != Underlines::Standard {
             caps.private.underlines = self.underlines;
         }
+        debug_assert_eq!(
+            self.attrs_dropped & !crate::style::ATTRS,
+            0,
+            "attrs_dropped is the eight flags; an underline style is not a bit to clear"
+        );
         caps.private.attrs_dropped |= self.attrs_dropped;
         if let Some(hyperlinks) = self.hyperlinks {
             caps.hyperlinks = hyperlinks;

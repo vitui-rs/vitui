@@ -37,12 +37,12 @@
 //! table ([`crate::quirks`]), and an unsupported one is dropped silently at serialise time —
 //! nothing above needs to ask, because an absent attribute still draws the correct text.
 //!
-//! **That last clause is what §10 says and not yet what the code does.** `Quirks::apply` fills
-//! `attrs_dropped` and `serial.rs` never reads it, so the mask reaches a human through
-//! [`Capabilities::report`] and reaches the wire nowhere. Production ticket 05 populated the field
-//! with its first observed entry; production ticket 10 is the one that makes this sentence true.
-//! Written here rather than only in the ticket, because this paragraph is where a reader would
-//! otherwise take it on trust.
+//! **That last clause was a declaration nothing checked for four tickets, and it is now
+//! [`crate::quant::Quantiser::attrs`].** `Quirks::apply` filled `attrs_dropped`,
+//! [`Capabilities::report`] printed it, and `serial.rs` never read it — so the sentence above was
+//! true of the specification and false of the code, which is this backlog's own opening shape one
+//! layer down. Production ticket 05 populated the field and found it unread; production ticket 10
+//! wired it, at the placement that also makes the mirror hold what was sent.
 
 use std::fmt::Write as _;
 
@@ -807,7 +807,9 @@ impl Capabilities {
     }
 
     /// The attribute bits to drop at serialise time, in the style word's own positions.
-    #[allow(dead_code)]
+    ///
+    /// Read once per `serialize`, by [`Quantiser::for_terminal`](crate::quant::Quantiser), which is
+    /// the single home the mask has on the wire — see [`crate::quant::Quantiser::attrs`].
     pub(crate) fn attrs_dropped(&self) -> u64 {
         self.private.attrs_dropped
     }
@@ -925,6 +927,38 @@ impl Capabilities {
                 underlines,
                 ..Quirks::default()
             },
+        )
+    }
+
+    /// The capabilities of a terminal the quirk table recognises by what XTVERSION answered.
+    ///
+    /// **The third use of arch 22's door, and the first where the axis is not merely undeclarable but
+    /// unnameable.** `sync_output` and `underlines` have no `Overrides` field because nobody at the
+    /// terminal can name mode 2026 or ConPTY's underline-colour form;
+    /// [`attrs_dropped`](Capabilities::attrs_dropped) has none because there is no query for *do you
+    /// render overline* at all, which is the whole reason the eleven attribute facts live in
+    /// [`Quirks`] instead of here.
+    ///
+    /// So this takes the **version string** and not the mask, and the quirk table decides. A gate
+    /// written against a mask would pass with the table empty; a gate written against `"tmux 3.7c"`
+    /// fails the day the entry is deleted, which is the property worth having — production ticket 10.
+    #[cfg(test)]
+    pub(crate) fn identified_as(version: &str) -> Capabilities {
+        let env = Env::default();
+        assemble(
+            Overrides {
+                colors: Some(ColorDepth::TrueColor),
+                hyperlinks: Some(true),
+                ..Overrides::default()
+            },
+            &env,
+            Ground::Tty,
+            &Detected {
+                answered: true,
+                version: Some(version.to_string()),
+                ..Detected::default()
+            },
+            Quirks::lookup(Some(version), &env),
         )
     }
 
@@ -1545,8 +1579,14 @@ mod tests {
         assert_eq!(caps.attrs_dropped(), crate::style::OVERLINE);
         assert!(
             caps.report().contains("attrs_dropped"),
-            "and `report` is the only door it reaches a human through until production ticket 10 \
-             wires the mask into the serializer"
+            "and `report` is where a human reads it; the wire reads it through `Quantiser::attrs`"
+        );
+
+        // The constructor the serializer's own gate goes through, on the same version string, so the
+        // two cannot drift about which terminal is being talked about.
+        assert_eq!(
+            Capabilities::identified_as("tmux 3.7c").attrs_dropped(),
+            crate::style::OVERLINE
         );
     }
 

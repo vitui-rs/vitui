@@ -313,7 +313,14 @@ pub const REGISTER: [Entry; 28] = [
                  spellings, mode 2026 and OSC 8. Impl 14 puts every scene through it four more \
                  times: crate::gates::steady_bytes drives the filter's four configurations through \
                  the same Harness, so a variant that skipped a cell it may not have skipped fails as \
-                 a wrong screen rather than as a small number in a report",
+                 a wrong screen rather than as a small number in a report. \
+                 **Production ticket 10 adds the axis the quirk table owns**: \
+                 crate::roundtrip::the_round_trip_closes_on_a_terminal_that_drops_an_attribute is \
+                 the round trip on a tmux-identified terminal, where the bytes deliberately do not \
+                 carry a bit the frame asked for — so the expectation is narrowed by \
+                 quant::OnTheWire for the one flag and for no other, and the sibling \
+                 a_scroll_is_taken_on_a_terminal_that_drops_an_attribute is beside it because \
+                 Quantiser::narrows deciding this axis wrongly costs a scroll rather than a colour",
         },
     },
     Entry {

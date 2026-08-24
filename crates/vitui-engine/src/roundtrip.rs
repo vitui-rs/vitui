@@ -1107,3 +1107,124 @@ fn a_scroll_is_taken_at_every_depth_and_not_only_where_nothing_narrows() {
         );
     }
 }
+
+/// **Gate, equality (production ticket 10): the round trip closes on a terminal that drops a flag.**
+///
+/// The two gates in `crate::serial` say what goes on the wire and what the model ends up holding.
+/// This one is the instrument itself: `Harness::present` asserts the replayed screen against the
+/// frame *and* the mirror against the frame, both through `quant::OnTheWire`, and a frame asking for
+/// overline against a terminal whose bytes deliberately do not carry it is a real inequality until
+/// the expectation is narrowed too. Without the narrowing this test fails — which is the whole reason
+/// production ticket 10 was a ticket and not a two-character patch.
+///
+/// **It narrows the one flag and not the ten**, so this is stronger than an exemption: a serializer
+/// that dropped italic here, or one that kept the overline the quirk table says tmux throws away,
+/// fails inside `present` with no assertion of its own.
+#[test]
+fn the_round_trip_closes_on_a_terminal_that_drops_an_attribute() {
+    let mut h = Harness::declaring(
+        8,
+        1,
+        crate::caps::Capabilities::identified_as("tmux 3.7c"),
+        crate::input::InputConfig::default(),
+    );
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, 8, 1), true);
+    let all = Style::new()
+        .bold()
+        .dim()
+        .italic()
+        .reverse()
+        .blink()
+        .strikethrough()
+        .conceal()
+        .overline()
+        .underline_double()
+        .fg(Color::rgb(1, 2, 3));
+    h.screen
+        .layers()
+        .view(id)
+        .expect("the layer is still there")
+        .text(0, 0, "abcd", all);
+    assert!(h.present().submitted);
+
+    // The bit is absent from the *bytes* and not merely from the comparison, which is the half a
+    // narrowed expectation could hide on its own.
+    let wire = String::from_utf8_lossy(&h.wire()).replace('\x1b', "ESC");
+    assert!(!wire.contains("53"), "{wire}");
+    assert!(wire.contains("28"), "conceal still goes out: {wire}");
+
+    let shown = h.terminal().cell(0, 0).style;
+    assert_eq!(
+        shown.attrs(),
+        all.attrs() & !crate::style::OVERLINE,
+        "overline and nothing else"
+    );
+    assert_eq!(shown.underline_style(), all.underline_style());
+}
+
+/// **Gate, equality (production ticket 10): a scroll is still taken on a terminal that drops a
+/// flag.**
+///
+/// The sibling of `a_scroll_is_taken_at_every_depth_and_not_only_where_nothing_narrows`, and it exists
+/// for the same defect one field along. The scroll pre-pass compares the packet's own cells against a
+/// mirror holding what the terminal was **sent**, and `Quantiser::narrows` is the fast path that
+/// decides whether that comparison may be a slice `==`. A truecolor terminal that drops a flag
+/// narrows something, so a `narrows` keyed on `depth` alone takes the slice path with a masked mirror
+/// against an unmasked packet: every cell carrying the flag reads as a change, obligation 1 fails on
+/// the first row, and **every scroll on that terminal is forfeited** — correct output, 32x the bytes,
+/// nothing red.
+///
+/// The two arms differ in the quirk entry and in nothing else, which is why the ink has to carry the
+/// dropped bit: paint in anything the entry does not touch and both arms are the same test.
+#[test]
+fn a_scroll_is_taken_on_a_terminal_that_drops_an_attribute() {
+    fn scrolls(version: &str) -> (usize, usize) {
+        let mut h = Harness::declaring(
+            SW,
+            SH,
+            crate::caps::Capabilities::identified_as(version),
+            crate::input::InputConfig::default(),
+        );
+        let id = h
+            .screen
+            .layers()
+            .add_content(0, Rect::new(0, 0, SW, SH), true);
+        // **Overlined, which is the whole fixture**: it is the one bit tmux's entry masks, so an ink
+        // without it makes the two arms identical and the gate vacuous.
+        let ink = Style::new().overline();
+        let paint = |h: &mut Harness, top: u32| {
+            let mut v = h
+                .screen
+                .layers()
+                .view(id)
+                .expect("the layer is still there");
+            for y in 0..SH {
+                v.fill(Rect::new(0, y as i32, SW, 1), " ", ink);
+                v.text(0, y as i32, &format!("row {}", top + u32::from(y)), ink);
+            }
+        };
+        paint(&mut h, 0);
+        h.present();
+        for t in 1..=3 {
+            paint(&mut h, t);
+            h.present();
+        }
+        h.scrolls()
+    }
+
+    let reference = scrolls("ghostty 1.3.1");
+    assert_eq!(
+        reference,
+        (3, 3),
+        "the fixture stopped scrolling at all, so the arm below compares nothing"
+    );
+    assert_eq!(
+        scrolls("tmux 3.7c"),
+        reference,
+        "tmux did not take the scroll a terminal with no quirk entry took — the pre-pass is \
+         comparing what the application asked for against what the terminal was sent"
+    );
+}
