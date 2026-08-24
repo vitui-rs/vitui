@@ -19,8 +19,10 @@
 //! - **Numbers are kept per scene and never summed.** There is no total here and there is no field
 //!   one could go in. The engine records that its 27x scroll-detector regression was visible only
 //!   because numbers were kept per scene; the runtime's own version is scene 19, the chunked data
-//!   source at **321% of the whole frame budget**, which disappears into any average taken over the
-//!   other nineteen.
+//!   source at **roughly 230% of the whole frame budget**, which disappears into any average taken
+//!   over the other nineteen. That figure was 321% when §14 measured it, which is the second half of
+//!   the same argument: **a number that moves by a third is not a number to average, and it is not a
+//!   number to gate on either** — see scene 19's `decided`.
 //! - **Every scene names where its numbers come from**, and
 //!   [`tests::every_scene_names_something_that_exists`] opens the file and looks. A list of prose
 //!   would let a scene stop being run without anything saying so, which is the failure the list
@@ -30,9 +32,12 @@
 //!   gates are driven over, and *what it decided* is often a number nobody gates on. But
 //!   [`State::Wired`] says **it runs**, and this workspace runs `cargo test` and two named
 //!   examples — so a scene whose only instrument is an `examples/*.rs` is compiled and never
-//!   evaluated, and calling that wired is a claim the code contradicts. **Scene 19 is therefore
-//!   red**, against R 20, which owns the reports and the ledger its figure belongs to. Nineteen
-//!   wired, one red.
+//!   evaluated, and calling that wired is a claim the code contradicts. **Twenty wired, none red.**
+//!   Scene 19 was the exception until R 20 gave it a test rather than a rewording: its microsecond
+//!   figure is still a report, and what is gated beside it is the relation the figure is evidence
+//!   for — `data::tests::a_chunked_source_is_three_orders_off_a_slice_and_doubles_with_the_offset`.
+//!   That is the shape available whenever a scene's headline number is a timing, and it is the
+//!   shape to reach for before a scene is recorded wired on a file nothing runs.
 //!
 //! # `decided` is the column that stops a scene from being deleted
 //!
@@ -377,18 +382,25 @@ pub const SCENES: [Scene; 20] = [
     Scene {
         number: 19,
         name: "a chunked data source",
-        decided: "320.85 us, **321% of the budget** — the trap through the storage, and the scene \
-                  that disappears into any number averaged over the other nineteen",
-        state: State::Red {
-            inverted_by: "R 20",
-            why: "**Its only instrument is an example no CI job runs**, and `State::Wired` means \
-                  *it runs*. `crate::register`'s own argument applies to it: this workspace runs \
-                  `cargo test` and two named examples, so an `assert!` anywhere else in \
-                  `examples/` is compiled and never evaluated. So nothing checks the 321% figure — \
-                  and this is the scene the module comment singles out as the one that must not \
-                  disappear into an average, which makes recording it as wired the worst of the \
-                  available mistakes. R 20 owns *reports, committed and gating nothing* and the \
-                  headroom ledger the figure belongs to",
+        decided: "the trap through the storage, and the scene that disappears into any number \
+                  averaged over the other nineteen. **The figure moved and the finding did not**: \
+                  §14 measured 320.85 us, 321% of the budget, and the shipped module reads \
+                  226.92-237.21 us over six runs — **roughly 230%**, a third smaller, 4% of spread \
+                  between two runs of one binary, and still multiples of a whole frame. So what \
+                  R 20 gated is the relation the timing is evidence for, which is the same number \
+                  on every machine: **one screenful is 78 index reads against 609 460 chunk hops \
+                  and 39 003 081 node hops**, and a walked source costs twice as much twice as far \
+                  down the list where an indexed one costs the same",
+        state: State::Wired {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-runtime/src/data.rs",
+                    name: "a_chunked_source_is_three_orders_off_a_slice_and_doubles_with_the_offset",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-runtime/examples/data_numbers.rs",
+                },
+            ],
         },
     },
     Scene {
@@ -434,12 +446,16 @@ mod tests {
         assert_eq!(names.len(), SCENES.len(), "two scenes share a name");
     }
 
-    /// **Nineteen wired, one red**, and the red one is named.
+    /// **Twenty wired, none red**, and that is R 20 closing the last one.
     ///
-    /// Scene 19 is the chunked data source, whose only instrument is a report no CI job runs — see
-    /// its `why`. Stating the split here is what stops a second scene quietly joining it.
+    /// This list was nineteen and one from ticket 19 until ticket 20 gave scene 19 — the chunked
+    /// data source, whose only instrument was a report no CI job runs — a `#[test]` over the
+    /// relation its microsecond figure is evidence for. Saying *how many* is what stops a red scene
+    /// arriving unremarked, and at all-green it has the second job [`crate::register`]'s count has:
+    /// **a list that says it is all-green** makes the next red row a deliberate edit to this number
+    /// rather than a quiet one.
     #[test]
-    fn nineteen_are_wired_and_one_is_red() {
+    fn twenty_are_wired_and_none_are_red() {
         let red: Vec<u8> = SCENES
             .iter()
             .filter(|s| matches!(s.state, State::Red { .. }))
@@ -447,9 +463,12 @@ mod tests {
             .collect();
         assert_eq!(
             red,
-            vec![19],
-            "the red scenes have changed. A new one is fine and has to be argued for here"
+            Vec::<u8>::new(),
+            "a red scene is back. A new one is fine and has to be argued for here, in this test's \
+             documentation, and in the module comment above — the count is the thing that stops it \
+             arriving unremarked"
         );
+        assert_eq!(SCENES.len() - red.len(), 20);
     }
 
     /// **A wired scene runs something `cargo test` runs.**

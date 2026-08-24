@@ -170,11 +170,29 @@ pub enum State {
     },
     /// It does not run, and the implementation ticket that makes it possible is named.
     ///
-    /// **Entry 12 is the one red row**, and it was red the moment the instruments stopped being
-    /// prose: the dense frame under the budget is measured in two places and gated in neither, and a
-    /// sentence saying where it ran could not tell the difference. That is the engine register's own
-    /// argument for this arm arriving as a demonstration rather than as a warning — *a property that
-    /// quietly never arrives is indistinguishable from one that was decided against*.
+    /// **Nothing constructs this today, and the arm stays**, which is the same decision
+    /// [`Kind::Test`] records for the same reason: a distinction the type cannot make is one a row
+    /// stops making, and the pressure that produces is a red property filed as a wired one. Both
+    /// lists reached all-green in ticket 20 — the register's entry 12 first, then
+    /// [`crate::scenes`]'s scene 19 — and the second of those is what made the variant dead.
+    ///
+    /// It arrived as a demonstration rather than as a warning, and both demonstrations are worth
+    /// keeping in view. Entry 12 was red the moment the instruments stopped being prose: the dense
+    /// frame under the budget was measured in two places and gated in neither, and a sentence saying
+    /// where it ran could not tell the difference. Scene 19 was red for the neighbouring reason —
+    /// its only instrument was a file `cargo test` compiles and never evaluates. *A property that
+    /// quietly never arrives is indistinguishable from one that was decided against.*
+    ///
+    /// The `#[expect]` is deliberately the two-way form. Writing a red row again makes the
+    /// expectation unfulfilled, which is a denied warning, which is a build failure naming this line
+    /// — so the next red row costs a one-line deletion here **and cannot arrive without one**. That
+    /// is the count tests' *a deliberate edit rather than a quiet one*, enforced by the compiler
+    /// instead of by a reviewer.
+    #[expect(
+        dead_code,
+        reason = "both lists are all-green; the arm stays so a row can say it is not, and \
+                  constructing it again has to delete this attribute"
+    )]
     Red {
         /// The implementation ticket that inverts this entry, as `R NN`.
         inverted_by: &'static str,

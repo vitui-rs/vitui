@@ -35,11 +35,29 @@
 //! # The load-bearing assumption neither shape carries
 //!
 //! **O(1) indexed access is prose, not a type.** One row drawer accepts indexed, chunked and linked
-//! sources with the same eighty verbs and the same hit index, and the three cost 19.77 µs,
-//! 320.85 µs and 78.40 ms — the *reasonable-looking* chunked source is already **321% of the whole
-//! frame budget**. `examples/data_numbers.rs` is where that is in the repository rather than only in
-//! the spec, and the gate under it is a **step count** — 78 against 780 078 — because all three
-//! allocate nothing and the difference is invisible to every heap tool.
+//! sources with the same eighty verbs and the same hit index, and the *reasonable-looking* chunked
+//! source is over the whole frame budget on its own — a rope, a paged cursor or a `Vec<Vec<T>>` is
+//! an ordinary thing for an application to have, and no type in this module says what it costs.
+//!
+//! **The finding survived being re-measured and the figure did not.** Spec §14 priced the three
+//! shapes at 19.77 µs, 320.85 µs and 78.40 ms; R 20 re-ran the report against the shipped module and
+//! reads **≈4 µs, ≈230 µs and ≈41 ms**. The chunked arm is **226.92–237.21 µs over six runs on one
+//! machine in one afternoon** — a 4% spread with nothing else running — so **321% of the frame
+//! budget is now roughly 230%**. Still multiples of a whole frame, still the one trap the map wanted
+//! in the repository, and a third of the way to being a different number.
+//!
+//! That is the argument for the shape of the gate below rather than a footnote to it. A figure that
+//! moved by a third between the map and the code, and by 4% between two runs of the same binary, is
+//! not a figure to assert — **and the finding it is evidence for does not move at all.**
+//!
+//! So the claim is **gated as a relation over step counts** —
+//! `tests::a_chunked_source_is_three_orders_off_a_slice_and_doubles_with_the_offset` — and
+//! *reported* in microseconds by `examples/data_numbers.rs`. Two reasons, neither of them style. All
+//! three sources **allocate nothing**, so the difference is invisible to every heap tool and a count
+//! is the only instrument that can see it at all. And a step count is the same number on every
+//! machine: one screenful is 78 index reads against 609 460 chunk hops and 39 003 081 node hops, on
+//! this laptop and on a shared runner alike, where the microseconds are three orders apart here and
+//! would be three different orders somewhere else.
 
 use std::ops::{Deref, DerefMut};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -473,6 +491,104 @@ mod tests {
         }
     }
 
+    /// The chunk width of the paged source, and the `64` in *O(k/64)*.
+    ///
+    /// Shared with `examples/data_numbers.rs` by being the same number rather than the same
+    /// declaration, and that is deliberate: **the gate may not read anything out of the report.** A
+    /// file in `examples/` is compiled by `cargo clippy --all-targets` and evaluated by nothing, so a
+    /// test that imported the report's shapes would be a gate resting on a report — the register's
+    /// refinement 2, arriving as an `#[path]` include. The three shapes are declared twice on
+    /// purpose, and the two copies are held together by the numbers below being derived from
+    /// arithmetic rather than recorded from a run.
+    const CHUNK: usize = 64;
+
+    /// A paged source: chunks reached by **walking** from the first one, because a rope does not know
+    /// where its chunks are without following them.
+    ///
+    /// This is the shape scene 19 is about, and the reason it is worth a gate is that it looks
+    /// harmless. It is `Vec<Vec<T>>`. It has an index-shaped accessor. Nothing about the call site
+    /// distinguishes it from a slice.
+    struct Chunked {
+        chunks: Vec<Vec<f32>>,
+    }
+
+    impl Chunked {
+        fn build(rows: usize) -> Chunked {
+            Chunked {
+                chunks: (0..rows)
+                    .map(|i| i as f32)
+                    .collect::<Vec<f32>>()
+                    .chunks(CHUNK)
+                    .map(<[f32]>::to_vec)
+                    .collect(),
+            }
+        }
+
+        /// One step per chunk hopped, which is the whole of what is being counted.
+        fn get(&self, index: usize, steps: &mut u64) -> f32 {
+            let mut seen = 0;
+            for chunk in &self.chunks {
+                *steps += 1;
+                if seen + chunk.len() > index {
+                    return chunk[index - seen];
+                }
+                seen += chunk.len();
+            }
+            f32::NAN
+        }
+    }
+
+    /// A linked source, walked from the head for every row: the far end of the same axis.
+    struct Linked {
+        head: Option<Box<Node>>,
+    }
+
+    struct Node {
+        cpu: f32,
+        next: Option<Box<Node>>,
+    }
+
+    /// **The derived drop walks `next` by recursion**, which is a stack overflow at any length worth
+    /// measuring, so the list frees itself in a loop.
+    ///
+    /// Not incidental to the point: the shape that is expensive to *read* is also the one that is
+    /// awkward to *own*, and both come from the same absence of an index.
+    impl Drop for Linked {
+        fn drop(&mut self) {
+            let mut node = self.head.take();
+            while let Some(mut n) = node {
+                node = n.next.take();
+            }
+        }
+    }
+
+    impl Linked {
+        fn build(rows: usize) -> Linked {
+            let mut head = None;
+            for i in (0..rows).rev() {
+                head = Some(Box::new(Node {
+                    cpu: i as f32,
+                    next: head,
+                }));
+            }
+            Linked { head }
+        }
+
+        fn get(&self, index: usize, steps: &mut u64) -> f32 {
+            let mut node = self.head.as_deref();
+            let mut at = 0;
+            while let Some(n) = node {
+                *steps += 1;
+                if at == index {
+                    return n.cpu;
+                }
+                at += 1;
+                node = n.next.as_deref();
+            }
+            f32::NAN
+        }
+    }
+
     /// **No trait is declared in this module**, and "we decided not to" is not a property of the
     /// code.
     ///
@@ -500,6 +616,117 @@ mod tests {
         assert!(
             declarations.is_empty(),
             "spec §14 says there is no trait, and this module declares {declarations:?}"
+        );
+    }
+
+    /// **Scene 19, as a relation rather than as a microsecond figure.**
+    ///
+    /// The scene is *a chunked data source*, and what it decided is that a source which looks like a
+    /// slice at the call site can cost multiples of a whole frame to put one screenful on screen —
+    /// and that the finding **must not disappear into a number averaged over the other nineteen
+    /// scenes**. Until R 20 the only thing checking any of that was `examples/data_numbers.rs`, which
+    /// this workspace compiles and never runs, so the scene was recorded red: `State::Wired` means
+    /// *it runs*.
+    ///
+    /// # Why this is a step count and cannot be a timing
+    ///
+    /// Spec §20: *a gate is a count, a ratio, an equality or a compile outcome; a timing is a
+    /// report.* The chunked source's own headline number is a timing, and it is a moving one — §14
+    /// recorded 320.85 µs and the shipped module reads 226.92–237.21 µs on the same scene — so a
+    /// gate written as *the chunked arm is over the budget* would be a gate that gets edited rather
+    /// than fixed every time the machine changes. **The relation underneath it does not move**: the
+    /// accessors
+    /// below take exactly the same steps on every machine, on a laptop and on a shared runner, in
+    /// `--release` and in a debug test binary.
+    ///
+    /// # The three bounds, and why each is a property of the access shape
+    ///
+    /// 1. **The indexed source takes one step a row at every offset.** An equality, and the one
+    ///    number here that belongs to the *mechanism* rather than to the data: that is what O(1)
+    ///    *means*, so it is not a measurement and there is nothing to tune. It is also the denominator
+    ///    of everything below, which is why it is asserted rather than assumed.
+    /// 2. **A walked source doubles when the screen is twice as far down.** The discriminator, and
+    ///    the reason this test looks at two offsets rather than one. `Chunked::get` hops
+    ///    ⌈offset / [`CHUNK`]⌉ chunks a row and `Linked::get` hops `offset` nodes, so both are linear
+    ///    in *where the screen is* and the indexed source is flat in it. Bounded at 1.9–2.1× rather
+    ///    than at exactly 2 because the screenful straddles a chunk boundary and the first row is not
+    ///    the offset — arithmetic, not tolerance.
+    /// 3. **At the scene's own offset the chunked source is three orders off the slice.** A floor,
+    ///    derived rather than recorded: halfway down a list, with 64-row chunks, the walk pays
+    ///    `offset / 64` hops to reach the chunk plus the one it lands in — 40 028 steps for the
+    ///    screenful, which is 513 a row — and the linked source pays `offset` nodes, 32 807 a row.
+    ///    The assertions are stated at 500 and 30 000. A floor rather than an equality because the
+    ///    *shape* is the claim; the exact figure is a function of the list length this test happens
+    ///    to build, which makes it a number belonging to the data.
+    ///
+    /// The absolute numbers the scene is quoted with come from a million rows at offset 500 000 — 78
+    /// index reads, 609 460 chunk hops, 39 003 081 node hops — and they are the same ratios one
+    /// order further out. This builds 65 536 rows because a `cargo test` binary is unoptimised and a
+    /// million `Box<Node>` walked 39 million times is a report's job, not a gate's.
+    #[test]
+    fn a_chunked_source_is_three_orders_off_a_slice_and_doubles_with_the_offset() {
+        /// Long enough that the walked shapes are unmistakable, short enough for a debug binary.
+        const ROWS: usize = 65_536;
+        /// A screenful on a 300x80 with a header and a footer — the scene's own row count.
+        const VISIBLE: usize = 78;
+
+        let indexed = Indexed::build(ROWS);
+        let chunked = Chunked::build(ROWS);
+        let linked = Linked::build(ROWS);
+
+        // One drawer, three sources, and it never learns which one it is reading from — the sentence
+        // that killed the trait, and the premise the whole scene rests on. The rows have to come back
+        // *identical*, because a cheaper source that returned something else would not be a cheaper
+        // source.
+        let screenful = |offset: usize| -> (u64, u64, u64) {
+            let (mut ix, mut ch, mut li) = (0u64, 0u64, 0u64);
+            for r in 0..VISIBLE {
+                ix += 1;
+                let row = indexed.cpu[offset + r];
+                assert_eq!(chunked.get(offset + r, &mut ch), row, "row {r} disagrees");
+                assert_eq!(linked.get(offset + r, &mut li), row, "row {r} disagrees");
+            }
+            (ix, ch, li)
+        };
+
+        let (ix_near, ch_near, li_near) = screenful(ROWS / 4);
+        let (ix_far, ch_far, li_far) = screenful(ROWS / 2);
+
+        // 1. One step a row, at either offset. The equality.
+        assert_eq!(
+            (ix_near, ix_far),
+            (VISIBLE as u64, VISIBLE as u64),
+            "an O(1) source takes one step a row wherever the screen is, which is what O(1) means"
+        );
+
+        // 2. The discriminator: flat against linear in the offset.
+        let chunk_growth = ch_far as f64 / ch_near as f64;
+        let link_growth = li_far as f64 / li_near as f64;
+        assert!(
+            (1.9..=2.1).contains(&chunk_growth),
+            "a chunked source drew the same screenful {chunk_growth:.3}x more expensively twice as \
+             far down the list. It is supposed to be linear in the offset — under 1.9x means \
+             something has started indexing and this test no longer measures a walk; over 2.1x \
+             means it got worse than a walk"
+        );
+        assert!(
+            (1.9..=2.1).contains(&link_growth),
+            "a linked source grew {link_growth:.3}x for twice the offset, and O(k) is 2x"
+        );
+
+        // 3. The ratio at the scene's own offset — halfway down, where a walked source pays for
+        //    where the screen is and an indexed one does not.
+        assert!(
+            ch_far / ix_far >= 500,
+            "a chunked source cost {ch_far} steps against the slice's {ix_far} for the same {VISIBLE} \
+             rows. Three orders is the finding, and {} chunk hops a row is what `offset / CHUNK` \
+             comes to here",
+            ROWS / 2 / CHUNK
+        );
+        assert!(
+            li_far / ix_far >= 30_000,
+            "a linked source cost {li_far} steps against the slice's {ix_far}, and the far end of \
+             this axis is supposed to be four orders out"
         );
     }
 
