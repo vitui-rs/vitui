@@ -183,6 +183,24 @@ fn drive() -> Result<(), String> {
             socket.display()
         ));
     }
+    // **A unix socket path has a length limit and kitty does not fail on it**, which cost a probe to
+    // find. `sockaddr_un::sun_path` is 104 bytes on macOS; given a longer one kitty logs `Invalid
+    // listen_on=…, ignoring` **and starts anyway**, so the window opens, no socket appears, and
+    // every `kitten @` fails with a connection error that reads like a permissions problem.
+    //
+    // So the refusal is here, where it can name the cause, rather than twenty seconds later where it
+    // could only say a socket never appeared. The path above is under `$TMPDIR`, which is short on
+    // this machine — but `$TMPDIR` is somebody's environment variable and this is one line.
+    const SUN_PATH: usize = 104;
+    if socket.as_os_str().len() >= SUN_PATH {
+        return Err(format!(
+            "the control socket path is {} bytes and a unix socket path may be {SUN_PATH}: {}. \
+             kitty would ignore `--listen-on` and start anyway, so this would arrive as a window \
+             that never answers",
+            socket.as_os_str().len(),
+            socket.display()
+        ));
+    }
 
     let version = version()?;
     let launched = Instant::now();
