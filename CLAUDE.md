@@ -243,5 +243,12 @@ The active backlog is `.scratch/vitui-runtime-impl/`. Build order across the rep
 runtime → components**, but the runtime is *not* a queue behind the engine — several of its tickets
 name single engine tickets and ran beside them.
 
+**The production-readiness backlog is paused as of 2026-08-23**, with 04, 07, 08 and 09 marked so in
+their own files and the reason in `.scratch/vitui-engine-production/README.md`: nothing above the
+engine can draw a screen yet, and those tickets get sharper once a real consumer exists rather than
+harder. **08 is superseded** — the runtime is the caller it wanted, and a better one, so the small
+engine-only application it specifies does not get built. Work returns there when the runtime can put
+a frame on a terminal.
+
 `tickets/` at the repo root is a **separate** surface — the hand-written backlog the `dispatch` skill
 consumes — and holds the two items that need the finished library. Do not migrate one into the other.
