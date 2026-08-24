@@ -463,9 +463,13 @@ body, so a derived id is the id the owner already claimed one line earlier. The 
 layer's lifecycle across frames and roots the overlay's own id stack — which is what makes an
 overlay a different *place* for identity and not only for geometry.
 
-**Frame arena** — the bump region an overlay body lives in for the length of one frame. Reset rather
-than freed, so a steady stream of frames allocates nothing; it drops nothing itself, so a body that
-owns anything is dropped by a thunk the request carries beside it.
+**Overlay body queue** — where an overlay body lives between being requested and being run: one
+`Box` a body, in a `Vec` the frame call owns. A frame with **n** bodies costs **n + 1** allocations
+and a frame with none costs nothing. It replaced the **frame arena** — a bump region that held the
+bodies with their types erased, reset rather than freed, dropping nothing itself so that a body owning
+anything was dropped by a thunk the request carried beside it — which was the runtime's only `unsafe`
+(ADR 0034). The queue cannot keep its capacity across frames, because a body is `+ 'f` and safe Rust
+cannot put a `'f`-bounded value inside the frame that is borrowed for `'f`.
 
 **Placement** — where an overlay's rectangle lands against its anchor, as integer arithmetic in one
 order: place, flip, shift, clamp. Flipping is conditional on the other side having more room, so a

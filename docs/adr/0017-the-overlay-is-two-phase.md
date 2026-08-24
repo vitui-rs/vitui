@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: partially superseded by [ADR 0034](0034-no-unsafe-above-the-engine.md), 2026-08-24 — the frame-arena consequence only. The two-phase protocol, the handed-over owner id, the `'f` bound, the layer lifecycle, the nested band and the modal's two obligations all stand.
 date: 2026-08-19
 ---
 

@@ -49,16 +49,24 @@
 //!   object**: every helper is a closed form over `(now, start, duration)`, a `Tween` is 48 bytes of
 //!   the component's own state, and the runtime holds nothing but the wake accounting — which is
 //!   unconditional, because a detector armed only in a debug build never sees the application.
-//! - [`overlay`] — `Z`, `Placement`, `place`, `Scrim`, `OverlayOpts` and the frame arena. Spec §10;
-//!   ADR 0017. **Request during the draw, satisfy after it, answer next frame**, with the owner id
-//!   handed over rather than derived — and the crate's only `unsafe`, all of it in one bump region
-//!   that holds a body between the two passes.
+//! - [`overlay`] — `Z`, `Placement`, `place`, `Scrim`, `OverlayOpts` and the body queue. Spec §10;
+//!   ADR 0017 and ADR 0034. **Request during the draw, satisfy after it, answer next frame**, with
+//!   the owner id handed over rather than derived. A body is one `Box` in a queue the frame call
+//!   owns; the bump region that held it with its type erased was this crate's only `unsafe`, and
+//!   ticket 21 traded *the overlay frame allocates nothing* for the attribute below.
 //! - [`work`] — `Slot` (the engine's, re-exported), `Drain`, `Task`, `Worker`, `Landing`, `Cancel`.
 //!   Spec §17. **A worker is a noun, not a spawned future**: the runtime has no executor to lean on,
 //!   so the handoff is a resident thread with a one-slot inbox and eight bytes of generation that
 //!   say which question an answer answers.
 
-#![forbid(unsafe_op_in_unsafe_fn)]
+// **No `unsafe` in any shipped crate above the engine** (ticket 21, ADR 0034). `forbid` and not
+// `deny`, so nothing inside the crate can turn it back on with an `allow` — and it subsumes the
+// `unsafe_op_in_unsafe_fn` this line used to carry, which only shaped `unsafe` that was allowed to
+// exist. It is the whole gate: a compile outcome, with no test to write and no number to tune. The one
+// place `unsafe` bought something is recorded where it was given up — `crate::overlay`, on the frame
+// arena — and `vitui-alloc-probe` is the stated exemption, because `GlobalAlloc` cannot be
+// implemented in safe Rust and it is `publish = false`.
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
 // `crate::screen` is `#[path]`-included by `tests/alloc.rs` and by both reports as well as compiled

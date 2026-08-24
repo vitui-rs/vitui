@@ -10,7 +10,10 @@
 //! meet a layout or reactivity type. That is deliberate; see
 //! `docs/adr/0002-layout-lives-outside-the-engine.md`.
 
-#![forbid(unsafe_op_in_unsafe_fn)]
+// **No `unsafe` in any shipped crate above the engine** (ticket 21, ADR 0034). The facade has none to
+// forbid and the attribute does not reach through a `pub use`, so this is the crate saying the same
+// thing the other three say rather than a guarantee about them: each of the four says it itself.
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
 pub use vitui_components as components;

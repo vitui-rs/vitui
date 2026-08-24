@@ -231,8 +231,8 @@ fn placement_ns() -> (f64, u32) {
     )
 }
 
-/// The arena, over a hundred frames with a dropdown standing.
-fn arena() -> (usize, usize, u64) {
+/// The body queue, over a hundred frames with a dropdown standing.
+fn bodies() -> (u32, usize, u64) {
     static ITEMS: [&str; 3] = ["Open", "Save", "Close"];
     let owner = Id::named("dropdown");
     let items: &[&str] = &ITEMS;
@@ -255,7 +255,7 @@ fn arena() -> (usize, usize, u64) {
         });
     }
     (
-        d.inspect().arena_high_water(),
+        d.inspect().overlay_bodies_boxed(),
         d.layers_live(),
         d.surface_reallocs(),
     )
@@ -297,7 +297,7 @@ fn main() {
         },
     );
     let (per_case, cases) = placement_ns();
-    let (high_water, layers, reallocs) = arena();
+    let (boxed, layers, reallocs) = bodies();
     let (pad_first, text_first) = double_writes();
 
     println!(
@@ -368,12 +368,17 @@ fn main() {
     );
 
     println!(
-        "report  the frame arena, over 100 frames with a dropdown standing:\n\
-        \x20       high water                   {high_water:>10} bytes   spec §10 states **32**\n\
+        "report  the overlay body queue, over 100 frames with a dropdown standing:\n\
+        \x20       bodies boxed a frame         {boxed:>10}         spec §10 states **one a request**\n\
+        \x20       allocations a frame          {:>10}         n + 1: a `Box` a body, plus the queue\n\
         \x20       layers live                  {layers:>10}\n\
         \x20       surfaces reallocated         {reallocs:>10}         a move is 0, a resize is 1\n\
-        \x20       Zero allocations across those hundred frames is a gate rather than a report and\n\
-        \x20       lives in `tests/alloc.rs::a_standing_overlay_allocates_nothing`.\n"
+        \x20       The count is the gate rather than a report and lives in\n\
+        \x20       `tests/alloc.rs::one_standing_overlay_costs_one_allocation_a_frame`, where the\n\
+        \x20       marginal figure — one allocation a standing overlay — is what is asserted. It was\n\
+        \x20       zero until ticket 21 traded the arena for `#![forbid(unsafe_code)]`; spec §19\n\
+        \x20       carries the exception.\n",
+        boxed + 1
     );
 
     // ── the gates: one cliff and one ratio ───────────────────────────────────────────────────────
@@ -404,8 +409,8 @@ fn main() {
     assert!(pad_first > 0, "and padding before text writes plenty twice");
     assert_eq!(cases, 28_800);
     assert_eq!(
-        high_water, 32,
-        "one chunk, and a hundred frames did not move it"
+        boxed, 1,
+        "one body a frame, and a hundred frames did not move it"
     );
     assert_eq!(layers, 1);
     assert_eq!(reallocs, 0);

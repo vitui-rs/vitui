@@ -41,7 +41,7 @@ digraph G {
             fillcolor="#2e2438" color="#8b5fb0" fontcolor="#d9bdf0"]
     focus  [label="focus + keys\nring · scopes · traps · chords"
             fillcolor="#2e2438" color="#8b5fb0" fontcolor="#d9bdf0"]
-    ovl    [label="overlay\nrequests → layers, two-phase · arena"
+    ovl    [label="overlay\nrequests → layers, two-phase · one box a body"
             fillcolor="#2e2438" color="#8b5fb0" fontcolor="#d9bdf0"]
     data   [label="data + scroll\nRevision · Versioned · Memo · offsets"
             fillcolor="#2e2438" color="#8b5fb0" fontcolor="#d9bdf0"]

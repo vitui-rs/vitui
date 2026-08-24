@@ -12,8 +12,11 @@ hit index, `focus`, `sizing`, `work`, `anim`, `overlay` and `scroll` exist. **Th
 facade's signals, and the verification ledger do not.** Nothing above the engine can draw a full
 screen yet.
 
-`overlay` carries the crate's only `unsafe` — one crate-private bump region, four blocks with a
-safety comment each. Everything else here is safe Rust.
+**This crate is `#![forbid(unsafe_code)]`, and so are `vitui-components` and the `vitui` facade**
+(`docs/adr/0034`). `overlay` used to carry the crate's only `unsafe` — a crate-private bump region
+holding an overlay body with its type erased — and it is gone: a body is one `Box` in a queue the
+frame call owns, which costs a frame with **n** overlays standing **n + 1** allocations and a frame
+with none nothing at all. Spec §19 carries the exception; the marginal count is the gate.
 
 Depend on this today only if you intend to follow its development.
 

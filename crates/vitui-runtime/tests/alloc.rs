@@ -809,93 +809,121 @@ fn a_hundred_animating_frames_with_four_animations_allocate_nothing() {
     assert!(wakes.frames() >= 100);
 }
 
-/// **A frame with a dropdown standing allocates nothing, a hundred times over.**
+/// **What a standing overlay costs, as an equality on a count.**
 ///
-/// The one number spec §10 states as a count: *one chunk, 32 bytes at high water, **zero**
-/// allocations across a hundred frames with a dropdown standing.* All three are asserted here,
-/// because they are one claim — a chunk that grew would move the high water, and a body boxed
-/// per frame would move the count.
+/// Spec §10 used to state *one chunk, 32 bytes at high water, zero allocations across a hundred
+/// frames with a dropdown standing*. Ticket 21 traded that sentence for `#![forbid(unsafe_code)]`, so
+/// spec §19 now states the exception and this is the gate under it: **one `Box` a standing overlay,
+/// plus the one `Vec` that holds them — n + 1 a frame, and 0 with nothing standing.**
 ///
-/// # What would fail this
+/// # What is actually asserted, and why it is a difference
 ///
-/// `Box<dyn FnMut>` for the body: one allocation per request per frame, which is a hundred here and
-/// one per open menu per frame in an application. That is the shape the frame arena exists instead
-/// of, and this gate is the only thing that stops someone reintroducing it — every other test in the
-/// crate passes with a boxed body.
+/// The load-bearing equality is the **marginal** one: one more overlay standing is exactly one more
+/// allocation a frame, whatever else is on the screen. That is the number that stays true as the
+/// queue grows — a `Vec` doubles, so the absolute figure gains one at each growth — and it is the one
+/// that catches the regression worth catching: a body queued per *cell*, or a `String` built per row.
+///
+/// The absolute pair is asserted beside it, because a difference alone would also be satisfied by a
+/// frame that allocated a hundred times and a hundred and one.
 #[test]
-fn a_standing_overlay_allocates_nothing() {
+fn one_standing_overlay_costs_one_allocation_a_frame() {
     use vitui_engine::Rect;
     use vitui_runtime::ctx::{Driver, Id};
     use vitui_runtime::overlay::OverlayOpts;
     use vitui_runtime::{Interest, Role};
 
     static ITEMS: [&str; 3] = ["Open", "Save", "Close"];
+    const FRAMES: usize = 100;
 
-    let mut driver = Driver::headless(300, 80).expect("attaching to a sink cannot fail");
-    let owner = Id::named("dropdown");
-    let items: &[&str] = &ITEMS;
-    let selected = 1usize;
+    /// A hundred frames with `standing` dropdowns open over a base pass doing ordinary work, and the
+    /// allocations they cost. The base pass matters: the interesting claim is *what an overlay costs*
+    /// rather than *what an empty frame costs*.
+    fn allocations(standing: u64) -> usize {
+        let mut driver = Driver::headless(300, 80).expect("attaching to a sink cannot fail");
+        let items: &[&str] = &ITEMS;
+        let selected = 1usize;
+        let one_frame = |driver: &mut Driver| {
+            driver.frame(|cx| {
+                let paint = cx.theme().paint(Role::Body);
+                for row in 0..24i32 {
+                    cx.text(0, row, "a row of the list under the menu", paint);
+                }
+                for k in 0..standing {
+                    let owner = Id::from_raw(7 + k);
+                    let at = i32::try_from(k).unwrap_or(0) * 14;
+                    cx.interact(owner, Rect::new(at, 0, 12, 1), Interest::CLICK);
+                    cx.overlay(
+                        owner,
+                        Rect::new(at, 0, 12, 1),
+                        OverlayOpts::sized(12, 3),
+                        move |cx| {
+                            let paint = cx.theme().paint(Role::Body);
+                            for (row, item) in items.iter().enumerate() {
+                                let row = i32::try_from(row).unwrap_or(0);
+                                cx.text(0, row, item, paint);
+                            }
+                            let _ = (selected, owner);
+                        },
+                    );
+                }
+            });
+        };
 
-    // A dropdown standing over a base pass that is doing ordinary work, because the interesting
-    // claim is *no allocation for having an overlay* rather than *no allocation for an empty frame*.
-    let one_frame = |driver: &mut Driver| {
-        driver.frame(|cx| {
-            let body = cx.theme().paint(Role::Body);
-            for row in 0..24i32 {
-                cx.text(0, row, "a row of the list under the menu", body);
-            }
-            cx.interact(owner, Rect::new(0, 0, 12, 1), Interest::CLICK);
-            cx.overlay(
-                owner,
-                Rect::new(0, 0, 12, 1),
-                OverlayOpts::sized(12, 3),
-                move |cx| {
-                    let body = cx.theme().paint(Role::Body);
-                    for (row, item) in items.iter().enumerate() {
-                        let row = i32::try_from(row).unwrap_or(0);
-                        cx.text(0, row, item, body);
-                    }
-                    let _ = (selected, owner);
-                },
-            );
-        });
-    };
-
-    // Warm, for the first-touch reason every other gate here gives: the chunk, the layer and the
-    // engine's surface for it are all first allocated on the frame that opens the menu.
-    one_frame(&mut driver);
-    one_frame(&mut driver);
-
-    steady(|| {
-        for _ in 0..100 {
+        // Warmed with the identical workload, for the reason `steady` documents: the layer, the
+        // engine's surface for it and the engine's own buffers are all first allocated on the frames
+        // that open the menus, and a window that includes those is measuring the loader.
+        for _ in 0..FRAMES {
             one_frame(&mut driver);
         }
-    });
+        let before = vitui_alloc_probe::allocation_count();
+        for _ in 0..FRAMES {
+            one_frame(&mut driver);
+        }
+        let after = vitui_alloc_probe::allocation_count();
+        assert_eq!(
+            u64::from(driver.inspect().overlay_bodies_boxed()),
+            standing,
+            "one body a frame per standing overlay, which is what the count below prices"
+        );
+        after - before
+    }
+
+    let none = allocations(0);
+    let one = allocations(1);
+    let four = allocations(4);
+
     assert_eq!(
-        driver.inspect().arena_high_water(),
-        32,
-        "one chunk, and a hundred frames did not move the high water"
+        none, 0,
+        "**a frame with nothing standing still allocates nothing**: an empty queue is an empty `Vec`"
     );
-    assert_eq!(driver.inspect().overlays_placed(), 1);
     assert_eq!(
-        driver.layers_live(),
-        1,
-        "the layer was reused rather than rebuilt"
+        one,
+        2 * FRAMES,
+        "one standing overlay is one `Box` plus the queue that holds it, a frame"
     );
     assert_eq!(
-        driver.surface_reallocs(),
-        0,
-        "and nothing was resized, so no surface was reallocated"
+        four,
+        5 * FRAMES,
+        "four are four boxes plus the same one queue, whose first growth covers all four"
+    );
+    assert_eq!(
+        four - one,
+        3 * FRAMES,
+        "**the marginal cost of a standing overlay is exactly one allocation a frame**"
     );
 }
 
-/// **A body that owns something is dropped by its thunk**, and a hundred frames of it neither leak
-/// nor allocate twice.
+/// **A body that owns something is dropped exactly as many times as it is built**, and a hundred
+/// frames of it neither leak nor allocate twice.
 ///
-/// The arena drops nothing itself. A body owning a heap value therefore allocates once when it is
-/// built — every frame, because the value is built every frame — and must be *deallocated* the same
-/// number of times. A count that is not a zero is still a count, and the pair is the gate: allocation
-/// and deallocation move together, which is what says the drop thunk runs.
+/// This gate found nothing when the arena was right, and it is the one that would catch getting the
+/// replacement wrong — so it survives the mechanism it was written for. What drops the body is now the
+/// `Box` rather than a thunk the request carried beside it, and the property is the same either way: a
+/// body owning a heap value allocates once when it is built — every frame, because the value is built
+/// every frame — and must be *deallocated* the same number of times.
+///
+/// A count that is not a zero is still a count, and the pair is the gate: allocations and
+/// deallocations move together over a window that opens and closes on a frame boundary.
 #[test]
 fn an_owning_body_is_dropped_as_many_times_as_it_is_built() {
     use vitui_engine::Rect;
@@ -933,11 +961,12 @@ fn an_owning_body_is_dropped_as_many_times_as_it_is_built() {
     let allocated = vitui_alloc_probe::allocation_count() - before_alloc;
     let freed = vitui_alloc_probe::deallocation_count() - before_free;
     assert_eq!(
-        allocated, 100,
-        "one `String` a frame, and nothing else: the arena itself allocated nothing"
+        allocated, 300,
+        "three a frame and no fourth: the `String` the body owns, the `Box` the body is, and the \
+         queue that holds it"
     );
     assert_eq!(
         freed, allocated,
-        "and every one of them was dropped, by the thunk the request carried beside it"
+        "and every one of them was dropped, by the `Box` and the `Vec` that own them"
     );
 }

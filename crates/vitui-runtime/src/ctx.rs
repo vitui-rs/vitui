@@ -24,7 +24,7 @@
 //! wait()                    the engine paces this
 //! ├─ take          worker landings → application state, before anything reads them
 //! ├─ begin         post the input batch and split it at a routing edge · sample the clock once
-//! │                swap-and-clear the five frame structures · reset the arena
+//! │                swap-and-clear the five frame structures · clear the overlay queue
 //! │                resolve, from the PREVIOUS frame's index, the two things that cannot be
 //! │                answered during the draw: which widget is topmost and which owns the wheel
 //! ├─ base pass     view(&mut Ctx) draws into the base layer
@@ -85,7 +85,7 @@ use vitui_engine::{
 use crate::focus::{ScopeKind, Stop};
 use crate::id::IdStack;
 use crate::keys::Matches;
-use crate::overlay::{Arena, OverlayOpts, OverlayRequest, Z, place};
+use crate::overlay::{Bodies, OverlayOpts, OverlayRequest, Z, place};
 use crate::route::{self, KeyQueue};
 use crate::scroll::{Area, IntoView, Scrollable, Wheel};
 use crate::sizing::{Consulted, Extent, Measured};
@@ -456,9 +456,12 @@ pub struct Frame {
     consulted: Consulted,
 
     // ── overlays (ticket 13) ───────────────────────────────────────────────────────────────────
-    /// **The frame arena**: where an overlay body lives between being requested and being run.
-    /// Reset in `begin`, never freed. See [`crate::overlay`].
-    arena: Arena,
+    /// How many overlay bodies were boxed this frame. **One allocation each, and the reported
+    /// number.**
+    ///
+    /// The queue that holds them is *not* a field here and cannot be: a body is `+ 'f` and a `Frame`
+    /// is what is borrowed for `'f`, so it is a local of the frame call. See [`crate::overlay`].
+    overlay_bodies: u32,
     /// The `z` of the layer being drawn into right now, and **0 during the base pass**.
     ///
     /// One field rather than a `Ctx` field, deliberately: every `Ctx` in a body's subtree shares the
@@ -615,7 +618,7 @@ impl Frame {
             extent: None,
             measure_extent: false,
             consulted: Consulted::NONE,
-            arena: Arena::new(),
+            overlay_bodies: 0,
             layer_z: Z::BASE,
             overlay_rounds: 0,
             overlays_placed: 0,
@@ -652,13 +655,13 @@ impl Frame {
 
         self.hits.clear();
         self.ring.begin();
-        // **The arena is reset, and the reset is only sound once every body has been dropped.** The
-        // pass drains the queue and drops as it goes, so this is normally a no-op over an empty
-        // `Vec`; it is written as a drain rather than a `clear` because a frame that never reached
-        // its pass — a panic caught above, a `Frame` driven by something other than `Driver::frame`
-        // in a later ticket — would otherwise leave a `String` in the arena and reset over it.
-        self.discard_overlays();
-        self.arena.begin();
+        // **The request queue is cleared and nothing here drops a body.** The bodies live in the
+        // frame call's own queue, which owns the boxes and drops whatever the pass did not reach when
+        // the call ends — including on an unwind, which the arena's hand-rolled discard could not
+        // promise. A request left over from a frame that never reached its pass names a slot in a
+        // queue that no longer exists, so clearing the requests is the whole of what is owed.
+        self.overlays.clear();
+        self.overlay_bodies = 0;
         self.layer_z = Z::BASE;
         self.overlay_rounds = 0;
         self.overlays_placed = 0;
@@ -730,16 +733,6 @@ impl Frame {
                 | vitui_engine::Event::FocusGained
                 | vitui_engine::Event::FocusLost => {}
             }
-        }
-    }
-
-    /// Drop every queued overlay body that the pass will not reach.
-    ///
-    /// **The arena drops nothing itself**, so this is where a body owning a `String` stops leaking.
-    /// Called by the pass when the round bound is reached and by `begin` for anything left over.
-    fn discard_overlays(&mut self) {
-        while let Some(req) = self.overlays.pop() {
-            self.arena.discard(&req.body);
         }
     }
 
@@ -1332,9 +1325,14 @@ impl Frame {
         self.overlay_rounds
     }
 
-    /// The frame arena's high-water mark, in bytes. **32 with a dropdown standing.**
-    pub fn arena_high_water(&self) -> usize {
-        self.arena.high_water()
+    /// How many overlay bodies were boxed this frame. **One allocation each.**
+    ///
+    /// The frame's whole overlay cost is `n + 1` for `n` bodies — one `Box` a body plus the one `Vec`
+    /// that holds them — and **0 for a frame with no overlay**, because an empty `Vec` allocates
+    /// nothing. The queue cannot keep its capacity across frames, because a body is `+ 'f`; see
+    /// [`crate::overlay`] and spec §19.
+    pub fn overlay_bodies_boxed(&self) -> u32 {
+        self.overlay_bodies
     }
 
     /// The id table.
@@ -1561,10 +1559,21 @@ pub struct Ctx<'f, 'v> {
     /// at the root, where the two are the same thing. Read at `end` and never across a frame
     /// (ADR 0015).
     content: (i32, i32),
+    /// **The frame call's overlay body queue**, shared by every context in the frame rather than
+    /// owned by one — the same reasoning as [`Frame::layer_z`], one level further out: *where a body
+    /// is kept* is a property of the frame call and not of a context.
+    ///
+    /// A shared reference with interior mutability, so `child()` can hand it on while the frame is
+    /// borrowed mutably beside it.
+    bodies: &'v Bodies<'f>,
     /// **Invariant in `'f`**, and the whole overlay guarantee rests on it: a covariant brand lets a
     /// caller shorten `'f` at a `child()` call, which makes the `+ 'f` bound on an overlay body
     /// satisfiable by a shorter capture. A lifetime in both argument and return position of a `fn`
     /// pointer is invariant.
+    ///
+    /// The queue above is invariant in `'f` for its own reasons and would carry the brand today, but
+    /// the marker stays: it is what the paired compile outcome below is written against, and a
+    /// guarantee that holds only while a field's type happens to be what it is is not a guarantee.
     _frame: PhantomData<fn(&'f ()) -> &'f ()>,
     /// **`!Send`, and it needs saying.** A `Surface` is `Send`, so a `View` is, so `Ctx` would be —
     /// and a `Ctx` on another thread is a draw on another thread, which is the one thing the engine's
@@ -1619,6 +1628,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
             origin: (self.origin.0 + r.x, self.origin.1 + r.y),
             pointer: self.pointer.map(|(x, y)| (x - r.x, y - r.y)),
             content: (self.content.0 + r.x, self.content.1 + r.y),
+            bodies: self.bodies,
             _frame: PhantomData,
             _not_send: PhantomData,
         }
@@ -1638,6 +1648,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
             // **The reset**: a scrolled context is a content coordinate system, so its own origin is
             // the content origin. §13's `to_content` resets at the area boundary, and this is it.
             content: (0, 0),
+            bodies: self.bodies,
             _frame: PhantomData,
             _not_send: PhantomData,
         }
@@ -1818,6 +1829,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
                 origin: self.origin,
                 pointer: self.pointer,
                 content: self.content,
+                bodies: self.bodies,
                 _frame: PhantomData,
                 _not_send: PhantomData,
             };
@@ -2491,10 +2503,11 @@ impl<'f, 'v> Ctx<'f, 'v> {
             self.frame.layer_z + Z::NESTED
         };
         let seq = u32::try_from(self.frame.overlays.len()).unwrap_or(u32::MAX);
-        // The body is moved into the frame arena and the request carries its drop thunk beside it,
-        // so a body owning anything is dropped exactly once — by the pass that ran it, or by the
-        // discard that did not.
-        let body = self.frame.arena.push(body);
+        // **The body is boxed into the frame call's queue and the request carries its handle.** One
+        // allocation, and the `Box` is what drops the body — exactly once, whether the pass runs it,
+        // finds it inert, or never reaches it at all. See [`crate::overlay`] for the count this puts
+        // on the frame and for why the queue cannot be a field of one.
+        let body = self.bodies.push(body);
         self.frame.overlays.push(OverlayRequest {
             owner,
             anchor,
@@ -2642,6 +2655,11 @@ impl<'f, 'v> Ctx<'f, 'v> {
         // Its own surface, and a standalone one rather than a layer: a layer is composited and this
         // is a discard.
         let mut surface = Surface::new(w, h);
+        // Its own body queue, and the reason it is not `self.bodies` is the same reason the frame is
+        // not `self.frame`: **a dry run is its own world**. An overlay requested inside one is queued
+        // against a frame nothing will run a pass over, and this is what drops that body — the arena
+        // dropped nothing itself, so under it a measured body owning a `String` leaked.
+        let bodies = Bodies::new();
         let value = {
             let mut cx = Ctx {
                 view: surface.root(),
@@ -2653,6 +2671,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
                 // The measured world is its own root: it composites nothing and scrolls nothing, so
                 // its content coordinates and its root coordinates are the same thing.
                 content: (0, 0),
+                bodies: &bodies,
                 _frame: PhantomData,
                 _not_send: PhantomData,
             };
@@ -2873,6 +2892,10 @@ impl Driver {
         // rather than a clone.
         let (w, h) = self.screen.size();
         let pointer = self.frame.pointer;
+        // **The overlay bodies live here, for exactly this call.** A local rather than a field,
+        // because a body is `+ 'f` and both `Frame` and `Driver` are borrowed for `'f`. It starts
+        // empty, so a frame with no overlay standing allocates nothing at all.
+        let bodies = Bodies::new();
         {
             let mut cx = Ctx {
                 view: self
@@ -2886,6 +2909,7 @@ impl Driver {
                 origin: (0, 0),
                 pointer,
                 content: (0, 0),
+                bodies: &bodies,
                 _frame: PhantomData,
                 _not_send: PhantomData,
             };
@@ -2894,7 +2918,7 @@ impl Driver {
 
         // overlay pass — each request in (z, seq) order, repeating while bodies request more,
         // bounded at sixteen rounds.
-        self.overlay_pass(Rect::new(0, 0, w, h));
+        self.overlay_pass(&bodies, Rect::new(0, 0, w, h));
 
         // end.
         let wake = self.frame.end(self.env.now);
@@ -2955,16 +2979,19 @@ impl Driver {
     /// being a loop**: a body that requests itself for ever gets a limit rather than a hang, and
     /// [`Frame::overlay_rounds`] is how a gate sees which happened.
     ///
-    /// # The three things each round has to do in order
+    /// # The two things each round has to do in order
     ///
     /// 1. **Swap the queue out of the frame.** The bodies about to run will queue into it.
-    /// 2. **Take the arena's chunk.** A body that queues while its own round is running would
-    ///    otherwise grow the buffer it is executing out of, freeing itself mid-call.
-    /// 3. **Sort by `(z, seq)`.** `seq` is the request order and is unique, so the pair is a total
+    /// 2. **Sort by `(z, seq)`.** `seq` is the request order and is unique, so the pair is a total
     ///    order and the sort is deterministic. A menu below a modal therefore draws — and takes its
     ///    hit entries — *before* the modal's barrier goes down, which is what withholds it from the
     ///    pointer.
-    fn overlay_pass(&mut self, screen: Rect) {
+    ///
+    /// There used to be a third thing, and it is worth knowing that it is gone: the arena handed the
+    /// round its own chunk, because a body that queued while its round was running would otherwise
+    /// grow the buffer it was executing out of and free itself mid-call. A `Vec<Box<…>>` that grows
+    /// moves the pointers and not the closures, so the hazard does not exist to be solved.
+    fn overlay_pass<'f>(&mut self, bodies: &Bodies<'f>, screen: Rect) {
         for _ in 0..OVERLAY_ROUNDS {
             if self.frame.overlays.is_empty() {
                 break;
@@ -2972,30 +2999,33 @@ impl Driver {
             self.frame.overlay_rounds += 1;
             core::mem::swap(&mut self.frame.overlays, &mut self.round);
             self.round.sort_unstable_by_key(|r| (r.z, r.seq));
-            let mut round = self.frame.arena.take_round();
             for i in 0..self.round.len() {
                 // Lifted out by value — `OverlayRequest` is `Copy` — because everything below needs
                 // `&mut self` and the `Vec` it came from is a field of it.
                 let req = self.round[i];
-                self.run_overlay(&req, &mut round, screen);
+                self.run_overlay(&req, bodies, screen);
             }
             self.round.clear();
-            self.frame.arena.put_round(round);
         }
-        // **Anything still queued after the bound is dropped rather than leaked.** The arena drops
-        // nothing itself; a body that owns a `String` is dropped by the thunk beside it.
-        self.frame.discard_overlays();
+        // **Anything still queued after the bound is dropped rather than leaked**, and no line here
+        // has to say so: the boxes go with the queue when the frame call ends.
+        self.frame.overlays.clear();
+        self.frame.overlay_bodies = u32::try_from(bodies.count()).unwrap_or(u32::MAX);
         self.frame.layer_z = Z::BASE;
         self.layer_census();
     }
 
     /// Place one overlay, ensure its layer, and run its body inside it.
-    fn run_overlay(
-        &mut self,
-        req: &OverlayRequest,
-        round: &mut crate::overlay::Round,
-        screen: Rect,
-    ) {
+    fn run_overlay<'f>(&mut self, req: &OverlayRequest, bodies: &Bodies<'f>, screen: Rect) {
+        // **Taken out of the queue rather than borrowed inside it**, so that a body requesting another
+        // overlay pushes into the same queue with nothing borrowed. It is dropped at the end of this
+        // function whichever arm below ran, which is where *exactly once* comes from — and it is the
+        // `Box`, not this function, that does the dropping.
+        let Some(mut body) = bodies.take(req.body) else {
+            // One request names one body and the queue is drained once, so this is unreachable. A skip
+            // rather than a panic, because there is no output a panic here would protect.
+            return;
+        };
         let this_frame = self.frame.frames;
         // **One owner keys one layer**, so a second request under one id this frame is inert — the
         // same policy as `Ctx::interact`'s merge and for the same reason: two rectangles for one
@@ -3006,7 +3036,6 @@ impl Driver {
             .any(|p| p.owner == req.owner && p.seen == this_frame)
         {
             self.frame.overlays_merged += 1;
-            round.drop_body(&req.body);
             return;
         }
 
@@ -3032,16 +3061,16 @@ impl Driver {
                 origin: (rect.x, rect.y),
                 pointer,
                 content: (0, 0),
+                bodies,
                 _frame: PhantomData,
                 _not_send: PhantomData,
             };
-            round.run(&req.body, &mut cx);
-        } else {
-            // An operator layer has no cells and cannot be drawn into. Nothing here mints one as a
-            // content layer, so this arm is unreachable in practice — and it drops the body rather
-            // than leaking it, because *unreachable* is not a reason to leak.
-            round.drop_body(&req.body);
+            body(&mut cx);
         }
+        // **There is no `else`, and that is the point.** An operator layer has no cells and cannot be
+        // drawn into, so a `None` view is a body that never runs; nothing here mints an overlay as an
+        // operator layer, so it is unreachable in practice. *Unreachable* was never a reason to leak,
+        // and now it cannot be one — the drop belongs to the `Box` rather than to a branch.
         self.frame.stack.pop();
         self.frame.layer_z = parent_z;
         self.frame.overlays_placed += 1;
@@ -5877,13 +5906,19 @@ mod overlay_tests {
         }
     }
 
-    /// **The arena is 32 bytes at high water with a dropdown standing**, and it is reset rather than
-    /// freed, so a hundred frames do not move the number.
+    /// **A dropdown standing boxes exactly one body a frame**, and a hundred frames do not move the
+    /// number: what a frame costs is a property of what is standing on it and not of how long it has
+    /// been there.
     ///
-    /// The body captures a `&'static [&str]`, a `usize` and an [`Id`] — 16 + 8 + 8 — which is what a
-    /// dropdown's body actually holds: its items, its selection, and the owner it reports to.
+    /// This is where the arena's high-water figure used to be asserted, and the shape of the claim is
+    /// the same — one number, unmoved by a hundred frames — while the number itself is now a count of
+    /// boxes rather than a count of bytes. The allocation that follows from it is gated over the probe
+    /// in `tests/alloc.rs`; here the mechanism is asserted where the mechanism is.
+    ///
+    /// The body captures a `&'static [&str]`, a `usize` and an [`Id`], which is what a dropdown's body
+    /// actually holds: its items, its selection, and the owner it reports to.
     #[test]
-    fn the_arena_is_thirty_two_bytes_at_high_water() {
+    fn a_standing_dropdown_boxes_one_body_a_frame() {
         static ITEMS: [&str; 3] = ["Open", "Save", "Close"];
         let mut d = driver();
         let owner = Id::named("dropdown");
@@ -5907,9 +5942,9 @@ mod overlay_tests {
             });
         }
         assert_eq!(
-            d.inspect().arena_high_water(),
-            32,
-            "one chunk, and a hundred frames did not move it"
+            d.inspect().overlay_bodies_boxed(),
+            1,
+            "one body a frame, and the hundredth frame boxed no more than the first"
         );
         assert_eq!(d.inspect().overlays_placed(), 1);
         assert_eq!(d.layers_live(), 1, "one layer, reused a hundred times");

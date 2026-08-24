@@ -67,8 +67,8 @@ Read these before working, in this order:
    authority. An `architecture.md` beside a spec is the superseded proposal, kept only as the record
    of what was argued.
 2. `CONTEXT.md` — the glossary. Use its terms in code, comments, tickets and commit messages.
-3. `docs/adr/` — 33 decisions that are hard to reverse and surprising without context. 0001–0011 and
-   0022–0025 are the engine, 0012–0021 the runtime, 0026–0033 the components.
+3. `docs/adr/` — 34 decisions that are hard to reverse and surprising without context. 0001–0011 and
+   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 the components.
 4. The impl backlog `README.md` for the layer being worked on — it holds the phase order, the
    blocking edges, and the defects that shaped both.
 

@@ -1,6 +1,6 @@
-//! Overlays: the two-phase protocol, the frame arena, placement and the scrim.
+//! Overlays: the two-phase protocol, the body queue, placement and the scrim.
 //!
-//! Spec §10; ADR 0017. **Request during the draw, satisfy after it, answer
+//! Spec §10; ADR 0017 and ADR 0034. **Request during the draw, satisfy after it, answer
 //! next frame.** The constraint is inherited and not re-derived here: a component cannot open a
 //! layer mid-draw, because `LayerStack::view` holds `&mut` of the stack for the life of the view
 //! (`E0499`, engine architecture ticket 14 R2). So [`Ctx::overlay`](crate::Ctx::overlay) queues a
@@ -24,25 +24,34 @@
 //!   designed this, kept as
 //!   `overlay_tests::a_body_drawn_inline_and_in_an_overlay_produces_different_ids`.
 //!
-//! # The frame arena, and why this is where the crate's first `unsafe` lives
+//! # Where a body lives between the two passes, and what it costs
 //!
 //! A body outlives the base pass and is run after every base-pass draw context has been dropped, so
-//! it has to be *stored*. Storing it as a `Box<dyn FnMut>` is one allocation per request per frame,
-//! against a budget of zero — so the bodies go in a bump region that is **reset rather than freed**
-//! and holds their bytes with their types erased. That needs `unsafe`, and it is the only `unsafe`
-//! in this crate; the crate-private `Arena` in this file is where all of it is, in four blocks with
-//! a safety comment each.
+//! it has to be *stored*. It is stored as a `Box`, one per request per frame, in the crate-private
+//! `Bodies` queue that [`Driver::frame`](crate::Driver::frame) owns for the length of the frame
+//! call. The count is reported by
+//! [`Frame::overlay_bodies_boxed`](crate::ctx::Frame::overlay_bodies_boxed).
 //!
-//! **The arena drops nothing itself**, which is the sentence that decides its shape: a body that
-//! owns something is dropped by a thunk the request carries beside it, and the pass runs the two in
-//! order. One chunk, and its high water is 32 bytes with a dropdown standing — reported by
-//! [`Frame::arena_high_water`](crate::ctx::Frame::arena_high_water).
+//! **That replaces a bump region that allocated nothing, and the trade was decided rather than
+//! discovered.** The arena held the bodies' bytes with their types erased, which needs `unsafe`; the
+//! property *no `unsafe` in any shipped crate above the engine* is worth more than the sentence *the
+//! overlay frame allocates nothing*. See ADR 0034, which supersedes ADR 0017's arena consequence,
+//! and spec §19, which now states the exception with its count beside it.
 //!
-//! **There are two buffers and only one of them is a chunk.** A round executes bodies out of the
-//! buffer it took, and a body may request another overlay — which pushes into the arena and can grow
-//! it. Growing the buffer you are executing from frees the closure that is running. So the round
-//! *takes* the chunk, the arena hands out the one the previous round gave back, and both keep their
-//! capacity. Two `Vec`s at rest, zero allocations in a steady state.
+//! **The queue cannot keep its capacity across frames, and the `'f` bound is the reason.** A body may
+//! capture anything that outlives the frame call, so a stored body is `+ 'f` — and safe Rust cannot
+//! put a `'f`-bounded value inside the thing that is borrowed for `'f`, which is what a `Frame` and a
+//! [`Driver`](crate::Driver) both are. So the queue is a local of the frame call, it starts empty, and
+//! a frame with **n** bodies costs **n + 1** allocations: one `Box` a body, plus the one `Vec` that
+//! holds them. A frame with no overlay standing allocates nothing at all, because an empty `Vec` does
+//! not.
+//!
+//! **Nothing drops a body by hand.** A `Box` drops what it holds, the `Vec` drops the boxes, and the
+//! queue is dropped when the frame call ends — including the bodies the pass never reached, and
+//! including an unwind. Both of the arena's own mechanisms are gone with it: the drop thunk the
+//! request carried beside the call thunk, and the double buffering that stopped a body reallocating
+//! the region it was executing out of. A `Vec<Box<…>>` that grows moves the pointers, not the
+//! closures.
 //!
 //! # Placement is four steps in one order
 //!
@@ -89,6 +98,8 @@
 //! map's arm was measured against a prototype whose damage was not a bitset. The obligation stands —
 //! a quarter of the frame's cells written for nothing is worth not doing — but **its detector is the
 //! count, not a stopwatch**, and the count is what is gated.
+
+use std::cell::RefCell;
 
 use vitui_engine::{Mix, Rect};
 
@@ -443,11 +454,11 @@ impl OverlayOpts {
     }
 }
 
-/// A queued overlay: everything the second pass needs, and the body beside it.
+/// A queued overlay: everything the second pass needs, and the handle of the body beside it.
 ///
 /// `Copy`, so the pass can lift one out of the round's `Vec` and still reach `&mut self` for the
-/// screen and the frame. [`Body`] is two function pointers and an offset, which is the whole of what
-/// type erasure costs here.
+/// screen and the frame. That is why the body is named by a `BodyAt` rather than carried here: a
+/// `Box` is not `Copy`, and the request has to be liftable.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct OverlayRequest {
     pub(crate) owner: Id,
@@ -461,256 +472,75 @@ pub(crate) struct OverlayRequest {
     pub(crate) z: i32,
     /// Insertion order, which is the tie-break inside a band.
     pub(crate) seq: u32,
-    pub(crate) body: Body,
+    pub(crate) body: BodyAt,
 }
 
-// ── the frame arena ──────────────────────────────────────────────────────────────────────────────
+// ── the body queue ───────────────────────────────────────────────────────────────────────────────
 
-/// The arena's unit of storage: sixteen bytes, aligned to sixteen.
+/// An overlay body, boxed. **One allocation, and the whole of what storing a body costs.**
 ///
-/// A `Vec<u8>` is aligned to one, so a closure needing eight- or sixteen-byte alignment could not be
-/// stored in it without over-allocating and re-aligning by hand every time. Sixteen is the alignment
-/// of `u128`, which is the widest alignment any ordinary capture has.
-#[repr(align(16))]
-#[derive(Clone, Copy)]
-struct Word(
-    #[expect(
-        dead_code,
-        reason = "the bytes are storage: they are reached through a raw pointer and never by name, \
-                  which is the whole of what a bump region is"
-    )]
-    [u8; WORD],
-);
+/// `FnMut` and not `FnOnce` because that is the request verb's bound: the pass calls a body at most
+/// once, and the looser bound is the one that does not force a caller to give up a body it may want
+/// to keep. See the module comment for why the `+ 'f` is what stops this living in a `Frame`.
+type Body<'f> = Box<dyn FnMut(&mut Ctx<'f, '_>) + 'f>;
 
-const WORD: usize = 16;
-
-/// Where a body lives in the arena, and the two thunks that reach it.
+/// Which queued body a request names.
 ///
-/// **The drop thunk is the arena's whole reason for being able to hold anything.** The arena is
-/// reset rather than freed and drops nothing itself, so a body owning a `String`, a `Vec` or a
-/// channel handle is dropped by `drop_at` — exactly once, by the pass, whether or not the body ever
-/// ran.
-#[derive(Clone, Copy)]
-pub(crate) struct Body {
-    /// Byte offset into the chunk this body was pushed to.
-    at: usize,
-    /// Call it. Both pointers are erased because a `Frame` has no `'f` to name.
-    call: unsafe fn(*mut u8, *mut ()),
-    /// Drop it in place.
-    drop_at: unsafe fn(*mut u8),
+/// An index and not the body itself, so that [`OverlayRequest`] stays `Copy` and the pass can lift one
+/// out of the round's `Vec` while it holds `&mut` of the screen and the frame.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) struct BodyAt(usize);
+
+/// The overlay bodies queued during one frame call.
+///
+/// See the module comment for why this is a local of the frame call rather than a field of a `Frame`,
+/// and for the allocation count that follows from it.
+///
+/// # A body is taken out to be run, never borrowed in place
+///
+/// [`Bodies::take`] moves the `Box` out of its slot, so the `RefCell` is borrowed across a push and a
+/// take and never across a call. A body that requests another overlay while it is running — a
+/// submenu, a tooltip over a menu item — therefore pushes into this same queue with nothing borrowed
+/// and nothing to alias. That is what the arena needed two buffers for.
+///
+/// It is also what makes *dropped exactly once* structural rather than reviewed: a slot that has been
+/// taken holds `None`, and everything still holding a `Box` is dropped with the queue.
+pub(crate) struct Bodies<'f> {
+    slots: RefCell<Vec<Option<Body<'f>>>>,
 }
 
-impl core::fmt::Debug for Body {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        // The two pointers say nothing a reader can use, and printing them makes a `Debug` of the
-        // frame differ between runs.
-        f.debug_struct("Body").field("at", &self.at).finish()
-    }
-}
-
-/// The bump region an overlay body lives in for the length of one frame.
-///
-/// See the module comment for why this exists, why it holds bytes rather than boxes, and why there
-/// are two buffers when the spec says one chunk.
-///
-/// # The invariant every `unsafe` block here rests on
-///
-/// A [`Body`] is only ever used with the buffer it was pushed into. [`Arena::push`] returns one
-/// against `chunk`; [`Arena::take_round`] hands `chunk` out whole, so the caller holds both the
-/// buffer and the bodies that name it and cannot mix them with a later round's. Nothing else can
-/// mint a `Body`.
-pub(crate) struct Arena {
-    /// What [`Arena::push`] writes into.
-    chunk: Vec<Word>,
-    /// The buffer the previous round gave back, kept for its capacity.
-    spare: Vec<Word>,
-    /// How many bytes of `chunk` are in use.
-    len: usize,
-    /// The most that has ever been in use at once, in bytes. **The reported number.**
-    high: usize,
-}
-
-impl core::fmt::Debug for Arena {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("Arena")
-            .field("len", &self.len)
-            .field("high", &self.high)
-            .field("capacity", &(self.chunk.capacity() * WORD))
-            .finish()
-    }
-}
-
-impl Arena {
-    pub(crate) const fn new() -> Arena {
-        Arena {
-            chunk: Vec::new(),
-            spare: Vec::new(),
-            len: 0,
-            high: 0,
+impl<'f> Bodies<'f> {
+    /// An empty queue. **Allocates nothing**, which is what keeps a frame with no overlay at zero.
+    pub(crate) const fn new() -> Bodies<'f> {
+        Bodies {
+            slots: RefCell::new(Vec::new()),
         }
     }
 
-    /// Reset. **Not freed** — the chunk keeps its capacity, which is what makes a steady stream of
-    /// frames with a dropdown standing allocate nothing.
-    ///
-    /// It is the caller's job to have dropped every body pushed since the last reset; `Frame::begin`
-    /// discards any that the pass did not reach.
-    pub(crate) const fn begin(&mut self) {
-        self.len = 0;
-    }
-
-    /// The high-water mark, in bytes. **32 with a dropdown standing** — see
-    /// `tests::the_arena_is_thirty_two_bytes_at_high_water`.
-    pub(crate) const fn high_water(&self) -> usize {
-        self.high
-    }
-
-    /// Store a body and return the handle the pass calls it through.
-    ///
-    /// The alignment check is a `const` block, so a body needing more than sixteen-byte alignment is
-    /// a compile error at the call site rather than a panic in the second pass.
-    pub(crate) fn push<'f, F>(&mut self, body: F) -> Body
+    /// Box a body and return the handle its request carries.
+    pub(crate) fn push<F>(&self, body: F) -> BodyAt
     where
         F: FnMut(&mut Ctx<'f, '_>) + 'f,
     {
-        const {
-            assert!(
-                align_of::<F>() <= WORD,
-                "an overlay body's alignment exceeds the frame arena's"
-            );
-        }
-        let at = self.reserve(size_of::<F>(), align_of::<F>());
-        // SAFETY: `reserve` returned an offset with room for `size_of::<F>()` bytes at
-        // `align_of::<F>()`, inside a chunk of `Word`s whose base is sixteen-byte aligned and whose
-        // length covers `at + size_of::<F>()`. The destination holds no live value — `len` only ever
-        // moves forward between resets, and a reset happens only when every body has been dropped —
-        // so `write` is the right verb and there is nothing to drop first.
-        unsafe {
-            self.chunk
-                .as_mut_ptr()
-                .cast::<u8>()
-                .add(at)
-                .cast::<F>()
-                .write(body);
-        }
-        Body {
-            at,
-            call: call_thunk::<'f, F>,
-            drop_at: drop_thunk::<F>,
-        }
+        let mut slots = self.slots.borrow_mut();
+        let at = slots.len();
+        slots.push(Some(Box::new(body)));
+        BodyAt(at)
     }
 
-    /// Take the chunk this round is to execute from, and put the spare in its place.
+    /// Take a body out to be run, or to be dropped without running.
     ///
-    /// **This is what stops a body reallocating the buffer it is running out of.** Every push made
-    /// while the round runs goes into the buffer this call installed, and the returned one is not
-    /// touched again until the round gives it back.
-    pub(crate) fn take_round(&mut self) -> Round {
-        let taken = core::mem::replace(&mut self.chunk, core::mem::take(&mut self.spare));
-        self.len = 0;
-        Round { buf: taken }
+    /// `None` for a handle whose body has already been taken. The pass cannot produce that — one
+    /// request names one body and the queue is drained once — so it is a skip rather than a panic:
+    /// there is no screen output a panic here would protect.
+    pub(crate) fn take(&self, at: BodyAt) -> Option<Body<'f>> {
+        self.slots.borrow_mut().get_mut(at.0)?.take()
     }
 
-    /// Give the round's buffer back, keeping whichever of the two is larger.
-    pub(crate) fn put_round(&mut self, round: Round) {
-        if round.buf.capacity() > self.spare.capacity() {
-            self.spare = round.buf;
-        }
+    /// How many bodies were boxed this frame. **The reported number, and one allocation each.**
+    pub(crate) fn count(&self) -> usize {
+        self.slots.borrow().len()
     }
-
-    /// Drop a body that is still in `chunk`, because the pass will never reach it.
-    pub(crate) fn discard(&mut self, body: &Body) {
-        let base = self.chunk.as_mut_ptr().cast::<u8>();
-        // SAFETY: `body` was minted by `push` against this chunk and has not been dropped — the
-        // frame drains its request queue exactly once, and this is that once. `at` is in bounds by
-        // construction.
-        unsafe { (body.drop_at)(base.add(body.at)) };
-    }
-}
-
-/// The chunk one round of the overlay pass executes out of.
-///
-/// A type of its own rather than a bare `Vec`, because the buffer has to be *out of the frame* for
-/// the length of the round: the pass holds this, the `Ctx` it builds holds `&mut Frame`, and a body
-/// requesting another overlay writes into the arena through that `Ctx`. Two owners, two borrows, one
-/// of which is not the arena.
-pub(crate) struct Round {
-    buf: Vec<Word>,
-}
-
-impl Round {
-    /// Run a body, then drop it. **Exactly once, in that order.**
-    pub(crate) fn run<'f>(&mut self, body: &Body, cx: &mut Ctx<'f, '_>) {
-        let base = self.buf.as_mut_ptr().cast::<u8>();
-        // SAFETY: `body` was minted by `Arena::push` against the chunk `take_round` handed out here,
-        // and both thunks were monomorphised for the body's own type. The `Ctx` pointer is erased
-        // through `*mut ()` because a `Frame` has no `'f` to name and therefore cannot store a
-        // function pointer that mentions one; the thunk casts it back to `Ctx<'f, '_>`, which is the
-        // type it was minted for. Nothing on `Ctx`'s surface returns an `&'f T`, so a body cannot
-        // extract a reference that outlives this call whatever `'f` is inferred to be here. The body
-        // is live — this is the frame's only drain of its queue — and the drop below is its only
-        // drop.
-        unsafe {
-            (body.call)(
-                base.add(body.at),
-                core::ptr::from_mut::<Ctx<'f, '_>>(cx).cast::<()>(),
-            );
-        }
-        self.drop_body(body);
-    }
-
-    /// Drop a body without running it: the layer could not be reached, or the round bound was hit.
-    pub(crate) fn drop_body(&mut self, body: &Body) {
-        let base = self.buf.as_mut_ptr().cast::<u8>();
-        // SAFETY: as `run`. The body is live and this is its only drop.
-        unsafe { (body.drop_at)(base.add(body.at)) };
-    }
-}
-
-impl Arena {
-    /// Bump `len` to the next `align` boundary, make room for `size` bytes, and return the offset.
-    fn reserve(&mut self, size: usize, align: usize) -> usize {
-        let at = self.len.next_multiple_of(align.max(1));
-        let end = at + size;
-        let words = end.div_ceil(WORD);
-        if words > self.chunk.len() {
-            // Growth is a `Vec` reallocation, which bitwise-moves the bodies already stored. That is
-            // sound — a Rust move *is* a memcpy and nothing here is self-referential — and it is
-            // exactly why a `Body` stores an offset and never a pointer.
-            self.chunk
-                .resize(words.next_power_of_two(), Word([0; WORD]));
-        }
-        self.len = end;
-        self.high = self.high.max(end);
-        at
-    }
-}
-
-/// Call a body of type `F` through an erased pointer pair.
-///
-/// # Safety
-///
-/// `p` must point at a live `F`, and `cx` at a live `Ctx<'f, '_>` for the same `'f` the body was
-/// pushed under.
-unsafe fn call_thunk<'f, F>(p: *mut u8, cx: *mut ())
-where
-    F: FnMut(&mut Ctx<'f, '_>) + 'f,
-{
-    // SAFETY: the caller guarantees both pointers, and the cast restores the types this
-    // monomorphisation was minted for.
-    let body = unsafe { &mut *p.cast::<F>() };
-    let cx = unsafe { &mut *cx.cast::<Ctx<'f, '_>>() };
-    body(cx);
-}
-
-/// Drop a body of type `F` in place.
-///
-/// # Safety
-///
-/// `p` must point at a live `F` that nothing else will drop.
-unsafe fn drop_thunk<F>(p: *mut u8) {
-    // SAFETY: the caller guarantees the pointer and that this is the only drop.
-    unsafe { p.cast::<F>().drop_in_place() };
 }
 
 #[cfg(test)]
@@ -832,12 +662,15 @@ mod tests {
         assert_eq!(squeezed, Rect::new(9, 3, 6, 4), "flipped to the left");
     }
 
-    /// **The arena drops what it stores, exactly once, whether or not the body ran.**
+    /// **A body the pass never reaches is still dropped, exactly once.**
     ///
-    /// A body owning a value that counts its own drop, pushed and then discarded without running.
-    /// The count is the gate; the arena itself drops nothing, so a leak here is silent without it.
+    /// This is the property the arena's drop thunk existed for, and the reason it survives the thunk:
+    /// the mechanism changed from *the request carries a way to drop its body* to *the queue owns the
+    /// box*, and a mechanism that changes is exactly when a gate earns its keep. Taken out and
+    /// dropped, or left in a slot and dropped with the queue — one drop either way, and neither is a
+    /// number anybody typed.
     #[test]
-    fn a_discarded_body_is_dropped_by_its_thunk() {
+    fn a_body_is_dropped_exactly_once_whether_or_not_it_ran() {
         use std::cell::Cell;
         use std::rc::Rc;
 
@@ -849,33 +682,47 @@ mod tests {
         }
 
         let drops = Rc::new(Cell::new(0));
-        let mut arena = Arena::new();
-        let owned = Counts(Rc::clone(&drops));
-        let body = arena.push(move |_cx: &mut Ctx<'_, '_>| {
-            let _ = &owned;
-        });
-        assert_eq!(drops.get(), 0, "the arena drops nothing on its own");
-        arena.discard(&body);
-        assert_eq!(drops.get(), 1, "the thunk dropped it, once");
+        let taken = {
+            let bodies = Bodies::new();
+            let owned = Counts(Rc::clone(&drops));
+            let at = bodies.push(move |_cx: &mut Ctx<'_, '_>| {
+                let _ = &owned;
+            });
+            let left = Counts(Rc::clone(&drops));
+            bodies.push(move |_cx: &mut Ctx<'_, '_>| {
+                let _ = &left;
+            });
+            assert_eq!(
+                drops.get(),
+                0,
+                "a queued body is not dropped by queueing it"
+            );
+            drop(bodies.take(at));
+            assert_eq!(drops.get(), 1, "taking one out and dropping it is one drop");
+            assert_eq!(bodies.count(), 2, "and both were boxed");
+            at
+        };
+        assert_eq!(
+            drops.get(),
+            2,
+            "the one the pass never reached went with the queue"
+        );
+        let _ = taken;
     }
 
-    /// The chunk is reset rather than freed, so the second frame's push reuses the first's bytes.
+    /// **One request names one body, and a handle answers once.**
+    ///
+    /// The slot holds `None` afterwards, which is what makes *dropped exactly once* a property of the
+    /// container rather than of the pass being careful.
     #[test]
-    fn the_chunk_is_reset_rather_than_freed() {
-        let mut arena = Arena::new();
+    fn a_handle_hands_its_body_out_once() {
+        let bodies = Bodies::new();
         let state = (0u64, 0u64, 0u64, 0u64);
-        let first = arena.push(move |_cx: &mut Ctx<'_, '_>| {
+        let at = bodies.push(move |_cx: &mut Ctx<'_, '_>| {
             let _ = state;
         });
-        let after_one = arena.high_water();
-        arena.discard(&first);
-        arena.begin();
-        let second = arena.push(move |_cx: &mut Ctx<'_, '_>| {
-            let _ = state;
-        });
-        arena.discard(&second);
-        assert_eq!(arena.high_water(), after_one, "the high water did not move");
-        assert_eq!(second.at, first.at, "and the second body reused the bytes");
+        assert!(bodies.take(at).is_some(), "the first take gets the body");
+        assert!(bodies.take(at).is_none(), "and the second gets nothing");
     }
 
     /// `Z::NESTED` is a step above the parent, not a band of its own — which is the whole reason a

@@ -7,5 +7,8 @@
 //! appear in that effort only as design pressure on the engine seam. The component library itself
 //! gets its own map afterwards.
 
-#![forbid(unsafe_op_in_unsafe_fn)]
+// **No `unsafe` in any shipped crate above the engine** (ticket 21, ADR 0034). `forbid` and not
+// `deny`, so nothing inside the crate can turn it back on with an `allow`; it subsumes the
+// `unsafe_op_in_unsafe_fn` this line used to carry.
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
