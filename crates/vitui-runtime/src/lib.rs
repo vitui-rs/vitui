@@ -104,6 +104,14 @@ pub mod work;
 #[path = "screen.rs"]
 mod screen;
 
+// **The crate line, as a value.** Ticket 17's module map, the visibility count and the four manifest
+// decisions that had been comments — `#[cfg(test)]` for `screen`'s reason and for the engine's
+// (`crates/vitui-engine/src/audit.rs`): an instrument is not part of the library. The *build* behind
+// the count is `crates/vitui-components/tests/crate_line.rs`, which is a crate that cannot name the
+// engine.
+#[cfg(test)]
+mod line;
+
 // Re-exported at the root as well as in the module, because the four are named constantly and
 // `data::` in front of every one of them is noise at a call site. The module stays public: a reader
 // looking for *why there is no trait* should land on its documentation, not on four scattered types.

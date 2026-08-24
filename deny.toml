@@ -71,6 +71,15 @@ deny = [
 # release becomes a `deny.toml` edit and the gate's first failure is always a false alarm. The
 # negative form above is weaker and stays true without maintenance. This is a judgement with a
 # number behind it, not an oversight.
+#
+# **Runtime ticket 17 re-measured it against the shipped workspace and the number is 33 crates** —
+# 27 third-party plus the six members — counted from `Cargo.lock`, which is every target and every
+# feature by construction, and confirmed against `cargo deny list`. R14's 38 was its own prototype
+# graph and is kept because the drift *is* the argument: the figure moved by five without one edit
+# to this file, which is exactly what an allowlist would have turned into a red gate and a false
+# alarm. `crate::line`'s `the_dependency_line_is_a_gate_and_the_allowlist_is_refused` is what now
+# holds both halves — the two wrapper lines above and the absence of `allow` in `[bans]` — because
+# ticket 17 found all three of them true and unchecked.
 
 [licenses]
 allow = [
