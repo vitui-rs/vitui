@@ -263,6 +263,24 @@ impl Tally {
         columns
     }
 
+    /// Draw one cluster and fold in what the engine says it wrote.
+    ///
+    /// The verb a per-cell oracle is written on — [`crate::runner::reference`] visits every cell of
+    /// its rectangle and writes it with one of these. Reported rather than modelled, for the same
+    /// reason [`Tally::text`] is: `Ctx::set` returns the engine's `Written`.
+    pub fn set(&mut self, cx: &mut Ctx<'_, '_>, x: i32, y: i32, cluster: &str, st: Paint) -> u16 {
+        let written = cx.set(x, y, cluster, st);
+        let columns = written.cells;
+        self.verbs += 1;
+        self.writes += u64::from(columns);
+        self.reported += u64::from(columns);
+        self.asked += vitui_runtime::layout::text::width(cluster) as u64;
+        for dx in 0..i32::from(columns) {
+            self.cells.insert((x + dx, y));
+        }
+        columns
+    }
+
     /// Fold in a rectangle the caller has just filled. **Modelled, not reported.**
     ///
     /// `Ctx::fill` returns `()`, so there is nothing for the engine to tell us; and `Rect` cannot be

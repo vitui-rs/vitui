@@ -14,12 +14,21 @@
 //! - [`obligations`] — §17's five obligations as queries over the freeze, each returning a count or
 //!   an equality. **Not one of them can be met yet, and every one of them says so out loud** rather
 //!   than returning green over an empty population.
-//! - [`gates`] — §21's register: **forty gates as rows, fourteen of them evaluated**, four pinned
-//!   red with their failing sets, six unreachable across the crate line with what would have to
-//!   become public, and sixteen with nothing yet to run over. An instrument is a value with a file
-//!   in it, so a row that has stopped running turns the register red here.
+//! - [`gates`] — §21's register: **forty-four gates as rows, eighteen of them evaluated**, four
+//!   pinned red with their failing sets, six unreachable across the crate line with what would have
+//!   to become public, and sixteen with nothing yet to run over. An instrument is a value with a
+//!   file in it, so a row that has stopped running turns the register red here.
 //! - [`counters`] — §20's nine per-frame counters, **eight of which this crate can read**. The
 //!   ninth, `marked`, panics rather than answering `0`, and so does the sentinel probe.
+//! - [`scenes`] — §21's normative scene list: **twenty-seven screens, every one `Unsubjected`**,
+//!   each with the size it is played at, the content it stands up, the gestures it plays and the
+//!   property it decided. Three of them exist because a defect survived every gate then in force by
+//!   not being on any screen anybody had built.
+//! - [`runner`] — *render one scene two ways and compare it cell for cell*, reporting **n cells over
+//!   m rows**. Three of the four hostile axes were caught only by this, and every one of them made
+//!   the defective build look **healthier**. The reference arm is this crate's own, and
+//!   `runner`'s header names the four barriers that make the engine's unreachable — the first three
+//!   of which are about `mod reference;` and the fourth about ADR 0023.
 //! - The module tree, one module per family (§19), joined to the freeze by
 //!   [`Component::families`].
 //!
@@ -45,6 +54,8 @@ pub mod counters;
 pub mod gates;
 pub mod inventory;
 pub mod obligations;
+pub mod runner;
+pub mod scenes;
 
 // **One module per family, and the family is the module** (spec §19). The tree follows the survey's
 // fifteen families so that a reader who knows what they want finds it without a search, and

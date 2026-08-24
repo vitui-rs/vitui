@@ -1,4 +1,4 @@
-//! Spec §21's register: **forty gates as a value, one row per gate, and a number for how many of
+//! Spec §21's register: **forty-four gates as a value, one row per gate, and a number for how many of
 //! them anything runs.**
 //!
 //! > The register is data, not prose — one row per gate with its kind, its owner, where it stood at
@@ -54,8 +54,8 @@
 //!   to run over** — no component exists — and a register that filed those as `Evaluated` would be
 //!   claiming sixteen green gates over an empty population.
 //!
-//! **Fourteen evaluated, four red, six unreachable, sixteen unsubjected**, and
-//! `tests::fourteen_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
+//! **Eighteen evaluated, four red, six unreachable, sixteen unsubjected**, and
+//! `tests::eighteen_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
 //! deliberate edit rather than a quiet one.
 //!
 //! # The instruments are values with files in them
@@ -149,7 +149,7 @@ pub enum Instrument {
     },
     /// **A line in somebody else's source that is the reason a row cannot run.**
     ///
-    /// The arm this register adds to the runtime's three, and it exists because six of these forty
+    /// The arm this register adds to the runtime's three, and it exists because six of these
     /// rows are stopped by a fact rather than by an absence. A fact can be pointed at: `Rgb` being
     /// unreachable is the line `name: "Rgb",` in `crates/vitui-runtime/src/line.rs`, not an opinion
     /// about the runtime's surface. Compared against a **trimmed** line, which is the engine's own
@@ -247,7 +247,7 @@ pub struct Row {
     pub number: u8,
     /// Whether it is a row of spec §21's thirty-two-row table, or one this ticket wrote beside it.
     ///
-    /// The count test asserts **the split** rather than the total, so a forty-first row has to say
+    /// The count test asserts **the split** rather than the total, so a forty-fifth row has to say
     /// which side of the line it is on — the engine's and the runtime's arrangement, for its reason.
     pub on_spec_table: bool,
     /// The gate, in §21's own words where §21 has words for it.
@@ -268,16 +268,23 @@ pub struct Row {
 /// thirty-third would be a spec change.
 pub const SPEC_ROWS: usize = 32;
 
-/// How many rows anything evaluates today. **Fourteen.**
+/// How many rows anything evaluates today. **Eighteen.**
 ///
 /// The number is the point of the file. §21 counted **2 of 18** at the branch point and **11 of 18**
 /// after C11's own pass, both over the prototypes; this is the first count taken over shipped code,
-/// and it is fourteen of forty because thirty-two of the forty rows are about components that do not
-/// exist.
-pub const EVALUATED: usize = 14;
+/// and it is eighteen of forty-four because thirty-two of the forty-four rows are about components
+/// that do not exist.
+///
+/// **It was fourteen of forty until ticket 04**, which added the reference-render runner and its
+/// four rows. Every one of the four is `Evaluated` over a **fixture** rather than over a component,
+/// which is a real standing and not a promoted one: what those rows gate is that *the instrument
+/// separates a correct build from a defective one*, and each is watched doing it in both directions.
+/// The scenes themselves stay `Unsubjected` in [`crate::scenes`], and that file says why the two are
+/// not the same claim.
+pub const EVALUATED: usize = 18;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 40] = [
+pub const REGISTER: [Row; 44] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -888,6 +895,98 @@ pub const REGISTER: [Row; 40] = [
             }],
         },
     },
+    Row {
+        number: 41,
+        on_spec_table: false,
+        gate: "two draw implementations of one scene are equal cell for cell, at the verb boundary",
+        kind: Kind::Equality,
+        owner: "C01",
+        section: "spec §21",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/runner.rs",
+                    name: "the_same_screen_drawn_both_ways_is_equal_cell_for_cell",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/runner.rs",
+                    name: "the_runner_catches_an_inverted_scroll_sign",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/runner.rs",
+                    name: "the_runner_catches_twenty_wheel_clicks_that_move_nothing",
+                },
+                // **Why the reference arm is this crate's and not engine ticket 04's**, as a line
+                // rather than as an argument. `issues/04` asks for *engine 04's reference
+                // compositor* and names none of the three barriers: the module is declared `mod`
+                // and not `pub mod`, so it is unreachable from any other crate at all; it is
+                // `#[cfg(any(test, feature = "fuzz"))]`, so no dependent ever compiles it; and this
+                // crate cannot name `vitui_engine` under any circumstances (row 2's `needs`). The
+                // day that line becomes `pub mod reference;` this test fails and the first barrier
+                // has lifted — which is a change of standing and not a broken test.
+                Instrument::Barrier {
+                    file: "crates/vitui-engine/src/lib.rs",
+                    line: "mod reference;",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 42,
+        on_spec_table: false,
+        gate: "content shrinking inside a rectangle that does not move leaves no stale tail",
+        kind: Kind::Count,
+        owner: "C11 — §21's unbanked gate",
+        section: "spec §21",
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: "crates/vitui-components/src/runner.rs",
+                name: "the_runner_catches_a_stale_tail_after_content_shrinks_inside_a_rectangle_\
+                       that_does_not_move",
+            }],
+        },
+    },
+    Row {
+        number: 43,
+        on_spec_table: false,
+        gate: "a scene's content survives a narrowing, and a size that wrote nothing is refused",
+        kind: Kind::Equality,
+        owner: "C08",
+        section: "spec §13",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/runner.rs",
+                    name: "a_construction_that_changes_with_the_width_is_green_wide_and_red_narrow",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/runner.rs",
+                    name: "a_two_size_comparison_over_a_blank_arm_is_refused",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 44,
+        on_spec_table: false,
+        gate: "§21's scene list is a value, and it is the same length as §21's table",
+        kind: Kind::Count,
+        owner: "C11",
+        section: "spec §21",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/scenes.rs",
+                    name: "the_scene_list_is_the_twenty_seven_rows_of_the_specs_table",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/scenes.rs",
+                    name: "twelve_of_the_thirty_four_axis_obligations_have_a_scene_and_twenty_two_\
+                           do_not",
+                },
+            ],
+        },
+    },
 ];
 
 /// **The compile-outcome pair row 31 names, and its positive twin.**
@@ -1082,7 +1181,7 @@ mod tests {
             .any(|line| !line.starts_with("//") && line.contains(needle))
     }
 
-    /// **Every row names a destination, and the numbers are 1..=40 once each.**
+    /// **Every row names a destination, and the numbers are 1..=44 once each.**
     #[test]
     fn every_row_names_a_destination() {
         for row in REGISTER {
@@ -1151,14 +1250,14 @@ mod tests {
         assert_eq!(seen, expected);
     }
 
-    /// **Fourteen evaluated, and the other twenty-six each say why not.**
+    /// **Eighteen evaluated, and the other twenty-six each say why not.**
     ///
     /// This is the number §21 asks for: *how many gates are actually evaluated is a number a test
     /// asserts rather than a claim in a document*. Saying it out loud is what stops the next change
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn fourteen_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn eighteen_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -1185,20 +1284,20 @@ mod tests {
              and nothing else"
         );
         assert_eq!(unsubjected, 16, "and the sixteen with nothing to run over");
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 40);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 44);
     }
 
     /// **The split, not the total.**
     ///
     /// §21's table is thirty-two rows and it is closed; everything after it is a gate this ticket
-    /// wrote. Asserting the split is what makes a forty-first row say which side of the line it is
+    /// wrote. Asserting the split is what makes a forty-fifth row say which side of the line it is
     /// on — and a thirty-third row claiming to be §21's is a spec change, which should not be able to
     /// arrive as a one-line diff in this file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_eight_are_this_tickets() {
+    fn thirty_two_rows_are_the_specs_and_twelve_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 8);
+        assert_eq!(REGISTER.len() - on_table, 12);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -1460,7 +1559,10 @@ mod tests {
         found.sort();
         assert_eq!(
             found,
-            vec!["gates_numbers.rs".to_string()],
+            vec![
+                "gates_numbers.rs".to_string(),
+                "scene_numbers.rs".to_string()
+            ],
             "the count on this lineage was 0 against the runtime's 19"
         );
     }
@@ -1516,7 +1618,7 @@ mod tests {
     /// The register prints as a table, which is how a human reads it.
     ///
     /// A test rather than a report, because the `Debug` derive is the only other way to look at this
-    /// value and it is unreadable at forty rows.
+    /// value and it is unreadable at forty-four rows.
     #[test]
     fn the_register_prints() {
         assert_eq!(table().lines().count(), REGISTER.len() + 1);

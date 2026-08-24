@@ -15,7 +15,7 @@
 //!   compiled by `cargo clippy --all-targets` and evaluated by nobody. `gates::REGISTER` cites this
 //!   file as an [`Instrument::Report`](vitui_components::gates::Instrument::Report) beside a real
 //!   test and never instead of one, which is R15's refinement 2.
-//! - **What it does assert is the shape**, which is a count: forty rows, fourteen evaluated, nine
+//! - **What it does assert is the shape**, which is a count: forty-four rows, eighteen evaluated, nine
 //!   counters of which eight are readable. A report that has quietly started measuring something
 //!   smaller fails instead of looking good.
 //!
@@ -105,7 +105,7 @@ fn main() {
             Standing::Unsubjected { .. } => unsubjected += 1,
         }
     }
-    assert_eq!(REGISTER.len(), 40, "the register's shape has changed");
+    assert_eq!(REGISTER.len(), 44, "the register's shape has changed");
     assert_eq!(evaluated, EVALUATED);
 
     println!("register  {} rows", REGISTER.len());

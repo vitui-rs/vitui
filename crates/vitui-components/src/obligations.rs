@@ -158,10 +158,44 @@ pub const KEYBOARD_REGISTERED: &[&str] = &[];
 
 /// The scenes that exist, as `(component, axis)` pairs. O5's evidence.
 ///
-/// Empty, and ticket 04 builds the list the per-component scenes tickets then fill. **The first
-/// ticket of each component on this backlog is its hostile-axis scenes, not its drawing**, and a
-/// scenes ticket is red on purpose until its component ticket lands.
-pub const AXIS_SCENES: &[(&str, Axis)] = &[];
+/// **Twelve of thirty-four, and ticket 04 put them here.** Each is a row of spec §21's normative
+/// scene list that names a component **and** the mechanism of an axis it declares; the join lives on
+/// [`crate::scenes::Scene::covers`] and
+/// `scenes::tests::twelve_of_the_thirty_four_axis_obligations_have_a_scene_and_twenty_two_do_not`
+/// asserts that this constant and [`crate::scenes::axis_scenes`] have not drifted.
+///
+/// The other twenty-two are the per-component scenes tickets'. **The first ticket of each component
+/// on this backlog is its hostile-axis scenes, not its drawing**, and a scenes ticket is red on
+/// purpose until its component ticket lands.
+///
+/// The list is written out rather than computed, because [`o5`] takes a slice and a `const fn` over
+/// `SCENES` would make the population and the evidence one expression. Two lists that a test
+/// compares is the arrangement `KEYBOARD_DOCUMENTED` and `KEYBOARD_REGISTERED` already use one file
+/// over, and for O4's reason: an equality between two things derived from each other holds.
+pub const AXIS_SCENES: &[(&str, Axis)] = &[
+    // §21 scene 4 — the inverted scroll sign, 12.21 us against 62.96 and *faster*.
+    ("collection", Axis::Scrolled),
+    // §21 scene 5 — the stale tail, 71 of 80 rows.
+    ("collection", Axis::Shrunk),
+    // §21 scene 6 — twenty wheel clicks move the offset 0 against 16.
+    ("collection", Axis::Wheeled),
+    // §21 scene 7 — a twelve-column table under a horizontal offset, pinned both edges.
+    ("table", Axis::Scrolled),
+    ("table", Axis::Narrow),
+    // §21 scene 8 — a million-node forest at depth 59 999, windowed by the flatten index.
+    ("tree", Axis::Scrolled),
+    // §21 scene 9 — a fold and an unfold: content shrinking inside a rectangle that does not move.
+    ("tree", Axis::Shrunk),
+    // §21 scene 11 — the accordion, 478 hit entries against 70.
+    ("collapsible", Axis::Shrunk),
+    // §21 scene 13 — the wrap memo at 300 and at 120, 625 rows drawn where 875 are needed.
+    ("field", Axis::Narrow),
+    // §21 scene 15 — 60x20, where C08's overlap is red.
+    ("chart", Axis::Narrow),
+    ("plot", Axis::Narrow),
+    // §21 scene 18 — a 1M-row scroll area, row 799 999 of 999 999.
+    ("scroll_area", Axis::Scrolled),
+];
 
 /// **O1 — a rustdoc page with a compiled example, for every component.**
 ///
@@ -407,7 +441,10 @@ mod tests {
             (0, 0),
             "O4"
         );
-        assert_eq!(unmet(o5(AXIS_SCENES)), (34, 34), "O5");
+        // **O5 moved, and it is still red.** Ticket 04's scene list covers twelve of the
+        // thirty-four `(component, axis)` pairs from §21's own rows; the other twenty-two are the
+        // per-component scenes tickets'. A query that moves is a query that is measuring something.
+        assert_eq!(unmet(o5(AXIS_SCENES)), (34, 22), "O5");
 
         // The construction sum O3 will be checked against once ticket 37 has screens: 29 rows plus
         // `chart`, `meter` and `sparkline` at 2 and `plot` at 3.
@@ -492,7 +529,7 @@ mod tests {
     /// See [`o1_fails_loudly`]. **The one worth more than the other four together**, and the one
     /// whose population is `(component, axis)` pairs rather than scenes.
     #[test]
-    #[should_panic(expected = "O5 is unmet: 34 of 34")]
+    #[should_panic(expected = "O5 is unmet: 22 of 34")]
     fn o5_fails_loudly() {
         o5(AXIS_SCENES).assert_met("O5");
     }
