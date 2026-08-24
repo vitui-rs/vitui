@@ -204,13 +204,13 @@ fn main() {
     );
     println!(
         "  {:<52}{}",
-        "rehearsed over a fixture by `src/runner.rs`",
+        "rehearsed over a fixture, in two files",
         count(|s| !s.rehearsed_by.is_empty())
     );
     assert_eq!(SCENES.len(), 27, "the scene list's shape has changed");
     assert_eq!(count(|s| s.owed), 1);
     assert_eq!(count(|s| s.from_a_survived_defect), 3);
-    assert_eq!(count(|s| !s.rehearsed_by.is_empty()), 5);
+    assert_eq!(count(|s| !s.rehearsed_by.is_empty()), 7);
 }
 
 fn count(f: impl Fn(&Scene) -> bool) -> usize {

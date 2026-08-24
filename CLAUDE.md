@@ -107,7 +107,7 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 4 of 43 tickets resolved (2026-08-24). `INVENTORY` is spec
+- **`vitui-components` has started**: 5 of 43 tickets resolved (2026-08-24). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
   answerable by the machine from here on. All five obligations are `Unmet` and each is watched
@@ -117,6 +117,26 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   (19/10, not ADR 0033's thirteen-unbuilt), the count of empty families (five, not §17's two), §1's
   layer rule against §6's own composition, and the `layer` column being uncheckable without stated
   edges. All four are asserted as measured rather than bent to fit.
+- **Ticket 05 is the one that reached down into the runtime**, and §16's split says so in as many
+  words: the runtime owns the mechanism and the two-count invariant, the ticket owned the entry
+  list. So `vitui_runtime::Glyph` went from **7 entries to 20** and `Distinction` from **3 to 10**,
+  and the interesting half is that **`Distinction::carried_by` makes ADR 0032's sentence
+  arithmetic**: seven of the ten name a glyph pair, three name none, and the three that name none
+  are exactly the three narrowing takes away. A declared repertoire is now a real input to the bits,
+  so `with_glyphs` re-narrows and the two builders commute — which needed a private `resolved` flag,
+  because `ColorDepth::None` had been doing duty as both *nobody has said* and *a terminal with no
+  colour* and that only worked while every distinction was carried on the colour axis.
+  **The gate is cross-family collapse and not the pairwise version**, and the difference is 0
+  against 43 at ASCII: the nine box-drawing entries all spell `+` on purpose — `C(9, 2) == 36`,
+  which is §16's *36 of 190* exactly — so the pairwise form fires on every border while the real
+  defect is C09's, `Ellipsis` spelled `>` where `>` is an `ArrowRight`. Spelling it back is watched
+  firing in five places at once, one of them naming `("tree", ArrowRight, Ellipsis)`.
+  **The tier axis is a barrier from that crate** — register row 45, new: `ColorDepth` is
+  `reachable_as: None`, so §16's role and distinctions-lost columns are measured in the runtime's
+  `theme_numbers` and the repertoire columns in `glyph_numbers`. Neither `1 / 2 / 13 of 78` nor
+  `0 / 1 / 2 of 10` reproduces — the shipped palette gives **`0 / 0 / 18`** and **`0 / 1 / 3`** —
+  and the palette was deliberately *not* swapped to make them, because the only reason to would have
+  been the number.
 - Nothing above the engine can draw a screen yet, so no application exists to run.
 
 Read these before working, in this order:

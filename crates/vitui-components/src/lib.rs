@@ -14,10 +14,16 @@
 //! - [`obligations`] — §17's five obligations as queries over the freeze, each returning a count or
 //!   an equality. **Not one of them can be met yet, and every one of them says so out loud** rather
 //!   than returning green over an empty population.
-//! - [`gates`] — §21's register: **forty-four gates as rows, eighteen of them evaluated**, four
-//!   pinned red with their failing sets, six unreachable across the crate line with what would have
-//!   to become public, and sixteen with nothing yet to run over. An instrument is a value with a
+//! - [`gates`] — §21's register: **forty-five gates as rows, twenty of them evaluated**, three
+//!   pinned red with their failing sets, seven unreachable across the crate line with what would have
+//!   to become public, and fifteen with nothing yet to run over. An instrument is a value with a
 //!   file in it, so a row that has stopped running turns the register red here.
+//! - [`glyphs`] — §16's catalogue as a value: **six families over twenty entries and ten
+//!   distinctions**, with the demand column of [`INVENTORY`] joined against it. A distinction
+//!   survives the whole matrix iff it is carried on both axes (ADR 0032), and seven of the ten name
+//!   a glyph pair — so the gate that matters is **cross-family** collapse and not the pairwise
+//!   version, which fires on every border because the nine box-drawing entries are all `+` at ASCII
+//!   on purpose.
 //! - [`counters`] — §20's nine per-frame counters, **eight of which this crate can read**. The
 //!   ninth, `marked`, panics rather than answering `0`, and so does the sentinel probe.
 //! - [`scenes`] — §21's normative scene list: **twenty-seven screens, every one `Unsubjected`**,
@@ -52,6 +58,7 @@
 
 pub mod counters;
 pub mod gates;
+pub mod glyphs;
 pub mod inventory;
 pub mod obligations;
 pub mod runner;

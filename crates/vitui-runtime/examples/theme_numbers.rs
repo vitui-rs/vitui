@@ -215,13 +215,22 @@ fn the_pair_table() {
                 }
             }
         }
+        let lost: Vec<String> = Distinction::ALL
+            .into_iter()
+            .filter(|&d| !theme.shows(d))
+            .map(|d| format!("{d:?}"))
+            .collect();
         println!(
-            "          {:<12} {:>3} of {PAIRS}   hover {:<5} fade {:<5} status {}",
+            "          {:<12} {:>3} of {PAIRS}   {} of {} distinctions lost: {}",
             format!("{tier:?}"),
             collapsed.len(),
-            theme.shows(Distinction::Hover),
-            theme.shows(Distinction::Fade),
-            theme.shows(Distinction::Status),
+            lost.len(),
+            Distinction::ALL.len(),
+            if lost.is_empty() {
+                "-".to_owned()
+            } else {
+                lost.join(" ")
+            },
         );
         if !collapsed.is_empty() && collapsed.len() <= 6 {
             for (a, b) in &collapsed {
@@ -240,8 +249,52 @@ fn the_pair_table() {
         \x20       which is four times further away — so that figure came from a quantiser that did\n\
         \x20       not consult the greys.\n\
         \x20       **Gated as a relation and not an equality**, which is spec §20's own rule: the\n\
-        \x20       number belongs to the palette, and components ticket 05 replaces the palette."
+        \x20       number belongs to the palette — and components ticket 05 deliberately did **not**\n\
+        \x20       replace it, because the only reason to would have been to make the remembered\n\
+        \x20       number come back."
     );
+    println!(
+        "        **The distinctions-lost column, which is the tier axis of spec §16's matrix.**\n\
+        \x20       Components ticket 05 took the set from three to ten and seven of the ten are\n\
+        \x20       carried by a **glyph** pair, so they survive every tier: what is lost is only\n\
+        \x20       ever `Fade`, `Status` and `Hover`, in that order, which is the same three the\n\
+        \x20       colour axis was carrying alone.\n\
+        \x20       §16 records 0 / 1 / **2** of 10 across True / C256 / C16 and this palette gives\n\
+        \x20       0 / 1 / **3** — its two face backgrounds land on one index at sixteen colours, so\n\
+        \x20       `Hover` goes with the other two. That is the same divergence as the pair count\n\
+        \x20       above and it has the same cause, so it is measured rather than engineered away.\n\
+        \x20       The repertoire half of the matrix — glyph pairs 0 / 0 / **36 of 190**, and the\n\
+        \x20       within-component cross-family collapse gate — is measured one crate up, by\n\
+        \x20       `cargo run --example glyph_numbers -p vitui-components`."
+    );
+    // The relation on the distinction column, which is the half that is a gate: narrowing never
+    // gives a distinction back, and nothing carried by a glyph is ever lost.
+    let mut lost_counts = Vec::new();
+    for tier in TIERS {
+        let theme = Theme::default().resolve(tier);
+        for d in Distinction::ALL {
+            if !theme.shows(d) {
+                assert!(
+                    d.carried_by().is_none(),
+                    "{d:?} is carried by a glyph pair and was lost at {tier:?}, which means a \
+                     spelling collapsed inside a carrier"
+                );
+            }
+        }
+        lost_counts.push(
+            Distinction::ALL
+                .into_iter()
+                .filter(|&d| !theme.shows(d))
+                .count(),
+        );
+    }
+    for w in lost_counts.windows(2) {
+        assert!(
+            w[0] <= w[1],
+            "narrowing gave a distinction back: {lost_counts:?} across {TIERS:?}"
+        );
+    }
+    println!("        gate: nothing glyph-carried is lost. Measured {lost_counts:?}.");
     // The relation: narrowing never adds a distinction. This is the part that is a gate.
     for w in counts.windows(2) {
         assert!(

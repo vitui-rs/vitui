@@ -1,4 +1,4 @@
-//! Spec §21's register: **forty-four gates as a value, one row per gate, and a number for how many of
+//! Spec §21's register: **forty-five gates as a value, one row per gate, and a number for how many of
 //! them anything runs.**
 //!
 //! > The register is data, not prose — one row per gate with its kind, its owner, where it stood at
@@ -54,9 +54,11 @@
 //!   to run over** — no component exists — and a register that filed those as `Evaluated` would be
 //!   claiming sixteen green gates over an empty population.
 //!
-//! **Eighteen evaluated, four red, six unreachable, sixteen unsubjected**, and
-//! `tests::eighteen_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
-//! deliberate edit rather than a quiet one.
+//! **Twenty evaluated, three red, seven unreachable, fifteen unsubjected**, and
+//! `tests::twenty_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
+//! deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
+//! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
+//! and subjected row 27, the cross-family collapse gate.
 //!
 //! # The instruments are values with files in them
 //!
@@ -268,11 +270,11 @@ pub struct Row {
 /// thirty-third would be a spec change.
 pub const SPEC_ROWS: usize = 32;
 
-/// How many rows anything evaluates today. **Eighteen.**
+/// How many rows anything evaluates today. **Twenty.**
 ///
 /// The number is the point of the file. §21 counted **2 of 18** at the branch point and **11 of 18**
 /// after C11's own pass, both over the prototypes; this is the first count taken over shipped code,
-/// and it is eighteen of forty-four because thirty-two of the forty-four rows are about components
+/// and it is twenty of forty-five because thirty-two of the forty-five rows are about components
 /// that do not exist.
 ///
 /// **It was fourteen of forty until ticket 04**, which added the reference-render runner and its
@@ -281,10 +283,10 @@ pub const SPEC_ROWS: usize = 32;
 /// separates a correct build from a defective one*, and each is watched doing it in both directions.
 /// The scenes themselves stay `Unsubjected` in [`crate::scenes`], and that file says why the two are
 /// not the same claim.
-pub const EVALUATED: usize = 18;
+pub const EVALUATED: usize = 20;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 44] = [
+pub const REGISTER: [Row; 45] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -635,18 +637,25 @@ pub const REGISTER: [Row; 44] = [
         kind: Kind::Count,
         owner: "C09, C10",
         section: "spec §16",
-        standing: Standing::Red {
-            by: &[Instrument::Unit {
-                file: "crates/vitui-components/src/gates.rs",
-                name: "no_component_here_names_a_glyph_set_and_none_has_a_private_missing_table",
-            }],
-            failing: "0 occurrences over 0 components. The count is what the gate asks for and the \
-                  population is empty, which is `Verdict::of`'s vacuity in a different file: nine \
-                  crates of twelve carried a private fallback table, six glyph literals and a \
-                  `match` byte-identical in all of them, and this crate has none of it because it \
-                  has nothing. The detector runs in both directions today; the subject arrives with \
-                  the first component",
-            inverted_by: "components 05",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/gates.rs",
+                    name: "no_component_here_names_a_glyph_set_and_none_has_a_private_missing_table",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/inventory.rs",
+                    name: "no_component_source_names_the_repertoire",
+                },
+                // **The exception, named rather than the gate loosened** — refinement 3. Somebody
+                // has to *declare* three rungs to sweep them, so the count over `src/` is joined to
+                // a list of the two files outside it that may carry the needle. A third one is a
+                // failing test rather than a drift back to twenty-four occurrences.
+                Instrument::Unit {
+                    file: "crates/vitui-components/tests/glyph_matrix.rs",
+                    name: "the_axis_is_named_in_two_files_and_neither_is_a_component",
+                },
+            ],
         },
     },
     Row {
@@ -656,8 +665,17 @@ pub const REGISTER: [Row; 44] = [
         kind: Kind::Count,
         owner: "C10, corrected by C11",
         section: "spec §16",
-        standing: Standing::Unsubjected {
-            inverted_by: "components 05",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/tests/glyph_matrix.rs",
+                    name: "within_component_cross_family_collapse_is_zero_at_every_rung",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/glyphs.rs",
+                    name: "the_detector_finds_c09s_collapse_and_not_a_corner_on_a_corner",
+                },
+            ],
         },
     },
     Row {
@@ -987,6 +1005,28 @@ pub const REGISTER: [Row; 44] = [
             ],
         },
     },
+    // ── components ticket 05's row, and it is a barrier rather than a gate ────────────────────────
+    Row {
+        number: 45,
+        on_spec_table: false,
+        gate: "§16's matrix at all nine cells — the repertoire axis against the colour axis",
+        kind: Kind::Count,
+        owner: "C09, C10, C11",
+        section: "spec §16",
+        standing: Standing::Unreachable {
+            needs: "`ColorDepth`. **The repertoire half is measured here in full** — glyph pairs \
+                    0 / 0 / 36 of 190, every ASCII collapse inside the box family, and the \
+                    within-component cross-family gate at all three rungs — because a `GlyphSet` \
+                    is nameable through the runtime's re-export. The colour half is not: \
+                    `Theme::resolve` takes a `ColorDepth`, `crates/vitui-runtime/src/line.rs` \
+                    files it `reachable_as: None`, and the only tier a crate whose dependency list \
+                    is `vitui-runtime` and nothing else can hold is the one a theme arrives already \
+                    resolved for. So the role column, the distinctions-lost column and the traffic \
+                    light at sixteen colours are measured in the runtime, which owns the mechanism \
+                    and may name both axes: `examples/theme_numbers.rs` prints them",
+            inverted_by: "runtime architecture issue 22",
+        },
+    },
 ];
 
 /// **The compile-outcome pair row 31 names, and its positive twin.**
@@ -1181,7 +1221,7 @@ mod tests {
             .any(|line| !line.starts_with("//") && line.contains(needle))
     }
 
-    /// **Every row names a destination, and the numbers are 1..=44 once each.**
+    /// **Every row names a destination, and the numbers are 1..=45 once each.**
     #[test]
     fn every_row_names_a_destination() {
         for row in REGISTER {
@@ -1250,14 +1290,14 @@ mod tests {
         assert_eq!(seen, expected);
     }
 
-    /// **Eighteen evaluated, and the other twenty-six each say why not.**
+    /// **Twenty evaluated, and the other twenty-five each say why not.**
     ///
     /// This is the number §21 asks for: *how many gates are actually evaluated is a number a test
     /// asserts rather than a claim in a document*. Saying it out loud is what stops the next change
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn eighteen_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn twenty_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -1273,31 +1313,33 @@ mod tests {
         assert_eq!(evaluated, EVALUATED, "the count §21 asks a test to assert");
         assert_eq!(
             red,
-            vec![7, 8, 26, 29],
-            "the four gates that are red and pinned: the sentinel, the palette after a swap, \
-             twenty wheel clicks and the glyph-set count"
+            vec![7, 8, 29],
+            "the three gates that are red and pinned: the sentinel, the palette after a swap and \
+             twenty wheel clicks. The glyph-set count was the fourth, and components ticket 05 \
+             inverted it by writing the first code in this workspace that has to spell a glyph"
         );
         assert_eq!(
             unreachable,
-            vec![1, 2, 5, 21, 28, 33],
-            "the six that cannot be written from a crate whose dependency list is `vitui-runtime` \
-             and nothing else"
+            vec![1, 2, 5, 21, 28, 33, 45],
+            "the seven that cannot be written from a crate whose dependency list is \
+             `vitui-runtime` and nothing else"
         );
-        assert_eq!(unsubjected, 16, "and the sixteen with nothing to run over");
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 44);
+        assert_eq!(unsubjected, 15, "and the fifteen with nothing to run over");
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 45);
     }
 
     /// **The split, not the total.**
     ///
-    /// §21's table is thirty-two rows and it is closed; everything after it is a gate this ticket
-    /// wrote. Asserting the split is what makes a forty-fifth row say which side of the line it is
-    /// on — and a thirty-third row claiming to be §21's is a spec change, which should not be able to
-    /// arrive as a one-line diff in this file.
+    /// §21's table is thirty-two rows and it is closed; everything after it is a gate a ticket on
+    /// this lineage wrote. Asserting the split is what made the forty-fifth row — components ticket
+    /// 05's matrix barrier — say which side of the line it is on, and a thirty-third row claiming to
+    /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
+    /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_twelve_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_thirteen_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 12);
+        assert_eq!(REGISTER.len() - on_table, 13);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -1489,12 +1531,25 @@ mod tests {
         ));
     }
 
-    /// **No component here names a glyph set, and none carries a private fallback table.**
+    /// **No component here names a glyph set, and no crate in the workspace carries a private
+    /// fallback table.**
     ///
-    /// Row 26, and it is **pinned red over an empty population**: 0 occurrences over 0 components,
-    /// which is `Verdict::of`'s vacuity refusal stated in a different file. The detector below runs
-    /// in both directions today — it finds the needle in a fixture line and does not find it in the
-    /// crate — so what is missing is the subject and not the instrument.
+    /// Row 26, and **components ticket 05 inverted it.** It was pinned red over an empty population
+    /// — 0 occurrences over 0 components, which is `Verdict::of`'s vacuity refusal stated in a
+    /// different file — and what was missing was the subject rather than the instrument.
+    ///
+    /// # What made it a subject, which is not *a component was built*
+    ///
+    /// The thing a private fallback module substitutes for is **code that has to spell a glyph and
+    /// cannot add an entry to the table**. Nine crates of twelve grew one; the gate asks that a
+    /// crate doing that work names no repertoire. [`crate::glyphs`] is that work: it reads
+    /// `Theme::glyph` for all twenty entries across the whole freeze, joins them into six families,
+    /// takes the collapse census and runs the memo rule — and it names a role and a glyph and never
+    /// a repertoire. So the count is over something now.
+    ///
+    /// The second half is widened to the workspace, which is what §16 asks for and what this could
+    /// not do while it had nothing to be about: **no private fallback module anywhere**, engine,
+    /// runtime and components together.
     ///
     /// The needles are assembled from fragments so that **this file** does not contain them. A source
     /// scan whose own source matches it is the vacuous shape the engine's register records having
@@ -1528,16 +1583,39 @@ mod tests {
         assert!(carries(&format!("{private_table} {{ }}"), private_table));
         assert!(!carries(&format!("// {glyph_set} in a comment"), glyph_set));
 
-        // And the population, which is what makes row 26 red rather than green.
-        assert_eq!(
-            crate::INVENTORY.iter().filter(|c| c.built).count(),
-            19,
-            "nineteen rows of the freeze are marked built"
+        // **No private fallback table anywhere in the workspace**, which is the half §16 states
+        // over every crate and not only this one. It is checkable now for the same reason the
+        // count above is: something in this workspace finally spells a glyph.
+        let mut everywhere = Vec::new();
+        rust_files(
+            &PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../..")),
+            &mut everywhere,
         );
-        assert_eq!(
-            crate::obligations::DOC_TESTED.len(),
-            0,
-            "and not one of them exists, so the zero above is a count over nothing"
+        assert!(
+            everywhere.len() > 100,
+            "the workspace walk found only {} files",
+            everywhere.len()
+        );
+        let mut private = Vec::new();
+        for path in &everywhere {
+            let source = std::fs::read_to_string(path).unwrap_or_default();
+            if carries(&source, private_table) {
+                private.push(path.to_string_lossy().into_owned());
+            }
+        }
+        assert_eq!(private, Vec::<String>::new());
+
+        // And the population the count is over: the module that does the glyph work, and the
+        // twenty entries it does it for. A gate whose subject went away should go red again rather
+        // than stay green over nothing, which is what this line is.
+        assert_eq!(vitui_runtime::Glyph::ALL.len(), 20);
+        assert!(
+            crate::INVENTORY
+                .iter()
+                .filter(|c| !c.glyphs.is_empty())
+                .count()
+                >= 20,
+            "the demand column is a stub again, and a count over a stub is a count over nothing"
         );
     }
 
@@ -1561,6 +1639,7 @@ mod tests {
             found,
             vec![
                 "gates_numbers.rs".to_string(),
+                "glyph_numbers.rs".to_string(),
                 "scene_numbers.rs".to_string()
             ],
             "the count on this lineage was 0 against the runtime's 19"
@@ -1618,7 +1697,7 @@ mod tests {
     /// The register prints as a table, which is how a human reads it.
     ///
     /// A test rather than a report, because the `Debug` derive is the only other way to look at this
-    /// value and it is unreadable at forty-four rows.
+    /// value and it is unreadable at forty-five rows.
     #[test]
     fn the_register_prints() {
         assert_eq!(table().lines().count(), REGISTER.len() + 1);

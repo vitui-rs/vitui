@@ -105,7 +105,7 @@ fn main() {
             Standing::Unsubjected { .. } => unsubjected += 1,
         }
     }
-    assert_eq!(REGISTER.len(), 44, "the register's shape has changed");
+    assert_eq!(REGISTER.len(), 45, "the register's shape has changed");
     assert_eq!(evaluated, EVALUATED);
 
     println!("register  {} rows", REGISTER.len());

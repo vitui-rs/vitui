@@ -166,13 +166,22 @@ pub struct Component {
     /// `ArrowRight` and ASCII spelled both `>`. The gate that needs this column is *within-component
     /// cross-family collapse == 0 at every rung*.
     ///
-    /// **This column is short by construction and ticket 05 owns its size.** `vitui_runtime::Glyph`
-    /// ships **seven** entries today and spec §16 grows the table to **twenty** — the four arrows,
-    /// the four box corners, `Ellipsis`, the four tees and `Cross`. Every demand below is the part
-    /// of a component's real demand that is *nameable*, and
-    /// `tests::the_glyph_table_is_still_the_seven_entries_these_demand_sets_were_written_against`
-    /// is the tripwire that fails the day the table grows, so the sets grow with it rather than
-    /// silently staying wrong.
+    /// **The column is filled, and ticket 05 is where it stopped being short.** `vitui_runtime::Glyph`
+    /// shipped **seven** entries and spec §16 took the table to **twenty** — the four arrows, the
+    /// four box corners, `Ellipsis`, the four tees and `Cross` — so the demands that had no name
+    /// have one: `panel` and `table` name their corners, `table` its tees and its cross, `tree` the
+    /// `ArrowRight` chevron beside its `ArrowDown`, `select` and `pagination` their arrows, and
+    /// eight rows the `Ellipsis` they truncate with.
+    ///
+    /// **Twenty of the twenty-nine rows draw at least one glyph, and every one of the twenty entries
+    /// has a caller** — `crate::glyphs::tests::the_demand_column_is_filled_and_joined_against_the_table`
+    /// is what stops an entry existing for a reader rather than for a component. The tripwire that
+    /// pinned this column at seven is now
+    /// `tests::the_glyph_table_is_twenty_entries_and_every_one_of_them_has_a_demander`, holding the
+    /// same shape one number further on.
+    ///
+    /// `tree` needed no new entry of its own: its chevron pair *is* `ArrowDown`/`ArrowRight` and its
+    /// indent guides are `VLine`, `TeeLeft`, `BottomLeft` (§16).
     pub glyphs: &'static [Glyph],
     /// How many **different things** it builds across the three declared repertoires, 1..=3.
     ///
@@ -406,7 +415,7 @@ pub const INVENTORY: &[Component] = &[
         built: true,
         layer: Layer::L0,
         families: &[Family::F1Text],
-        glyphs: &[],
+        glyphs: &[Glyph::Ellipsis],
         constructions: 1,
         can_shrink: false,
         owns_offset: false,
@@ -426,7 +435,14 @@ pub const INVENTORY: &[Component] = &[
         families: &[Family::F2Structure],
         // The border. The four corners and the four tees are §16's growth to twenty and are not
         // nameable yet; the two rules are.
-        glyphs: &[Glyph::HLine, Glyph::VLine],
+        glyphs: &[
+            Glyph::HLine,
+            Glyph::VLine,
+            Glyph::TopLeft,
+            Glyph::TopRight,
+            Glyph::BottomLeft,
+            Glyph::BottomRight,
+        ],
         constructions: 1,
         can_shrink: false,
         owns_offset: false,
@@ -444,7 +460,7 @@ pub const INVENTORY: &[Component] = &[
         // before a draw — a partition defect, not state.
         layer: Layer::L0,
         families: &[Family::F1Text, Family::F6Input],
-        glyphs: &[],
+        glyphs: &[Glyph::Ellipsis],
         constructions: 1,
         can_shrink: false,
         owns_offset: false,
@@ -494,7 +510,7 @@ pub const INVENTORY: &[Component] = &[
         built: true,
         layer: Layer::L2,
         families: &[Family::F7Collections, Family::F6Input, Family::F3Scrolling],
-        glyphs: &[Glyph::Bullet],
+        glyphs: &[Glyph::Bullet, Glyph::Tick, Glyph::Ellipsis],
         constructions: 1,
         // The stale tail: **71 of 80 rows**, the defective build 2.3x faster marking 226x less.
         can_shrink: true,
@@ -516,7 +532,20 @@ pub const INVENTORY: &[Component] = &[
         families: &[Family::F7Collections, Family::F13System],
         // The header rule and the column separators. §16's four tees and `Cross` are the rest and
         // are not nameable yet.
-        glyphs: &[Glyph::HLine, Glyph::VLine],
+        glyphs: &[
+            Glyph::HLine,
+            Glyph::VLine,
+            Glyph::TopLeft,
+            Glyph::TopRight,
+            Glyph::BottomLeft,
+            Glyph::BottomRight,
+            Glyph::TeeTop,
+            Glyph::TeeBottom,
+            Glyph::TeeLeft,
+            Glyph::TeeRight,
+            Glyph::Cross,
+            Glyph::Ellipsis,
+        ],
         constructions: 1,
         can_shrink: true,
         owns_offset: true,
@@ -534,7 +563,14 @@ pub const INVENTORY: &[Component] = &[
         families: &[Family::F7Collections],
         // The indent guides. Its chevron pair *is* `ArrowDown`/`ArrowRight` (§16), and only the
         // first of those exists in the table today.
-        glyphs: &[Glyph::VLine, Glyph::ArrowDown],
+        glyphs: &[
+            Glyph::VLine,
+            Glyph::TeeLeft,
+            Glyph::BottomLeft,
+            Glyph::ArrowDown,
+            Glyph::ArrowRight,
+            Glyph::Ellipsis,
+        ],
         constructions: 1,
         // §20's scene 9: a fold over 349 524 rows, splice against permutation — 1 run / 0.04 us
         // against 297 180 / 24 338.
@@ -554,7 +590,18 @@ pub const INVENTORY: &[Component] = &[
         // and swallows a click, against 2 592 bytes and two clicks for blur.
         layer: Layer::L4,
         families: &[Family::F6Input, Family::F9Overlays],
-        glyphs: &[Glyph::ArrowDown],
+        // The chevron pair and the steppers are **one family**, which is §16's reason for four
+        // arrow ends and not eight: `ArrowRight`/`ArrowDown` says closed or open, `ArrowUp`/
+        // `ArrowDown` steps the popup's list. It is the second row after `tree` to draw both
+        // `Ellipsis` and `ArrowRight`, so it is the second component C09's `>` would have put the
+        // collapsed marker on the end of a truncated option in.
+        glyphs: &[
+            Glyph::ArrowUp,
+            Glyph::ArrowDown,
+            Glyph::ArrowRight,
+            Glyph::Tick,
+            Glyph::Ellipsis,
+        ],
         constructions: 1,
         can_shrink: false,
         // §12 states the wheel defect inside its own section: §7's literal `Copy`-only body moves
@@ -613,7 +660,14 @@ pub const INVENTORY: &[Component] = &[
         // R05's grab. The offset it moves is the area's, which is the next flag down.
         layer: Layer::L1,
         families: &[Family::F3Scrolling],
-        glyphs: &[Glyph::Thumb, Glyph::Track],
+        glyphs: &[
+            Glyph::ArrowUp,
+            Glyph::ArrowDown,
+            Glyph::ArrowLeft,
+            Glyph::ArrowRight,
+            Glyph::Thumb,
+            Glyph::Track,
+        ],
         constructions: 1,
         can_shrink: false,
         // §9: a band that were a second scroll area would win the wheel from the body it is a
@@ -651,7 +705,7 @@ pub const INVENTORY: &[Component] = &[
         built: true,
         layer: Layer::L3,
         families: &[Family::F4Disclosure],
-        glyphs: &[Glyph::ArrowDown],
+        glyphs: &[Glyph::ArrowDown, Glyph::ArrowRight],
         constructions: 1,
         // §20's scene 11: an accordion of twelve sections at 0 / 6 / 12 open — **closed content is
         // not drawn, 478 hit entries against 70**. Content shrinking inside a rectangle that does
@@ -753,7 +807,7 @@ pub const INVENTORY: &[Component] = &[
         // `chart`'s prefix construction at two rungs (ticket 34), so it sits at `chart`'s rung.
         layer: Layer::L1,
         families: &[Family::F5Indicators, Family::F13System],
-        glyphs: &[],
+        glyphs: &[Glyph::Thumb, Glyph::Track],
         // **2, and this is the number §17 names.** Block elements are the Unicode rung by
         // `CONTEXT.md`'s own definition — *Unicode with box drawing and block elements* — so an
         // operator who promises block elements has promised all of them, and there is no third
@@ -819,7 +873,7 @@ pub const INVENTORY: &[Component] = &[
         // navigation model (ticket 35).
         layer: Layer::L5,
         families: &[Family::F7Collections, Family::F8Navigation],
-        glyphs: &[],
+        glyphs: &[Glyph::ArrowLeft, Glyph::ArrowRight],
         constructions: 1,
         can_shrink: false,
         owns_offset: false,
@@ -885,7 +939,7 @@ pub const INVENTORY: &[Component] = &[
         built: true,
         layer: Layer::L5,
         families: &[Family::F12Files, Family::F7Collections, Family::F9Overlays],
-        glyphs: &[Glyph::Bullet],
+        glyphs: &[Glyph::Bullet, Glyph::Ellipsis],
         constructions: 1,
         can_shrink: true,
         owns_offset: true,
@@ -899,7 +953,7 @@ pub const INVENTORY: &[Component] = &[
         built: true,
         layer: Layer::L3,
         families: &[Family::F12Files, Family::F11Media],
-        glyphs: &[Glyph::VLine],
+        glyphs: &[Glyph::VLine, Glyph::Ellipsis],
         constructions: 1,
         // §15 states the shrink axis in one clause: **a landing *is* a shrink**, from another
         // thread for the first time. Left unclamped the body draws nothing at all — 1 650 writes
@@ -1380,25 +1434,29 @@ mod tests {
         );
     }
 
-    /// **The glyph table is still the seven entries these demand sets were written against.**
+    /// **The glyph table is twenty entries and every one of them has a demander.**
     ///
-    /// A tripwire, not a claim that seven is right. Spec §16 grows the table to **twenty** — the
-    /// four arrows, the four box corners, `Ellipsis`, the four tees and `Cross` — and until ticket
-    /// 05 does that, `panel` cannot name a corner and `tree` cannot name its `ArrowRight` chevron.
-    /// **A demand set that is short for a stated reason is a different thing from one that is
-    /// wrong**, and the difference stops being visible the moment the table grows without these
-    /// rows growing with it. So the day it grows, this fails and names what to do.
+    /// The tripwire ticket 01 left, one number further on. It read *still the seven these demand
+    /// sets were written against*, and it fired: §16 took the table to twenty — the four arrows, the
+    /// four box corners, `Ellipsis`, the four tees and `Cross` — and ticket 05 grew the rows with
+    /// it, so `panel` names a corner and `tree` names its `ArrowRight` chevron.
+    ///
+    /// **What is kept is the shape, not the number.** A demand set short for a stated reason is a
+    /// different thing from one that is wrong, and the difference stops being visible the moment the
+    /// table moves without these rows moving. The second half is new and is the direction that was
+    /// unguardable while the column was a stub: **an entry no row draws is a table row written for a
+    /// reader rather than for a caller**, which is how a catalogue grows entries nine private
+    /// fallback tables then disagree about.
     #[test]
-    fn the_glyph_table_is_still_the_seven_entries_these_demand_sets_were_written_against() {
+    fn the_glyph_table_is_twenty_entries_and_every_one_of_them_has_a_demander() {
         assert_eq!(
             Glyph::ALL.len(),
-            7,
-            "`vitui_runtime::Glyph` has grown. Spec §16 takes the table from 7 entries to 20, and \
-             the `glyphs` column of `INVENTORY` was written against the 7: `panel` and `table` owe \
-             the corners and the tees, `tree` owes `ArrowRight` beside its `ArrowDown`, `select` \
-             and `pagination` owe the arrows, and `text` owes `Ellipsis`. Grow the rows, then this \
-             number"
+            20,
+            "`vitui_runtime::Glyph` has moved off spec §16's twenty. The `glyphs` column of \
+             `INVENTORY` is joined against it row by row — grow the rows, then this number"
         );
+
+        let mut demanded = BTreeSet::new();
         for c in INVENTORY {
             let mut seen = BTreeSet::new();
             for g in c.glyphs {
@@ -1407,8 +1465,19 @@ mod tests {
                     "`{}` demands {g:?} twice",
                     c.id
                 );
+                demanded.insert(format!("{g:?}"));
             }
         }
+        assert_eq!(
+            demanded.len(),
+            Glyph::ALL.len(),
+            "an entry of the table is drawn by no row of the freeze"
+        );
+        assert_eq!(
+            INVENTORY.iter().filter(|c| !c.glyphs.is_empty()).count(),
+            20,
+            "twenty of the twenty-nine rows draw at least one glyph"
+        );
     }
 
     /// **Occurrences of the repertoire type's path in `vitui-components` == 0, and no private

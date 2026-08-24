@@ -532,6 +532,23 @@ impl Density {
 /// **A component branches on a bool and names neither axis** — not the colour depth, not the glyph
 /// repertoire. That is the whole point: branching on the axes is what produced twenty-four
 /// `GlyphSet::` occurrences across four component crates and nine divergent private fallback tables.
+///
+/// # Ten, and the split is ADR 0032's sentence rather than a taxonomy
+///
+/// > **A distinction survives the whole matrix iff it is carried on both axes.**
+///
+/// [`Distinction::carried_by`] is that sentence as a value. **Seven of the ten name a glyph pair and
+/// three do not**, and the three that do not are exactly the three that die: [`Distinction::Fade`]
+/// below truecolor, [`Distinction::Status`] where the palette's three signals quantise together, and
+/// [`Distinction::Hover`] wherever the two faces land on one index. Everything glyph-bearing survives
+/// all nine cells of the repertoire × tier matrix, **because the glyph carries it** — a spelling is
+/// never blank and never other than one cell, so the carrier cannot go quiet the way a colour can.
+///
+/// The carrier pairs are **cross-family wherever a family can collapse**. All nine box-drawing
+/// entries spell `+` at ASCII on purpose, so no distinction is carried by two of them: a tree's
+/// *last child* — `TeeLeft` against `BottomLeft` — is a real difference that ASCII loses, and it is
+/// not on this list for that reason. What a tree asks instead is [`Distinction::Guide`], `VLine`
+/// against `TeeLeft`, which crosses a family and survives.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Distinction {
     /// A face under the pointer looks different from one at rest.
@@ -540,12 +557,63 @@ pub enum Distinction {
     Fade,
     /// [`Role::Danger`], [`Role::Warn`] and [`Role::Ok`] are three different things.
     Status,
+    /// A scrollbar's two steppers point opposite ways (spec §9).
+    Stepper,
+    /// A disclosure marker says open or closed (spec §7, §8) — the same arrow family as the
+    /// steppers, and **entering it twice under two names would be the collapse the pair gate
+    /// catches**.
+    Disclosure,
+    /// A tree's indent guide says *this row has a sibling below* rather than merely *there is depth
+    /// here* (spec §7).
+    Guide,
+    /// A rule across is not a rule down (spec §3's `frame::block`, §6's column rectangles).
+    Separator,
+    /// A scrollbar's thumb is distinguishable from its track (spec §9).
+    Thumb,
+    /// A label that was **cut** is distinguishable from one that ended — and, specifically, from a
+    /// collapsed-node marker.
+    ///
+    /// **This is C09's defect as a bit.** The shadow table spelled the ASCII ellipsis `>`, which is
+    /// exactly an ASCII `ArrowRight`, so 468 truncated labels ended in the collapsed-node marker and
+    /// `tree` draws both. Spelled `~`, the carrier crosses a family and the bit stands.
+    Truncation,
+    /// A list marker is not a checkmark (spec §5, §12).
+    Marker,
 }
 
 impl Distinction {
-    /// Every distinction. The set is deliberately small: one per mechanism already on the map, and
-    /// components ticket 05 owns growing it.
-    pub const ALL: [Distinction; 3] = [Distinction::Hover, Distinction::Fade, Distinction::Status];
+    /// Every distinction. **Ten**, which is the denominator spec §16's matrix reports against.
+    pub const ALL: [Distinction; 10] = [
+        Distinction::Hover,
+        Distinction::Fade,
+        Distinction::Status,
+        Distinction::Stepper,
+        Distinction::Disclosure,
+        Distinction::Guide,
+        Distinction::Separator,
+        Distinction::Thumb,
+        Distinction::Truncation,
+        Distinction::Marker,
+    ];
+
+    /// The **glyph pair** that carries this distinction, where one does.
+    ///
+    /// `None` is not *uncarried* — it is *carried on the colour axis alone*, which is the half that
+    /// narrowing can take away. A bit whose carrier is a glyph pair is set when the theme's declared
+    /// repertoire spells the two differently; a bit with no carrier is set by [`Theme::resolve`]'s
+    /// rule over the quantised roles.
+    pub const fn carried_by(self) -> Option<(Glyph, Glyph)> {
+        match self {
+            Distinction::Hover | Distinction::Fade | Distinction::Status => None,
+            Distinction::Stepper => Some((Glyph::ArrowUp, Glyph::ArrowDown)),
+            Distinction::Disclosure => Some((Glyph::ArrowRight, Glyph::ArrowDown)),
+            Distinction::Guide => Some((Glyph::VLine, Glyph::TeeLeft)),
+            Distinction::Separator => Some((Glyph::HLine, Glyph::VLine)),
+            Distinction::Thumb => Some((Glyph::Thumb, Glyph::Track)),
+            Distinction::Truncation => Some((Glyph::Ellipsis, Glyph::ArrowRight)),
+            Distinction::Marker => Some((Glyph::Bullet, Glyph::Tick)),
+        }
+    }
 
     const fn bit(self) -> u16 {
         1 << (self as u16)
@@ -561,38 +629,103 @@ pub use crate::ctx::Interest;
 
 /// The glyphs a theme spells for a component, so that no component owns a fallback table.
 ///
-/// Seven entries, and the count is not this ticket's to grow: components ticket 05 declares the
-/// demand set. **The theme owns the table because there was nowhere else to put one** — nine crates
-/// of twelve grew a private `mod missing` with six glyph literals and a `match` on `GlyphSet`,
-/// byte-identical in all nine.
+/// **Twenty entries**, grown from seven by components ticket 05, which declares the demand set (spec
+/// §16, ADR 0032). **The theme owns the table because there was nowhere else to put one** — nine
+/// crates of twelve grew a private `mod missing` with six glyph literals and a `match` on
+/// `GlyphSet`, byte-identical in all nine.
+///
+/// # The twenty are six families, and the family is what the collapse gate is written over
+///
+/// | family | entries | ASCII |
+/// |---|---|---|
+/// | arrow | [`Glyph::ArrowUp`] [`Glyph::ArrowDown`] [`Glyph::ArrowLeft`] [`Glyph::ArrowRight`] | `^` `v` `<` `>` |
+/// | rule | [`Glyph::VLine`] [`Glyph::HLine`] | `\|` `-` |
+/// | box | the four corners, the four tees and [`Glyph::Cross`] | `+` ×9 |
+/// | mark | [`Glyph::Bullet`] [`Glyph::Tick`] | `*` `x` |
+/// | fill | [`Glyph::Thumb`] [`Glyph::Track`] | `#` `:` |
+/// | cut | [`Glyph::Ellipsis`] | `~` |
+///
+/// **The nine box-drawing entries all spell `+` at ASCII on purpose**, which is exactly the 36 of
+/// 190 glyph pairs §16 measures collapsing there — `9 × 8 / 2`, and every one of them inside one
+/// family. A corner collapsing onto a corner loses nothing; a corner collapsing onto an arrow would
+/// be C09's defect, and that is why the gate the component crate keeps is **cross-family** collapse
+/// and not the pairwise version.
+///
+/// **The arrows are one family serving two mechanisms.** §9's scrollbar steppers and §7's disclosure
+/// markers are the same four ends, and entering them twice under two names would be a collapse the
+/// pair gate catches rather than two useful entries.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum Glyph {
+    /// An upward arrow — a stepper, or a sort ascending.
+    ArrowUp,
+    /// A downward arrow — a stepper, or an expanded disclosure.
+    ArrowDown,
+    /// A leftward arrow — a stepper, or a page back.
+    ArrowLeft,
+    /// A rightward arrow — a stepper, or a collapsed disclosure.
+    ArrowRight,
     /// A vertical rule.
     VLine,
     /// A horizontal rule.
     HLine,
+    /// The top-left corner of a frame.
+    TopLeft,
+    /// The top-right corner of a frame.
+    TopRight,
+    /// The bottom-left corner of a frame, and a tree's last child.
+    BottomLeft,
+    /// The bottom-right corner of a frame.
+    BottomRight,
+    /// The tee on a frame's **top** edge, where a column rule meets it.
+    TeeTop,
+    /// The tee on a frame's **bottom** edge.
+    TeeBottom,
+    /// The tee on a frame's **left** edge, and a tree's non-last child.
+    TeeLeft,
+    /// The tee on a frame's **right** edge.
+    TeeRight,
+    /// Where a column rule and a row rule cross.
+    Cross,
     /// A list marker.
     Bullet,
+    /// A checkmark.
+    Tick,
     /// A scrollbar thumb.
     Thumb,
     /// A scrollbar track.
     Track,
-    /// A downward arrow.
-    ArrowDown,
-    /// A checkmark.
-    Tick,
+    /// The one cell a truncated label ends in.
+    ///
+    /// **One cell, and that is the entry's whole point.** A three-cell `...` where one was reserved
+    /// moves 468 cells over 78 rows with `writes / verbs / marked` identical either way: inside a
+    /// narrowed context the clip discards the two extras silently and the reader gets a hard cut
+    /// that looks deliberate, and outside one they overrun the neighbour.
+    Ellipsis,
 }
 
 impl Glyph {
     /// Every glyph, which is what the two spelling gates iterate.
-    pub const ALL: [Glyph; 7] = [
+    pub const ALL: [Glyph; 20] = [
+        Glyph::ArrowUp,
+        Glyph::ArrowDown,
+        Glyph::ArrowLeft,
+        Glyph::ArrowRight,
         Glyph::VLine,
         Glyph::HLine,
+        Glyph::TopLeft,
+        Glyph::TopRight,
+        Glyph::BottomLeft,
+        Glyph::BottomRight,
+        Glyph::TeeTop,
+        Glyph::TeeBottom,
+        Glyph::TeeLeft,
+        Glyph::TeeRight,
+        Glyph::Cross,
         Glyph::Bullet,
+        Glyph::Tick,
         Glyph::Thumb,
         Glyph::Track,
-        Glyph::ArrowDown,
-        Glyph::Tick,
+        Glyph::Ellipsis,
     ];
 
     /// The spelling at each rung.
@@ -601,22 +734,57 @@ impl Glyph {
     /// and that is a decision rather than an omission: anything that would distinguish the top two
     /// rungs is a *branch* — the sub-rows per cell change, 8 for braille against 2 for blocks against
     /// 1 for ASCII, and so does the number of samples asked of the data. No table can carry that.
+    ///
+    /// **The ASCII ellipsis is `~` and not `>`**, which is not a spelling preference: `>` is exactly
+    /// the ASCII [`Glyph::ArrowRight`], and the shadow table that spelled it that way put the
+    /// collapsed-node marker on the end of 468 truncated labels in a `tree` that draws both.
     const fn spell(self, set: GlyphSet) -> &'static str {
         match (self, set) {
+            (Glyph::ArrowUp, GlyphSet::Ascii) => "^",
+            (Glyph::ArrowUp, _) => "▲",
+            (Glyph::ArrowDown, GlyphSet::Ascii) => "v",
+            (Glyph::ArrowDown, _) => "▼",
+            (Glyph::ArrowLeft, GlyphSet::Ascii) => "<",
+            (Glyph::ArrowLeft, _) => "◀",
+            (Glyph::ArrowRight, GlyphSet::Ascii) => ">",
+            (Glyph::ArrowRight, _) => "▶",
             (Glyph::VLine, GlyphSet::Ascii) => "|",
             (Glyph::VLine, _) => "│",
             (Glyph::HLine, GlyphSet::Ascii) => "-",
             (Glyph::HLine, _) => "─",
+            // The nine that all spell `+`, deliberately and in one block, so that a reader who
+            // wonders whether the collapse is an accident can see that it is not.
+            (
+                Glyph::TopLeft
+                | Glyph::TopRight
+                | Glyph::BottomLeft
+                | Glyph::BottomRight
+                | Glyph::TeeTop
+                | Glyph::TeeBottom
+                | Glyph::TeeLeft
+                | Glyph::TeeRight
+                | Glyph::Cross,
+                GlyphSet::Ascii,
+            ) => "+",
+            (Glyph::TopLeft, _) => "┌",
+            (Glyph::TopRight, _) => "┐",
+            (Glyph::BottomLeft, _) => "└",
+            (Glyph::BottomRight, _) => "┘",
+            (Glyph::TeeTop, _) => "┬",
+            (Glyph::TeeBottom, _) => "┴",
+            (Glyph::TeeLeft, _) => "├",
+            (Glyph::TeeRight, _) => "┤",
+            (Glyph::Cross, _) => "┼",
             (Glyph::Bullet, GlyphSet::Ascii) => "*",
             (Glyph::Bullet, _) => "•",
+            (Glyph::Tick, GlyphSet::Ascii) => "x",
+            (Glyph::Tick, _) => "✓",
             (Glyph::Thumb, GlyphSet::Ascii) => "#",
             (Glyph::Thumb, _) => "█",
             (Glyph::Track, GlyphSet::Ascii) => ":",
             (Glyph::Track, _) => "░",
-            (Glyph::ArrowDown, GlyphSet::Ascii) => "v",
-            (Glyph::ArrowDown, _) => "▼",
-            (Glyph::Tick, GlyphSet::Ascii) => "x",
-            (Glyph::Tick, _) => "✓",
+            (Glyph::Ellipsis, GlyphSet::Ascii) => "~",
+            (Glyph::Ellipsis, _) => "…",
         }
     }
 }
@@ -785,12 +953,29 @@ pub struct Theme {
     density: Density,
     dark: bool,
     tier: ColorDepth,
+    /// Whether [`Theme::resolve`] has been called.
+    ///
+    /// **Not derivable from `tier`**, and components ticket 05 is where that stopped being an
+    /// implementation detail. `ColorDepth::None` is both *nobody has said* and *a terminal with no
+    /// colour*, and while every distinction was carried on the colour axis the two answered the
+    /// same — an unresolved theme claimed nothing, and so did a monochrome one. Seven of the ten
+    /// distinctions are now carried by a **glyph** pair, which a monochrome terminal keeps and an
+    /// unresolved theme must still not claim. So the flag exists, and it is what
+    /// `tests::an_unresolved_theme_claims_nothing` still holds over ten entries.
+    resolved: bool,
     distinctions: u16,
     rev: Revision,
 }
 
-/// Catppuccin Mocha, as base16. The default palette, and **data rather than a decision**: components
-/// ticket 05 replaces it and no gate here reads a literal from it.
+/// Catppuccin Mocha, as base16. The default palette, and **data rather than a decision** — no gate
+/// here reads a literal from it.
+///
+/// **Components ticket 05 was expected to replace it and deliberately did not.** It grew the glyph
+/// table and the distinction set, and the only reason to have swapped the palette as well would have
+/// been to make spec §16's `1 / 2 / 13 of 78` reproduce — which is tuning the data until the report
+/// prints the remembered number. The pair count is gated as a **relation** for exactly that reason,
+/// and what the shipped palette actually measures (`0 / 0 / 18`) is recorded beside the expectation
+/// in `crates/vitui-components/examples/glyph_numbers.rs` rather than engineered away.
 pub const CATPPUCCIN_MOCHA: [u32; 16] = [
     0x1e1e2e, 0x181825, 0x313244, 0x45475a, 0x585b70, 0xcdd6f4, 0xf5e0dc, 0xb4befe, 0xf38ba8,
     0xfab387, 0xf9e2af, 0xa6e3a1, 0x94e2d5, 0x89b4fa, 0xcba6f7, 0xf2cdcd,
@@ -822,6 +1007,7 @@ impl Theme {
             // Unresolved until `resolve` is called: the conservative tier, so a theme nobody resolved
             // claims no distinctions rather than claiming all of them.
             tier: ColorDepth::None,
+            resolved: false,
             distinctions: 0,
             rev: Revision::fresh(),
         }
@@ -841,34 +1027,71 @@ impl Theme {
     /// a colour fact into a routing fact: see the module documentation.
     pub fn resolve(mut self, tier: ColorDepth) -> Theme {
         self.tier = tier;
+        self.resolved = true;
         // Thirteen quantisations, once. Everything below reads them.
         self.keys = core::array::from_fn(|i| self.specs[i].key(tier));
-        let differs = |a: Role, b: Role| self.keys[a.index()] != self.keys[b.index()];
-        let mut bits = 0u16;
-        if differs(Role::Face, Role::FaceHover) {
-            bits |= Distinction::Hover.bit();
-        }
-        // **Two answers, not one.** A hover being visible does not mean the *animation into* it is:
-        // a fade is a sequence of intermediate colours, and at 256 colours or fewer the intermediates
-        // collapse onto the endpoints. Of 338 corpus themes 338 show a hover at C256 and **165** show
-        // the animation, so a component reading only the first pays nineteen wakeups for a switch in
-        // 173 of them.
-        if differs(Role::Face, Role::FaceHover) && tier == ColorDepth::TrueColor {
-            bits |= Distinction::Fade.bit();
-        }
-        if differs(Role::Danger, Role::Warn) && differs(Role::Warn, Role::Ok) {
-            bits |= Distinction::Status.bit();
-        }
-        self.distinctions = bits;
+        self.distinctions = self.narrow();
         self.rev = Revision::fresh();
         self
     }
 
     /// Declare a glyph repertoire. **Declared, never probed** (ADR 0010).
+    ///
+    /// It re-narrows the [`Distinction`] bits, because seven of the ten are carried by a glyph pair
+    /// and the repertoire is half of what ADR 0032's *both axes* names. **Order is therefore not
+    /// load-bearing**: `with_glyphs(..).resolve(..)` and `resolve(..).with_glyphs(..)` reach the same
+    /// theme, which the version that narrowed only inside `resolve` did not.
     pub fn with_glyphs(mut self, set: GlyphSet) -> Theme {
         self.glyphs = set;
+        self.distinctions = self.narrow();
         self.rev = Revision::fresh();
         self
+    }
+
+    /// Every [`Distinction`] bit, from the palette as it arrives at the terminal and the repertoire
+    /// as it was declared.
+    ///
+    /// ADR 0032's sentence as arithmetic: a distinction with a glyph carrier is set when the declared
+    /// repertoire spells its two glyphs differently, and one without a carrier is set by the rule
+    /// over the quantised roles. **An unresolved theme is zero**, which is the conservative answer:
+    /// a theme nobody has told about the terminal must not promise a component anything.
+    fn narrow(&self) -> u16 {
+        if !self.resolved {
+            return 0;
+        }
+        let differs = |a: Role, b: Role| self.keys[a.index()] != self.keys[b.index()];
+        let mut bits = 0u16;
+        for d in Distinction::ALL {
+            let carried = match d.carried_by() {
+                // The glyph axis. It cannot go quiet the way a colour can — no spelling is blank
+                // and none is other than one cell — so what this asks is only whether the declared
+                // rung tells these two apart, which is where a within-family pair would fail.
+                Some((a, b)) => a.spell(self.glyphs) != b.spell(self.glyphs),
+                // The colour axis alone, which is the half narrowing takes away.
+                None => match d {
+                    Distinction::Hover => differs(Role::Face, Role::FaceHover),
+                    // **Two answers, not one.** A hover being visible does not mean the *animation
+                    // into* it is: a fade is a sequence of intermediate colours, and at 256 colours
+                    // or fewer the intermediates collapse onto the endpoints. Of 338 corpus themes
+                    // 338 show a hover at C256 and **165** show the animation, so a component
+                    // reading only the first pays nineteen wakeups for a switch in 173 of them.
+                    Distinction::Fade => {
+                        differs(Role::Face, Role::FaceHover) && self.tier == ColorDepth::TrueColor
+                    }
+                    Distinction::Status => {
+                        differs(Role::Danger, Role::Warn) && differs(Role::Warn, Role::Ok)
+                    }
+                    // Unreachable by construction: `carried_by` returns `None` for exactly these
+                    // three. Spelled as a `false` rather than as a panic because warnings are denied
+                    // workspace-wide and an arm nothing reaches still has to compile.
+                    _ => false,
+                },
+            };
+            if carried {
+                bits |= d.bit();
+            }
+        }
+        bits
     }
 
     /// The paint for a role.
@@ -1529,6 +1752,104 @@ mod tests {
         assert_eq!(
             differ, 0,
             "anything that would distinguish the top two rungs is a branch, not a table row"
+        );
+    }
+
+    /// **The table is twenty entries and the distinction set is ten**, which are the two denominators
+    /// spec §16's matrix reports against.
+    ///
+    /// A count rather than a sentence, because the whole of components ticket 05 is that the demand
+    /// set is a value: the day an entry is added without §16 moving, the number a report divides by
+    /// stops being the number it prints.
+    #[test]
+    fn the_table_is_twenty_entries_and_the_distinction_set_is_ten() {
+        assert_eq!(Glyph::ALL.len(), 20);
+        assert_eq!(Distinction::ALL.len(), 10);
+        // No entry appears twice, which the four arrows make a live risk: §9's steppers and §7's
+        // disclosure markers are one family, and entering them twice under two names is a collapse
+        // rather than two entries.
+        let mut spelled: Vec<&'static str> = Glyph::ALL
+            .iter()
+            .map(|g| g.spell(GlyphSet::Extended))
+            .collect();
+        spelled.sort_unstable();
+        spelled.dedup();
+        assert_eq!(
+            spelled.len(),
+            20,
+            "two entries spell the same thing at the top rung, which is one entry written twice"
+        );
+    }
+
+    /// **Seven distinctions name a glyph pair and three do not, and the three are the ones that
+    /// die.**
+    ///
+    /// ADR 0032's sentence as a count. The gate is the *partition*, not the membership: a
+    /// distinction quietly losing its carrier would go on reading as carried on both axes while
+    /// being carried on one.
+    #[test]
+    fn seven_distinctions_are_carried_by_a_glyph_and_three_by_the_palette_alone() {
+        let carried: Vec<Distinction> = Distinction::ALL
+            .into_iter()
+            .filter(|d| d.carried_by().is_some())
+            .collect();
+        assert_eq!(carried.len(), 7);
+        let uncarried: Vec<Distinction> = Distinction::ALL
+            .into_iter()
+            .filter(|d| d.carried_by().is_none())
+            .collect();
+        assert_eq!(
+            uncarried,
+            vec![Distinction::Hover, Distinction::Fade, Distinction::Status]
+        );
+
+        // And every carrier is distinguishable at every rung, which is what *survives all nine
+        // cells* means. A pair drawn from inside the box-drawing family would fail here at ASCII —
+        // which is why `TeeLeft`/`BottomLeft`, a tree's real *last child* difference, is not a
+        // `Distinction` and `VLine`/`TeeLeft` is.
+        for set in [GlyphSet::Ascii, GlyphSet::Unicode, GlyphSet::Extended] {
+            for d in carried.iter().copied() {
+                let (a, b) = d.carried_by().expect("filtered above");
+                assert_ne!(
+                    a.spell(set),
+                    b.spell(set),
+                    "{d:?}'s carrier collapses at {set:?}, so a distinction the map says survives \
+                     all nine cells does not"
+                );
+            }
+        }
+    }
+
+    /// **The repertoire is a real input to the bits, and the order of the two builders is not.**
+    ///
+    /// The version that narrowed only inside `resolve` answered differently depending on whether the
+    /// repertoire was declared before or after the terminal was — which would have made
+    /// `Theme::with_glyphs` a live-switching verb that silently left seven of ten bits describing
+    /// the previous rung.
+    #[test]
+    fn a_repertoire_swap_re_narrows_and_the_two_builders_commute() {
+        let ascii_first = Theme::default()
+            .with_glyphs(GlyphSet::Ascii)
+            .resolve(ColorDepth::TrueColor);
+        let ascii_last = Theme::default()
+            .resolve(ColorDepth::TrueColor)
+            .with_glyphs(GlyphSet::Ascii);
+        for d in Distinction::ALL {
+            assert_eq!(
+                ascii_first.shows(d),
+                ascii_last.shows(d),
+                "{d:?} depends on the order the theme was built in"
+            );
+        }
+
+        // A rung that spells a carrier's two halves alike takes the bit away, which is the half of
+        // *both axes* the colour tier cannot reach. `Truncation` is the one to watch, because it is
+        // C09's defect: spelling the ASCII ellipsis `>` is spelling it `ArrowRight`.
+        assert!(ascii_first.shows(Distinction::Truncation));
+        assert_eq!(
+            Glyph::Ellipsis.spell(GlyphSet::Ascii),
+            "~",
+            "the ASCII ellipsis is `~`, and `>` is an `ArrowRight`"
         );
     }
 

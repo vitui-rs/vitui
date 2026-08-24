@@ -709,8 +709,10 @@ pub const REGISTER: [Entry; 39] = [
         qualifier: "two counts over `Glyph::ALL x GlyphSet`, both 0. **Absence is not \
                     representable**: a blank fallback is no slower, marks the same damage and \
                     allocates the same, so every counter approves of it and only the rendered \
-                    surface does not",
-        source: "R 04",
+                    surface does not. Twenty entries against sixty spellings since components 05 \
+                    grew the table from seven, and the invariant is unchanged because it was \
+                    written over `Glyph::ALL` rather than over a list",
+        source: "R 04, components 05",
         state: State::Wired {
             by: &[
                 Instrument::Unit {
@@ -720,6 +722,19 @@ pub const REGISTER: [Entry; 39] = [
                 Instrument::Unit {
                     file: "crates/vitui-runtime/src/theme.rs",
                     name: "the_glyph_table_has_two_rows_and_not_three",
+                },
+                // Components ticket 05's half: the table is twenty and the distinction set is ten,
+                // and **seven of the ten are carried by a glyph pair whose two halves must stay
+                // apart at every rung**. A carrier collapsing is how a bit a component reads goes
+                // quiet with no spelling missing and no width wrong — which is the failure the two
+                // counts above structurally cannot see.
+                Instrument::Unit {
+                    file: "crates/vitui-runtime/src/theme.rs",
+                    name: "the_table_is_twenty_entries_and_the_distinction_set_is_ten",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-runtime/src/theme.rs",
+                    name: "seven_distinctions_are_carried_by_a_glyph_and_three_by_the_palette_alone",
                 },
             ],
         },

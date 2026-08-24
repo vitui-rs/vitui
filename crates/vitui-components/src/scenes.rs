@@ -671,7 +671,19 @@ pub const SCENES: [Scene; 27] = [
         standing: Standing::Unsubjected {
             inverted_by: "components 05",
         },
-        rehearsed_by: &[],
+        // **Rehearsed as a count, and still `Unsubjected`.** Components ticket 05 measures the
+        // repertoire axis in full and the colour axis not at all — `ColorDepth` is a barrier, which
+        // register row 45 records — and a count over three rungs is not this screen on a terminal.
+        rehearsed_by: &[
+            Instrument::Unit {
+                file: "crates/vitui-components/tests/glyph_matrix.rs",
+                name: "the_glyph_column_is_zero_zero_and_thirty_six_of_a_hundred_and_ninety",
+            },
+            Instrument::Unit {
+                file: "crates/vitui-components/tests/glyph_matrix.rs",
+                name: "no_glyph_carried_distinction_is_lost_at_any_rung",
+            },
+        ],
     },
     Scene {
         number: 21,
@@ -688,7 +700,19 @@ pub const SCENES: [Scene; 27] = [
         standing: Standing::Unsubjected {
             inverted_by: "components 05",
         },
-        rehearsed_by: &[],
+        // The 598 is measured over the gutter this scene names — 200 rows, two of them roots — and
+        // in both directions: the theme-keyed memo rebuilds, and the plausible `(data, tier)` key
+        // **hits** and hands back the previous rung's characters.
+        rehearsed_by: &[
+            Instrument::Unit {
+                file: "crates/vitui-components/tests/glyph_matrix.rs",
+                name: "a_tier_keyed_memo_survives_a_palette_swap_and_is_wrong_after_a_repertoire_one",
+            },
+            Instrument::Unit {
+                file: "crates/vitui-components/tests/glyph_matrix.rs",
+                name: "a_glyph_memo_keyed_on_the_theme_rebuilds_after_a_repertoire_swap",
+            },
+        ],
     },
     Scene {
         number: 22,
@@ -1107,7 +1131,7 @@ mod tests {
         );
     }
 
-    /// **Five scenes are rehearsed, and a rehearsal names a live test.**
+    /// **Seven scenes are rehearsed, and a rehearsal names a live test.**
     ///
     /// The same non-vacuity rule [`crate::gates`] is built around, and it is what stops
     /// `rehearsed_by` becoming a citation: a `#[test]` demoted to a helper, or left in place with
@@ -1119,7 +1143,7 @@ mod tests {
             .filter(|s| !s.rehearsed_by.is_empty())
             .map(|s| s.number)
             .collect();
-        assert_eq!(rehearsed, vec![2, 4, 5, 6, 15]);
+        assert_eq!(rehearsed, vec![2, 4, 5, 6, 15, 20, 21]);
 
         for scene in SCENES {
             for instrument in scene.rehearsed_by {
