@@ -79,12 +79,13 @@ use std::time::{Duration, Instant};
 
 use vitui_engine::{
     AttachError, Capabilities, Clock, Config, Cursor, CursorShape, Engine, LayerId, MouseMode,
-    Output, Presented, Rect, Screen, View, Written,
+    Output, Presented, Rect, Screen, Surface, View, Written,
 };
 
 use crate::id::IdStack;
 use crate::keys::Matches;
 use crate::route::{self, KeyQueue};
+use crate::sizing::{Consulted, Extent, Measured};
 use crate::theme::{Paint, Repaint, Theme};
 
 /// The engine's capabilities, re-exported and not redefined.
@@ -378,6 +379,19 @@ pub struct Frame {
     scratch: Scratch,
     /// The declared key maps for the open scope, cleared and never freed.
     maps: Matches,
+
+    // ── the drawn extent, maintained only while something is asking for it (spec §12) ───────────
+    /// How far the verbs reached, and **`None` in a real frame**: maintaining it costs a display
+    /// width measurement per verb — 7% of the frame budget — so a frame pays it only when something
+    /// asked. Today the only thing that asks is [`Ctx::measured`]; a scroll area over bounded
+    /// content is the second caller and reads it a frame late (ticket 14).
+    ///
+    /// It doubles as the flag for *this is a measured world*, which is why the two live together:
+    /// there is no second bit to get out of step with this one.
+    extent: Option<Extent>,
+    /// What the body asked a measured world for that a measured world cannot answer.
+    consulted: Consulted,
+
     /// The `max` of every declared interest, which is what `settle` hands to `set_mouse`.
     tracking: MouseMode,
     /// Where the caret goes, if anything asked.
@@ -495,6 +509,8 @@ impl Frame {
             stack: IdStack::new(),
             scratch: Scratch::default(),
             maps: Matches::new(),
+            extent: None,
+            consulted: Consulted::NONE,
             tracking: MouseMode::Off,
             caret: None,
             repaint: false,
@@ -797,6 +813,13 @@ impl Frame {
         &self.hits
     }
 
+    /// The drawn extent, and **`None` unless something asked this frame to maintain one**.
+    ///
+    /// A real frame never does: see the field, and spec §12 for what it would cost.
+    pub fn extent(&self) -> Option<Extent> {
+        self.extent
+    }
+
     /// The focus ring.
     pub fn ring(&self) -> &[Id] {
         &self.ring
@@ -992,6 +1015,13 @@ pub struct Ctx<'f, 'v> {
     frame: &'v mut Frame,
     env: &'v Env,
     rect: Rect,
+    /// Where this context's own `(0, 0)` sits in the coordinates of the frame's root.
+    ///
+    /// **Not derivable from `rect`**, which is a sub-rectangle in its *parent's* coordinates: two
+    /// levels down, adding one `rect.x` gives the wrong column. It is carried rather than computed
+    /// because the two things that need it — the drawn extent and the hover style resolved at `end`
+    /// — both run where every intermediate `Ctx` has already been dropped.
+    origin: (i32, i32),
     /// The pointer **in this context's own coordinates**, transformed on the way down by `child` and
     /// `scrolled`.
     ///
@@ -1055,6 +1085,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
             frame: self.frame,
             env: self.env,
             rect: r,
+            origin: (self.origin.0 + r.x, self.origin.1 + r.y),
             pointer: self.pointer.map(|(x, y)| (x - r.x, y - r.y)),
             _frame: PhantomData,
             _not_send: PhantomData,
@@ -1068,6 +1099,9 @@ impl<'f, 'v> Ctx<'f, 'v> {
             frame: self.frame,
             env: self.env,
             rect: self.rect,
+            // The content moves the other way from the offset, which is the same transform the
+            // pointer takes on the line below.
+            origin: (self.origin.0 - dx, self.origin.1 - dy),
             pointer: self.pointer.map(|(x, y)| (x - dx, y - dy)),
             _frame: PhantomData,
             _not_send: PhantomData,
@@ -1085,24 +1119,53 @@ impl<'f, 'v> Ctx<'f, 'v> {
         self.view.visible_cols()
     }
 
+    /// Note how far a verb reached, in the coordinates of the frame's root.
+    ///
+    /// **`None` in a real frame and a not-taken branch there**, which is the whole of what makes the
+    /// drawn extent affordable: the alternative is a grapheme walk per verb, and spec §12 prices
+    /// that at 7% of the frame budget.
+    #[inline]
+    fn note(&mut self, r: Rect) {
+        let origin = self.origin;
+        if let Some(extent) = self.frame.extent.as_mut() {
+            extent.reach(origin, r);
+        }
+    }
+
+    /// The same, for a verb whose width has to be measured to be known.
+    ///
+    /// **The measurement is inside the branch, not before it.** Hoisting it out is the version that
+    /// costs a real frame the 7%.
+    #[inline]
+    fn note_text(&mut self, x: i32, y: i32, s: &str) {
+        if self.frame.extent.is_some() {
+            let w = crate::layout::text::width(s);
+            self.note(Rect::new(x, y, w, 1));
+        }
+    }
+
     /// Write a string.
     pub fn text(&mut self, x: i32, y: i32, s: &str, st: Paint) -> Written {
+        self.note_text(x, y, s);
         self.view.text(x, y, s, st.style())
     }
 
     /// Write one grapheme cluster.
     pub fn set(&mut self, x: i32, y: i32, cluster: &str, st: Paint) -> Written {
+        self.note_text(x, y, cluster);
         self.view.set(x, y, cluster, st.style())
     }
 
     /// Fill a rectangle.
     pub fn fill(&mut self, r: Rect, cluster: &str, st: Paint) {
+        self.note(r);
         self.view.fill(r, cluster, st.style());
     }
 
     /// Fill this whole context.
     pub fn clear(&mut self, st: Paint) {
         let area = self.area();
+        self.note(area);
         self.view.fill(area, " ", st.style());
     }
 
@@ -1113,6 +1176,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// component to mint a paint through. See [`Repaint`].
     pub fn restyle(&mut self, r: Rect, d: &Repaint<'_>) {
         let lowered = d.lower(self.env.theme());
+        self.note(r);
         self.view.restyle(r, &lowered);
     }
 
@@ -1135,6 +1199,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
         // The staged text and the view are disjoint fields, so this needs no copy — which is the
         // other half of why the buffer lives on the frame rather than in a guard.
         let staged = std::mem::take(&mut self.frame.scratch.buf);
+        self.note_text(x, y, &staged);
         let written = self.view.text(x, y, &staged, st.style());
         self.frame.scratch.buf = staged;
         written
@@ -1215,6 +1280,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
                 frame: self.frame,
                 env: self.env,
                 rect: self.rect,
+                origin: self.origin,
                 pointer: self.pointer,
                 _frame: PhantomData,
                 _not_send: PhantomData,
@@ -1311,6 +1377,12 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// rather than an error, because two widgets legitimately sharing a call site is a *design* smell
     /// the author can see on screen, and a panic would be a crash for a cosmetic problem.
     pub fn interact(&mut self, id: Id, r: Rect, i: Interest) -> Response {
+        // **The measured world has no focus, no hover and no press**, and this is what stops that
+        // being silent: a body that asked is recorded, so [`crate::sizing::check`] can name it in a
+        // failure instead of leaving two numbers that disagree for no visible reason.
+        if self.frame.extent.is_some() {
+            self.frame.consulted.interaction = true;
+        }
         let claimed = self.frame.ids.claim(id).is_some();
         if !claimed {
             // Merged: the first claimant owns the id, and this one does nothing at all — no hit
@@ -1405,12 +1477,13 @@ impl<'f, 'v> Ctx<'f, 'v> {
     pub fn hover_style(&mut self, resp: &Response, r: Rect, role: crate::theme::Role) {
         // Root coordinates, because `end` runs after every `Ctx` is dropped and a widget's own
         // coordinates mean nothing to it by then.
-        let root = Rect::new(
-            r.x + (self.rect.x - self.area().x),
-            r.y + (self.rect.y - self.area().y),
-            r.w,
-            r.h,
-        );
+        //
+        // **From `origin` and not from `rect`**, which is the correction ticket 15 brought with it:
+        // `rect` is this context's rectangle in its *parent's* coordinates, so adding one of them
+        // was right at the root and at one level down, and wrong at every level after that — a
+        // widget two containers deep had its hover painted at the offset of the inner container
+        // alone. `origin` accumulates the whole chain, which is what a root coordinate needs.
+        let root = Rect::new(self.origin.0 + r.x, self.origin.1 + r.y, r.w, r.h);
         self.frame.hover_styles.push((resp.id, root, role));
     }
 
@@ -1463,6 +1536,10 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// });
     /// ```
     pub fn next_key(&mut self, id: Id) -> Option<vitui_engine::Key> {
+        // The measured world has no keys either, and the same reason it is recorded.
+        if self.frame.extent.is_some() {
+            self.frame.consulted.keys = true;
+        }
         if self.frame.route_to != Some(id) {
             return None;
         }
@@ -1559,6 +1636,78 @@ impl<'f, 'v> Ctx<'f, 'v> {
             y: u16::try_from(y.max(0)).unwrap_or(u16::MAX),
             shape,
         });
+    }
+
+    /// **A test mechanism, and never the layout mechanism** — the dry run, kept only as the detector
+    /// that keeps a sizing function honest against the component beside it: draw a body into a
+    /// discard surface and read how far its verbs reached. Laying something out with it instead is
+    /// **13.3×** the sizing function for the same answer, and **6 051 331×** it for the question a
+    /// sizing function is usually being asked.
+    ///
+    /// The second of those two numbers is the one that decides it. A dry run measures the *clip*, so
+    /// a 1M-row list under an 80-row clip reports 80, and the honest question — 65 535 rows, all
+    /// `u16` can express — is 5.81 ms against 0.96 ns. Spec §12 and ADR 0014 hold the rest of the
+    /// argument, [`crate::sizing`] holds the contract, and [`crate::sizing::check`] is the one call
+    /// a component author needs.
+    ///
+    /// # It gets its own [`Frame`], which is what bounds what it may be asked
+    ///
+    /// Sharing this frame's would claim every id twice, double the hit index and drain the key
+    /// queue — the third of those silently, on the frame where a keystroke was about to be read. So
+    /// the measured world has **no focus, no hover, no press and no keys**: not suppressed, but
+    /// absent, because a fresh frame over an empty batch has none of the four. A body that asks
+    /// anyway is recorded in [`Measured::consulted`], which is what turns *a default that looks like
+    /// an answer* into something a failure can name.
+    ///
+    /// **`&self`, deliberately.** The measured world cannot touch this frame, and the signature is
+    /// where that is said: there is no `&mut` for it to write through.
+    ///
+    /// ```
+    /// use vitui_runtime::ctx::Driver;
+    /// use vitui_runtime::Role;
+    ///
+    /// let mut driver = Driver::headless(40, 10).expect("sink");
+    /// driver.frame(|cx| {
+    ///     let body = cx.theme().paint(Role::Body);
+    ///     let measured = cx.measured(20, 4, |inner| {
+    ///         inner.text(0, 0, "two", body);
+    ///         inner.text(0, 1, "rows", body);
+    ///     });
+    ///     assert_eq!((measured.extent.w, measured.extent.h), (4, 2));
+    /// });
+    /// ```
+    pub fn measured<R>(
+        &self,
+        w: u16,
+        h: u16,
+        body: impl FnOnce(&mut Ctx<'_, '_>) -> R,
+    ) -> Measured<R> {
+        // Its own frame, begun over an empty batch: no pointer event to place a pointer, no key to
+        // route, and the four id-keyed facts at their `None`.
+        let mut frame = Frame::new();
+        frame.begin(&[]);
+        frame.extent = Some(Extent::ZERO);
+        // Its own surface, and a standalone one rather than a layer: a layer is composited and this
+        // is a discard.
+        let mut surface = Surface::new(w, h);
+        let value = {
+            let mut cx = Ctx {
+                view: surface.root(),
+                frame: &mut frame,
+                env: self.env,
+                rect: Rect::new(0, 0, w, h),
+                origin: (0, 0),
+                pointer: None,
+                _frame: PhantomData,
+                _not_send: PhantomData,
+            };
+            body(&mut cx)
+        };
+        Measured {
+            value,
+            extent: frame.extent.unwrap_or(Extent::ZERO),
+            consulted: frame.consulted,
+        }
     }
 
     /// The moment this frame was sampled at. **Once per frame** — an event carries its own moment,
@@ -1751,6 +1900,7 @@ impl Driver {
                 frame: &mut self.frame,
                 env: &self.env,
                 rect: Rect::new(0, 0, w, h),
+                origin: (0, 0),
                 pointer,
                 _frame: PhantomData,
                 _not_send: PhantomData,
@@ -3510,6 +3660,28 @@ mod pointer_tests {
             d.inspect().hovered_now(),
             Some(over),
             "**and the style went to the one actually on top, in this frame**"
+        );
+    }
+
+    /// **A hover style two containers deep lands where the widget is**, which it did not before
+    /// ticket 15 gave `Ctx` an origin: the transform added this context's `rect`, and `rect` is a
+    /// rectangle in its *parent's* coordinates. One level down that is the same number; two levels
+    /// down it is the inner container's offset with the outer one missing.
+    #[test]
+    fn a_hover_style_two_containers_deep_is_in_root_coordinates() {
+        let mut d = driver();
+        let widget = Id::from_raw(7);
+        d.post_mouse(moved(14, 6));
+        d.frame(|cx| {
+            let mut outer = cx.child(Rect::new(10, 4, 40, 10));
+            let mut inner = outer.child(Rect::new(3, 1, 20, 5));
+            let r = inner.interact(widget, Rect::new(1, 1, 8, 1), Interest::HOVER);
+            inner.hover_style(&r, Rect::new(1, 1, 8, 1), Role::FaceHover);
+        });
+        assert_eq!(
+            d.inspect().hover_styles.as_slice(),
+            [(widget, Rect::new(14, 6, 8, 1), Role::FaceHover)],
+            "10 + 3 + 1 and 4 + 1 + 1, and not 3 + 1 and 1 + 1"
         );
     }
 }
