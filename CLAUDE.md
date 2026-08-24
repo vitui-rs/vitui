@@ -30,21 +30,33 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   asked three families what they do with a cluster printed over one half of a double-width glyph, all
   three blank the orphaned half themselves, and *they disagree about what it wears*, which is what
   made the engine's own repair mandatory rather than merely tidy.
-- **`vitui-runtime` is in progress**: 20 of 21 tickets resolved. 05, 12, 15 and 16 landed together
-  on 2026-08-23 and 06, 13 and 14 on 2026-08-24, then 21 and 17 together on 2026-08-24, and 18 and 19
-  after them the same day; all built in parallel worktrees and integrated one pipeline at a time.
+- **`vitui-runtime` is implementation-complete**: all 21 tickets resolved, the last (20, the headroom
+  ledger) on 2026-08-24. 05, 12, 15 and 16 landed together on 2026-08-23 and 06, 13 and 14 on
+  2026-08-24, then 21 and 17 together, then 18 and 19, then 20; all built in parallel worktrees and
+  integrated one pipeline at a time.
   `data`, `layout`, `theme` with its fourteen shipped schemes, `keys`, `ctx`, `id`, `route`, `focus`,
   `sizing`, `work`, `anim`, `overlay` and `scroll` exist, and **the crate line is now built rather
   than counted** — the component-facing surface is checked by a crate that cannot name the engine
   (`crates/vitui-components/tests/crate_line.rs`), which is what the 0-restricted-items count had
-  been standing in for. **The register and the scene list exist and the register has one red row**
-  (ticket 19): `src/register.rs` is 39 entries and `src/scenes.rs` is spec §20's twenty scenes, and
-  what makes them registers rather than documents is that an `Instrument` is a **value with a file in
-  it** — a test name, a hostile line that must sit inside a `compile_fail` block, or a trimmed
-  attribute — which a test opens the file and checks. That is what turned entry 12 red: *the dense
-  frame under the budget* is measured in two places and **gated in neither**, because the in-binary
-  arm returns early without `line=1` and the example is one no CI job runs. **Only the headroom
-  ledger (20) remains**, and it owns entry 12.
+  been standing in for. **The register and the scene list are both all-green**
+  (tickets 19 and 20): `src/register.rs` is 39 entries and `src/scenes.rs` is spec §20's twenty
+  scenes, and what makes them registers rather than documents is that an `Instrument` is a **value
+  with a file in it** — a test name, a hostile line that must sit inside a `compile_fail` block, or a
+  trimmed attribute — which a test opens the file and checks. That is what turned entry 12 and scene
+  19 red, from two sides of one failure: *a number measured in a file nothing evaluates*. Entry 12
+  needed a CI line (`examples/frame.rs` now runs in the `budget` job); scene 19 needed a gate that is
+  not a timing, and its figure had moved besides — 320.85 → 226.92–237.21 µs — while the step counts
+  are exact every run, so it counts steps and gates a growth relation. `State::Red` now carries
+  `#[expect(dead_code)]`, so the next red row cannot arrive without deleting that attribute.
+  **`src/ledger.rs` is where every gated or reported number in the crate lives** (ticket 20), and
+  what it found is that spec §19's headroom table subtracted prototype rows from a prototype base:
+  the shipped dense frame is **89.75–89.92 µs here and 91.88 µs on the runner**, not 33, so the
+  headroom is **1.11×** rather than ≈67 µs. **The rows do not sum to the frame** — 90.3% of it is the
+  engine serialising 7 488 damaged cells and the runtime's own share is 8.71 µs — so the table prints
+  both and a failure names a layer. The frame is gated at **2× and not at the budget**, which is the
+  engine's own ruling: 1.1× on a runner nobody has measured is a flaky test wearing a budget's
+  clothes, and reclassifying the frame into the 1 ms full-screen class to buy headroom is forbidden
+  by name.
   **Six of the ten found defects in code that was already green**, which is the argument for a
   consumer over another gate: ticket 15 found `Ctx::hover_style` translating from `rect` rather than
   from an accumulated origin, wrong at every level below the first two; ticket 16 found a stale
@@ -139,8 +151,11 @@ examples/app-template     copy-this-directory starting point, and the home of sp
                             gets the disallowed-methods rung, because clippy config does not
                             propagate from a dependency
 compare/                  the comparative suite: SCENES.md normative, harness.py the instrument,
-                          REPORT.md committed and regenerated, FINDINGS.md written by hand
-                          └ detached workspace; reports, never gates
+                          run.sh the entry point, REPORT.md committed and regenerated, FINDINGS.md
+                          written by hand. Nine scenes, five arms — and two of the arms are ours
+                          (engine, facade), so the runtime's cost is a subtraction inside the table
+                          └ detached workspace; reports, never gates. No deny.toml, deliberately:
+                            the third-party dependencies are the subject
 conform/                  the only instrument that asks a real terminal rather than our model of one:
                           SCENES.md normative, four arms as examples (Ghostty, Ghostty-via-tmux,
                           tmux, kitty), one committed REPORT-<arm>.md each, FINDINGS.md by hand
@@ -284,8 +299,10 @@ Two runners, and the split is deliberate. **The gate set is `.gitlab-ci.yml`** �
 `deny`, `budget`, `idle`) on a shared local GitLab at <http://gitlab.localhost:8940>, project
 `repos/vitui`, started with `devkit up`. **`.github/workflows/` holds what a local runner cannot do**:
 `ci.yml` for the macOS/Linux matrix, `soak.yml` for the weekly fuzz soak, and `compare.yml` for the
-monthly comparative suite on a pinned runner where all four arms build. Both scheduled workflows
-*upload* their report and never push one.
+monthly comparative suite on a pinned runner where every arm builds. Both scheduled workflows
+*upload* their report and never push one. (`compare.yml` invoked `compare/run.sh`, which ticket 20
+found had never been committed — the job had been failing at its Measure step since the day it was
+written, which is what a scheduled workflow nobody watches buys.)
 
 ```sh
 devkit up                                  # start it (or bring it to spec) — the only mutating verb
@@ -307,9 +324,11 @@ is the authority — the number only breaks ties. Claim by setting `Status: clai
 resolve by appending an `## Answer` section, setting `Status: resolved`, and adding a one-line
 pointer to the map's Decisions-so-far. Research findings go in `research/` beside the issues.
 
-The active backlog is `.scratch/vitui-runtime-impl/`. Build order across the repo is **engine →
-runtime → components**, but the runtime is *not* a queue behind the engine — several of its tickets
-name single engine tickets and ran beside them.
+**`.scratch/vitui-runtime-impl/` is closed** — all 21 tickets resolved, the last on 2026-08-24.
+Build order across the repo is **engine → runtime → components**, and the runtime was *not* a queue
+behind the engine: several of its tickets name single engine tickets and ran beside them. The next
+backlog is the components' 43 sliced tickets, and the engine's production-readiness backlog
+un-pauses now that a consumer exists — see the note below.
 
 **The production-readiness backlog is paused as of 2026-08-23**, with 04, 07, 08 and 09 marked so in
 their own files and the reason in `.scratch/vitui-engine-production/README.md`: nothing above the
