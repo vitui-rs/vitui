@@ -7,7 +7,9 @@
 #                     Nothing else.
 #   vitui-runtime     vitui-engine and nothing else. Layout, reactivity, keys, theming and the data
 #                     contract are written by hand and are modules, not crates.
-#   vitui-components  vitui-runtime, plus dependencies case by case. It may not name crossterm.
+#   vitui-components  vitui-runtime **and nothing else** — components spec §19's constraint C6, and
+#                     in particular **not** `vitui-engine`. Third-party dependencies remain case by
+#                     case; the closed door is the one downward, not the one outward.
 #   vitui-signals     vitui-runtime and nothing else, and nothing in this workspace depends on it.
 #   vitui             the facade: engine, runtime, components. Deliberately not signals.
 #
@@ -50,6 +52,26 @@ deny = [
     # decorative**: it now fires the day a member writes the dependency, naming the wrapper, where
     # before it was already failing for the crate merely existing.
     { name = "vitui-signals", wrappers = [] },
+
+    # **Components spec §19's constraint C6, enforced rather than reviewed.** `vitui-components` may
+    # name `vitui-runtime` and nothing else, and the case that matters is `vitui-engine`: a component
+    # that reaches past the runtime for a `Rect` or a `Style` deletes the seam the whole three-crate
+    # split exists to hold, and it would compile perfectly.
+    #
+    # **This is the second lock and not the first.** The first is the compiler: the package's
+    # `[dependencies]` table is `vitui-runtime` alone, so a `use vitui_engine::…` inside
+    # `crates/vitui-components/` is `error[E0432]` before any gate runs — which is what
+    # `crates/vitui-components/tests/crate_line.rs` and `tests/budget.rs` are written against. What
+    # that lock cannot catch is the edit that *adds the dependency*, at which point every `use`
+    # becomes legal and the compiler has nothing left to say. This line is what fails then.
+    #
+    # `wrappers` is the two crates that legitimately hold the engine: the runtime, which is the seam,
+    # and the facade, which re-exports all three. Counted from the manifests rather than assumed —
+    # nothing else in this workspace names it. Note the asymmetry with `vitui-signals` above: that
+    # entry's list is **empty** because nothing may depend on it at all, and a member with no
+    # dependents fails `cargo deny` outright, which is why that crate is detached. This one has two
+    # real dependents, so it stays a member and the list names them.
+    { name = "vitui-engine", wrappers = ["vitui-runtime", "vitui"] },
 
     # Signals that crossterm's `event-stream` feature has been enabled, or that an async runtime has
     # been introduced. Either would break the runtime-agnostic guarantee.
