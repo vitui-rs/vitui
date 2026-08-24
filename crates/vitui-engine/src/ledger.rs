@@ -46,6 +46,15 @@
 //! [`Kind::Budget`] is that class, and [`tests::a_budget_figure_names_the_decision_that_set_it`] is
 //! what makes the sentence cost something: a budget row must name the map decision, and no other
 //! kind may.
+//!
+//! # Two statements here are not numbers, and they are here for the ledger's own reason
+//!
+//! [`the_parallel_compositing_ruling`] and [`the_watchdog_over_a_timing_report`] are prose with a
+//! gate under each. Both are facts *about* figures on this table rather than figures — one is the
+//! verdict the compositing row's re-measurement was taken for, the other is **whether a reported
+//! number can fail**, which production ticket 11 found nobody had written down anywhere. A report
+//! that a debug-only watchdog can turn red is a report whose provenance is incomplete, and the one
+//! home for that is beside the numbers rather than in whichever file noticed.
 
 use std::fmt::Write as _;
 
@@ -392,6 +401,59 @@ pub fn the_parallel_compositing_ruling() -> &'static str {
      finding: the new numbers support the ruling harder than the old ones did."
 }
 
+/// **Whether a timing report that runs under `cargo test` can be failed by a timing — and it could,
+/// which is production ticket 11.**
+///
+/// `crate::gates::what_a_wake_up_costs_with_the_app_thread_parked` is register entry #26 and it is a
+/// *report*: its only assertion is a count, that at least half the submits were observed, and the
+/// rest of it prints percentiles. It cannot fail on its own terms for a timing reason. It failed for
+/// one anyway — pipeline 31, job 125, **22.3 ms against a 16.7 ms frame budget**, green on the
+/// retry, green for the thirteen runs before it, and 0.24 s for all 512 iterations on the
+/// development machine with a 2.7 ms worst observed latency. Nothing was slow; the app thread was
+/// descheduled for 22 ms on a runner that serves every repository on the machine from six slots.
+///
+/// The sanction was `crate::perf::Perf::sanction`, which is `cfg(debug_assertions)` and therefore
+/// armed in every `cargo test` run. So §14's rule — *a gate is a count, a ratio, an equality or a
+/// compile outcome; a timing is a report* — was bypassed by a mechanism that is **not a gate at
+/// all**, and a report acquired a timing failure mode it neither chose nor stated.
+///
+/// # The enumeration, because the one that fired was not the only one
+///
+/// The exposure is precisely *a timing report that runs under `cargo test` and calls `present`
+/// after `wait`*. `examples/budget.rs`, `examples/steady.rs` and `examples/idle.rs` are exempt by
+/// profile: they run `--release`, where `debug_assertions` is off and `sanction` never panics. Under
+/// `cargo test` there are **two**, and neither is the one the ticket predicted:
+///
+/// - `what_a_wake_up_costs_with_the_app_thread_parked`, 16.7 ms of budget at its fallback rate — the
+///   one that fired;
+/// - `the_achieved_rate_lands_under_the_configured_ceiling`, **8.3 ms** at its declared 120 Hz, so
+///   tighter than the failure, and named nowhere in the ticket.
+///
+/// `what_a_leading_edge_costs_after_a_quiet_period` is the sibling the ticket expected and it is
+/// **not** exposed: it never presents, and `sanction` is reachable only through `Perf::leave`, which
+/// only `Screen::present` calls. The other seven tests where both verbs appear are gates rather than
+/// reports, and `crate::gates::REACHED_BY_THE_DETECTOR` is the full list with each one's disposition.
+///
+/// # The answer, and what it costs
+///
+/// Both reports hold `Screen::permit_slow` for the whole measurement loop, with a reason that says
+/// *why* — that the loop is timed by the scheduler and not by the engine — so the declaration makes
+/// the diagnostics better rather than quieter. **They are not armed, and this sentence is where that
+/// is written down.** Nothing is lost: neither report gates on what an iteration cost, so a permit
+/// cannot mask a regression in what either of them measures, and the observer thread still aborts on
+/// an iteration that never returns, because a permit annotates a stall rather than excusing one.
+pub fn the_watchdog_over_a_timing_report() -> &'static str {
+    "not armed. The two timing reports that run under `cargo test` and reach the in-loop detector — \
+     what_a_wake_up_costs_with_the_app_thread_parked at 16.7 ms of budget, and \
+     the_achieved_rate_lands_under_the_configured_ceiling at 8.3 ms — each hold a permit_slow for \
+     the whole loop, declaring that the loop is timed by the scheduler and not by the engine. \
+     Neither gates on an iteration's cost, so the permit cannot mask a regression in what it \
+     reports; the observer thread is untouched, because a permit annotates a stall rather than \
+     excusing one. what_a_leading_edge_costs_after_a_quiet_period needs no permit and has none: it \
+     never presents, and the sanction is reachable only through present. Filed as production 11 \
+     after 22.3 ms against a 16.7 ms budget on the shared runner, pipeline 31 job 125."
+}
+
 /// The ledger as a table, for `examples/budget.rs` to print.
 pub fn table() -> String {
     let mut out = String::new();
@@ -550,6 +612,35 @@ mod tests {
         assert!(
             ruling.contains("Not implemented"),
             "the ticket says it is not implemented here either way, and the ruling has to say so"
+        );
+    }
+
+    /// **The ledger says whether a timing report can fail, and it names both of the ones that could.**
+    ///
+    /// Production ticket 11's own criterion, made into something that costs an edit rather than
+    /// staying advice: *whether a timing report can fail is exactly the kind of thing that becomes a
+    /// claim if nobody writes it down.* The assertion is on the three things the statement owes a
+    /// reader — a verdict, both reports by name, and the mechanism that makes the verdict true —
+    /// because a statement that concluded nothing would read exactly like one that was never made.
+    #[test]
+    fn the_ledger_says_whether_a_timing_report_is_armed() {
+        let armed = the_watchdog_over_a_timing_report();
+        assert!(
+            armed.starts_with("not armed") || armed.starts_with("armed"),
+            "the statement has to land on one of the two answers there are: {armed}"
+        );
+        for report in [
+            "what_a_wake_up_costs_with_the_app_thread_parked",
+            "the_achieved_rate_lands_under_the_configured_ceiling",
+        ] {
+            assert!(
+                armed.contains(report),
+                "a report the detector reaches is not named: {report}"
+            );
+        }
+        assert!(
+            armed.contains("permit_slow"),
+            "the statement says the reports are not armed and not what makes that true: {armed}"
         );
     }
 

@@ -578,7 +578,22 @@ pub const REGISTER: [Entry; 28] = [
                  scheduler hop at the same order as §7's own 4.58 µs handoff figure. Two \
                  quantities, and printing only the first would advertise 250 ns for something \
                  that costs twenty times it. Reports, not gates: this is OS scheduler latency on \
-                 the way to the wire and it does not spend §13's 100 µs of app-thread CPU",
+                 the way to the wire and it does not spend §13's 100 µs of app-thread CPU. **And \
+                 the report is not armed, which production 11 is the ticket for.** It has no timing \
+                 assertion of its own and it was failed by a timing anyway — 22.3 ms against a \
+                 16.7 ms frame budget, by `crate::perf::Perf::sanction`, which is \
+                 `cfg(debug_assertions)` and therefore armed in every `cargo test`, so §14's *a \
+                 timing is a report* was bypassed by a mechanism that is not a gate at all. It now \
+                 holds `Screen::permit_slow` for its whole measurement loop, with a reason that \
+                 says the loop is timed by the scheduler and not by the engine; \
+                 `the_achieved_rate_lands_under_the_configured_ceiling` beside it is the only other \
+                 report under `cargo test` with the same exposure and carries the same declaration, \
+                 at a **tighter** 8.3 ms. `what_a_leading_edge_costs_after_a_quiet_period` needs \
+                 none and has none: it never presents, and the sanction is reachable only through \
+                 `present`. The verdict has one home, `crate::ledger::the_watchdog_over_a_timing_\
+                 report`, and the enumeration under it is \
+                 `crate::gates::REACHED_BY_THE_DETECTOR`, gated as a set equality so a report added \
+                 later cannot join the exposed set in silence",
         },
     },
     Entry {

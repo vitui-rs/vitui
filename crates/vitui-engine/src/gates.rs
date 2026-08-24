@@ -3991,10 +3991,23 @@ fn an_input_event_is_a_reason_of_its_own_and_is_reported_before_a_post() {
 /// The park is real and it is what makes the number the right one: each iteration submits, then
 /// registers a short deadline and calls `wait`, so the render thread's take happens while this
 /// thread is inside a condvar rather than inside a spin.
+///
+/// **It declares itself slow, and production ticket 11 is why.** Every iteration here is a `wait`
+/// followed by a `present`, which is precisely the span the in-loop detector charges — so a report
+/// that gates on nothing timed could still be *failed* by a timing, through
+/// [`crate::perf::Perf::sanction`] rather than through an assertion of its own. It happened:
+/// pipeline 31, job 125, 22.3 ms against a 16.7 ms budget on a runner that serves every repository
+/// on the machine from six slots, green on the retry and green for thirteen runs before it. See
+/// [`TIMED_BY_THE_SCHEDULER`] for the decision and
+/// [`every_timing_report_the_watchdog_can_reach_declares_itself_slow`] for the enumeration.
 #[test]
 fn what_a_wake_up_costs_with_the_app_thread_parked() {
     const SAMPLES: usize = 512;
     let (mut screen, _wake) = threaded_at(f32::INFINITY, Box::new(Counting::default()));
+    // Held for the whole loop, so every iteration below is excused rather than only the one that
+    // happens to be descheduled. The report measures the render thread's stamps and not this span,
+    // so the permit cannot mask a regression in what is being reported.
+    let permit = screen.permit_slow(TIMED_BY_THE_SCHEDULER);
     let id = screen.layers().add_content(0, Rect::new(0, 0, W, H), true);
     screen.reset_wake_latencies();
 
@@ -4016,6 +4029,8 @@ fn what_a_wake_up_costs_with_the_app_thread_parked() {
         screen.request_wake_at(std::time::Instant::now() + std::time::Duration::from_micros(300));
         screen.wait();
     }
+
+    drop(permit);
 
     let mut samples = screen.wake_latencies();
     assert!(
@@ -4140,11 +4155,18 @@ fn what_a_leading_edge_costs_after_a_quiet_period() {
 /// A storm rather than a sparse rate, because a sparse rate measures the storm and not the clock: at
 /// 200 Hz of events, gating at `present` delivers 83.8 fps against 110.8 for the same ceiling, and
 /// that comparison is ADR 0004's rather than this report's.
+///
+/// **It declares itself slow for production ticket 11's reason**, and it is the second half of that
+/// ticket's answer rather than a copy of the first: the loop is `wait` → draw → `present` over a
+/// whole 500 ms window with a second thread posting every 500 µs, and the budget a declared 120 Hz
+/// carries is **8.3 ms** — tighter than the 16.7 ms the wake-up report was failed at. See
+/// [`TIMED_BY_THE_SCHEDULER`].
 #[test]
 fn the_achieved_rate_lands_under_the_configured_ceiling() {
     const HZ: f32 = 120.0;
     const WINDOW: std::time::Duration = std::time::Duration::from_millis(500);
     let (mut screen, wake) = threaded_at(HZ, Box::new(Counting::default()));
+    let permit = screen.permit_slow(TIMED_BY_THE_SCHEDULER);
     let id = screen.layers().add_content(0, Rect::new(0, 0, W, H), true);
     let storming = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
 
@@ -4178,6 +4200,7 @@ fn the_achieved_rate_lands_under_the_configured_ceiling() {
         }
     }
     let elapsed = began.elapsed();
+    drop(permit);
     storming.store(false, std::sync::atomic::Ordering::Relaxed);
     storm.join().expect("the storm does not panic");
 
@@ -5486,6 +5509,219 @@ fn a_permit_that_ended_does_not_excuse_what_came_after_it() {
     drop(screen.permit_slow("a region that cost nothing"));
     std::thread::sleep(std::time::Duration::from_millis(20));
     screen.present();
+}
+
+// ---------------------------------------------------------------------------------------------
+// A report may not be failed by a timing, and the watchdog is what was doing it (production 11).
+// ---------------------------------------------------------------------------------------------
+
+/// **What a timing report declares, and the string says why rather than merely that.**
+///
+/// The offence the in-loop detector answers to is *the app thread's iteration overran a frame
+/// budget, whatever caused it*, and it measures wall clock because from inside the loop there is
+/// nothing else to measure. That is the right instrument for an application author and the wrong
+/// one for a **report**: `crate::gates::what_a_wake_up_costs_with_the_app_thread_parked` asserts a
+/// count and prints percentiles, so it cannot fail on its own terms for a timing reason — and it was
+/// failed for one anyway, at 22.3 ms against a 16.7 ms budget on a shared runner, by
+/// `crate::perf::Perf::sanction`, which is `cfg(debug_assertions)` and therefore armed in every
+/// `cargo test`. §14's rule — *a gate is a count, a ratio, an equality or a compile outcome; a
+/// timing is a report* — was bypassed by a mechanism that is not a gate at all.
+///
+/// **The reason string is the whole point of choosing this answer over the others.** A permit is a
+/// declaration with a sentence attached, and the sentence is printed by both sanctions, so the next
+/// reader of an overrun message or a stall report is told what is actually true here: the span
+/// between `wait` and `present` is being timed by the operating system's scheduler and not by the
+/// engine, and a number out of it says nothing about the engine's own work. A reason that said
+/// *this is slow* would have been a lie about the work.
+///
+/// # The two rejected answers, written down as rejected
+///
+/// **Do not arm the detector for a report.** Cleaner in one sense: nothing would be excused that is
+/// not being excused today. Worse in two. It needs a new way to say so — a `Config` field, or a
+/// `cfg`, or a knob on `Screen` — where `permit_slow` is already public API, already the thing §11
+/// built for exactly this, and already carries the reason into the diagnostic; and a switch has
+/// nowhere to put the sentence, so the next reader would find a report that cannot fail and no
+/// record of why.
+///
+/// **Leave it and retry.** Rejected, and it is the one worth naming: a job that is retried when it
+/// goes red is a job nobody reads, and *a CI job nobody has watched go green is not a gate* is
+/// already this repository's sentence. The failure also lands on whichever commit happened to be
+/// pushed, which makes it somebody else's ticket every time.
+///
+/// # Nothing is lost, and that is checkable rather than hopeful
+///
+/// A permit excuses the *iteration*, not the measurement. Neither report gates on what an iteration
+/// cost — one asserts that at least half the submits were observed and prints a distribution
+/// stamped on the **render** thread, the other asserts a frame count and an fps ceiling over a wall
+/// window — so a permit cannot hide a regression in anything either of them reports. And the
+/// observer thread is untouched: a permit annotates a stall, it does not excuse one, so an iteration
+/// that genuinely never comes back still restores, prints and aborts.
+const TIMED_BY_THE_SCHEDULER: &str =
+    "a timing report: this loop is timed by the scheduler, not by the engine";
+
+/// The disposition of a test that holds a permit for [`TIMED_BY_THE_SCHEDULER`]'s reason.
+const PERMITTED: &str = "a timing report, and it declares itself slow";
+
+/// **Every place in this file where both `wait` and `present` appear, and what each does about the
+/// detector standing between them.**
+///
+/// The enumeration production ticket 11 asks for, as a value rather than as prose, because *whether
+/// a timing report can fail* is exactly the kind of thing that becomes an unwritten claim. It is
+/// syntactic on purpose — the two verb names, over this file's own code with its comments removed —
+/// so that a report added later cannot join the exposed set silently. Ordering is what decides
+/// actual exposure and no scan can see it, so each row says which side of it the test falls on.
+///
+/// **The ticket's own guess about the scope was wrong, and the code is what says so.**
+/// `what_a_leading_edge_costs_after_a_quiet_period` is named there as the obvious sibling, and it is
+/// **not** on this list: it never presents. `Perf::sanction` is reachable only from `Perf::leave`,
+/// `leave` is called only by `Screen::present`, and a report that measures `wait` alone therefore
+/// enters iterations that nothing ever closes. It is the tighter-budgeted
+/// `the_achieved_rate_lands_under_the_configured_ceiling` — 8.3 ms at its declared 120 Hz, against
+/// the 16.7 ms the failure arrived at — that is the second exposed report, and nothing in the ticket
+/// pointed at it.
+const REACHED_BY_THE_DETECTOR: &[(&str, &str)] = &[
+    (
+        "quit_is_never_paced_by_the_frame_clock",
+        "not exposed: the present precedes the wait, and the wait answers Quit, which does not enter",
+    ),
+    (
+        "the_first_wake_after_a_quiet_period_is_immediate_and_the_next_one_is_held",
+        "exposed for one iteration of drawing five cells, against a 40 ms budget at 25 Hz",
+    ),
+    (
+        "a_frame_a_busy_renderer_refused_is_owed_and_the_wait_pays_it",
+        "exposed for one iteration with nothing in it: the wait immediately precedes the present",
+    ),
+    (
+        "a_frame_discarded_for_a_resize_is_owed_too",
+        "not exposed: Clock::Manual, and the only wait is the last statement",
+    ),
+    ("what_a_wake_up_costs_with_the_app_thread_parked", PERMITTED),
+    (
+        "the_achieved_rate_lands_under_the_configured_ceiling",
+        PERMITTED,
+    ),
+    (
+        "an_idle_application_with_a_caret_on_screen_still_wakes_for_nothing",
+        "not exposed: the present precedes the wait, and the wait answers Quit",
+    ),
+    (
+        "an_overrun_between_wait_and_present_panics_a_debug_build",
+        "exposed on purpose — it is the gate on the detector, at twenty times a pinned budget",
+    ),
+    (
+        "an_idle_present_still_ends_the_iteration_it_was_in",
+        "exposed on purpose, and the sleep is outside the iteration by construction",
+    ),
+    (
+        "a_frame_is_drawn_inside_a_permitted_region_and_the_region_is_excused",
+        "exposed on purpose, and holds the permit that is the property under test",
+    ),
+    (
+        "a_permit_that_ended_does_not_excuse_what_came_after_it",
+        "exposed on purpose: the permit is dropped before the sleep, and the panic is expected",
+    ),
+    (
+        "every_timing_report_the_watchdog_can_reach_declares_itself_slow",
+        "drives no screen at all: it names both verbs because they are its needles",
+    ),
+];
+
+/// Every `#[test]` function in a source file, as a name and the lines of its body.
+///
+/// Given the output of [`code_only`], so a doc comment that mentions a verb is not a call to it —
+/// which is impl 24's finding in this file already, one gate along: *a negative case that spells the
+/// call it refuses is the proof of the absence, not an instance of it.*
+#[cfg(test)]
+fn test_bodies(code: &str) -> Vec<(&str, String)> {
+    let lines: Vec<&str> = code.lines().collect();
+    let mut out = Vec::new();
+    for (start, line) in lines.iter().enumerate() {
+        // Column zero, so a helper nested inside a test body is the body's and not a test of its own.
+        let Some(rest) = line.strip_prefix("fn ") else {
+            continue;
+        };
+        if !line.ends_with('{') {
+            continue;
+        }
+        let mut above = start;
+        let mut is_test = false;
+        while above > 0 && lines[above - 1].starts_with('#') {
+            above -= 1;
+            is_test |= lines[above].starts_with("#[test]");
+        }
+        if !is_test {
+            continue;
+        }
+        let name = rest.split('(').next().expect("a split always yields one");
+        let end = lines[start..]
+            .iter()
+            .position(|l| *l == "}")
+            .map_or(lines.len(), |offset| start + offset);
+        out.push((name, lines[start..end].join("\n")));
+    }
+    out
+}
+
+/// **The enumeration is a count and the declaration is an equality**, which is what keeps ticket 11's
+/// answer from decaying into a comment.
+///
+/// Two assertions, and the first is the one that does the work. The set of tests in this file where
+/// both `wait` and `present` appear must be exactly [`REACHED_BY_THE_DETECTOR`]'s — so a report
+/// written next year that drives the app thread's loop cannot quietly acquire a timing failure mode
+/// nobody chose, because adding it turns this red until somebody writes down which side of the
+/// exposure it is on. The second is that every row declared [`PERMITTED`] really does hold a permit,
+/// with [`TIMED_BY_THE_SCHEDULER`]'s reason and not a reason of its own invention: two copies of that
+/// sentence would stop agreeing, and the sentence is the whole of what the permit buys over a switch.
+#[test]
+fn every_timing_report_the_watchdog_can_reach_declares_itself_slow() {
+    let source = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/gates.rs"))
+        .expect("this file is beside the crate root");
+    let code = code_only(&source);
+    let bodies = test_bodies(&code);
+    assert!(
+        bodies.len() > 60,
+        "the scan found {} tests in this file, so it is not scanning it",
+        bodies.len()
+    );
+
+    let found: std::collections::BTreeSet<&str> = bodies
+        .iter()
+        .filter(|(_, body)| body.contains(".wait(") && body.contains(".present("))
+        .map(|(name, _)| *name)
+        .collect();
+    let declared: std::collections::BTreeSet<&str> = REACHED_BY_THE_DETECTOR
+        .iter()
+        .map(|(name, _)| *name)
+        .collect();
+    assert_eq!(
+        found, declared,
+        "the set of tests the in-loop detector can reach has moved. Every one of them owes a line \
+         in REACHED_BY_THE_DETECTOR saying whether it is exposed, and a timing report among them \
+         owes a `permit_slow(TIMED_BY_THE_SCHEDULER)`"
+    );
+
+    let permitted: Vec<&str> = REACHED_BY_THE_DETECTOR
+        .iter()
+        .filter(|(_, disposition)| *disposition == PERMITTED)
+        .map(|(name, _)| *name)
+        .collect();
+    assert_eq!(
+        permitted.len(),
+        2,
+        "the two timing reports that run under `cargo test` and reach the detector are {permitted:?}"
+    );
+    for name in permitted {
+        let body = bodies
+            .iter()
+            .find(|(candidate, _)| *candidate == name)
+            .map(|(_, body)| body)
+            .expect("the set equality above already matched every name");
+        assert!(
+            body.contains("permit_slow(TIMED_BY_THE_SCHEDULER)"),
+            "{name} is declared a permitted timing report and does not hold the permit"
+        );
+    }
 }
 
 /// **The split is internal**: `Parker`, `Producer`, `Consumer` and `Ui` are not public names.
