@@ -638,3 +638,98 @@ fn focus_allocates_nothing() {
         "and it was reached, rather than the gate measuring a frame that skipped it"
     );
 }
+
+/// **Scrolling allocates nothing**: the wheel chain, three nested areas, the ring's content
+/// rectangles and a scroll-into-view resolved at `end`, in their own window.
+///
+/// The one structure ticket 14 added is a `Vec<Area>` on the frame, and *swap-and-clear rather than
+/// drop-and-rebuild* is only a true description if it keeps its allocation — so the hostile frame
+/// declares three areas on every one of the fifty frames, and a `Tab` moves the focus inside the
+/// innermost one so `end` computes a request each time.
+#[test]
+fn scrolling_allocates_nothing() {
+    use std::time::Instant;
+
+    use vitui_engine::Wheel as Notch;
+    use vitui_engine::{Buttons, Key, KeyCode, KeyKind, KeyText, Mods, Mouse, MouseKind, Rect};
+    use vitui_runtime::ctx::{Driver, Id, Interest};
+    use vitui_runtime::scroll::Scrollable;
+
+    let mut driver = Driver::headless(80, 24).expect("sink");
+    let outer = Id::named("outer");
+    let middle = Id::named("middle");
+    let inner = Id::named("inner");
+    let row = |i: i32| Id::keyed(inner, u64::try_from(i).unwrap_or(0));
+
+    let one_frame = |driver: &mut Driver| {
+        driver.post_mouse(Mouse {
+            x: 4,
+            y: 4,
+            kind: MouseKind::Wheel(Notch::Down),
+            buttons: Buttons::NONE,
+            mods: Mods::NONE,
+            at: Instant::now(),
+        });
+        driver.post_key(Key {
+            code: KeyCode::Tab,
+            mods: Mods::NONE,
+            kind: KeyKind::Press,
+            text: KeyText::EMPTY,
+            at: Instant::now(),
+        });
+        while driver.queued() > 0 {
+            driver.frame(|cx| {
+                // Three nested areas, so the chain has three entries and the innermost is the one
+                // the ring's rectangles are in.
+                cx.scrollable(
+                    outer,
+                    Rect::new(0, 0, 80, 24),
+                    Interest::NONE,
+                    Scrollable::between((0, 0), (0, 100)),
+                );
+                cx.scroll_scope(outer, Rect::new(0, 0, 80, 24), (0, 0), (0, 100), |cx| {
+                    cx.scrollable(
+                        middle,
+                        Rect::new(0, 0, 60, 18),
+                        Interest::NONE,
+                        Scrollable::between((0, 5), (0, 40)),
+                    );
+                    cx.scroll_scope(middle, Rect::new(0, 0, 60, 18), (0, 5), (0, 40), |cx| {
+                        cx.scrollable(
+                            inner,
+                            Rect::new(0, 0, 40, 6),
+                            Interest::NONE,
+                            Scrollable::between((0, 0), (0, 34)),
+                        );
+                        cx.scroll_scope(inner, Rect::new(0, 0, 40, 6), (0, 0), (0, 34), |cx| {
+                            let _ = cx.take_into_view(inner);
+                            for i in 0..40 {
+                                cx.interact(row(i), Rect::new(0, i, 40, 1), Interest::FOCUS);
+                            }
+                        });
+                    });
+                });
+            });
+        }
+    };
+
+    // Twice untimed, for the first-touch reason every other gate here gives: the area list takes its
+    // allocation on the first frame that declares one, and keeps it.
+    one_frame(&mut driver);
+    one_frame(&mut driver);
+
+    steady(|| {
+        for _ in 0..50 {
+            one_frame(&mut driver);
+        }
+    });
+    assert_eq!(
+        driver.inspect().scroll_areas().len(),
+        3,
+        "three areas, rebuilt from the draw on every one of those frames"
+    );
+    assert!(
+        driver.inspect().into_view().is_some(),
+        "and `end` computed a request, rather than the gate measuring a frame that skipped it"
+    );
+}

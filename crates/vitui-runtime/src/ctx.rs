@@ -86,6 +86,7 @@ use crate::focus::{ScopeKind, Stop};
 use crate::id::IdStack;
 use crate::keys::Matches;
 use crate::route::{self, KeyQueue};
+use crate::scroll::{Area, IntoView, Scrollable, Wheel};
 use crate::sizing::{Consulted, Extent, Measured};
 use crate::theme::{Paint, Repaint, Theme};
 
@@ -176,8 +177,9 @@ pub struct Hit {
     pub interest: Interest,
     /// Whether the pointer was inside it when it was declared.
     pub over: bool,
-    /// Whether it can take a wheel.
-    pub scrollable: bool,
+    /// **Where it can still move**, as four directions and never two axes — which is the whole of
+    /// what makes wheel chaining work at an end stop. See [`Scrollable`].
+    pub scrollable: Scrollable,
 }
 
 /// What a widget learns about the pointer and the keyboard.
@@ -341,8 +343,16 @@ pub struct Frame {
     /// Resolved in `begin` from the **previous** frame's index: a guess at what is hovered, which
     /// buys in-frame feedback and can never become a wrong click.
     hover_guess: Option<Id>,
-    /// Resolved in `begin` the same way: who owns the wheel.
-    wheel_target: Option<Id>,
+    /// **This frame's wheel, resolved in `begin`** from the previous frame's index and the
+    /// direction bits it carries — not awarded at `end` like every other pointer outcome.
+    ///
+    /// It is the one channel that cannot wait, because the offset is read *during* the draw by the
+    /// widget that owns it, so an answer produced after the draw arrives after its only reader. The
+    /// price is one click of residue at each end stop and on an area's first frame, and it is a
+    /// documented property rather than a bug — see [`crate::scroll`].
+    wheel: Option<(Id, (i32, i32))>,
+    /// How far one click moves. **The whole motion model**: no momentum, no smooth scroll.
+    wheel_config: Wheel,
     /// Hover styles declared during the draw, resolved at `end` — which is what makes hover-as-a-style
     /// land in the **same** frame.
     hover_styles: Vec<(Id, Rect, crate::theme::Role)>,
@@ -393,6 +403,31 @@ pub struct Frame {
     /// The declared key maps for the open scope, cleared and never freed.
     maps: Matches,
 
+    // ── scrolling (ticket 14) ──────────────────────────────────────────────────────────────────
+    /// **The scroll areas this frame declared**, in draw order, and a *sixth* frame-local structure
+    /// where spec §1 says five. It is cleared in `begin` and read once, in `end`, by the step that
+    /// resolves scroll-into-view — nothing in it survives the frame, so it is a finding against §1's
+    /// sentence and not against ADR 0012's decision, which is that nothing is *retained*.
+    scroll_areas: Vec<Area>,
+    /// Which of them is open right now, as an index. **On the frame and not on `Ctx`**, because
+    /// `scroll_scope` brackets its body: it saves this, replaces it and restores it, which is the
+    /// same shape as the scope stack and costs `Ctx` no field.
+    open_area: Option<u32>,
+    /// **The sixteen bytes that cross the frame boundary**, and the only ones this subsystem has.
+    /// Written by `end`, read by [`Ctx::take_into_view`] on the frame after, and dropped by the next
+    /// `end` if nobody took it — one frame of life, so a request cannot fire long after the move
+    /// that asked for it.
+    into_view: Option<IntoView>,
+    /// What the *draw* asked for through [`Ctx::request_into_view`]. **Frame-local**, cleared in
+    /// `begin`, and folded into `into_view` at `end` — a separate field because the two must not
+    /// alias: a request made during a draw that then calls `take_into_view` would otherwise consume
+    /// itself.
+    into_view_asked: Option<IntoView>,
+    /// Whether the **ring** moved the focus this frame, which is the runtime's whole test for *this
+    /// was a keyboard-driven move*. A press does not set it, and an unconditional pull is the list's
+    /// old bug: it drags the viewport back to the selection every time the wheel moves away from it.
+    tab_moved: bool,
+
     // ── the drawn extent, maintained only while something is asking for it (spec §12) ───────────
     /// How far the verbs reached, and **`None` in a real frame**: maintaining it costs a display
     /// width measurement per verb — 7% of the frame budget — so a frame pays it only when something
@@ -402,6 +437,15 @@ pub struct Frame {
     /// It doubles as the flag for *this is a measured world*, which is why the two live together:
     /// there is no second bit to get out of step with this one.
     extent: Option<Extent>,
+    /// Whether a **real** frame was asked to maintain one, by [`Driver::measure_extent`].
+    ///
+    /// **Off by default and it must stay off by default.** A scroll area over content whose size it
+    /// does not know reads the extent one frame late, and that is the one legitimate reason to turn
+    /// it on — at the price ticket 15 measured: a display-width walk per verb, 7% of the frame
+    /// budget, *for a field that is off by default*. While it is on, `Ctx::interact` and
+    /// `Ctx::next_key` also populate [`Frame::consulted`], where nothing reads it in a real frame;
+    /// harmless, and named here rather than discovered.
+    measure_extent: bool,
     /// What the body asked a measured world for that a measured world cannot answer.
     consulted: Consulted,
 
@@ -433,8 +477,6 @@ struct Awarded {
     hovered: Option<Id>,
     /// Who was held past the long-press threshold.
     long_pressed: Option<Id>,
-    /// Who got the wheel, and how much.
-    wheel: Option<(Id, (i32, i32))>,
     /// **Whose drag was cancelled**, which the identity sweep alone did not tell anybody.
     cancelled: Option<Id>,
     /// The modifiers on the event that decided it.
@@ -507,7 +549,8 @@ impl Frame {
             mods: vitui_engine::Mods::NONE,
             modal_from: None,
             hover_guess: None,
-            wheel_target: None,
+            wheel: None,
+            wheel_config: Wheel::default(),
             hover_styles: Vec::with_capacity(32),
             awarded: None,
             delivered: None,
@@ -525,7 +568,13 @@ impl Frame {
             stack: IdStack::new(),
             scratch: Scratch::default(),
             maps: Matches::new(),
+            scroll_areas: Vec::with_capacity(4),
+            open_area: None,
+            into_view: None,
+            into_view_asked: None,
+            tab_moved: false,
             extent: None,
+            measure_extent: false,
             consulted: Consulted::NONE,
             tracking: MouseMode::Off,
             caret: None,
@@ -550,7 +599,10 @@ impl Frame {
         // pointer, and which owns the wheel. It is a *guess* — the index is a frame old — and it is
         // never allowed to decide a click.
         self.hover_guess = self.topmost_over();
-        self.wheel_target = self.topmost_scrollable();
+        // **And the wheel, which is not a guess and is not awarded at `end`.** It is resolved here,
+        // against the previous index's direction bits, because the widget that owns the offset reads
+        // it during the draw. See [`Frame::resolve_wheel`].
+        self.wheel = self.resolve_wheel(batch);
         // And the previous frame's award becomes this frame's news.
         self.delivered = self.awarded.take();
 
@@ -566,6 +618,13 @@ impl Frame {
         self.repaint = false;
         self.ids.begin();
         self.stack.clear();
+        self.scroll_areas.clear();
+        self.open_area = None;
+        self.into_view_asked = None;
+        self.tab_moved = false;
+        // **A frame that is not measuring must not maintain the measurement.** The `Option` is the
+        // switch, so there is no second bit to get out of step with it.
+        self.extent = self.measure_extent.then_some(Extent::ZERO);
         self.frames += 1;
         self.begun = true;
 
@@ -644,14 +703,68 @@ impl Frame {
             .copied()
     }
 
-    /// The innermost scrollable entry the pointer is over.
-    fn topmost_scrollable(&self) -> Option<Id> {
+    /// **The wheel chain**: the innermost scrollable entry the pointer is over **that can still
+    /// move the way the wheel is going**.
+    ///
+    /// The direction is the whole of it. Asked *can you move on this axis*, a collection at its
+    /// bottom answers yes — it can still go up — and swallows every downward click while the area
+    /// around it never sees one. Asked *can you go down*, it says no and the click chains outward.
+    fn chain_target(&self, delta: (i32, i32)) -> Option<Id> {
         let from = self.modal_from.unwrap_or(0);
         self.hits[from..]
             .iter()
             .rev()
-            .find(|h| h.over && h.scrollable)
+            .find(|h| h.over && h.scrollable.admits(delta))
             .map(|h| h.id)
+    }
+
+    /// Resolve this batch's wheel notches against the **previous** frame's index.
+    ///
+    /// Called at the top of `begin`, before the index is cleared, which is the only moment both the
+    /// batch and the previous frame's direction bits exist at once.
+    ///
+    /// **Notches in one batch add up.** A wheel click folds into a frame (ADR 0016) and it is intent
+    /// (ADR 0008), and the two are only compatible if folding is a sum: overwriting made three
+    /// notches in one batch scroll one row, which is dropping intent by another name. The 1006
+    /// encoding carries no magnitude, so counting the notches is the only place the count can come
+    /// from.
+    ///
+    /// **The wheel is withheld while a grab is held.** A drag is one gesture and a scroll in the
+    /// middle of it is not part of it — and the grab read here is the one that stands when the batch
+    /// arrives, which is right, because `Down` is a *closing* edge and can therefore only be the last
+    /// event of a batch.
+    fn resolve_wheel(&self, batch: &[vitui_engine::Event]) -> Option<(Id, (i32, i32))> {
+        if self.grab.is_some() {
+            return None;
+        }
+        let mut out: Option<(Id, (i32, i32))> = None;
+        for event in batch {
+            let vitui_engine::Event::Mouse(m) = event else {
+                continue;
+            };
+            let vitui_engine::MouseKind::Wheel(w) = m.kind else {
+                continue;
+            };
+            let (lines, cols) = (
+                self.wheel_config.lines_per_click,
+                self.wheel_config.columns_per_click,
+            );
+            let d = match w {
+                vitui_engine::Wheel::Up => (0, -lines),
+                vitui_engine::Wheel::Down => (0, lines),
+                vitui_engine::Wheel::Left => (-cols, 0),
+                vitui_engine::Wheel::Right => (cols, 0),
+            };
+            let Some(id) = self.chain_target(d) else {
+                continue;
+            };
+            out = Some(match out {
+                Some((held, (hx, hy))) if held == id => (id, (hx + d.0, hy + d.1)),
+                // A different target mid-batch: the newer one wins, whole.
+                _ => (id, d),
+            });
+        }
+        out
     }
 
     /// Finish a frame, folding everything into one wake.
@@ -671,7 +784,7 @@ impl Frame {
         // **Where the focus ended, recorded for the next frame's vanish rule.** It is the last step
         // because every one above it can move the focus.
         self.ring.note(self.focused);
-        // resolve scroll-into-view — ticket 14.
+        self.resolve_into_view();
 
         // **Fold the deadline sink and the repaint flag into ONE wake.** This part is 08's, and it is
         // the reason the sink is one `Option` rather than a list: two callers asking for different
@@ -748,31 +861,11 @@ impl Frame {
                         }
                     }
                 }
-                vitui_engine::MouseKind::Wheel(w) => {
-                    // **The wheel is withheld while a grab is held.** A drag is one gesture and a
-                    // scroll in the middle of it is not part of it.
-                    if self.grab.is_none()
-                        && let Some(id) = self.topmost_scrollable()
-                    {
-                        let (dx, dy) = match w {
-                            vitui_engine::Wheel::Up => (0, -1),
-                            vitui_engine::Wheel::Down => (0, 1),
-                            vitui_engine::Wheel::Left => (-1, 0),
-                            vitui_engine::Wheel::Right => (1, 0),
-                        };
-                        // **Notches in one batch add up.** A wheel click folds into a frame
-                        // (ADR 0016) and it is intent (ADR 0008), and the two are only
-                        // compatible if folding is a sum: overwriting made three notches in one
-                        // batch scroll one row, which is dropping intent by another name. The
-                        // 1006 encoding carries no magnitude, so counting the notches is the
-                        // only place the count can come from.
-                        a.wheel = Some(match a.wheel {
-                            Some((held, (hx, hy))) if held == id => (id, (hx + dx, hy + dy)),
-                            // A different target mid-batch: the newer one wins, whole.
-                            _ => (id, (dx, dy)),
-                        });
-                    }
-                }
+                // **The wheel is not awarded here**, and it is the only pointer channel that is
+                // not. It was resolved in `begin` by `Frame::resolve_wheel`, because the offset it
+                // moves is read *during* the draw by the widget that owns it — an award made at this
+                // point arrives after its only reader. See [`crate::scroll`].
+                vitui_engine::MouseKind::Wheel(_) => {}
                 vitui_engine::MouseKind::Move => {}
             }
         }
@@ -874,6 +967,9 @@ impl Frame {
         if let Some(id) = self.ring.advance(from, forward) {
             self.focused = Some(id);
             self.keys.drop_edge();
+            // **The one test for *this was a keyboard-driven move*.** Scroll-into-view fires on it
+            // and on nothing else the runtime moves the focus with.
+            self.tab_moved = true;
         }
     }
 
@@ -911,6 +1007,40 @@ impl Frame {
         }
     }
 
+    /// **Scroll-into-view, resolved from the ring that has just drawn.**
+    ///
+    /// This is the step that makes it *one* frame rather than two: the ring is this frame's, the
+    /// focus has already moved, and the request is on the frame before the next draw reads it.
+    ///
+    /// It needs the ring to carry a **content-coordinate rectangle**, which overturns §8's *the ring
+    /// carries no geometry* and nothing beside it — the rule was never "no geometry" but *geometry is
+    /// needed inside a frame and never across one* (ADR 0015), and this rect is read **here**,
+    /// exactly where the press award already is. What crosses the boundary is [`IntoView`]: sixteen
+    /// bytes, an area and an offset, no `Rect`.
+    ///
+    /// Three refusals:
+    ///
+    /// - **it fires only for a keyboard-driven focus move** — [`Frame::tab_moved`] is the whole test,
+    ///   and a press does not pull, because a press already proves the widget was on screen;
+    /// - a stop **outside every scroll area** asks for nothing, because there is nothing to move;
+    /// - a request nobody took **lives one frame**, so the assignment below is unconditional: the
+    ///   alternative is a pull that fires long after the move that asked for it.
+    fn resolve_into_view(&mut self) {
+        let keyboard = self.tab_moved.then(|| self.keyboard_into_view()).flatten();
+        // An explicit `request_into_view` wins: the component named a rectangle, which is more than
+        // the ring knows.
+        self.into_view = self.into_view_asked.take().or(keyboard);
+    }
+
+    /// The focused stop's request, if it is inside an area and is not already visible.
+    fn keyboard_into_view(&self) -> Option<IntoView> {
+        let id = self.focused?;
+        let stop = self.ring.stops().get(self.ring.position(id)?)?;
+        let area = self.scroll_areas.get(usize::try_from(stop.area?).ok()?)?;
+        let by = area.into_view(stop.rect);
+        (by != (0, 0)).then_some(IntoView { area: area.id, by })
+    }
+
     /// The hover style to apply, if anything is hovered. **Resolved from the index that has just
     /// drawn**, which is what makes it land in the same frame.
     fn hover_to_apply(&self) -> Option<(Rect, crate::theme::Role)> {
@@ -925,6 +1055,22 @@ impl Frame {
     /// The hit index, for the gates and for ticket 10.
     pub fn hits(&self) -> &[Hit] {
         &self.hits
+    }
+
+    /// The scroll areas this frame declared, in draw order. **For the gates and for `end`.**
+    pub fn scroll_areas(&self) -> &[Area] {
+        &self.scroll_areas
+    }
+
+    /// The pending scroll-into-view request, if `end` produced one. **The only sixteen bytes of this
+    /// subsystem that cross a frame.**
+    pub fn into_view(&self) -> Option<IntoView> {
+        self.into_view
+    }
+
+    /// How far one wheel click moves.
+    pub fn wheel_config(&self) -> Wheel {
+        self.wheel_config
     }
 
     /// The drawn extent, and **`None` unless something asked this frame to maintain one**.
@@ -1623,15 +1769,178 @@ impl<'f, 'v> Ctx<'f, 'v> {
         r
     }
 
-    /// Open a scroll scope. **Scopes no identity either**, for the same reason.
+    /// Open a scroll area: a viewport over content larger than itself, moved by an offset the
+    /// **application** owns.
+    ///
+    /// `view` is the viewport in this context's coordinates, `offset` the application's current
+    /// scroll position and `max` the largest offset the content admits — *content size minus
+    /// viewport*, floored at zero, and not the content size, because an offset and its bound are the
+    /// same quantity. Both are clamped here, so an application whose content just shrank is one
+    /// frame stale rather than one frame wrong.
+    ///
+    /// # It costs the content, and that is the choice being made
+    ///
+    /// The body draws as if everything were visible and the clip rejects the rest, so **cost is
+    /// proportional to the content**: right for a form, a panel or a document page, and catastrophic
+    /// for a million rows, where it is **887–889×** a virtualised collection's 0.997–1.003×. Draw
+    /// the rows [`Ctx::visible_rows`] admits *inside* this scope and it is **7.65–7.80 µs** instead
+    /// — the two mechanisms compose, and it is choosing the wrong one alone that costs. See
+    /// [`crate::scroll`].
+    ///
+    /// # It scopes no identity, and it declares no region
+    ///
+    /// **No identity**, for §5's reason and the same one [`Ctx::scope`] has: a container that takes a
+    /// closure renames its children, except the two that exist to wrap something already on screen.
+    /// A scroll area appearing around a form would otherwise rename every field in it.
+    ///
+    /// **No region either.** Publishing the scrollable region is [`Ctx::scrollable`]'s job and it is a
+    /// separate call, because the two happen at different moments: *what moved me* has to be read
+    /// **before** the offset is known, and the window is opened **after**. One verb would have to
+    /// return both a [`Response`] and the body's value.
+    ///
+    /// ```
+    /// use vitui_runtime::ctx::{Driver, Interest};
+    /// use vitui_runtime::scroll::Scrollable;
+    /// use vitui_runtime::Id;
+    /// use vitui_engine::Rect;
+    ///
+    /// let mut driver = Driver::headless(20, 6).expect("sink");
+    /// let (id, view, max) = (Id::named("page"), Rect::new(0, 0, 20, 6), (0, 34));
+    /// let mut offset = (0, 0);
+    /// driver.frame(|cx| {
+    ///     // Publish, then apply: the pair per axis is computed from the offset the area drew with.
+    ///     let r = cx.scrollable(id, view, Interest::NONE, Scrollable::between(offset, max));
+    ///     offset.1 = (offset.1 + r.scrolled.1).clamp(0, max.1);
+    ///     cx.scroll_scope(id, view, offset, max, |cx| {
+    ///         let _ = cx.area();
+    ///     });
+    /// });
+    /// ```
     pub fn scroll_scope<R>(
         &mut self,
-        _id: Id,
+        id: Id,
+        view: Rect,
         offset: (i32, i32),
+        max: (i32, i32),
         f: impl FnOnce(&mut Ctx<'f, '_>) -> R,
     ) -> R {
-        let mut inner = self.scrolled(offset.0, offset.1);
-        f(&mut inner)
+        let max = (max.0.max(0), max.1.max(0));
+        let offset = (offset.0.clamp(0, max.0), offset.1.clamp(0, max.1));
+        let ix = u32::try_from(self.frame.scroll_areas.len()).unwrap_or(u32::MAX);
+        self.frame.scroll_areas.push(Area {
+            id,
+            view,
+            offset,
+            max,
+        });
+        // Bracketed on the frame rather than carried on `Ctx`: the body is a closure, so the save
+        // and the restore are both here and no context has to grow a field for it.
+        let outer = self.frame.open_area.replace(ix);
+        let r = {
+            let mut clipped = self.child(view);
+            let mut inner = clipped.scrolled(offset.0, offset.1);
+            f(&mut inner)
+        };
+        self.frame.open_area = outer;
+        r
+    }
+
+    /// **Publish a scrollable region**, with the four directions it can still move in.
+    ///
+    /// This is the wheel chain's entry: the innermost published region under the pointer that
+    /// [admits](Scrollable::admits) the wheel's direction consumes the click, and the rest chain
+    /// outward. The delta arrives on [`Response::scrolled`] **during the draw of the frame the click
+    /// arrived on**, which is the one pointer outcome that is not awarded at `end`.
+    ///
+    /// **A component that publishes a region owes the pair per axis, computed from its clamped
+    /// offset** — [`Scrollable::between`] is that arithmetic. Declaring an axis instead of a
+    /// direction is the defect this signature exists to make unwritable: a list at its bottom that
+    /// says *the y axis is movable* eats every downward click and the area around it moves by 0.
+    ///
+    /// `interest` is folded in beside [`Interest::SCROLL`], so a region that is also clickable or a
+    /// tab stop says so here rather than declaring itself twice.
+    pub fn scrollable(&mut self, id: Id, r: Rect, interest: Interest, s: Scrollable) -> Response {
+        self.declare(id, r, interest.with(Interest::SCROLL), s)
+    }
+
+    /// **Take the scroll-into-view request addressed to `id`**, if `end` left one on the frame
+    /// before.
+    ///
+    /// The answer is a **delta in content cells**, to be added to the offset and clamped, because
+    /// the application owns the offset: a delta composes with whatever it did to its own state in
+    /// between, where an absolute value computed against last frame's content silently overwrites
+    /// it. It answers once — the request is consumed — and a request nobody takes lives exactly one
+    /// frame.
+    ///
+    /// # There is no verb that reads a scroll offset, and there is no shape to ask for one
+    ///
+    /// The application owns the offset. The runtime holds a viewport, a clamp and one request; it
+    /// holds no position, and a component asking it *where is this area scrolled to* is asking the
+    /// wrong object. The item this pair protects is named by path, so a rename fails **here** and not
+    /// silently in the `compile_fail` below — which would go on passing for the wrong reason, a
+    /// method that no longer exists also being a method that does not compile:
+    ///
+    /// ```
+    /// use vitui_runtime::ctx::{Ctx, Driver};
+    /// use vitui_runtime::Id;
+    ///
+    /// fn protected<'f, 'v>(cx: &mut Ctx<'f, 'v>, id: Id) -> Option<(i32, i32)> {
+    ///     Ctx::take_into_view(cx, id)
+    /// }
+    ///
+    /// let mut d = Driver::headless(20, 6).expect("sink");
+    /// d.frame(|cx| {
+    ///     assert!(protected(cx, Id::named("area")).is_none(), "nothing asked for one");
+    /// });
+    /// ```
+    ///
+    /// ```compile_fail
+    /// use vitui_runtime::ctx::Driver;
+    /// use vitui_runtime::Id;
+    ///
+    /// let mut d = Driver::headless(20, 6).expect("sink");
+    /// d.frame(|cx| {
+    ///     let _offset = cx.scroll_offset(Id::named("area"));
+    /// });
+    /// ```
+    pub fn take_into_view(&mut self, id: Id) -> Option<(i32, i32)> {
+        let asked = self.frame.into_view?;
+        if asked.area != id {
+            return None;
+        }
+        self.frame.into_view = None;
+        Some(asked.by)
+    }
+
+    /// **Ask the enclosing scroll area to bring `r` into view**, in this context's own coordinates.
+    ///
+    /// The runtime's own pull fires only for a keyboard-driven focus move, because a press already
+    /// proves the widget was on screen. This is the door for every other legitimate case — a
+    /// selection moved by an arrow key inside a [`Group`](crate::focus::ScopeKind::Group), a search
+    /// result, a caret walking off the bottom of a text area — and it is the component's call
+    /// precisely because the runtime cannot tell those from a pull that fights the wheel.
+    ///
+    /// It does nothing outside a [`Ctx::scroll_scope`], and nothing for a rectangle that is already
+    /// visible.
+    pub fn request_into_view(&mut self, r: Rect) {
+        let Some(ix) = self.frame.open_area else {
+            return;
+        };
+        let Some(area) = self
+            .frame
+            .scroll_areas
+            .get(usize::try_from(ix).unwrap_or(usize::MAX))
+            .copied()
+        else {
+            return;
+        };
+        // Into the area's content coordinates, which is what `content` accumulates and what the ring
+        // entry beside it is in.
+        let content = Rect::new(r.x + self.content.0, r.y + self.content.1, r.w, r.h);
+        let by = area.into_view(content);
+        if by != (0, 0) {
+            self.frame.into_view_asked = Some(IntoView { area: area.id, by });
+        }
     }
 
     /// Declare an interactive region.
@@ -1652,6 +1961,22 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// rather than an error, because two widgets legitimately sharing a call site is a *design* smell
     /// the author can see on screen, and a panic would be a crash for a cosmetic problem.
     pub fn interact(&mut self, id: Id, r: Rect, i: Interest) -> Response {
+        // **`Interest::SCROLL` on its own means every direction**, which is the honest reading of one
+        // bit and the right answer for a widget with no stated bounds — an endless log, an embedded
+        // terminal. A region whose content *has* an end owes the pair per axis and declares it
+        // through [`Ctx::scrollable`]; that is where the four bits come from and this is the only
+        // other producer of them.
+        let s = if i.contains(Interest::SCROLL) {
+            Scrollable::ALL
+        } else {
+            Scrollable::NONE
+        };
+        self.declare(id, r, i, s)
+    }
+
+    /// The one place a hit entry is appended, shared by [`Ctx::interact`] and [`Ctx::scrollable`]:
+    /// they differ only in where the four direction bits come from.
+    fn declare(&mut self, id: Id, r: Rect, i: Interest, s: Scrollable) -> Response {
         // **The measured world has no focus, no hover and no press**, and this is what stops that
         // being silent: a body that asked is recorded, so [`crate::sizing::check`] can name it in a
         // failure instead of leaving two numbers that disagree for no visible reason.
@@ -1673,7 +1998,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
             id,
             interest: i,
             over: local.is_some(),
-            scrollable: i.contains(Interest::SCROLL),
+            scrollable: s,
         });
         // The `max` over a totally ordered ladder, which is why combining is not a negotiation.
         self.frame.tracking = self.frame.tracking.max(i.tracking());
@@ -1687,6 +2012,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
             self.frame.ring.push(
                 id,
                 Rect::new(r.x + self.content.0, r.y + self.content.1, r.w, r.h),
+                self.frame.open_area,
                 focused,
             );
         }
@@ -1715,7 +2041,10 @@ impl<'f, 'v> Ctx<'f, 'v> {
                 }
                 _ => None,
             },
-            scrolled: a
+            // **This frame's wheel, not the previous frame's award.** The offset it moves is read
+            // here, inside the draw, by the widget that owns it — see [`crate::scroll`].
+            scrolled: self
+                .frame
                 .wheel
                 .filter(|(who, _)| *who == id)
                 .map_or((0, 0), |(_, d)| d),
@@ -2257,8 +2586,9 @@ impl Driver {
         }
 
         // resolve, from the PREVIOUS frame's index, what cannot be answered during the draw:
-        // which widget is topmost, and which owns the wheel. Ticket 10 fills both; the step is here
-        // because `begin` is 08's and the ordering is the part that cannot be added later.
+        // which widget is topmost, and which owns the wheel. Both happen inside `begin`, which is
+        // where the previous index still exists — the hover guess is demoted and overwritten at
+        // `end`, and the wheel is not, because its reader is inside the draw.
 
         // base pass. The size is read *before* the view is taken, because taking it borrows the
         // screen mutably and reading the size borrows it again — `E0502`, and the fix is an ordering
@@ -2325,6 +2655,23 @@ impl Driver {
     pub fn set_theme(&mut self, theme: Theme) {
         self.env.theme = theme;
         self.env.theme_changed = true;
+    }
+
+    /// **How far one wheel click moves.** Configuration, and the whole motion model: a terminal
+    /// delivers discrete clicks, so there is nothing to interpolate and nothing to decelerate.
+    pub fn set_wheel(&mut self, wheel: crate::scroll::Wheel) {
+        self.frame.wheel_config = wheel;
+    }
+
+    /// **Ask real frames to maintain the drawn extent**, which a scroll area over content of unknown
+    /// size reads one frame late, between frames, where the application already owns the offset.
+    ///
+    /// **Off by default, and the default is the decision.** Maintaining it costs a display-width walk
+    /// per drawing verb — 7% of the frame budget — so *a frame that is not measuring must not
+    /// maintain the measurement*. While it is on, [`Frame`]'s `consulted` record is also populated
+    /// and nothing in a real frame reads it; harmless, and stated here rather than discovered.
+    pub fn measure_extent(&mut self, on: bool) {
+        self.frame.measure_extent = on;
     }
 
     /// The frame, for the gates that count its structures.
@@ -2865,11 +3212,13 @@ mod routing_tests {
         for _ in 0..3 {
             d.post_mouse(mouse(2, 2, MouseKind::Wheel(Wheel::Down)));
         }
-        let frames = drain(&mut d, |cx| {
-            draw(cx);
-        });
+        // **On the frame the batch arrives**, not the one after: the wheel is the one pointer
+        // channel resolved in `begin` rather than awarded at `end`, because the offset it moves is
+        // read during the draw by the widget that owns it (ticket 14).
         let mut scrolled = (0, 0);
-        d.frame(|cx| scrolled = draw(cx).scrolled);
+        let frames = drain(&mut d, |cx| {
+            scrolled = draw(cx).scrolled;
+        });
         assert_eq!(frames, 1, "a wheel notch is not a routing edge");
         assert_eq!(scrolled, (0, 3), "three notches are three rows");
     }
@@ -3347,7 +3696,7 @@ mod tests {
 
         let mut scrolled = Vec::new();
         d.frame(|cx| {
-            cx.scroll_scope(Id::named("list"), (0, -5), |inner| {
+            cx.scroll_scope(Id::named("list"), cx.area(), (0, 5), (0, 40), |inner| {
                 fields(inner, &mut scrolled)
             });
         });
@@ -3802,14 +4151,15 @@ mod pointer_tests {
             draw(cx);
         });
         d.post_mouse(at(5, 5, MouseKind::Wheel(Wheel::Down), Buttons::NONE));
-        d.frame(|cx| {
-            draw(cx);
-        });
         let mut scrolled = (0, 0);
         d.frame(|cx| {
             scrolled = draw(cx).scrolled;
         });
-        assert_eq!(scrolled, (0, 1), "the wheel reached the list");
+        assert_eq!(
+            scrolled,
+            (0, 1),
+            "the wheel reached the list, on its own frame"
+        );
 
         // Now hold the pointer and try again.
         d.post_mouse(down(5, 5));
@@ -3817,9 +4167,6 @@ mod pointer_tests {
             draw(cx);
         });
         d.post_mouse(at(5, 5, MouseKind::Wheel(Wheel::Down), Buttons::NONE));
-        d.frame(|cx| {
-            draw(cx);
-        });
         let mut held_scroll = (0, 0);
         d.frame(|cx| {
             held_scroll = draw(cx).scrolled;
@@ -4764,7 +5111,8 @@ mod focus_tests {
 
         d.frame(|cx| {
             let mut pane = cx.child(Rect::new(10, 5, 40, 20));
-            pane.scroll_scope(Id::named("list"), (0, 100), |cx| {
+            let view = pane.area();
+            pane.scroll_scope(Id::named("list"), view, (0, 100), (0, 400), |cx| {
                 cx.interact(scrolled, Rect::new(0, 104, 8, 1), Interest::FOCUS);
             });
         });

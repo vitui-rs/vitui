@@ -38,6 +38,10 @@
 //! - [`route`] — `Edge`, `edge_of`, `batch_len`, and the one key queue behind `Ctx::next_key`. Spec
 //!   §7; ADR 0016. **A frame consumes at most one routing edge**, there are no per-id inboxes, and
 //!   bubbling is `Ctx::scope`'s after-the-body moment rather than a walk of the id path.
+//! - [`scroll`] — `Scrollable`, `IntoView`, `Area`, `Wheel`. Spec §13; ADR 0015. **Two mechanisms
+//!   that must never be conflated** — a scroll area costs the content and a virtualised collection
+//!   costs the window — four direction bits rather than two axis bools, and the one sixteen-byte
+//!   fact that crosses a frame.
 //! - [`sizing`] — the sizing-function contract, `Ctx::measured` and the detector. Spec §12; ADR
 //!   0014. **No trait and no type a component implements**: a sizing function is a shape, and the
 //!   dry run survives only as the test that keeps one honest against the component beside it.
@@ -64,6 +68,7 @@ pub mod id;
 pub mod keys;
 pub mod layout;
 pub mod route;
+pub mod scroll;
 pub mod sizing;
 pub mod theme;
 pub mod work;
@@ -89,6 +94,7 @@ pub use data::{Edit, Memo, Revision, Versioned};
 pub use focus::{ScopeKind, Stop};
 pub use id::{Id, IdTable};
 pub use keys::{ActionId, Binding, Chord, Chords, KeyMap, Match, MatchMode, On};
+pub use scroll::{IntoView, Scrollable};
 pub use theme::{Density, Distinction, Glyph, GlyphSet, Paint, Repaint, Role, Roles, Theme};
 // Ticket 05's two: the shipped palette as data, and the set that holds which one is current. At the
 // root for the same reason as the four above — an application names both on the line that starts it.

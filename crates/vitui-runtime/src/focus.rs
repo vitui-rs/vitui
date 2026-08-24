@@ -99,6 +99,13 @@ pub struct Stop {
     pub rect: Rect,
     /// The innermost scope open when it was declared, as an index into the frame's scope list.
     pub scope: Option<u32>,
+    /// The innermost **scroll area** open when it was declared, as an index into the frame's list of
+    /// them — which is what makes [`rect`](Stop::rect) mean something at `end`.
+    ///
+    /// An index and not an [`Id`], because the id alone would need a scan and the record `end` reads
+    /// holds the viewport and the offset beside it. `None` for a stop outside every area, which asks
+    /// for nothing because there is nothing to move.
+    pub area: Option<u32>,
 }
 
 /// A scope, as a **frame-local range over this frame's ring**.
@@ -203,7 +210,7 @@ impl Ring {
     }
 
     /// Append a stop. `focused` says whether this is the id that currently holds the focus.
-    pub(crate) fn push(&mut self, id: Id, rect: Rect, focused: bool) {
+    pub(crate) fn push(&mut self, id: Id, rect: Rect, area: Option<u32>, focused: bool) {
         if focused {
             self.at = Some(self.now.len());
         }
@@ -211,6 +218,7 @@ impl Ring {
             id,
             rect,
             scope: self.open,
+            area,
         });
     }
 
@@ -608,7 +616,12 @@ mod tests {
         let mut r = Ring::new();
         r.begin();
         for i in 0..n {
-            r.push(Id::from_raw(i + 1), Rect::new(0, i as i32, 4, 1), false);
+            r.push(
+                Id::from_raw(i + 1),
+                Rect::new(0, i as i32, 4, 1),
+                None,
+                false,
+            );
         }
         r
     }
@@ -630,13 +643,13 @@ mod tests {
     fn a_group_collapses_its_range_to_one_stop() {
         let mut r = Ring::new();
         r.begin();
-        r.push(Id::from_raw(1), Rect::default(), false);
+        r.push(Id::from_raw(1), Rect::default(), None, false);
         let g = r.open_scope(Id::named("menu bar"), ScopeKind::Group);
         for i in 2..=8u64 {
-            r.push(Id::from_raw(i), Rect::default(), false);
+            r.push(Id::from_raw(i), Rect::default(), None, false);
         }
         r.close_scope(g);
-        r.push(Id::from_raw(9), Rect::default(), false);
+        r.push(Id::from_raw(9), Rect::default(), None, false);
 
         assert_eq!(r.stops().len(), 9, "every entry is still in the ring");
         assert_eq!(r.stop_indices().count(), 3, "and three of them are stops");
@@ -658,13 +671,13 @@ mod tests {
     fn a_trap_wraps_at_its_own_ends() {
         let mut r = Ring::new();
         r.begin();
-        r.push(Id::from_raw(1), Rect::default(), false);
+        r.push(Id::from_raw(1), Rect::default(), None, false);
         let t = r.open_scope(Id::named("modal"), ScopeKind::Trap);
         for i in 2..=4u64 {
-            r.push(Id::from_raw(i), Rect::default(), false);
+            r.push(Id::from_raw(i), Rect::default(), None, false);
         }
         r.close_scope(t);
-        r.push(Id::from_raw(5), Rect::default(), false);
+        r.push(Id::from_raw(5), Rect::default(), None, false);
 
         // Inside, it walks as any range does.
         assert_eq!(r.advance(Some(1), true), Some(Id::from_raw(3)));
@@ -691,12 +704,12 @@ mod tests {
         let mut r = Ring::new();
         r.begin();
         for i in 0..5u64 {
-            r.push(Id::from_raw(i + 1), Rect::default(), i == 2);
+            r.push(Id::from_raw(i + 1), Rect::default(), None, i == 2);
         }
         // Frame two: the third and the fourth are gone.
         r.begin();
         for i in [0u64, 1, 4] {
-            r.push(Id::from_raw(i + 1), Rect::default(), false);
+            r.push(Id::from_raw(i + 1), Rect::default(), None, false);
         }
         assert_eq!(
             r.vanished(Id::from_raw(3)),
@@ -707,11 +720,11 @@ mod tests {
         // Frame three: only what is before it survives.
         r.begin();
         for i in 0..5u64 {
-            r.push(Id::from_raw(i + 1), Rect::default(), i == 2);
+            r.push(Id::from_raw(i + 1), Rect::default(), None, i == 2);
         }
         r.begin();
         for i in [0u64, 1] {
-            r.push(Id::from_raw(i + 1), Rect::default(), false);
+            r.push(Id::from_raw(i + 1), Rect::default(), None, false);
         }
         assert_eq!(
             r.vanished(Id::from_raw(3)),
@@ -722,7 +735,7 @@ mod tests {
         // Frame four: nothing survives.
         r.begin();
         for i in 0..5u64 {
-            r.push(Id::from_raw(i + 1), Rect::default(), i == 2);
+            r.push(Id::from_raw(i + 1), Rect::default(), None, i == 2);
         }
         r.begin();
         assert_eq!(r.vanished(Id::from_raw(3)), None, "and then absence");
@@ -735,7 +748,7 @@ mod tests {
         assert_eq!(r.probes(), 0);
         r.begin();
         for i in 0..600u64 {
-            r.push(Id::from_raw(i + 1), Rect::default(), false);
+            r.push(Id::from_raw(i + 1), Rect::default(), None, false);
         }
         assert_eq!(r.probes(), 0, "nothing asked, so nothing was filled");
     }
@@ -746,18 +759,18 @@ mod tests {
         let mut r = Ring::new();
         r.begin();
         for i in 0..300u64 {
-            r.push(Id::from_raw(i + 1), Rect::default(), i == 299);
+            r.push(Id::from_raw(i + 1), Rect::default(), None, i == 299);
         }
         r.begin();
         for i in 0..300u64 {
-            r.push(Id::from_raw(i + 1), Rect::default(), i == 299);
+            r.push(Id::from_raw(i + 1), Rect::default(), None, i == 299);
         }
         assert_eq!(r.probes(), 0, "it drew again, so nothing asked");
 
         // Now a frame it does not draw in.
         r.begin();
         for i in 0..299u64 {
-            r.push(Id::from_raw(i + 1), Rect::default(), false);
+            r.push(Id::from_raw(i + 1), Rect::default(), None, false);
         }
         assert_eq!(r.vanished(Id::from_raw(300)), Some(Id::from_raw(299)));
         let once = r.probes();
