@@ -30,31 +30,41 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   asked three families what they do with a cluster printed over one half of a double-width glyph, all
   three blank the orphaned half themselves, and *they disagree about what it wears*, which is what
   made the engine's own repair mandatory rather than merely tidy.
-- **`vitui-runtime` is in progress**: 16 of 20 tickets resolved. 05, 12, 15 and 16 landed together
-  on 2026-08-23 and 06, 13 and 14 on 2026-08-24, all built in parallel worktrees and integrated one
-  pipeline at a time. `data`, `layout`, `theme` with its fourteen shipped schemes, `keys`, `ctx`,
-  `id`, `route`, `focus`, `sizing`, `work`, `anim`, `overlay` and `scroll` exist; only the crate line
-  (17), the facade's signals (18) and the verification ledger (19, 20) remain.
-  **Four of the seven found defects in code that was already green**, which is the argument for a
+- **`vitui-runtime` is in progress**: 18 of 21 tickets resolved. 05, 12, 15 and 16 landed together
+  on 2026-08-23 and 06, 13 and 14 on 2026-08-24, then 21 and 17 together on 2026-08-24, all built in
+  parallel worktrees and integrated one pipeline at a time. `data`, `layout`, `theme` with its
+  fourteen shipped schemes, `keys`, `ctx`, `id`, `route`, `focus`, `sizing`, `work`, `anim`,
+  `overlay` and `scroll` exist, and **the crate line is now built rather than counted** — the
+  component-facing surface is checked by a crate that cannot name the engine
+  (`crates/vitui-components/tests/crate_line.rs`), which is what the 0-restricted-items count had
+  been standing in for. Only the facade's signals (18) and the verification ledger (19, 20) remain.
+  **Five of the nine found defects in code that was already green**, which is the argument for a
   consumer over another gate: ticket 15 found `Ctx::hover_style` translating from `rect` rather than
   from an accumulated origin, wrong at every level below the first two; ticket 16 found a stale
   landing able to destroy a fresh one in `Slot::put`, which is where `Generation`'s ordering earns
   its keep; ticket 14 found the wheel riding `Awarded` and so arriving a frame late, wrong for the
-  one channel whose reader is inside the draw; and ticket 06 found the runtime had two wakeup sinks
-  and flushed one.
-- **`overlay` is the runtime's only `unsafe`, and ticket 21 exists to delete it.** A crate-private
-  bump arena holds a type-erased overlay body between the two passes, because a `Box<dyn FnMut>` per
-  request per frame is one allocation against a budget of zero — seven blocks and two `unsafe fn`,
-  a safety comment each, with the aliasing hazard (growing the buffer you are executing out of frees
-  the running closure) solved by double buffering rather than documented. It is not an improvisation:
-  ADR 0017 and spec §10 both specified the arena, down to the 32-byte figure, five days before the
-  code existed.
-  **The decision as of 2026-08-24 is that this goes away**: no `unsafe` in any shipped crate above
-  the engine. `.scratch/vitui-runtime-impl/issues/21-no-unsafe-above-the-engine.md` carries it, and
-  it is the one ticket on that backlog licensed to amend the map — because honouring the decision
-  means changing spec §10, spec §19 and ADR 0017, not only the code. Run it before 19. The engine's
-  own `#![forbid(unsafe_code)]` is untouched throughout, and `vitui-alloc-probe` stays exempt
-  (`GlobalAlloc` cannot be safe; `publish = false`).
+  one channel whose reader is inside the draw; ticket 06 found the runtime had two wakeup sinks and
+  flushed one; and ticket 21 found the frame arena **leaking** a body requested inside `Ctx::measured`
+  — a sizing dry run builds a throwaway `Frame` no pass ever runs over, so a body owning a `String`
+  was never dropped, and the one gate that could have caught it only ever exercised the real pass.
+- **There is no `unsafe` in any shipped crate, at any layer** (ticket 21, 2026-08-24; ADR 0034).
+  `vitui-runtime`, `vitui-components` and the `vitui` facade each carry `#![forbid(unsafe_code)]`
+  beside the engine's, and the subsumed `#![forbid(unsafe_op_in_unsafe_fn)]` is removed rather than
+  left beside it looking like a second rung. `vitui-alloc-probe` is the one stated exemption
+  (`GlobalAlloc` cannot be safe; `publish = false`; no consumer of `vitui` ever compiles it).
+  **What it cost is a budget figure, and the map moved with the code.** `overlay` used to hold a
+  crate-private bump arena — a type-erased overlay body between the two passes, seven `unsafe`
+  blocks and two `unsafe fn` — because a `Box<dyn FnMut>` per request per frame is one allocation
+  against a budget of zero. A body is now one `Box` in a queue the frame call owns, which costs a
+  frame with **n** overlays standing **n + 1** allocations and a frame with none nothing at all.
+  The `+ 1` is not slack: a stored body is `+ 'f` and safe Rust cannot put a `'f`-bounded value
+  inside the thing borrowed for `'f`, which is what `Frame` and `Driver` both are — so the queue is
+  a local of `Driver::frame` rather than a field, and the queue itself is the extra allocation.
+  **That is exactly why the arena erased types in the first place**; an offset into a byte buffer
+  mentions no lifetime. Spec §19 carries the exception in the same sentence as the count, spec §10
+  describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
+  body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
+  more allocation a frame.
 - **`vitui-components` is empty scaffolding.** Its architecture is settled (43 tickets sliced), no
   code written.
 - Nothing above the engine can draw a screen yet, so no application exists to run.
@@ -138,7 +148,7 @@ lives in examples that print a report:
 
 ```bash
 cargo run --release --example budget -p vitui-engine     # asserts the gates, prints the numbers
-cargo run --release --example layout_numbers -p vitui-runtime   # one of eight *_numbers reports
+cargo run --release --example layout_numbers -p vitui-runtime   # one of sixteen *_numbers reports
 scripts/idle-gate.sh 30       # 0.00 user / 0.00 sys over 30 s; thirty is a floor, not a preference
 scripts/observer-gate.sh      # the debug observer is absent from a release binary
 scripts/steady-report.sh      # 60 fps for 30 s against 5% of a core
