@@ -39,6 +39,16 @@ deny = [
     # list is that decision: the crate may exist and be published, and nothing in this workspace may
     # depend on it. An application adds one line to its own `Cargo.toml`, which is the visibility
     # the choice deserves.
+    #
+    # **Ticket 18 built the crate and found that sentence is stronger than it reads.** `[bans] deny`
+    # bans a crate's *presence in the graph*, and `wrappers` is the exception list — so a workspace
+    # member with nothing depending on it is still banned, and the first `cargo deny check` after the
+    # crate was added read `error[banned]: crate 'vitui-signals = 0.0.0' is explicitly banned` with
+    # no dependent to name. An empty list is therefore satisfiable only by a crate that is not in this
+    # workspace at all, which is why `crates/vitui-signals` is in the root `Cargo.toml`'s `exclude`
+    # and carries its own `[workspace]` table. **That is what makes this line live rather than
+    # decorative**: it now fires the day a member writes the dependency, naming the wrapper, where
+    # before it was already failing for the crate merely existing.
     { name = "vitui-signals", wrappers = [] },
 
     # Signals that crossterm's `event-stream` feature has been enabled, or that an async runtime has
@@ -80,6 +90,11 @@ deny = [
 # alarm. `crate::line`'s `the_dependency_line_is_a_gate_and_the_allowlist_is_refused` is what now
 # holds both halves — the two wrapper lines above and the absence of `allow` in `[bans]` — because
 # ticket 17 found all three of them true and unchecked.
+#
+# **Ticket 18 shipped `vitui-signals` and the number did not move**, which is the wrapper line above
+# doing exactly what it says. It went to 34 for as long as the crate was a workspace member, and back
+# to 33 when the member line came out — see that entry and the root `Cargo.toml`'s `exclude`. The
+# number lives in exactly one place, this comment, and `crate::line` reads it.
 
 [licenses]
 allow = [

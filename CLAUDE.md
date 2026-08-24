@@ -30,14 +30,14 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   asked three families what they do with a cluster printed over one half of a double-width glyph, all
   three blank the orphaned half themselves, and *they disagree about what it wears*, which is what
   made the engine's own repair mandatory rather than merely tidy.
-- **`vitui-runtime` is in progress**: 18 of 21 tickets resolved. 05, 12, 15 and 16 landed together
-  on 2026-08-23 and 06, 13 and 14 on 2026-08-24, then 21 and 17 together on 2026-08-24, all built in
-  parallel worktrees and integrated one pipeline at a time. `data`, `layout`, `theme` with its
-  fourteen shipped schemes, `keys`, `ctx`, `id`, `route`, `focus`, `sizing`, `work`, `anim`,
-  `overlay` and `scroll` exist, and **the crate line is now built rather than counted** — the
-  component-facing surface is checked by a crate that cannot name the engine
+- **`vitui-runtime` is in progress**: 19 of 21 tickets resolved. 05, 12, 15 and 16 landed together
+  on 2026-08-23 and 06, 13 and 14 on 2026-08-24, then 21 and 17 together on 2026-08-24, and 18 after
+  them the same day; all built in parallel worktrees and integrated one pipeline at a time. `data`,
+  `layout`, `theme` with its fourteen shipped schemes, `keys`, `ctx`, `id`, `route`, `focus`,
+  `sizing`, `work`, `anim`, `overlay` and `scroll` exist, and **the crate line is now built rather
+  than counted** — the component-facing surface is checked by a crate that cannot name the engine
   (`crates/vitui-components/tests/crate_line.rs`), which is what the 0-restricted-items count had
-  been standing in for. Only the facade's signals (18) and the verification ledger (19, 20) remain.
+  been standing in for. Only the verification ledger (19, 20) remains.
   **Five of the nine found defects in code that was already green**, which is the argument for a
   consumer over another gate: ticket 15 found `Ctx::hover_style` translating from `rect` rather than
   from an accumulated origin, wrong at every level below the first two; ticket 16 found a stale
@@ -47,6 +47,20 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   flushed one; and ticket 21 found the frame arena **leaking** a body requested inside `Ctx::measured`
   — a sizing dry run builds a throwaway `Frame` no pass ever runs over, so a body owning a `String`
   was never dropped, and the one gate that could have caught it only ever exercised the real pass.
+- **`vitui-signals` exists, and it is a detached workspace because the rule taken literally required
+  one** (ticket 18, 2026-08-24). 112 lines of code above `vitui-runtime` — `Signal<T>`, `Graph`,
+  `Computed<T>` — and the facade deliberately does not re-export it. `deny.toml` has carried
+  `{ name = "vitui-signals", wrappers = [] }` since ticket 14, glossed as *the crate may exist and be
+  published, and nothing in this workspace may depend on it*; **building it found that sentence is
+  stronger than it reads.** `cargo deny`'s `[bans] deny` bans a crate's *presence in the graph* and
+  `wrappers` is the exception list, so a member with no dependents at all fails the gate outright —
+  which is what the first `cargo deny check` said, with no dependent to name. So the crate carries its
+  own `[workspace]` table and the root excludes it, which is also **what makes the ban live**: it now
+  fires the day a member writes the dependency instead of already failing. Its gates are folded into
+  the `test` job, because `cargo test --workspace` cannot reach them. Three drivers of one screen agree
+  in **0 of 24 000 cells**, and a frame that redraws one region declares **1 hit entry against 312 and
+  0 tab stops against 43** with **24 000 of 24 000** cells still correct: *fine-grained reactivity here
+  is not expensive; it is a request to revert the hit index.*
 - **There is no `unsafe` in any shipped crate, at any layer** (ticket 21, 2026-08-24; ADR 0034).
   `vitui-runtime`, `vitui-components` and the `vitui` facade each carry `#![forbid(unsafe_code)]`
   beside the engine's, and the subsumed `#![forbid(unsafe_op_in_unsafe_fn)]` is removed rather than
@@ -97,7 +111,11 @@ crates/vitui-engine       cells, surfaces, layers, compositing, damage, serializ
 crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key maps, theming,
                           overlays, the data contract — no scene tree, no reactivity
 crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (not started)
-crates/vitui              facade re-export
+crates/vitui              facade re-export — engine, runtime, components, and deliberately not signals
+crates/vitui-signals      a fine-grained signal graph, 112 lines above the runtime
+                          └ a detached workspace, and the only one detached by a `deny.toml` rule:
+                            `wrappers = []` bans the crate's presence in the graph, not only its
+                            dependents, so a member with nothing depending on it fails outright
 crates/vitui-bench        round-robin minimum-of-N measurement, no deps (publish = false)
 crates/vitui-alloc-probe  counting global allocator for the allocation gates (publish = false)
 examples/app-template     copy-this-directory starting point, and the home of spec §11's lint rung
@@ -135,6 +153,7 @@ cargo doc --workspace --no-deps             # a gate: a broken intra-doc link fa
 cargo deny check                            # needs `cargo install cargo-deny`
 (cd fuzz && cargo deny check)               # detached workspace: its own graph, its own gate
 (cd conform && cargo test)                  # the conformance gate, over committed captures
+(cd crates/vitui-signals && cargo test -- --test-threads=1)   # detached: --workspace misses it
 (cd conform && cargo run --example tmux)    # the one conformance soak that is headless
 (cd conform && cargo run --example kitty)   # a window, but no automation grant and no config file
 ```
@@ -149,6 +168,7 @@ lives in examples that print a report:
 ```bash
 cargo run --release --example budget -p vitui-engine     # asserts the gates, prints the numbers
 cargo run --release --example layout_numbers -p vitui-runtime   # one of sixteen *_numbers reports
+(cd crates/vitui-signals && cargo run --release --example signals_numbers)
 scripts/idle-gate.sh 30       # 0.00 user / 0.00 sys over 30 s; thirty is a floor, not a preference
 scripts/observer-gate.sh      # the debug observer is absent from a release binary
 scripts/steady-report.sh      # 60 fps for 30 s against 5% of a core

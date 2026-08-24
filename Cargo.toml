@@ -14,7 +14,15 @@ members = [
 # legitimately spawns, joins and locks on the two threads that exist so the app thread does not have
 # to. Excluding the template is what makes that fragment mean *the application author's crate*, which
 # is the only thing it can mean: see `examples/app-template/README.md`.
-exclude = ["examples/app-template"]
+#
+# **`crates/vitui-signals` is excluded for a different reason, and it is the rule taken literally.**
+# `deny.toml` bans it with an empty `wrappers` list, and cargo-deny bans a crate's *presence* in the
+# graph rather than only its dependents — so a member with nothing depending on it still fails
+# `cargo deny check` outright. Detaching is the only shape in which *the crate may exist and be
+# published, and nothing in this workspace may depend on it* is a sentence a tool can hold. Its
+# manifest carries the whole finding; its gates run from the `signals` CI job, because
+# `cargo test --workspace` no longer reaches them. See runtime ticket 18.
+exclude = ["examples/app-template", "crates/vitui-signals"]
 
 # Every warning is a build failure, in a local `cargo build` exactly as in CI.
 #
@@ -135,6 +143,14 @@ vitui-runtime = { path = "crates/vitui-runtime", version = "0.0.0" }
 vitui-components = { path = "crates/vitui-components", version = "0.0.0" }
 vitui-alloc-probe = { path = "crates/vitui-alloc-probe", version = "0.0.0" }
 vitui-bench = { path = "crates/vitui-bench", version = "0.0.0" }
+
+# **`vitui-signals` is absent from this table on purpose, and the absence is half a gate.** Every
+# entry here exists so that a member can write `.workspace = true`, and no member may write that
+# line for signals — so an entry would be a loaded gun beside a rule, inviting the one-word edit
+# `cargo deny` exists to refuse. The refusal is enforced three times over: the crate is not in this
+# workspace at all (see `exclude` above), `deny.toml`'s empty `wrappers` list fires the moment
+# anything pulls it into the graph, and `crates/vitui-signals/tests/facade.rs` reads every manifest
+# here and fails if one of them names it. See runtime ticket 18.
 
 [profile.bench]
 debug = true

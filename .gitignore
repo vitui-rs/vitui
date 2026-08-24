@@ -26,3 +26,10 @@
 # were committed with the directory on 2026-08-22, because the pattern above is anchored at the root
 # and a new detached workspace does not inherit it. A third one will need a fourth line.
 /conform/target
+
+# `vitui-signals` is a detached workspace too, and it is the "fourth line" the note above predicted —
+# arriving one detached workspace later and for a reason none of the others has: `deny.toml` bans the
+# crate with an empty `wrappers` list, and cargo-deny bans a crate's *presence* in the graph rather
+# than only its dependents, so a workspace member with nothing depending on it still fails the gate
+# outright. Its lock file **is** committed, on `conform/`'s terms, and nothing built is.
+/crates/vitui-signals/target

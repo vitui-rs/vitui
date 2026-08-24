@@ -103,6 +103,7 @@ test:
       files:
         - Cargo.lock
         - conform/Cargo.lock
+        - crates/vitui-signals/Cargo.lock
       prefix: test
     paths:
       - .cargo/registry/index
@@ -112,6 +113,9 @@ test:
       # only one that builds it. Without this line its dev-dependency on the engine is compiled cold
       # on every run.
       - conform/target
+      # And `crates/vitui-signals/`, on the same terms and for the same reason — see the script line
+      # at the end of this job for why that crate is detached at all.
+      - crates/vitui-signals/target
   script:
     # Not redundant, and do not delete it: the official `rust` images are built with rustup's
     # `minimal` profile, so `cargo fmt` and `cargo clippy` are both absent and the next two lines
@@ -199,6 +203,20 @@ test:
     # A subshell, so a failure is still this job's failure and the cached working directory is not
     # left somewhere else — the same shape as the `fuzz` line in `deny`.
     - (cd conform && cargo fmt --all --check && cargo clippy --all-targets && cargo test)
+    # **`vitui-signals`, folded in for the third time rather than added as a sixth job** — the note
+    # above these jobs says the next gate folds into an existing one, and this is the next gate.
+    #
+    # The crate is detached from the root workspace, so `cargo test --workspace` above does not
+    # reach a line of it. That is not a convenience: `deny.toml` bans it with an empty `wrappers`
+    # list, and cargo-deny bans a crate's **presence in the graph** rather than only its dependents,
+    # so a member with nothing depending on it fails `cargo deny check` outright with no dependent to
+    # name. Detaching is the only shape in which *the crate may exist and be published, and nothing
+    # in this workspace may depend on it* is a sentence a tool can hold — and it makes the ban live,
+    # because it now fires the day a member writes the dependency instead of already failing.
+    #
+    # `--test-threads=1` for the reason every other test line here gives: `tests/alloc.rs` installs a
+    # process-global counting allocator. A subshell, like `conform/`'s line above.
+    - (cd crates/vitui-signals && cargo fmt --all --check && cargo clippy --all-targets && cargo doc --no-deps && cargo test -- --test-threads=1)
 
 # The MSRV, and until this job existed `rust-version` was a comment with a colon in it.
 #

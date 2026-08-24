@@ -63,3 +63,15 @@ from here.
 
 One asymmetry belongs to the shapes rather than to the runtime: TEA shows a new value one frame later
 than a direct write.
+
+**`vitui-signals` is a detached workspace, and that is this decision taken literally rather than a
+build convenience.** Runtime ticket 18 built the crate and found that *nothing in this workspace may
+depend on it* is stronger than it reads: `cargo deny`'s `[bans] deny` bans a crate's **presence in
+the graph**, with `wrappers` as the exception list, so a workspace member with nothing depending on
+it is banned all the same — `error[banned]: crate 'vitui-signals = 0.0.0' is explicitly banned`, with
+no dependent to name. An empty `wrappers` list is therefore satisfiable only by a crate outside the
+workspace, which is what `crates/vitui-signals`'s own `[workspace]` table and the root's `exclude`
+make it. It also makes the rule **live**: the ban now fires the day a member writes the dependency,
+naming the wrapper, where before it was already failing for the crate merely existing. The cost is
+that `cargo test --workspace` does not reach its gates, which is why they have a CI invocation of
+their own — a crate nobody builds is a crate nobody checks.

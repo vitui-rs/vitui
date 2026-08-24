@@ -724,6 +724,12 @@ mod tests {
     /// comment in `deny.toml`, which now carries both and the drift between them, because a number
     /// that moved five without a single `deny.toml` edit is the maintenance cost the refusal is
     /// about.
+    ///
+    /// **Ticket 18 shipped a seventh crate and the number stayed 33**, which is the `vitui-signals`
+    /// wrapper line asserted below doing what it says: cargo-deny bans that crate's *presence* in
+    /// the graph, so it is not a workspace member and never enters it. The figure went to 34 for as
+    /// long as it was one, and the day a member depends on it the ban fires instead of the count
+    /// moving.
     #[test]
     fn the_dependency_line_is_a_gate_and_the_allowlist_is_refused() {
         let deny = read(&workspace_root().join("deny.toml"));
