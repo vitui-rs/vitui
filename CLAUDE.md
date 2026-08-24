@@ -107,8 +107,16 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` is empty scaffolding.** Its architecture is settled (43 tickets sliced), no
-  code written.
+- **`vitui-components` has started**: 1 of 43 tickets resolved (2026-08-24). `INVENTORY` is spec
+  §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
+  verification obligations as functions over it — so *which components must this gate run against* is
+  answerable by the machine from here on. All five obligations are `Unmet` and each is watched
+  panicking, because a query with no evidence must fail loudly rather than pass: O4 first returned
+  **`Met` over 29 rows with no evidence at all**, since *an equality between two things that do not
+  exist holds*. **Building the freeze contradicted four figures in the closed map** — the built count
+  (19/10, not ADR 0033's thirteen-unbuilt), the count of empty families (five, not §17's two), §1's
+  layer rule against §6's own composition, and the `layer` column being uncheckable without stated
+  edges. All four are asserted as measured rather than bent to fit.
 - Nothing above the engine can draw a screen yet, so no application exists to run.
 
 Read these before working, in this order:
