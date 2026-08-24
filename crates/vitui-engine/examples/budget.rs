@@ -312,6 +312,16 @@ fn print_the_ledger() {
         "\n  parallel compositing, re-checked against the real numbers:\n  {}",
         ledger::the_parallel_compositing_ruling()
     );
+    // **Printed here even though this binary is exempt**, and that is the point rather than an
+    // oversight: `--release` turns `debug_assertions` off, so the in-loop detector's panic does not
+    // exist in this profile at all and the reports below cannot be failed by one. The reports that
+    // *can* run under `cargo test`, and production 11 is the ticket for nobody having written that
+    // down anywhere until it fired on a shared runner.
+    println!(
+        "\n  can a timing report be failed by a timing? (`cargo test` only — this binary is \
+         --release and the detector's panic is not in it):\n  {}",
+        ledger::the_watchdog_over_a_timing_report()
+    );
     println!();
 }
 
