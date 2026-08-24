@@ -224,7 +224,12 @@ fn main() {
         "  345 on §9's screen         -        not attempted. §9's screen is a 1M-row area with a",
         "                                      header band and a pinned column, which is four bars",
         "                                      and a `scroll_area` component. None of it exists;",
-        "                                      it is scene 9 and components ticket 09 owns it.",
+        "                                      it is §21 scene 7's table band, and components 14/15",
+        "                                      own it. (This line used to say scene 9 and ticket 09;",
+        "                                      scene 9 is the tree's fold and unfold, and ticket 09",
+        "                                      stands up the dense screen. A forward reference that",
+        "                                      names the wrong ticket sends the next reader to a file",
+        "                                      that will never grow the number.)",
         "  32 states, 5 bytes         32, 5    reproduces exactly.",
     ] {
         println!("{line}");

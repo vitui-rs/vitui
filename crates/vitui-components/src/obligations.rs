@@ -158,13 +158,13 @@ pub const KEYBOARD_REGISTERED: &[&str] = &[];
 
 /// The scenes that exist, as `(component, axis)` pairs. O5's evidence.
 ///
-/// **Twelve of thirty-four, and ticket 04 put them here.** Each is a row of spec §21's normative
-/// scene list that names a component **and** the mechanism of an axis it declares; the join lives on
+/// **Fourteen of thirty-four.** Ticket 04 put twelve here off spec §21's own rows and ticket 09
+/// added two. Each names a component **and** the mechanism of an axis it declares; the join lives on
 /// [`crate::scenes::Scene::covers`] and
-/// `scenes::tests::twelve_of_the_thirty_four_axis_obligations_have_a_scene_and_twenty_two_do_not`
+/// `scenes::tests::fourteen_of_the_thirty_four_axis_obligations_have_a_scene_and_twenty_do_not`
 /// asserts that this constant and [`crate::scenes::axis_scenes`] have not drifted.
 ///
-/// The other twenty-two are the per-component scenes tickets'. **The first ticket of each component
+/// The other twenty are the per-component scenes tickets'. **The first ticket of each component
 /// on this backlog is its hostile-axis scenes, not its drawing**, and a scenes ticket is red on
 /// purpose until its component ticket lands.
 ///
@@ -195,6 +195,12 @@ pub const AXIS_SCENES: &[(&str, Axis)] = &[
     ("plot", Axis::Narrow),
     // §21 scene 18 — a 1M-row scroll area, row 799 999 of 999 999.
     ("scroll_area", Axis::Scrolled),
+    // Scene 28 — components 09's narrow axis over the dense screen, at 300x80 and at 120x40. Not a
+    // row of §21: the first two scenes of that table are the dense screen and its twin and neither
+    // names an axis, and the defect this one is about — *a label that runs into its sibling's
+    // rectangle* — is §2's third re-damage instance rather than §21's.
+    ("text", Axis::Narrow),
+    ("chip", Axis::Narrow),
 ];
 
 /// **O1 — a rustdoc page with a compiled example, for every component.**
@@ -441,10 +447,11 @@ mod tests {
             (0, 0),
             "O4"
         );
-        // **O5 moved, and it is still red.** Ticket 04's scene list covers twelve of the
-        // thirty-four `(component, axis)` pairs from §21's own rows; the other twenty-two are the
-        // per-component scenes tickets'. A query that moves is a query that is measuring something.
-        assert_eq!(unmet(o5(AXIS_SCENES)), (34, 22), "O5");
+        // **O5 moved twice, and it is still red.** Ticket 04's scene list covered twelve of the
+        // thirty-four `(component, axis)` pairs from §21's own rows and ticket 09's narrow axis
+        // added `text` and `chip`; the other twenty are the per-component scenes tickets'. A query
+        // that moves is a query that is measuring something.
+        assert_eq!(unmet(o5(AXIS_SCENES)), (34, 20), "O5");
 
         // The construction sum O3 will be checked against once ticket 37 has screens: 29 rows plus
         // `chart`, `meter` and `sparkline` at 2 and `plot` at 3.
@@ -529,7 +536,7 @@ mod tests {
     /// See [`o1_fails_loudly`]. **The one worth more than the other four together**, and the one
     /// whose population is `(component, axis)` pairs rather than scenes.
     #[test]
-    #[should_panic(expected = "O5 is unmet: 22 of 34")]
+    #[should_panic(expected = "O5 is unmet: 20 of 34")]
     fn o5_fails_loudly() {
         o5(AXIS_SCENES).assert_met("O5");
     }

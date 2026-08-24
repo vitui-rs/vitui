@@ -1,4 +1,4 @@
-//! Spec §21's register: **fifty-two gates as a value, one row per gate, and a number for how many of
+//! Spec §21's register: **sixty-one gates as a value, one row per gate, and a number for how many of
 //! them anything runs.**
 //!
 //! > The register is data, not prose — one row per gate with its kind, its owner, where it stood at
@@ -50,17 +50,29 @@
 //!   compile error and no amount of component code changes it.
 //! - [`Standing::Unsubjected`] is the vacuity arm, and it exists because [`crate::obligations`]
 //!   already proved it necessary one file over: *a query over an obligation nobody has met yet is
-//!   the exact shape that returns green by accident*. Sixteen gates here could run and have **nothing
+//!   the exact shape that returns green by accident*. Fifteen gates here could run and have **nothing
 //!   to run over** — no component exists — and a register that filed those as `Evaluated` would be
-//!   claiming sixteen green gates over an empty population.
+//!   claiming fifteen green gates over an empty population.
 //!
-//! **Thirty-two evaluated, three red, six unreachable, fifteen unsubjected**, and
-//! `tests::thirty_two_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
+//! **Thirty-six evaluated, four red, six unreachable, fifteen unsubjected**, and
+//! `tests::thirty_six_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
 //! deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
 //! and subjected row 27, the cross-family collapse gate; ticket 07 added five, and none of them
 //! moved a standing that was already taken. **Ticket 08 added four and inverted one**, and the
 //! inversion is the one to read.
+//!
+//! **Ticket 09 added five and one of them is red on purpose.** Rows 57–60 are the dense screen —
+//! 338 regions, the metric row, the equality against a naive twin at two sizes, and ADR 0026's five
+//! re-damage instances each standing on a screen instead of in a sentence — and they are
+//! `Evaluated` over a screen rather than over a component, which is the same standing ticket 04's
+//! four rows have and for the same reason: what they gate is that *the instrument separates a
+//! correct build from a defective one*. **Row 61 is the fourth red row**, and it is the only one on
+//! this register that is red because a *scene* has no subject rather than because a gate fails. The
+//! distinction it encodes is criterion 7's: a scene that fails because it is unimplemented and one
+//! that fails because the code is wrong are the same failure unless the message separates them, so
+//! the failing set is computed by opening the four files components 10 will declare in and the
+//! panic names all four and the ticket.
 //!
 //! # Row 5 was not *not yet*. It was wrong, and an `Unreachable` that is wrong is the worst standing
 //!
@@ -298,11 +310,14 @@ pub struct Row {
     pub standing: Standing,
 }
 
+/// The dense screen's own file, which is where components ticket 09's four rows run.
+const DENSE: &str = "crates/vitui-components/src/dense.rs";
+
 /// How many rows of [`REGISTER`] are spec §21's own table. **Thirty-two, and it is closed** — a
 /// thirty-third would be a spec change.
 pub const SPEC_ROWS: usize = 32;
 
-/// How many rows anything evaluates today. **Thirty-two.**
+/// How many rows anything evaluates today. **Thirty-six.**
 ///
 /// The number is the point of the file. §21 counted **2 of 18** at the branch point and **11 of 18**
 /// after C11's own pass, both over the prototypes; this is the first count taken over shipped code,
@@ -326,10 +341,10 @@ pub const SPEC_ROWS: usize = 32;
 /// this module's header: that is the only inversion on this register that corrected a *standing*
 /// rather than supplying a *subject*, and it is the one worth being suspicious about the next time
 /// an `Unreachable` is written.
-pub const EVALUATED: usize = 32;
+pub const EVALUATED: usize = 36;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 56] = [
+pub const REGISTER: [Row; 61] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -1100,11 +1115,11 @@ pub const REGISTER: [Row; 56] = [
             by: &[
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "the_scene_list_is_the_twenty_seven_rows_of_the_specs_table",
+                    name: "the_specs_table_is_twenty_seven_rows_and_this_list_carries_them_all",
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "twelve_of_the_thirty_four_axis_obligations_have_a_scene_and_twenty_two_\
+                    name: "fourteen_of_the_thirty_four_axis_obligations_have_a_scene_and_twenty_\
                            do_not",
                 },
             ],
@@ -1431,6 +1446,174 @@ pub const REGISTER: [Row; 56] = [
             ],
         },
     },
+    // ── components ticket 09's rows: the dense screen ────────────────────────────────────────────
+    Row {
+        number: 57,
+        on_spec_table: false,
+        gate: "the dense screen stands 338 interactive regions at 300x80 and reports §20's metric \
+               row",
+        kind: Kind::Count,
+        owner: "C01",
+        section: "spec §21",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: DENSE,
+                    name: "the_dense_screen_stands_three_hundred_and_thirty_eight_regions_at_three_\
+                           hundred_by_eighty",
+                },
+                // Two counts and not one: what the draw believes it declared and what the runtime's
+                // hit index holds. **110 of 338 widgets were inert on the first screen written for
+                // components ticket 01 and the screen rendered pixel for pixel correctly**, which is
+                // the defect a single count cannot see.
+                Instrument::Unit {
+                    file: DENSE,
+                    name: "the_dense_screen_declares_no_colliding_ids",
+                },
+                Instrument::Unit {
+                    file: DENSE,
+                    name: "the_dense_screen_reports_the_metric_row_and_never_prints_marked_zero",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/dense_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 58,
+        on_spec_table: false,
+        gate: "the same screen drawn naive and correct is 0 cells apart, at 300x80 and at 120x40",
+        kind: Kind::Equality,
+        owner: "C01, C02",
+        section: "spec §2",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: DENSE,
+                    name: "the_same_screen_drawn_naive_and_correct_is_zero_cells_apart_at_both_\
+                           sizes",
+                },
+                // **The twin is kept, and that is a gate rather than a habit.** It is the reference
+                // the correct build is proved equal to, so deleting it deletes the argument — §21's
+                // own rule, and here it is a scan for the declaration plus a doctest naming the
+                // public path.
+                Instrument::Unit {
+                    file: DENSE,
+                    name: "the_naive_twin_is_declared_in_this_file_and_named_by_path",
+                },
+                // The half that stops the equality being satisfied by drawing nothing: both arms
+                // cover 24 000 of 24 000 cells, and the correct one writes each exactly once.
+                Instrument::Unit {
+                    file: DENSE,
+                    name: "the_correct_screen_is_a_partition_of_twenty_four_thousand_cells",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 59,
+        on_spec_table: false,
+        gate: "each of ADR 0026's five re-damage instances is reachable from the dense screen, and \
+               the correct arm re-damages 0",
+        kind: Kind::Count,
+        owner: "C01, C02",
+        section: "spec §2",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: DENSE,
+                    name: "all_five_re_damage_instances_are_measured_on_this_screen",
+                },
+                // The other direction: every defective arm covers **at least as many cells** as the
+                // correct one, so *no cell never* scores each of them as the healthier build and the
+                // pair is the only detector — which is what the table is an argument for.
+                Instrument::Unit {
+                    file: DENSE,
+                    name: "every_defective_arm_covers_at_least_as_many_cells_as_the_correct_one",
+                },
+                Instrument::Unit {
+                    file: DENSE,
+                    name: "a_scrim_under_the_dialog_costs_the_dialogs_own_six_hundred_writes",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/dense_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 60,
+        on_spec_table: false,
+        gate: "a label that does not narrow is green at 300x80 and red at 120x40",
+        kind: Kind::Equality,
+        owner: "C02, C08",
+        section: "spec §21",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: DENSE,
+                    name: "a_label_that_does_not_narrow_is_green_at_three_hundred_and_red_at_a_\
+                           hundred_and_twenty",
+                },
+                // The gesture half, and it is a **shrink** and not a resize: §21 refuses to bank the
+                // shrink gate written against a terminal resize, because a fresh rectangle has
+                // nowhere for the residue to survive.
+                Instrument::Unit {
+                    file: DENSE,
+                    name: "the_narrow_screen_shrinks_its_content_inside_a_rectangle_that_does_not_\
+                           move",
+                },
+                Instrument::Unit {
+                    file: DENSE,
+                    name: "at_a_hundred_and_twenty_columns_the_label_column_truncates_and_the_\
+                           ellipsis_is_one_cell",
+                },
+            ],
+        },
+    },
+    // ── and the row that is red on purpose ───────────────────────────────────────────────────────
+    Row {
+        number: 61,
+        on_spec_table: false,
+        gate: "scenes 1, 2 and 28 are red because their four components do not exist, and the \
+               failure says so",
+        kind: Kind::Count,
+        owner: "C11",
+        section: "spec §21",
+        standing: Standing::Red {
+            by: &[
+                Instrument::Unit {
+                    file: DENSE,
+                    name: "the_dense_screen_is_red_because_its_four_components_are_not_declared",
+                },
+                // Watched panicking, and watched saying which of the two failures it is. **A scene
+                // that fails because it is unimplemented is indistinguishable from one that fails
+                // because the code is wrong, unless the message distinguishes them.**
+                Instrument::Unit {
+                    file: DENSE,
+                    name: "a_scene_that_is_waiting_for_its_subject_says_so",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/scenes.rs",
+                    name: "the_three_red_scenes_are_waiting_for_the_same_four_components",
+                },
+                // The other direction of the scan: it finds a declaration when there is one, so
+                // *nothing is declared* is an answer rather than a scanner that has stopped looking.
+                Instrument::Unit {
+                    file: DENSE,
+                    name: "the_subject_scan_finds_a_declaration_when_there_is_one",
+                },
+            ],
+            failing: "0 of 4 — `text`, `chip`, `button` and `panel` are undeclared, so the dense \
+                      screen is drawn out of their construction (`fit`, `block`, `press`) and not \
+                      out of them. Everything the screen itself can be asked is green: 338 regions, \
+                      24 000 of 24 000 cells written exactly once, 0 cells apart from the naive \
+                      twin at both sizes, and all five re-damage instances measured — 9 024 / \
+                      1 149 / 324 / 600 / 15 against a correct arm's 0",
+            inverted_by: "components 10",
+        },
+    },
 ];
 
 /// **The compile-outcome pair row 31 names, and its positive twin.**
@@ -1625,7 +1808,7 @@ mod tests {
             .any(|line| !line.starts_with("//") && line.contains(needle))
     }
 
-    /// **Every row names a destination, and the numbers are 1..=52 once each.**
+    /// **Every row names a destination, and the numbers are 1..=61 once each.**
     #[test]
     fn every_row_names_a_destination() {
         for row in REGISTER {
@@ -1694,14 +1877,14 @@ mod tests {
         assert_eq!(seen, expected);
     }
 
-    /// **Thirty-two evaluated, and the other twenty-four each say why not.**
+    /// **Thirty-six evaluated, and the other twenty-five each say why not.**
     ///
     /// This is the number §21 asks for: *how many gates are actually evaluated is a number a test
     /// asserts rather than a claim in a document*. Saying it out loud is what stops the next change
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn thirty_two_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn thirty_six_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -1717,10 +1900,11 @@ mod tests {
         assert_eq!(evaluated, EVALUATED, "the count §21 asks a test to assert");
         assert_eq!(
             red,
-            vec![7, 8, 29],
-            "the three gates that are red and pinned: the sentinel, the palette after a swap and \
-             twenty wheel clicks. The glyph-set count was the fourth, and components ticket 05 \
-             inverted it by writing the first code in this workspace that has to spell a glyph"
+            vec![7, 8, 29, 61],
+            "the four gates that are red and pinned: the sentinel, the palette after a swap, twenty \
+             wheel clicks, and the three scenes waiting for the four components they are screens \
+             of. The glyph-set count was one of them, and components ticket 05 inverted it by \
+             writing the first code in this workspace that has to spell a glyph"
         );
         assert_eq!(
             unreachable,
@@ -1731,7 +1915,7 @@ mod tests {
              the value anyway, so a chord can be pressed after all"
         );
         assert_eq!(unsubjected, 15, "and the fifteen with nothing to run over");
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 56);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 61);
     }
 
     /// **The split, not the total.**
@@ -1742,10 +1926,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_twenty_four_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_twenty_nine_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 24);
+        assert_eq!(REGISTER.len() - on_table, 29);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -2044,6 +2228,7 @@ mod tests {
         assert_eq!(
             found,
             vec![
+                "dense_numbers.rs".to_string(),
                 "gates_numbers.rs".to_string(),
                 "glyph_numbers.rs".to_string(),
                 "keys_numbers.rs".to_string(),

@@ -8,15 +8,16 @@
 //!
 //! # What it prints, and why each half is here
 //!
-//! 1. **The scene list, one line a scene, in §21's column order.** Twenty-six of the twenty-seven
+//! 1. **The scene list, one line a scene, in §21's column order.** Twenty-four of the twenty-eight
 //!    print the ticket that will build their subject rather than a row of zeros — see
-//!    [`vitui_components::scenes::report`], which argues that at length. The twenty-seventh is a
-//!    rehearsal over a fixture and says so.
+//!    [`vitui_components::scenes::report`], which argues that at length. One is a rehearsal over a
+//!    fixture and says so, and **three are pinned red**: components ticket 09 built their screen
+//!    and their four components are components 10's.
 //! 2. **The four hostile axes, each caught.** *n cells over m rows*, beside what the defective build
 //!    cost — because the whole argument for an equality against a reference render is that **every
 //!    one of the four made the defective build look healthier**, and a report that printed only the
 //!    diff would leave the reader to take that on trust.
-//! 3. **O5's coverage**, twelve of thirty-four, with the twenty-two bare pairs named.
+//! 3. **O5's coverage**, fourteen of thirty-four, with the twenty bare pairs named.
 //!
 //! # It asserts the shape and not the timings
 //!
@@ -45,7 +46,10 @@ const W: u16 = 40;
 const H: u16 = 80;
 
 fn main() {
-    println!("§21's scene list — twenty-seven scenes, and the spec's table is the authority\n");
+    println!(
+        "§21's scene list — twenty-eight scenes, twenty-seven of them the spec's table, and the \
+         spec's table is the authority\n"
+    );
 
     // One rehearsal, over a fixture, so that the format the other twenty-six will print in is
     // visible rather than described.
@@ -163,7 +167,7 @@ fn main() {
     let coverage = scenes::coverage();
     let covered = coverage.iter().filter(|(_, _, s)| !s.is_empty()).count();
     println!(
-        "  {covered} of {} declared (component, axis) pairs have a scene in §21's own list.",
+        "  {covered} of {} declared (component, axis) pairs have a scene on this list.",
         coverage.len()
     );
     println!(
@@ -175,7 +179,7 @@ fn main() {
             println!("    {id:<20} {}", axis.name());
         }
     }
-    assert_eq!(covered, 12);
+    assert_eq!(covered, 14);
     assert_eq!(coverage.len(), 34);
     assert_eq!(
         INVENTORY
@@ -204,13 +208,19 @@ fn main() {
     );
     println!(
         "  {:<52}{}",
-        "rehearsed over a fixture, in two files",
+        "rehearsed over a fixture or a stand-in screen",
         count(|s| !s.rehearsed_by.is_empty())
     );
-    assert_eq!(SCENES.len(), 27, "the scene list's shape has changed");
+    println!(
+        "  {:<52}{} / {}",
+        "on §21's table / beside it",
+        count(|s| s.on_spec_table),
+        count(|s| !s.on_spec_table)
+    );
+    assert_eq!(SCENES.len(), 28, "the scene list's shape has changed");
     assert_eq!(count(|s| s.owed), 1);
     assert_eq!(count(|s| s.from_a_survived_defect), 3);
-    assert_eq!(count(|s| !s.rehearsed_by.is_empty()), 7);
+    assert_eq!(count(|s| !s.rehearsed_by.is_empty()), 9);
 }
 
 fn count(f: impl Fn(&Scene) -> bool) -> usize {

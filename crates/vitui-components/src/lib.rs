@@ -28,15 +28,22 @@
 //!   on purpose.
 //! - [`counters`] — §20's nine per-frame counters, **eight of which this crate can read**. The
 //!   ninth, `marked`, panics rather than answering `0`, and so does the sentinel probe.
-//! - [`scenes`] — §21's normative scene list: **twenty-seven screens, every one `Unsubjected`**,
-//!   each with the size it is played at, the content it stands up, the gestures it plays and the
-//!   property it decided. Three of them exist because a defect survived every gate then in force by
-//!   not being on any screen anybody had built.
+//! - [`scenes`] — the normative scene list: **twenty-eight screens, twenty-seven of them §21's
+//!   table, twenty-five `Unsubjected` and three `Red`**, each with the size it is played at, the
+//!   content it stands up, the gestures it plays and the property it decided. Three of them exist
+//!   because a defect survived every gate then in force by not being on any screen anybody had
+//!   built.
 //! - [`runner`] — *render one scene two ways and compare it cell for cell*, reporting **n cells over
 //!   m rows**. Three of the four hostile axes were caught only by this, and every one of them made
 //!   the defective build look **healthier**. The reference arm is this crate's own, and
 //!   `runner`'s header names the four barriers that make the engine's unreachable — the first three
 //!   of which are about `mod reference;` and the fourth about ADR 0023.
+//! - [`dense`] — **the dense screen**: 300×80, 338 interactive regions, and ADR 0026's five
+//!   re-damage instances each standing on a screen instead of in a sentence — 9 024 / 1 149 / 324 /
+//!   600 / 15 against a correct arm's **0**, with the naive twin kept beside it and proved equal
+//!   cell for cell at 300×80 and at 120×40. It is the screen components ticket 10 is proved
+//!   against, and its three scenes are `Red` because the four components it is a screen *of* do not
+//!   exist yet.
 //! - The module tree, one module per family (§19), joined to the freeze by
 //!   [`Component::families`].
 //!
@@ -75,6 +82,7 @@
 
 pub mod cells;
 pub mod counters;
+pub mod dense;
 pub mod form;
 pub mod frame;
 pub mod gates;
