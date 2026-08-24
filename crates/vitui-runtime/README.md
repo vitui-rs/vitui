@@ -5,11 +5,11 @@ Layout, identity, focus, hit-testing, routing, key maps and theming on top of
 
 **Nothing is published. The version is `0.0.0` and there is no stability promise before 0.x.**
 
-## Status: 10 of 20 tickets, and this crate is under construction
+## Status: 13 of 20 tickets, and this crate is under construction
 
-`data`, `layout`, `layout::text`, `theme`, `keys`, `ctx`, `id`, `route`, the hit index and `focus`
-exist. **Overlays, scrolling, sizing, async work, animation, the standard theme set and the
-verification ledger do not.** Nothing above the engine can draw a full screen yet.
+`data`, `layout`, `layout::text`, `theme` with its standard set, `keys`, `ctx`, `id`, `route`, the
+hit index, `focus`, `sizing` and `work` exist. **Overlays, scrolling, animation, the crate line and
+the verification ledger do not.** Nothing above the engine can draw a full screen yet.
 
 Depend on this today only if you intend to follow its development.
 

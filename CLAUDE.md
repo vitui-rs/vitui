@@ -30,9 +30,14 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   asked three families what they do with a cluster printed over one half of a double-width glyph, all
   three blank the orphaned half themselves, and *they disagree about what it wears*, which is what
   made the engine's own repair mandatory rather than merely tidy.
-- **`vitui-runtime` is in progress**: 9 of 20 tickets resolved. `data`, `layout`, `theme`, `keys`,
-  `ctx`, `id`, `route` exist; focus, overlays, scrolling, sizing, async work and the standard theme
-  set do not.
+- **`vitui-runtime` is in progress**: 13 of 20 tickets resolved — 05, 12, 15 and 16 landed together
+  on 2026-08-23, built in parallel worktrees and integrated one pipeline at a time. `data`, `layout`,
+  `theme` with its fourteen shipped schemes, `keys`, `ctx`, `id`, `route`, `focus`, `sizing` and
+  `work` exist; overlays, scrolling, animation, the crate line and the verification ledger do not.
+  Two of the four found defects in code that was already green — ticket 15 found `Ctx::hover_style`
+  translating from `rect` rather than from an accumulated origin, wrong at every level below the
+  first two, and ticket 16 found a stale landing able to destroy a fresh one in `Slot::put`, which is
+  where `Generation`'s ordering earns its keep.
 - **`vitui-components` is empty scaffolding.** Its architecture is settled (43 tickets sliced), no
   code written.
 - Nothing above the engine can draw a screen yet, so no application exists to run.

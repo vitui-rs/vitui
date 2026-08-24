@@ -1258,9 +1258,11 @@ pub struct Ctx<'f, 'v> {
     /// Where this context's own `(0, 0)` sits in the coordinates of the frame's root.
     ///
     /// **Not derivable from `rect`**, which is a sub-rectangle in its *parent's* coordinates: two
-    /// levels down, adding one `rect.x` gives the wrong column. It is carried rather than computed
-    /// because the two things that need it — the drawn extent and the hover style resolved at `end`
-    /// — both run where every intermediate `Ctx` has already been dropped.
+    /// levels down, adding one `rect.x` gives the wrong column. Two contexts writing `(0, 0)` name
+    /// the same cell without it, and last-write-wins then picks between two different places on
+    /// screen. It is accumulated on the way down rather than computed because its three readers —
+    /// the drawn extent, the caret, and the hover style resolved at `end` — all run where every
+    /// intermediate `Ctx` has already been dropped.
     origin: (i32, i32),
     /// The pointer **in this context's own coordinates**, transformed on the way down by `child` and
     /// `scrolled`.
@@ -1270,13 +1272,6 @@ pub struct Ctx<'f, 'v> {
     /// rectangle. Geometry is needed **inside** a frame and never across one (ADR 0015) — which is the
     /// rule, and is not the same as *no geometry*.
     pointer: Option<(i32, i32)>,
-    /// This context's origin **in root coordinates**.
-    ///
-    /// Accumulated on the way down rather than read off `rect`, which is in the *parent's*
-    /// coordinates and therefore only right one level deep. Two contexts writing `(0, 0)` name the
-    /// same cell without it, and last-write-wins then picks between two different places on screen.
-    /// The caret and the deferred hover restyle are the two readers.
-    origin: (i32, i32),
     /// This context's origin **in the enclosing scroll area's content coordinates**, which is what a
     /// ring entry's rectangle is in.
     ///
@@ -1341,7 +1336,6 @@ impl<'f, 'v> Ctx<'f, 'v> {
             rect: r,
             origin: (self.origin.0 + r.x, self.origin.1 + r.y),
             pointer: self.pointer.map(|(x, y)| (x - r.x, y - r.y)),
-            origin: (self.origin.0 + r.x, self.origin.1 + r.y),
             content: (self.content.0 + r.x, self.content.1 + r.y),
             _frame: PhantomData,
             _not_send: PhantomData,
@@ -1359,7 +1353,6 @@ impl<'f, 'v> Ctx<'f, 'v> {
             // pointer takes on the line below.
             origin: (self.origin.0 - dx, self.origin.1 - dy),
             pointer: self.pointer.map(|(x, y)| (x - dx, y - dy)),
-            origin: (self.origin.0 - dx, self.origin.1 - dy),
             // **The reset**: a scrolled context is a content coordinate system, so its own origin is
             // the content origin. §13's `to_content` resets at the area boundary, and this is it.
             content: (0, 0),
@@ -1542,7 +1535,6 @@ impl<'f, 'v> Ctx<'f, 'v> {
                 rect: self.rect,
                 origin: self.origin,
                 pointer: self.pointer,
-                origin: self.origin,
                 content: self.content,
                 _frame: PhantomData,
                 _not_send: PhantomData,
@@ -2078,6 +2070,9 @@ impl<'f, 'v> Ctx<'f, 'v> {
                 rect: Rect::new(0, 0, w, h),
                 origin: (0, 0),
                 pointer: None,
+                // The measured world is its own root: it composites nothing and scrolls nothing, so
+                // its content coordinates and its root coordinates are the same thing.
+                content: (0, 0),
                 _frame: PhantomData,
                 _not_send: PhantomData,
             };
@@ -2282,7 +2277,6 @@ impl Driver {
                 rect: Rect::new(0, 0, w, h),
                 origin: (0, 0),
                 pointer,
-                origin: (0, 0),
                 content: (0, 0),
                 _frame: PhantomData,
                 _not_send: PhantomData,
