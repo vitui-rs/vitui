@@ -3,6 +3,54 @@
 Hand-written and dated, because a number and what it means are two different artefacts with two
 different lifetimes. `REPORT.md` is generated; this is not.
 
+## 2026-08-23 — kitty, installed for stage 4, and it arrives with two candidate quirk bits
+
+No arm exists yet. These are control probes — raw `printf` into a kitty window, `kitten @ get-text
+--extent screen --ansi` back out, **no engine anywhere in it** — run before the instrument, which is the
+discipline stage 1 established and the reason the tmux entry could be attributed at all.
+
+### kitty 0.48.2's cell cannot hold an overline, from its own header
+
+`kitty/data-types.h` at `v0.48.2`:
+
+```c
+struct { bool bold, italic, reverse, strikethrough, dim, blink;
+         uint8_t decoration; color_type fg, bg, decoration_fg; } sgr;
+```
+
+**Six flags and the underline field. No overline bit, and no hidden/conceal bit.** The dump agrees:
+`overline` and `conceal` come back bare, where `dim` comes back as `ESC[22;2m` and `4:3` as `4:3`.
+
+So kitty is a candidate for **two** `attrs_dropped` bits, and it is one of §10's tier-1 seven. But the
+two are not equally settled, and the difference is the whole of stage 1's lesson:
+
+- **Overline is settled.** There is no bit in the cell to store it in, so it cannot be rendered, and no
+  further arm can change that.
+- **Conceal is not.** All a dump can say is that `get-text` did not serialise it, and *not stored* and
+  *not serialised* are exactly the two explanations a single dump cannot choose between. kitty could
+  perfectly well implement SGR 8 by resolving the foreground to the background at paint time, which
+  stores nothing in an `sgr` flag and renders correctly. **That row waits on an arm that reads the far
+  side** — the `--through-kitty` shape, the way `--through-tmux` was what finally attributed overline.
+
+Writing a conceal row into `quirks.rs` on this evidence would be the table inventing a misbehaviour,
+which is the failure it exists to avoid.
+
+### `Smol` is missing from kitty's terminfo too, so the tmux entry is not one emulator's bad luck
+
+kitty ships its own `terminfo/x/xterm-kitty` with `Smulx` and `Setulc` and **no `Smol`** — and it is not
+installed into the system database at all, so `infocmp -x xterm-kitty` fails outright and has to be read
+with `-A /Applications/kitty.app/Contents/Resources/terminfo`.
+
+That is a second, independent confirmation of the mechanism behind the tmux quirk: `Smol` is absent from
+**every** terminfo on this machine — `xterm-ghostty`, `xterm-256color`, `tmux-256color`,
+`screen-256color` and now `xterm-kitty`. tmux therefore drops overline under kitty as well, and the
+entry is right for the common case rather than for one emulator's description.
+
+There is a second-order joke in it worth noticing rather than enjoying: **kitty cannot render overline,
+and kitty's terminfo is correct to omit `Smol`.** Ghostty *can*, and its terminfo omits `Smol` anyway.
+The same missing capability is accurate in one description and wrong in the other, and tmux cannot tell
+them apart — which is the argument for §10's refusal of terminfo in one sentence.
+
 ## 2026-08-23 — the second family, and it disagreed
 
 Production ticket 05 asked for the eleven attribute facts on two emulator families. The second family

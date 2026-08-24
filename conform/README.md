@@ -54,7 +54,7 @@ is the scene, and the driver launches the scene by re-running its own `current_e
 trick to save a file — it makes the two halves the same build by construction, where a sibling binary
 path can silently be yesterday's.
 
-**The scene, the readiness handshake and the comparison live in `examples/common/mod.rs`**, shared by
+**The scene, the readiness handshake and the comparison live in `examples/common.rs`**, shared by
 both arms rather than copied into each. That is load-bearing for the second family: two copies of
 scene 01 would make a disagreement between the arms unattributable, because it could be the software
 or it could be the drift.

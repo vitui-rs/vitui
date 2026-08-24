@@ -12,7 +12,7 @@ Read [`SCENES.md`](SCENES.md) first.
 - **Default colours, from the dump's own OSC 10/11:** fg `cannot express` — this capture format has no OSC 10/11 header, bg `cannot express` — this capture format has no OSC 10/11 header
 - **Geometry: asked for and got.** `new-session -x 80 -y 24`, which is the one thing this arm can do that the Ghostty arm cannot. The size above is what the *scene* reported, so the two disagreeing would be visible here
 - **Config:** `-f /dev/null`, so this is tmux's own defaults and not a user's `~/.tmux.conf`. `default-terminal` was `tmux-256color`
-- **Launch to capture:** 588 ms, of which `capture-pane` itself was 6 ms — reported, never gated. Headless: no window server, no automation grant, no focus taken
+- **Launch to capture:** 583 ms, of which `capture-pane` itself was 6 ms — reported, never gated. Headless: no window server, no automation grant, no focus taken
 - **Trailing blanks:** `capture-pane` trims the default-styled ones the engine painted, where Ghostty's `vt` dump keeps them. It does **not** trim a *styled* blank, so an attribute leaking past its label is still counted as the disagreement it is
 
 ## Scene 01 — the eleven attribute bits, one per row

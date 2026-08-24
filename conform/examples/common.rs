@@ -1,7 +1,8 @@
 //! The half of the live arm that is not the terminal: the scene, the handshake, and the comparison.
 //!
-//! **Not a target.** Cargo builds `examples/*.rs` and `examples/*/main.rs`; a directory with only a
-//! `mod.rs` in it is neither, so this is a module two examples include rather than a third example.
+//! **Not a target**, and `Cargo.toml` is where that is arranged: `autoexamples = false` with the two
+//! arms declared, so this file is a module two examples include rather than a third example that
+//! fails for having no `main`.
 //!
 //! # Why it exists, and it is production ticket 05 that forced it
 //!
