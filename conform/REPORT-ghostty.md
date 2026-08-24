@@ -10,7 +10,7 @@ Read [`SCENES.md`](SCENES.md) first.
 - **These rows are evidence about:** Ghostty. Its own cell state, re-serialised by the emulator that holds it
 - **Surface:** 72x24 cells, as the scene reported it
 - **Default colours, from the dump's own OSC 10/11:** fg `#eaeaea`, bg `#000000`
-- **Launch to capture:** 1057 ms, of which the capture round trip alone was 147 ms — reported, never gated. It is AppleScript round trips and a window opening
+- **Launch to capture:** 1405 ms, of which the capture round trip alone was 499 ms — reported, never gated. It is AppleScript round trips and a window opening
 - **Geometry:** not ours to set. `surface configuration` offers a font size and no rows or columns, so the scene draws at the top left of whatever it is given
 
 ## Scene 01 — the eleven attribute bits, one per row

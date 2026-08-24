@@ -3,6 +3,161 @@
 Hand-written and dated, because a number and what it means are two different artefacts with two
 different lifetimes. `REPORT.md` is generated; this is not.
 
+## 2026-08-23 — wiring the quirk took the measurement away, and the committed report had gone stale
+
+Found by running the *old* arms after building the new one, which was meant to be a five-second check
+that a refactor had not broken them.
+
+**`cargo run --example tmux` reported 10/11 where the committed `REPORT-tmux.md` says 11/11**, and
+nothing was wrong. Production ticket 10 wired `attrs_dropped` on to the wire the session before: the
+engine now consults `quirks.rs`, sees the fourth entry, and does not send SGR 53 to a terminal that
+answers XTVERSION `tmux …`. So tmux's grid no longer holds an overline because it was never sent one.
+
+Three things follow, and the third is the one worth the entry.
+
+**A `FAILED` there would blame tmux for a decision of ours.** The row is the quirk table working. So
+the report grew a fifth kind of non-number — `by design`, a fact about **the engine** — beside the
+fourth this session already added. `cannot express` is the emulator's limit, `cannot ask` is the
+instrument's, and `by design` is ours; collapsing any two of the three would hide one party behind
+another. Three of the four arms now print one.
+
+**The instrument has lost the measurement that earned the entry.** The `--through-tmux` arm exists to
+answer *does tmux forward overline*; it answered no, the answer became a `quirks.rs` row, the row
+became a mask, and the mask means the arm can never ask again. That is not a defect to fix here — an
+arm that consulted the engine for what to expect would be checking the engine against itself, which
+is the arrangement `conform/` exists to break. **What preserves the evidence is the committed
+fixture**, captured while the bit was still on the wire, and this is the sharpest reason yet for the
+rule that a capture is never regenerated to make something pass. The rule was written against a
+lazy fix; it turns out to be load-bearing for the evidence surviving its own consequences.
+
+**And the committed report had been wrong for a session with nothing going red.** That is the exact
+mechanism this directory relies on: it reports rather than gates, and *a worsening number arrives as
+a review-visible diff*. It only arrives if somebody regenerates the file. Ticket 10 changed what
+three of these four arms observe and regenerated none of them — a reasonable omission, since the
+ticket was about `quant.rs` and had no reason to think it had moved an instrument. The lesson is not
+*run everything*: it is that **a committed report is a claim with a date on it**, and the date is the
+last time an arm was run and not the last time the repository changed.
+
+The same shape as this backlog's opening finding, for the fifth time: a declaration that is
+load-bearing for the silence around it. A false MSRV disabling lints, a round trip agreeing with
+itself, a mask nothing read, a predicate no gate ran — and now a report nobody re-ran.
+
+## 2026-08-23 — the third family, and the two questions it was built to settle both had the same answer
+
+The kitty arm exists. `cargo run --example kitty` opens a window, drives the engine in it, reads the
+screen back over `kitten @ get-text --extent screen --ansi` and closes it — **8/10 agreed, one row
+unaskable**, and both halves of that sentence are findings.
+
+The two design questions ticket 04 left open were settled **before** the arm was written, by control
+probes with no engine in them, and neither answer was the one the ticket predicted.
+
+### `--ansi` is not a third dialect, and the probe is the only reason that can be said
+
+The ticket recorded a leading `ESC[m` per row and `ESC[22;2m` for dim as evidence that kitty might be
+a dialect of its own, on the tmux precedent. It is not. Every construct kitty emits is ECMA-48 and
+means what ECMA-48 says:
+
+| sent | returned | |
+|---|---|---|
+| `1` | `22;1` | reset intensity, then bold — legal, and `22` then `1` is what the parser already did |
+| `2` | `22;2` | and `1;2` together comes back as `1;2`, so the `22` is a clear of the *other* one |
+| `4:2` `4:3` | `4:2` `4:3` | unchanged |
+| `21` | `4:2` | **kitty implements ECMA-48's 21 as double underline**, where a meaningful population implements it as bold-off. Nothing here emits 21, so it costs nothing — but it is worth knowing that the two readings are both alive in the field |
+| `38;2;10;20;30` | `38:2:10:20:30` | the colon form **without** T.416's empty colour-space id, which the parser already accepts because it skips empties rather than counting them |
+| `58:2::0:0:255;4` | `58:2:0:0:255;4` | same, on the other axis |
+| `42` | `42` | bare, so the `42..=45` fold guard is not reachable from this arm at all |
+
+So `parse` takes `Dialect::Ecma48` for this arm and the enum does not grow. **A dialect is a
+disagreement about meaning, not a difference in style**, and only one of those costs an attribute.
+
+It would have been possible to reach the same conclusion by parsing a capture and observing that both
+dialects agree on it — and that would have been luck. tmux numbers its underline styles 42–45 *so
+that* the fold lands on `4:2`–`4:5`, so agreement between the two readings is exactly the coincidence
+that let one parser get away with being wrong for two stages. The control probe is what makes this a
+statement about ECMA-48 rather than about a numbering accident.
+
+### `Through` does not grow a kitty variant, and the reason it was wanted has evaporated
+
+`Through` is *what is inside the window the Ghostty arm photographs*. kitty is a different photograph,
+so it is `examples/kitty.rs` — the third arm, and the third `[[example]]` stanza the `Cargo.toml`
+comment predicted would cost three lines.
+
+The ticket also wanted a `--through-kitty`, and named its purpose: attributing conceal the way
+`--through-tmux` attributed overline. **There is no such arm to build.** tmux has a far side because
+tmux is a multiplexer; kitty is an endpoint, and nothing downstream of it can be read. What settled
+conceal was not another capture.
+
+### Conceal and overline are settled, and the evidence is a shipped binary
+
+`FINDINGS.md` left conceal open on the possibility that kitty resolves the foreground to the
+background at paint time, storing nothing in a flag and rendering correctly. Two observations close
+it, and neither is a screen.
+
+**`kitty.fast_data_types.so` on this machine carries kitty's `Cursor` repr**, which is an enumeration
+of every formatting attribute the cursor has:
+
+```text
+Cursor(x=%u, y=%u, shape=%s, blink=%R, fg=#%08x, bg=#%08x, bold=%R, italic=%R, reverse=%R,
+       strikethrough=%R, dim=%R, decoration=%d, decoration_fg=#%08x, text_blink=%R)
+```
+
+and the attribute constants beside it are `BOLD ITALIC REVERSE MARK STRIKETHROUGH DECORATION BLINK`,
+with `set_attribute` accepting `reverse strike mark bold italic decoration` and rejecting anything
+else as *"Unknown cell attribute"*. Three tables, no conceal and no overline in any of them. **SGR is
+a mutation of the cursor**, so an attribute the cursor cannot carry is one no cell can hold and no
+paint can consult — paint-time resolution needs a flag, and there is none.
+
+**And the control probe agrees from the other side.** `printf '\033[8;31mconcealred'` comes back as
+`ESC[31m`: the foreground is stored *unmodified*, so nothing was resolved to the background on the way
+in either. That is the hypothesis tested rather than argued away.
+
+So `quirks.rs` has a fifth entry — kitty, recognised by XTVERSION answering `kitty(0.48.2)`, dropping
+conceal **and** overline. It is the first entry here whose evidence is a binary rather than a screen,
+and the first with a mask of more than one bit, which is a case the serializer had never been given.
+
+### The row the instrument had to refuse to answer, and it is the finding worth the arm
+
+kitty's serialiser writes a **dotted** underline as `CSI 4 : m` — parameter 4 with an empty
+sub-parameter — and a dashed one identically. The strings `4:2;` and `4:3;` are in the shipped binary
+and neither `4:4;` nor `4:5;` is: a table with a hole in it.
+
+ECMA-48 reads an omitted parameter as the default, and SGR 4's default is 1. So the capture says
+*single* for a cell holding *dotted*, and **the comparison would have reported a third dropped
+attribute that is not dropped at all.** A `quirks.rs` row would have followed, describing a
+misbehaviour that is not happening — which is precisely the failure that table exists to avoid, and
+it would have been produced by the instrument built to prevent it.
+
+What separates *not rendered* from *not serialised* here is a control the emulator supplies itself:
+**`CSI 4 : 0 m` comes back as nothing at all**, so a `4:` in a capture proves the cell holds a
+*non-zero* decoration and only its number was lost. The instrument can see that something is
+underlined and cannot see which of two things — which is a fourth kind of non-number, and `compare/`
+supplied three.
+
+`cannot express` is a fact about the emulator; this is a fact about the **instrument**. Ticket 04
+predicted the cell would be needed and predicted the wrong arm — it expected Terminal.app's
+plain-text-only capture surface to be the first thing the vocabulary could not describe. kitty got
+there first and with a sharper case: Terminal.app carries no style at all, where kitty carries ten of
+the eleven and mis-spells the eleventh.
+
+The rules that stop it being an excuse are in `SCENES.md`, and one of them is a gate: **a row declared
+unaskable that agrees anyway is reported `STALE` and counted as a failure.** An excuse nobody rechecks
+is the same kind of thing as an MSRV nobody compiles, which is this backlog's opening finding for the
+fourth time.
+
+### Two smaller things the run produced
+
+- **kitty is the first *emulator* arm that can be handed a size.** `-o initial_window_width=80c -o
+  initial_window_height=24c` is a real geometry in cells and `kitten @ ls` reports back what it got.
+  The quiescence handshake is kept anyway: one command-line option is a declaration, and the
+  handshake is what *observes* that the window stopped moving. Ghostty's `surface configuration`
+  offers a font size and nothing else; tmux can set a pane size and is not an emulator.
+- **A launcher that execs is not a launcher that takes a command line**, and the shared helper was
+  handing out the wrong one. kitty execs its argv; given `common::scene_command`'s single string it
+  looked for a file whose name ends in `--scene 01`, found none, said nothing, and the run failed
+  twenty seconds later as *the scene never reported a presented frame*. The helper is `scene_argv`
+  now and the two string-taking arms join it themselves, because neither AppleScript's quoting nor
+  tmux's is a rule a shared helper could guess.
+
 ## 2026-08-23 — kitty, installed for stage 4, and it arrives with two candidate quirk bits
 
 No arm exists yet. These are control probes — raw `printf` into a kitty window, `kitten @ get-text
@@ -34,6 +189,13 @@ two are not equally settled, and the difference is the whole of stage 1's lesson
 
 Writing a conceal row into `quirks.rs` on this evidence would be the table inventing a misbehaviour,
 which is the failure it exists to avoid.
+
+**Settled the next day, and not by the arm this paragraph expected.** There is no far side to a
+terminal endpoint, so the `--through-kitty` shape named above does not exist to be built. What closed
+it was the shipped binary — kitty's `Cursor` carries no conceal attribute for a paint to consult — and
+a control probe showing `SGR 8 ; 31` comes back as `SGR 31`, foreground unmodified. See the entry at
+the top of this file. The reasoning here was right and its proposed instrument was wrong, which is
+worth leaving in place rather than editing away.
 
 ### `Smol` is missing from kitty's terminfo too, so the tmux entry is not one emulator's bad luck
 

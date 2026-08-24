@@ -11,6 +11,7 @@ const WIDE: &[u8] = include_bytes!("../fixtures/tmux-3.7c-wide-no-padding.vt");
 const TMUX_SCENE01: &[u8] = include_bytes!("../fixtures/tmux-3.7c-scene01-attrs.vt");
 const VIA_TMUX: &[u8] = include_bytes!("../fixtures/ghostty-1.3.1-via-tmux-3.7c-scene01-attrs.vt");
 const SCENE01: &[u8] = include_bytes!("../fixtures/ghostty-1.3.1-scene01-attrs.vt");
+const KITTY_SCENE01: &[u8] = include_bytes!("../fixtures/kitty-0.48.2-scene01-attrs.vt");
 
 // ── The refusal, which is the first thing this parser had to do ──────────────────────────────────
 
@@ -553,4 +554,133 @@ fn a_bare_two_digit_code_is_still_what_ecma48_says_it_is_in_both_dialects() {
     let s = d.rows[0].clusters[0].style;
     assert_eq!(s.underline, Underline::Double);
     assert_eq!(s.bg, Colour::Default, "and it is not a background colour");
+}
+
+// ── The third emulator family, and it is the first that disagreed twice ──────────────────────────
+
+#[test]
+fn kitty_has_nowhere_to_put_conceal_or_overline_and_holds_the_other_nine() {
+    // **The third family**, and the second `quirks.rs` row this repository gathered itself. kitty
+    // 0.48.2 renders nine of the eleven, drops two, and cannot be *asked* about the eleventh — see
+    // the row below this one, which is a different sentence and has to stay a different sentence.
+    //
+    // The two it drops are not a dump's inference. kitty's `Cursor` repr — in the shipped
+    // `kitty.fast_data_types.so` — enumerates every formatting attribute the cursor carries: `bold
+    // italic reverse strikethrough dim decoration decoration_fg text_blink`, and the attribute
+    // constants beside it say `BOLD ITALIC REVERSE MARK STRIKETHROUGH DECORATION BLINK`. SGR is a
+    // mutation of the cursor, so an attribute the cursor cannot carry is one no cell can hold and no
+    // paint can consult.
+    let d = parse(KITTY_SCENE01, 11, Dialect::Ecma48).unwrap();
+    for (i, (label, attrs, underline)) in SCENE01_ROWS.iter().enumerate() {
+        let dropped = *attrs == Attrs::HIDDEN || *attrs == Attrs::OVERLINE;
+        // What the capture says, which for `under-dot` is not what kitty is holding.
+        let want = Style {
+            attrs: if dropped { Attrs::NONE } else { *attrs },
+            underline: match *underline {
+                Underline::Dotted => Underline::Single,
+                other => other,
+            },
+            ..Style::default()
+        };
+        assert_eq!(
+            row_style(&d, i, label),
+            Some(want),
+            "row {i} — {label}{}",
+            match dropped {
+                true => ", which kitty has no attribute to store",
+                false => "",
+            }
+        );
+    }
+}
+
+#[test]
+fn a_dotted_underline_reaches_this_capture_as_an_empty_sub_parameter() {
+    // **The bytes that make one row of the scene unaskable**, pinned here rather than only asserted
+    // about in prose. kitty's serialiser has a string for `4:2` and `4:3` and none for `4:4` or
+    // `4:5`, so a cell holding a dotted underline is written out as `CSI 4 : m`.
+    //
+    // ECMA-48 reads an omitted parameter as the default and SGR 4's default is 1, so the reading
+    // above is *single* — the correct reading of what arrived and the wrong description of what
+    // kitty is holding. Compared anyway it would say *kitty does not render dotted underlines*,
+    // which is false, and would earn a `quirks.rs` entry the table exists to keep out.
+    let contains = |needle: &[u8]| KITTY_SCENE01.windows(needle.len()).any(|w| w == needle);
+    assert!(
+        contains(b"\x1b[4:m"),
+        "the capture spells a dotted underline `CSI 4 : m`"
+    );
+    assert!(
+        !contains(b"\x1b[4:4m"),
+        "and it never spells one `CSI 4:4 m`, which is what the arm's declaration rests on"
+    );
+    // And the separation is not an assumption: `4:0` comes back as nothing at all, so a `4:` proves
+    // the cell holds a non-zero decoration and only its number was lost.
+    for dialect in [Dialect::Ecma48, Dialect::TmuxCapturePane] {
+        let d = parse(b"\x1b[4:mX\n", 1, dialect).unwrap();
+        assert_eq!(
+            d.rows[0].clusters[0].style.underline,
+            Underline::Single,
+            "{dialect:?}: an empty sub-parameter is the default, which for SGR 4 is 1"
+        );
+    }
+}
+
+#[test]
+fn kitty_pads_every_row_to_the_full_width_where_tmux_trims_to_the_label() {
+    // Two capture formats, opposite habits, and the check that rides on it is the same one: an
+    // attribute must **stop where its label does**. tmux trims the default-styled blanks the engine
+    // painted, so there is nothing to the right to inspect; kitty keeps all eighty columns, so a
+    // reverse block running to the right edge would be visible here as eighty styled cells.
+    //
+    // Neither trims a *styled* blank, which is why the check survives both.
+    let kitty = parse(KITTY_SCENE01, 11, Dialect::Ecma48).unwrap();
+    let tmux = parse(TMUX_SCENE01, 11, Dialect::TmuxCapturePane).unwrap();
+    assert_eq!(kitty.rows[0].clusters.len(), 80, "kitty pads to the width");
+    assert_eq!(tmux.rows[0].clusters.len(), 4, "tmux trims to `bold`");
+    assert!(
+        kitty.rows[0]
+            .clusters
+            .iter()
+            .skip(4)
+            .all(|c| c.style == Style::default()),
+        "and every padding cell kitty kept is unstyled, so nothing leaked past the label"
+    );
+}
+
+#[test]
+fn the_three_emulators_disagree_about_exactly_which_bits_they_have() {
+    // The point of a third family, as one assertion. Ghostty holds all eleven; kitty holds nine and
+    // has nowhere to put the other two; tmux's *forwarding* loses one, and it is not either of
+    // kitty's — so the three results are three different facts about three different parties and not
+    // one flaky number.
+    //
+    // `under-dot` is excluded on the kitty side and only there, because that row is not a
+    // disagreement at all: it is a question this capture format cannot ask. Excluding it here rather
+    // than everywhere is what keeps the exclusion honest — the same row is compared for the other
+    // two arms and does agree.
+    let ghostty = parse(SCENE01, 11, Dialect::Ecma48).unwrap();
+    let kitty = parse(KITTY_SCENE01, 11, Dialect::Ecma48).unwrap();
+    let forwarded = parse(VIA_TMUX, 11, Dialect::Ecma48).unwrap();
+
+    let differs = |other: &Dump, skip: &[&str]| {
+        SCENE01_ROWS
+            .iter()
+            .enumerate()
+            .filter(|(_, (label, ..))| !skip.contains(label))
+            .filter(|(i, (label, ..))| {
+                row_style(&ghostty, *i, label) != row_style(other, *i, label)
+            })
+            .map(|(_, (label, ..))| *label)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        differs(&kitty, &["under-dot"]),
+        vec!["conceal", "overline"],
+        "kitty has no cursor attribute for either"
+    );
+    assert_eq!(
+        differs(&forwarded, &[]),
+        vec!["overline"],
+        "and tmux forwards everything else it was sent"
+    );
 }

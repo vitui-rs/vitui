@@ -51,7 +51,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{Duration, Instant, SystemTime};
 
-use common::{Arm, publish, render, save_if_asked, scene, scene_command, wait_for_quiescence};
+use common::{
+    Arm, Excluded, publish, render, save_if_asked, scene, scene_argv, wait_for_quiescence,
+};
 use vitui_conform::{Dialect, parse};
 
 /// What stands between the engine and Ghostty in the window this photographs.
@@ -106,7 +108,10 @@ impl Through {
 
     /// The command line the window runs.
     fn command(&self, ready: &Path) -> Result<String, String> {
-        let scene = scene_command()?;
+        // Joined here rather than in `common`: this one goes inside an AppleScript string
+        // literal and tmux's goes inside a tmux command line, and neither quoting rule is one a
+        // shared helper could guess. The argv is the shared part.
+        let scene = scene_argv()?.join(" ");
         Ok(match self {
             Self::Nothing => scene,
             // `-f /dev/null` for the same reason the tmux arm gives: the result must be about tmux
@@ -119,6 +124,35 @@ impl Through {
                 ready.display()
             ),
         })
+    }
+
+    /// The rows this run will not compare, and why.
+    ///
+    /// **The tmux variant lost its whole point to the entry it earned.** It was built to answer
+    /// *does tmux forward overline*, it answered no, and production ticket 10 then wired
+    /// `attrs_dropped` on to the wire — so the engine no longer sends SGR 53 to a terminal that
+    /// answers XTVERSION `tmux …`, and this arm can no longer take the measurement. `FAILED` would
+    /// blame tmux for a decision of ours; `by design` says whose it is.
+    ///
+    /// Not a defect to fix here. An arm that asked the engine what to expect would be checking the
+    /// engine against itself, which is the arrangement `conform/` exists to break, and
+    /// `fixtures/ghostty-1.3.1-via-tmux-3.7c-scene01-attrs.vt` is the capture taken while the bit
+    /// was still on the wire.
+    fn not_compared(&self) -> &'static [(&'static str, Excluded, &'static str)] {
+        match self {
+            // Ghostty's `vt` dump was probed with a raw `printf` before this arm was written and it
+            // carries all eleven bits; Ghostty has no `quirks.rs` entry, so the engine withholds
+            // nothing. Every row is compared and a disagreement means what it says.
+            Self::Nothing => &[],
+            Self::Tmux(_) => &[(
+                "overline",
+                Excluded::ByDesign,
+                "`quirks.rs`'s fourth entry, which **this arm is what earned** — and production \
+                 ticket 10 then wired the mask, so the engine stopped sending SGR 53 to tmux and \
+                 this run can no longer see what tmux would have done with it. The capture that \
+                 can is committed",
+            )],
+        }
     }
 
     /// Anything the reader needs that only this variant knows.
@@ -259,6 +293,7 @@ fn capture_and_compare(
         mechanism: "`write_screen_file:…,vt`",
         measures: through.measures(),
         size,
+        not_compared: through.not_compared(),
         notes,
     };
     let (report, failures) = render(&arm, &dump, &bytes);

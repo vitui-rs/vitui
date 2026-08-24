@@ -16,12 +16,12 @@ rust-version = "1.88"
 publish = false
 license = "MIT OR Apache-2.0"
 
-# **Autodiscovery off, and the two arms are declared below.** `examples/common.rs` is a module the arms
+# **Autodiscovery off, and the arms are declared below.** `examples/common.rs` is a module the arms
 # share, not an arm — and autodiscovery would make it an example target of its own and fail it for
 # having no `main`. The usual dodge is `examples/common/mod.rs`, a directory holding one `mod.rs`, which
 # this workspace does not write. Declaring the targets says which files are arms in one place instead,
-# and a third arm adding three lines is a feature rather than a cost: an example nothing declares is an
-# example nothing compiles.
+# and the third arm did cost exactly the three lines predicted here, which is a feature rather than a
+# cost: an example nothing declares is an example nothing compiles.
 autoexamples = false
 
 # No dependencies, matching the engine's and runtime's posture. A dump parser is a state machine over
@@ -41,6 +41,9 @@ name = "ghostty"
 
 [[example]]
 name = "tmux"
+
+[[example]]
+name = "kitty"
 
 [lints.rust]
 warnings = "deny"

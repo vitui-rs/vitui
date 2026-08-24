@@ -15,25 +15,45 @@ that arrangement cannot catch:
 This directory is the missing fourth party. It is
 [production ticket 04](../.scratch/vitui-engine-production/issues/04-the-conformance-harness.md).
 
-## Status: stages 0, 1, 2 and a second family
+## Status: stages 0, 1, 2 and three emulator families
 
-**Three arms, three committed reports, and the second family disagreed.** Twenty-six tests, no
-emulator in the loop for any of them.
+**Four arms, four committed reports, three emulator families, and two `quirks.rs` entries came out of
+them.** Thirty-one tests, no emulator in the loop for any of them.
 
 | arm | scene 01 | what its rows are about |
 |---|---|---|
 | `cargo run --example ghostty` | **11/11** | Ghostty 1.3.1's own cell state |
-| `cargo run --example tmux` | **11/11** | what tmux 3.7c *stores* — `capture-pane` re-serialises tmux's grid |
-| `cargo run --example ghostty -- --through-tmux` | **10/11** | what tmux 3.7c *forwards*, read through Ghostty |
+| `cargo run --example tmux` | **10/10**, one `by design` | what tmux 3.7c *stores* — `capture-pane` re-serialises tmux's grid |
+| `cargo run --example ghostty -- --through-tmux` | **10/10**, one `by design` | what tmux 3.7c *forwards*, read through Ghostty |
+| `cargo run --example kitty` | **8/8**, one `cannot ask`, two `by design` | kitty 0.48.2's own cell state |
 
-The one disagreement is overline, and the three arms together are what make it attributable: tmux
-accepts SGR 53, stores it in the cell, hands it back when asked, and never puts it on the wire. That
-is `quirks.rs`'s fourth entry and the first this repository gathered rather than inherited — see
-`FINDINGS.md`, and production ticket 05.
+tmux's one disagreement was overline, and it took three arms to attribute: tmux accepts SGR 53, stores
+it, hands it back when asked, and never puts it on the wire. kitty's two are conceal and overline, and
+**no arm could have attributed either** — a dump cannot tell *not stored* from *not serialised*, and a
+terminal endpoint has no far side to read from. What settled those is kitty's shipped binary, whose
+`Cursor` carries neither attribute. They are `quirks.rs`'s fourth and fifth entries, the only two this
+repository gathered rather than inherited — see `FINDINGS.md`, and production tickets 05 and 04.
+
+**Every one of those disagreements is now a `by design` cell, and that is the most important sentence
+here.** Production ticket 10 wired `attrs_dropped` on to the wire, so the engine consults the table
+and withholds what a terminal will not render — and the arms can no longer take the measurements that
+earned the entries. `FAILED` would blame the terminal for a decision of ours. It is not a defect to
+fix: an arm that asked the engine what to expect would be checking the engine against itself, which is
+the arrangement this directory exists to break. **The committed captures in `fixtures/` are what
+preserve the evidence**, taken while the engine still sent those bits, and that is the sharpest reason
+yet never to regenerate one to make something pass.
+
+**kitty's fourth number is a different thing again.** `cannot ask` is a fact about the *instrument*,
+not about the emulator and not about the engine: kitty renders a dotted underline and writes it into a
+capture as `CSI 4 : m`, which ECMA-48 reads as single — so a row compared anyway would have earned a
+`quirks.rs` entry describing a misbehaviour that is not happening. `SCENES.md` has all five kinds of
+non-number and the three rules that stop the two new cells becoming excuses; one of those rules is a
+gate.
 
 ```sh
 cd conform && cargo test              # the gate: the comparator over committed captures
 cd conform && cargo run --example tmux            # the headless soak. No window, no grant
+cd conform && cargo run --example kitty           # a window, but no automation grant
 cd conform && cargo run --example ghostty         # the soak that needs a window server
 cd conform && cargo run --example ghostty -- --through-tmux   # tmux in the middle
 ```
@@ -46,25 +66,31 @@ The Ghostty arm opens a window, drives the engine inside it, photographs the scr
 window again — about a second and a half, and it **takes focus for that second and a half**, which is
 inherent to driving a window server and not something the driver can avoid. Whatever is typed into it
 while it is up is drained and ignored. **The tmux arm is headless**: no window server, no automation
-grant, no focus taken, and it is the only one that can *set* the geometry (`new-session -x -y`, where
-`surface configuration` offers a font size and nothing else).
+grant, no focus taken. **The kitty arm sits between them** — it needs a window server and takes focus,
+but reaches the terminal over a remote-control socket rather than an automation surface, so there is
+no TCC grant, no clipboard and no z-order in the loop, and no `kitty.conf` either. It is also **the
+only *emulator* arm that can be handed a size**, in cells; tmux can set a pane size and is not an
+emulator, and Ghostty's `surface configuration` offers a font size and nothing else.
 
 Each arm is one executable with two halves: with no arguments it is the driver, with `--scene 01` it
 is the scene, and the driver launches the scene by re-running its own `current_exe()`. That is not a
 trick to save a file — it makes the two halves the same build by construction, where a sibling binary
 path can silently be yesterday's.
 
-**The scene, the readiness handshake and the comparison live in `examples/common.rs`**, shared by
-both arms rather than copied into each. That is load-bearing for the second family: two copies of
-scene 01 would make a disagreement between the arms unattributable, because it could be the software
-or it could be the drift.
+**The scene, the readiness handshake and the comparison live in `examples/common.rs`**, shared by the
+arms rather than copied into each. That is load-bearing for the second family and paid for itself
+again on the third: two copies of scene 01 would make a disagreement between the arms unattributable,
+because it could be the software or it could be the drift. An arm brings four things and nothing else
+— a way to start the scene, a way to read the screen back, a way to shut down, and an `Arm` describing
+itself, **including the rows its capture format cannot ask**, declared before the run.
 
 `CONFORM_SAVE_CAPTURE=<path>` writes the raw bytes out. It is **opt-in and never automatic**: a
 driver that rewrote its own fixtures on every run would turn the gate into a mirror.
 
-Stages 3 (CPR and the width questions) and 5 (mode 2026) are open, and stage 4's *second emulator
-family* is partly answered — tmux is a second **target**, and Terminal.app for a second VT lineage is
-not built. See [ticket 04](../.scratch/vitui-engine-production/issues/04-the-conformance-harness.md).
+Stages 3 (CPR and the width questions) and 5 (mode 2026) are open. Stage 4 has three emulator
+families now — Ghostty, kitty and, as a target rather than an emulator, tmux — and what it still owes
+is a second **VT lineage**: Terminal.app, glyph-grid scenes only, not built. See
+[ticket 04](../.scratch/vitui-engine-production/issues/04-the-conformance-harness.md).
 
 ## Why it reports and never gates
 
@@ -107,6 +133,7 @@ form — the missing row hiding inside a green one.
 | `ghostty-1.3.1-scene01-attrs.vt` | scene 01 as Ghostty gave it back: all eleven attribute bits, each on its own row, each stopping where its label does; and the OSC 10/11 header this machine's Ghostty leads with, which is the only statement anywhere of what `Colour::Default` actually resolves to |
 | `tmux-3.7c-scene01-attrs.vt` | the same scene as **tmux's own grid** holds it — all eleven, overline included, spelled `5:3` because tmux writes any two-digit attribute code as `code/10 : code%10` |
 | `ghostty-1.3.1-via-tmux-3.7c-scene01-attrs.vt` | the same scene **through** tmux into Ghostty: ten of the eleven, and overline gone. The three files above are one scene down three paths, which is what turns *something is wrong* into *tmux does not forward SGR 53* |
+| `kitty-0.48.2-scene01-attrs.vt` | the same scene as kitty holds it: nine of the eleven, conceal and overline bare, and a dotted underline spelled `CSI 4 : m` — the bytes the arm's `cannot ask` declaration rests on. LF-separated where Ghostty's is CRLF, and padded to the full width where tmux's is trimmed to the label |
 
 Raw bytes, as captured. Do not regenerate them to make a test pass: they are evidence, and a fixture
 that moves because the code moved is not evidence of anything.
@@ -138,6 +165,14 @@ Written down because a limit nobody wrote down becomes a claim.
   `parse` takes a `Dialect` and has **no default**. tmux's `capture-pane -e` spells overline `5:3`,
   which is *blink* in ECMA-48, so a parser told nothing invents an attribute — see `FINDINGS.md`.
   A caller that does not know which format it captured cannot be trusted to have captured either.
+  kitty was probed for a dialect of its own and had none: every construct it emits is ECMA-48.
+- **A dotted or dashed underline, on kitty.** Its serialiser writes both as `CSI 4 : m` and ECMA-48
+  reads that as single, so the row is declared `cannot ask` rather than compared — which is not the
+  same statement as `cannot express`, and the difference is a `quirks.rs` entry that would have been
+  wrong. `CSI 4:0 m` comes back as nothing, so the capture can still say *some* decoration is there.
+- **Why two arms disagree, in general.** A scene can say that they do. Whether an absent attribute
+  was never stored or merely never serialised is a question a dump has no way to reach, and for tmux
+  it took a third arm while for kitty — an endpoint, with no far side — it took the shipped binary.
 - **What the pixels look like.** The `vt` dump is Ghostty's own cell state re-serialised, so it says
   what the terminal *recorded*, not what it *drew*. A terminal that stores an attribute and renders
   nothing agrees here and disagrees on screen.

@@ -51,7 +51,9 @@ use std::path::Path;
 use std::process::Command;
 use std::time::Instant;
 
-use common::{Arm, publish, render, save_if_asked, scene, scene_command, wait_for_quiescence};
+use common::{
+    Arm, Excluded, publish, render, save_if_asked, scene, scene_argv, wait_for_quiescence,
+};
 use vitui_conform::{Dialect, parse};
 
 /// The pane size this arm asks for.
@@ -70,6 +72,27 @@ const SIZE: (u16, u16) = (80, 24);
 /// not matter if it were.
 const SESSION: &str = "conform";
 
+/// The row this arm no longer compares, and why it stopped.
+///
+/// **`capture-pane -e` spells every one of the eleven, overline included** — this arm reported 11/11
+/// on 2026-08-23 and the committed fixture holds all eleven. What changed is not tmux: production
+/// ticket 10 wired `attrs_dropped` on to the wire, so the engine consults `quirks.rs`, sees the
+/// fourth entry, and does not send SGR 53 to a terminal that answers XTVERSION `tmux …`.
+///
+/// So the row is the quirk table working. `FAILED` would blame tmux for a decision of ours, and
+/// **the instrument has lost the measurement that earned the entry** — which is not a defect to fix
+/// here: an arm that asked the engine what to expect would be checking the engine against itself.
+/// `fixtures/tmux-3.7c-scene01-attrs.vt` is the capture taken before the entry existed, and that is
+/// what the rule against regenerating a fixture is protecting.
+const NOT_COMPARED: &[(&str, Excluded, &str)] = &[(
+    "overline",
+    Excluded::ByDesign,
+    "`quirks.rs`'s fourth entry: tmux accepts SGR 53, stores it, hands it back to `capture-pane` \
+     and never forwards it, so the engine stopped sending it when production ticket 10 wired the \
+     mask. This arm reported 11/11 while it still did, and \
+     `fixtures/tmux-3.7c-scene01-attrs.vt` is that capture",
+)];
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
@@ -85,7 +108,9 @@ fn main() {
 }
 
 fn drive() -> Result<(), String> {
-    let command = scene_command()?;
+    // `new-session` takes a shell command line, so the shared argv is joined here — see
+    // `common::scene_argv`, where the launchers' disagreement about that is written down.
+    let command = scene_argv()?.join(" ");
     let ready = std::env::temp_dir().join(format!("conform-ready-{}", std::process::id()));
     let _ = std::fs::remove_file(&ready);
 
@@ -194,6 +219,7 @@ fn capture_and_compare(
                    tmux. A legitimate target — tmux is in spec §10's tier-1 list — and never a proxy \
                    for the terminal it is running inside",
         size,
+        not_compared: NOT_COMPARED,
         notes: vec![
             format!(
                 "**Geometry: asked for and got.** `new-session -x {} -y {}`, which is the one thing \

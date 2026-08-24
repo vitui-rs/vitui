@@ -1262,10 +1262,18 @@ mod tests {
 
     /// A terminal that answered everything, so that a test about precedence is a test about
     /// precedence rather than about what happens when nothing is known.
+    ///
+    /// **And one the quirk table says nothing about**, which stopped being free the day the table
+    /// grew a second entry recognised by a query. This said `kitty(0.32.2)` until kitty became the
+    /// fifth entry, at which point every test built on this helper was quietly also a test of that
+    /// entry — two of them said so by failing. `ghostty 1.3.1` is the identity `conform/` measured
+    /// as agreeing on all eleven attribute bits, so it is the one this repository can name as having
+    /// no entry on evidence rather than on the table happening not to mention it. The string is what
+    /// Ghostty's own XTVERSION answered on 2026-08-23, space-separated the way tmux's is.
     fn modern() -> Detected {
         Detected {
             answered: true,
-            version: Some("kitty(0.32.2)".to_string()),
+            version: Some("ghostty 1.3.1".to_string()),
             da2: Some((1, 4000, 19)),
             rgb: Some(true),
             default_fg: Some(Rgb::new(0xc5, 0xc8, 0xc6)),
@@ -1290,7 +1298,7 @@ mod tests {
             &env,
             Ground::Tty,
             &modern(),
-            Quirks::lookup(Some("kitty(0.32.2)"), &env),
+            Quirks::lookup(Some("ghostty 1.3.1"), &env),
         )
     }
 
@@ -1524,7 +1532,11 @@ mod tests {
             &env,
             Ground::Tty,
             &modern(),
-            Quirks::lookup(Some("kitty(0.32.2)"), &env),
+            // **Not an identity the table has an entry for**, which is the point of the test one
+            // level down: the entry under examination here is VSCode's, reached through an
+            // environment variable, and a version string that matched a *query* entry would win
+            // instead and this would be measuring the wrong precedence.
+            Quirks::lookup(Some("ghostty 1.3.1"), &env),
         );
         assert!(
             caps.legacy_sgr(),
@@ -1545,7 +1557,7 @@ mod tests {
             &env,
             Ground::Tty,
             &modern(),
-            Quirks::lookup(Some("kitty(0.32.2)"), &env),
+            Quirks::lookup(Some("ghostty 1.3.1"), &env),
         );
         assert!(!forced.legacy_sgr());
     }
@@ -1587,6 +1599,62 @@ mod tests {
         assert_eq!(
             Capabilities::identified_as("tmux 3.7c").attrs_dropped(),
             crate::style::OVERLINE
+        );
+    }
+
+    /// The fifth entry, and the first whose evidence is a shipped binary rather than a screen.
+    ///
+    /// kitty answers XTVERSION `DCS >| kitty(0.48.2) ST`, so it is the second entry recognised by a
+    /// **query**. What it overrides is `attrs_dropped`, and it overrides *two* bits where tmux's
+    /// overrides one — which is the case the mask had never been given.
+    ///
+    /// `conform/`'s third arm saw both come back bare, and a dump alone could not have earned
+    /// either: *not stored* and *not serialised* look identical in a capture. kitty's `Cursor` repr
+    /// and its exported attribute constants are what settle it — neither carries conceal or overline,
+    /// and SGR is a mutation of the cursor. See `quirks.rs`'s module docs.
+    ///
+    /// **The nine that survive are asserted by being there.** The same run's third disagreement — a
+    /// dotted underline the capture format spells `CSI 4 : m` — is deliberately not a bit here, and
+    /// `attrs_dropped` could not hold it in any case: clearing a bit of the three-bit underline
+    /// enumeration turns double into none.
+    #[test]
+    fn kitty_drops_conceal_and_overline_and_nothing_else() {
+        let env = Env::default();
+        let quirks = Quirks::lookup(Some("kitty(0.48.2)"), &env);
+        let both = crate::style::CONCEAL | crate::style::OVERLINE;
+        assert_eq!(quirks.attrs_dropped, both);
+        assert_eq!(
+            quirks.attrs_dropped & !both,
+            0,
+            "two bits and no others — the nine that survived the same scene are still offered"
+        );
+        assert!(
+            !quirks.legacy_sgr,
+            "kitty parses the colon form; the entry overrides the attributes and nothing else"
+        );
+
+        // No version boundary, and unlike tmux's that is a bet rather than a mechanism — so the
+        // entry has to apply to a kitty this repository never measured, and does.
+        assert_eq!(
+            Quirks::lookup(Some("kitty(0.32.2)"), &env).attrs_dropped,
+            both
+        );
+
+        // A query beats an inherited variable, about the right terminal. `$TERM_PROGRAM=vscode` is
+        // inherited by anything a VSCode terminal launches, and XTVERSION answering `kitty(…)` means
+        // the thing at the other end of the pty is kitty.
+        let inherited = Env {
+            term_program: Some("vscode".to_string()),
+            ..Env::default()
+        };
+        let inside = Quirks::lookup(Some("kitty(0.48.2)"), &inherited);
+        assert_eq!(inside.attrs_dropped, both);
+        assert!(!inside.legacy_sgr, "kitty is not VSCode's terminal");
+
+        // The constructor the serializer's gate goes through, on the same version string.
+        assert_eq!(
+            Capabilities::identified_as("kitty(0.48.2)").attrs_dropped(),
+            both
         );
     }
 
@@ -1776,7 +1844,7 @@ mod tests {
                 "`report` says nothing about {fact}:\n{report}"
             );
         }
-        assert!(report.contains("kitty(0.32.2)"));
+        assert!(report.contains("ghostty 1.3.1"));
     }
 
     /// The eleven attribute bits are not on `Capabilities`, because there is no query for any of

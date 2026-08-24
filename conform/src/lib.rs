@@ -49,6 +49,35 @@
 //! parameter rather than a default. A caller that does not know which format it captured cannot be
 //! trusted to have captured either.
 //!
+//! **A third capture format was asked this question and answered no.** kitty 0.48.2's
+//! `kitten @ get-text --extent screen --ansi` was assumed to be a third dialect until it was probed,
+//! because the tmux lesson is that assuming otherwise is how the instrument invents an attribute. It
+//! is not one: every construct it emits is ECMA-48 and means what ECMA-48 says it means — a leading
+//! `CSI m` per row, `CSI 22 ; 1 m` for bold, `4:2` and `4:3` for the underline styles, and the colon
+//! colour forms without T.416's empty colour-space id. Nothing needs a fold, so kitty is
+//! [`Dialect::Ecma48`] and the enum does not grow. **A dialect is a disagreement about meaning, not a
+//! difference in style**, and the difference is worth a paragraph because only one of the two costs
+//! an attribute.
+//!
+//! # A lossy spelling is not a dropped attribute, and the difference decides a `quirks.rs` row
+//!
+//! kitty writes a **dotted** underline as `CSI 4 : m` — parameter 4 with an *empty* sub-parameter —
+//! and a dashed one identically. Its serialiser's table has an entry for `4:2` and `4:3` and none
+//! for the other two; both strings are in the shipped `kitty.fast_data_types.so` and neither `4:4;`
+//! nor `4:5;` is.
+//!
+//! ECMA-48 says an omitted parameter is the default, and SGR 4's default is 1, so `sgr` reads
+//! `4:` as [`Underline::Single`] — the correct reading of what arrived, and **not** what kitty is
+//! holding. That distinction is the whole point: a comparison run against this row would report
+//! *kitty does not render dotted underlines*, which is false, and would earn a `quirks.rs` entry the
+//! table exists to keep out.
+//!
+//! What separates the two here is a control the emulator itself provides: `4:0` comes back as
+//! **nothing at all**, so a `4:` in the capture proves the cell holds a *non-zero* decoration and
+//! only its number was lost. So the row is unanswerable rather than failed, and an arm says which of
+//! its rows are unanswerable **in advance and with the reason** — see `conform/SCENES.md`, which had
+//! to grow a fourth kind of non-number to say it.
+//!
 //! # A parameter is not a token, and flattening the two separators is a defect
 //!
 //! The first version of this parser split an SGR body on `;` **and** `:` into one flat token stream,
@@ -58,7 +87,7 @@
 //! rendered, invented by the instrument.
 //!
 //! ECMA-48 is explicit that `;` separates parameters and `:` separates a parameter's
-//! **sub**-parameters, so that is what [`sgr`] does now. The colour arms accept either spelling
+//! **sub**-parameters, so that is what `sgr` does now. The colour arms accept either spelling
 //! because they must — that is the question scene 03 asks — but they accept it by looking for the
 //! tail in two places, not by pretending the two separators mean the same thing.
 //!
@@ -80,7 +109,9 @@ use std::fmt;
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Dialect {
     /// ECMA-48, as a terminal emits it: `;` separates parameters and `:` separates a parameter's
-    /// sub-parameters. Ghostty's `write_screen_file:…,vt`.
+    /// sub-parameters. Ghostty's `write_screen_file:…,vt`, and **kitty's
+    /// `kitten @ get-text --ansi`**, which was probed for a dialect of its own and had none — see
+    /// the module docs.
     Ecma48,
     /// tmux's `capture-pane -e`, where a colon is `code / 10` and `code % 10` rather than a
     /// sub-parameter.
@@ -473,8 +504,14 @@ fn sgr(params: &[u8], mut style: Style, dialect: Dialect) -> Style {
             // `4:n` is the style the engine's three-bit underline field spells.
             4 => {
                 style.underline = match subs.first() {
+                    // **An empty sub-parameter is ECMA-48's omitted one, and SGR 4's default is 1.**
+                    // Not a tolerance for garbage: kitty 0.48.2 writes exactly `CSI 4 : m` for a
+                    // dotted underline and for a dashed one, because its serialiser has a string for
+                    // `4:2` and `4:3` and none for the other two. Reading it as single is the right
+                    // reading of what arrived and the wrong description of what kitty is holding,
+                    // which is why the arm declares that row unanswerable rather than failing it.
+                    None | Some(&"") => Underline::Single,
                     Some(n) => Underline::from_sgr(n.parse().unwrap_or(1)),
-                    None => Underline::Single,
                 }
             }
             // tmux's own numbering for the underline styles, and **the guard is the whole of why

@@ -9,9 +9,10 @@
 //! §15 put populating this table in the fog on purpose. **A quirk table is field work**: each entry
 //! is one terminal, one version range and one observed misbehaviour, and none of that can be
 //! established from a document. Three entries shipped on libvaxis's production experience; the
-//! fourth is the first this repository gathered itself, and it took an instrument to get.
+//! fourth and fifth are the ones this repository gathered itself, and it took an instrument to get
+//! either.
 //!
-//! The four, and how each is recognised, which is the part that matters:
+//! The five, and how each is recognised, which is the part that matters:
 //!
 //! | terminal | recognised by | quirk |
 //! |---|---|---|
@@ -19,6 +20,7 @@
 //! | Termux | `$TERMUX_VERSION` is set | legacy SGR |
 //! | VSCode's integrated terminal | `$TERM_PROGRAM` is `vscode` | legacy SGR |
 //! | tmux | **XTVERSION answers `tmux …`** | overline is accepted, stored, and never forwarded |
+//! | kitty | **XTVERSION answers `kitty(…)`** | conceal and overline have no attribute to be stored in |
 //!
 //! **The first three are not recognised by a query, and that is not an oversight**: they are
 //! recognised the way libvaxis recognises them, because the misbehaviour is not something the
@@ -60,6 +62,44 @@
 //! Ghostty renders SGR 53 (the first row of that table), so the loss is tmux's and the terminfo that
 //! omits `Smol` describes a terminal that has it. That is spec §10's refusal of terminfo, arriving
 //! as field evidence from a direction nothing planned for.
+//!
+//! # The fifth entry, and its evidence is not a screen dump
+//!
+//! kitty 0.48.2 came third to `conform/`'s scene 01 and disagreed on two rows: conceal and overline
+//! come back bare. **A dump alone could not have earned either**, and saying why is the whole of what
+//! makes this entry different from the fourth. *Not stored* and *not serialised* look identical in a
+//! capture, and `conform/FINDINGS.md` had left conceal open on exactly that — kitty could resolve the
+//! foreground to the background at paint time, storing nothing in a flag and rendering correctly.
+//!
+//! The shipped `kitty.fast_data_types.so` closes it. kitty's `Cursor` repr enumerates every
+//! formatting attribute the cursor carries:
+//!
+//! ```text
+//! Cursor(x, y, shape, blink, fg, bg, bold, italic, reverse, strikethrough, dim,
+//!        decoration, decoration_fg, text_blink)
+//! ```
+//!
+//! and the attribute constants beside it — `BOLD ITALIC REVERSE MARK STRIKETHROUGH DECORATION BLINK`
+//! — say it a second time from a second table. **SGR is a mutation of the cursor**, so an attribute
+//! the cursor cannot carry is one no cell can hold and no paint can consult. Paint-time resolution
+//! needs a flag, and there is none. A control probe agrees from the other side: `SGR 8 ; 31` comes
+//! back as `SGR 31`, so the foreground is stored unmodified and nothing was resolved on the way in
+//! either.
+//!
+//! **The third row of that scene is not in this entry, and that is the entry's most important
+//! property.** kitty writes a *dotted* underline into a capture as `CSI 4 : m`, which ECMA-48 reads
+//! as single — its serialiser has a string for `4:2` and `4:3` and none for the other two. Compared
+//! anyway, that row would have earned a third bit here, and the misbehaviour it described would not
+//! be happening. It is a limit of the capture format, the arm declares it as one before each run,
+//! and `attrs_dropped` could not hold it in any case: it is the eight flags and not the three-bit
+//! underline enumeration, for the reason [`Quirks::attrs_dropped`] gives.
+//!
+//! **No version boundary, and this one is a bet rather than a mechanism.** tmux's has none because
+//! its cause — a terminfo capability nobody defines — has none. kitty's cause is a struct, and a
+//! future kitty could grow the field. The bet is cheap and one-directional: a wrong entry costs an
+//! attribute that is not offered, where a missing one costs an attribute sent every frame and
+//! ignored every frame. The day a kitty renders either, the boundary arrives with the run that
+//! observed it — which is what [`Capabilities::identified_as`](crate::caps::Capabilities) gates.
 
 use crate::caps::{Capabilities, Env};
 
@@ -178,6 +218,22 @@ impl Quirks {
                 ..Quirks::default()
             };
         }
+        // Second, and for the same reason tmux is first: this is a **query**, and a query beats an
+        // inherited environment variable about a terminal that is not the one at the other end of
+        // the pty. kitty answers XTVERSION `DCS >| kitty(0.48.2) ST`, so the version arrives with
+        // the identity.
+        if version.is_some_and(|v| v.starts_with("kitty(")) {
+            return Quirks {
+                // Two bits, and neither is a dump's inference — see the module docs. kitty's cursor
+                // has no attribute for either, so no cell can hold one and no paint can consult one.
+                //
+                // The scene's third disagreement, a dotted underline, is deliberately **not** here:
+                // it is the capture format that cannot spell it, and an underline style is not a bit
+                // this field could clear even if it were.
+                attrs_dropped: crate::style::CONCEAL | crate::style::OVERLINE,
+                ..Quirks::default()
+            };
+        }
         if env.termux.is_some() {
             return Quirks {
                 name: Some("termux"),
@@ -204,11 +260,11 @@ impl Quirks {
         // and a real observed misbehaviour will add — one entry at a time, each with the report that
         // produced it.
         //
-        // **Four is where the evidence stops, not where the need does**, and the fourth is the one
-        // that says what the sentence is for: it took building `conform/` to get, and the eleven
-        // attribute facts are now observed on two of spec §10's tier-1 terminals out of seven. The
-        // five that remain are inference from libvaxis's three entries, and none of the five is
-        // named by any of them.
+        // **Five is where the evidence stops, not where the need does**, and the last two are what
+        // the sentence is for: it took building `conform/` to get either, and the eleven attribute
+        // facts are now observed on **three** of spec §10's tier-1 terminals out of seven. The four
+        // that remain are inference from libvaxis's three entries, and none of the four is named by
+        // any of them.
         Quirks::default()
     }
 

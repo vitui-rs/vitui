@@ -1,26 +1,31 @@
 //! The half of the live arm that is not the terminal: the scene, the handshake, and the comparison.
 //!
-//! **Not a target**, and `Cargo.toml` is where that is arranged: `autoexamples = false` with the two
-//! arms declared, so this file is a module two examples include rather than a third example that
-//! fails for having no `main`.
+//! **Not a target**, and `Cargo.toml` is where that is arranged: `autoexamples = false` with the
+//! arms declared one by one, so this file is a module the examples include rather than an example of
+//! its own that fails for having no `main`.
 //!
 //! # Why it exists, and it is production ticket 05 that forced it
 //!
 //! Stage 1 had one arm and one file, and the scene lived in it. Ticket 05 asks for the eleven
 //! attribute facts *on at least two families*, which makes the scene and the comparison the parts
 //! that must be **identical** across arms while the launching, capturing and closing are the parts
-//! that cannot be. A second copy of `scene01` would make a disagreement between the two arms
+//! that cannot be. A second copy of `scene01` would make a disagreement between the arms
 //! unattributable: it could be the emulators, or it could be the two copies having drifted.
+//!
+//! There are four arms now — Ghostty, Ghostty-via-tmux, tmux and kitty — and the third emulator was
+//! what made the split pay for itself twice over: kitty disagrees on two rows and cannot be asked a
+//! third, and none of those three sentences would be worth anything if its scene were its own copy.
 //!
 //! So the split here is not tidiness. It is the thing that lets a row say *tmux dropped this bit and
 //! Ghostty did not* and mean it.
 //!
 //! # The arm-specific half, stated as an interface
 //!
-//! An arm brings four things and nothing else: a way to start [`scene_command`] somewhere a terminal
+//! An arm brings four things and nothing else: a way to start [`scene_argv`] somewhere a terminal
 //! can see it, a way to read that terminal's screen back as bytes, a way to shut it down, and an
-//! [`Arm`] describing itself for the report. Everything else — what is drawn, when it is safe to
-//! photograph, and what counts as agreement — is here.
+//! [`Arm`] describing itself for the report — including [`Arm::not_compared`], the rows it will not
+//! compare and why, which it must declare *before* the run. Everything else — what is drawn, when it
+//! is safe to photograph, and what counts as agreement — is here.
 
 use std::fmt::Write as _;
 use std::path::Path;
@@ -155,18 +160,27 @@ pub fn scene01() -> [Case; 11] {
     ]
 }
 
-/// The command line an arm has to get a terminal to run, as one string.
+/// The scene's command line, as an **argv**.
 ///
-/// Built from [`std::env::current_exe`] so the scene is this same build. An arm that has to quote it
-/// for a shell quotes what it is given; nothing here guesses at a quoting rule for a launcher it
-/// cannot see.
+/// Built from [`std::env::current_exe`] so the scene is this same build. That is not a trick to save
+/// a file: it makes the two halves the same build by construction, where a sibling binary path can
+/// silently be yesterday's.
+///
+/// **An argv and not a string, because the launchers disagree about which they take** and the
+/// difference is not cosmetic. kitty execs what it is handed; given one string it looks for a file
+/// whose name ends in `--scene 01`, finds none, and says nothing — which arrives twenty seconds
+/// later as the readiness timeout blaming the scene for the launcher. AppleScript and tmux take a
+/// command *line*, and both join this themselves rather than being handed a guess at a quoting rule
+/// for a launcher this file cannot see.
 ///
 /// # Errors
 ///
 /// Whatever [`std::env::current_exe`] failed with.
-pub fn scene_command() -> Result<String, String> {
+pub fn scene_argv() -> Result<Vec<String>, String> {
     let exe = std::env::current_exe().map_err(|e| format!("current_exe: {e}"))?;
-    Ok(format!("{} {SCENE_ARGS}", exe.display()))
+    let mut argv = vec![exe.display().to_string()];
+    argv.extend(SCENE_ARGS.split(' ').map(str::to_string));
+    Ok(argv)
 }
 
 // ── The scene half: inside the terminal ──────────────────────────────────────────────────────────
@@ -332,8 +346,92 @@ pub struct Arm {
     pub measures: &'static str,
     /// The surface size the scene reported, which is not necessarily the one the arm asked for.
     pub size: String,
+    /// Scene rows this arm does not compare, by label, each with why and the reason in words.
+    ///
+    /// **Declared in advance, never inferred from the observation**, or the instrument would be
+    /// excusing its own disagreements after seeing them. Three things keep an exclusion honest: it
+    /// is a hand-written constant in the arm rather than a question asked of the engine, the row is
+    /// still printed with what was nonetheless observed, and a row excluded that **agrees anyway**
+    /// is reported `STALE` and counted as a failure — so a declaration cannot outlive what earned
+    /// it.
+    ///
+    /// See [`Excluded`] for the two kinds and why they are not one cell.
+    pub not_compared: &'static [(&'static str, Excluded, &'static str)],
     /// Anything else this arm knows that the reader needs. One bullet per entry, already worded.
     pub notes: Vec<String>,
+}
+
+impl Arm {
+    /// Why this arm does not compare `label`, if it said so before the run.
+    fn excluded(&self, label: &str) -> Option<(Excluded, &'static str)> {
+        self.not_compared
+            .iter()
+            .find(|(row, ..)| *row == label)
+            .map(|(_, kind, why)| (*kind, *why))
+    }
+}
+
+/// Why a row of the scene is printed without being compared.
+///
+/// # Two more kinds of non-number, where `compare/` supplied three
+///
+/// `cannot express` is a fact about the emulator, `not run here` a fact about the run, and `FAILED`
+/// a defect. Neither of these is any of the three, and they are **not each other** either — which is
+/// the distinction worth the enum, because collapsing them would hide this repository's own code
+/// behind a terminal's limitation.
+///
+/// **The `allow` is not a spare part.** This file is compiled once *per arm* — it is a module the
+/// examples include, not a crate they link — so a kind no single arm happens to declare is dead code
+/// in that arm's build and a build failure under `warnings = "deny"`. Every kind here is constructed
+/// by some arm, and requiring each arm to construct all of them would be the tail wagging the dog.
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+pub enum Excluded {
+    /// A fact about the **instrument**: the emulator does the thing and this suite cannot see it.
+    ///
+    /// kitty 0.48.2 renders a dotted underline and writes it into a capture as `CSI 4 : m`, which is
+    /// a single underline in ECMA-48. A row compared anyway would report a misbehaviour that is not
+    /// happening, and would earn a `quirks.rs` entry the table exists to keep out.
+    CannotAsk,
+    /// A fact about **the engine**: it consulted `quirks.rs` and deliberately did not send this.
+    ///
+    /// The row is the quirk table working, not a terminal misbehaving, and a `FAILED` here would
+    /// blame the emulator for this repository's own decision. It arrived the session after
+    /// production ticket 10 wired `attrs_dropped` on to the wire: the tmux arm had reported 11/11
+    /// while the engine still sent SGR 53, and reported ten the first time it was run afterwards.
+    ///
+    /// **It costs the instrument the measurement that earned the entry**, and that is not a defect
+    /// to be fixed here. An arm that consulted the engine to decide what to expect would be checking
+    /// the engine against itself, which is the arrangement `conform/` exists to break. What preserves
+    /// the evidence is the committed fixture, captured while the engine still sent the bit — which is
+    /// why `fixtures/` says, in three places, that a capture is never regenerated to make something
+    /// pass.
+    ByDesign,
+}
+
+impl Excluded {
+    /// The report's cell for this kind.
+    fn cell(self) -> &'static str {
+        match self {
+            Self::CannotAsk => "`cannot ask`",
+            Self::ByDesign => "`by design`",
+        }
+    }
+
+    /// What a row of this kind agreeing anyway would mean.
+    fn stale(self) -> &'static str {
+        match self {
+            Self::CannotAsk => {
+                "the row agrees, so this arm's declaration that it cannot be asked \
+                                is out of date and is now hiding whatever it is next wrong about"
+            }
+            Self::ByDesign => {
+                "the row agrees, so the engine sent an attribute this arm was told it \
+                               would withhold — the declaration and `quirks.rs` no longer describe \
+                               the same terminal"
+            }
+        }
+    }
 }
 
 /// What the dump said about one row of the scene.
@@ -474,31 +572,58 @@ pub fn render(arm: &Arm, dump: &Dump, bytes: &[u8]) -> (String, usize) {
     let _ = writeln!(out, "|---|---|---|---|---|");
 
     let mut failures = 0;
+    let mut unanswerable = 0;
     for (i, case) in cases.iter().enumerate() {
         let verdict = judge(dump, i, case);
-        if !matches!(verdict, Verdict::Agreed(_)) {
-            failures += 1;
-        }
+        let (mark, observed) = match (arm.excluded(case.label), &verdict) {
+            // Excluded and it agreed anyway. The declaration is describing something that is no
+            // longer there, and an excuse nobody rechecks is the same kind of thing as an MSRV
+            // nobody compiles. A failure, so the run says so.
+            (Some((kind, _)), Verdict::Agreed(_)) => {
+                failures += 1;
+                ("**STALE**", kind.stale().to_string())
+            }
+            (Some((kind, why)), _) => {
+                unanswerable += 1;
+                (
+                    kind.cell(),
+                    format!("{} — observed: {}", why, verdict.observed()),
+                )
+            }
+            (None, Verdict::Agreed(_)) => ("\u{2713}", verdict.observed()),
+            (None, _) => {
+                failures += 1;
+                ("**FAILED**", verdict.observed())
+            }
+        };
         let _ = writeln!(
             out,
             "| {} | `{}` | {} | {} | {} |",
             case.label,
             case.verb,
             describe(expected(case)),
-            verdict.observed(),
-            match verdict {
-                Verdict::Agreed(_) => "\u{2713}",
-                _ => "**FAILED**",
-            }
+            observed,
+            mark
         );
     }
 
-    let _ = writeln!(
-        out,
-        "\n**{}/{} agreed.**\n",
-        cases.len() - failures,
-        cases.len()
-    );
+    let asked = cases.len() - unanswerable;
+    let _ = writeln!(out, "\n**{}/{} agreed.**\n", asked - failures, asked);
+    if unanswerable > 0 {
+        let _ = writeln!(
+            out,
+            "**Not in that denominator: {unanswerable} of the scene's {}.** This arm declared \
+             before the run that it would not compare them, with the reason printed in the row \
+             beside what was nonetheless observed. `cannot ask` is a fact about the **instrument** \
+             — the emulator does the thing and this suite cannot see it. `by design` is a fact \
+             about **the engine** — it consulted `quirks.rs` and did not send it, so a `FAILED` \
+             would blame the terminal for a decision of ours. `compare/`'s three kinds of \
+             non-number have a word for neither, which is why `SCENES.md` grew two more. A row so \
+             declared that agrees anyway is reported `STALE` and counted as a failure, so a \
+             declaration cannot outlive what earned it.\n",
+            cases.len()
+        );
+    }
     let _ = writeln!(
         out,
         "A row that does not say which arm it came from is not a result, and a *missing* row reads \
@@ -572,7 +697,9 @@ pub fn publish(arm: &Arm, report: &str, failures: usize) -> Result<(), String> {
     let path = format!("REPORT-{}.md", arm.title.to_lowercase());
     std::fs::write(&path, report).map_err(|e| format!("writing {path}: {e}"))?;
     println!("{report}");
-    let total = scene01().len();
+    // The rows this arm said it would not compare are not in the denominator, for the same reason
+    // they are not in the table's agreed count: a row nothing asked is not a row anything answered.
+    let total = scene01().len() - arm.not_compared.len();
     match failures {
         0 => {
             println!("{path} written. {total}/{total} agreed.");

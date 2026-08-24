@@ -3666,6 +3666,51 @@ mod tests {
         );
     }
 
+    /// **Gate, equality: a mask of more than one bit, which is the case the entry above never had.**
+    ///
+    /// tmux drops one attribute and kitty drops two, and *two* is not the same test: a mask applied
+    /// with a `!=` where a `&` belonged, or a loop that stops at the first cleared bit, passes the
+    /// one-bit gate and fails here. `quirks.rs`'s fifth entry is what made the case reachable, and
+    /// the gate is against the **version string** so it fails the day that entry is deleted rather
+    /// than passing over an empty table.
+    ///
+    /// The nine attributes kitty does render are asserted by being present, for the same reason the
+    /// tmux gate asserts ten: a mask that drops more than it was observed to drop is the failure the
+    /// quirk table exists to avoid, and it is invisible in a test that only checks the absences.
+    #[test]
+    fn the_two_flags_kitty_cannot_store_reach_neither_side_of_the_wire() {
+        let kitty = Capabilities::identified_as("kitty(0.48.2)");
+        assert_eq!(
+            kitty.attrs_dropped(),
+            crate::style::CONCEAL | crate::style::OVERLINE,
+            "the entry is what this gate is about; without it there is nothing to assert"
+        );
+        let all = Style::new()
+            .bold()
+            .dim()
+            .italic()
+            .reverse()
+            .blink()
+            .strikethrough()
+            .conceal()
+            .overline()
+            .underline_double();
+
+        // 8 and 53 are the two that may be missing, and `4:2` is still there — the underline
+        // enumeration is not a bit this mask could clear even if kitty's capture format could spell
+        // the style it does lose. See `conform/FINDINGS.md`.
+        assert_eq!(
+            sgr(Style::new(), all, &kitty),
+            "ESC[1;2;3;5;7;9;4:2m",
+            "8 and 53 are the only parameters that may be missing"
+        );
+        assert_eq!(
+            sgr(all, Style::new(), &kitty),
+            "ESC[22;23;25;27;29;24m",
+            "and neither 28 nor 55 turns off a bit the terminal never had"
+        );
+    }
+
     /// **Gate, equality (production ticket 10): the degradation, on a whole frame.**
     ///
     /// The SGR gate above pins the parameters; this one pins what the *terminal* ends up holding, and
