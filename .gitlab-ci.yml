@@ -361,6 +361,20 @@ budget:
       - target
   script:
     - cargo run --release --example budget -p vitui-engine
+    # **Ticket 20's gate, and the line that makes it one.** `examples/frame.rs` is the runtime's
+    # answer to the engine's `budget` example above: the dense 300x80 frame, gated at cliff
+    # granularity with the 100 us budget reported beside it.
+    #
+    # **Register entry 12 was red for the absence of exactly this line.** Both halves of the number
+    # already existed — `crate::line`'s in-binary arm, which returns early without `line=1`, and
+    # `examples/crate_line_numbers.rs`, which prints it — so the frame was *measured* twice and
+    # *gated* nowhere. A file in `examples/` is compiled by `cargo clippy --all-targets` and
+    # evaluated by nothing, which is why an `assert!` there was not a gate until a job ran it.
+    #
+    # Here rather than in a job of its own for the reason the note above these jobs gives twice
+    # already: this job's release target directory is warm, and a sixth job means this pipeline
+    # alone can saturate a runner shared with every other repo on the machine.
+    - cargo run --release --example frame -p vitui-runtime
     # Register entry #18: no observer thread is linked into a release binary. A compile outcome about
     # *absent* code, so it is checked in the one place absent code is visible — the binary. Here
     # rather than in a job of its own because the release target directory is already warm.

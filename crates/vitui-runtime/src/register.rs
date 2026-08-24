@@ -8,9 +8,11 @@
 //! *this* crate's: **a property that quietly never arrives is indistinguishable from one that was
 //! decided against**, so every gate is here and every one of them is in exactly one of two states —
 //! [`State::Wired`], naming the instruments that run it, or [`State::Red`], naming the
-//! implementation ticket that inverts it. **Thirty-eight wired, one red** — entry 12, the dense
-//! frame under the budget, which is measured in two places and gated in neither and is R 20's to
-//! light.
+//! implementation ticket that inverts it. **Thirty-nine wired, none red.** Ticket 19 left this
+//! register at thirty-eight and one — entry 12, the dense frame, which was *measured* in two places
+//! and *gated* in neither — and ticket 20 built the gate rather than reworded the row. What made
+//! that possible is that the red row named the missing instrument precisely enough to build it: a
+//! release example plus the CI line that runs it.
 //!
 //! # The three refinements, which were defects first
 //!
@@ -444,21 +446,29 @@ pub const REGISTER: [Entry; 39] = [
         on_spec_table: true,
         property: "The dense frame under the budget",
         kind: Kind::Gate,
-        qualifier: "timing at the budget — the one shape §20 exempts from `a timing is a report`, \
-                    and it is a gate only at cliff granularity",
-        source: "R 15, R 17",
-        state: State::Red {
-            inverted_by: "R 20",
-            why: "**The one red row, and finding it is what this register is for.** Both halves of \
-                  this number exist and neither of them runs: \
-                  `line::tests::the_frame_measured_inside_the_crate` returns early unless `line=1` \
-                  is in the environment — correctly, because a timing inside `cargo test` must not \
-                  become a gate — and `examples/crate_line_numbers.rs` prints it, which no CI job \
-                  invokes. So the dense frame is *measured* twice and *gated* nowhere, and the \
-                  register said `wired` for both until the instruments were made checkable. R 20 is \
-                  the ticket that owns it: `Gate, timing at the budget: the dense frame under the \
-                  budget, headroom written beside it`, which is a job invoking a release example \
-                  the way `budget` already invokes the engine's",
+        qualifier: "timing at cliff granularity, with the budget reported beside it — the one \
+                    shape §20 exempts from `a timing is a report`. **The gate is `examples/frame.rs` \
+                    plus the line in `.gitlab-ci.yml` that runs it**, which is what R 20 added and \
+                    what this row was red for the absence of. It sits at 2x and not at the budget \
+                    because the frame has 1.11x of headroom against a measured 5.3% load penalty, \
+                    and `budget.rs` refuses that trade in as many words; the ratio is printed on \
+                    every run and the two `Unit` rows above assert the recorded figure under \
+                    `cargo test`, so nothing is silently absent",
+        source: "R 15, R 17, R 20",
+        state: State::Wired {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-runtime/src/ledger.rs",
+                    name: "the_dense_frame_is_inside_the_budget",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-runtime/src/ledger.rs",
+                    name: "the_runtimes_own_work_is_a_small_share_of_the_frame",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-runtime/examples/frame.rs",
+                },
+            ],
         },
     },
     Entry {
@@ -1423,12 +1433,14 @@ mod tests {
         assert_eq!(seen, expected, "the numbers are not 1..={}", REGISTER.len());
     }
 
-    /// **Thirty-eight wired, one red**, and the red one is named.
+    /// **Thirty-nine wired, none red**, and that is R 20 closing the last one.
     ///
-    /// The engine's register reached all-green and says so; this one has not, and saying *how many*
-    /// is what stops a second red row arriving unremarked. The red row is entry 12 and it is R 20's.
+    /// This register was thirty-eight and one from ticket 19 until ticket 20 built the gate entry
+    /// 12 was red for the absence of. Saying *how many* is what stops a red row arriving
+    /// unremarked, and it now has the second job the engine's has: **a register at all-green says
+    /// so**, so the next red row is a deliberate edit to this number rather than a quiet one.
     #[test]
-    fn thirty_eight_are_wired_and_one_is_red() {
+    fn thirty_nine_are_wired_and_none_are_red() {
         let red: Vec<u8> = REGISTER
             .iter()
             .filter(|e| matches!(e.state, State::Red { .. }))
@@ -1436,11 +1448,12 @@ mod tests {
             .collect();
         assert_eq!(
             red,
-            vec![12],
-            "the red rows have changed. A new one is fine and has to be argued for here; a row that \
-             stopped being red should have taken this number with it"
+            Vec::<u8>::new(),
+            "a red row is back. A new one is fine and has to be argued for here, in this test's \
+             documentation, and in the module comment above — the count is the thing that stops it \
+             arriving unremarked"
         );
-        assert_eq!(REGISTER.len() - red.len(), 38);
+        assert_eq!(REGISTER.len() - red.len(), 39);
     }
 
     /// **The split, not the total.**

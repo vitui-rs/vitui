@@ -104,6 +104,16 @@ pub mod work;
 #[path = "screen.rs"]
 mod screen;
 
+// **The headroom ledger, as an assertion.** Ticket 20. Every gated or reported number in this crate
+// has exactly one home and this is it — most importantly the frame budget itself, which spec §19 says
+// may not move without a new map decision and which was written out eleven times across `examples/`
+// before this file existed. `#[cfg(test)]` for `screen`'s reason and the engine's; the examples
+// `#[path]`-include it, which is how a report reads the budget it divides by.
+#[cfg(test)]
+#[allow(dead_code)]
+#[path = "ledger.rs"]
+mod ledger;
+
 // **Spec §20's register, as a value.** Ticket 19. Every gate this crate ships, each naming the
 // instruments that run it — and every instrument is checked against the source, which is the whole
 // difference between a register and a document. `#[cfg(test)]` for `crate::line`'s reason and the

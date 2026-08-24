@@ -166,6 +166,17 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo run --release --example budget -p vitui-engine
+      # **Ticket 20's gate.** The runtime's dense 300x80 frame, gated at cliff granularity with the
+      # 100 us budget reported beside it — the runtime's answer to the engine's `budget` example
+      # above. Register entry 12 was red for the absence of exactly this line: both halves of the
+      # number existed and neither ran, because a file in `examples/` is compiled by clippy and
+      # evaluated by nothing. Here rather than in its own job because the release target directory
+      # is already warm.
+      #
+      # `ubuntu-latest` is a shared runner nobody here has measured, which is precisely why the
+      # gate inside that example sits at 2x the budget and not at it — the frame has 1.11x of
+      # headroom, and gating at 1.1x on an unmeasured runner is the flaky test `budget.rs` names.
+      - run: cargo run --release --example frame -p vitui-runtime
       # Register entry #18: no observer thread is linked into a release binary. Standing requirement
       # 11 is a **release-build** property — measured, an observer converts zero wakeups into ~10 a
       # second for ever — so the observer is `cfg(debug_assertions)`, and a compile outcome about
