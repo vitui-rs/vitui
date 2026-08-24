@@ -52,7 +52,8 @@ use std::process::Command;
 use std::time::Instant;
 
 use common::{
-    Arm, Excluded, publish, render, save_if_asked, scene, scene_argv, wait_for_quiescence,
+    Arm, Excluded, SCENES, header, publish, save_if_asked, scene, scene_argv, section, trailer,
+    wait_for_quiescence,
 };
 use vitui_conform::{Dialect, parse};
 
@@ -107,16 +108,42 @@ fn main() {
     }
 }
 
+/// Every scene, each in its own server, into one report. See the kitty arm's `drive` for why a
+/// fresh terminal per scene rather than a scene switch inside one.
 fn drive() -> Result<(), String> {
+    let mut report = String::new();
+    let mut sections = String::new();
+    let (mut asked, mut failures) = (0usize, 0usize);
+    let mut arm: Option<Arm> = None;
+
+    for which in SCENES {
+        let (this, dump, bytes, size) = one_scene(which)?;
+        if arm.is_none() {
+            report.push_str(&header(&this, &bytes));
+        }
+        let (text, a, f) = section(&this, which, &dump, &size);
+        sections.push_str(&text);
+        asked += a;
+        failures += f;
+        arm = Some(this);
+    }
+
+    let arm = arm.expect("SCENES is not empty");
+    report.push_str(&sections);
+    report.push_str(&trailer());
+    publish(&arm, &report, asked, failures)
+}
+
+fn one_scene(which: &str) -> Result<(Arm, vitui_conform::Dump, Vec<u8>, String), String> {
     // `new-session` takes a shell command line, so the shared argv is joined here — see
     // `common::scene_argv`, where the launchers' disagreement about that is written down.
-    let command = scene_argv()?.join(" ");
-    let ready = std::env::temp_dir().join(format!("conform-ready-{}", std::process::id()));
+    let command = scene_argv(which)?.join(" ");
+    let ready = std::env::temp_dir().join(format!("conform-ready-{}-{which}", std::process::id()));
     let _ = std::fs::remove_file(&ready);
 
     // Named for this process, so two runs cannot meet. `-L` is a socket name under tmux's own
     // directory rather than a path, which keeps the permissions tmux chose for it.
-    let socket = format!("conform-{}", std::process::id());
+    let socket = format!("conform-{}-{which}", std::process::id());
     let version = tmux_version()?;
 
     // **The refusal this arm needs and the other does not.** A server already listening on our
@@ -147,25 +174,24 @@ fn drive() -> Result<(), String> {
         ],
     )?;
 
-    let outcome = capture_and_compare(&socket, &version, &ready, launched);
+    let outcome = capture_and_compare(which, &socket, &version, &ready, launched);
 
     // Killed before the result is unwrapped, like the Ghostty arm closes its window: a failed run
     // that leaves a server behind is a run that needs a human before the next one can start. This is
     // *our* socket, so `kill-server` cannot reach the user's own tmux.
     let _ = tmux(&socket, &["kill-server"]);
     let _ = std::fs::remove_file(&ready);
-
-    let (arm, report, failures) = outcome?;
-    publish(&arm, &report, failures)
+    outcome
 }
 
 /// Wait for the frame, read the grid back, parse it, compare it, and render the report.
 fn capture_and_compare(
+    which: &str,
     socket: &str,
     version: &str,
     ready: &Path,
     launched: Instant,
-) -> Result<(Arm, String, usize), String> {
+) -> Result<(Arm, vitui_conform::Dump, Vec<u8>, String), String> {
     // Insisted on before the wait, not after: a scene that never started leaves the readiness timeout
     // to explain it, and "the scene never reported a presented frame" is twenty seconds spent saying
     // something this line says at once.
@@ -198,14 +224,18 @@ fn capture_and_compare(
     let started = Instant::now();
     let bytes = tmux_bytes(socket, &["capture-pane", "-p", "-e", "-t", SESSION])?;
     let capture_elapsed = started.elapsed();
-    save_if_asked(&bytes)?;
+    save_if_asked(which, &bytes)?;
 
     // **`TmuxCapturePane` and not `Ecma48`, and the difference is a whole attribute.** tmux writes
     // any attribute code of two digits as `code/10 : code%10`, so overline arrives as `5:3` — which
     // read as ECMA-48 is *blink*, an attribute tmux never rendered and the instrument would have
     // invented. See the parser's module docs and `FINDINGS.md`.
-    let dump = parse(&bytes, common::scene01().len(), Dialect::TmuxCapturePane)
-        .map_err(|e| format!("the capture is not a screen: {e}"))?;
+    let dump = parse(
+        &bytes,
+        common::rows_expected(which),
+        Dialect::TmuxCapturePane,
+    )
+    .map_err(|e| format!("the capture is not a screen: {e}"))?;
 
     let default_terminal = tmux(socket, &["show-options", "-gv", "default-terminal"])
         .unwrap_or_else(|_| "unknown".into());
@@ -218,7 +248,6 @@ fn capture_and_compare(
                    own grid, so the engine's bytes were parsed and stored by tmux and handed back by \
                    tmux. A legitimate target — tmux is in spec §10's tier-1 list — and never a proxy \
                    for the terminal it is running inside",
-        size,
         not_compared: NOT_COMPARED,
         notes: vec![
             format!(
@@ -244,8 +273,7 @@ fn capture_and_compare(
                 .to_string(),
         ],
     };
-    let (report, failures) = render(&arm, &dump, &bytes);
-    Ok((arm, report, failures))
+    Ok((arm, dump, bytes, size))
 }
 
 /// What tmux says its version is. Asked of the binary that is about to run, never assumed.

@@ -52,7 +52,8 @@ use std::process::Command;
 use std::time::{Duration, Instant, SystemTime};
 
 use common::{
-    Arm, Excluded, publish, render, save_if_asked, scene, scene_argv, wait_for_quiescence,
+    Arm, Excluded, SCENES, header, publish, save_if_asked, scene, scene_argv, section, trailer,
+    wait_for_quiescence,
 };
 use vitui_conform::{Dialect, parse};
 
@@ -107,11 +108,11 @@ impl Through {
     }
 
     /// The command line the window runs.
-    fn command(&self, ready: &Path) -> Result<String, String> {
+    fn command(&self, ready: &Path, which: &str) -> Result<String, String> {
         // Joined here rather than in `common`: this one goes inside an AppleScript string
         // literal and tmux's goes inside a tmux command line, and neither quoting rule is one a
         // shared helper could guess. The argv is the shared part.
-        let scene = scene_argv()?.join(" ");
+        let scene = scene_argv(which)?.join(" ");
         Ok(match self {
             Self::Nothing => scene,
             // `-f /dev/null` for the same reason the tmux arm gives: the result must be about tmux
@@ -221,16 +222,45 @@ fn main() {
 }
 
 fn run(through: Through) {
-    if let Err(why) = drive(&through) {
+    if let Err(why) = drive_all(&through) {
         eprintln!("FAILED: {why}");
         std::process::exit(1);
     }
 }
 
-fn drive(through: &Through) -> Result<(), String> {
-    let ready = std::env::temp_dir().join(format!("conform-ready-{}", std::process::id()));
+/// Every scene, each in its own window, into one report. See the kitty arm's `drive` for why a
+/// window per scene rather than a scene switch inside one.
+fn drive_all(through: &Through) -> Result<(), String> {
+    let mut report = String::new();
+    let mut sections = String::new();
+    let (mut asked, mut failures) = (0usize, 0usize);
+    let mut arm: Option<Arm> = None;
+
+    for which in SCENES {
+        let (this, dump, bytes, size) = drive(through, which)?;
+        if arm.is_none() {
+            report.push_str(&header(&this, &bytes));
+        }
+        let (text, a, f) = section(&this, which, &dump, &size);
+        sections.push_str(&text);
+        asked += a;
+        failures += f;
+        arm = Some(this);
+    }
+
+    let arm = arm.expect("SCENES is not empty");
+    report.push_str(&sections);
+    report.push_str(&trailer());
+    publish(&arm, &report, asked, failures)
+}
+
+fn drive(
+    through: &Through,
+    which: &str,
+) -> Result<(Arm, vitui_conform::Dump, Vec<u8>, String), String> {
+    let ready = std::env::temp_dir().join(format!("conform-ready-{}-{which}", std::process::id()));
     let _ = std::fs::remove_file(&ready);
-    let command = through.command(&ready)?;
+    let command = through.command(&ready, which)?;
 
     let was = terminal_ids()?;
     let launched = Instant::now();
@@ -248,7 +278,7 @@ fn drive(through: &Through) -> Result<(), String> {
     // neither is usable; the terminal id is stable for the surface's life.
     let terminal = new_terminal(&was)?;
 
-    let outcome = capture_and_compare(through, &terminal, &ready, launched);
+    let outcome = capture_and_compare(through, which, &terminal, &ready, launched);
 
     // Closed before the result is unwrapped. A failed run that leaves a window open is a run that
     // needs a human before the next one can start.
@@ -257,22 +287,21 @@ fn drive(through: &Through) -> Result<(), String> {
     ));
     through.cleanup();
     let _ = std::fs::remove_file(&ready);
-
-    let (arm, report, failures) = outcome?;
-    publish(&arm, &report, failures)
+    outcome
 }
 
 /// Wait for the frame, photograph it, parse it, compare it, and render the report.
 fn capture_and_compare(
     through: &Through,
+    which: &str,
     terminal: &str,
     ready: &Path,
     launched: Instant,
-) -> Result<(Arm, String, usize), String> {
+) -> Result<(Arm, vitui_conform::Dump, Vec<u8>, String), String> {
     let size = wait_for_quiescence(ready)?;
     let (bytes, capture_elapsed) = capture(terminal)?;
-    save_if_asked(&bytes)?;
-    let dump = parse(&bytes, common::scene01().len(), Dialect::Ecma48)
+    save_if_asked(which, &bytes)?;
+    let dump = parse(&bytes, common::rows_expected(which), Dialect::Ecma48)
         .map_err(|e| format!("the capture is not a screen: {e}"))?;
     let mut notes = vec![
         format!(
@@ -292,12 +321,10 @@ fn capture_and_compare(
             .unwrap_or_else(|_| "unknown".into()),
         mechanism: "`write_screen_file:…,vt`",
         measures: through.measures(),
-        size,
         not_compared: through.not_compared(),
         notes,
     };
-    let (report, failures) = render(&arm, &dump, &bytes);
-    Ok((arm, report, failures))
+    Ok((arm, dump, bytes, size))
 }
 
 /// Ask Ghostty to write its screen out, and find the file it wrote.

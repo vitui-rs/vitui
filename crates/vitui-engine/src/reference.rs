@@ -173,11 +173,14 @@ fn paint_row(layers: &[LayerRef<'_>], row: &mut [Cell], painter: &mut [Option<us
 /// be slow and is not allowed to be clever.
 ///
 /// **A boundary between two columns one layer painted at once is that layer's own business.** The
-/// composite repairs what compositing broke and nothing else, and there is exactly one way for a
-/// layer to hand it a pair that is already broken: [`View::child`](crate::View::child) may not widen
-/// its clip (spec §4), so a pair the clip bisects keeps the half outside it. Whether *that* is right
-/// is architecture ticket 20's, and an oracle that quietly repaired it would make gate #1 fail
-/// against the compositor instead.
+/// composite repairs what compositing broke and nothing else. There used to be exactly one way for a
+/// layer to hand it a pair that was already broken — [`View::child`](crate::View::child) could not
+/// widen its clip (spec §4), so a pair the clip bisected kept the half outside it — and this file
+/// deliberately did not repair it, because an oracle that quietly did would have made gate #1 fail
+/// against the compositor instead of surfacing the open question. Architecture ticket 20 closed that
+/// question the other way and the door with it: the drawing verbs' repair is bounded by the surface,
+/// so no layer can hand this a broken pair. `crate::fuzz` asserts that of the picture below rather
+/// than allowing for it.
 ///
 /// One left-to-right pass is enough. Blanking a head cannot orphan the cell to its right, because it
 /// is blanked precisely when that cell is not its continuation; blanking a continuation cannot orphan

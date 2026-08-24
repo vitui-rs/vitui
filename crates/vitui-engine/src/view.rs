@@ -253,20 +253,42 @@ pub struct View<'a> {
     _not_send: PhantomData<*const ()>,
 }
 
-/// One row of a view, with the columns the caller is allowed to touch.
+/// One row of a view, with the columns the caller is allowed to *write*.
 ///
-/// The repair rules reach one column either side of what is being written, and that reach stops at
-/// the clip: a view may not widen itself (spec §4), so a pair bisected by the clip edge keeps the
-/// half that is outside. With a root view the clip is the surface and the question does not arise;
-/// [`child`](View::child) is what makes it arise. Ticket 11 moved the same rules to composite time,
-/// where a layer edge *does* reach outside — see
-/// [`LayerStack::composite_run`](crate::LayerStack) — and left this one where it was, because the
-/// two edges are not the same question: a layer's neighbours are the frame's, and a child's are its
-/// parent's.
+/// **The repair rules reach one column either side of what is being written, and that reach is
+/// bounded by the surface rather than by the clip.** A pair bisected by a clip edge therefore loses
+/// the half outside it, in the same blank-to-the-ground way it would lose it at a surface edge or a
+/// layer edge. That is architecture ticket 20's answer, and it is an answer from three terminals
+/// rather than from a sentence: kitty 0.48.2, Ghostty 1.3.1 and tmux 3.7c all blank the orphaned
+/// half themselves, in both directions, and none of them has any notion of a clip to consult. A
+/// surface holding a wide head with no continuation is a surface **no terminal can be made to
+/// show** — so the mirror would believe a cell the screen does not have, damage tracking would
+/// never repaint it, and the artifact would stand until something else wrote there. That is exactly
+/// the corruption spec §3 names.
 ///
-/// **The cost is that §3's pairing invariant is false across a clip edge**, and §3 says the rules
-/// hold there. The two cannot both be right; architecture ticket 20 is where that is decided, and
-/// `view::tests::a_child_may_not_reach_out_to_repair_a_pair_it_bisected` is the case written down.
+/// # What this does not hand a caller, which is spec §4's whole question
+///
+/// §4 says a child cannot widen its clip, and the argument behind it is that *a seam defended by
+/// convention is not defended*. That argument survives here, because the reach is not a write the
+/// caller can direct:
+///
+/// - the only reachable outcome is [`blank`](Self::blank) — the surface's ground, keeping the
+///   cell's own style. There is no way to put content through it;
+/// - it reaches exactly one column, and only the column adjacent to a cell the caller legitimately
+///   wrote;
+/// - it fires only when that column holds the other half of a pair the caller's own write has
+///   already destroyed.
+///
+/// So the licence a one-column `child` buys is one cell of ground in a column the parent's glyph no
+/// longer occupies anyway. **The seam is defended by what the operation can express, not by
+/// convention** — which is §4's own standard, met. §4 keeps its sentence with a stated exception,
+/// and [`restyle`](View::restyle) is where that sentence still bites unchanged: restyling a pair
+/// whole *would* be a caller-directed write outside the clip, and no pairing invariant is at stake
+/// there, so [`whole_pairs`](Self::whole_pairs) still shrinks.
+///
+/// This is also the answer §5 already gave one level up, where ticket 11 moved the same rules to
+/// composite time — see [`LayerStack::composite_run`](crate::LayerStack). The two edges turn out to
+/// be the same question after all, and they now have the same answer.
 struct Row<'r> {
     cells: &'r mut [Cell],
     lo: u16,
@@ -321,13 +343,18 @@ impl<'r> Row<'r> {
     /// A write landing on a `CONTINUATION` blanks its head at `x - 1`; a write landing on a wide
     /// head blanks its continuation at `x + 1`. Both halves are damaged, which is what deletes
     /// ratatui's two bug-driven workarounds rather than porting them (spec §6).
+    ///
+    /// **The bound is the row, not the clip** — see [`Row`] for why, and for what it does not hand
+    /// a caller. The returned span is what actually changed, so a repair that reached past the clip
+    /// is damaged past the clip too: the verbs mark what this returns, which is spec §5's *repair
+    /// damages cells outside the layer's own rectangle* one level down.
     fn repair(&mut self, x: u16) -> (u16, u16) {
         let g = self.cells[x as usize].grapheme;
-        if g.is_continuation() && x > self.lo {
+        if g.is_continuation() && x > 0 {
             self.blank(x - 1);
             return (x - 1, x);
         }
-        if g.is_wide_head() && x < self.hi {
+        if g.is_wide_head() && usize::from(x) + 1 < self.cells.len() {
             self.blank(x + 1);
             return (x, x + 1);
         }
@@ -341,6 +368,15 @@ impl<'r> Row<'r> {
     /// is inside the clip, and give up this half if it is not. Giving up is what keeps a view from
     /// widening itself — the head of a pair the clip starts inside belongs to whoever owns the
     /// cells to the left.
+    ///
+    /// **This is the clip bound [`repair`](Self::repair) no longer has, and the difference is not
+    /// an inconsistency.** `repair` reaches out because a pair it declined to mend would leave the
+    /// surface holding a picture no terminal can show, and the only thing it can put there is the
+    /// ground. This one has no such forcing: shrinking leaves the bisected pair *entirely*
+    /// unrestyled, which changes no grapheme and so cannot break §3's pairing invariant. Widening
+    /// would be a caller-directed write into a parent's cells with nothing making it necessary,
+    /// which is precisely what spec §4 forbids. So §4's sentence keeps this edge and loses the
+    /// other, and architecture ticket 20 is where that split is recorded.
     fn whole_pairs(&self, mut lo: u16, mut hi: u16) -> Option<(u16, u16)> {
         if self.cells[lo as usize].grapheme.is_continuation() {
             if lo > self.lo {
@@ -797,6 +833,12 @@ impl<'a> View<'a> {
     /// of a pair would leave the frame saying something the wire cannot express. A pair bisected by
     /// the rectangle is therefore restyled whole — and left alone when its other half is outside
     /// the clip, because a view may not widen itself (spec §4).
+    ///
+    /// **This verb is where that sentence still bites**, and after architecture ticket 20 it is the
+    /// only place it does: the drawing verbs' repair now reaches past the clip, because a bisected
+    /// pair left in halves is a picture no terminal can show. Nothing forces this one — an
+    /// unrestyled pair is a pair — so it stays inside the clip. `Row::whole_pairs` is where that is
+    /// written down.
     pub fn restyle(&mut self, r: Rect, d: &Restyle<'_>) {
         let r = self.absolute(r);
         let View {
@@ -1818,16 +1860,17 @@ mod tests {
     }
 
     #[test]
-    fn a_child_may_not_reach_out_to_repair_a_pair_it_bisected() {
-        // The other half of the same rule: the head at column 2 is outside the child, so the child
-        // keeps its own half and the head is left for whoever owns the cells to its left.
+    fn a_child_reaches_out_to_blank_the_head_of_a_pair_it_bisected() {
+        // The other half of the same rule, and the half architecture ticket 20 decided. The head at
+        // column 2 is outside the child's clip and is blanked anyway, because the alternative is a
+        // surface holding a wide head with no continuation — which is a picture **no terminal can
+        // be made to show**. kitty 0.48.2, Ghostty 1.3.1 and tmux 3.7c were each sent a wide glyph
+        // and then a cluster over one of its halves, and all three blanked the orphan themselves,
+        // in both directions, with no notion of a clip to consult. See `conform/` scene 04.
         //
-        // **This leaves §3's pairing invariant false on the surface** — a wide head with no
-        // continuation after it — and the test asserts what the code does rather than that the
-        // code is right. §3 says the rules hold at a clip edge; §4 says a child cannot widen its
-        // clip; ticket 06 chose §4 and `child` is what makes the disagreement reachable. Filed as
-        // architecture ticket 20, not decided here. `assert_pairing_holds` is deliberately not
-        // called: it would fail, and pinning that is the point.
+        // What §4 forbids is a caller *directing* a write outside its clip. This is not one: the
+        // only reachable outcome is the surface's ground in the column the caller's own write just
+        // orphaned. See `Row` for the argument in full.
         let mut s = Surface::new(8, 1);
         s.root().text(2, 0, "漢", Style::new());
         s.damage_mut().clear();
@@ -1836,11 +1879,23 @@ mod tests {
             root.child(Rect::new(3, 0, 4, 1))
                 .text(0, 0, "z", Style::new());
         }
-        assert_eq!(runs(&s), vec![Run { y: 0, lo: 3, hi: 3 }], "column 3 only");
-        assert!(
-            s.row(0)[2].grapheme.is_wide_head(),
-            "the head is not the child's to repair"
+        assert_eq!(
+            runs(&s),
+            vec![Run { y: 0, lo: 2, hi: 3 }],
+            "both halves are damaged, and one of them is outside the child"
         );
+        assert!(
+            !s.row(0)[2].grapheme.is_wide_head(),
+            "the head lost its partner and was blanked with it"
+        );
+        assert_eq!(
+            rendered(&s, 0),
+            "   z    ",
+            "the blanked head is column 2, the child's z column 3"
+        );
+        // The point of the whole ticket: this now passes, where the test it replaces existed to
+        // pin the fact that it would not.
+        assert_pairing_holds(&s);
     }
 
     #[test]

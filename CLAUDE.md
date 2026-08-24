@@ -23,9 +23,13 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   printed and read by nothing — now wired at `quant::Quantiser::attrs`, where one field narrows the
   wire, the mirror, the gap pricing and the round trip's expectation together; `quirks.rs`'s fifth
   entry (kitty has no cursor attribute for conceal or overline, settled from the shipped binary
-  because no dump can tell *not stored* from *not serialised*); and the row it **refused** to answer,
+  because no dump can tell *not stored* from *not serialised*); the row it **refused** to answer,
   where a dotted underline kitty renders arrives in the capture as `CSI 4 : m` and comparing it would
-  have earned a sixth bit for a misbehaviour that is not happening.
+  have earned a sixth bit for a misbehaviour that is not happening; and **architecture ticket 20**,
+  the only decision on the engine map settled by asking a terminal rather than by argument — scene 04
+  asked three families what they do with a cluster printed over one half of a double-width glyph, all
+  three blank the orphaned half themselves, and *they disagree about what it wears*, which is what
+  made the engine's own repair mandatory rather than merely tidy.
 - **`vitui-runtime` is in progress**: 9 of 20 tickets resolved. `data`, `layout`, `theme`, `keys`,
   `ctx`, `id`, `route` exist; focus, overlays, scrolling, sizing, async work and the standard theme
   set do not.
@@ -47,9 +51,11 @@ Read these before working, in this order:
    blocking edges, and the defects that shaped both.
 
 **Five engine questions reopened the closed map** and are recorded in
-`.scratch/vitui-engine-architecture/issues/19`–`23`. Three are still open (20, 21, 23): the
-implementation chose an answer and the tests lock it in, but the spec still says two things. Do not
-"fix" the code to match one sentence of the spec without resolving the ticket.
+`.scratch/vitui-engine-architecture/issues/19`–`23`. **20 is resolved** (2026-08-23, production ticket
+06: the repair rules are bounded by the surface and not by the clip, and §4 carries a stated
+exception). Two are still open (21, 23): the implementation chose an answer and the tests lock it in,
+but the spec still says two things. Do not "fix" the code to match one sentence of the spec without
+resolving the ticket.
 
 ## Workspace
 

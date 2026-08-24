@@ -13,6 +13,14 @@ const VIA_TMUX: &[u8] = include_bytes!("../fixtures/ghostty-1.3.1-via-tmux-3.7c-
 const SCENE01: &[u8] = include_bytes!("../fixtures/ghostty-1.3.1-scene01-attrs.vt");
 const KITTY_SCENE01: &[u8] = include_bytes!("../fixtures/kitty-0.48.2-scene01-attrs.vt");
 
+// ── Scene 04, the four captures that answered architecture ticket 20 ─────────────────────────────
+
+const SCENE04: &[u8] = include_bytes!("../fixtures/ghostty-1.3.1-scene04-pairs.vt");
+const KITTY_SCENE04: &[u8] = include_bytes!("../fixtures/kitty-0.48.2-scene04-pairs.vt");
+const TMUX_SCENE04: &[u8] = include_bytes!("../fixtures/tmux-3.7c-scene04-pairs.vt");
+const VIA_TMUX_SCENE04: &[u8] =
+    include_bytes!("../fixtures/ghostty-1.3.1-via-tmux-3.7c-scene04-pairs.vt");
+
 // ── The refusal, which is the first thing this parser had to do ──────────────────────────────────
 
 #[test]
@@ -682,5 +690,117 @@ fn the_three_emulators_disagree_about_exactly_which_bits_they_have() {
         differs(&forwarded, &[]),
         vec!["overline"],
         "and tmux forwards everything else it was sent"
+    );
+}
+
+// ── Scene 04 — a pair bisected, and what the terminal does with the orphan ───────────────────────
+
+/// The four rows every family agrees on, as text, in the order the scene draws them.
+///
+/// Written out rather than taken from `examples/common.rs`: these tests are the **gate** and that
+/// file is the *instrument*, so a comparator that read its expectations from the thing it is
+/// checking would be the arrangement this whole directory exists to break. It is the same rule as
+/// the parser having no `cell_at(column)`.
+const SCENE04_ROWS: [(&str, &str); 6] = [
+    ("control", "AB漢CD"),
+    ("over-cont", "AB xCD"),
+    ("over-head", "ABx CD"),
+    ("over-wide", "AB 漢D"),
+    ("keeps-style", "AB xCD"),
+    ("ruler", "0123456789"),
+];
+
+/// One capture's six rows as trimmed text.
+fn scene04_text(bytes: &[u8], dialect: Dialect) -> Vec<String> {
+    parse(bytes, SCENE04_ROWS.len(), dialect)
+        .expect("a committed scene 04 capture parses")
+        .rows
+        .iter()
+        .take(SCENE04_ROWS.len())
+        .map(|r| r.text().trim_end().to_string())
+        .collect()
+}
+
+#[test]
+fn every_family_blanks_the_orphaned_half_and_they_do_not_disagree_about_it() {
+    // **Architecture ticket 20, as an assertion over bytes four terminals produced.**
+    //
+    // The question was which of two spec sentences yields at a `View::child` clip: §3's *a wide head
+    // is always followed by a `CONTINUATION`*, or §4's *a child cannot widen its clip*. Both could
+    // be argued from the document, which is how the ticket came to be filed rather than decided.
+    //
+    // These bytes decide it. Row `over-cont` prints `AB漢CD` and then one narrow cluster over the
+    // continuation at column 3; every family comes back `AB xCD`, with the head at column 2 blanked.
+    // Row `over-head` is the mirror image and comes back `ABx CD`. **No terminal here has any notion
+    // of a clip to consult**, so a surface holding a wide head with no continuation is a surface none
+    // of them can be made to show — the engine's mirror would believe a cell the screen does not
+    // have, damage tracking would never repaint it, and the artifact would stand until something
+    // else wrote there. That is the corruption §3 names, and it is why §3 keeps its sentence.
+    for (bytes, dialect, who) in [
+        (SCENE04, Dialect::Ecma48, "Ghostty 1.3.1"),
+        (KITTY_SCENE04, Dialect::Ecma48, "kitty 0.48.2"),
+        (TMUX_SCENE04, Dialect::TmuxCapturePane, "tmux 3.7c"),
+        (VIA_TMUX_SCENE04, Dialect::Ecma48, "tmux 3.7c forwarded"),
+    ] {
+        let rows = scene04_text(bytes, dialect);
+        for (i, (label, want)) in SCENE04_ROWS.iter().enumerate() {
+            assert_eq!(&rows[i], want, "{who}, row {label}");
+        }
+    }
+}
+
+#[test]
+fn the_families_disagree_about_what_the_blanked_half_wears_and_that_is_the_sharper_finding() {
+    // The four rows above are unanimous. This one is not, and it is the row that turns architecture
+    // ticket 20's answer from *the engine may as well repair* into *the engine must*.
+    //
+    // The wide glyph carries a red background and the cluster written over its continuation does
+    // not. **kitty keeps the orphan's own background; Ghostty and tmux blank it to the SGR state in
+    // force.** So a repair delegated to the terminal is not merely a repair the mirror would not
+    // know about — it is a repair whose *result differs by terminal*, and there is no single mirror
+    // state that could be right on all three. The engine has to do it itself and serialise the
+    // outcome, which is exactly what the answer makes it do.
+    //
+    // Asserted here rather than in the live arm's table, because a per-terminal fact belongs to a
+    // capture: the arm reports what it saw and the fixture is what holds it still.
+    let at = |bytes, dialect| {
+        parse(bytes, SCENE04_ROWS.len(), dialect).unwrap().rows[4].clusters[2].style
+    };
+    assert_eq!(
+        at(KITTY_SCENE04, Dialect::Ecma48).bg,
+        Colour::Indexed(1),
+        "kitty 0.48.2 keeps the background of the half it blanked"
+    );
+    for (bytes, dialect, who) in [
+        (SCENE04, Dialect::Ecma48, "Ghostty 1.3.1"),
+        (TMUX_SCENE04, Dialect::TmuxCapturePane, "tmux 3.7c"),
+        (VIA_TMUX_SCENE04, Dialect::Ecma48, "tmux 3.7c forwarded"),
+    ] {
+        assert_eq!(
+            at(bytes, dialect),
+            Style::default(),
+            "{who} blanks to the SGR state in force, not to the orphan's own style"
+        );
+    }
+}
+
+#[test]
+fn the_scene_04_captures_are_short_screens_when_a_row_is_missing() {
+    // The refusal, asserted against the scene that is most able to hide behind it: scene 04's rows
+    // are six short strings, and a capture that lost the top of the screen would still parse into
+    // *something*. A capture with fewer rows than the scene declared never reaches a comparison.
+    //
+    // This is not hypothetical here. The first `--through-tmux` capture of this scene had the whole
+    // picture on it **twice**, at rows 38 and 76, because the probe repainted with `CSI 2 J` and tmux
+    // pushes a cleared screen into the pane's history. Six rows of `FAILED` against a screen that
+    // had the right answer on it — the instrument's defect, found by the arm that has two parsers in
+    // the path and therefore the most ways to go wrong. `EL` per row is what it does now.
+    assert_eq!(
+        parse(SCENE04, 99, Dialect::Ecma48).unwrap_err(),
+        DumpError::ShortScreen {
+            expected: 99,
+            found: 6
+        },
+        "six rows, because the parser drops the empty ones below the payload after counting them"
     );
 }

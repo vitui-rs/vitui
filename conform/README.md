@@ -15,17 +15,33 @@ that arrangement cannot catch:
 This directory is the missing fourth party. It is
 [production ticket 04](../.scratch/vitui-engine-production/issues/04-the-conformance-harness.md).
 
-## Status: stages 0, 1, 2 and three emulator families
+## Status: stages 0, 1, 2, two scenes and three emulator families
 
-**Four arms, four committed reports, three emulator families, and two `quirks.rs` entries came out of
-them.** Thirty-one tests, no emulator in the loop for any of them.
+**Four arms, four committed reports, three emulator families, two `quirks.rs` entries and one closed
+architecture ticket came out of them.** Thirty-four tests, no emulator in the loop for any of them.
 
-| arm | scene 01 | what its rows are about |
-|---|---|---|
-| `cargo run --example ghostty` | **11/11** | Ghostty 1.3.1's own cell state |
-| `cargo run --example tmux` | **10/10**, one `by design` | what tmux 3.7c *stores* — `capture-pane` re-serialises tmux's grid |
-| `cargo run --example ghostty -- --through-tmux` | **10/10**, one `by design` | what tmux 3.7c *forwards*, read through Ghostty |
-| `cargo run --example kitty` | **8/8**, one `cannot ask`, two `by design` | kitty 0.48.2's own cell state |
+| arm | scene 01 | scene 04 | what its rows are about |
+|---|---|---|---|
+| `cargo run --example ghostty` | **11/11** | **6/6** | Ghostty 1.3.1's own cell state |
+| `cargo run --example tmux` | **10/10**, one `by design` | **6/6** | what tmux 3.7c *stores* — `capture-pane` re-serialises tmux's grid |
+| `cargo run --example ghostty -- --through-tmux` | **10/10**, one `by design` | **6/6** | what tmux 3.7c *forwards*, read through Ghostty |
+| `cargo run --example kitty` | **8/8**, one `cannot ask`, two `by design` | **6/6** | kitty 0.48.2's own cell state |
+
+**An arm runs every scene or it is not a run**, and one report per arm holds a section for each —
+same rule, same reason, as one file per arm: a section that is missing reads as a win. There is
+deliberately no flag to run one scene.
+
+**Scene 04 closed [architecture ticket 20](../.scratch/vitui-engine-architecture/issues/20-a-pair-bisected-by-a-child-clip.md)**,
+which is the first decision on that map settled by asking a terminal rather than by argument. All four
+arms agree that a terminal blanks the orphaned half of a bisected pair itself, in both directions, and
+none of them has a clip to consult. **They disagree about what the blanked cell wears** — kitty keeps
+the orphan's background, Ghostty and tmux blank to the SGR state in force — which is the finding that
+turned *the engine may as well repair* into *the engine must*. See `FINDINGS.md`.
+
+It is also the only scene that does **not** drive the engine, and it cannot: the engine repairs a
+bisected pair before it serialises anything, so an engine-driven scene could photograph only the
+repair. That is why wiring the answer took no measurement away from it, where the `--through-tmux`
+arm's overline row lost its.
 
 tmux's one disagreement was overline, and it took three arms to attribute: tmux accepts SGR 53, stores
 it, hands it back when asked, and never puts it on the wire. kitty's two are conceal and overline, and
@@ -72,10 +88,11 @@ no TCC grant, no clipboard and no z-order in the loop, and no `kitty.conf` eithe
 only *emulator* arm that can be handed a size**, in cells; tmux can set a pane size and is not an
 emulator, and Ghostty's `surface configuration` offers a font size and nothing else.
 
-Each arm is one executable with two halves: with no arguments it is the driver, with `--scene 01` it
-is the scene, and the driver launches the scene by re-running its own `current_exe()`. That is not a
+Each arm is one executable with two halves: with no arguments it is the driver, with `--scene NN` it
+is that scene, and the driver launches the scene by re-running its own `current_exe()`. That is not a
 trick to save a file — it makes the two halves the same build by construction, where a sibling binary
-path can silently be yesterday's.
+path can silently be yesterday's. **A fresh terminal per scene**, rather than a scene switch inside
+one: a window that has been written to once is a window whose state is part of the measurement.
 
 **The scene, the readiness handshake and the comparison live in `examples/common.rs`**, shared by the
 arms rather than copied into each. That is load-bearing for the second family and paid for itself
@@ -84,10 +101,17 @@ because it could be the software or it could be the drift. An arm brings four th
 — a way to start the scene, a way to read the screen back, a way to shut down, and an `Arm` describing
 itself, **including the rows its capture format cannot ask**, declared before the run.
 
-`CONFORM_SAVE_CAPTURE=<path>` writes the raw bytes out. It is **opt-in and never automatic**: a
-driver that rewrote its own fixtures on every run would turn the gate into a mirror.
+`CONFORM_SAVE_CAPTURE=<prefix>` writes the raw bytes out, one file per scene —
+`fixtures/kitty-0.48.2` becomes `fixtures/kitty-0.48.2-scene04-pairs.vt`. It is **opt-in and never
+automatic**: a driver that rewrote its own fixtures on every run would turn the gate into a mirror.
+**And it will not overwrite one.** *A capture is never regenerated to make something pass* was a
+sentence in three files; it is a branch now. An existing fixture is left alone and said so on stderr
+rather than failing the run — adding a scene means running an arm whose other scenes are already
+captured.
 
-Stages 3 (CPR and the width questions) and 5 (mode 2026) are open. Stage 4 has three emulator
+Stage 3 (CPR and the width questions) is open, and **smaller than it was**: what it was named for was
+attacking architecture ticket 20, and scene 04's sentinels did that without a CPR reader. What remains
+there is the width questions proper. Stage 5 (mode 2026) is open. Stage 4 has three emulator
 families now — Ghostty, kitty and, as a target rather than an emulator, tmux — and what it still owes
 is a second **VT lineage**: Terminal.app, glyph-grid scenes only, not built. See
 [ticket 04](../.scratch/vitui-engine-production/issues/04-the-conformance-harness.md).
@@ -129,14 +153,19 @@ form — the missing row hiding inside a green one.
 | file | what it pins |
 |---|---|
 | `tmux-3.7c-attrs-and-colours.vt` | both SGR spellings resolving to the same channels; bold, underline, underline colour, reverse, italic, strikethrough; and the `ESC[39m`-versus-`ESC[0m` reset asymmetry |
-| `tmux-3.7c-wide-no-padding.vt` | that `AB漢CD` comes back with **no padding cell and no continuation marker** — 28 bytes that decide how ticket 06's scene has to be built |
+| `tmux-3.7c-wide-no-padding.vt` | that `AB漢CD` comes back with **no padding cell and no continuation marker** — 28 bytes that decided how scene 04 had to be built, and it is the reason that scene compares row *text* rather than columns |
 | `ghostty-1.3.1-scene01-attrs.vt` | scene 01 as Ghostty gave it back: all eleven attribute bits, each on its own row, each stopping where its label does; and the OSC 10/11 header this machine's Ghostty leads with, which is the only statement anywhere of what `Colour::Default` actually resolves to |
 | `tmux-3.7c-scene01-attrs.vt` | the same scene as **tmux's own grid** holds it — all eleven, overline included, spelled `5:3` because tmux writes any two-digit attribute code as `code/10 : code%10` |
 | `ghostty-1.3.1-via-tmux-3.7c-scene01-attrs.vt` | the same scene **through** tmux into Ghostty: ten of the eleven, and overline gone. The three files above are one scene down three paths, which is what turns *something is wrong* into *tmux does not forward SGR 53* |
 | `kitty-0.48.2-scene01-attrs.vt` | the same scene as kitty holds it: nine of the eleven, conceal and overline bare, and a dotted underline spelled `CSI 4 : m` — the bytes the arm's `cannot ask` declaration rests on. LF-separated where Ghostty's is CRLF, and padded to the full width where tmux's is trimmed to the label |
 
+| `ghostty-1.3.1-scene04-pairs.vt` | scene 04 as Ghostty gave it back: the orphaned half blanked in both directions, and blanked **to the SGR state in force** rather than to the glyph's own red background |
+| `kitty-0.48.2-scene04-pairs.vt` | the same scene as kitty holds it: the same four text rows, and the blanked half wearing **the orphan's own background**. The one row on which the three families differ, and the reason the engine may not delegate the repair |
+| `tmux-3.7c-scene04-pairs.vt` | the same scene as tmux's own grid holds it — agreeing with Ghostty on all five |
+| `ghostty-1.3.1-via-tmux-3.7c-scene04-pairs.vt` | the same scene **through** tmux into Ghostty, agreeing with both. It is also the arm that found the probe's own defect: `CSI 2 J` pushed the picture into tmux's history and the capture came back with the scene on it twice |
+
 Raw bytes, as captured. Do not regenerate them to make a test pass: they are evidence, and a fixture
-that moves because the code moved is not evidence of anything.
+that moves because the code moved is not evidence of anything. `save_if_asked` now refuses to.
 
 **`.gitattributes` marks `*.vt` as `-text`, and that line is load-bearing.** Without it,
 `core.autocrlf = input` rewrote CRLF to LF inside the Ghostty capture on the way into the index —

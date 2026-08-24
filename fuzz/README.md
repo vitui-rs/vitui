@@ -161,6 +161,17 @@ gate, and it is exactly why the corpus is the gate instead.
 What *was* run, at ticket 25, on macOS/arm64 with nightly and `cargo-fuzz 0.13.2`: both targets, from
 the committed seeds, for the times recorded in the ticket. `draw_sequence` found **two live defects**
 in the operator's reach at the frame's edge — both fixed, both committed as named unit tests — and
-**three instances of an open architecture question** (arch 20), which are in the corpus and are
-excused by one allowance that names the ticket. `input_bytes` found nothing over **10 518 149 executions in
+**four instances of an open architecture question** (arch 20), which stayed in the corpus behind one
+allowance that named the ticket. `input_bytes` found nothing over **10 518 149 executions in
 1 201 seconds** — 24 741 new coverage units at 8 757 executions a second.
+
+**Arch 20 closed on 2026-08-23 and the allowance is gone**, which is the cleanest illustration of
+what a corpus entry is for that this directory has. Entries 18 through 21 were kept precisely for the
+moment the question was answered; they are now the **gate on the answer**, and `crate::fuzz` asserts
+where it used to excuse — the reference compositor's own picture pairs at every column, which is only
+true because the drawing verbs' repair is bounded by the surface rather than by the clip. **2 503 796
+runs of `draw_sequence` clean** with the allowance removed, on the same machine, production ticket 06.
+
+Only entry 18 was renamed — its old name said the frame *blanked the orphan by where the damage
+landed*, which is an outcome that can no longer happen. Entries 19, 20 and 21 keep theirs: each names
+what it was found doing, and a corpus entry is evidence with a date on it.

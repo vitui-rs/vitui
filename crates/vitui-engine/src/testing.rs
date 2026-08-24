@@ -30,9 +30,13 @@ use crate::term_model::TermModel;
 /// continuation in it round-trips green while a real terminal would show something else. One
 /// definition, so that neither caller can quietly assert less than the other.
 ///
-/// The one place it is deliberately *not* asserted is a pair bisected by a
-/// [`View::child`](crate::View::child) clip: a child may not widen its clip (spec §4), so the half
-/// outside stays. That is architecture ticket 20's to decide and not this instrument's to hide.
+/// **It has no exception any more, and losing one is what architecture ticket 20 bought.** A pair
+/// bisected by a [`View::child`](crate::View::child) clip used to be the one case this deliberately
+/// did not assert — a child may not widen its clip (spec §4), so the half outside stayed — and the
+/// instrument was written not to hide it rather than to excuse it. Ticket 20 answered the other way
+/// on evidence: three terminals blank the orphaned half themselves, so a surface holding one is a
+/// surface no terminal can show. The repair is bounded by the surface now, and this holds
+/// everywhere, of every surface and every frame.
 pub(crate) fn assert_pairing_holds(s: &Surface) {
     let (w, h) = s.size();
     for y in 0..h {

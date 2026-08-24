@@ -125,8 +125,80 @@ visible.
 question**, and it is kept because that is a finding: a grid-to-text dump emits no padding cell for a
 double-width glyph, so *what is at column 3* is not askable of it. See `FINDINGS.md`.
 
-Its successor — the scene ticket 06 actually needs — puts a unique ASCII sentinel in every cell that
-should hold a continuation, so the question becomes *is the sentinel still there*. Not yet written.
+Its successor is **scene 04**, below.
+
+## 04 — a pair bisected, and what the terminal does with the orphan
+
+Six rows, each `AB漢CD`: `A` at column 0, `B` at 1, the wide glyph across 2 and 3, `C` at 4, `D` at
+5 — and then **one write over one half of it**. Scene 02's successor, and the scene production ticket
+06 was blocked on.
+
+**The row is compared as text, which is the whole trick.** Scene 02 established that *what is at
+column 3* is not a question a grid-to-text dump can answer, and deriving it would need our own width
+tables, which are the thing under test. ASCII sentinels turn it into *is the sentinel still there* —
+a string comparison, with no width in the measuring loop.
+
+| row | the write | expected |
+|---|---|---|
+| `control` | none | `AB漢CD` |
+| `over-cont` | `x` at column 3, the continuation | `AB xCD` |
+| `over-head` | `x` at column 2, the head | `ABx CD` |
+| `over-wide` | `漢` at column 3 | `AB 漢D` |
+| `keeps-style` | `x` at column 3, over a red-backed glyph | `AB xCD`, and the cell at 2 **reported** |
+| `ruler` | none | `0123456789` |
+
+### It is the only scene here that does not drive the engine, and it cannot
+
+Every other scene asks the engine to draw something and compares what came back. This one must not.
+The engine's drawing verbs repair a bisected pair **before anything is serialised** — that is
+architecture ticket 20's answer — so an engine-driven scene could photograph only the repair. The
+question is what a terminal does when it is handed the bytes anyway, which is what the engine's
+mirror would have believed had the repair stopped at a `View::child` clip.
+
+The top of this file licenses it in as many words: *a scene is a described picture, and an arm may
+reach it any way it likes*. It is also the discipline the kitty arm's conceal row came out of — run
+the control before the instrument, or *the terminal does not do it* and *the instrument cannot see
+it* have no way to be told apart.
+
+**And it is why this scene keeps its value after the answer, where `--through-tmux`'s overline row
+lost its.** An arm that asked the engine what to expect would be checking the engine against itself.
+These six rows ask nothing of the engine at all, so wiring the answer took no measurement away.
+
+### What it found, on four arms, 2026-08-23
+
+The four text rows are **unanimous**: every family blanks the orphaned half, in both directions, and
+none of them has a clip to consult. That settles architecture ticket 20.
+
+`keeps-style` is not unanimous, and it is the sharper finding. The wide glyph carries a red background
+and the cluster written over its continuation does not:
+
+| | what the blanked half wears |
+|---|---|
+| kitty 0.48.2 | the orphan's own background |
+| Ghostty 1.3.1 | nothing — the SGR state in force |
+| tmux 3.7c | nothing — the SGR state in force |
+
+So a repair delegated to the terminal is a repair whose **result differs by terminal**, and no mirror
+state could be right on all three. *The engine may as well repair* becomes *the engine must*.
+
+**That row is reported and never compared**, and it is not a sixth kind of non-number. There is no
+single right answer to hold an arm to, and inventing one would give two of three arms a permanent
+`FAILED` for something that is not a defect. What gates it is `tests.rs` over the committed captures,
+one assertion per terminal — the live arm reports and the fixture holds it still, which is the trade
+this directory is built on. A row printed with its observation is still a row; a row left out is the
+dishonesty this file opens by naming.
+
+### The instrument's own defect, found by the arm with two parsers in the path
+
+The probe first repainted with `CSI 2 J`. tmux **pushes a cleared screen into the pane's history**, so
+ten repaints a second scrolled the picture up through Ghostty's scrollback and the `--through-tmux`
+capture came back with the whole scene on it twice, at rows 38 and 76. Six rows of `FAILED` against a
+screen that had the right answer on it — twice. `EL` per row touches no history in any of the four
+arms and erases exactly the cells the scene is about to write.
+
+It is the third time an arm's first defect has been in the arm rather than in the terminal, and the
+third time the arm that found it was the one with the most parsers between the engine and the
+capture.
 
 ## 03 — both SGR spellings, same colour
 

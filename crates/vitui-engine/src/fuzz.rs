@@ -367,16 +367,15 @@ fn checkpoint(screen: &mut Screen, before: &Surface, data: &[u8], frame: u32) ->
     let after = screen.reference();
     screen.present();
 
-    // A column at which the oracle's **own** picture violates §3's pairing invariant, before the
-    // frame's verbs or after them. Architecture ticket 20's case, and the one thing this file
-    // declines to assert — see the long note below the damage loop for what it is and why both
-    // halves of the property are undecidable there rather than only one.
-    let unpaired = |x: u16, y: u16| orphaned(before, x, y) || orphaned(&after, x, y);
-
+    // **There is no allowance here any more, and its absence is the assertion.** This used to skip
+    // every column at which the oracle's own picture violated §3's pairing invariant, because
+    // architecture ticket 20 was open and a frame whose layers handed the composite a broken pair
+    // had no defined content there. Ticket 20 is answered: the drawing verbs' repair is bounded by
+    // the surface rather than by the clip, so a layer surface cannot arrive at the composite
+    // already violating §3 and the case the allowance covered cannot be constructed. Four corpus
+    // entries were kept for exactly this moment — 18, 19, 20 and 21 — and they are the gate on the
+    // answer rather than a record of the question.
     for (x, y) in crate::reference::differences(before, &after) {
-        if unpaired(x, y) {
-            continue;
-        }
         assert!(
             covered(screen.runs(), x, y),
             "frame {frame}: ({x}, {y}) changed and no run reported it\n    before: {}\n     after: \
@@ -391,59 +390,26 @@ fn checkpoint(screen: &mut Screen, before: &Surface, data: &[u8], frame: u32) ->
     let frame_surface = screen.frame();
     for y in 0..h {
         for x in 0..w {
+            // **The allowance, turned the right way up.** Where this file used to skip a column at
+            // which the oracle's own picture left a pair in halves, it now asserts that no such
+            // column exists. That is architecture ticket 20's answer read as a gate: the only way
+            // to build one was a `View::child` whose clip bisected a pair, and the drawing verbs'
+            // repair is bounded by the surface rather than by the clip, so there is no longer a
+            // way. Asserted of the **oracle** and not of the frame, because the oracle is the one
+            // that reports what the layers handed it.
+            assert!(
+                !orphaned(&after, x, y),
+                "frame {frame}: the reference compositor's own picture leaves a pair in halves at \
+                 ({x}, {y}), which architecture ticket 20 decided cannot happen\n    oracle: \
+                 {}\n     input: {}",
+                row_picture(&after, y),
+                hex(data)
+            );
             let (got, want) = (
                 frame_surface.row(y)[usize::from(x)],
                 after.row(y)[usize::from(x)],
             );
             if got == want {
-                continue;
-            }
-            // **The one disagreement that is an open question rather than a defect**, and it is
-            // architecture ticket 20's: *§3 says the repair rules hold at a clip edge, §4 says a
-            // view may not widen itself.* A `View::child` whose clip bisects a pair keeps the half
-            // outside it (§4), so a **layer's own surface** can arrive at the composite already
-            // violating §3 — and impl 11's decision was that compositing repairs the seams it
-            // creates and nothing else, because mending this one would hide the case rather than
-            // answer it. The oracle implements exactly that and leaves the orphan standing.
-            //
-            // The fast path does not, and cannot: `mend` runs at the edges of the **damaged span**,
-            // and where a span's edge happens to land on such an orphan it blanks it. So the frame
-            // keeps the orphan on one frame and blanks it on the next, with the same stack and the
-            // same surfaces — the ticket 12 shape, arriving through the door arch 20 predicted
-            // nothing would come through: *no scene produces the case, and every gate is green.*
-            //
-            // Nothing here decides that question — this backlog does not reopen a decision, and the
-            // evidence is appended to arch 20 instead. **Neither half of the property is asserted at
-            // a column the oracle's own row leaves unpaired**, and that is the whole allowance,
-            // stated once:
-            //
-            // > A frame whose layers handed the composite a broken pair has no defined content at
-            // > that column until arch 20 answers, so an assertion there is an assertion about an
-            // > undecided question.
-            //
-            // Four shapes were seen in two hours of soak before it was written this way, each one
-            // excused by a different clause of some narrower allowance, which is the argument for the
-            // wide one. All four are in the corpus:
-            //
-            // - `18-a-child-clip-orphan-blanked-by-a-span-edge`: the frame blanks the orphan and the
-            //   oracle keeps it, styles otherwise identical.
-            // - `19-a-headless-continuation-under-an-operator`: both keep it and an operator reaches
-            //   it in one and not the other, because *where is a headless continuation's head* has no
-            //   answer yet — the fast path says it is a space of its own, the oracle says `x - 1`
-            //   whatever is there.
-            // - `21-a-blanked-orphan-whose-style-also-moved`: the first shape and the second at once,
-            //   which is what killed the *blanked, style preserved* form of this allowance.
-            // - `20-an-orphan-appearing-with-no-run`: the **damage** half fails instead — the orphan
-            //   appears or vanishes in a column no layer's own damage covers, which is §5's *repair
-            //   damages cells outside the layer's own rectangle* one level down, and arch 20's second
-            //   bullet exactly. It is why this is a `let` above both loops and not a clause in one.
-            //
-            // **What this does not weaken.** An orphan exists only through arch 20's door — a layer
-            // whose *surface* arrived violating §3, which needs a `child` clip, since the repair
-            // rules do cover a surface edge — so every cell of a well-formed frame is asserted, both
-            // halves, as before. Neither defect this target found would have been hidden: in both,
-            // the oracle's cell was a repaired space and therefore paired.
-            if unpaired(x, y) {
                 continue;
             }
             assert_eq!(
@@ -765,27 +731,32 @@ mod tests {
         ]);
     }
 
-    /// **Architecture ticket 20's case, reached from a direction it said nothing would come from.**
+    /// **Architecture ticket 20's case, and now the gate on its answer.**
     ///
-    /// Not a defect, and it is here because it is not one. Arch 20 is open: *§3 says the repair rules
-    /// hold at a clip edge, §4 says a view may not widen itself*, and it closes with *no scene
-    /// produces the case, and every gate is green*. This input produces it, and what it shows is
-    /// more than the ticket knew — the frame **keeps** the orphan on frames one and two and
-    /// **blanks** it on frame three, with the same stack and the same surfaces, because `mend` runs
-    /// at the edges of the damaged span and on that frame a span edge landed on it.
+    /// This input is why the ticket could be answered at all. It found the case from a direction the
+    /// ticket said nothing would come from — *no scene produces the case, and every gate is green* —
+    /// and it showed more than the ticket knew: the frame **kept** the orphan on frames one and two
+    /// and **blanked** it on frame three, same stack, same surfaces, because `mend` runs at the
+    /// edges of the damaged span and on that frame a span edge landed on it. One question answered
+    /// both ways depending on what else changed, which is the ticket 12 shape.
     ///
-    /// So *whether the composite may reach into a pair a clip bisected* is not only undecided, it is
-    /// currently answered **both ways depending on what else changed** — which is the ticket 12
-    /// shape and is the evidence appended to arch 20 rather than a decision taken here. The oracle's
-    /// side of it, and the exact allowance that keeps this from reading as a crash, is in
-    /// [`checkpoint`].
+    /// Ticket 20 is closed and the answer is that the orphan never reaches the composite: the
+    /// drawing verbs' repair is bounded by the surface rather than by the clip, because three
+    /// terminals were asked and all three blank the orphaned half themselves. So this program now
+    /// produces a well-formed frame on every one of its frames, and [`checkpoint`] asserts that
+    /// rather than excusing it — see the note there where the allowance used to be.
+    ///
+    /// **It keeps its old number and its bytes and loses only the outcome from its name.** Entries
+    /// 19, 20 and 21 keep theirs entirely: each names what it was found doing, and a corpus entry is
+    /// evidence with a date on it. What they were found doing is what makes them a gate now.
     ///
     /// The program, decoded: a 10x2 screen; one opaque layer; three wide clusters written across row
     /// zero; then a `child` at `(1, 0, 3, 2)` writing two more, so the clip bisects the pair at
-    /// column 0 and its head is left orphaned inside the layer's own surface; then three more
-    /// frames, the last of which damages a run whose left edge is that column.
+    /// column 0; then three more frames, the last of which damages a run whose left edge is that
+    /// column. The head at column 0 is blanked by the verb now, inside the layer's own surface,
+    /// before the composite has an opinion about it.
     #[test]
-    fn a_pair_a_child_clip_bisected_is_blanked_or_not_by_where_the_damage_lands() {
+    fn a_pair_a_child_clip_bisected_is_mended_by_the_verb_before_the_composite_sees_it() {
         draw_sequence(&[
             6, 0, 0, 3, 4, 4, 10, 2, 0, 6, 0, 0, 4, 4, 5, 6, 5, 7, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0,
             1, 0, 11, 6, 0, 4, 5, 4, 3, 2, 4, 4, 4, 4, 5, 6, 7, 0, 0, 11, 10, 2, 6, 0, 7, 0, 0, 11,

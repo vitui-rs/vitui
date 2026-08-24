@@ -74,7 +74,8 @@ use std::process::{Child, Command};
 use std::time::{Duration, Instant};
 
 use common::{
-    Arm, Excluded, publish, render, save_if_asked, scene, scene_argv, wait_for_quiescence,
+    Arm, Excluded, SCENES, header, publish, rows_expected, save_if_asked, scene, scene_argv,
+    section, trailer, wait_for_quiescence,
 };
 use vitui_conform::{Dialect, parse};
 
@@ -164,19 +165,49 @@ impl Drop for Instance {
     }
 }
 
+/// Every scene, each in its own kitty window, into one report.
+///
+/// **A window per scene rather than a scene switch inside one**, for the reason the whole directory
+/// is arranged around: a window that has been written to once is a window whose state is now part of
+/// the measurement. A fresh one costs a second and owes nothing to the run before it.
 fn drive() -> Result<(), String> {
+    let mut report = String::new();
+    let mut sections = String::new();
+    let (mut asked, mut failures) = (0usize, 0usize);
+    let mut arm: Option<Arm> = None;
+
+    for which in SCENES {
+        let (this, dump, bytes, size) = one_scene(which)?;
+        if arm.is_none() {
+            report.push_str(&header(&this, &bytes));
+        }
+        let (text, a, f) = section(&this, which, &dump, &size);
+        sections.push_str(&text);
+        asked += a;
+        failures += f;
+        arm = Some(this);
+    }
+
+    let arm = arm.expect("SCENES is not empty");
+    report.push_str(&sections);
+    report.push_str(&trailer());
+    publish(&arm, &report, asked, failures)
+}
+
+fn one_scene(which: &str) -> Result<(Arm, vitui_conform::Dump, Vec<u8>, String), String> {
     // **An argv and not a command line.** kitty execs what it is given; handed one string it looks
     // for a file whose name ends in `--scene 01`, finds none, and says nothing — which arrives here
     // as the readiness timeout twenty seconds later, blaming the scene for the launcher.
-    let command = scene_argv()?;
-    let ready = std::env::temp_dir().join(format!("conform-ready-{}", std::process::id()));
+    let command = scene_argv(which)?;
+    let ready = std::env::temp_dir().join(format!("conform-ready-{}-{which}", std::process::id()));
     let _ = std::fs::remove_file(&ready);
 
     // Named for this process, so two runs cannot meet — and **refused if it already exists**, which
     // is this arm's equivalent of the Ghostty arm insisting the set difference is exactly one
     // terminal. A socket we did not create is somebody else's kitty, and `kitten @ --to` would
     // photograph their screen and report it as ours.
-    let socket = std::env::temp_dir().join(format!("conform-kitty-{}.sock", std::process::id()));
+    let socket =
+        std::env::temp_dir().join(format!("conform-kitty-{}-{which}.sock", std::process::id()));
     if socket.exists() {
         return Err(format!(
             "{} already exists; this run cannot say whose kitty it would be photographing",
@@ -227,24 +258,23 @@ fn drive() -> Result<(), String> {
         socket: socket.clone(),
     };
 
-    let outcome = capture_and_compare(&socket, &version, &ready, launched);
+    let outcome = capture_and_compare(which, &socket, &version, &ready, launched);
     // Killed before the result is unwrapped, like the Ghostty arm closes its window: a failed run
     // that leaves a window open — and a socket behind it — is a run that needs a human before the
     // next one can start.
     drop(instance);
     let _ = std::fs::remove_file(&ready);
-
-    let (arm, report, failures) = outcome?;
-    publish(&arm, &report, failures)
+    outcome
 }
 
 /// Wait for the frame, read the screen back, parse it, compare it, and render the report.
 fn capture_and_compare(
+    which: &str,
     socket: &Path,
     version: &str,
     ready: &Path,
     launched: Instant,
-) -> Result<(Arm, String, usize), String> {
+) -> Result<(Arm, vitui_conform::Dump, Vec<u8>, String), String> {
     wait_for_socket(socket)?;
 
     // Insisted on before the wait for the same reason the tmux arm counts panes first: a scene that
@@ -263,14 +293,14 @@ fn capture_and_compare(
     let started = Instant::now();
     let bytes = capture(socket)?;
     let capture_elapsed = started.elapsed();
-    save_if_asked(&bytes)?;
+    save_if_asked(which, &bytes)?;
 
     // **`Ecma48`, and that was probed rather than assumed.** kitty re-serialises its own grid, which
     // is what tmux does too and tmux needed a dialect of its own — so this was checked with a raw
     // `printf` control probe before the arm was written. Every construct kitty emits means what
     // ECMA-48 says: `CSI m` per row, `22;1` for bold, `4:2`/`4:3`, and the colon colour forms. See
     // the parser's module docs.
-    let dump = parse(&bytes, common::scene01().len(), Dialect::Ecma48)
+    let dump = parse(&bytes, rows_expected(which), Dialect::Ecma48)
         .map_err(|e| format!("the capture is not a screen: {e}"))?;
 
     let arm = Arm {
@@ -281,7 +311,6 @@ fn capture_and_compare(
                    same kind of evidence as the Ghostty arm's and gathered over a remote-control \
                    socket rather than an AppleScript surface, so no automation grant and no window \
                    z-order is in the loop",
-        size,
         not_compared: NOT_COMPARED,
         notes: vec![
             format!(
@@ -322,8 +351,7 @@ fn capture_and_compare(
                 .to_string(),
         ],
     };
-    let (report, failures) = render(&arm, &dump, &bytes);
-    Ok((arm, report, failures))
+    Ok((arm, dump, bytes, size))
 }
 
 /// Block until kitty has created its control socket, or say that it never did.

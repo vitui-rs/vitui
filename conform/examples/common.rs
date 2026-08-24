@@ -37,6 +37,14 @@ use vitui_engine::{Clock, Config, Engine, Rect, Style as EngineStyle, Wake};
 /// How long to wait for the scene to present a frame and then stand still.
 pub const READY_TIMEOUT: Duration = Duration::from_secs(20);
 
+/// How often scene 04's raw-byte probe repaints itself.
+///
+/// **Not a settle time and not tuned to one.** It is a repaint cadence: the picture is redrawn with
+/// an erase and absolute addressing, so a window that has just changed size is correct again within
+/// one cycle and an echoed keystroke is gone within one cycle. The driver still waits
+/// [`QUIESCENT`] before it captures, which is five of these.
+pub const REPAINT: Duration = Duration::from_millis(100);
+
 /// How long the scene's stamp must stay unchanged before the screen counts as settled.
 ///
 /// **Not tuned to a measurement**, which would make it the flaky-test shape this repository refuses.
@@ -45,12 +53,13 @@ pub const READY_TIMEOUT: Duration = Duration::from_secs(20);
 /// than photographing a moving screen.
 pub const QUIESCENT: Duration = Duration::from_millis(500);
 
-/// The arguments that turn one of these executables from its driver half into its scene half.
+/// Every scene, in the order an arm runs them.
 ///
-/// **One executable, two halves**, and the driver launches the scene by re-running its own
-/// [`std::env::current_exe`]. That is not a trick to save a file: it makes the two halves the same
-/// build by construction, where a sibling binary path can silently be yesterday's.
-pub const SCENE_ARGS: &str = "--scene 01";
+/// **An arm runs all of them or it is not a run**, and one report per arm holds a section for each.
+/// The rule is `SCENES.md`'s and it is the same one that gives each arm its own file: a scene whose
+/// section is missing reads as a win, and that is the single easiest way for this directory to
+/// become dishonest. There is deliberately no flag to run one.
+pub const SCENES: &[&str] = &["01", "04"];
 
 /// One row of scene 01: an attribute, the label under it, and what the dump must say.
 pub struct Case {
@@ -160,6 +169,125 @@ pub fn scene01() -> [Case; 11] {
     ]
 }
 
+/// One row of scene 04: what is written into it, and what the terminal must show afterwards.
+///
+/// **The row is read as text, and that is the whole trick.** A grid-to-text dump emits a
+/// double-width glyph with no padding cell and no continuation marker, so *what is at column 3* is
+/// not a question this instrument can ask — production ticket 04 predicted that and scene 02 is the
+/// scene kept to prove it. ASCII sentinels convert it into one it can: put `A` and `B` to the left
+/// and `C` and `D` to the right, and the row read as a string says which columns survived without
+/// anyone deriving a width. The width tables are the thing under test, so they may not be in the
+/// measuring loop.
+pub struct Pair {
+    /// The row's identity in the report.
+    pub label: &'static str,
+    /// Where the cursor goes within the row, and what is written there, in order.
+    pub emit: &'static [(u16, &'static str)],
+    /// What the row must read as, trailing padding ignored.
+    pub want: &'static str,
+    /// A cluster whose **style is reported and never compared**, by index into the row's text.
+    ///
+    /// Only rule 3's row uses it, and it is reported rather than compared because **the three
+    /// families answer it differently** — see that row's `asks`. There is no single expectation to
+    /// hold them to, and inventing one would make two of three arms carry a permanent `FAILED` for
+    /// something that is not a defect. What gates it instead is `tests.rs`, over the committed
+    /// captures, one assertion per terminal: the live arm reports and the fixture gates, which is
+    /// the trade this whole directory is built on.
+    pub report_style: Option<usize>,
+    /// What the row is asking, in one clause, for the report.
+    pub asks: &'static str,
+}
+
+/// Scene 04 — a pair bisected, and what the terminal does with the orphan.
+///
+/// # This is the scene that answers architecture ticket 20, and it cannot be drawn with the engine
+///
+/// Every other scene here drives the engine and compares what came back. This one must not, and the
+/// reason is the answer itself: the engine's drawing verbs repair a bisected pair before the bytes
+/// are ever serialised, so an engine-driven scene could only ever photograph the repair. **The
+/// question is what the terminal does when it is handed the bytes anyway**, which is what the
+/// engine's mirror would have believed had the repair stopped at the clip.
+///
+/// `SCENES.md` licenses this in as many words — *a scene is a described picture, and an arm may
+/// reach it any way it likes* — and it is the same discipline the kitty arm's conceal row came out
+/// of: run the control before the instrument, or *the terminal does not do it* and *the instrument
+/// cannot see it* have no way to be told apart.
+///
+/// It is also why this scene keeps its value after the answer, where `--through-tmux`'s overline row
+/// lost its. An arm that asked the engine what to expect would be checking the engine against
+/// itself; these six rows ask nothing of the engine at all.
+///
+/// # The rows
+///
+/// Each is `AB漢CD` — `A` at 0, `B` at 1, the wide glyph across 2 and 3, `C` at 4, `D` at 5 — and
+/// then one write over one half of it.
+pub fn scene04() -> [Pair; 6] {
+    [
+        Pair {
+            label: "control",
+            emit: &[(0, "AB漢CD")],
+            want: "AB漢CD",
+            report_style: None,
+            asks: "nothing is overwritten, so a disagreement here says the other five rows are \
+                   about the capture rather than about the terminal",
+        },
+        Pair {
+            label: "over-cont",
+            emit: &[(0, "AB漢CD"), (3, "x")],
+            want: "AB xCD",
+            report_style: None,
+            asks: "**the ticket's own case.** A narrow cluster lands on the continuation at column \
+                   3. Does the terminal blank the head at column 2, or leave a wide head with \
+                   nothing after it?",
+        },
+        Pair {
+            label: "over-head",
+            emit: &[(0, "AB漢CD"), (2, "x")],
+            want: "ABx CD",
+            report_style: None,
+            asks: "the mirror image: a narrow cluster lands on the head at column 2. Does the \
+                   terminal blank the continuation at column 3?",
+        },
+        Pair {
+            label: "over-wide",
+            emit: &[(0, "AB漢CD"), (3, "漢")],
+            want: "AB 漢D",
+            report_style: None,
+            asks: "rule 5 — a wide cluster landing across an existing pair, which orphans a half at \
+                   each end at once",
+        },
+        Pair {
+            label: "keeps-style",
+            emit: &[(0, "AB"), (2, "\u{1b}[41m漢\u{1b}[0m"), (4, "CD"), (3, "x")],
+            want: "AB xCD",
+            report_style: Some(2),
+            asks: "**what does the blanked half wear, and the three families disagree.** The wide \
+                   glyph carries a red background and the `x` does not. kitty 0.48.2 keeps the \
+                   orphan's own background; Ghostty 1.3.1 and tmux 3.7c blank it to the SGR state \
+                   in force. Reported, never compared — there is no single right answer to hold an \
+                   arm to, and this row's value is that sentence rather than a tick",
+        },
+        Pair {
+            label: "ruler",
+            emit: &[(0, "0123456789")],
+            want: "0123456789",
+            report_style: None,
+            asks: "the row that makes a mis-sized or reflowed capture loud. This scene reports no \
+                   surface size — a raw-byte probe has none to report — so a ruler that is short, \
+                   wrapped or absent is what stands in for the handshake",
+        },
+    ]
+}
+
+/// How many rows the scene declares, which is what the parser refuses a short capture against.
+pub fn rows_expected(which: &str) -> usize {
+    match which {
+        "01" => scene01().len(),
+        "04" => scene04().len(),
+        other => panic!("no such scene: {other}"),
+    }
+}
+
 /// The scene's command line, as an **argv**.
 ///
 /// Built from [`std::env::current_exe`] so the scene is this same build. That is not a trick to save
@@ -176,11 +304,13 @@ pub fn scene01() -> [Case; 11] {
 /// # Errors
 ///
 /// Whatever [`std::env::current_exe`] failed with.
-pub fn scene_argv() -> Result<Vec<String>, String> {
+pub fn scene_argv(which: &str) -> Result<Vec<String>, String> {
     let exe = std::env::current_exe().map_err(|e| format!("current_exe: {e}"))?;
-    let mut argv = vec![exe.display().to_string()];
-    argv.extend(SCENE_ARGS.split(' ').map(str::to_string));
-    Ok(argv)
+    Ok(vec![
+        exe.display().to_string(),
+        "--scene".into(),
+        which.into(),
+    ])
 }
 
 // ── The scene half: inside the terminal ──────────────────────────────────────────────────────────
@@ -199,9 +329,16 @@ pub fn scene_argv() -> Result<Vec<String>, String> {
 /// with `-x` and `-y` — and it runs the same code anyway. An arm that only *believes* it set the
 /// size still gets told when it did not.
 pub fn scene(which: Option<&str>) {
-    assert_eq!(which, Some("01"), "only scene 01 exists");
     let ready = std::env::var("CONFORM_READY").expect("the driver sets CONFORM_READY");
+    match which {
+        Some("01") => scene01_frames(&ready),
+        Some("04") => scene04_bytes(&ready),
+        other => panic!("no such scene: {other:?} — see SCENES"),
+    }
+}
 
+/// Scene 01: attach the engine and hold the eleven rows right until the arm shuts the terminal down.
+fn scene01_frames(ready: &str) {
     let engine = Engine::new(Config {
         clock: Clock::System,
         max_frame_rate: 60.0,
@@ -224,7 +361,7 @@ pub fn scene(which: Option<&str>) {
         draw(&mut screen);
         drop(permit);
     }
-    stamp(&ready, &mut frame, &screen);
+    stamp(ready, &mut frame, &screen);
 
     loop {
         if screen.wait() == Wake::Quit {
@@ -236,7 +373,7 @@ pub fn scene(which: Option<&str>) {
         // every wake redraws, and a redraw is what makes the stamp stand still.
         while screen.next_event().is_some() {}
         draw(&mut screen);
-        stamp(&ready, &mut frame, &screen);
+        stamp(ready, &mut frame, &screen);
     }
 }
 
@@ -268,6 +405,64 @@ fn stamp(ready: &str, frame: &mut u64, screen: &vitui_engine::Screen) {
     *frame += 1;
     let (w, h) = screen.size();
     let _ = std::fs::write(ready, format!("{frame} {w}x{h}\n"));
+}
+
+/// Scene 04: write the raw bytes, say so once, and keep rewriting them until the arm shuts down.
+///
+/// # Why this half does not use the engine, and what it costs
+///
+/// See [`scene04`]. The short version: the engine repairs a bisected pair before it serialises
+/// anything, so the bytes this scene needs are bytes the engine will not emit.
+///
+/// # The handshake it cannot have, and what stands in for it
+///
+/// Scene 01's stamp carries a frame counter and the driver waits for it to stand still, because an
+/// idle vitui application costs zero wakeups — so a stamp that stops moving is a screen that has
+/// stopped moving. **That mechanism is the engine's, not the handshake's.** A raw-byte probe is told
+/// nothing when the window resizes: `std` has no signal handling and this workspace has no
+/// dependencies, so there is no wake to count.
+///
+/// So it repaints unconditionally, every [`REPAINT`], with an erase and absolute cursor addressing.
+/// The picture *heals* rather than the handshake *detecting* — a window that settles into a new size
+/// is repainted correctly within one cycle, and the erase takes any keystroke the window stole focus
+/// for with it. What makes a bad capture loud rather than silent is the scene's own content: six
+/// rows that each identify themselves, one of which is a column ruler, against a parser that refuses
+/// a capture with fewer rows than the scene declared.
+fn scene04_bytes(ready: &str) {
+    use std::io::Write as _;
+
+    let mut screen = String::new();
+    // Hidden, so a block cursor parked on a compared row is not part of the picture.
+    screen.push_str("\u{1b}[?25l");
+    for (r, pair) in scene04().iter().enumerate() {
+        // **`EL` per row, never `ED`.** The repaint has to erase what it is about to redraw, and
+        // the obvious way to do that is `CSI 2 J`. Under the `--through-tmux` arm that is wrong in
+        // a way no other arm could have shown: tmux pushes a cleared screen into the pane's
+        // history, so ten repaints a second scrolled the picture up through Ghostty's scrollback
+        // and the capture came back with the scene at row 38 and again at row 76. Six rows of
+        // `FAILED` against a screen that had the right answer on it twice.
+        //
+        // Erasing one row at a time touches no history in any of the four arms, and it erases
+        // exactly the cells this scene is about to write. Anything the terminal echoes lands below
+        // them, where the cursor is parked and nothing is compared.
+        let _ = write!(&mut screen, "\u{1b}[{};1H\u{1b}[2K", r + 1);
+        for (col, text) in pair.emit {
+            let _ = write!(&mut screen, "\u{1b}[{};{}H{text}", r + 1, col + 1);
+        }
+    }
+    // Parked below the scene, erased with it, so an echoed keystroke has somewhere to go that is not
+    // a compared row.
+    let _ = write!(&mut screen, "\u{1b}[{};1H\u{1b}[2K", scene04().len() + 2);
+
+    // The stamp is written once and never moves. There is no counter to move it: see above.
+    let _ = std::fs::write(ready, "1 raw\n");
+
+    loop {
+        let mut out = std::io::stdout();
+        let _ = out.write_all(screen.as_bytes());
+        let _ = out.flush();
+        std::thread::sleep(REPAINT);
+    }
 }
 
 /// Block until the scene has presented *and stopped changing*, or give up loudly.
@@ -344,8 +539,6 @@ pub struct Arm {
     pub mechanism: &'static str,
     /// What this arm's rows are evidence *about*.
     pub measures: &'static str,
-    /// The surface size the scene reported, which is not necessarily the one the arm asked for.
-    pub size: String,
     /// Scene rows this arm does not compare, by label, each with why and the reason in words.
     ///
     /// **Declared in advance, never inferred from the observation**, or the instrument would be
@@ -516,9 +709,12 @@ fn judge(dump: &Dump, i: usize, case: &Case) -> Verdict {
     }
 }
 
-/// Compare the eleven rows and render one arm's report. Returns the text and the disagreement count.
-pub fn render(arm: &Arm, dump: &Dump, bytes: &[u8]) -> (String, usize) {
-    let cases = scene01();
+/// The preamble one arm's report opens with, written once however many scenes it ran.
+///
+/// `bytes` is the first scene's capture, which is where the OSC 10/11 default colours come from.
+/// They are the terminal's and not the scene's, so any capture would do and the first is the one
+/// that exists when this is called.
+pub fn header(arm: &Arm, bytes: &[u8]) -> String {
     let (fg, bg) = default_colours(bytes);
 
     let mut out = String::new();
@@ -527,7 +723,8 @@ pub fn render(arm: &Arm, dump: &Dump, bytes: &[u8]) -> (String, usize) {
         out,
         "**Generated. It reports; it does not block.** One file per arm, because two arms writing \
          one file means the rows of whichever ran first are gone — and *a missing row reads as a \
-         win*.\n"
+         win*. **Every scene of `SCENES` is in here** for the same reason, and there is no flag to \
+         run one of them.\n"
     );
     let _ = writeln!(
         out,
@@ -544,11 +741,6 @@ pub fn render(arm: &Arm, dump: &Dump, bytes: &[u8]) -> (String, usize) {
     let _ = writeln!(out, "- **These rows are evidence about:** {}", arm.measures);
     let _ = writeln!(
         out,
-        "- **Surface:** {} cells, as the scene reported it",
-        arm.size
-    );
-    let _ = writeln!(
-        out,
         "- **Default colours, from the dump's own OSC 10/11:** fg {}, bg {}",
         show(fg),
         show(bg)
@@ -557,10 +749,39 @@ pub fn render(arm: &Arm, dump: &Dump, bytes: &[u8]) -> (String, usize) {
         let _ = writeln!(out, "- {note}");
     }
     let _ = writeln!(out);
+    out
+}
 
+/// One scene's section of one arm's report: the text, how many rows were asked, and how many
+/// disagreed.
+pub fn section(arm: &Arm, which: &str, dump: &Dump, size: &str) -> (String, usize, usize) {
+    match which {
+        "01" => section01(arm, dump, size),
+        "04" => section04(arm, dump, size),
+        other => panic!("no such scene: {other}"),
+    }
+}
+
+/// The sentence every report ends with, and it is about what is *not* in the tables above.
+pub fn trailer() -> String {
+    "A row that does not say which arm it came from is not a result, and a *missing* row reads as a \
+     win — which is the single easiest way for this directory to become dishonest. Every row of \
+     every scene is printed above whether it agreed or not, and a capture with fewer rows than the \
+     scene declared never reaches a table: it is refused as `FAILED` by the parser.\n"
+        .to_string()
+}
+
+/// Scene 01's section: the eleven attribute bits, one per row.
+fn section01(arm: &Arm, dump: &Dump, size: &str) -> (String, usize, usize) {
+    let cases = scene01();
+    let mut out = String::new();
     let _ = writeln!(
         out,
         "## Scene 01 — the eleven attribute bits, one per row\n"
+    );
+    let _ = writeln!(
+        out,
+        "Surface: **{size}** cells, as the scene reported it.\n"
     );
     let _ = writeln!(
         out,
@@ -575,27 +796,14 @@ pub fn render(arm: &Arm, dump: &Dump, bytes: &[u8]) -> (String, usize) {
     let mut unanswerable = 0;
     for (i, case) in cases.iter().enumerate() {
         let verdict = judge(dump, i, case);
-        let (mark, observed) = match (arm.excluded(case.label), &verdict) {
-            // Excluded and it agreed anyway. The declaration is describing something that is no
-            // longer there, and an excuse nobody rechecks is the same kind of thing as an MSRV
-            // nobody compiles. A failure, so the run says so.
-            (Some((kind, _)), Verdict::Agreed(_)) => {
-                failures += 1;
-                ("**STALE**", kind.stale().to_string())
-            }
-            (Some((kind, why)), _) => {
-                unanswerable += 1;
-                (
-                    kind.cell(),
-                    format!("{} — observed: {}", why, verdict.observed()),
-                )
-            }
-            (None, Verdict::Agreed(_)) => ("\u{2713}", verdict.observed()),
-            (None, _) => {
-                failures += 1;
-                ("**FAILED**", verdict.observed())
-            }
-        };
+        let (mark, observed) = mark_of(
+            arm,
+            case.label,
+            verdict.agreed(),
+            &verdict.observed(),
+            &mut failures,
+            &mut unanswerable,
+        );
         let _ = writeln!(
             out,
             "| {} | `{}` | {} | {} | {} |",
@@ -610,28 +818,174 @@ pub fn render(arm: &Arm, dump: &Dump, bytes: &[u8]) -> (String, usize) {
     let asked = cases.len() - unanswerable;
     let _ = writeln!(out, "\n**{}/{} agreed.**\n", asked - failures, asked);
     if unanswerable > 0 {
-        let _ = writeln!(
-            out,
-            "**Not in that denominator: {unanswerable} of the scene's {}.** This arm declared \
-             before the run that it would not compare them, with the reason printed in the row \
-             beside what was nonetheless observed. `cannot ask` is a fact about the **instrument** \
-             — the emulator does the thing and this suite cannot see it. `by design` is a fact \
-             about **the engine** — it consulted `quirks.rs` and did not send it, so a `FAILED` \
-             would blame the terminal for a decision of ours. `compare/`'s three kinds of \
-             non-number have a word for neither, which is why `SCENES.md` grew two more. A row so \
-             declared that agrees anyway is reported `STALE` and counted as a failure, so a \
-             declaration cannot outlive what earned it.\n",
-            cases.len()
-        );
+        let _ = writeln!(out, "{}", not_in_the_denominator(unanswerable, cases.len()));
     }
+    (out, asked, failures)
+}
+
+/// Scene 04's section: a pair bisected, and what the terminal does with the orphan.
+fn section04(arm: &Arm, dump: &Dump, size: &str) -> (String, usize, usize) {
+    let pairs = scene04();
+    let mut out = String::new();
     let _ = writeln!(
         out,
-        "A row that does not say which arm it came from is not a result, and a *missing* row reads \
-         as a win — which is the single easiest way for this directory to become dishonest. Every \
-         row of the scene is printed above whether it agreed or not, and a capture with fewer rows \
-         than the scene declared never reaches this table: it is refused as `FAILED` by the parser."
+        "## Scene 04 — a pair bisected, and what the terminal does with the orphan\n"
     );
-    (out, failures)
+    let _ = writeln!(
+        out,
+        "Surface: **{size}**. This scene is raw bytes rather than the engine, so it has no surface \
+         size to report — see below.\n"
+    );
+    let _ = writeln!(
+        out,
+        "**The only scene here that does not drive the engine, and it cannot.** The engine's \
+         drawing verbs repair a bisected pair before anything is serialised, so an engine-driven \
+         scene could photograph only the repair. The question is what a terminal does when it is \
+         handed the bytes anyway — which is what the engine's mirror would have believed had the \
+         repair stopped at a `View::child` clip, and is architecture ticket 20's whole subject.\n"
+    );
+    let _ = writeln!(
+        out,
+        "Every row is `AB漢CD` — `A` at column 0, `B` at 1, the wide glyph across 2 and 3, `C` at \
+         4, `D` at 5 — and then one write over one half of it. **The row is compared as text**: a \
+         grid-to-text dump emits no padding cell for a double-width glyph, so *what is at column 3* \
+         is not askable of it, and ASCII sentinels turn the question into one that is.\n"
+    );
+    let _ = writeln!(out, "| row | asks | expected | observed | |");
+    let _ = writeln!(out, "|---|---|---|---|---|");
+
+    let mut failures = 0;
+    let mut unanswerable = 0;
+    for (i, pair) in pairs.iter().enumerate() {
+        let verdict = judge04(dump, i, pair);
+        let (mark, observed) = mark_of(
+            arm,
+            pair.label,
+            verdict.agreed(),
+            &verdict.observed(),
+            &mut failures,
+            &mut unanswerable,
+        );
+        let _ = writeln!(
+            out,
+            "| {} | {} | `{:?}` | {} | {} |",
+            pair.label, pair.asks, pair.want, observed, mark
+        );
+    }
+
+    let asked = pairs.len() - unanswerable;
+    let _ = writeln!(out, "\n**{}/{} agreed.**\n", asked - failures, asked);
+    if unanswerable > 0 {
+        let _ = writeln!(out, "{}", not_in_the_denominator(unanswerable, pairs.len()));
+    }
+    (out, asked, failures)
+}
+
+/// The report cell for one row, and the two counters it moves.
+///
+/// One function because the two scenes must treat an exclusion identically: a row an arm declared it
+/// would not compare leaves the denominator, and a row so declared that **agrees anyway** is `STALE`
+/// and counts as a failure. Two copies of that rule is how one of them would come to be missing it.
+fn mark_of(
+    arm: &Arm,
+    label: &str,
+    agreed: bool,
+    observed: &str,
+    failures: &mut usize,
+    unanswerable: &mut usize,
+) -> (&'static str, String) {
+    match (arm.excluded(label), agreed) {
+        (Some((kind, _)), true) => {
+            *failures += 1;
+            ("**STALE**", kind.stale().to_string())
+        }
+        (Some((kind, why)), false) => {
+            *unanswerable += 1;
+            (kind.cell(), format!("{why} — observed: {observed}"))
+        }
+        (None, true) => ("\u{2713}", observed.to_string()),
+        (None, false) => {
+            *failures += 1;
+            ("**FAILED**", observed.to_string())
+        }
+    }
+}
+
+/// The paragraph under a table that has rows outside its denominator.
+fn not_in_the_denominator(unanswerable: usize, total: usize) -> String {
+    format!(
+        "**Not in that denominator: {unanswerable} of the scene's {total}.** This arm declared \
+         before the run that it would not compare them, with the reason printed in the row beside \
+         what was nonetheless observed. `cannot ask` is a fact about the **instrument** — the \
+         emulator does the thing and this suite cannot see it. `by design` is a fact about **the \
+         engine** — it consulted `quirks.rs` and did not send it, so a `FAILED` would blame the \
+         terminal for a decision of ours. `compare/`'s three kinds of non-number have a word for \
+         neither, which is why `SCENES.md` grew two more. A row so declared that agrees anyway is \
+         reported `STALE` and counted as a failure, so a declaration cannot outlive what earned \
+         it.\n"
+    )
+}
+
+/// What the dump said about one row of scene 04.
+enum Seen {
+    /// The row reads exactly as the scene said it would.
+    Agreed(String),
+    /// The same, and the row also asked for a cluster's style to be **reported**. Carried rather
+    /// than folded into `Agreed` so the report cannot print a tick without printing the observation
+    /// that earns the row its place.
+    Reported(String, usize, Style),
+    /// The row is not in the capture at all.
+    Missing,
+    /// The row does not read as the scene said it would. **This is the finding**, whichever way it
+    /// falls: a terminal that left the orphan standing shows it here.
+    WrongText(String),
+    /// The row asked to report a cluster the capture does not have that many of. A defect in the
+    /// scene or a capture that lost cells, and either way not a silent blank cell in the report.
+    NoSuchCluster(usize),
+}
+
+impl Seen {
+    fn agreed(&self) -> bool {
+        matches!(self, Self::Agreed(_) | Self::Reported(..))
+    }
+
+    fn observed(&self) -> String {
+        match self {
+            Self::Agreed(text) => format!("`{text:?}`"),
+            Self::Reported(text, at, style) => format!(
+                "`{text:?}` — and cluster {at}, the blanked half, wears **{}**",
+                describe(*style)
+            ),
+            Self::Missing => "no such row".into(),
+            Self::WrongText(text) => format!("`{text:?}`"),
+            Self::NoSuchCluster(at) => format!("the row has no cluster {at}"),
+        }
+    }
+}
+
+impl Verdict {
+    fn agreed(&self) -> bool {
+        matches!(self, Self::Agreed(_))
+    }
+}
+
+/// Judge one row of scene 04: the text is the assertion, and a style is carried out for the report.
+fn judge04(dump: &Dump, i: usize, pair: &Pair) -> Seen {
+    let Some(row) = dump.rows.get(i) else {
+        return Seen::Missing;
+    };
+    let text = row.text();
+    let text = text.trim_end().to_string();
+    if text != pair.want {
+        return Seen::WrongText(text);
+    }
+    if let Some(at) = pair.report_style {
+        let Some(cluster) = row.clusters.get(at) else {
+            return Seen::NoSuchCluster(at);
+        };
+        return Seen::Reported(text, at, cluster.style);
+    }
+    Seen::Agreed(text)
 }
 
 /// A style in words, for a table cell.
@@ -693,19 +1047,22 @@ fn show(c: Option<Colour>) -> String {
 ///
 /// The write failing, or a disagreement — which is a non-zero exit so a human running this notices,
 /// and **not** a CI gate: nothing runs these on a pull request.
-pub fn publish(arm: &Arm, report: &str, failures: usize) -> Result<(), String> {
+pub fn publish(arm: &Arm, report: &str, asked: usize, failures: usize) -> Result<(), String> {
     let path = format!("REPORT-{}.md", arm.title.to_lowercase());
     std::fs::write(&path, report).map_err(|e| format!("writing {path}: {e}"))?;
     println!("{report}");
-    // The rows this arm said it would not compare are not in the denominator, for the same reason
-    // they are not in the table's agreed count: a row nothing asked is not a row anything answered.
-    let total = scene01().len() - arm.not_compared.len();
+    // `asked` is summed over the sections and already excludes the rows this arm said it would not
+    // compare, for the same reason they are not in a table's agreed count: a row nothing asked is
+    // not a row anything answered.
     match failures {
         0 => {
-            println!("{path} written. {total}/{total} agreed.");
+            println!(
+                "{path} written. {asked}/{asked} agreed, over {} scenes.",
+                SCENES.len()
+            );
             Ok(())
         }
-        n => Err(format!("{n} of {total} disagreed — {path} written")),
+        n => Err(format!("{n} of {asked} disagreed — {path} written")),
     }
 }
 
@@ -715,14 +1072,48 @@ pub fn publish(arm: &Arm, report: &str, failures: usize) -> Result<(), String> {
 /// parser defect or a claim that stopped being true, never a reason to regenerate. A driver that
 /// rewrote its own fixtures on every run would turn the gate into a mirror.
 ///
+/// `CONFORM_SAVE_CAPTURE` is a **prefix**, not a file — there is a capture per scene now, and one
+/// name would have kept whichever ran last. `fixtures/kitty-0.48.2` becomes
+/// `fixtures/kitty-0.48.2-scene04-pairs.vt`.
+///
+/// **It will not overwrite one**, which turns *a capture is never regenerated to make something
+/// pass* from a sentence in three files into something the code will not do. The finding that earned
+/// that rule is in `SCENES.md`: production ticket 10 wired `attrs_dropped` on to the wire and the
+/// tmux arm stopped being able to ask the question its fixture had already answered. The fixture is
+/// what preserved it.
+///
+/// An existing fixture is **left alone and said so on stderr**, rather than failing the run: adding
+/// a scene means running an arm whose other scenes are already captured, and a refusal there would
+/// make the new capture impossible to take without deleting the old evidence first. Saying nothing
+/// is the other wrong answer — an operator who meant to regenerate would read silence as success.
+///
 /// # Errors
 ///
 /// The write failing. A capture that cannot be saved when saving was asked for is a failed run, not
 /// a run with a missing side effect.
-pub fn save_if_asked(bytes: &[u8]) -> Result<(), String> {
-    if let Ok(to) = std::env::var("CONFORM_SAVE_CAPTURE") {
-        std::fs::write(&to, bytes).map_err(|e| format!("saving the capture: {e}"))?;
-        eprintln!("capture saved to {to}");
+pub fn save_if_asked(which: &str, bytes: &[u8]) -> Result<(), String> {
+    let Ok(prefix) = std::env::var("CONFORM_SAVE_CAPTURE") else {
+        return Ok(());
+    };
+    let to = format!("{prefix}-scene{which}-{}.vt", scene_tag(which));
+    if std::fs::exists(&to).unwrap_or(false) {
+        eprintln!(
+            "{to} already exists and was left alone — a capture is evidence and is never \
+             regenerated to make something pass. Move it aside by hand if this run really is a new \
+             claim"
+        );
+        return Ok(());
     }
+    std::fs::write(&to, bytes).map_err(|e| format!("saving the capture: {e}"))?;
+    eprintln!("capture saved to {to}");
     Ok(())
+}
+
+/// The word in a fixture's name that says which scene it is a capture of.
+fn scene_tag(which: &str) -> &'static str {
+    match which {
+        "01" => "attrs",
+        "04" => "pairs",
+        other => panic!("no such scene: {other}"),
+    }
 }

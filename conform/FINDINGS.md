@@ -3,6 +3,69 @@
 Hand-written and dated, because a number and what it means are two different artefacts with two
 different lifetimes. `REPORT.md` is generated; this is not.
 
+## 2026-08-23 — the terminals agree about the repair and disagree about its colour
+
+Scene 04, four arms, and the reason production ticket 06 was blocked on this directory rather than on
+a reading of the spec. Architecture ticket 20 had two spec sentences that could not both hold at a
+`View::child` clip and no way to choose between them, because the choice turns on *what a real
+terminal does with a cluster printed over one half of a double-width glyph* — and that had been
+recorded as uncertainty since 2026-08-20.
+
+**The four text rows are unanimous.** `AB漢CD`, then one write over one half of the wide glyph:
+
+| | version | over the continuation | over the head | a wide glyph over the continuation |
+|---|---|---|---|---|
+| kitty | 0.48.2 | `AB xCD` | `ABx CD` | `AB 漢D` |
+| Ghostty | 1.3.1 | `AB xCD` | `ABx CD` | `AB 漢D` |
+| tmux | 3.7c | `AB xCD` | `ABx CD` | `AB 漢D` |
+| tmux → Ghostty | 3.7c → 1.3.1 | `AB xCD` | `ABx CD` | `AB 漢D` |
+
+Every family blanks the orphaned half itself, in both directions, and **none of them has a clip to
+consult**. So a surface holding a wide head with no continuation is a picture no terminal can be made
+to show. §3 keeps its invariant; §4 gets a stated exception.
+
+### The row worth the scene is the one that is not unanimous
+
+The wide glyph carries a red background and the cluster written over its continuation does not.
+**kitty keeps the orphan's own background. Ghostty and tmux blank to the SGR state in force.**
+
+That was not the question the scene was added for, and it is the better answer. A repair delegated to
+the terminal is not merely a repair the mirror does not know about — it is a repair whose *result
+differs by terminal*, and there is no single mirror state that could be right on all three. *The
+engine may as well repair* becomes **the engine must**, which is an argument no document could have
+produced and no single arm could have found. Read across the arms, never down one — for the third
+time.
+
+It is **reported and never compared**. There is no right answer to hold an arm to, and inventing one
+would have given two of three arms a permanent `FAILED` for something that is not a defect. The
+per-terminal fact belongs to a capture, so `tests.rs` asserts it once per fixture.
+
+### The instrument's first defect was in the instrument, for the third time
+
+The probe repainted with `CSI 2 J`. **tmux pushes a cleared screen into the pane's history**, so ten
+repaints a second scrolled the picture up through Ghostty's scrollback: the `--through-tmux` capture
+came back with the whole scene on it twice, at rows 38 and 76, and every row read `""` — six `FAILED`
+against a screen that had the right answer on it twice.
+
+Two things about that are worth more than the fix. It was found by **the arm with two parsers in the
+path**, which is the third time that arm has been the one to expose an instrument defect — it has the
+most ways to go wrong and therefore the most to say. And the failure was *loud*: the parser's
+row-count refusal and six mismatched strings, not a quiet pass. A probe that had painted the whole
+screen, as the engine scene does, would have hidden it.
+
+`EL` per row is what the probe does now. It touches no history in any of the four arms and erases
+exactly the cells the scene is about to write.
+
+### And a rule that was a comment became something the code will not do
+
+`CONFORM_SAVE_CAPTURE` is a prefix now rather than a filename — there is a capture per scene, and one
+name would have kept whichever ran last — and **it will not overwrite an existing fixture.** *A
+capture is never regenerated to make something pass* had been a sentence in three files; it is a
+branch now. An existing fixture is left alone and said so on stderr, rather than failing the run:
+adding a scene means running an arm whose other scenes are already captured, and a refusal there would
+make the new capture impossible to take without deleting the old evidence first. Saying nothing is the
+other wrong answer — an operator who meant to regenerate would read silence as success.
+
 ## 2026-08-23 — wiring the quirk took the measurement away, and the committed report had gone stale
 
 Found by running the *old* arms after building the new one, which was meant to be a five-second check

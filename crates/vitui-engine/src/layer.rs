@@ -895,13 +895,21 @@ impl LayerStack {
     /// right: a column the run did not repaint holds what the last frame that did composited there,
     /// and the operator covered its head then too.
     ///
-    /// # What arrives already broken is not this function's to mend
+    /// # Nothing arrives already broken, and that is what makes the clamp above sound
     ///
-    /// The seams restored here are the ones **compositing creates**. A layer surface that already
-    /// violates the pairing invariant composites into a frame that does too, and there is exactly
-    /// one way to build one: [`View::child`](crate::View::child) may not widen its clip (spec §4),
-    /// so a pair the clip bisects keeps the half outside it. That is architecture ticket 20's to
-    /// decide, and mending it here would hide the case rather than answer it.
+    /// The seams restored here are the ones **compositing creates**, and [`mend`] declines to look
+    /// outside the span on the strength of one sentence: *a repaired frame holds a wide head one
+    /// column out **if and only if** what the layers paint one column in is its continuation*. That
+    /// sentence is only true while every layer surface pairs.
+    ///
+    /// It used not to be. [`View::child`](crate::View::child) could not widen its clip (spec §4), so
+    /// a pair the clip bisected kept the half outside it and a layer surface could arrive here
+    /// already violating §3 — and then whether the orphan survived depended on where the *damaged
+    /// span* happened to end, which is one question answered both ways on alternate frames.
+    /// Architecture ticket 20 closed it at the source rather than here: the drawing verbs' repair is
+    /// bounded by the surface, so there is no longer a way to build such a surface. **This function
+    /// is unchanged by that answer** — mending it here would have hidden the case rather than
+    /// answered it — and its reasoning is sound for the first time.
     pub(crate) fn composite_run(
         &mut self,
         frame: &mut Surface,
@@ -3389,18 +3397,20 @@ mod tests {
         assert_pairing_holds(h.screen.frame());
     }
 
-    /// A pair that arrives broken stays broken, and the oracle has to agree about that.
+    /// A pair a child clip bisects arrives here already mended, and the oracle agrees about that.
     ///
-    /// `View::child` may not widen its clip (spec §4), so a pair the clip bisects keeps the half
-    /// outside it and the layer's own surface holds a bare `CONTINUATION`. Whether that is right is
-    /// architecture ticket 20's question and not this file's — but **the two compositors must take
-    /// the same position on it**, or gate #1's equality is false for a program nobody has written
-    /// yet and the failure points at the compositor instead of at the open question.
+    /// This test used to say *a pair that arrives broken stays broken*: `View::child` could not
+    /// widen its clip (spec §4), so the layer's own surface held a bare `CONTINUATION` and the two
+    /// compositors had to take the same position on it or gate #1's equality would be false for a
+    /// program nobody had written yet. Architecture ticket 20 answered it: the drawing verbs' repair
+    /// is bounded by the surface, so the continuation at column 4 is blanked by the verb and nothing
+    /// broken ever reaches either compositor.
     ///
-    /// The rule both of them follow: a boundary between two columns **one layer painted at once**
-    /// is that layer's own business. The composite repairs the seams it creates and nothing else.
+    /// **It is kept, and it is a stronger test than it was.** The rule both compositors follow is
+    /// unchanged — a boundary between two columns one layer painted at once is that layer's own
+    /// business — and the assertion it now carries is the one it could not: the surface pairs.
     #[test]
-    fn a_pair_a_child_clip_bisected_composites_as_it_is_and_the_oracle_says_so_too() {
+    fn a_pair_a_child_clip_bisected_arrives_at_the_composite_already_mended() {
         let mut stack = LayerStack::new();
         let id = stack.add_content(0, Rect::new(0, 0, 8, 1), true);
         let mut view = stack.view(id).unwrap();
@@ -3419,6 +3429,11 @@ mod tests {
                 "the damage-tracked frame and the reference compositor disagree at ({x}, 0)"
             );
         }
+        // What this test could not assert before architecture ticket 20, and the reason it is
+        // kept: the head at column 3 lost its continuation to the child's write and was blanked
+        // with it, inside the layer's own surface, before either compositor saw the row.
+        assert_pairing_holds(&frame);
+        assert_pairing_holds(&oracle);
     }
 
     /// The same, through the `EMPTY` skip, which is where the two arms could disagree.
@@ -3427,8 +3442,13 @@ mod tests {
     /// non-opaque arm walks cell by cell and could, so it has to be told not to: a boundary between
     /// two cells this layer wrote in one pass is the layer's, and only a boundary the skip created
     /// is the composite's.
+    ///
+    /// The child's write orphans the continuation at column 4 and the verb blanks it — to `EMPTY`
+    /// here rather than to a space, because the layer is non-opaque and that is the whole of
+    /// `opaque: false` (spec §5). So the boundary this exercises is a *skip* boundary, which is the
+    /// one the non-opaque arm has to reason about, and the base's fill shows through it.
     #[test]
-    fn a_bisected_pair_inside_a_non_opaque_layer_is_left_alone_by_both_compositors() {
+    fn the_skip_boundary_a_repaired_pair_leaves_is_handled_the_same_by_both_compositors() {
         let mut stack = LayerStack::new();
         let base = stack.add_content(0, Rect::new(0, 0, 8, 1), true);
         stack
