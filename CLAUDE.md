@@ -42,13 +42,19 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   its keep; ticket 14 found the wheel riding `Awarded` and so arriving a frame late, wrong for the
   one channel whose reader is inside the draw; and ticket 06 found the runtime had two wakeup sinks
   and flushed one.
-- **`overlay` is the runtime's only `unsafe`** — a crate-private bump arena holding a type-erased
-  overlay body between the two passes, because a `Box<dyn FnMut>` per request per frame is one
-  allocation against a budget of zero. Four blocks, a safety comment each, and the aliasing hazard
-  (growing the buffer you are executing out of frees the running closure) is solved by double
-  buffering rather than documented. The engine's `#![forbid(unsafe_code)]` is unchanged and this does
-  not touch it. **There is no Miri job**, which is the gap this leaves — see the note in ticket 13's
-  answer.
+- **`overlay` is the runtime's only `unsafe`, and ticket 21 exists to delete it.** A crate-private
+  bump arena holds a type-erased overlay body between the two passes, because a `Box<dyn FnMut>` per
+  request per frame is one allocation against a budget of zero — seven blocks and two `unsafe fn`,
+  a safety comment each, with the aliasing hazard (growing the buffer you are executing out of frees
+  the running closure) solved by double buffering rather than documented. It is not an improvisation:
+  ADR 0017 and spec §10 both specified the arena, down to the 32-byte figure, five days before the
+  code existed.
+  **The decision as of 2026-08-24 is that this goes away**: no `unsafe` in any shipped crate above
+  the engine. `.scratch/vitui-runtime-impl/issues/21-no-unsafe-above-the-engine.md` carries it, and
+  it is the one ticket on that backlog licensed to amend the map — because honouring the decision
+  means changing spec §10, spec §19 and ADR 0017, not only the code. Run it before 19. The engine's
+  own `#![forbid(unsafe_code)]` is untouched throughout, and `vitui-alloc-probe` stays exempt
+  (`GlobalAlloc` cannot be safe; `publish = false`).
 - **`vitui-components` is empty scaffolding.** Its architecture is settled (43 tickets sliced), no
   code written.
 - Nothing above the engine can draw a screen yet, so no application exists to run.
