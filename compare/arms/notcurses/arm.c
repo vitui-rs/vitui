@@ -73,11 +73,15 @@
 static const char SCENE1_TITLE[] = "vitui compare \xe2\x80\x94 caret";
 #define SCENE1_TITLE_COLS 21
 
-// Scene 2's lorem: exactly 64 characters, all ASCII.  SCENES.md does not say
-// which 64 characters, so this arm picks these and NOTES.md says so; the byte
-// counts only depend on the length.
+// Scene 2's lorem: exactly 64 characters, all ASCII, and now **verbatim from
+// SCENES.md** rather than this arm's own choice.  It was this arm's choice when
+// the arm was written, because SCENES.md gave the string's length and not the
+// string; the first run made that false (under-specification 4 is this exact
+// string) and the three arms were not brought back into line.  Scene 6 is the
+// scene whose entire subject is that two frames are the same picture, so an
+// arm drawing its own sixty-four characters is the one thing it cannot do.
 static const char LOREM64[] =
-  "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do.";
+  "lorem ipsum dolor sit amet consectetur adipiscing elit sed do ei";
 
 // Scene 5's spinner, one step per frame.
 static const char* const SPINNER[10] = {
@@ -108,6 +112,13 @@ typedef enum {
   SCENE_FULL_REPAINT,
   SCENE_MODAL_OVER_LIST,
   SCENE_MODAL_OVER_LIST_BLEND, // not a suite scene; see NOTES.md
+  // Scenes 6..9, which SCENES.md gained from the runtime backlog.  One list
+  // with the first five, not a second suite -- both backlogs described the same
+  // one, with the same rules and the same four external projects.
+  SCENE_UNCHANGED,
+  SCENE_FADE,
+  SCENE_SCATTERED,
+  SCENE_FILTER_SHRINK,
   SCENE_LATENCY,
   SCENE_CPU,
 } scene_e;
@@ -431,6 +442,164 @@ scene_full_repaint(struct notcurses* nc, struct ncplane* n, unsigned rows,
           return -1;
         }
       }
+    }
+    if(notcurses_render(nc)){
+      return -1;
+    }
+  }
+  return 0;
+}
+
+// ---------------------------------------------------------------------------
+// scenes 6..9
+// ---------------------------------------------------------------------------
+
+// Scene 6.  Scene 2's screen, drawn again on every frame, nothing different.
+//
+// The body is redrawn inside the loop and not once before it, and that is the
+// scene rather than a slip: an arm may not skip the frame, because the shortcut
+// here is the one shortcut in this suite that leaves no trace in the output --
+// the right answer is zero bytes either way.  So all 4 800 cells are written on
+// every frame and notcurses' own damage comparison decides what reaches the
+// wire, which is the quantity being asked for.
+static int
+scene_unchanged(struct notcurses* nc, struct ncplane* n, unsigned rows,
+                unsigned cols, uint64_t frames){
+  for(uint64_t f = 0 ; f < frames ; ++f){
+    if(draw_status_body(n, rows, cols)){
+      return -1;
+    }
+    if(draw_status_row(n, rows, cols, "frame 0", 0.0)){
+      return -1;
+    }
+    if(notcurses_render(nc)){
+      return -1;
+    }
+  }
+  return 0;
+}
+
+// Scene 7's panel: 60 columns by 20 rows, top-left at (30, 10).
+#define FADE_LEFT 30u
+#define FADE_TOP  10u
+#define FADE_W    60u
+#define FADE_H    20u
+
+// Scene 7.  1 200 cells of '=' in one colour, fading up from black.
+//
+// The channels are set once per frame and not once per cell, which is the whole
+// difference from scene 4: there the colour is a function of the cell, here it
+// is a function of the frame.  What the row measures is whether the rasterizer
+// coalesces a colour across a run -- it does, through the elision in
+// rasterize_core() -- and whether the damage stays inside the rectangle that
+// moved.
+static int
+scene_fade(struct notcurses* nc, struct ncplane* n, unsigned rows,
+           unsigned cols, uint64_t frames){
+  if(rows < FADE_TOP + FADE_H || cols < FADE_LEFT + FADE_W){
+    fprintf(stderr, "fade needs at least %ux%u\n",
+            FADE_LEFT + FADE_W, FADE_TOP + FADE_H);
+    return -1;
+  }
+  ncplane_set_styles(n, NCSTYLE_NONE);
+  for(uint64_t f = 0 ; f < frames ; ++f){
+    unsigned v = (unsigned)(f * 2);
+    if(v > 255){
+      v = 255;
+    }
+    ncplane_set_fg_rgb8(n, v, v, v);
+    ncplane_set_bg_rgb8(n, 0, 0, 0);
+    for(unsigned y = 0 ; y < FADE_H ; ++y){
+      for(unsigned x = 0 ; x < FADE_W ; ++x){
+        if(ncplane_putchar_yx(n, (int)(FADE_TOP + y),
+                              (int)(FADE_LEFT + x), '=') < 0){
+          return -1;
+        }
+      }
+    }
+    if(notcurses_render(nc)){
+      return -1;
+    }
+  }
+  return 0;
+}
+
+// Scene 8.  Twelve panels four across and three down, one two-digit field in
+// each of them moving.
+//
+// Twenty-four cells change in twelve places, so everything on the wire beyond
+// twenty-four characters is the cost of arriving.  This is the row NOTES.md's
+// observation about cursor motion belongs to -- an arm that spends a cursor
+// address per changed cell spends twelve of them here and one on every other
+// scene in the table.
+static int
+scene_scattered(struct notcurses* nc, struct ncplane* n, unsigned rows,
+                unsigned cols, uint64_t frames){
+  if(rows < 39 || cols < 120){
+    fprintf(stderr, "scattered needs at least 120x39\n");
+    return -1;
+  }
+  char buf[32];
+  set_default_colours(n);
+  for(unsigned k = 0 ; k < 12 ; ++k){
+    int x = (int)(30 * (k % 4));
+    int y = (int)(13 * (k / 4));
+    snprintf(buf, sizeof(buf), "panel %02u", k);
+    if(ncplane_putstr_yx(n, y, x, buf) < 0){
+      return -1;
+    }
+    if(ncplane_putstr_yx(n, y + 2, x, "count ") < 0){
+      return -1;
+    }
+  }
+  for(uint64_t f = 0 ; f < frames ; ++f){
+    for(unsigned k = 0 ; k < 12 ; ++k){
+      int x = (int)(30 * (k % 4));
+      int y = (int)(13 * (k / 4));
+      snprintf(buf, sizeof(buf), "%02llu",
+               (unsigned long long)((k + f) % 100));
+      if(ncplane_putstr_yx(n, y + 2, x + 6, buf) < 0){
+        return -1;
+      }
+    }
+    if(notcurses_render(nc)){
+      return -1;
+    }
+  }
+  return 0;
+}
+
+// Scene 9.  A list that narrows and widens again, rows blanked as they go.
+//
+// The blanked rows are written as 120 spaces rather than left alone, because
+// leaving them alone would leave the previous frame's row standing -- the
+// picture would be a list that never shrinks, and it would be *cheaper*, which
+// is the direction this suite cannot afford to be wrong in.  What reaches the
+// wire is then notcurses' business: rasterize_core() emits nothing for an
+// undamaged cell, so a row that was already blank costs nothing, and a row that
+// has just become blank costs whatever the rasterizer decides a run of spaces
+// is worth.
+static int
+scene_filter_shrink(struct notcurses* nc, struct ncplane* n, unsigned rows,
+                    unsigned cols, uint64_t frames){
+  char buf[160];
+  for(uint64_t f = 0 ; f < frames ; ++f){
+    unsigned matches = 39u - (unsigned)(f % 39);
+    set_default_colours(n);
+    for(unsigned y = 0 ; y + 1 < rows ; ++y){
+      if(y < matches){
+        snprintf(buf, sizeof(buf), "%05u  item-%05u---------", y, y);
+      }else{
+        buf[0] = '\0';
+      }
+      if(put_row_padded(n, (int)y, buf, cols)){
+        return -1;
+      }
+    }
+    snprintf(buf, sizeof(buf), " search: %02u matches", matches);
+    set_reverse_colours(n);
+    if(put_row_padded(n, (int)rows - 1, buf, cols)){
+      return -1;
     }
     if(notcurses_render(nc)){
       return -1;
@@ -770,6 +939,7 @@ usage(FILE* fp){
   fprintf(fp,
     "usage: arm --scene <name> [--frames N] [--seconds S]\n"
     "  scenes: caret status-line list-scroll full-repaint modal-over-list\n"
+    "          unchanged fade scattered filter-shrink\n"
     "          latency cpu\n"
     "          modal-over-list-blend (not a suite scene; see NOTES.md)\n");
 }
@@ -784,6 +954,10 @@ parse_scene(const char* s, scene_e* out){
   if(strcmp(s, "modal-over-list-blend") == 0){
     *out = SCENE_MODAL_OVER_LIST_BLEND; return 0;
   }
+  if(strcmp(s, "unchanged") == 0){ *out = SCENE_UNCHANGED; return 0; }
+  if(strcmp(s, "fade") == 0){ *out = SCENE_FADE; return 0; }
+  if(strcmp(s, "scattered") == 0){ *out = SCENE_SCATTERED; return 0; }
+  if(strcmp(s, "filter-shrink") == 0){ *out = SCENE_FILTER_SHRINK; return 0; }
   if(strcmp(s, "latency") == 0){ *out = SCENE_LATENCY; return 0; }
   if(strcmp(s, "cpu") == 0){ *out = SCENE_CPU; return 0; }
   return -1;
@@ -917,6 +1091,18 @@ int main(int argc, char** argv){
       break;
     case SCENE_MODAL_OVER_LIST_BLEND:
       rc = scene_modal_blend(nc, stdp, rows, cols, frames);
+      break;
+    case SCENE_UNCHANGED:
+      rc = scene_unchanged(nc, stdp, rows, cols, frames);
+      break;
+    case SCENE_FADE:
+      rc = scene_fade(nc, stdp, rows, cols, frames);
+      break;
+    case SCENE_SCATTERED:
+      rc = scene_scattered(nc, stdp, rows, cols, frames);
+      break;
+    case SCENE_FILTER_SHRINK:
+      rc = scene_filter_shrink(nc, stdp, rows, cols, frames);
       break;
     case SCENE_LATENCY:
       rc = scene_latency(nc, stdp, rows, cols);

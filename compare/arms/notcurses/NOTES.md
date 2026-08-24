@@ -500,3 +500,53 @@ cannot express
 That is two lines on stderr rather than the contract's one. It is the only
 place this arm exceeds that rule, it happens only when there is no frame at all,
 and `cannot express` on stderr was the requirement that asked for it.
+
+---
+
+# Scenes 6..9, and the lorem string
+
+Added for runtime impl ticket 20 and **not built here**, on the same terms as the rest of this arm:
+there are no notcurses development files on this machine, the pinned runner installs
+`libnotcurses-core-dev`, and every number this arm produces has to come from there.
+
+What *was* done here, since a compiler was unavailable: the four new scene functions and the helpers
+they call were extracted into a standalone translation unit and compiled against a hand-written stub
+header declaring the eight notcurses entry points they use, under
+`-std=c11 -Wall -Wextra -Wpedantic -Werror`. That checks syntax, types and the plane-bounds
+arithmetic. **It is not a build and it is not a run**, and the report must not carry a number for
+this arm until the pinned runner has produced one.
+
+`LOREM64` is now `SCENES.md`'s string rather than this arm's own. The file used to give the length
+and not the content — this arm's NOTES said so — and the first run wrote it out
+(under-specification 4). Scene 6 is the scene whose whole subject is that two frames are the same
+picture, so an arm drawing its own sixty-four characters is the one thing it cannot do.
+
+## `unchanged`
+
+The body is redrawn **inside** the loop and not once before it, which is the scene and not a slip.
+notcurses' own damage comparison then decides what reaches the wire — `rasterize_core()`
+(`src/lib/render.c:1114`) emits nothing for an undamaged cell — so the expected figure is small, and
+what is interesting is whatever is *not* zero: this arm cannot enter the alternate screen on a pipe
+and cannot hide the hardware cursor, so its per-frame residue is a different residue from every other
+arm's.
+
+## `fade`
+
+The channels are set **once per frame**, not once per cell: in scene 4 the colour is a function of
+the cell and here it is a function of the frame. What the row measures is the run elision in
+`rasterize_core()` and whether damage stays inside the rectangle that moved. Guarded on the plane
+being at least 90x30, because a `putchar` off the right edge of a non-scrolling plane is an error
+rather than a clip.
+
+## `scattered`
+
+Twelve panels, four across and three down, and only the two digits are rewritten each frame. This is
+where this arm's ~30-byte reversed cell and its cursor addressing are visible with nothing else in
+the way. Guarded on 120x39.
+
+## `filter-shrink`
+
+The blanked rows are written as 120 spaces rather than left alone. Leaving them alone would leave the
+previous frame's row standing — the picture would be a list that never shrinks, and it would be
+*cheaper*, which is the direction this suite cannot afford to be wrong in. **This row is not an upper
+bound** the way `list-scroll` is: there is no scroll idiom being declined here, only a redraw.

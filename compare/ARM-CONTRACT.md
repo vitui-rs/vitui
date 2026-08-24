@@ -8,11 +8,14 @@ reaches the picture with (see [`SCENES.md`](SCENES.md)).
 
 ```
 <arm> --scene caret|status-line|list-scroll|full-repaint|modal-over-list --frames N
+<arm> --scene unchanged|fade|scattered|filter-shrink --frames N
 <arm> --scene latency
 <arm> --scene cpu --seconds S
 ```
 
-- The five picture scenes write `N` frames to **stdout** and exit 0. Frame 0 is the initial screen.
+- The nine picture scenes write `N` frames to **stdout** and exit 0. Frame 0 is the initial screen.
+  The second line is the four `SCENES.md` gained from the runtime backlog; they take the same two
+  arguments and are separated only because one line of nine scene names is unreadable.
 - `latency` writes the initial screen, then reads stdin byte by byte until EOF; on each keystroke it
   updates the status line's first field to `key <name>` and flushes. It never buffers a reply.
 - `cpu` drives scene `caret` at 60 frames a second for `S` seconds of wall time, then exits 0.
@@ -35,7 +38,7 @@ reaches the picture with (see [`SCENES.md`](SCENES.md)).
   killed at two minutes. crossterm's `terminal::size()` does the same thing more quietly, by
   *succeeding* and returning the operator's real window size, so an arm written to fall back to
   `COLUMNS` on failure never reaches its fallback.
-- stdin is a pipe. For the five picture scenes it is closed immediately; nothing is sent.
+- stdin is a pipe. For the nine picture scenes it is closed immediately; nothing is sent.
 
 ## What the arm owes the harness
 
@@ -62,7 +65,7 @@ see it.
   fewer bytes is the one failure mode this whole suite is built to prevent, because a missing row
   reads as a win.
 - Write to stdout anything that is not the scene — no banner, no timing, no summary.
-- Sleep between frames on the five picture scenes. Those are byte measurements; wall time on them is
+- Sleep between frames on the nine picture scenes. Those are byte measurements; wall time on them is
   not compared and a sleep only makes the CPU column meaningless.
 - Read the clock to decide what to draw. Frame *n*'s picture is a function of *n*, so two runs of the
   same arm produce byte-identical output. The harness asserts this.

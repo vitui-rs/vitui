@@ -221,3 +221,250 @@ The harness sets `COLORTERM=truecolor` on the truecolor tier and `ARM-CONTRACT.m
 general shape is the ninth instance of the same lesson: *the declared tier is only declared to the
 extent it is written down*, and every part of it an arm has to guess is a part of the measurement
 delegated to the thing being measured.
+
+---
+
+# Reading the second run
+
+**2026-08-24, runtime impl ticket 20, Apple M1 Max / macOS 26.5.2 / rustc 1.97.1 / python 3.14.6.**
+Arms: `vitui` and `vitui-runtime` at this commit, `ratatui 0.30.2` with `crossterm 0.29.0`,
+`textual 8.2.8` on CPython 3.14.6. notcurses still `not built here`.
+
+Runtime impl 20 owed *the runtime's scenes added to engine ticket 26's comparative suite*. What
+landed is four scenes and one arm: [`SCENES.md`](SCENES.md) is nine scenes and names the sixteen
+runtime scenes it refused, and `arms/vitui-runtime` stands beside `arms/vitui` so that the layer
+between them is a subtraction. Everything above this line was written on 2026-08-22 and is not
+edited; the numbers it quotes are that run's.
+
+## 9. The suite could not run at all, and had not been able to since it was written
+
+`compare/run.sh` **did not exist**. `README.md` documented three of its flags,
+`.github/workflows/compare.yml` invoked it as its Measure step, and `git ls-files compare` had never
+carried it. So the monthly workflow's Measure step had been failing since the workflow was committed,
+and the only run this suite has ever had is the one the section above describes — driven by hand.
+
+The workflow says of itself, in its own header, *nobody has watched this workflow go green*, and that
+sentence turns out to have been the finding rather than the caveat. **A CI job nobody has watched is
+not a gate, and a CI job nobody has watched is also not a job**: the missing file was two directory
+listings away from the sentence admitting it might be.
+
+`run.sh` now exists, matches the interface `README.md` documented, and is what produced the tables
+below. What it fails on is deliberately narrow, and it is the split `Cargo.toml` already argued for:
+`--check` fails on a lint in an arm we wrote, and a measurement run fails only when the harness
+cannot measure what it claimed to. A missing arm is a row.
+
+## 10. Four arms were drawing four different pictures, and two of them still are
+
+Adding scene 6 — *the application draws, and nothing on the screen is different* — meant replaying
+frame 0 of every arm into a text grid and comparing them, which nothing had done before. Three
+literals came back wrong:
+
+| | `SCENES.md` says | `vitui` | `ratatui` | `textual` | `notcurses` |
+|---|---|---|---|---|---|
+| the lorem string | written out since run 1 | ✓ | its own 64 | its own 64 | its own 64 |
+| the list label | 19, "stated twice" | ✓ | 20 | 20 | ✓ |
+| the dialog's four body rows | written out since run 1 | ✓ | its own four | its own four | its own four |
+
+**Every one of these was correct when the arm was written and was made wrong by the first run.**
+`SCENES.md`'s own closing section is a list of eleven under-specifications the first run found, four
+of which were *this file did not say which string*; the file was corrected and the arms were not. So
+the fix that made the suite honest is what made the arms diverge, and nothing noticed for two days
+because **the byte counts did not move**: a different sixty-four characters is the same sixty-four
+bytes.
+
+The first two are fixed here, because scenes 6 and 9 are built on them and a scene about two frames
+being identical cannot rest on four arms drawing four pictures. **The third is not fixed**, and that
+is a scope decision rather than a judgement that it is acceptable: scene 5's dialog body is not
+inherited by any new scene, correcting it moves an existing row for a reason unrelated to this
+ticket, and the notcurses arm would have to be corrected on a machine that cannot build it. It is a
+defect, it is filed here, and the fix is four string constants and a two-column offset in three arms.
+
+The general shape is worth more than the three rows. **A normative file and the code that implements
+it drift silently when the drift is invisible in the measurement** — and this suite's measurement is
+a byte count, which is exactly the instrument that cannot see a changed letter. The grid replay is
+forty lines and found all three in one pass; it is not committed, and the honest recommendation is
+that it should be, as a `--check` step rather than a gate.
+
+## 11. `unchanged` is the row the runtime scenes were worth adding for
+
+The four new scenes were picked to say something the first five could not. Three of them do so by
+degree; this one does it by having a known right answer.
+
+| `unchanged`, one frame | truecolor | `no-color` |
+|---|---:|---:|
+| vitui | **0.0** | **0.0** |
+| vitui-runtime | **0.0** | **0.0** |
+| ratatui | 25.0 | 19.0 |
+| textual | 5124.0 | 6066.0 |
+
+`caret` is called *the floor* by the file that defines it and it is not: one cell changes there, so
+every arm has something to say and 9.5 against 28.5 is a comparison of two answers. Here nothing
+changes, the right answer is zero, and the row is a verdict rather than a comparison.
+
+**ratatui's 25 bytes are unconditional and are not a diff result.** `ESC[39m ESC[49m ESC[59m ESC[0m
+ESC[?25l` — reset foreground, background, underline colour and every attribute, then hide the cursor
+— written by `Terminal::flush` whether or not the diff produced a single cell. Three kilobytes over
+120 frames for a screen nobody touched. It is small and it is a *floor an application cannot get
+under*, which is the more interesting property: an idle ratatui application at 60 Hz spends 1.5 kB a
+second saying nothing.
+
+**Textual's 5 124 bytes are the same number, to the byte, as its `list-scroll` figure** — 625 358
+over 120 frames for both scenes. That is not a coincidence and it is not a bug in the arm: both
+scenes repaint forty full-width rows a frame, so both cost forty full-width chops, and **Textual
+charges the same for a screen that did not change as for a screen that scrolled.** A refresh means a
+repaint; the compositor compares regions, not their contents.
+
+The fair reading, stated because the number invites an unfair one: a Textual application that *knows*
+nothing changed emits zero, by not calling `refresh`. This row measures the case where it cannot
+know — which is the case every immediate-mode arm here is in on every frame, and is the reason
+`SCENES.md` had to write *an arm may not skip the frame* into this scene and no other. The shortcut
+is the only one in the suite that leaves no trace in the output, because the output is supposed to be
+empty either way.
+
+## 12. What the runtime costs, as a subtraction
+
+The fifth arm exists so that this table is a subtraction and not an argument. Same scenes, same
+machine, same run, one layer apart; `arms/vitui` writes the cells that changed and
+`arms/vitui-runtime` redraws the whole picture every frame, because that is what code looks like at
+each layer.
+
+| one frame, truecolor | engine | runtime | the layer |
+|---|---:|---:|---:|
+| `caret` | 9.5 | 9.5 | **0** |
+| `unchanged` | 0.0 | 0.0 | **0** |
+| `fade` | 1394.7 | 1394.7 | **0** |
+| `full-repaint` | 96 408 | 96 420 | +12 |
+| `scattered` | 82.2 | 114.2 | +32 |
+| `filter-shrink` | 76.0 | 108.0 | +32 |
+| `status-line` | 22.4 | 52.4 | +30 |
+| `list-scroll` | 572.3 | 604.3 | +32 |
+
+**The layer costs about thirty bytes a frame, flat, and it is not the redraw.** An immediate-mode
+arm rebuilding 4 800 cells against a damage-marking one writing forty is worth **zero** on the wire —
+`unchanged` and `caret` are exact, and `fade` is byte-identical over 120 frames. The equality filter
+absorbs the whole of it. That is spec §8's argument arriving from a direction it was not aimed at:
+the filter was justified as protection against an *application* that redraws, and the first consumer
+it protects is the runtime.
+
+The thirty bytes are one SGR sequence, and their cause is the second finding below. Where the wire
+carries an explicit colour they appear once a frame; where it does not, they vanish — at the
+`no-color` tier the two arms are **byte-identical on eight of the nine scenes**, because the
+serializer narrows the named colours to the terminal's default and the two arms become the same
+program. The ninth is `modal-over-list`, where the engine arm draws the spinner bold and this one
+does not, which is finding 10's third row wearing another hat.
+
+**The CPU column is where the layer actually shows up**, and only just: **0.23% against 0.27%** of a
+core on the caret, where `full-repaint` costs this arm 4 800 `Theme::custom` calls a frame against
+zero for the engine arm for twelve bytes of difference. Keystroke to wire is **44 µs against 89 µs
+p50**, and the caveat the first run attached to its own latency figure applies twice over here —
+neither arm's sample crosses the mailbox, so both are the composite-and-serialise path timed end to
+end, with one layer of call in front of the second one. The two figures are the same measurement
+taken at two altitudes and neither is what a user would feel.
+
+## 13. The runtime cannot say "the terminal's default colours", and it cost thirty bytes a frame
+
+A `Paint` comes from a `Theme` and cannot be constructed (ADR 0018). A `Theme` is thirteen concrete
+colour pairs. The one escape hatch takes `Rgb` and `Rgb`. **There is no argument anywhere in that
+surface that means *leave it to the terminal*** — and four of the nine scenes say *in the terminal's
+default colours*.
+
+The arm names the two colours the suite had already declared for exactly this problem — scene 5 fixes
+them at `rgb(192,192,192)` on `rgb(0,0,0)`, because no arm can read them from inside — so the picture
+is the described one and the encoding is not. That is the thirty bytes.
+
+**It is not a `cannot express` and the reasoning matters more than the cell.** It has the shape of
+one: a scene asks for something the framework has no word for. It was resolved as an encoding
+difference because `SCENES.md` had already ruled that those two colours *are* the terminal's defaults
+for measurement. An arm refusing after that ruling would take four rows off the table for a picture
+it can draw, and **a missing row reads as a win in whichever direction it is missing.**
+
+Whether the runtime *should* have a default-coloured paint is a map question and is not answered
+here. The observation the map would want is that the cost is a constant thirty bytes a frame at the
+truecolor tier and nothing at all at `no-color`, and that a thirteen-role theme has no natural place
+to put *the one that is not a colour*.
+
+## 14. A cheaper cell because the picture lost an element, and only two arms of the same library caught it
+
+The sharpest thing this run produced, and like the first run's sharpest thing it is not a number in
+the table — it is a number that was in the table for an hour.
+
+`Paint` being two colours makes `theme.custom(bg, fg)` look like reverse video, and at the truecolor
+tier it *is* the described picture. At the `no-color` tier it is nothing: both colours narrow to the
+terminal's default, the swap collapses, and the highlighted row comes out identical to its
+neighbours.
+
+| `no-color`, one frame | `arms/vitui` | runtime, swapping colours | runtime, `restyle` |
+|---|---:|---:|---:|
+| `status-line` | 22.4 | 18.4 | 22.4 |
+| `list-scroll` | 572.3 | **40.0** | 572.3 |
+
+**Forty bytes a frame against five hundred and seventy-two, between two arms running the same
+compositor.** The scroll had stopped costing anything because the moving highlight had stopped
+existing. ratatui and Textual keep theirs at that tier — SGR 7 is an attribute and survives having no
+colour — so the cell would have been read against three arms drawing a richer picture.
+
+The fix is to ask for the attribute as an attribute: `Ctx::restyle` with `Repaint::REVERSE`, which is
+the engine's third verb surfaced through the runtime, a bit on the cell rather than a pair of
+colours. It costs one more verb over the same rectangle and that cost is in the numbers above.
+
+**The rule this suite is built on has a blind spot and this is it.** *A missing row reads as a win*
+is written about cells. A missing **element inside a row** reads as a win too, and it has no blank
+cell to give it away, no `cannot express` string, and nothing in the harness that could detect it:
+the harness checks that two runs are byte-identical, not that the bytes draw the described picture.
+What caught it was two arms of the same library disagreeing by 14× on a scene where they had no
+business disagreeing at all — which is an accident of this ticket having produced a second arm, and
+is not a mechanism.
+
+The mechanism that would catch it is the forty-line grid replay from finding 10. It is the same
+instrument, and it now has two findings.
+
+## 15. The other three new scenes, briefly
+
+**`fade`** — 1 200 cells, one colour, moving every frame. It is scene 4's opposite corner and the
+pair reads well: at 96 408 bytes `full-repaint` prices a per-cell encoding, at 1 394.7 this prices run
+coalescing, and every arm is within 1.5% of every other on the first while Textual is 1.9× on the
+second. **It is degenerate at the `no-color` tier for both vitui arms** (0.0) for finding 3's exact
+reason — a screen of `=` with no colour is the same screen every frame — and ratatui and Textual pay
+1 383 and 2 445 there because they rewrite the glyphs regardless. That asymmetry is the whole content
+of the row at that tier and it should not be read as a 1 383× anything.
+
+**`scattered`** — twenty-four cells changing in twelve places, and everything beyond twenty-four
+characters is the cost of arriving. 82.2 / 114.2 / 127.2 / 199.0. The spread is the narrowest of any
+scene here, which is itself the finding: **cursor addressing is the one thing all four frameworks do
+the same way**, because there is only one way to do it. The first run found 582 of ratatui's 705
+`list-scroll` bytes were `MoveTo`s and read it as a scroll-region story; with the scroll taken out,
+the four arms are within 2.4× and the shape of the column is flat.
+
+**`filter-shrink`** — 76.0 / 108.0 / 110.7 / 291.2, and the row is smaller than it should be for a
+reason worth writing down. It was put on the list because nothing else here ever takes anything off
+the screen, and *make these cells blank again* is the difference between one erase sequence and a
+hundred and twenty spaces. **Not one of the four arms emits an erase sequence.** All four write the
+spaces. So the row measures four arms doing the same thing at slightly different prices rather than
+the mechanism it was aimed at, and the honest reading is that `ESC[K` is a byte saving nobody in this
+comparison is taking — including us, on a scene we wrote.
+
+## What this run still does not say
+
+Everything the first run's list says, unchanged, plus:
+
+- **Nothing about notcurses on the four new scenes.** They are written into `arm.c` and were
+  type-checked against a stub header under `-Wall -Wextra -Wpedantic -Werror`; that is not a build
+  and it is certainly not a run. The pinned runner owes four cells.
+- **Nothing about a component**, still, and now for a sharper reason: `arms/vitui-runtime` takes the
+  facade, so `vitui-components` is in its dependency graph and contributes not one line to any
+  picture, because it is empty scaffolding. The delta in finding 12 is the runtime's and stops there.
+- **Nothing about whether thirty bytes a frame is a price worth paying**, which is a map question
+  about a default-coloured paint and is filed rather than answered.
+
+## 16. Two `.pyc` files reached the repository, and the linter put them there
+
+Small, and worth one paragraph because the mechanism is general. `run.sh --check` linted the two
+Python files with `python -m compileall`, which does not just parse them — it **writes**
+`__pycache__` beside them. Two of those `.pyc` files were then swept into a commit whose subject was
+about something else entirely, so a linter run turned into two binary blobs in the history.
+
+`--check` now compiles in memory and writes nothing, `compare/.gitignore` covers the other ways
+bytecode appears, and the two files are removed. **A tool that dirties `git status` every time it
+runs teaches people not to run it**, which for this directory is the expensive half: the whole
+falsifiability argument here is a committed file whose diff a human reads, and a diff with noise in
+it is a diff nobody reads.

@@ -66,7 +66,7 @@ from rich.style import Style  # noqa: E402
 
 from textual import events  # noqa: E402
 from textual.app import App, ComposeResult  # noqa: E402
-from textual.containers import Horizontal, Vertical  # noqa: E402
+from textual.containers import Grid, Horizontal, Vertical  # noqa: E402
 from textual.drivers.linux_driver import LinuxDriver  # noqa: E402
 from textual.geometry import Region  # noqa: E402
 from textual.screen import ModalScreen  # noqa: E402
@@ -85,16 +85,22 @@ CARET_TEXT = "vitui compare — caret"
 CARET_COLUMN = cell_len(CARET_TEXT)  # 21: the cell immediately after the final "t"
 assert CARET_COLUMN == 21  # `#ctext { width: 21 }` in ArmApp.CSS depends on this
 
-# 64 characters exactly (see NOTES.md: SCENES.md does not name the lorem string).
-LOREM_64 = "lorem ipsum dolor sit amet consectetur adipiscing elit sed diam."
+# 64 characters exactly, verbatim from SCENES.md.  This used to be the arm's
+# own choice, because SCENES.md gave the string's length and not the string.
+# The first run made that false -- under-specification 4 is this exact string,
+# and SCENES.md now writes it out -- and the arm was not brought back into
+# line, so it drew a different picture from the vitui arm on every scene with a
+# body of text in it.  Found by replaying frame 0 of four arms into a grid.
+LOREM_64 = "lorem ipsum dolor sit amet consectetur adipiscing elit sed do ei"
 assert len(LOREM_64) == 64
 
 STATUS_FIELDS_TAIL = "    cpu 12%    3 tasks"
 
-# SCENES.md's prose says a 20-character label, its literal `item-NNNNN---------`
-# is 19.  We use 20 (a fixed width is what makes the scene comparable) and the
-# discrepancy is written up in NOTES.md.
-LIST_LABEL_WIDTH = 20
+# Nineteen, which is what SCENES.md now says twice.  This was 20 on the reading
+# that the prose beat the example; the first run settled it the other way
+# (under-specification 5) and this arm kept the 20, so its list rows were one
+# column wider than the vitui arm's on scenes 3, 5 and 9.
+LIST_LABEL_WIDTH = 19
 LIST_ROWS = 10_000
 LIST_HIGHLIGHT_OFFSET = 12
 
@@ -476,6 +482,165 @@ class ModalOverListScene(ListScrollScene):
             self.title.refresh(Region(0, 0, 1, 1))
 
 
+# --------------------------------------------------------------------------
+# Scenes 6..9, from the runtime backlog.  SCENES.md explains why they are one
+# list with the first five rather than a second suite.
+# --------------------------------------------------------------------------
+
+
+class UnchangedScene(StatusLineScene):
+    """Scene 6.  Scene 2's screen, asked for again on every frame.
+
+    `set_frame` deliberately does **not** return early.  The scene forbids
+    skipping the draw, and it says so because the shortcut here is the one
+    shortcut in the suite that leaves no trace in the output: the right answer
+    is zero bytes either way.  So this asks Textual to repaint both widgets on
+    every frame and lets its own machinery decide what reaches the wire.
+
+    That makes this the naive idiom on purpose, and here the naive idiom is the
+    honest one -- an application whose data has not changed still runs its
+    render, because it does not know that.
+    """
+
+    name = "unchanged"
+
+    def set_frame(self, n: int) -> None:
+        self.frame = 0
+        self.body.refresh()
+        self.status.refresh()
+
+
+class FadeScene(Scene):
+    """Scene 7.  A 60x20 panel of `=` fading up from black.
+
+    One widget covering the screen, and the tuned refresh is the panel's own
+    region -- which is what a Textual author writing an animation would do, and
+    is the same `refresh(Region(...))` idiom `CaretScene` and `StatusLineScene`
+    already use.  `VITUI_ARM_TEXTUAL_IDIOM=naive` refreshes the whole widget.
+    """
+
+    name = "fade"
+    LEFT = 30
+    TOP = 10
+    WIDTH = 60
+    HEIGHT = 20
+
+    def compose(self) -> ComposeResult:
+        self.widget = Cells(self._paint)
+        yield self.widget
+
+    def _paint(self, y: int, width: int) -> Strip:
+        if not (self.TOP <= y < self.TOP + self.HEIGHT):
+            return strip_of([], width)
+        level = min(self.frame * 2, 255)
+        style = Style.parse(f"rgb({level},{level},{level}) on rgb(0,0,0)")
+        return Strip(
+            [
+                Segment(" " * self.LEFT, BLANK),
+                Segment("=" * self.WIDTH, style),
+                Segment(" " * (width - self.LEFT - self.WIDTH), BLANK),
+            ],
+            width,
+        )
+
+    def set_frame(self, n: int) -> None:
+        self.frame = n
+        if NAIVE_IDIOM:
+            self.widget.refresh()
+        else:
+            self.widget.refresh(Region(self.LEFT, self.TOP, self.WIDTH, self.HEIGHT))
+
+
+class Panel(Widget):
+    """One of scene 8's twelve panels: 30x13, two rows of text in it."""
+
+    def __init__(self, index: int, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.index = index
+        self.count = index
+
+    def render_line(self, y: int) -> Strip:
+        width = self.size.width
+        if y == 0:
+            return strip_of([Segment(f"panel {self.index:02d}", BLANK)], width)
+        if y == 2:
+            return strip_of([Segment(f"count {self.count:02d}", BLANK)], width)
+        return strip_of([], width)
+
+    def set_count(self, count: int) -> None:
+        self.count = count
+        if NAIVE_IDIOM:
+            self.refresh()
+        else:
+            # A chop runs from the widget's left edge to the right edge of the
+            # change, so the smallest update available is eight cells and not
+            # two.  Twelve widgets rather than one full-width one is what buys
+            # that: inside a 120-cell widget the same change is a 120-cell chop.
+            self.refresh(Region(0, 2, 8, 1))
+
+
+class ScatteredScene(Scene):
+    """Scene 8.  Twelve panels, and one two-digit field in each of them moves."""
+
+    name = "scattered"
+
+    def compose(self) -> ComposeResult:
+        self.panels = [Panel(k, classes="panel") for k in range(12)]
+        with Grid(id="scatter"):
+            yield from self.panels
+
+    def set_frame(self, n: int) -> None:
+        self.frame = n
+        for k, panel in enumerate(self.panels):
+            panel.set_count((k + n) % 100)
+
+
+class FilterShrinkScene(Scene):
+    """Scene 9.  A list that narrows and widens again, rows blanked as they go.
+
+    The blank rows are painted as spaces rather than left out.  Textual composites
+    from the widget's own strips, so a shorter strip is padded by
+    `Strip.adjust_cell_length` and the picture is right either way -- but writing
+    the spaces is what the other arms have to do and what makes this row about
+    the wire rather than about four compositors' padding rules.
+    """
+
+    name = "filter-shrink"
+
+    def compose(self) -> ComposeResult:
+        self.body = Cells(self._paint_body, id="body")
+        self.query = Cells(self._paint_query, id="status")
+        yield self.body
+        yield self.query
+
+    def matches(self) -> int:
+        return 39 - (self.frame % 39)
+
+    def _paint_body(self, y: int, width: int) -> Strip:
+        if y >= self.matches():
+            return strip_of([], width)
+        return Strip(
+            [Segment(ListScrollScene.row_text(y).ljust(width), BLANK)], width
+        )
+
+    def _paint_query(self, y: int, width: int) -> Strip:
+        text = f" search: {self.matches():02d} matches"
+        return Strip([Segment(text.ljust(width)[:width], REVERSE)], width)
+
+    def set_frame(self, n: int) -> None:
+        before = self.matches()
+        self.frame = n
+        after = self.matches()
+        if NAIVE_IDIOM or after > before:
+            # Widening repaints rows that were blank, and they are anywhere from
+            # one row to thirty-eight.  The whole body is the honest ask.
+            self.body.refresh()
+        else:
+            # Narrowing: only the rows that stopped matching.
+            self.body.refresh(Region(0, after, self.width, before - after))
+        self.query.refresh(Region(0, 0, 20, 1))
+
+
 SCENES = {
     scene.name: scene
     for scene in (
@@ -484,6 +649,10 @@ SCENES = {
         ListScrollScene,
         FullRepaintScene,
         ModalOverListScene,
+        UnchangedScene,
+        FadeScene,
+        ScatteredScene,
+        FilterShrinkScene,
         LatencyScene,
     )
 }
@@ -516,6 +685,15 @@ class ArmApp(App):
     #ccaret { width: 1; height: 1; }
     #body { width: 100%; height: 1fr; }
     #status { width: 100%; height: 1; dock: bottom; }
+
+    /* scattered: four panels across, three down, each 30x13.  Twelve widgets
+       and not one, because a chop runs from a widget's left edge -- inside one
+       full-width widget a two-digit change is a 120-cell update. */
+    #scatter {
+        layout: grid; grid-size: 4 3; grid-columns: 30; grid-rows: 13;
+        grid-gutter: 0; width: 120; height: 39; padding: 0;
+    }
+    .panel { width: 30; height: 13; }
 
     /* modal-over-list: `align: center middle` in 120x40 puts a 40x12 box at
        column 40, row 14 — exactly where SCENES.md wants it. */

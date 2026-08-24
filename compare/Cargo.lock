@@ -49,6 +49,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "arm-vitui-runtime"
+version = "0.0.0"
+dependencies = [
+ "vitui",
+]
+
+[[package]]
 name = "atomic"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1524,10 +1531,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
+name = "vitui"
+version = "0.0.0"
+dependencies = [
+ "vitui-components",
+ "vitui-engine",
+ "vitui-runtime",
+]
+
+[[package]]
+name = "vitui-components"
+version = "0.0.0"
+dependencies = [
+ "vitui-runtime",
+]
+
+[[package]]
 name = "vitui-engine"
 version = "0.0.0"
 dependencies = [
  "crossterm",
+]
+
+[[package]]
+name = "vitui-runtime"
+version = "0.0.0"
+dependencies = [
+ "vitui-engine",
 ]
 
 [[package]]

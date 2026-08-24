@@ -9,7 +9,7 @@ Three files are the suite and each answers a different question:
 
 | | |
 |---|---|
-| [`SCENES.md`](SCENES.md) | **what is measured** — five described pictures at 120×40, normative |
+| [`SCENES.md`](SCENES.md) | **what is measured** — nine described pictures at 120×40, normative |
 | [`ARM-CONTRACT.md`](ARM-CONTRACT.md) | **how an arm is run** — the invocation, the declaration it owes |
 | [`harness.py`](harness.py) | **what is refused** — the three quantities, and the three kinds of non-number |
 
@@ -22,6 +22,27 @@ compare/run.sh --check                        # lint the arms, build nothing els
 compare/run.sh --label "M1 Max, macOS 26.5.2" # measure everything buildable, rewrite REPORT.md
 compare/run.sh --arms vitui ratatui           # a subset
 ```
+
+## Nine scenes and five arms, after runtime impl ticket 20
+
+The suite was sliced twice. Engine impl ticket 26 built it with five scenes and four arms; runtime
+impl ticket 20 owed *the runtime's scenes added to engine ticket 26's comparative suite*, and both
+backlogs described the same one — same rules, same four external projects, same pinned runner, same
+committed file. So there are four more scenes and one more arm, and nothing else moved.
+
+**The four scenes** are the runtime's normative twenty (`crates/vitui-runtime/src/scenes.rs`) filtered
+by the rule that already governed the first five: a scene is a described picture, and sixteen of the
+twenty cannot be described without naming a mechanism or draw a picture one of the nine already
+draws. `SCENES.md` names all sixteen and says which of the two applies to each, because a rejected
+scene left as an absence is the same defect as a missing row.
+
+**The fifth arm is ours**, and it is a second arm rather than a changed first one.
+`arms/vitui` takes `vitui-engine`; `arms/vitui-runtime` takes the facade. Its manifest carries the
+argument, and the short version is two sentences. Pointing the existing arm one layer up would have
+silently redefined every row already in a committed report, which is the falsifiability mechanism
+spent on a rename. And the pair buys what neither buys alone: **the runtime's cost on the wire is now
+a delta between two of our own arms** — same scenes, same machine, same run — which is the only
+difference in this table with exactly one known cause.
 
 ## It reports; it does not block
 

@@ -22,7 +22,7 @@
 # these packages are neither members nor excluded, and refuses to build at all.
 [workspace]
 resolver = "3"
-members = ["arms/vitui", "arms/ratatui"]
+members = ["arms/vitui", "arms/vitui-runtime", "arms/ratatui"]
 
 # No `[lints]` table, and this is not the omission it looks like next to the root manifest's
 # `warnings = "deny"`. These are measurement programs, not shipped code: a lint that failed the build

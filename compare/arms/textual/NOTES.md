@@ -298,3 +298,57 @@ COLUMNS=120 LINES=40 TERM=xterm-256color ./arm.py --scene cpu --seconds 10 > /de
 COLUMNS=120 LINES=40 TERM=xterm-256color ./arm.py --scene latency < keystrokes
 VITUI_ARM_TEXTUAL_IDIOM=naive ./arm.py --scene caret --frames 120 | wc -c   # finding 1
 ```
+
+---
+
+# Scenes 6..9, and two literals this arm had drifted on
+
+Added for runtime impl ticket 20. `SCENES.md` explains why the four are one list with the first five
+rather than a second suite.
+
+## Two constants that had stopped matching the normative file
+
+`LOREM_64` and `LIST_LABEL_WIDTH` were this arm's own choices, taken when `SCENES.md` gave the
+lorem's length rather than the string and illustrated a 19-character label under prose claiming 20.
+The first run settled both (under-specifications 4 and 5) and this arm was not brought back into
+line, so it drew a different picture from the vitui arm on every scene with a body of text or a list
+row in it. Both are now the file's. Found by replaying frame 0 of four arms into a text grid while
+adding scene 6.
+
+## `unchanged`, which is the sharpest Textual row in the table
+
+`set_frame` refreshes both widgets on every frame and deliberately does not return early. `SCENES.md`
+forbids skipping the draw, and it says so because the shortcut here is the one shortcut in the suite
+that leaves no trace: the right answer is zero bytes either way.
+
+Textual's answer is **5 124 bytes a frame** — and that is not an approximation of `list-scroll`'s
+figure, it is *the same number to the byte*, 625 358 over 120 frames for both scenes. Both repaint
+forty full-width rows a frame, so both cost forty full-width chops, and **Textual charges the same
+for a screen that did not change as for a screen that scrolled.** A refresh means a repaint; the
+compositor compares *regions*, not their contents.
+
+The fair reading, stated because the number invites an unfair one: a Textual application that
+*knows* nothing changed emits zero by not calling `refresh` at all. This row measures the case where
+it cannot know — which is the case every immediate-mode arm in this table is in on every frame, and
+is why the scene exists.
+
+## `fade`
+
+One full-screen `Cells` widget, tuned refresh is the panel's own `Region` —
+the same `refresh(Region(...))` idiom `CaretScene` and `StatusLineScene` already use.
+`VITUI_ARM_TEXTUAL_IDIOM=naive` refreshes the whole widget.
+
+## `scattered`
+
+**Twelve widgets, not one**, and the reason is the arm's oldest finding: a chop runs from a widget's
+left edge to the right edge of the change, so a two-digit change inside a 120-cell widget is a
+120-cell update. Twelve 30x13 `Panel` widgets in a `grid` bring the smallest available update down to
+eight cells. This is the same choice `CaretScene` makes for the same reason, and it is Textual at its
+most favourable on this scene.
+
+## `filter-shrink`
+
+Narrowing refreshes only the rows that stopped matching; widening refreshes the whole body, because
+widening repaints anywhere from one row to thirty-eight and the whole body is the honest ask. The
+blank rows are painted as spaces rather than left short — `Strip.adjust_cell_length` would pad them
+either way, and writing them is what the other arms have to do.

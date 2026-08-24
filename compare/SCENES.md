@@ -1,6 +1,6 @@
 # The scenes, and they are defined by what the user sees
 
-This file is **normative**. An arm implements these five scenes; the harness measures them; the
+This file is **normative**. An arm implements these nine scenes; the harness measures them; the
 report ([`REPORT.md`](REPORT.md)) is a table over them.
 
 > **A scene is defined by what the user sees, never by what a framework does.**
@@ -28,7 +28,47 @@ harness sets both variables on every run.
 **120 frames**, for every scene, unless the harness is told otherwise with `--frames`. Frame 0 is the
 initial screen; frames 1..119 are the described change applied once each.
 
-## The five scenes
+## Nine scenes, and the last four came from a layer up
+
+**Scenes 1–5 were sliced against the engine and scenes 6–9 against the runtime** (runtime impl
+ticket 20). The two backlogs described *the same suite* — same rules, same four external projects,
+same pinned runner, same committed file — so this is one list with four rows added to it and not a
+second suite standing beside the first.
+
+What the four add is stated once here, because the rule that governs them is the rule that governs
+the first five and it is easy to lose: **a runtime scene is admitted only when it survives being
+written down as a picture.** The runtime's own normative list
+(`crates/vitui-runtime/src/scenes.rs`) is twenty scenes and sixteen of them do not survive that —
+not because they are unimportant, but because what they decide is invisible on a wire. *Duplicate
+detection's slope*, *the chain stops at the innermost that can move*, *cancel is a bracket*: each
+of those is a real property with a real number, and every one of them has to name a mechanism to be
+stated at all. A scene that cannot be described without saying *widget*, *route* or *memo* is a
+scene this file may not carry, and porting it anyway would have smuggled one framework's model into
+a comparison that spans four.
+
+The four below are the ones where a runtime property and a picture are the same sentence:
+
+| here | from the runtime's list | the picture |
+|---|---|---|
+| 6 — `unchanged` | 16, sixty frames with a job in flight | the application draws and the screen does not change |
+| 7 — `fade` | 8, a 300 ms fade at each colour tier | one region, one colour, moving every frame |
+| 8 — `scattered` | 1, the dense IDE screen | twelve small changes in twelve places |
+| 9 — `filter-shrink` | 6, a search box filtering 600 rows | rows leaving the screen rather than being overwritten |
+
+**And the sixteen that were rejected are named here rather than left as an absence**, on this file's
+own rule that a missing row reads as a win. Runtime scenes 3, 9, 10, 12, 17 and 19 (keyed widgets,
+wheel chaining, nested scroll areas, two scrolling mechanisms, a flat imported theme, a chunked data
+source) each need a mechanism word to be stated and are therefore inexpressible here, not merely
+unmeasured. Scenes 7 and 18 (an 8 000-key paste, a Cyrillic layout at three key tiers) are about
+what reaches an application from the keyboard, which this suite measures in exactly one place and
+not in bytes — see `latency` below. Scenes 2, 11, 13, 14, 15 and 20 are expressible and **draw a
+picture one of the nine already draws**: 2 is `list-scroll`'s window onto a long list, 11 is
+that window with the highlight driving it, 13, 14 and 15 differ from `status-line` only in what
+decides the new text, and 20 — a theme swap over the whole screen — is `full-repaint` with the
+glyphs held still, which is what scene 4 already is. *A scene is on this list because it
+discriminates*, and a second copy of a row discriminates nothing.
+
+## The nine scenes
 
 ### 1 — `caret`
 
@@ -153,9 +193,130 @@ picking a framework — which is the thing the scene rules exist to refuse. **A 
 suite to become dishonest** — so an arm that cannot reach this picture is written down as unable to
 reach it, never left blank and never quietly dropped from the mean.
 
+### 6 — `unchanged`
+
+**Initial screen.** Scene 2's initial screen, exactly: rows 0..38 hold `line NN  ` followed by the
+64-character lorem string; row 39 is the status line across the full width in reverse video, padded
+to 120 columns, reading
+
+```
+ frame 0     elapsed 0.00s    cpu 12%    3 tasks
+```
+
+**The change.** **There is none.** On frame *n* the application draws that screen again, status line
+included — the first field still reads `frame 0` and the second still reads `elapsed 0.00s`. Frame
+*n*'s picture is frame 0's picture for every *n*.
+
+**An arm may not skip the frame.** The loop draws the picture and presents it 120 times, exactly as
+it does for the other eight; what an arm's own machinery decides to put on the wire is the
+measurement, and an arm that stops calling its renderer is measuring its `if` statement. This is the
+one scene where that has to be said, because it is the one scene where the shortcut is invisible.
+
+*Why it is on the list.* **`caret` is called the floor and it is not.** One cell of the four
+thousand eight hundred changes there, so an arm has *something* to say, and 9.5 bytes against 28.5
+is a comparison of two answers. Here the right answer is a known constant — **zero** — which makes
+this the only row in the table with an absolute against which every cell can be read, and the only
+one where a number is not a comparison but a verdict. Every arm in this suite claims a mechanism
+that reaches it: a double-buffered diff, a damage set marked at write time, a per-widget chop. The
+row is whether the claim survives an application that keeps drawing.
+
+It is the runtime's scene 16 — sixty frames with a job in flight, gated at **0 wakeups against 60
+polled** — and the runtime's own ledger prices this frame at **23.58 µs** with the note *nothing
+skips the composition*. That figure is a CPU cost for a frame that puts nothing on the wire, and it
+is deliberately outside the budget as a cliff with a detector. This row is the wire half of the same
+sentence, and it is the half the other three frameworks can be asked about.
+
+### 7 — `fade`
+
+**Initial screen.** The screen is blank in the terminal's default colours except for a panel **60
+columns wide and 20 rows tall whose top-left cell is column 30, row 10** — so it occupies columns
+30..89 and rows 10..29. Every one of the panel's 1 200 cells holds the character `=`. On frame 0 the
+panel's foreground is `rgb(0, 0, 0)` and its background is `rgb(0, 0, 0)`, so the panel is not
+visible on frame 0 and the screen looks blank.
+
+**The change.** The panel fades up. On frame *n* every one of its cells takes the foreground
+`rgb(v, v, v)` where **`v = 2n`**, capped at 255 — `rgb(0,0,0)` on frame 0, `rgb(238,238,238)` on
+frame 119. The background stays `rgb(0, 0, 0)` on every frame, the glyph stays `=` in every cell,
+and nothing outside the panel is ever written.
+
+*Why it is on the list.* It is scene 4's opposite corner and the pair is the point. Scene 4 changes
+every cell's colour to a **different** colour across the **whole** screen, which prices a per-cell
+encoding with nothing else in the way. This changes 1 200 cells to the **same** colour inside
+**one region**, which prices the two things scene 4 cannot see: whether damage stays inside the
+rectangle that moved, and whether an arm can say *these cells, this colour* once instead of 1 200
+times. The wire's floor for this picture is twenty cursor moves, one colour and 1 200 characters.
+
+It is also the only scene here whose change is not a change of **content** — no glyph anywhere on
+the screen is ever different — which is the shape every animation has and is the runtime's scene 8,
+where the same fade is **19 wakeups ungated and 19 / 2 / 2 gated** across three colour tiers. That
+scene's finding is that at 256 colours and below the intermediate steps collapse onto the endpoints,
+so most of a fade is not visible and the frames that draw it are wasted; the two declared tiers here
+are the crude version of the same question, and the `no-color` row is what a fade costs when there
+is nothing to fade.
+
+### 8 — `scattered`
+
+**Initial screen.** Twelve panels in a grid four wide and three tall, in the terminal's default
+colours. Panel *k*, for *k* from 0 to 11, has its top-left cell at **column `30 * (k mod 4)`** and
+**row `13 * (k div 4)`** — so the four columns of panels begin at 0, 30, 60 and 90, and the three
+rows of them at 0, 13 and 26. Each panel is 30 columns wide and 13 rows tall, which fills rows
+0..38; row 39 is blank.
+
+Panel *k*'s **first** row reads, from the panel's own first column, `panel NN` — where `NN` is *k*,
+two digits, zero-padded — and its **third** row (two rows below the first) reads `count NN`, where
+`NN` is again *k*, two digits, zero-padded. Every other cell of the screen is a space.
+
+**The change.** On frame *n*, panel *k*'s `count` field reads `(k + n) mod 100`, two digits,
+zero-padded. Nothing else on the screen differs between any two frames. **Twenty-four cells change,
+in twelve places.**
+
+*Why it is on the list.* Every other scene changes **one contiguous thing**. `caret` changes a cell,
+`status-line` a run at the head of one row, `list-scroll` and `full-repaint` a rectangle,
+`modal-over-list` a cluster. This one changes twelve, and what it prices is the cost of **arriving**
+at a changed cell rather than of writing it: twenty-four characters of content, and everything else
+on that row is addressing.
+
+The first run found this by accident and filed it as an aside — **582 of ratatui's 705 `list-scroll`
+bytes were cursor motion**, eighty `MoveTo`s to write eighty characters — on a row whose subject was
+a scroll region. Here it is the subject. It is the runtime's scene 1, the dense screen with **312
+interactive regions and 43 tab stops** in one frame, reduced to the part a byte count can see: a
+real screen has many small things on it, and a frame that touches a few of them touches them in
+different places.
+
+### 9 — `filter-shrink`
+
+**Initial screen.** Rows 0..38 hold the first 39 rows of scene 3's list: row *r* shows list index
+*r* in scene 3's exact format — `NNNNN`, two spaces, then the 19-character label
+`item-NNNNN---------` — padded with spaces to 120 columns, in the terminal's default colours. There
+is **no highlighted row** in this scene. Row 39 is a query line across the full width in reverse
+video, padded to 120 columns:
+
+```
+ search: 39 matches
+```
+
+**The change.** The query narrows and widens again. On frame *n* let **`m = 39 - (n mod 39)`** — so
+39 matches on frame 0, 38 on frame 1, down to 1 on frame 38, and 39 again on frame 39. Screen rows
+0..*m*-1 hold list indices 0..*m*-1 in the same format; **screen rows *m*..38 are blank** — every
+cell a space, in the terminal's default colours. Row 39 reads ` search: MM matches` with `MM` the
+value of *m* in two digits, zero-padded, padded with spaces to 120 columns.
+
+*Why it is on the list.* **Nothing else here ever takes anything off the screen.** Every one of the
+other eight is a rewrite: `list-scroll` pads every row out to 120 columns whatever was there,
+`full-repaint` overwrites all 4 800 cells, the dialog in `modal-over-list` never closes, and
+`unchanged` writes the same thing twice. A search box that narrows its own results is the ordinary
+case where the screen has fewer rows on it than it had a frame ago, and this is the one row where an
+arm's answer to *make these cells blank again* is visible — which on this wire is the difference
+between one erase sequence and a hundred and twenty spaces.
+
+It is the runtime's scene 6, the search box over 600 keyed rows, whose finding is the price of a row
+that **stops being drawn**: **90 002 probes against 601** for the same frame, and a quiet frame
+paying 0. That is a count of work inside a runtime; this is the same event priced in bytes, and the
+two are worth reading together because they are the same widget disappearing.
+
 ## The latency scene, which is its own thing
 
-`latency` is not one of the five and is not measured in bytes.
+`latency` is not one of the nine and is not measured in bytes.
 
 **Initial screen.** Scene 2's screen.
 

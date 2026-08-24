@@ -12,8 +12,23 @@ license = "MIT OR Apache-2.0"
 publish = false
 
 [dependencies]
-# The engine alone, and deliberately not the facade: what is being compared is the thing that
-# touches the terminal. A runtime that does not exist yet cannot be in the number.
+# **The engine alone, and that is now a choice rather than the only option.**
+#
+# This line used to carry the sentence *a runtime that does not exist yet cannot be in the number*,
+# and that precondition has expired: `vitui-runtime` exists, at 20 of 21 tickets. What replaced it
+# is not one arm pointed one layer up but **two arms one layer apart** — `arms/vitui-runtime` sits
+# beside this one and takes the facade's middle layer, and this one keeps taking the engine.
+#
+# Two reasons, and the first is about the file this suite produces. `REPORT.md` is committed
+# precisely so that a worsening number arrives as a review-visible diff; changing what this arm
+# measures would have moved every one of our cells at once, for a reason no cell records, which
+# spends that mechanism on a rename. The engine-only rows stay comparable across the suite's history
+# because the arm that produces them did not change.
+#
+# The second is what the pair says that neither says alone: **the runtime's cost on the wire is a
+# delta between two of our own arms** — same scenes, same machine, same run. Every other difference
+# in this table is a difference between whole frameworks; this is the only one with a single known
+# cause, and it is measured rather than argued.
 vitui-engine = { path = "../../../crates/vitui-engine", version = "0.0.0" }
 
 [[bin]]

@@ -1,9 +1,11 @@
 //! The vitui arm of the comparative suite.
 //!
 //! `../../SCENES.md` is normative and `../../ARM-CONTRACT.md` is what the harness relies on. This
-//! file implements the seven modes for `vitui-engine` and nothing else — no runtime, because there
-//! is not one yet, and no components, for the same reason. What is being compared is the layer that
-//! touches the terminal.
+//! file implements the eleven modes for `vitui-engine` and nothing else — **and that is now a
+//! choice rather than the only option.** `arms/vitui-runtime` stands beside this one and draws the
+//! same nine pictures through `vitui-runtime`, so the layer's cost on the wire is the difference
+//! between two arms rather than an argument. This one keeps taking the engine, which is what makes
+//! the pair readable; `Cargo.toml` carries the reasoning.
 //!
 //! # Two things about this arm that the report has to say out loud
 //!
@@ -72,8 +74,7 @@ fn main() {
     // detection and under the application's own `Overrides`, and the harness runs the declared tier
     // to see the byte count move.
     eprintln!(
-        "arm={} version={} no_color=honoured alt_screen=yes",
-        "vitui",
+        "arm=vitui version={} no_color=honoured alt_screen=yes",
         env!("CARGO_PKG_VERSION"),
     );
 
@@ -83,6 +84,10 @@ fn main() {
         "list-scroll" => picture(w, h, frames, list_scroll),
         "full-repaint" => picture(w, h, frames, full_repaint),
         "modal-over-list" => picture(w, h, frames, modal_over_list),
+        "unchanged" => picture(w, h, frames, unchanged),
+        "fade" => picture(w, h, frames, fade),
+        "scattered" => picture(w, h, frames, scattered),
+        "filter-shrink" => picture(w, h, frames, filter_shrink),
         "latency" => latency(w, h),
         "cpu" => cpu(w, h, seconds),
         "" => {
@@ -187,7 +192,7 @@ fn caret(screen: &mut Screen, stack: &mut Stack, n: u32, _w: u16, _h: u16) {
     // grapheme, one column and three bytes, and only one of those three numbers is the caret's
     // column.
     let col = vitui_engine::width_of(TITLE);
-    screen.set_cursor(if n % 2 == 0 {
+    screen.set_cursor(if n.is_multiple_of(2) {
         Some(Cursor {
             x: col,
             y: 0,
@@ -267,12 +272,7 @@ fn full_repaint(screen: &mut Screen, stack: &mut Stack, n: u32, w: u16, h: u16) 
 
 /// Scene 5. Scene 3's frame 0, dimmed, with an undimmed dialog over it.
 fn modal_over_list(screen: &mut Screen, stack: &mut Stack, n: u32, w: u16, h: u16) {
-    let dialog_rect = Rect::new(
-        (i32::from(w) - 40) / 2,
-        (i32::from(h) - 12) / 2,
-        40,
-        12,
-    );
+    let dialog_rect = Rect::new((i32::from(w) - 40) / 2, (i32::from(h) - 12) / 2, 40, 12);
     if n == 0 {
         list_scroll(screen, stack, 0, w, h);
     }
@@ -295,9 +295,10 @@ fn modal_over_list(screen: &mut Screen, stack: &mut Stack, n: u32, w: u16, h: u1
             // is exactly this: the alternative is for the caller to compute dimmed colours for
             // three thousand cells and write them, which is not compositing however identical the
             // picture is.
-            let dim = screen
-                .layers()
-                .add_operator(1, Rect::new(0, 0, w, h), Mix::darken(Mix::FULL / 2));
+            let dim =
+                screen
+                    .layers()
+                    .add_operator(1, Rect::new(0, 0, w, h), Mix::darken(Mix::FULL / 2));
             let dialog = screen.layers().add_content(2, dialog_rect, true);
             let mut view = screen.layers().view(dialog).expect("the dialog layer");
             let inner = usize::from(dialog_rect.w) - 2;
@@ -339,6 +340,85 @@ fn modal_over_list(screen: &mut Screen, stack: &mut Stack, n: u32, w: u16, h: u1
     let mut view = screen.layers().view(dialog).expect("the dialog layer");
     let glyph = SPINNER[usize::try_from(n).expect("120 frames") % SPINNER.len()];
     view.text(2, 1, &format!("{glyph} working"), Style::new().bold());
+}
+
+/// Scene 6. Scene 2's screen, drawn again on every frame, with nothing on it different.
+///
+/// **The whole picture every frame, static rows included**, which is the one place `SCENES.md` had
+/// to spell out what an arm may not do: the shortcut here is a single `if n == 0 { return; }` and it
+/// would be invisible in the output, because the output is supposed to be empty either way. So this
+/// draws all 4 800 cells 120 times and the equality filter decides what leaves — which is exactly
+/// what the row is asking about, and the reason `status_line` above cannot simply be called with
+/// `n = 0`: that one skips the body after the first frame, which is a smaller question.
+fn unchanged(screen: &mut Screen, stack: &mut Stack, _n: u32, w: u16, h: u16) {
+    let status_row = i32::from(h) - 1;
+    let mut view = screen.layers().view(stack.base).expect("the base layer");
+    for row in 0..status_row {
+        let line = format!("line {row:02}  {LOREM}");
+        view.text(0, row, &line, Style::new());
+    }
+    let bar = " frame 0     elapsed 0.00s    cpu 12%    3 tasks";
+    let padded = format!("{bar:<width$}", width = usize::from(w));
+    view.text(0, status_row, &padded, Style::new().reverse());
+}
+
+/// Scene 7. A 60x20 panel of `=` fading up from black, and nothing else on the screen.
+///
+/// One colour for 1 200 cells, and the glyph never changes anywhere — which is scene 4's opposite
+/// corner and the reason both are on the list. What this row prices is whether damage stays inside
+/// the rectangle that moved and whether *these cells, this colour* can be said once.
+fn fade(screen: &mut Screen, stack: &mut Stack, n: u32, _w: u16, _h: u16) {
+    let v = u8::try_from((n * 2).min(255)).expect("clamped to 255");
+    let mut view = screen.layers().view(stack.base).expect("the base layer");
+    view.fill(
+        Rect::new(30, 10, 60, 20),
+        "=",
+        Style::new().fg(Color::rgb(v, v, v)).bg(Color::rgb(0, 0, 0)),
+    );
+}
+
+/// Scene 8. Twelve panels, and one two-digit field in each of them moves.
+///
+/// Twenty-four cells in twelve places. Everything the wire spends beyond twenty-four characters is
+/// the cost of *arriving*, which is the quantity nothing else on the list isolates.
+fn scattered(screen: &mut Screen, stack: &mut Stack, n: u32, _w: u16, _h: u16) {
+    let mut view = screen.layers().view(stack.base).expect("the base layer");
+    for k in 0..12u32 {
+        let x = i32::try_from(30 * (k % 4)).expect("under 120");
+        let y = i32::try_from(13 * (k / 4)).expect("under 40");
+        if n == 0 {
+            view.text(x, y, &format!("panel {k:02}"), Style::new());
+            view.text(x, y + 2, "count ", Style::new());
+        }
+        // Only the two digits, and that is the arm being ordinary rather than clever: the field is
+        // fixed-width, so a caller who writes `count NN` every frame and a caller who writes the two
+        // digits reach the same wire through the equality filter. Writing the digits is what the
+        // call site would say.
+        view.text(x + 6, y + 2, &format!("{:02}", (k + n) % 100), Style::new());
+    }
+}
+
+/// Scene 9. A list that narrows and widens again, and rows that leave the screen blank.
+///
+/// The one scene here where something is *taken off* the screen rather than overwritten. Every other
+/// row on the list pads out to 120 columns whatever was underneath it.
+fn filter_shrink(screen: &mut Screen, stack: &mut Stack, n: u32, w: u16, h: u16) {
+    let matches = 39 - (n % 39);
+    let query_row = i32::from(h) - 1;
+    let mut view = screen.layers().view(stack.base).expect("the base layer");
+    for row in 0..query_row {
+        let index = u32::try_from(row).expect("under 40");
+        let line = if index < matches {
+            format!("{row:05}  item-{row:05}---------")
+        } else {
+            String::new()
+        };
+        let padded = format!("{line:<width$}", width = usize::from(w));
+        view.text(0, row, &padded, Style::new());
+    }
+    let bar = format!(" search: {matches:02} matches");
+    let padded = format!("{bar:<width$}", width = usize::from(w));
+    view.text(0, query_row, &padded, Style::new().reverse());
 }
 
 /// The latency mode: scene 2's screen, then one status-line field per keystroke, flushed.

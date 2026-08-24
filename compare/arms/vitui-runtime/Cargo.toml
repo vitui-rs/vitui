@@ -1,0 +1,31 @@
+# The vitui-**runtime** arm of the comparative suite: the fifth arm, and the second of ours.
+#
+# `arms/vitui` takes `vitui-engine` and this one takes the facade. They draw the same nine pictures
+# on the same machine in the same run, one layer apart, so **what the runtime costs on the wire is a
+# subtraction rather than an argument** — and it is the only difference in `REPORT.md` with exactly
+# one known cause, because every other pair of cells differs by a whole framework.
+#
+# Runtime impl ticket 20 owed *the runtime's scenes added to engine ticket 26's comparative suite*,
+# and the sentence that made this arm necessary was already written down here: `arms/vitui`'s
+# manifest said *a runtime that does not exist yet cannot be in the number*. It exists now. The
+# alternative — pointing the existing arm one layer up — was one line, and it would have redefined
+# every row already in a committed report without a single cell recording that it had.
+#
+# **The facade, and not `vitui-runtime` plus `vitui-engine` named separately.** `Driver::attach`
+# takes the engine's `Config`, so an application needs both names whatever it depends on; `vitui` is
+# the one name it depends on to get them, which makes this arm the first consumer of the facade
+# outside its own workspace. `vitui-components` comes along and is empty scaffolding, which costs
+# the measurement nothing and is exactly what an application today would also get.
+[package]
+name = "arm-vitui-runtime"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+vitui = { path = "../../../crates/vitui", version = "0.0.0" }
+
+[[bin]]
+name = "arm-vitui-runtime"
+path = "src/main.rs"

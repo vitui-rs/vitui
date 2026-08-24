@@ -243,3 +243,60 @@ it: `ESC [ 1 ; 15 H` writes the dash, and the next write is at column 17, having
 Scene 2's `elapsed` field is `n / 60`, derived from the frame index and never from a clock, which is
 what makes the run byte-identical twice over. That is the contract's rule and it is easy to violate
 by reaching for `Instant` in the one scene that displays a duration.
+
+---
+
+# Scenes 6..9, and two literals this arm had drifted on
+
+Added for runtime impl ticket 20. `SCENES.md` explains why the four are one list with the first five
+rather than a second suite.
+
+## Two constants that had stopped matching the normative file
+
+Both were this arm's own choice when it was written, and both were made wrong by the first run
+without the arm being brought back into line:
+
+- **the 64-character lorem string.** `SCENES.md` gave its length and not its content, so this arm
+  picked `Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do.`. Under-specification 4
+  wrote the string out; the arm kept its own. Same length, so the byte counts never moved — and a
+  *different picture* on every scene with a body of text in it, which is the thing the suite's whole
+  rule exists to prevent.
+- **the list label width.** 20 here on the reading that the prose beat the example;
+  under-specification 5 settled it at 19, "stated twice so the next reader does not have to choose".
+  The arm kept the 20, so its list rows were one column wider than every other arm's on scenes 3
+  and 5.
+
+Both are now the file's. **Found by replaying frame 0 of four arms into a text grid** while adding
+scene 6 — which is the one scene whose entire subject is that two frames are the same picture, and
+so the one place where four arms drawing four pictures could not be ignored. The dialog body text of
+scene 5 is the same class of drift and is **not** fixed here; see `FINDINGS.md`.
+
+## `unchanged`
+
+`draw_status_scene(frame, "frame 0", 0.0)`, and the arm reaches the picture the only way ratatui
+has: it rebuilds the whole frame, exactly as it does for every other scene, and `Terminal`'s
+double-buffered diff finds nothing to write.
+
+**It is not nothing.** ratatui emits **25 bytes on a frame where no cell changed** — `ESC[39m`,
+`ESC[49m`, `ESC[59m`, `ESC[0m`, `ESC[?25l`, which is `Terminal::flush`'s unconditional epilogue:
+reset foreground, background, underline colour and attributes, then hide the cursor. It is written
+whether or not the diff produced a single cell. Three kilobytes over 120 frames for a screen nobody
+touched.
+
+## `fade`
+
+A `Widget` writing cells, for `Ramp`'s reason: a per-cell style has no widget in ratatui's library
+and `render` into a `Buffer` is ratatui's own answer to that. Every cell takes the **same** style,
+which is the whole difference from scene 4.
+
+## `scattered`
+
+Twelve `Line`s of eight characters and twelve of two, rebuilt every frame. This is the row the arm's
+`list-scroll` observation belongs to — 582 of 705 bytes of cursor motion, eighty `MoveTo`s to write
+eighty characters — with the scroll taken out of the way.
+
+## `filter-shrink`
+
+The rows that stop matching are rendered as **120 spaces**, not skipped. Rendering nothing leaves
+whatever the last frame put in ratatui's back buffer, so the picture would be a list that never
+shrinks — and it would be *cheaper*, which is the direction this suite cannot afford to be wrong in.

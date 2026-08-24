@@ -1,0 +1,9 @@
+# Python bytecode, which is not a suite artefact and was committed by accident.
+#
+# `run.sh --check` used to lint the two Python files with `python -m compileall`, which **writes**
+# `__pycache__` beside them; two of those `.pyc` files were then swept into a commit whose subject
+# was about something else entirely. They are removed here and `--check` no longer writes any — see
+# the comment on that step. This line is the second half of that fix, because the first half only
+# stops one of the ways they can appear: running `arms/textual/arm.py` at all creates them.
+__pycache__/
+*.pyc

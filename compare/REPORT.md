@@ -15,13 +15,14 @@ in advance.
 - **Frames per scene:** 120
 - **CPU scene:** the caret at 60 Hz for 5s of wall time
 - **Latency trials:** 40 keystrokes
-- **Machine:** Apple M1 Max, macOS 26.5.2, rustc 1.97.1, python 3.14.6 — impl 26's first run
+- **Machine:** Apple M1 Max, macOS 26.5.2, rustc 1.97.1, python 3.14.6 — runtime impl 20: nine scenes, five arms
 
 ## The arms, and what each did with the declaration
 
 | arm | version | `NO_COLOR` | alt screen | lever needed for the declared tier |
 |---|---|---|---|---|
 | vitui | `0.0.0` | honoured | yes | VITUI_DEFAULT_BG, VITUI_DEFAULT_FG, VITUI_FORCE_COLOR, VITUI_GLYPHS |
+| vitui-runtime | `0.0.0` | honoured | yes | VITUI_DEFAULT_BG, VITUI_DEFAULT_FG, VITUI_FORCE_COLOR, VITUI_GLYPHS |
 | ratatui | `0.30.2` | honoured | yes | none |
 | textual | `8.2.8` | honoured | yes | none |
 | notcurses | — | — | — | **not built here — no notcurses development files on this machine. Homebrew's formula pulls ffmpeg, and a several-hundred-megabyte install is not a side effect this suite gets to have; the pinned Linux runner installs `libnotcurses-core-dev` and builds it there. **This is `not built here`, which is a fact about the run — it is not `cannot express`, which would be a fact about notcurses, and see the withdrawal below for why that distinction is not academic**** |
@@ -40,23 +41,31 @@ whose default answer to a pipe was something other than the declaration.
 the session prologue and the first paint differenced out. **This is the table to read**;
 the totals below fold three different things together and reverse at least one row.
 
-| scene | vitui | ratatui | textual |
-|---|---|---|---|
-| `caret` | 9.5 | 28.5 | 25.0 |
-| `status-line` | 22.4 | 46.5 | 47.5 |
-| `list-scroll` | 572.3 | 704.7 | 5124.0 |
-| `full-repaint` | 96408.0 | 106216.0 | 111036.0 |
-| `modal-over-list` *(layered)* | 19.0 | 36.0 | 17.0 |
+| scene | vitui | vitui-runtime | ratatui | textual |
+|---|---|---|---|---|
+| `caret` | 9.5 | 9.5 | 28.5 | 25.0 |
+| `status-line` | 22.4 | 52.4 | 46.5 | 47.5 |
+| `list-scroll` | 572.3 | 604.3 | 704.7 | 5124.0 |
+| `full-repaint` | 96408.0 | 96420.0 | 106216.0 | 111036.0 |
+| `modal-over-list` *(layered)* | 19.0 | 47.0 | 36.0 | 17.0 |
+| `unchanged` | 0.0 | 0.0 | 25.0 | 5124.0 |
+| `fade` | 1394.7 | 1394.7 | 1413.7 | 2618.3 |
+| `scattered` | 82.2 | 114.2 | 127.2 | 199.0 |
+| `filter-shrink` | 76.0 | 108.0 | 110.7 | 291.2 |
 
 ### And the totals over 120 frames, prologue and first paint included
 
-| scene | vitui | ratatui | textual |
-|---|---|---|---|
-| `caret` | 6073 | 3488 | 14396 |
-| `status-line` | 7599 | 11647 | 21252 |
-| `list-scroll` | 73043 | 85542 | 625358 |
-| `full-repaint` | 11568998 | 12745942 | 13546622 |
-| `modal-over-list` *(layered)* | 7880 | 10076 | 16686 |
+| scene | vitui | vitui-runtime | ratatui | textual |
+|---|---|---|---|---|
+| `caret` | 6073 | 6113 | 3488 | 14396 |
+| `status-line` | 7599 | 12759 | 11911 | 21252 |
+| `list-scroll` | 73043 | 76883 | 85503 | 625358 |
+| `full-repaint` | 11568998 | 11570438 | 12745942 | 13546622 |
+| `modal-over-list` *(layered)* | 7880 | 11203 | 10076 | 16686 |
+| `unchanged` | 4930 | 6520 | 9354 | 625358 |
+| `fade` | 171571 | 171571 | 169657 | 328833 |
+| `scattered` | 14707 | 19475 | 15707 | 45955 |
+| `filter-shrink` | 13973 | 17813 | 14820 | 50254 |
 
 
 ## Bytes a frame, steady state — declared tier `no-color`
@@ -65,32 +74,41 @@ the totals below fold three different things together and reverse at least one r
 the session prologue and the first paint differenced out. **This is the table to read**;
 the totals below fold three different things together and reverse at least one row.
 
-| scene | vitui | ratatui | textual |
-|---|---|---|---|
-| `caret` | 9.5 | 22.5 | 34.0 |
-| `status-line` | 22.4 | 40.5 | 53.5 |
-| `list-scroll` | 572.3 | 698.7 | 5598.0 |
-| `full-repaint` | 0.0 | 24290.0 | 62716.0 |
-| `modal-over-list` *(layered)* | 19.0 | 30.0 | 29.0 |
+| scene | vitui | vitui-runtime | ratatui | textual |
+|---|---|---|---|---|
+| `caret` | 9.5 | 9.5 | 22.5 | 34.0 |
+| `status-line` | 22.4 | 22.4 | 40.5 | 53.5 |
+| `list-scroll` | 572.3 | 572.3 | 698.7 | 5598.0 |
+| `full-repaint` | 0.0 | 0.0 | 24290.0 | 62716.0 |
+| `modal-over-list` *(layered)* | 19.0 | 15.0 | 30.0 | 29.0 |
+| `unchanged` | 0.0 | 0.0 | 19.0 | 6066.0 |
+| `fade` | 0.0 | 0.0 | 1383.0 | 2445.0 |
+| `scattered` | 82.2 | 82.2 | 121.2 | 343.0 |
+| `filter-shrink` | 76.0 | 76.0 | 104.7 | 320.7 |
 
 ### And the totals over 120 frames, prologue and first paint included
 
-| scene | vitui | ratatui | textual |
-|---|---|---|---|
-| `caret` | 6073 | 2768 | 15785 |
-| `status-line` | 7599 | 10927 | 24792 |
-| `list-scroll` | 73043 | 84822 | 683186 |
-| `full-repaint` | 4926 | 2914822 | 7651582 |
-| `modal-over-list` *(layered)* | 7407 | 8963 | 18639 |
+| scene | vitui | vitui-runtime | ratatui | textual |
+|---|---|---|---|---|
+| `caret` | 6073 | 6073 | 2768 | 15785 |
+| `status-line` | 7599 | 7599 | 11191 | 24792 |
+| `list-scroll` | 73043 | 73043 | 84783 | 683186 |
+| `full-repaint` | 4926 | 4926 | 2914822 | 7651582 |
+| `modal-over-list` *(layered)* | 7407 | 6922 | 8963 | 18639 |
+| `unchanged` | 4930 | 4930 | 8634 | 740282 |
+| `fade` | 4926 | 4926 | 165982 | 309413 |
+| `scattered` | 14707 | 14707 | 14987 | 71737 |
+| `filter-shrink` | 13973 | 13973 | 14100 | 55186 |
 
 
 ## Process CPU over the fixed scene
 
 | arm | % of one core | measured |
 |---|---|---|
-| vitui | 0.27% | 0.014s of CPU over 5.01s |
-| ratatui | 0.75% | 0.037s of CPU over 5.01s |
-| textual | 10.48% | 0.551s of CPU over 5.26s |
+| vitui | 0.23% | 0.011s of CPU over 5.01s |
+| vitui-runtime | 0.27% | 0.013s of CPU over 5.01s |
+| ratatui | 0.64% | 0.032s of CPU over 5.01s |
+| textual | 9.52% | 0.528s of CPU over 5.55s |
 
 **Python counts.** Textual's interpreter overhead is what its users pay, and it is in this
 column rather than subtracted out of it.
@@ -99,9 +117,10 @@ column rather than subtracted out of it.
 
 | arm | us p50 / p99 | samples |
 |---|---|---|
-| vitui | 46 / 590 | 40 samples, us p50 / p99 |
-| ratatui | 490 / 8695 | 40 samples, us p50 / p99 |
-| textual | 1986 / 17069 | 40 samples, us p50 / p99 |
+| vitui | 44 / 111 | 40 samples, us p50 / p99 |
+| vitui-runtime | 89 / 246 | 40 samples, us p50 / p99 |
+| ratatui | 1045 / 11947 | 40 samples, us p50 / p99 |
+| textual | 2972 / 36123 | 40 samples, us p50 / p99 |
 
 Keystroke-to-**wire**, not keystroke-to-photon: the emulator's own paint is not in the number
 and cannot be from a harness. This is the form of the quantity that is comparable at all — our

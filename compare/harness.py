@@ -40,14 +40,25 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 
-# The five picture scenes, in the order SCENES.md defines them. `layered` is the flag that produces a
+# The nine picture scenes, in the order SCENES.md defines them. `layered` is the flag that produces a
 # `cannot express` cell rather than a blank one.
+#
+# **Nine and not five, and the four at the bottom are not a second suite.** Runtime impl ticket 20
+# owed *the runtime's scenes added to the comparative suite*, and both backlogs described the same
+# one — same rules, same four external projects, same pinned runner, same committed file. The four
+# are the runtime scenes that survive being written down as a picture; `SCENES.md` names the sixteen
+# that do not and says why for each, because a rejected scene left as an absence is the same defect
+# as a missing row.
 SCENES = [
     ("caret", False),
     ("status-line", False),
     ("list-scroll", False),
     ("full-repaint", False),
     ("modal-over-list", True),
+    ("unchanged", False),
+    ("fade", False),
+    ("scattered", False),
+    ("filter-shrink", False),
 ]
 
 FRAMES = 120
@@ -114,6 +125,40 @@ def build_arms(only: list[str] | None) -> list[Arm]:
             # is what a headless run needs because there is no terminal to ask; the two default
             # colours are needed for the same reason — an operator layer cannot mix toward black
             # without knowing what the ground is, so scene 5's dim is a no-op until they are declared.
+            lever={
+                "truecolor": {
+                    "VITUI_FORCE_COLOR": "truecolor",
+                    "VITUI_DEFAULT_FG": "#c0c0c0",
+                    "VITUI_DEFAULT_BG": "#000000",
+                    "VITUI_GLYPHS": "extended",
+                },
+                "no-color": {},
+            },
+        ),
+        # **A fifth arm rather than a changed fourth, and the reason is what a committed report is
+        # for.** `arms/vitui` depends on `vitui-engine` alone and its manifest said why: *a runtime
+        # that does not exist yet cannot be in the number*. It exists now — 20 of 21 tickets — so
+        # that sentence has expired, and there were two ways to spend it.
+        #
+        # Pointing the existing arm at the runtime would have been one line, and it would have
+        # silently redefined every row already in `REPORT.md`. The whole falsifiability argument is
+        # that the file is committed and a worsening number arrives as a review-visible diff; a diff
+        # in which every one of our cells moved, for a reason no cell records, is that argument
+        # spent. The engine-only number stays comparable across the suite's history because the arm
+        # that produces it did not change.
+        #
+        # And the second arm buys something the first cannot: **the runtime's cost is now a delta
+        # between two of our own arms**, same scenes, same machine, same run, one layer apart. That
+        # is the only difference in this table with exactly one known cause — every other pair of
+        # cells differs by a whole framework.
+        Arm(
+            name="vitui-runtime",
+            argv=[str(target / "arm-vitui-runtime")],
+            # The same two default colours the engine arm needs, for a sharper reason: a `Paint`
+            # comes from a `Theme` and a `Theme` is thirteen concrete colour pairs, so **this arm
+            # has no way to say *leave it to the terminal*** — see its `NOTES.md`. The suite already
+            # declares what the terminal's defaults are (scene 5 fixes them at `rgb(192,192,192)` on
+            # `rgb(0,0,0)`), and the arm builds a theme that names exactly those.
             lever={
                 "truecolor": {
                     "VITUI_FORCE_COLOR": "truecolor",

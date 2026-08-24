@@ -49,14 +49,26 @@ const DEFAULT_SECONDS: f64 = 10.0;
 
 const CARET_TITLE: &str = "vitui compare — caret";
 
-/// The 64-character lorem string of scene 2. `SCENES.md` fixes its length and not its content;
-/// this is the arm's choice and it is load-bearing for the frame-0 byte count only. See `NOTES.md`.
-const LOREM: &str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do.";
+/// The 64-character lorem string of scene 2, **verbatim from `SCENES.md`**.
+///
+/// It used to be this arm's own choice, on the grounds that `SCENES.md` fixed the string's length
+/// and not its content. That was true when this arm was written and the first run made it false —
+/// finding 4 of the nine under-specifications is exactly this string, and `SCENES.md` now writes it
+/// out. The arm was not brought back into line at the time, so **two arms of this suite drew two
+/// different pictures on every scene with a body of text in it** for as long as the file said one
+/// thing and the code another. Found by replaying frame 0 of both arms into a grid while adding
+/// scene 6, which is the only scene whose entire subject is that two frames are the same.
+const LOREM: &str = "lorem ipsum dolor sit amet consectetur adipiscing elit sed do ei";
 const _: () = assert!(LOREM.len() == 64);
 
-/// Scene 3's label width. `SCENES.md` says "a 20-character label" and illustrates it with a
-/// 19-character example; the prose wins. See `NOTES.md`.
-const LABEL_WIDTH: usize = 20;
+/// Scene 3's label width. **Nineteen, which is what `SCENES.md` now says twice.**
+///
+/// This was 20 on the reading that the prose beat the example. The first run settled it the other
+/// way — finding 5, "now 19, stated twice so the next reader does not have to choose" — and this
+/// arm kept the 20, so its list rows were one column wider than every other arm's on scenes 3, 5
+/// and 9. A one-character difference per row is small; it is a *different picture*, and a suite
+/// whose whole rule is that the picture is the same cannot carry one.
+const LABEL_WIDTH: usize = 19;
 
 /// Scene 5's spinner, one step per frame.
 const SPINNER: [char; 10] = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
@@ -80,6 +92,12 @@ enum Scene {
     ListScroll,
     FullRepaint,
     ModalOverList,
+    /// Scene 6. The runtime backlog's four begin here; `SCENES.md` explains why they are one list
+    /// with the first five and not a second suite.
+    Unchanged,
+    Fade,
+    Scattered,
+    FilterShrink,
     Latency,
     Cpu,
 }
@@ -92,6 +110,10 @@ impl Scene {
             "list-scroll" => Self::ListScroll,
             "full-repaint" => Self::FullRepaint,
             "modal-over-list" => Self::ModalOverList,
+            "unchanged" => Self::Unchanged,
+            "fade" => Self::Fade,
+            "scattered" => Self::Scattered,
+            "filter-shrink" => Self::FilterShrink,
             "latency" => Self::Latency,
             "cpu" => Self::Cpu,
             _ => return None,
@@ -337,6 +359,83 @@ fn draw_modal_over_list(frame: &mut Frame, n: u64) {
     }
 }
 
+/// Scene 7's panel: 1 200 cells of `=`, one colour, fading up from black.
+///
+/// A `Widget` for `Ramp`'s reason — a per-cell style has no widget in ratatui's library and writing
+/// cells from a `render` is ratatui's own answer to that. Every cell takes the *same* style here,
+/// which is the whole difference from scene 4 and is what makes this the row where run coalescing is
+/// the only thing being measured.
+struct Fade {
+    level: u8,
+}
+
+impl Widget for Fade {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let fg = Color::Rgb(self.level, self.level, self.level);
+        for y in area.top()..area.bottom() {
+            for x in area.left()..area.right() {
+                if let Some(cell) = buf.cell_mut((x, y)) {
+                    cell.set_char('=');
+                    cell.set_fg(fg);
+                    cell.set_bg(Color::Rgb(0, 0, 0));
+                }
+            }
+        }
+    }
+}
+
+/// Scene 8: twelve panels four wide and three tall, and one two-digit field in each of them moves.
+///
+/// Twelve `Line`s of eight characters and twelve of two, rebuilt every frame, and the diff decides
+/// what reaches the wire. This is the row where the cost of *arriving* at a changed cell is the
+/// whole measurement — see `NOTES.md` for what the first run already found about `MoveTo`.
+fn draw_scattered(frame: &mut Frame, n: u64) {
+    let area = frame.area();
+    for k in 0..12u16 {
+        let x = area.x + 30 * (k % 4);
+        let y = area.y + 13 * (k / 4);
+        frame.render_widget(Line::from(format!("panel {k:02}")), Rect::new(x, y, 30, 1));
+        let count = (u64::from(k) + n) % 100;
+        frame.render_widget(
+            Line::from(format!("count {count:02}")),
+            Rect::new(x, y + 2, 30, 1),
+        );
+    }
+}
+
+/// Scene 9: a list that narrows and widens again, with the rows that stop matching left blank.
+fn draw_filter_shrink(frame: &mut Frame, n: u64) {
+    let area = frame.area();
+    let rows = area.height.saturating_sub(1);
+    let matches = 39 - (n % 39);
+    for r in 0..rows {
+        let text = if u64::from(r) < matches {
+            list_row(r as usize)
+        } else {
+            // **Spaces, and it has to be spaces.** Rendering nothing would leave whatever the last
+            // frame put there in ratatui's back buffer, so the picture would be a list that never
+            // shrinks — and it would be *cheaper*, which is the direction this suite cannot afford
+            // to be wrong in.
+            " ".repeat(area.width as usize)
+        };
+        frame.render_widget(
+            Line::from(text),
+            Rect::new(area.x, area.y + r, area.width, 1),
+        );
+    }
+    frame.render_widget(
+        Line::styled(
+            format!(" search: {matches:02} matches")
+                .chars()
+                .chain(std::iter::repeat(' '))
+                .take(area.width as usize)
+                .collect::<String>(),
+            Style::new().add_modifier(Modifier::REVERSED),
+        ),
+        Rect::new(area.x, area.y + rows, area.width, 1),
+    );
+}
+
 /// The one function the whole arm turns on: frame `n` of `scene`, and nothing else decides it.
 fn draw(scene: Scene, frame: &mut Frame, n: u64) {
     match scene {
@@ -349,6 +448,17 @@ fn draw(scene: Scene, frame: &mut Frame, n: u64) {
             frame.render_widget(Ramp { shift }, area);
         }
         Scene::ModalOverList => draw_modal_over_list(frame, n),
+        // Scene 6. Frame `n`'s picture is frame 0's picture, and the arm reaches it the only way
+        // ratatui has: it rebuilds the whole frame, exactly as it does for every other scene, and
+        // `Terminal`'s double-buffered diff finds nothing. **That is the row.** The scene forbids
+        // skipping the draw precisely because the shortcut here would be invisible in the output.
+        Scene::Unchanged => draw_status_scene(frame, "frame 0", 0.0),
+        Scene::Fade => {
+            let v = (n * 2).min(255) as u8;
+            frame.render_widget(Fade { level: v }, Rect::new(30, 10, 60, 20));
+        }
+        Scene::Scattered => draw_scattered(frame, n),
+        Scene::FilterShrink => draw_filter_shrink(frame, n),
         Scene::Latency => draw_status_scene(frame, "frame 0", 0.0),
     }
 }
@@ -481,9 +591,7 @@ fn run(args: &Args) -> io::Result<()> {
     let (width, height) = viewport_size();
 
     // The one line on stderr, before the first frame and before anything reaches stdout.
-    eprintln!(
-        "arm=ratatui version={RATATUI_VERSION} no_color={NO_COLOR} alt_screen={ALT_SCREEN}"
-    );
+    eprintln!("arm=ratatui version={RATATUI_VERSION} no_color={NO_COLOR} alt_screen={ALT_SCREEN}");
 
     // `ratatui::init()` enables raw mode and enters the alternate screen. Raw mode is deliberately
     // skipped: crossterm implements it against `/dev/tty`, so calling it here would reconfigure the
@@ -518,7 +626,7 @@ fn run(args: &Args) -> io::Result<()> {
     result.and(flushed)
 }
 
-/// The five picture scenes: `N` frames, no sleeping, no clock.
+/// The nine picture scenes: `N` frames, no sleeping, no clock.
 fn run_frames(
     terminal: &mut Terminal<CrosstermBackend<impl Write>>,
     scene: Scene,
@@ -586,8 +694,8 @@ mod tests {
     }
 
     #[test]
-    fn list_row_is_seven_plus_twenty_cells() {
-        assert_eq!(list_row(12), "00012  item-00012----------");
+    fn list_row_is_seven_plus_nineteen_cells() {
+        assert_eq!(list_row(12), "00012  item-00012---------");
         assert_eq!(list_row(12).chars().count(), 7 + LABEL_WIDTH);
     }
 
