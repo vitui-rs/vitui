@@ -98,12 +98,18 @@ test:
   #
   # Keyed on `Cargo.lock` rather than the branch: the registry only changes when the lock file
   # does, so the cache survives every commit that does not touch dependencies.
+  #
+  # **Two files, and that is a hard limit rather than a preference.** `cache:key:files` takes at most
+  # two entries, and a third fails pipeline *creation* — `too many items (maximum is 2)` — which
+  # arrives as a red pipeline holding no jobs at all rather than as a build error, so nothing in a
+  # log says what happened. Ticket 18 met it by adding a third. `crates/vitui-signals/Cargo.lock` is
+  # therefore deliberately absent: it moves only when a path dependency inside this repository does,
+  # and the root lock moves with it, so the file already listed covers the case worth invalidating on.
   cache:
     key:
       files:
         - Cargo.lock
         - conform/Cargo.lock
-        - crates/vitui-signals/Cargo.lock
       prefix: test
     paths:
       - .cargo/registry/index
