@@ -1,4 +1,12 @@
-//! **`block` — border, title and padding ring — and the helper spec §3 deleted.**
+//! **`block` — border, title and padding ring — `face_paint`, and the helper spec §3 deleted.**
+//!
+//! Two of spec §3's helpers and the one it struck out live here, and they are the same argument
+//! twice. [`block`] returns the rectangle it did not write, so nobody clears what somebody else is
+//! about to draw; [`face_paint`] resolves a row's five bits to one paint **before a cell is
+//! written**, so nobody lays a restyle over a drawn row; and `frame::focus_ring` is deleted because
+//! it is the second of those two written the first way round. See [`Face`] for why the five bits
+//! are a struct and not C02's four-armed enum, and [`WhyThereIsNoFocusRing`] for the pair that
+//! keeps the deleted item deleted.
 //!
 //! Spec §3's table gives `block` one job and one shape: *border, title, padding ring* · **draws its
 //! frame, returns the rectangle it did not write.** ADR 0026 states the consequence as a number: a
@@ -302,6 +310,153 @@ fn fill_rows<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, cells: Cells, st: vitui_
     for row in 0..cells.h() {
         ink.run(cx, x, i32::from(cells.y() + row), PAD, cells.w(), st);
     }
+}
+
+/// **What a row is, as five independent bits.**
+///
+/// Spec §3 narrowed C02's `selection` to this, and ADR 0026 states the shape: *selection becomes
+/// `face_paint`, a `Paint` the row drawer is handed — which is a row signature, `(cx, rect, index,
+/// Face)`.*
+///
+/// # C02's `Sel` enum does not survive, and the reason is that its variants are not exclusive
+///
+/// A row can be selected **and** hovered. It can be the keyboard cursor **without** being selected
+/// — which is what `Ctrl+↓` does, and what every file manager draws. An enum whose arms are
+/// `Rest | Hover | Selected | Cursor` cannot say either of those; it named **4** of the states five
+/// bits can be in, and there are **32**. The four it named are the four a prototype's screen
+/// happened to stand up.
+///
+/// # Five bytes, and five separate bools rather than a bitset
+///
+/// `size_of::<Face>() == 5`, asserted rather than assumed
+/// (`tests::a_face_is_five_independent_bools_in_five_bytes`). A `u8` of flags would be one byte
+/// and would also make `face.selected` a mask-and-compare at every call site, which is where a
+/// missing highlight comes from.
+///
+/// **The trade is deliberate and it is stated here rather than discovered.** Five fields mean a row
+/// drawer that binds one and forgets it gets `unused_variable`, which is `warnings = "deny"` at this
+/// workspace and therefore a build failure. A *missing highlight* raises nothing at all: the screen
+/// looks like a screen, and the row that should have been marked simply is not. An unused binding is
+/// a warning; a missing highlight is not, and the cheap failure is the one worth having.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Hash)]
+pub struct Face {
+    /// It is in the selection.
+    pub selected: bool,
+    /// It is where the keyboard cursor is. **Independent of `selected`** — that independence is the
+    /// whole reason this is a struct.
+    pub cursor: bool,
+    /// It is being acted on: a button down on it, a drag from it, an open disclosure.
+    pub active: bool,
+    /// The pointer is over it.
+    pub hovered: bool,
+    /// It cannot be interacted with. **Beats everything**, because a disabled row that looks
+    /// selected is a row a user will try to act on.
+    pub disabled: bool,
+}
+
+impl Face {
+    /// A row in none of the five states.
+    pub const REST: Face = Face {
+        selected: false,
+        cursor: false,
+        active: false,
+        hovered: false,
+        disabled: false,
+    };
+
+    /// **All thirty-two states**, in the order the five bits count.
+    ///
+    /// The list [`face_role`]'s precedence is asserted over. It is generated from the bits rather
+    /// than written out, because a hand-written list of thirty-two is a list somebody samples — and
+    /// *asserted over all 32, not sampled* is criterion 5 in as many words.
+    pub const ALL: [Face; 32] = Face::all();
+
+    const fn all() -> [Face; 32] {
+        let mut out = [Face::REST; 32];
+        let mut bits = 0usize;
+        while bits < 32 {
+            out[bits] = Face {
+                selected: bits & 1 != 0,
+                cursor: bits & 2 != 0,
+                active: bits & 4 != 0,
+                hovered: bits & 8 != 0,
+                disabled: bits & 16 != 0,
+            };
+            bits += 1;
+        }
+        out
+    }
+
+    /// How many of the five bits are set, for a report that wants the states in a readable order.
+    pub const fn set(self) -> u32 {
+        self.selected as u32
+            + self.cursor as u32
+            + self.active as u32
+            + self.hovered as u32
+            + self.disabled as u32
+    }
+}
+
+/// **The role a [`Face`] resolves to. The one collapse point.**
+///
+/// The precedence is the decision, and it is stated once, here:
+///
+/// > **disabled > selected+active > selected > cursor > hovered > base**
+///
+/// and it is resolved **before a cell is written** — ADR 0026's *a selection or a focus ring is a
+/// paint chosen before a cell is written, never a restyle laid over a drawn row*. A restyle used to
+/// replace this branch re-damages its range every frame for ever: 26 cells for one focused field,
+/// 31 for a selected row, 56 for a ring drawn into its neighbours' cells, 261 for a selected range,
+/// and the restyled row is **7 cells different** from the correct one.
+///
+/// # Why the ladder is `if` and not a match on a tuple
+///
+/// A `match (selected, cursor, active, hovered, disabled)` is thirty-two arms and each of them is a
+/// place the precedence can be written down differently. The ladder is six lines and the order of
+/// the lines **is** the rule, which is what makes
+/// `tests::the_precedence_holds_over_all_thirty_two_states` a check of one statement rather than
+/// of thirty-two.
+pub const fn face_role(face: Face) -> Role {
+    if face.disabled {
+        Role::Disabled
+    } else if face.selected && face.active {
+        Role::FaceActive
+    } else if face.selected {
+        Role::Selection
+    } else if face.cursor {
+        Role::Focus
+    } else if face.hovered {
+        Role::FaceHover
+    } else {
+        Role::Body
+    }
+}
+
+/// **The [`Paint`](vitui_runtime::Paint) a row drawer is handed**, spec §3's own shape for it.
+///
+/// [`face_role`] with the theme applied, and it is deliberately nothing more: a second precedence
+/// ladder for the paint-shaped caller is a second place the rule can be written down differently,
+/// which is the whole defect C02's `Sel` enum was an instance of. A caller that needs the role —
+/// to hand to [`crate::text::fit_with`]'s two role fields, say — takes `face_role`; a caller that
+/// writes cells itself takes this.
+///
+/// ```
+/// use vitui_components::frame::{Face, face_paint, face_role};
+/// use vitui_runtime::ctx::Driver;
+/// use vitui_runtime::Role;
+///
+/// let mut driver = Driver::headless(20, 3).expect("a sink attaches");
+/// driver.frame(|cx| {
+///     // Selected *and* hovered, which C02's enum could not say at all.
+///     let both = Face { selected: true, hovered: true, ..Face::REST };
+///     assert_eq!(face_role(both), Role::Selection);
+///     assert_eq!(face_paint(cx.theme(), both), cx.theme().paint(Role::Selection));
+///     // The keyboard cursor without the selection — `Ctrl+↓`, and every file manager.
+///     assert_eq!(face_role(Face { cursor: true, ..Face::REST }), Role::Focus);
+/// });
+/// ```
+pub fn face_paint(theme: &vitui_runtime::Theme, face: Face) -> vitui_runtime::Paint {
+    theme.paint(face_role(face))
 }
 
 /// **The panel that broke the rule its own author had just written down.**
@@ -656,6 +811,107 @@ mod tests {
              is `BlockOpts::border` and a `Faces` into `press`",
             offenders.join(", ")
         );
+    }
+
+    /// **Five independent bools in five bytes**, and `Face::ALL` really is every one of the
+    /// thirty-two — criterion 4.
+    ///
+    /// The size is asserted because it is the sentence the ticket is written in, and the
+    /// distinctness of `ALL` is asserted because a generated list that repeats an entry would make
+    /// the exhaustive test below sample without saying so.
+    #[test]
+    fn a_face_is_five_independent_bools_in_five_bytes() {
+        assert_eq!(std::mem::size_of::<Face>(), 5);
+        assert_eq!(Face::ALL.len(), 32);
+        let distinct: std::collections::BTreeSet<[bool; 5]> = Face::ALL
+            .iter()
+            .map(|f| [f.selected, f.cursor, f.active, f.hovered, f.disabled])
+            .collect();
+        assert_eq!(distinct.len(), 32, "`Face::ALL` repeats a state");
+
+        // **The two states C02's four-armed enum could not name**, which is the whole argument for
+        // the struct: `Sel::Selected | Sel::Hover | Sel::Cursor | Sel::Rest` has no way to say
+        // either, and both are on every file manager's screen.
+        assert!(Face::ALL.contains(&Face {
+            selected: true,
+            hovered: true,
+            ..Face::REST
+        }));
+        assert!(Face::ALL.contains(&Face {
+            cursor: true,
+            ..Face::REST
+        }));
+    }
+
+    /// **The precedence, asserted over all thirty-two states and not sampled** — criterion 5.
+    ///
+    /// The oracle is the rule written as a **predicate over the bits**, independently of the
+    /// ladder: for each state, the expected role is the first rung whose condition holds, computed
+    /// from a table of `(condition, role)` in precedence order. It shares no line with
+    /// [`face_role`], which is the engine's `reference.rs` rule — *share no code with the fast
+    /// path* — restated for six lines of `if`.
+    ///
+    /// Every rung is asserted to be **reached** by at least one state as well, because a ladder
+    /// whose third rung is unreachable passes a comparison against an oracle with the same bug.
+    #[test]
+    fn the_precedence_holds_over_all_thirty_two_states() {
+        // disabled > selected+active > selected > cursor > hovered > base.
+        type Rung = (fn(Face) -> bool, Role);
+        let ladder: [Rung; 5] = [
+            (|f: Face| f.disabled, Role::Disabled),
+            (|f: Face| f.selected && f.active, Role::FaceActive),
+            (|f: Face| f.selected, Role::Selection),
+            (|f: Face| f.cursor, Role::Focus),
+            (|f: Face| f.hovered, Role::FaceHover),
+        ];
+        let mut reached = [0usize; 6];
+        let mut seen = 0usize;
+        for face in Face::ALL {
+            let (expected, rung) = ladder
+                .iter()
+                .enumerate()
+                .find(|(_, (holds, _))| holds(face))
+                .map_or((Role::Body, 5), |(i, (_, role))| (*role, i));
+            assert_eq!(
+                face_role(face),
+                expected,
+                "{face:?}: the precedence is disabled > selected+active > selected > cursor > \
+                 hovered > base, and this state resolves the wrong way"
+            );
+            reached[rung] += 1;
+            seen += 1;
+        }
+        assert_eq!(seen, 32, "the sweep is not over all thirty-two states");
+        for (rung, count) in reached.iter().enumerate() {
+            assert!(
+                *count > 0,
+                "rung {rung} of the precedence is reached by none of the thirty-two states, so \
+                 the oracle and the ladder could share a defect there and agree"
+            );
+        }
+        // The base case, named: a row in none of the five states is ordinary body text and not a
+        // face at all, which is why a list of ten thousand rows costs no face lookup.
+        assert_eq!(face_role(Face::REST), Role::Body);
+    }
+
+    /// **`face_paint` is `face_role` with the theme applied and nothing else** — criterion 5's
+    /// *one collapse point*, over all thirty-two states.
+    ///
+    /// A second ladder inside `face_paint` would pass every test that only checks the four states a
+    /// screen stands up, which is exactly how C02's enum survived as long as it did.
+    #[test]
+    fn face_paint_resolves_through_the_same_ladder_at_every_state() {
+        let mut driver = driver_at(20, 3, Density::Compact);
+        driver.frame(|cx| {
+            let theme = cx.theme();
+            for face in Face::ALL {
+                assert_eq!(
+                    face_paint(theme, face),
+                    theme.paint(face_role(face)),
+                    "{face:?}: `face_paint` and `face_role` disagree, so there are two ladders"
+                );
+            }
+        });
     }
 
     fn collect(dir: &std::path::Path, out: &mut Vec<PathBuf>) {

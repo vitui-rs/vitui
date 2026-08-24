@@ -40,10 +40,11 @@
 
 use std::fmt;
 
-use vitui_runtime::{Ctx, Paint};
+use vitui_runtime::{Ctx, Paint, Response, Role};
 
+use crate::cells::Cells;
 use crate::counters::Tally;
-use crate::runner::Pen;
+use crate::runner::{Award, Pen};
 
 /// A cluster written `n` times, as a [`fmt::Display`] so it can go through [`Ctx::stage`].
 ///
@@ -62,10 +63,20 @@ impl fmt::Display for Repeat<'_> {
 
 /// **What a partition helper writes through.**
 ///
-/// Two methods, because two are all `fit` and `block` need, and a third would be a place for a
-/// helper to write something the gate cannot see. Nothing outside this crate implements it: the
-/// three implementations are [`Direct`], [`Tally`] and [`Pen`], and they are the three things a
-/// helper is ever asked to draw into — a real frame, a counter, and a recorded surface.
+/// Nothing outside this crate implements it: the three implementations are [`Direct`], [`Tally`]
+/// and [`Pen`], and they are the three things a helper is ever asked to draw into — a real frame, a
+/// counter, and a recorded surface.
+///
+/// # Two verbs and one declaration, and the third method is here because the gate must see it
+///
+/// It carried two methods while `fit` and `block` were the only helpers, and its own note said *a
+/// third would be a place for a helper to write something the gate cannot see*. [`Ink::award`] is
+/// the exception that note predicts rather than a breach of it: components ticket 07's
+/// [`crate::state::press`] declares a **deferred hover award**, the runtime applies it as a
+/// background restyle at `end`, and ADR 0026 prices the whole helper on a relation between that
+/// restyle and the widget's next draw — *a restyle is free only when the component's own next draw
+/// already produces the value the restyle produced*. An award the instrument cannot see is exactly
+/// the write the gate is about, so it goes through the seam with the two that draw.
 pub trait Ink {
     /// Write a string, and return **the engine's own column count** — how many columns landed after
     /// clipping, not how many were asked for.
@@ -83,6 +94,15 @@ pub trait Ink {
         n: u16,
         st: Paint,
     ) -> u16;
+
+    /// **Declare the face `cells` is to be awarded if it wins the hover**, and let the instrument
+    /// see it.
+    ///
+    /// It writes no cell of its own: the runtime applies the restyle at `end`, from the index that
+    /// has just drawn. What an instrument does with it is model the restyle on its own surface, so
+    /// that *the component's next draw already produces the value the restyle produced* is a number
+    /// rather than a sentence.
+    fn award(&mut self, cx: &mut Ctx<'_, '_>, cells: Cells, resp: &Response, role: Role);
 }
 
 /// **The implementation a component gets: draw, count nothing, allocate nothing.**
@@ -114,6 +134,10 @@ impl Ink for Direct {
         let _ = cx.stage(format_args!("{}", Repeat(cluster, n)));
         cx.blit(x, y, st).cells
     }
+
+    fn award(&mut self, cx: &mut Ctx<'_, '_>, cells: Cells, resp: &Response, role: Role) {
+        cells.hover_style(cx, resp, role);
+    }
 }
 
 impl Ink for Tally {
@@ -135,6 +159,13 @@ impl Ink for Tally {
         }
         Tally::text(self, cx, x, y, &cluster.repeat(usize::from(n)), st)
     }
+
+    /// **The declaration, and nothing folded in.** A `Tally` counts the columns a *component*
+    /// wrote; the restyle is the runtime's write and it carries no per-cell value for the tally to
+    /// compare against anyway. What can see it is [`Pen`], which keeps the values.
+    fn award(&mut self, cx: &mut Ctx<'_, '_>, cells: Cells, resp: &Response, role: Role) {
+        cells.hover_style(cx, resp, role);
+    }
 }
 
 impl Ink for Pen {
@@ -155,6 +186,30 @@ impl Ink for Pen {
             return 0;
         }
         Pen::text(self, cx, x, y, &cluster.repeat(usize::from(n)), st)
+    }
+
+    /// **Declare it, and apply it to the recorded surface the way the runtime applies it.**
+    ///
+    /// `Frame::hover_to_apply` restyles exactly one rectangle a frame — the one belonging to the id
+    /// the award named as hovered — so the model applies it where `Response::hovered` is the fact
+    /// the fixture is standing up. That is the one place this instrument stands in for the runtime,
+    /// and it stands in for it because **the pointer cannot be driven from this crate at all**:
+    /// `Driver::post_mouse` takes a `vitui_engine::Mouse`, which is
+    /// `EngineName { name: "Mouse", reachable_as: None }` in `crates/vitui-runtime/src/line.rs`,
+    /// and `Driver::plant` reaches the grab, the focus and the click and not the pointer. The same
+    /// barrier keeps `crate::gates::REGISTER`'s row 29 red.
+    fn award(&mut self, cx: &mut Ctx<'_, '_>, cells: Cells, resp: &Response, role: Role) {
+        let painted = cx.theme().paint(role);
+        cells.hover_style(cx, resp, role);
+        self.declare(Award {
+            x: i32::from(cells.x()),
+            y: i32::from(cells.y()),
+            w: cells.w(),
+            h: cells.h(),
+            role,
+            painted,
+            applied: resp.hovered,
+        });
     }
 }
 

@@ -1,4 +1,4 @@
-//! Spec §21's register: **forty-seven gates as a value, one row per gate, and a number for how many of
+//! Spec §21's register: **fifty-two gates as a value, one row per gate, and a number for how many of
 //! them anything runs.**
 //!
 //! > The register is data, not prose — one row per gate with its kind, its owner, where it stood at
@@ -54,11 +54,19 @@
 //!   to run over** — no component exists — and a register that filed those as `Evaluated` would be
 //!   claiming sixteen green gates over an empty population.
 //!
-//! **Twenty-two evaluated, three red, seven unreachable, fifteen unsubjected**, and
-//! `tests::twenty_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
+//! **Twenty-seven evaluated, three red, seven unreachable, fifteen unsubjected**, and
+//! `tests::twenty_seven_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
 //! deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
-//! and subjected row 27, the cross-family collapse gate.
+//! and subjected row 27, the cross-family collapse gate; ticket 07 added five, and none of them
+//! moved a standing that was already taken.
+//!
+//! **Row 48 is the one to read beside row 1.** Row 1 wants *cells marked on a steady frame == 0*
+//! and is `Unreachable`: `damage.rs` is `pub(crate)` throughout and nothing above the engine can
+//! read the engine's damage. Row 48 asks the question the engine's own equality filter turns that
+//! into — *writes whose value differs from what is already there* — which is computable at the verb
+//! boundary. It does not invert row 1 and is not filed as doing so; it is the input where row 1 is
+//! the output, and both rows now say so.
 //!
 //! # The instruments are values with files in them
 //!
@@ -270,12 +278,12 @@ pub struct Row {
 /// thirty-third would be a spec change.
 pub const SPEC_ROWS: usize = 32;
 
-/// How many rows anything evaluates today. **Twenty.**
+/// How many rows anything evaluates today. **Twenty-seven.**
 ///
 /// The number is the point of the file. §21 counted **2 of 18** at the branch point and **11 of 18**
 /// after C11's own pass, both over the prototypes; this is the first count taken over shipped code,
-/// and it is twenty-two of forty-seven because thirty-two of the forty-seven rows are about components
-/// that do not exist.
+/// and it is twenty-seven of fifty-two because thirty-two of the rows are about components that do
+/// not exist.
 ///
 /// **It was fourteen of forty until ticket 04**, which added the reference-render runner and its
 /// four rows. Every one of the four is `Evaluated` over a **fixture** rather than over a component,
@@ -283,10 +291,15 @@ pub const SPEC_ROWS: usize = 32;
 /// separates a correct build from a defective one*, and each is watched doing it in both directions.
 /// The scenes themselves stay `Unsubjected` in [`crate::scenes`], and that file says why the two are
 /// not the same claim.
-pub const EVALUATED: usize = 22;
+///
+/// **Ticket 07's five are the same kind of standing**, over the chip and the two bars its own
+/// helpers stand up rather than over a component: rows 48–52. Row 48 is the one worth reading
+/// twice — it is the **reachable form of row 1**, which is `Unreachable` and stays that way, and
+/// the two rows now sit side by side saying which question each of them can answer.
+pub const EVALUATED: usize = 27;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 47] = [
+pub const REGISTER: [Row; 52] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -300,7 +313,12 @@ pub const REGISTER: [Row; 47] = [
                     damage.rs` is `pub(crate)` from top to bottom, so this is not a re-export the \
                     runtime forgot — `Presented` carries `submitted`, `coalesced` and \
                     `discarded_for_resize`, and no count of cells. It needs a field there and a \
-                    `Driver` accessor for it, because this crate cannot name `vitui_engine`",
+                    `Driver` accessor for it, because this crate cannot name `vitui_engine`. \
+                    **Row 48 is the reachable form of this question** and does not invert it: the \
+                    engine filters a write whose value equals the resident value, so *writes whose \
+                    value differs from what is already there* is computable at the verb boundary \
+                    (`crate::runner::Canvas::repaints`) and is the input to the damage this row \
+                    wants the output of",
             inverted_by: "runtime architecture issue 22",
         },
     },
@@ -1112,6 +1130,140 @@ pub const REGISTER: [Row; 47] = [
             ],
         },
     },
+    // ── components ticket 07's five ──────────────────────────────────────────────────────────────
+    Row {
+        number: 48,
+        on_spec_table: false,
+        gate: "a pointer resting on a chip for sixty frames changes 0 cells through `press`, \
+               against 8 written by hand",
+        kind: Kind::Count,
+        owner: "C02",
+        section: "spec §3",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/state.rs",
+                    name: "a_pointer_resting_for_sixty_frames_re_damages_nothing_through_press",
+                },
+                // The half that makes it structural rather than measured: the role awarded and the
+                // role returned come out of one field, on all eight pointer paths.
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/state.rs",
+                    name: "the_face_awarded_is_the_face_a_hovered_widget_draws_on_every_path",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/state.rs",
+                    name: "the_hover_award_is_declared_in_one_file_and_it_is_the_one_that_\
+                            collapses_it",
+                },
+                // The instrument's own correctness, in both directions: applied before the draw
+                // instead of after it, the answer inverts.
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/state.rs",
+                    name: "the_award_is_applied_after_the_draw_and_not_before",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/press_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 49,
+        on_spec_table: false,
+        gate: "`state::PressState` does not exist, and a twin names `state::press` by path",
+        kind: Kind::CompileOutcome,
+        owner: "C02",
+        section: "spec §3",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Pair {
+                    file: "crates/vitui-components/src/state.rs",
+                    hostile: "use vitui_components::state::PressState;",
+                },
+                // The pair catches the type coming back on the **public** surface. This catches it
+                // coming back as a private one, which is how a deleted type actually returns.
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/state.rs",
+                    name: "no_source_file_in_this_crate_declares_a_press_state",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 50,
+        on_spec_table: false,
+        gate: "`face_paint`'s precedence holds at all 32 states a `Face`'s five bits can be in",
+        kind: Kind::Equality,
+        owner: "C02, C03",
+        section: "spec §3",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/frame.rs",
+                    name: "the_precedence_holds_over_all_thirty_two_states",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/frame.rs",
+                    name: "face_paint_resolves_through_the_same_ladder_at_every_state",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/frame.rs",
+                    name: "a_face_is_five_independent_bools_in_five_bytes",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/press_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 51,
+        on_spec_table: false,
+        gate: "a scrollbar's `writes == distinct` on a two-bar screen: 0, against the two thumbs \
+               track-first",
+        kind: Kind::Equality,
+        owner: "C02",
+        section: "spec §3",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/scroll.rs",
+                    name: "a_track_written_under_its_own_thumb_is_two_hundred_and_twenty_four_\
+                            double_writes",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/scroll.rs",
+                    name: "a_bar_writes_each_cell_once_at_every_length_and_offset",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/press_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 52,
+        on_spec_table: false,
+        gate: "the three helpers of components 07 build no style and name no glyph repertoire",
+        kind: Kind::Count,
+        owner: "C02, C03",
+        section: "spec §3",
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/state.rs",
+                    name: "the_three_helpers_carry_no_style_literal_and_name_no_glyph_set",
+                },
+                // The crate-wide half of the same question, which row 26 already runs: this row is
+                // the three files, that one is every file and every private fallback table.
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/inventory.rs",
+                    name: "no_component_source_names_the_repertoire",
+                },
+            ],
+        },
+    },
 ];
 
 /// **The compile-outcome pair row 31 names, and its positive twin.**
@@ -1306,7 +1458,7 @@ mod tests {
             .any(|line| !line.starts_with("//") && line.contains(needle))
     }
 
-    /// **Every row names a destination, and the numbers are 1..=45 once each.**
+    /// **Every row names a destination, and the numbers are 1..=52 once each.**
     #[test]
     fn every_row_names_a_destination() {
         for row in REGISTER {
@@ -1375,14 +1527,14 @@ mod tests {
         assert_eq!(seen, expected);
     }
 
-    /// **Twenty-two evaluated, and the other twenty-five each say why not.**
+    /// **Twenty-seven evaluated, and the other twenty-five each say why not.**
     ///
     /// This is the number §21 asks for: *how many gates are actually evaluated is a number a test
     /// asserts rather than a claim in a document*. Saying it out loud is what stops the next change
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn twenty_two_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn twenty_seven_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -1410,7 +1562,7 @@ mod tests {
              `vitui-runtime` and nothing else"
         );
         assert_eq!(unsubjected, 15, "and the fifteen with nothing to run over");
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 47);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 52);
     }
 
     /// **The split, not the total.**
@@ -1421,10 +1573,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_fifteen_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_twenty_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 15);
+        assert_eq!(REGISTER.len() - on_table, 20);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -1726,6 +1878,7 @@ mod tests {
                 "gates_numbers.rs".to_string(),
                 "glyph_numbers.rs".to_string(),
                 "partition_numbers.rs".to_string(),
+                "press_numbers.rs".to_string(),
                 "scene_numbers.rs".to_string()
             ],
             "the count on this lineage was 0 against the runtime's 19"

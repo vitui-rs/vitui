@@ -69,6 +69,7 @@
 //! names it. They are the evidence that the runner works: a runner validated only against a correct
 //! painter reports `0 cells over 0 rows` for the same reason a broken one would.
 
+use std::collections::BTreeSet;
 use std::fmt;
 use std::time::{Duration, Instant};
 
@@ -91,6 +92,17 @@ pub struct Cell {
     pub cluster: String,
     /// The paint it was written with.
     pub paint: Paint,
+    /// **The role a deferred hover award restyled this cell's background to**, since it was drawn.
+    ///
+    /// `None` after every drawing verb, because a draw writes the whole cell and leaves no restyle
+    /// standing over it. `Some(role)` after [`Canvas::award`], and only where the award actually
+    /// changed something — a cell already painted in `role` is left `None`, because restyling a
+    /// background to the background it already carries writes nothing the terminal can see.
+    ///
+    /// It is a field on the cell rather than a second surface because the engine has one cell: a
+    /// draw and a restyle land in the same place, and *which of the two spoke last* is the whole of
+    /// what [`Canvas::repaints`] is counting.
+    pub hover: Option<Role>,
 }
 
 /// A recorded surface: `w x h` cells, each either written or never touched.
@@ -99,11 +111,25 @@ pub struct Cell {
 /// already there, and *what was already there is almost always right* — the whole reason
 /// [`crate::counters::sentinel`] exists. Modelling it as a space would make the two arms agree on
 /// exactly the cells the shrink axis is about.
+/// # It is also the only instrument that can answer *how much of this frame was a change*
+///
+/// `marked` — spec §20's damaged-cell count — is [`crate::counters::Reading::Unreachable`] and
+/// stays that way: `crates/vitui-engine/src/damage.rs` is `pub(crate)` throughout and `Presented`
+/// carries no count, so nothing above the engine can read the engine's damage. What **is** knowable
+/// from here is the rule that decides it: *the engine filters a write whose value equals the cell's
+/// current value* ([`crate::counters::sentinel`]'s own sentence), so the measurable quantity is
+/// **writes whose value differs from what is already there**. That is [`Canvas::repaints`], and it
+/// is a model rather than a report — see it for exactly where the model is exact and where it is
+/// conservative.
 #[derive(Clone, Debug)]
 pub struct Canvas {
     w: u16,
     h: u16,
     cells: Vec<Option<Cell>>,
+    /// Cells whose value a verb has changed since the last [`Canvas::take_repaints`]. **Distinct
+    /// cells and not events**: a chip cell that a draw changes and a restyle then changes back is
+    /// one cell the frame re-damaged, which is the unit ADR 0026 prices its five instances in.
+    repainted: BTreeSet<(u16, u16)>,
 }
 
 impl Canvas {
@@ -113,6 +139,7 @@ impl Canvas {
             w,
             h,
             cells: vec![None; usize::from(w) * usize::from(h)],
+            repainted: BTreeSet::new(),
         }
     }
 
@@ -140,14 +167,94 @@ impl Canvas {
     }
 
     fn put(&mut self, x: i32, y: i32, cell: Cell) {
+        let Some(at) = self.index(x, y) else {
+            return;
+        };
+        if self.cells[at].as_ref() != Some(&cell) {
+            self.repainted.insert((x as u16, y as u16));
+        }
+        self.cells[at] = Some(cell);
+    }
+
+    /// The flat index of `(x, y)`, or `None` when it is off the surface.
+    fn index(&self, x: i32, y: i32) -> Option<usize> {
         if x < 0 || y < 0 {
-            return;
+            return None;
         }
-        let (x, y) = (x as usize, y as usize);
-        if x >= usize::from(self.w) || y >= usize::from(self.h) {
-            return;
+        let (cx, cy) = (x as usize, y as usize);
+        (cx < usize::from(self.w) && cy < usize::from(self.h))
+            .then_some(cy * usize::from(self.w) + cx)
+    }
+
+    /// **Apply a deferred hover award to this surface**, as the runtime applies it: a background
+    /// restyle over the rectangle, after the draw and before `present`.
+    ///
+    /// `as_painted` is `theme.paint(role)` — handed in because a [`Paint`] is opaque (ADR 0018:
+    /// a component names a role and never a colour) and this crate cannot ask a paint what its
+    /// background is. It is what makes the model **exact in the case that matters**: a cell already
+    /// carrying `theme.paint(role)` carries `role`'s background, so restyling it to `role` writes
+    /// nothing and the cell is left alone.
+    ///
+    /// Every other cell is recorded as changed. That is the model's one conservative direction, and
+    /// it is closed at the fixture rather than assumed away: two roles can share a background while
+    /// differing in foreground, and
+    /// [`Theme::roles_differ_on_wire`](vitui_runtime::Theme::roles_differ_on_wire) is the question a
+    /// fixture asks of the roles it is about — `crate::state`'s chip asserts it of the three faces
+    /// it uses.
+    pub fn award(&mut self, x: i32, y: i32, w: u16, h: u16, role: Role, as_painted: Paint) {
+        for dy in 0..i32::from(h) {
+            for dx in 0..i32::from(w) {
+                let (cx, cy) = (x + dx, y + dy);
+                let Some(at) = self.index(cx, cy) else {
+                    continue;
+                };
+                let Some(cell) = self.cells[at].as_mut() else {
+                    // A cell nobody has written has no background for the restyle to change. The
+                    // engine would restyle it; what it holds is whatever was there before this
+                    // surface began, which is the residue `crate::counters::sentinel` is about and
+                    // which this instrument deliberately does not model.
+                    continue;
+                };
+                if cell.paint == as_painted {
+                    continue;
+                }
+                if cell.hover != Some(role) {
+                    self.repainted.insert((cx as u16, cy as u16));
+                }
+                cell.hover = Some(role);
+            }
         }
-        self.cells[y * usize::from(self.w) + x] = Some(cell);
+    }
+
+    /// **How many distinct cells a verb has changed the value of** since the last
+    /// [`Canvas::take_repaints`].
+    ///
+    /// # This is the honest form of `marked`, and it is a model
+    ///
+    /// It is not the engine's damage count and cannot become one: `damage.rs` is `pub(crate)`
+    /// throughout, `Presented` carries no count, and [`crate::counters::Counters::marked`] therefore
+    /// panics rather than answering `0`. What this counts is the **input** to the engine's equality
+    /// filter — a write whose value differs from the resident value — over a surface this crate
+    /// keeps itself, at the verb boundary, from the engine's own report of how many columns each
+    /// verb landed.
+    ///
+    /// It is exact for the draw verbs, whose whole value ([`Cell`]) is known here. It is exact for
+    /// an award onto a cell already painted in the awarded role, which is the case a correct widget
+    /// produces every frame. It is **conservative** for an award onto any other cell: the model
+    /// records a change, and the engine would agree unless the two roles share a background, which
+    /// a fixture closes by asking `Theme::roles_differ_on_wire`.
+    ///
+    /// What it does not model at all is a cell nobody in this surface has written — see
+    /// [`crate::counters::sentinel`] for why that is a different, and unreachable, question.
+    pub fn repaints(&self) -> u64 {
+        self.repainted.len() as u64
+    }
+
+    /// Read [`Canvas::repaints`] and start the next frame's count from zero.
+    pub fn take_repaints(&mut self) -> u64 {
+        let n = self.repaints();
+        self.repainted.clear();
+        n
     }
 
     /// One row as text, with an untouched cell spelled as a space and the trailing run trimmed.
@@ -277,14 +384,91 @@ impl fmt::Display for Diff {
 pub struct Pen {
     canvas: Canvas,
     tally: Tally,
+    awards: Vec<Award>,
+}
+
+/// **One deferred hover award a frame declared**, as the instrument sees it.
+///
+/// `Ctx::hover_style` declares an intent and `Driver::frame` applies it *after the draw and before
+/// `present`*, which is what makes it land in the same frame. A model that applied it at the
+/// declaration would have the restyle happen before the widget's own cells were written, and would
+/// then score the widget's draw as undoing it — the opposite of the relation ADR 0026 states. So an
+/// award is recorded here and applied by [`Pen::end_frame`].
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Award {
+    /// Its left edge, in the coordinates the verbs were called in.
+    pub x: i32,
+    /// Its top edge.
+    pub y: i32,
+    /// Its width.
+    pub w: u16,
+    /// Its height.
+    pub h: u16,
+    /// The role the background is restyled to.
+    pub role: Role,
+    /// `theme.paint(role)`, carried because a [`Paint`] is opaque. See [`Canvas::award`].
+    pub painted: Paint,
+    /// **Whether the runtime would actually apply it this frame** — `Frame::hover_to_apply` picks
+    /// exactly one rectangle, the one belonging to the id the award named as hovered.
+    pub applied: bool,
 }
 
 impl Pen {
     /// A pen over an untouched surface.
     pub fn new(w: u16, h: u16) -> Pen {
+        Pen::over(Canvas::new(w, h))
+    }
+
+    /// **A pen over a surface a previous frame left behind**, which is what makes a steady-state
+    /// measurement possible at all.
+    ///
+    /// A `Pen::new` per frame reports every cell as a first paint, for ever: *re-damage* is a
+    /// relation between two frames and there is nothing to relate it to. The tally starts empty —
+    /// `writes`, `distinct` and `verbs` are per-frame counters and always have been — and the
+    /// canvas does not, because the resident value is exactly the thing that carries over.
+    pub fn over(canvas: Canvas) -> Pen {
         Pen {
-            canvas: Canvas::new(w, h),
+            canvas,
             tally: Tally::new(),
+            awards: Vec::new(),
+        }
+    }
+
+    /// Take the surface back, to hand to the next frame's [`Pen::over`].
+    pub fn into_canvas(self) -> Canvas {
+        self.canvas
+    }
+
+    /// Record a deferred hover award. See [`Award`] and [`crate::ink::Ink::award`].
+    pub fn declare(&mut self, award: Award) {
+        self.awards.push(award);
+    }
+
+    /// The awards this frame declared, in declaration order.
+    pub fn awards(&self) -> &[Award] {
+        &self.awards
+    }
+
+    /// **Apply this frame's awards, where `Driver::frame` applies them** — after the draw and
+    /// before `present`.
+    ///
+    /// A harness that forgets this measures a widget that declared an award and never got one,
+    /// which scores every arm as free. `crate::state::resting` is the one caller, and
+    /// `state::tests::the_award_is_applied_after_the_draw_and_not_before` is what watches the
+    /// ordering matter.
+    pub fn end_frame(&mut self) {
+        for award in std::mem::take(&mut self.awards) {
+            if !award.applied {
+                continue;
+            }
+            self.canvas.award(
+                award.x,
+                award.y,
+                award.w,
+                award.h,
+                award.role,
+                award.painted,
+            );
         }
     }
 
@@ -312,6 +496,7 @@ impl Pen {
                 Cell {
                     cluster: cluster.to_string(),
                     paint: st,
+                    hover: None,
                 },
             );
             for tail in 1..width {
@@ -321,6 +506,7 @@ impl Pen {
                     Cell {
                         cluster: String::new(),
                         paint: st,
+                        hover: None,
                     },
                 );
             }

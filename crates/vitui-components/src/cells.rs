@@ -60,7 +60,7 @@
 //! reached by inference inside the test body. That is the engine's `reference.rs` arrangement one
 //! layer up: a second implementation is allowed when an equality holds it to the first.
 
-use vitui_runtime::{Ctx, Id, Interest, Paint, Response};
+use vitui_runtime::{Ctx, Id, Interest, Paint, Response, Role};
 
 /// **A rectangle of cells, in the coordinates of the [`Ctx`] it came from.**
 ///
@@ -303,6 +303,28 @@ impl Cells {
     /// and collide every widget in the application on it.
     pub fn interact(self, cx: &mut Ctx<'_, '_>, id: Id, interest: Interest) -> Response {
         cx.interact(id, rect_in!(cx, self), interest)
+    }
+
+    /// **Declare the face this rectangle is to be awarded if it wins the hover.** The third verb
+    /// that needs a real `Rect`.
+    ///
+    /// [`Ctx::hover_style`] is the runtime's *deferred hover award*: the intent is declared during
+    /// the draw and applied at `end`, from the index that has just drawn, so it lands on the first
+    /// frame of an overlap rather than a frame later.
+    ///
+    /// # It is not a component's verb, and there is one caller
+    ///
+    /// ADR 0026: *a restyle is free only when the component's own next draw already produces the
+    /// value the restyle produced*. That is a relation between **two** statements — the face drawn
+    /// and the face awarded — and a component that writes both writes them separately. So this
+    /// method exists for [`crate::state::press`] and for the fixture kept beside it, and
+    /// `state::tests::the_hover_award_is_declared_in_one_file_and_it_is_the_one_that_collapses_it`
+    /// is what keeps it that way: a second caller is a second place the pair can disagree.
+    pub fn hover_style(self, cx: &mut Ctx<'_, '_>, resp: &Response, role: Role) {
+        if self.is_empty() {
+            return;
+        }
+        cx.hover_style(resp, rect_in!(cx, self), role);
     }
 }
 

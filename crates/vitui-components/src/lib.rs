@@ -14,7 +14,7 @@
 //! - [`obligations`] — §17's five obligations as queries over the freeze, each returning a count or
 //!   an equality. **Not one of them can be met yet, and every one of them says so out loud** rather
 //!   than returning green over an empty population.
-//! - [`gates`] — §21's register: **forty-seven gates as rows, twenty-two of them evaluated**, three
+//! - [`gates`] — §21's register: **fifty-two gates as rows, twenty-seven of them evaluated**, three
 //!   pinned red with their failing sets, seven unreachable across the crate line with what would have
 //!   to become public, and fifteen with nothing yet to run over. An instrument is a value with a
 //!   file in it, so a row that has stopped running turns the register red here.
@@ -37,6 +37,16 @@
 //!   of which are about `mod reference;` and the fourth about ADR 0023.
 //! - The module tree, one module per family (§19), joined to the freeze by
 //!   [`Component::families`].
+//!
+//! **And five of spec §3's helpers now exist**, which is the first code here that a component will
+//! call rather than be measured by: [`text::fit`] and [`frame::block`] are the two partition
+//! primitives; [`state::press`] returns **one role** so that the face a widget draws and the face it
+//! asks to be awarded cannot disagree; [`frame::face_paint`] is the one place a row's five
+//! independent bits collapse to a paint, over all **32** states rather than C02's four; and
+//! [`scroll::bar`] draws the thumb before the track. Each of the five carries the number the
+//! alternative costs, watched firing: 15 cells for a border run over its own title, 16 224 for a
+//! `block` that clears what it hands over, **8 a frame for as long as a pointer rests** on a chip
+//! whose two statements disagree, and 224 for a groove written under its own thumb.
 //!
 //! # The two rules a reader of this crate needs first
 //!
@@ -67,6 +77,7 @@ pub mod inventory;
 pub mod obligations;
 pub mod runner;
 pub mod scenes;
+pub mod state;
 
 // **One module per family, and the family is the module** (spec §19). The tree follows the survey's
 // fifteen families so that a reader who knows what they want finds it without a search, and
