@@ -29,6 +29,10 @@
 //!   cannot be skipped.
 //! - [`id`] — `Id`, `IdTable`, the id stack. Spec §5; ADR 0013. The call site is the source, FNV-1a
 //!   with no finalizer, and three of the four id-keyed facts swept when a widget stops drawing.
+//! - [`work`] — `Slot` (the engine's, re-exported), `Drain`, `Task`, `Worker`, `Landing`, `Cancel`.
+//!   Spec §17. **A worker is a noun, not a spawned future**: the runtime has no executor to lean on,
+//!   so the handoff is a resident thread with a one-slot inbox and eight bytes of generation that
+//!   say which question an answer answers.
 //! - [`route`] — `Edge`, `edge_of`, `batch_len`, and the one key queue behind `Ctx::next_key`. Spec
 //!   §7; ADR 0016. **A frame consumes at most one routing edge**, there are no per-id inboxes, and
 //!   bubbling is `Ctx::scope`'s after-the-body moment rather than a walk of the id path.
@@ -51,6 +55,7 @@ pub mod keys;
 pub mod layout;
 pub mod route;
 pub mod theme;
+pub mod work;
 
 // **One realistic screen, shared by the reports and the allocation gates.** `#[path]`-included by its
 // callers rather than exported, which is the engine's arrangement for its scene list and for the same
