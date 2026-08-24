@@ -30,8 +30,8 @@
 //! ├─ base pass     view(&mut Ctx) draws into the base layer
 //! ├─ overlay pass  each request in (z, seq) order, bounded at 16 rounds
 //! ├─ end           award the press · resolve Tab · release the focus with the grab · settle hover ·
-//! │                sweep three of the four id-keyed facts · resolve scroll-into-view · fold the
-//! │                deadline sink and the repaint flag into ONE wake
+//! │                sweep three of the four id-keyed facts · resolve scroll-into-view · read the
+//! │                ONE deadline sink (ticket 06 folded the repaint flag into it)
 //! ├─ settle        set_mouse(tracking) · set_cursor(caret) · request_wake_at(earliest)
 //! └─ present()
 //! ```
@@ -317,6 +317,11 @@ pub struct Frame {
     overlays: Vec<OverlayRequest>,
     /// 4. The deadline sink: **the earliest requested wake, and one value rather than a list**,
     ///    because `end` folds it into one wake anyway.
+    ///
+    ///    **It is the only wakeup sink there is** (ticket 06). It used to have a `repaint: bool`
+    ///    beside it and `end` flushed one of the two, which is how `[Tab, Key(a)]` stranded its
+    ///    second key: `request_frame()` **is** `deadline(now)`, and the split-batch drain asks the
+    ///    same way a component does.
     deadline: Option<Instant>,
     /// 5. The key queue, drained at successively outer levels. **One queue and no per-id inboxes**
     ///    — `crate::route` is where the cursor that keeps draining it linear lives.
@@ -453,8 +458,10 @@ pub struct Frame {
     tracking: MouseMode,
     /// Where the caret goes, if anything asked.
     caret: Option<Cursor>,
-    /// Something asked for another frame without naming a moment.
-    repaint: bool,
+    /// **What asked for a wake, and from which line.** Unconditional — 1.51–1.61 ns a frame, of both
+    /// signs against a whole frame — so there is no `debug_assertions` guard and no feature flag.
+    /// See [`crate::anim::WakeLedger`]; it allocates nothing at any point in its life.
+    wakes: crate::anim::WakeLedger,
     /// How many frames have run, for the gates that count.
     frames: u64,
     /// Whether `begin` has ever run. The gate reads it.
@@ -578,7 +585,7 @@ impl Frame {
             consulted: Consulted::NONE,
             tracking: MouseMode::Off,
             caret: None,
-            repaint: false,
+            wakes: crate::anim::WakeLedger::new(),
             frames: 0,
             begun: false,
         }
@@ -615,7 +622,9 @@ impl Frame {
         self.scratch.buf.clear();
         self.tracking = MouseMode::Off;
         self.caret = None;
-        self.repaint = false;
+        // The ledger is **not** cleared here: a streak is a run of frames, so it is the one thing in
+        // this type that has to survive the swap-and-clear. It is also the only one that is not
+        // rebuilt from the draw, which is why it is not a sixth structure.
         self.ids.begin();
         self.stack.clear();
         self.scroll_areas.clear();
@@ -679,10 +688,36 @@ impl Frame {
 
     /// Ask for another frame, because the batch this one took was not the whole queue.
     ///
-    /// **The wake sink and nothing new** — `end` folds this into the one wake it already emits,
-    /// which is what makes `[Tab, Key(a)]` route both keys rather than stranding the second.
-    fn wants_another_frame(&mut self) {
-        self.repaint = true;
+    /// **The one wake sink and nothing new** — this is `deadline(now)` with a call site, which is
+    /// what makes `[Tab, Key(a)]` route both keys rather than stranding the second. It used to set a
+    /// second sink that `end` did not read.
+    ///
+    /// `#[track_caller]` so the line the ledger names is `Driver::frame`'s and not this one: the
+    /// runtime's lazy offender is a line like any other, and it now appears in the census it was
+    /// invisible to.
+    #[track_caller]
+    fn wants_another_frame(&mut self, now: Instant) {
+        self.ask(std::panic::Location::caller(), None, now, now);
+    }
+
+    /// **The one wakeup sink.** Fold `when` into the earliest, and record which line asked.
+    ///
+    /// Every path that wants another frame goes through here: [`Ctx::deadline`],
+    /// [`Ctx::deadline_for`], [`Ctx::request_frame`] and the split-batch drain above. Two callers
+    /// asking for different moments is one wake at the earlier of them, and the ledger keeps both
+    /// lines — because a fold is a wake and a census is not.
+    fn ask(
+        &mut self,
+        at: &'static std::panic::Location<'static>,
+        who: Option<Id>,
+        when: Instant,
+        now: Instant,
+    ) {
+        self.deadline = Some(match self.deadline {
+            Some(existing) if existing <= when => existing,
+            _ => when,
+        });
+        self.wakes.asked(at, who, when, now);
     }
 
     /// The innermost entry the pointer is over, from the index as it stands.
@@ -771,7 +806,7 @@ impl Frame {
     ///
     /// Six of these steps are named no-ops belonging to later tickets, and they are steps rather than
     /// comments so that filling one is not also deciding where it goes.
-    fn end(&mut self) -> Option<Instant> {
+    fn end(&mut self, now: Instant) -> Option<Instant> {
         self.award();
         // **Absence before the walk**: a `Tab` pressed on the frame a row disappears has to start
         // from where the vanish rule put the focus, not from a position belonging to an id that is
@@ -786,13 +821,14 @@ impl Frame {
         self.ring.note(self.focused);
         self.resolve_into_view();
 
-        // **Fold the deadline sink and the repaint flag into ONE wake.** This part is 08's, and it is
-        // the reason the sink is one `Option` rather than a list: two callers asking for different
-        // moments is one wake at the earlier of them, and a repaint request is a wake *now*.
-        match (self.deadline, self.repaint) {
-            (_, true) => Some(Instant::now()),
-            (at, false) => at,
-        }
+        // **The one wake, read from the one sink.** 08 folded a `repaint` flag in here and 06 folded
+        // the flag itself away: `request_frame()` is `deadline(now)`, so there is nothing left to
+        // combine and the fold that could drop half of what asked is gone. Two callers asking for
+        // different moments is still one wake at the earlier of them — `Frame::ask` does that where
+        // the ask happens, which is also where the line that asked is still known.
+        let wake = self.deadline;
+        self.wakes.note(wake, now);
+        wake
     }
 
     /// **Award the pointer, from the index that has just drawn.**
@@ -1229,6 +1265,14 @@ impl Frame {
     /// Whether `begin` has ever run.
     pub fn begun(&self) -> bool {
         self.begun
+    }
+
+    /// **What the frames asked for, and which line asked.** See [`crate::anim::WakeLedger`].
+    ///
+    /// It is on `Frame` rather than on `Driver` because it is frame state — the one piece of it that
+    /// survives the swap-and-clear, because a streak is a run of frames.
+    pub fn wakes(&self) -> &crate::anim::WakeLedger {
+        &self.wakes
     }
 
     /// The tracking level the pointer needs, which is the `max` of what was declared.
@@ -2288,18 +2332,50 @@ impl<'f, 'v> Ctx<'f, 'v> {
 
     /// Ask for another frame at a moment.
     ///
-    /// **One sink, folded at `end`.** Two callers asking for different moments is one wake, at the
-    /// earlier.
+    /// **One sink.** Two callers asking for different moments is one wake, at the earlier — and two
+    /// entries in [`crate::anim::WakeLedger`], because a fold is a wake and a census is not.
+    ///
+    /// **Attributed to the call site**, which is a `file:line:col` a diagnostic may print. An `Id`
+    /// could not be: it is a hash of an address that may never be persisted (ADR 0013), and the id
+    /// the frame has at hand here is the id stack's current — the *closure tree*, so twelve animated
+    /// chips all answer [`Id::ROOT`]. See [`Ctx::deadline_for`] for the counter that does name a
+    /// widget, and `anim`'s module documentation for the numbers.
+    ///
+    /// `#[track_caller]` is viral, and here it runs in the right direction: a component library that
+    /// wants a runaway blamed on the *application's* line writes the attribute on its own wrapper.
+    #[track_caller]
     pub fn deadline(&mut self, at: Instant) {
-        self.frame.deadline = Some(match self.frame.deadline {
-            Some(existing) if existing <= at => existing,
-            _ => at,
-        });
+        let now = self.env.now();
+        self.frame
+            .ask(std::panic::Location::caller(), None, at, now);
+    }
+
+    /// Ask for another frame at a moment, **and say which widget wants it.**
+    ///
+    /// The difference from [`Ctx::deadline`] is **not** attribution: both attribute to the call site.
+    /// What the `id` buys is the *census* — [`WakeLedger::asked_by`](crate::anim::WakeLedger::asked_by),
+    /// a counter that proves which widget asked, kept beside the attribution and never instead of it.
+    #[track_caller]
+    pub fn deadline_for(&mut self, id: Id, at: Instant) {
+        let now = self.env.now();
+        self.frame
+            .ask(std::panic::Location::caller(), Some(id), at, now);
     }
 
     /// Ask for another frame now.
+    ///
+    /// **This is `deadline(now)` with a call site**, and `now` is the frame's own sampled clock
+    /// rather than a second reading of the machine's. It is not a second sink: the runtime had two
+    /// and flushed one, and `[Tab, Key(a)]` lost its second key to exactly that.
+    ///
+    /// A frame that asks for *now* is asking for the next frame the pacing gate will give it, which
+    /// is the one thing the screen cannot sleep through — so this is what a
+    /// [`runaway`](crate::anim::WakeLedger::runaway) counts.
+    #[track_caller]
     pub fn request_frame(&mut self) {
-        self.frame.repaint = true;
+        let now = self.env.now();
+        self.frame
+            .ask(std::panic::Location::caller(), None, now, now);
     }
 
     /// Put the caret here, in this context's own coordinates.
@@ -2510,6 +2586,8 @@ pub struct Driver {
     /// head of a long batch would otherwise shift the tail once a frame. The queue is cleared
     /// outright the moment it is fully drained, which is every frame an application keeps up.
     pending_at: usize,
+    /// Whether the frame clock is pinned rather than sampled. See [`Driver::pin_clock`].
+    pinned: bool,
 }
 
 impl Driver {
@@ -2531,6 +2609,7 @@ impl Driver {
             base,
             pending: Vec::new(),
             pending_at: 0,
+            pinned: false,
         })
     }
 
@@ -2564,7 +2643,11 @@ impl Driver {
         while let Some(event) = self.screen.next_event() {
             self.pending.push(event);
         }
-        self.env.now = Instant::now();
+        // **The clock is sampled once per frame** (spec §1), and `pin_clock` is what lets a loop
+        // choose the moment instead.
+        if !self.pinned {
+            self.env.now = Instant::now();
+        }
 
         // **The batch split**, and it is the whole of ADR 0016 in three lines: take events from the
         // front until one of them is a routing edge, take that edge too, and leave the rest for the
@@ -2582,7 +2665,7 @@ impl Driver {
             // a burst waits for whatever the user does next, which for `[Tab, Key(a)]` means the
             // key arrives on the next keystroke or never. One wake, folded at `end` with everything
             // else that asked for one.
-            self.frame.wants_another_frame();
+            self.frame.wants_another_frame(self.env.now);
         }
 
         // resolve, from the PREVIOUS frame's index, what cannot be answered during the draw:
@@ -2624,7 +2707,7 @@ impl Driver {
         }
 
         // end.
-        let wake = self.frame.end();
+        let wake = self.frame.end(self.env.now);
 
         // **Hover as a style, applied after the draw and before `present`.** This is the whole of why
         // it lands in the same frame: the winner was decided from the index that has just drawn, and
@@ -2649,6 +2732,26 @@ impl Driver {
 
         self.env.theme_changed = false;
         self.screen.present()
+    }
+
+    /// Pin the frame clock, so that a loop chooses the moment each frame is drawn at.
+    ///
+    /// **Public API and not a test fixture**, on `Clock::Manual`'s precedent one layer down and
+    /// `Worker::queueing`'s one module over. Every helper in [`crate::anim`] is a closed form over
+    /// `(now, start, duration)`, so an application testing an animated component needs exactly one
+    /// thing: to say what `now` is. Without it a scene of nineteen frames is timed by the machine it
+    /// runs on, which is a stopwatch and not a gate.
+    ///
+    /// It pins until the next call. `Instant` has no public constructor, so the moment handed in is
+    /// always one the caller already had — a real reading, offset by real durations.
+    pub fn pin_clock(&mut self, at: Instant) {
+        self.pinned = true;
+        self.env.now = at;
+    }
+
+    /// Step a pinned clock. Pins it at `now + by` if it was not pinned already.
+    pub fn advance(&mut self, by: Duration) {
+        self.pin_clock(self.env.now + by);
     }
 
     /// Swap the theme. **A move into `Env`**, and the next frame reports it changed.

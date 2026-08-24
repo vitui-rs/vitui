@@ -733,3 +733,79 @@ fn scrolling_allocates_nothing() {
         "and `end` computed a request, rather than the gate measuring a frame that skipped it"
     );
 }
+
+
+/// **A hundred animating frames with four animations live allocate nothing** — spec §16's headline,
+/// and the whole of *there is no animation object*.
+///
+/// The four are a fade, a slide, a spinner and a spring, each held in a local the way a component
+/// holds one in its own state, each 48 bytes or fewer and every one of them `Copy`. Nothing is
+/// registered, so there is nothing for the runtime to keep a list of — and the [`WakeLedger`] the
+/// frames ask through is a fixed array, so **the accounting cannot allocate either**, which is a
+/// structural claim rather than this measurement.
+#[test]
+fn a_hundred_animating_frames_with_four_animations_allocate_nothing() {
+    use std::time::Duration;
+
+    use vitui_runtime::anim::{Easing, Spring, Steps, Tween};
+    use vitui_runtime::ctx::Driver;
+    use vitui_runtime::{Role, theme::Distinction};
+
+    let mut driver = Driver::headless(80, 24).expect("attaching to a sink cannot fail");
+    let start = driver.env().now();
+    driver.pin_clock(start);
+
+    let fade: Tween<f32> =
+        Tween::new(start, Duration::from_millis(300), 0.0, 1.0).eased(Easing::Out);
+    let slide: Tween<i32> = Tween::new(start, Duration::from_millis(200), 0, 20);
+    let spinner = Steps::new(start, Duration::from_millis(80));
+    let spring = Spring::new(start, 0.0, 20.0);
+    const SPOKES: [&str; 4] = ["|", "/", "-", "\\"];
+
+    let one_frame = |driver: &mut Driver| {
+        driver.frame(|cx| {
+            let now = cx.now();
+            // A fading chip, which is the one that reads the theme: a colour tween is
+            // `Theme::mix`, because a component can never construct a paint.
+            let chip = cx.theme().mix(Role::Face, Role::FaceHover, fade.phase(now));
+            cx.fill(Rect::new(0, 0, 12, 1), " ", chip);
+            let body = cx.theme().paint(Role::Body);
+            // A sliding panel.
+            cx.text(slide.value(now), 1, "panel", body);
+            // A spinner, which is a lookup into an array of spokes and no state at all.
+            let spoke = SPOKES[usize::try_from(spinner.cycle(now, 4)).unwrap_or(0)];
+            cx.text(0, 2, spoke, body);
+            // And a spring, which is the only one of the four that is not a tween.
+            cx.text(spring.value(now).round() as i32, 3, "o", body);
+            // Every one of them asks through the one sink, and the ledger records four lines.
+            if fade.wake(now).is_some() || slide.wake(now).is_some() {
+                cx.request_frame();
+            }
+            cx.deadline(spinner.next_at(now));
+            if let Some(at) = spring.wake(now, 0.5) {
+                cx.deadline(at);
+            }
+            if cx.theme().shows(Distinction::Fade) {
+                cx.deadline(now);
+            }
+        });
+        driver.advance(Duration::from_nanos(16_666_667));
+    };
+    // Twice untimed, for the first-touch reason the other gates give.
+    one_frame(&mut driver);
+    one_frame(&mut driver);
+
+    steady(|| {
+        for _ in 0..100 {
+            one_frame(&mut driver);
+        }
+    });
+    let wakes = driver.inspect().wakes();
+    assert!(
+        wakes.line_count() >= 3,
+        "the frames asked from three lines or more, so the ledger was reached: {}",
+        wakes.line_count()
+    );
+    assert_eq!(wakes.lines_lost(), 0, "and none of them was dropped");
+    assert!(wakes.frames() >= 100);
+}

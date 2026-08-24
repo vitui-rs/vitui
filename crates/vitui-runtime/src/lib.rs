@@ -45,6 +45,10 @@
 //! - [`sizing`] — the sizing-function contract, `Ctx::measured` and the detector. Spec §12; ADR
 //!   0014. **No trait and no type a component implements**: a sizing function is a shape, and the
 //!   dry run survives only as the test that keeps one honest against the component beside it.
+//! - [`anim`] — `Easing`, `Tween`, `Steps`, `Spring`, `WakeLedger`. Spec §16. **No animation
+//!   object**: every helper is a closed form over `(now, start, duration)`, a `Tween` is 48 bytes of
+//!   the component's own state, and the runtime holds nothing but the wake accounting — which is
+//!   unconditional, because a detector armed only in a debug build never sees the application.
 //! - [`work`] — `Slot` (the engine's, re-exported), `Drain`, `Task`, `Worker`, `Landing`, `Cancel`.
 //!   Spec §17. **A worker is a noun, not a spawned future**: the runtime has no executor to lean on,
 //!   so the handoff is a resident thread with a one-slot inbox and eight bytes of generation that
@@ -61,6 +65,7 @@
 // do.**
 extern crate self as vitui_runtime;
 
+pub mod anim;
 pub mod ctx;
 pub mod data;
 pub mod focus;
