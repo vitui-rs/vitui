@@ -28,8 +28,9 @@
 //!
 //! # What was measured, on this machine
 //!
-//! MacBook (arm64, Darwin 25.5.0), release, minimum of 40 rounds, four repetitions of each arm on
-//! each setting. The **layout** arm is the instrument and the **frame** arm is the context:
+//! Apple M1 Max, macOS 26.5.2, rustc 1.97.1, `--release`, minimum of 40 rounds, four repetitions of
+//! each arm on each setting. The **layout** arm is the instrument and the **frame** arm is the
+//! context:
 //!
 //! | layout, 32 splits / 119 lanes | in-binary | crate line | delta |
 //! |---|---|---|---|
@@ -52,6 +53,23 @@
 //! What the report *asserts* is the **shape**, which is a count: thirty-two splits, a hundred and
 //! nineteen lanes, and 5 902 cells written twice when a component pads before it writes — so a
 //! report that quietly started measuring a smaller screen fails instead of looking good.
+//!
+//! # Provenance
+//!
+//! The two arms and their delta are **R 17**'s, and the machine line above was wrong until **R 20**:
+//! it said *MacBook (arm64, Darwin 25.5.0)*, which names a kernel and no machine, and is the one
+//! description in the crate a reader could not match against any other report. Every figure here is
+//! **R 20**, 2026-08-24, Apple M1 Max, macOS 26.5.2, rustc 1.97.1, `--release`, unloaded, minimum of
+//! 40 rounds. R 20 re-took the frame arm as three quiet runs of each side — crate line 89.79 / 89.92
+//! / 89.88 µs, in-binary 89.92 / 89.75 / 89.83 — a 0.19% spread with **the two arms
+//! indistinguishable**, which is R 14's ThinLTO half confirmed on the shipped shape and recorded as
+//! the ledger's one row that held exactly.
+//!
+//! The 100 µs the two ratios below divide by is **not measured here and is not this file's to
+//! choose**: it is read from `crate::ledger`, which is its one home, and spec §19 inherits it from
+//! the engine map. **A budget figure may not move without a new map decision.** Before ticket 20 it
+//! was spelled `const FRAME_NS: f64 = 100_000.0` here, and identically in every other report that
+//! divides by it.
 
 use std::hint::black_box;
 
@@ -65,8 +83,13 @@ use vitui_runtime::ctx::Driver;
 mod screen;
 use screen::{dense_draw, screen_frame};
 
-/// The frame budget every ratio here is against.
-const FRAME_NS: f64 = 100_000.0;
+// **The frame budget every ratio here is against, read rather than written.** See the provenance
+// note above: this file used to declare its own copy of the figure.
+#[allow(dead_code)]
+#[path = "../src/ledger.rs"]
+mod ledger;
+
+use ledger::frame_budget_ns;
 
 fn main() {
     let lto = option_env!("CARGO_PROFILE_RELEASE_LTO").unwrap_or("thin (the manifest's)");
@@ -114,14 +137,14 @@ fn main() {
     println!(
         "        {:>8.2} us  {:>5.2}% of a {:.0} us frame  (300x80, 312 regions, text-first)",
         ns / 1e3,
-        ns / FRAME_NS * 100.0,
-        FRAME_NS / 1e3,
+        ns / frame_budget_ns() * 100.0,
+        frame_budget_ns() / 1e3,
     );
     println!(
         "        {:>8.2} us  {:>5.2}% of a {:.0} us frame  (32 splits, 119 lanes, layout only)",
         layout_ns / 1e3,
-        layout_ns / FRAME_NS * 100.0,
-        FRAME_NS / 1e3,
+        layout_ns / frame_budget_ns() * 100.0,
+        frame_budget_ns() / 1e3,
     );
     println!(
         "\n        Pair it with the in-binary arm and compare:\n        line=1 cargo test \
@@ -136,7 +159,7 @@ fn main() {
     // **A ratio against the budget, so it is a gate at cliff granularity.** What it catches is not a
     // regression of a microsecond but a frame that has stopped being proportional to visible cells.
     assert!(
-        ns < FRAME_NS * 2.0,
+        ns < frame_budget_ns() * 2.0,
         "a dense frame costs {:.1} us, which is over twice the 100 us damage-tracked budget — the \
          boundary is not what went wrong at that size",
         ns / 1e3

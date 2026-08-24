@@ -22,6 +22,25 @@
 //! And one gate rather than a number, run here as well as in the module's own tests, because a
 //! report whose fixture has drifted from its own sizing function is measuring two different layouts:
 //! [`vitui_runtime::sizing::check`] over the dialog, at every width the report uses.
+//!
+//! # Provenance
+//!
+//! **R 15** took these numbers and **R 20** re-ran the report on 2026-08-24: Apple M1 Max, macOS
+//! 26.5.2, rustc 1.97.1, `--release`, unloaded, minimum of 40 rounds. The sizing function reads
+//! 998.08 ns and the dry run 3.69× it, against §12's 13.3× — **and the smaller ratio is the honest
+//! pairing rather than an improvement**: both arms here are the same dialog, where §12 put a dense
+//! screen's dry run against a dialog's sizing function. The ratio grows with the screen because only
+//! the right-hand side does.
+//!
+//! **The `crate::ledger` row for intrinsic sizing is still the prototype's +264.85 ns**, and it says
+//! so in the ledger rather than being absent. This file prints the sizing function's *absolute* cost
+//! and not the delta that row is, so the row is unreproduced — the cost is not believed to be gone,
+//! it is unmeasured, and `ledger::tests::the_table_says_how_many_rows_are_still_the_prototypes`
+//! counts it as one of three so that a fourth cannot arrive unremarked.
+//!
+//! The 100 µs the percentages divide by is **read from `crate::ledger` and is not this file's to
+//! choose**: spec §19 inherits it from the engine map, and **a budget figure may not move without a
+//! new map decision.**
 
 use std::hint::black_box;
 
@@ -33,8 +52,12 @@ use vitui_runtime::layout::text;
 use vitui_runtime::sizing;
 use vitui_runtime::{Ctx, Role};
 
-/// The frame budget every ratio here is against.
-const FRAME_NS: f64 = 100_000.0;
+// **The frame budget every ratio here is against, read rather than written.** See the provenance
+// note above: this file used to declare its own copy of the figure.
+#[allow(dead_code)]
+#[path = "../src/ledger.rs"]
+mod ledger;
+use ledger::frame_budget_ns;
 
 /// The width the dialog is sized at, which is the width §12's 569 ns was measured at.
 const DIALOG_W: u16 = 78;
@@ -155,10 +178,10 @@ fn main() {
         "        sizing function {fun:>10.2} ns   {:>6.3}% of a {:.0} us frame\n\
         \x20       dry run         {dry:>10.2} ns   {:>6.3}% of a {:.0} us frame\n\
         \x20       dry run / sizing function = {:.1}x, and spec §12 measured 13.3x.",
-        fun / FRAME_NS * 100.0,
-        FRAME_NS / 1e3,
-        dry / FRAME_NS * 100.0,
-        FRAME_NS / 1e3,
+        fun / frame_budget_ns() * 100.0,
+        frame_budget_ns() / 1e3,
+        dry / frame_budget_ns() * 100.0,
+        frame_budget_ns() / 1e3,
         dry / fun,
     );
     println!(
@@ -245,11 +268,11 @@ fn main() {
         \x20       the column fits to {warm} columns, and across every read the memo arm made\n\
         \x20       the fold ran {} time — which is the count, and the count is the gate.",
         k / 1e3,
-        k / FRAME_NS * 100.0,
-        FRAME_NS / 1e3,
+        k / frame_budget_ns() * 100.0,
+        frame_budget_ns() / 1e3,
         m / 1e6,
-        m / FRAME_NS * 100.0,
-        FRAME_NS / 1e3,
+        m / frame_budget_ns() * 100.0,
+        frame_budget_ns() / 1e3,
         m / hit,
         memo.recomputes,
     );
@@ -294,8 +317,8 @@ fn main() {
         \x20       while something asks, and today the only thing that asks is `Ctx::measured`.",
         strings.len(),
         (on - off) / 1e3,
-        (on - off) / FRAME_NS * 100.0,
-        FRAME_NS / 1e3,
+        (on - off) / frame_budget_ns() * 100.0,
+        frame_budget_ns() / 1e3,
         off / 1e3,
         (on - off) / strings.len() as f64,
     );

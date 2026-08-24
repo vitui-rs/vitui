@@ -8,6 +8,22 @@
 //! budget** — and the reason it is worth printing is what it replaces: *no quadtree*. The engine
 //! already answers the layer question, the index is already in draw order, and later is innermost.
 //! A spatial structure would be a second answer to a question that has one.
+//!
+//! # Provenance
+//!
+//! **R 10** took these numbers and **R 20** re-ran the report on 2026-08-24: Apple M1 Max, macOS
+//! 26.5.2, rustc 1.97.1, `--release`, unloaded, minimum of 40 rounds. The whole frame reads 3.42 µs
+//! for 312 entries, 10.98 ns an entry. **`crate::ledger` carries no row for the reverse scan, and
+//! that is this report's own finding restated**: the scan is not separable from the frame that
+//! declares the entries, so there is no marginal cost to accumulate — a row here would be the whole
+//! frame filed as a part of itself, which is the category error `Kind::Cliff` exists to prevent one
+//! rank up.
+//!
+//! The 100 µs the percentage divides by is **read from `crate::ledger` and is not this file's to
+//! choose**: spec §19 inherits it from the engine map, and **a budget figure may not move without a
+//! new map decision.** The second report divides by nothing at all — 160 entries against 160 for
+//! five hundred times the rows is a count, and a count needs no divisor to survive a change of
+//! machine.
 
 use std::hint::black_box;
 use std::time::Instant;
@@ -17,8 +33,13 @@ use vitui_engine::{Buttons, Mouse, MouseKind, Rect};
 use vitui_runtime::ctx::{Ctx, Driver, Interest};
 use vitui_runtime::id::Id;
 
-/// The frame budget every ratio is against.
-const FRAME_NS: f64 = 100_000.0;
+// **The frame budget every ratio here is against, read rather than written.** See the provenance
+// note above: this file used to declare its own copy of the figure.
+#[allow(dead_code)]
+#[path = "../src/ledger.rs"]
+mod ledger;
+
+use ledger::frame_budget_ns;
 
 /// The spec's dense screen.
 const DENSE: u64 = 312;
@@ -84,8 +105,8 @@ fn the_reverse_scan() {
         \x20       and later is innermost — a spatial structure would be a second answer to a\n\
         \x20       question that already has one.\n",
         frame / 1e3,
-        frame / FRAME_NS * 100.0,
-        FRAME_NS / 1e3,
+        frame / frame_budget_ns() * 100.0,
+        frame_budget_ns() / 1e3,
         frame / DENSE as f64,
     );
 }

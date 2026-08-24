@@ -26,6 +26,25 @@
 //! the twentyfold waste is intrinsic and the only cure is not to ask. What the resident worker saves
 //! at 1 ms it saves **in the inbox**, before the job exists. The two mechanisms win in opposite
 //! conditions and neither subsumes the other — which is a shape, and a shape is what a report is for.
+//!
+//! # Provenance
+//!
+//! **R 16** took these numbers and **R 20** re-ran the report on 2026-08-24: Apple M1 Max, macOS
+//! 26.5.2, rustc 1.97.1, `--release`, unloaded, minimum of 40 rounds. The handoff's parts read
+//! `Worker::ask` 71.0 ns, `Task::request` deduplicated 2.3 ns, `Slot::put + take` 18.4 ns.
+//!
+//! **`crate::ledger`'s async row is still the prototype's −0.18 µs, and it is the one unreproduced
+//! row worth flagging** — because it is negative. This file measures the handoff's parts and no
+//! frame delta at all, so nothing here has confirmed that the mechanism gives a frame time back;
+//! until something does, that row is *buying* the ledger headroom it has not earned. An unreproduced
+//! cost overstates the crate's own share and is safe; an unreproduced saving understates it and is
+//! not, which is why `ledger::tests::the_table_says_how_many_rows_are_still_the_prototypes` names
+//! this one by hand rather than counting to three.
+//!
+//! Nothing in this file divides by the frame budget, and that is deliberate rather than an
+//! oversight: the crossover this report exists to show is between a key repeat and a decode, so its
+//! denominators are milliseconds of human timing and counts of units — 20 selections, 210 units,
+//! 505 000 elements against 10 000 — none of which a frame budget makes more legible.
 
 use std::hint::black_box;
 use std::sync::Arc;

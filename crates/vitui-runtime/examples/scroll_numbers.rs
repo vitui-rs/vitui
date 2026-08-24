@@ -18,6 +18,27 @@
 //!    frame-local accounting field.
 //!
 //! Reports, gating nothing. The gates for all four are counts and ratios in `crate::scroll`.
+//!
+//! # Provenance
+//!
+//! **R 14** took these numbers and **R 20** re-measured the wheel matcher against the shipped
+//! runtime on 2026-08-24: Apple M1 Max, macOS 26.5.2, rustc 1.97.1, `--release`, unloaded, minimum
+//! of 40 rounds. The ledger row is **−19 ns**, and the prototype recorded it as *of both signs* over
+//! a −0.033 to +0.190 µs range — so this run is one sign and inside that range, which is a figure
+//! at the noise floor confirming that it is still at the noise floor rather than a figure that
+//! moved.
+//!
+//! **Two of the microsecond columns here are the fixture's and not the mechanism's**, and the report
+//! prints both rather than reconciling them: a collection's frame is 14 µs where §13 measured
+//! 0.29 µs, because this one is a whole frame through the engine and §13 timed the draw. The empty
+//! frame at 0.06 µs is what proves that is visible work rather than fixed overhead. The conclusion
+//! survives the difference because it is a ratio — an area is proportional to its content and a
+//! collection is flat — and the gate under it is a row count, 1 000 000 against 24.
+//!
+//! The 100 µs the two percentages divide by is **read from `crate::ledger` and is not this file's to
+//! choose**: spec §19 inherits it from the engine map, and **a budget figure may not move without a
+//! new map decision.** The wrong pairing is printed as *35× the whole frame budget*, which is a
+//! sentence about the map's figure and not about this laptop's.
 
 use std::hint::black_box;
 
@@ -28,8 +49,12 @@ use vitui_runtime::id::Id;
 use vitui_runtime::scroll::Scrollable;
 use vitui_runtime::theme::Role;
 
-/// The frame budget every ratio is against.
-const FRAME_NS: f64 = 100_000.0;
+// **The frame budget every ratio here is against, read rather than written.** See the provenance
+// note above: this file used to declare its own copy of the figure.
+#[allow(dead_code)]
+#[path = "../src/ledger.rs"]
+mod ledger;
+use ledger::frame_budget_ns;
 
 /// The dense screen's interactive region count, from spec §6.
 const DENSE: u64 = 312;
@@ -147,7 +172,7 @@ fn the_two_mechanisms() {
         a1m / l1m,
         a1m / 1e6,
         l1m / 1e3,
-        a1m / FRAME_NS,
+        a1m / frame_budget_ns(),
         both / 1e3,
     );
     println!(
@@ -230,7 +255,7 @@ fn four_directions_against_two_axes() {
         four / 1e3,
         two / 1e3,
         (four - two) / 1e3,
-        (four - two) / FRAME_NS * 100.0,
+        (four - two) / frame_budget_ns() * 100.0,
     );
 }
 

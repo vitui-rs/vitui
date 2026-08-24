@@ -16,6 +16,22 @@
 //! 4. **The pair table**: how many of the seventy-eight role pairs are indistinguishable at each tier.
 //!    Reported, and **gated only as a relation**, because the number belongs to the palette and
 //!    components ticket 05 replaces the palette.
+//!
+//! # Provenance
+//!
+//! **R 04** took these numbers and **R 20** re-measured the `Paint` row against the shipped runtime
+//! on 2026-08-24: Apple M1 Max, macOS 26.5.2, rustc 1.97.1, `--release`, unloaded, minimum of 40
+//! rounds. `paint / raw` reads **1.000×** against the prototype's 1.002×, so the row went into
+//! `crate::ledger` at **0.0 ns** — not because the closure is free but because it is under the noise
+//! floor of an instrument that can resolve 41.67 ns, which is what the prototype claimed and what the
+//! shipped runtime confirms.
+//!
+//! **`resolve` is on the ledger's row and not on the frame path**, and the distinction is the point:
+//! it is 256.12 ns and runs once per theme, so it never appears in a frame's arithmetic at all. It is
+//! also the number this ticket deliberately made *worse* — 290 ns against the map's 4.16 — by moving
+//! per-draw quantisation into it, which is why `decided / resolved` is 1.66× here where §10 measured
+//! 15.7×. A cost moved off the frame path shows up as a smaller ratio, and reading that as a lost
+//! optimisation would be reading it backwards.
 
 use std::hint::black_box;
 

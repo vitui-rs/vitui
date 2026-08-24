@@ -25,6 +25,28 @@
 //!
 //! Every number here is a **report**. The counts that are gates live in
 //! `crates/vitui-runtime/src/anim.rs` and in `tests/alloc.rs`.
+//!
+//! # Provenance
+//!
+//! **R 06** took these numbers and **R 20** re-measured all three of its `crate::ledger` rows
+//! against the shipped runtime on 2026-08-24: Apple M1 Max, macOS 26.5.2, rustc 1.97.1,
+//! `--release`, unloaded, minimum of 40 rounds. **Two of the three fell and the conclusion got
+//! stronger for it.** An animating frame is 20.28 µs against the prototype's 34.17, and the fading
+//! chip inside it is 15.6 ns — so **99.92% of what an animation costs is redrawing a screen that did
+//! not change**, against the prototype's 99.7%. An unchanged frame is 13.16 µs against 23.58, and it
+//! is still a whole frame, because nothing in this runtime skips composition.
+//!
+//! Both are filed as `Kind::Cliff` rather than `Kind::Cost`, and that distinction is the ledger's
+//! own correction to itself: a cliff frame is a whole frame of another shape, so summing it into the
+//! dense frame's parts charges this crate work it does not do. Each names its detector — the wake
+//! ledger for the animating frame, `Ctx::theme_changed()` for the repaint — and a frame allowed past
+//! the budget without one is not a cliff, it is a regression with a note attached.
+//!
+//! **Section 2 measures nothing and says so, which is why it is worth reading.** The ask costs
+//! −116.47 ns a frame, and two runs of the *identical* frame differ by −106.88 ns: the signal is
+//! smaller than the instrument's own spread, so the honest report is the pair rather than the first
+//! figure alone. The ledger's row for deadlines is therefore still the prototype's 3.62 ns, which is
+//! itself an order below that floor.
 
 use std::hint::black_box;
 use std::io::Write as _;

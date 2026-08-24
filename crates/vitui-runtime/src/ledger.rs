@@ -3,9 +3,9 @@
 //! Ticket 20. The engine's `crate::ledger` is the same instrument for the same reason, and the
 //! reason is a measured one: the audit that produced the engine's found its watchdog threshold
 //! copied into nine files. This crate had the same defect in a more embarrassing place — **the
-//! frame budget itself, `const FRAME_NS: f64 = 100_000.0`, written out eleven times across
+//! frame budget itself, `const FRAME_NS: f64 = 100_000.0`, written out twelve times across
 //! `examples/`**, once per report that wanted to divide by it. Eleven copies of a figure spec §19
-//! says may not move without a new map decision is eleven places to move it from.
+//! says may not move without a new map decision is twelve places to move it from.
 //!
 //! # What this ledger says that the spec's did not
 //!
@@ -146,7 +146,7 @@ pub struct Row {
 
 /// The frame budget, in nanoseconds. Spec §19, inherited from the engine map.
 ///
-/// **This is the one home of the figure that was copied into eleven example files.** Read it;
+/// **This is the one home of the figure that was copied into twelve example files.** Read it;
 /// do not write `100_000.0`.
 pub fn frame_budget_ns() -> f64 {
     LEDGER
@@ -193,8 +193,9 @@ pub const LEDGER: [Row; 18] = [
         machine: Machine::Decided,
         ticket: "R 20",
         used_at: "every `examples/*_numbers.rs` ratio, read through `frame_budget_ns` so that there \
-                  is one copy of it. Before ticket 20 there were eleven, one per example, each \
-                  spelled `const FRAME_NS: f64 = 100_000.0`",
+                  is one copy of it. Before ticket 20 there were twelve, one per example, each \
+                  spelled `const FRAME_NS: f64 = 100_000.0`. Counted from the tree rather \
+                  than from memory: the first draft of this row said eleven",
         decision: Some(
             "spec §19, inherited from the engine map's Standing requirements. Not moveable without \
              a new map decision.",

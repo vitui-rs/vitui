@@ -38,6 +38,28 @@
 //! `ctx::overlay_tests::padding_before_text_re_damages_cells_and_text_before_padding_re_damages_none`,
 //! and its timing is printed here without an assertion on it. A gate with no detector behind it is
 //! worse than no gate.
+//!
+//! # Provenance
+//!
+//! **R 13** took these numbers, **R 21** added the body-queue section when the arena was traded for
+//! `#![forbid(unsafe_code)]`, and **R 20** re-measured the modal against the shipped runtime on
+//! 2026-08-24: Apple M1 Max, macOS 26.5.2, rustc 1.97.1, `--release`, unloaded, minimum of 40
+//! rounds, round robin. This file is the only report in the crate that already printed its machine,
+//! and the line below `main` is that same one.
+//!
+//! **The modal is the row of `crate::ledger` that moved most: 7.96 µs against the prototype's 1.19,
+//! 6.7×.** That is not a regression in the overlay — it is the same delta taken against a base pass
+//! that serialises 7 488 damaged cells rather than against a prototype that did not — and it is why
+//! a dense frame with a modal standing reads 98–102 µs against a 100 µs budget. Obligation 1's
+//! detector is gated at 1.5× and measures 1.98×. Obligation 2 prints 103.3% of the budget and is
+//! marked `NOT GATED` in the report itself, because against a per-row damage bitset there is no
+//! timing left to gate; its detector is the count.
+//!
+//! The 100 µs every percentage below divides by is **read from `crate::ledger` and is not this
+//! file's to choose**: spec §19 inherits it from the engine map, and **a budget figure may not move
+//! without a new map decision.** The refusal matters here more than anywhere else in the crate,
+//! because two of the numbers printed below are *over* it — a divisor moved to make them fit would
+//! erase the only cliff this report exists to show.
 
 use std::hint::black_box;
 
@@ -54,8 +76,12 @@ use vitui_runtime::theme::{Role, Theme};
 mod screen;
 use screen::{REGIONS, dense_draw, screen_frame};
 
-/// Spec §19's typical-frame budget, in nanoseconds. **A floor, not a target.**
-const FRAME_NS: f64 = 100_000.0;
+// **Spec §19's typical-frame budget — a floor, not a target — read rather than written.** See the
+// provenance note above: this file used to declare its own copy of the figure.
+#[allow(dead_code)]
+#[path = "../src/ledger.rs"]
+mod ledger;
+use ledger::frame_budget_ns;
 
 /// The dense screen, in cells.
 const CELLS: f64 = 24_000.0;
@@ -318,13 +344,13 @@ fn main() {
         \x20       serialises every damaged cell: 7 488 of 24 000 are redrawn every frame. Every\n\
         \x20       arm here is therefore a **delta** against that same base, which is what *a\n\
         \x20       modal costs 1.19 us* says. Marginal headroom: {:.2} us of {:.0} us.\n",
-        100.0 * plain / FRAME_NS,
+        100.0 * plain / frame_budget_ns(),
         share(dropdown) / 1000.0,
-        100.0 * share(dropdown) / FRAME_NS,
+        100.0 * share(dropdown) / frame_budget_ns(),
         share(with_both) / 1000.0,
-        100.0 * share(with_both) / FRAME_NS,
-        (FRAME_NS / 5.0 - share(with_both)) / 1000.0,
-        FRAME_NS / 5.0 / 1000.0
+        100.0 * share(with_both) / frame_budget_ns(),
+        (frame_budget_ns() / 5.0 - share(with_both)) / 1000.0,
+        frame_budget_ns() / 5.0 / 1000.0
     );
 
     println!(
@@ -337,10 +363,10 @@ fn main() {
         \x20       structural**: damage is a per-row bitset, so a second write inside a marked range\n\
         \x20       adds no damaged cell and the scrim composites the same set either way. Its\n\
         \x20       detector is the count below, not a stopwatch.\n",
-        100.0 * with_both / FRAME_NS,
-        100.0 * no_text_first / FRAME_NS,
+        100.0 * with_both / frame_budget_ns(),
+        100.0 * no_text_first / frame_budget_ns(),
         no_text_first / with_both,
-        100.0 * no_own_layer / FRAME_NS,
+        100.0 * no_own_layer / frame_budget_ns(),
         no_own_layer / with_both
     );
 
@@ -389,10 +415,10 @@ fn main() {
     // a transcription of today's number.
     let marginal = with_both - plain;
     assert!(
-        marginal < FRAME_NS / 5.0,
+        marginal < frame_budget_ns() / 5.0,
         "a standing modal added {:.2} us to the frame, against a fifth of the {:.0} us budget",
         marginal / 1000.0,
-        FRAME_NS / 1000.0
+        frame_budget_ns() / 1000.0
     );
     // **Obligation 1's detector**, as a ratio. Repainting the base pass whole under a scrim roughly
     // doubles the frame, because the operator layer then has 24 000 damaged cells to work over

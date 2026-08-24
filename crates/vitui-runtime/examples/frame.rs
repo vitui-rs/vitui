@@ -72,7 +72,7 @@ mod screen;
 
 // **The ledger, included rather than imported, and that is the whole point of it.** Every ratio
 // below divides by a budget figure spec §19 says may not move without a new map decision. Before
-// ticket 20 that figure was written out eleven times across `examples/`, once per report. It is
+// ticket 20 that figure was written out twelve times across `examples/`, once per report. It is
 // read from one place now.
 #[allow(dead_code)]
 #[path = "../src/ledger.rs"]

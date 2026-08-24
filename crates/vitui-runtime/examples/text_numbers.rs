@@ -14,6 +14,23 @@
 //!    is one pass over bytes; grapheme segmentation plus a width lookup a cluster is a great deal more
 //!    than that. The number is here so that the trade is visible and so that nobody re-discovers the
 //!    cheap version as an optimisation.
+//!
+//! # Provenance
+//!
+//! **R 03** took these numbers and **R 20** re-ran the report on 2026-08-24: Apple M1 Max, macOS
+//! 26.5.2, rustc 1.97.1, `--release`, unloaded, minimum of 40 rounds. Text reads 2.29× layout where
+//! §11 measured 2.5×, and correctness 24.7× where §11 measured 25.5× — **both claims are ratios, and
+//! both reproduce inside a few per cent**, which is exactly what a ratio between two arms of one
+//! round-robin is supposed to do and what neither absolute microsecond figure would have done.
+//!
+//! **`crate::ledger` carries no row for text measurement**, and that is deliberate: this cost is
+//! paid by whoever wraps text, not by every frame, so there is no marginal frame cost to accumulate.
+//! The deleted measure pass is the whole point — it would have made this a per-frame row for every
+//! component whether or not anything wrapped.
+//!
+//! The 100 µs the two percentages divide by is **read from `crate::ledger` and is not this file's to
+//! choose**: spec §19 inherits it from the engine map, and **a budget figure may not move without a
+//! new map decision.**
 
 use std::hint::black_box;
 
@@ -27,8 +44,12 @@ use vitui_runtime::layout::text;
 mod screen;
 use screen::{ROWS, screen_frame};
 
-/// The frame budget every ratio here is against.
-const FRAME_NS: f64 = 100_000.0;
+// **The frame budget every ratio here is against, read rather than written.** See the provenance
+// note above: this file used to declare its own copy of the figure.
+#[allow(dead_code)]
+#[path = "../src/ledger.rs"]
+mod ledger;
+use ledger::frame_budget_ns;
 
 /// The width the rows are wrapped to: a detail pane in the screen the layout report uses.
 const PANE: u16 = 38;
@@ -76,11 +97,11 @@ fn main() {
         \x20       text    {:>8.2} us  {:>5.2}% of a {:.0} us frame\n\
         \x20       text / layout = {:.2}x",
         layout_ns / 1e3,
-        layout_ns / FRAME_NS * 100.0,
-        FRAME_NS / 1e3,
+        layout_ns / frame_budget_ns() * 100.0,
+        frame_budget_ns() / 1e3,
         text_ns / 1e3,
-        text_ns / FRAME_NS * 100.0,
-        FRAME_NS / 1e3,
+        text_ns / frame_budget_ns() * 100.0,
+        frame_budget_ns() / 1e3,
         text_ns / layout_ns,
     );
     println!(

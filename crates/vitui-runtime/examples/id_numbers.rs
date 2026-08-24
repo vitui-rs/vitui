@@ -13,6 +13,23 @@
 //!    obvious implementation and it is O(n²); the table was **chosen with the number, not the
 //!    argument**, and this is the number.
 //! 3. **The sweep is 281 ns**, which buys not having a stale grab swallow the pointer.
+//!
+//! # Provenance
+//!
+//! **R 09** took these numbers and **R 20** re-ran the report on 2026-08-24: Apple M1 Max, macOS
+//! 26.5.2, rustc 1.97.1, `--release`, unloaded, minimum of 40 rounds. A dense declaring frame reads
+//! 3.23 µs for 313 widgets, 10.32 ns each; the growth arm reads 3.94× against `Vec::contains`'s
+//! 12.92×, where §5 measured 3.95× against 13.20×.
+//!
+//! **The middle number is deliberately not a timing and therefore not a row of `crate::ledger`.**
+//! Growth is a ratio between two measurements taken in one process on one machine, which is the one
+//! shape §14 lets a timing be gated in — and it is the only form in which *quadratic per frame*
+//! survives being run on a different laptop. A ledger row here would record this machine's
+//! nanoseconds and lose the claim.
+//!
+//! The 100 µs the two percentages divide by is **read from `crate::ledger` and is not this file's to
+//! choose**: spec §19 inherits it from the engine map, and **a budget figure may not move without a
+//! new map decision.**
 
 use std::hint::black_box;
 
@@ -21,8 +38,13 @@ use vitui_engine::Rect;
 use vitui_runtime::ctx::{Driver, Interest};
 use vitui_runtime::id::Id;
 
-/// The frame budget the ratios are against.
-const FRAME_NS: f64 = 100_000.0;
+// **The frame budget the ratios here are against, read rather than written.** See the provenance
+// note above: this file used to declare its own copy of the figure.
+#[allow(dead_code)]
+#[path = "../src/ledger.rs"]
+mod ledger;
+
+use ledger::frame_budget_ns;
 
 /// A dense screen's interactive regions.
 const DENSE: u64 = 313;
@@ -83,8 +105,8 @@ fn what_a_claim_costs() {
         \x20       spec §5's 1.1 ns is the claim alone, and 24.1 ns is its figure for identity plus\n\
         \x20       hit registration together, which is the comparable one.\n",
         dense / 1e3,
-        dense / FRAME_NS * 100.0,
-        FRAME_NS / 1e3,
+        dense / frame_budget_ns() * 100.0,
+        frame_budget_ns() / 1e3,
         dense / DENSE as f64,
     );
 }
@@ -217,8 +239,8 @@ fn what_the_sweep_costs() {
         \x20       survive its widget, and the click record does.",
         frame / 1e3,
         DENSE + 1,
-        frame / FRAME_NS * 100.0,
-        FRAME_NS / 1e3,
+        frame / frame_budget_ns() * 100.0,
+        frame_budget_ns() / 1e3,
     );
     // And the fact that matters, printed rather than only asserted.
     driver.frame(|_cx| {});

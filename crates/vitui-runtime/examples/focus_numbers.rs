@@ -14,6 +14,22 @@
 //! **The probe counts are the gate and the timings are the report**, which is this backlog's rule and
 //! not a preference here: +32.2 µs on one keystroke is 32% of the budget at 600 rows and grows
 //! quadratically from there, so the shape a test can see is the count and the ratio.
+//!
+//! # Provenance
+//!
+//! **R 12** took these numbers and **R 20** re-measured the whole-of-focus row against the shipped
+//! runtime on 2026-08-24: Apple M1 Max, macOS 26.5.2, rustc 1.97.1, `--release`, unloaded, minimum
+//! of 40 rounds. It reads **243.75 ns**, and the prototype it replaces stated a *ceiling* of
+//! ≤ +0.31 µs rather than a figure — so the row that went into `crate::ledger` is the first actual
+//! measurement of it, and it is under the ceiling. The gate beside it is untouched by any of this,
+//! because it is a probe ratio — 601 against 90 300 — and a count is the same number on every
+//! machine.
+//!
+//! The 100 µs the two percentages divide by is **read from `crate::ledger` and is not this file's to
+//! choose**: spec §19 inherits it from the engine map, and **a budget figure may not move without a
+//! new map decision.** That matters more here than in most of these reports, because the contrast
+//! arm's +32.2 µs is argued *as a share of the budget* — a divisor edited to suit would delete the
+//! argument rather than answer it.
 
 use std::hint::black_box;
 
@@ -24,8 +40,13 @@ use vitui_runtime::focus::ScopeKind;
 use vitui_runtime::id::Id;
 use vitui_runtime::theme::Theme;
 
-/// The frame budget every ratio is against.
-const FRAME_NS: f64 = 100_000.0;
+// **The frame budget every ratio here is against, read rather than written.** See the provenance
+// note above: this file used to declare its own copy of the figure.
+#[allow(dead_code)]
+#[path = "../src/ledger.rs"]
+mod ledger;
+
+use ledger::frame_budget_ns;
 
 /// The dense screen's interactive regions.
 const DENSE: u64 = 312;
@@ -125,8 +146,8 @@ fn the_ring_during_the_draw() {
         \x20       tracking level is identical with the bit and without it.\n",
         ring_ns / bare_ns,
         ring_ns - bare_ns,
-        (ring_ns - bare_ns) / FRAME_NS * 100.0,
-        FRAME_NS / 1000.0
+        (ring_ns - bare_ns) / frame_budget_ns() * 100.0,
+        frame_budget_ns() / 1000.0
     );
 }
 
@@ -175,8 +196,8 @@ fn the_scopes() {
         \x20       311 / {stops} = {:.1}x fewer things a keyboard walkthrough visits.\n",
         (scoped_ns - flat_ns) / 3.0,
         scoped_ns - none_ns,
-        (scoped_ns - none_ns) / FRAME_NS * 100.0,
-        FRAME_NS / 1000.0,
+        (scoped_ns - none_ns) / frame_budget_ns() * 100.0,
+        frame_budget_ns() / 1000.0,
         311.0 / stops as f64
     );
 }

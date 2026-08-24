@@ -35,6 +35,21 @@
 //! nanosecond and seventy-eight index reads are a few tens; `Instant` cannot resolve either, and a
 //! benchmark that reports zero has measured its own clock. The counts below put every arm above that
 //! floor, which is why they differ per case rather than being one number.
+//!
+//! # Provenance
+//!
+//! **R 01** took these numbers and **R 20** re-ran the report on 2026-08-24: Apple M1 Max, macOS
+//! 26.5.2, rustc 1.97.1, `--release`, unloaded, minimum of 40 rounds and 20 for the three sources.
+//! The fold reads 87.88 µs against §14's 84.91 and the memo hit 1.33 ns against its 1.28 — a few
+//! per cent on two figures four orders of magnitude apart, which is the instrument agreeing rather
+//! than the mechanism moving. **No row of `crate::ledger` belongs to this file**, and that is the
+//! correct outcome rather than an omission: nothing measured here is on the frame path, because the
+//! memo is what keeps the fold off it.
+//!
+//! The 100 µs the percentages divide by is **read from `crate::ledger` and is not this file's to
+//! choose**. Spec §19 inherits it from the engine map, and **a budget figure may not move without a
+//! new map decision** — which is the sentence the chunked source at 227% of it is evidence for. What
+//! has to move there is the data shape, not the divisor.
 
 use std::cell::Cell;
 use std::hint::black_box;
@@ -66,8 +81,13 @@ const OFFSET: usize = MILLION / 2;
 /// Chunk width for the paged source. A rope, a paged cursor, a `Vec<Vec<T>>` walked chunk by chunk.
 const CHUNK: usize = 64;
 
-/// The frame budget every ratio here is against.
-const FRAME_NS: f64 = 100_000.0;
+// **The frame budget every ratio here is against, read rather than written.** See the provenance
+// note above: this file used to declare its own copy of the figure.
+#[allow(dead_code)]
+#[path = "../src/ledger.rs"]
+mod ledger;
+
+use ledger::frame_budget_ns;
 
 /// The struct-of-vectors every measurement on this map rests on, and the shape a slice-handing trait
 /// cannot be implemented for.
@@ -257,8 +277,8 @@ fn what_the_memo_is_worth() {
     println!(
         "            fold {:.2} us = {:.0}% of a {:.0} us frame · hit {hit:.2} ns · {:.0}x",
         fold / 1e3,
-        fold / FRAME_NS * 100.0,
-        FRAME_NS / 1e3,
+        fold / frame_budget_ns() * 100.0,
+        frame_budget_ns() / 1e3,
         fold / hit,
     );
     println!("            spec §14 measured 84.91 us, 85% of the budget, 1.28 ns and 66 301x");
@@ -389,7 +409,7 @@ fn the_three_source_shapes() {
         println!(
             "        {case:<22} {:>10.2} us  {:>7.0}% {budget_note}",
             ns / 1e3,
-            ns / FRAME_NS * 100.0
+            ns / frame_budget_ns() * 100.0
         );
     }
     println!(

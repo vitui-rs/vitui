@@ -19,6 +19,23 @@
 //!
 //! The shape itself is a **count**: thirty-two splits and one hundred and nineteen lanes, asserted,
 //! so that a report which quietly started measuring a smaller screen fails instead of looking good.
+//!
+//! # Provenance
+//!
+//! **R 02** took these numbers and **R 20** re-ran the report on 2026-08-24: Apple M1 Max, macOS
+//! 26.5.2, rustc 1.97.1, `--release`, unloaded, minimum of 40 rounds. The screen reads 2.75 µs
+//! against §11's 1 784 ns, and **the flatness is what carried across and the microseconds are not**:
+//! 1.01× over 12× the cells here, 1.01× there. That is the report agreeing with itself in the only
+//! currency it can — the absolute figure is this laptop's and the ratio is the algorithm's, which is
+//! why the ratio is the gate.
+//!
+//! **`crate::ledger` carries no row for layout**, because a row is a marginal cost on the frame path
+//! and this is not one: the solver runs once a frame whatever the screen does, and the ledger's
+//! dense-frame row already contains it.
+//!
+//! The 100 µs the three percentages divide by is **read from `crate::ledger` and is not this file's
+//! to choose**: spec §19 inherits it from the engine map, and **a budget figure may not move without
+//! a new map decision.**
 
 use std::hint::black_box;
 
@@ -30,8 +47,12 @@ use vitui_bench::Bench;
 mod screen;
 use screen::screen_frame;
 
-/// The frame budget every ratio here is against.
-const FRAME_NS: f64 = 100_000.0;
+// **The frame budget every ratio here is against, read rather than written.** See the provenance
+// note above: this file used to declare its own copy of the figure.
+#[allow(dead_code)]
+#[path = "../src/ledger.rs"]
+mod ledger;
+use ledger::frame_budget_ns;
 
 /// The three terminal sizes. A big one, an old-fashioned one, and one in between — and the point of
 /// having three rather than two is that flatness across a 15× range of *cells* is a stronger
@@ -83,8 +104,8 @@ fn main() {
         println!(
             "        {name:<8} {:>8.2} us  {:>5.2}% of a {:.0} us frame  ({} cells)",
             ns / 1e3,
-            ns / FRAME_NS * 100.0,
-            FRAME_NS / 1e3,
+            ns / frame_budget_ns() * 100.0,
+            frame_budget_ns() / 1e3,
             u32::from(w) * u32::from(h),
         );
     }

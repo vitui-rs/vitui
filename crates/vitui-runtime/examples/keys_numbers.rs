@@ -11,6 +11,24 @@
 //! 2. **The reach table**: 33 / 28 / 14 of 33 on a Cyrillic layout, with **0 wrong** at every tier.
 //!    A count, and the only honest form the claim has — because a terminal cannot report which of the
 //!    two legacy cases it is in, so this is a scene rather than a check.
+//!
+//! # Provenance
+//!
+//! **R 07** took the first half and **R 20** re-measured it against the shipped runtime on
+//! 2026-08-24: Apple M1 Max, macOS 26.5.2, rustc 1.97.1, `--release`, unloaded, minimum of 40
+//! rounds. The ledger row is now **186.29 ns — declare 35.04 plus a three-key batch 151.25** against
+//! the prototype's 45.90 + 89.70 = 135.6, so **the declaring half got faster and the matching half
+//! is what moved**, which is the split worth naming: a map is written into the frame's buffer once
+//! and matched against per key, so a regression in the second half scales with the keys and a
+//! regression in the first does not.
+//!
+//! The second half is a **count and has no provenance to lose** — 33 / 28 / 14 of 33 with 0 wrong is
+//! the same table on any machine, which is the whole reason the reach claim is stated as a count
+//! rather than as a rate. `Pending` allocating nothing is likewise a count, in `tests/alloc.rs`.
+//!
+//! The 100 µs the percentage divides by is **read from `crate::ledger` and is not this file's to
+//! choose**: spec §19 inherits it from the engine map, and **a budget figure may not move without a
+//! new map decision.**
 
 use std::hint::black_box;
 use std::time::Instant;
@@ -26,8 +44,13 @@ mod corpus;
 
 use corpus::{Layout, LegacyCtrl, Tier};
 
-/// The frame budget every ratio is against.
-const FRAME_NS: f64 = 100_000.0;
+// **The frame budget every ratio here is against, read rather than written.** See the provenance
+// note above: this file used to declare its own copy of the figure.
+#[allow(dead_code)]
+#[path = "../src/ledger.rs"]
+mod ledger;
+
+use ledger::frame_budget_ns;
 
 fn press(c: Chord) -> Key {
     Key {
@@ -104,8 +127,8 @@ fn what_a_frame_pays() {
         declare,
         batch_ns,
         total,
-        total / FRAME_NS * 100.0,
-        FRAME_NS / 1e3,
+        total / frame_budget_ns() * 100.0,
+        frame_budget_ns() / 1e3,
     );
     println!(
         "        spec §9 measured 45.90 + 89.70 = 135.6 ns, 0.136% of the frame. Declaring is\n\

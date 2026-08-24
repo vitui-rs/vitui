@@ -13,6 +13,27 @@
 //! 11.75 ms is 117× the frame budget and would be caught by anything — but it is 8 000 keys, and
 //! nobody pastes 8 000 keys into a test. At the sizes a test actually uses, the quadratic form is
 //! comfortably inside 100 µs and looks fine. **It is a slope, not a cliff.**
+//!
+//! # Provenance
+//!
+//! **R 11** took these numbers and **R 20** re-measured the routing row against the shipped runtime
+//! on 2026-08-24: Apple M1 Max, macOS 26.5.2, rustc 1.97.1, `--release`, unloaded, minimum of 40
+//! rounds. It reads **245.85 ns** against the prototype's 221 — 11% on a figure that is a quarter of
+//! a per cent of the frame, so the row moved and nothing about the argument did.
+//!
+//! The bubbling figure is the one to read carefully rather than the one to gate: 6.75 ns a key a
+//! level against §7's 2.99, **and the difference is a mechanism rather than a machine.** A decline
+//! now closes the queue to the level that made it and the scope re-opens it, which is a branch and
+//! two writes the estimate did not have — and the alternative was a drain loop that never
+//! terminates. That is why the gate in `crate::route` is a growth ratio: the quadratic drain is
+//! 11.75 ms against 53.79 µs at 8 000 keys and is comfortably inside the budget at any size a test
+//! would pick.
+//!
+//! The 100 µs the percentages divide by is **read from `crate::ledger` and is not this file's to
+//! choose**: spec §19 inherits it from the engine map, and **a budget figure may not move without a
+//! new map decision.** One line below multiplies by it instead of dividing — *8 000 frames at the
+//! budget is 0.8 seconds of nothing else* — and that sentence is only worth printing while the
+//! divisor is the map's rather than this file's.
 
 use std::hint::black_box;
 use std::time::Instant;
@@ -26,8 +47,12 @@ use vitui_runtime::focus::ScopeKind;
 use vitui_runtime::id::Id;
 use vitui_runtime::route;
 
-/// The frame budget every ratio is against.
-const FRAME_NS: f64 = 100_000.0;
+// **The frame budget every ratio here is against, read rather than written.** See the provenance
+// note above: this file used to declare its own copy of the figure.
+#[allow(dead_code)]
+#[path = "../src/ledger.rs"]
+mod ledger;
+use ledger::frame_budget_ns;
 
 /// The spec's dense screen.
 const DENSE: u64 = 312;
@@ -164,8 +189,8 @@ fn routing_a_realistic_batch() {
         \x20       routing                {routing:>10.2} ns   {:.3}% of a {:.0} us budget\n\
         \x20       spec §7 measured **221 ns, 0.221%**. Posting the batch is in this figure and is\n\
         \x20       not free, which is why the difference is quoted rather than the drain alone.\n",
-        routing / FRAME_NS * 100.0,
-        FRAME_NS / 1000.0
+        routing / frame_budget_ns() * 100.0,
+        frame_budget_ns() / 1000.0
     );
 }
 
@@ -207,7 +232,7 @@ fn folding() {
         \x20       100 us budget is {:.1} seconds of nothing else.\n",
         ns / 1000.0,
         ns / f64::from(PASTE),
-        f64::from(PASTE) * FRAME_NS / 1e9
+        f64::from(PASTE) * frame_budget_ns() / 1e9
     );
 }
 

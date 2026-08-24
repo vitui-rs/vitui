@@ -37,6 +37,28 @@
 //! | 10.87 → 16.36 through ten profiles | research §3 | `a_sixteen_colour_count_is_a_lower_bound_and_an_operator_can_only_raise_it` |
 //! | `fade_is_showable` 165 of 338 | research §3 | measured over the shipped fourteen, in §1 below |
 //! | contrast 218 → 55 | research §2 | `pairing_by_luminance_never_costs_contrast_and_usually_buys_it` |
+//!
+//! # Provenance
+//!
+//! **R 05** took these numbers and **R 20** re-measured both of its `crate::ledger` rows against the
+//! shipped runtime on 2026-08-24: Apple M1 Max, macOS 26.5.2, rustc 1.97.1, `--release`, unloaded,
+//! minimum of 40 rounds. `theme()` — the one read a frame actually does — is **0.95 ns against the
+//! prototype's 15**, sixteen times smaller; everything else the registry does is per swap, including
+//! `set_tier` at 284.79 ns.
+//!
+//! **The swap frame's two microsecond columns are not comparable to the prototype's, and the report
+//! says so rather than reconciling them.** The shipped fixture is a full-screen fill and the map's
+//! was the dense IDE screen, so 309 µs against a 118 µs steady frame is a different measurement from
+//! 41.92 against 33.20. What survived the fixture change is the *shape* of the cliff, and R 20
+//! restated it in **bytes**, where the fixture cannot blur it: a steady frame is **0 bytes on the
+//! wire** and a swap frame is **26 272**. That is not a ratio, it is a floor against a screen. Its
+//! detector is the memo pair key,
+//! `tests/swap.rs::a_pair_keyed_memo_misses_once_per_swap_and_a_data_keyed_one_never_does`.
+//!
+//! The frame budget the *quoted* figures lean on — the map's 221 / 399 µs read as **two and four
+//! whole frame budgets** — is `crate::ledger`'s and not this file's. Spec §19 inherits it from the
+//! engine map, and **a budget figure may not move without a new map decision**, which is what lets
+//! that sentence be argued from rather than merely quoted.
 
 use std::hint::black_box;
 use std::sync::{Arc, Mutex};
