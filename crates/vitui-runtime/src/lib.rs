@@ -32,6 +32,9 @@
 //!   cannot be skipped.
 //! - [`id`] — `Id`, `IdTable`, the id stack. Spec §5; ADR 0013. The call site is the source, FNV-1a
 //!   with no finalizer, and three of the four id-keyed facts swept when a widget stops drawing.
+//! - [`focus`] — `ScopeKind`, `Stop`, the ring and the vanish rule. Spec §8. A sixth interest bit,
+//!   three scope answers as frame-local ranges, and the previous frame's ring as one more swapped
+//!   buffer.
 //! - [`route`] — `Edge`, `edge_of`, `batch_len`, and the one key queue behind `Ctx::next_key`. Spec
 //!   §7; ADR 0016. **A frame consumes at most one routing edge**, there are no per-id inboxes, and
 //!   bubbling is `Ctx::scope`'s after-the-body moment rather than a walk of the id path.
@@ -56,6 +59,7 @@ extern crate self as vitui_runtime;
 
 pub mod ctx;
 pub mod data;
+pub mod focus;
 pub mod id;
 pub mod keys;
 pub mod layout;
@@ -82,6 +86,7 @@ mod screen;
 // looking for *why there is no trait* should land on its documentation, not on four scattered types.
 pub use ctx::{Ctx, Driver, Interest, Response};
 pub use data::{Edit, Memo, Revision, Versioned};
+pub use focus::{ScopeKind, Stop};
 pub use id::{Id, IdTable};
 pub use keys::{ActionId, Binding, Chord, Chords, KeyMap, Match, MatchMode, On};
 pub use theme::{Density, Distinction, Glyph, GlyphSet, Paint, Repaint, Role, Roles, Theme};

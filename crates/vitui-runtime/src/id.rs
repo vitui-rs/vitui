@@ -284,6 +284,30 @@ impl IdTable {
         None
     }
 
+    /// **Whether an id drew this frame**, without claiming it.
+    ///
+    /// The sweep's question and the vanish rule's, and the reason both are lookups rather than scans:
+    /// *did this id draw this frame* is exactly what a stamped table answers, in about one probe,
+    /// where a scan of the hit index is 312 comparisons on a dense screen for every fact released.
+    pub(crate) fn drew(&self, id: Id) -> bool {
+        let len = self.slots.len();
+        if len == 0 {
+            return false;
+        }
+        let mut at = usize::try_from(id.raw() % len as u64).unwrap_or(0);
+        for _ in 0..len {
+            let slot = self.slots[at];
+            if slot.stamp != self.stamp {
+                return false;
+            }
+            if slot.id == id.raw() {
+                return true;
+            }
+            at = (at + 1) % len;
+        }
+        false
+    }
+
     /// Double the table, re-inserting what this frame has claimed.
     ///
     /// Only this frame's entries move: an older stamp is already foreign, so there is nothing to

@@ -255,6 +255,57 @@ impl KeyQueue {
         Some(key)
     }
 
+    /// What `take` would answer, without taking it.
+    ///
+    /// **The focus ring is the only caller**, and it needs this because `Tab` is the ring's key and
+    /// not the focused widget's: an ordinary widget must not be able to drain the key that is about
+    /// to move the focus off it, and the only way to withhold one key is to look at it first. A
+    /// scope that *is* isolated gets it, and that decision is taken from the previous frame's scopes
+    /// — see [`crate::focus`].
+    pub(crate) fn peek(&self) -> Option<Key> {
+        if self.declined {
+            return None;
+        }
+        self.keys.get(self.at).copied()
+    }
+
+    /// The routing edge nobody drained, if this batch ended with one.
+    ///
+    /// **Only ever the last key**, which is not a shortcut but the classification: every routing
+    /// edge that ships is a *closing* edge, so a `Tab` is the last thing in its batch.
+    pub(crate) fn peek_edge(&self) -> Option<Key> {
+        let last = self.keys.len().checked_sub(1)?;
+        if self.at > last {
+            // Somebody took it. An isolated scope inserting a tab character is the case.
+            return None;
+        }
+        let key = self.keys[last];
+        matches!(
+            (key.code, key.kind),
+            (
+                KeyCode::Tab | KeyCode::BackTab,
+                KeyKind::Press | KeyKind::Repeat
+            )
+        )
+        .then_some(key)
+    }
+
+    /// Consume the edge [`KeyQueue::peek_edge`] answered.
+    ///
+    /// **Two calls and not one, because the ring may decline it.** A frame with no tab stops moves
+    /// no focus, and a `Tab` the ring did not use has to reach the application like any other key
+    /// nobody took — the outermost level of the one queue is still the application.
+    ///
+    /// Popping the last slot leaves everything before it exactly where the application's own reader
+    /// expects to find it.
+    pub(crate) fn drop_edge(&mut self) {
+        let Some(last) = self.keys.len().checked_sub(1) else {
+            return;
+        };
+        self.keys.truncate(last);
+        self.at = self.at.min(last);
+    }
+
     /// Hand a key back, **in order**: it is the next key the queue answers, to the next level out.
     ///
     /// The contract is *undo the most recent take*, and it composes: two levels declining on the

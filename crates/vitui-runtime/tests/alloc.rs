@@ -573,3 +573,68 @@ fn routing_a_batch_allocates_nothing() {
         }
     });
 }
+
+/// **Focus allocates nothing**: the ring, the scopes, the vanish rule and the walk, in their own
+/// window.
+///
+/// The vanish rule needed the previous frame's ring kept, and *one more swapped buffer* is only a
+/// true description if the swap keeps both allocations — a `Vec` that is dropped and rebuilt is an
+/// allocation a frame with a swap in front of it. So the hostile frame is here too: the list is
+/// filtered, the focus vanishes, the rule walks and the lazily filled table answers, on every one of
+/// the fifty frames.
+#[test]
+fn focus_allocates_nothing() {
+    use vitui_engine::Rect;
+    use vitui_runtime::ctx::{Driver, Id, Interest};
+    use vitui_runtime::focus::ScopeKind;
+
+    let mut driver = Driver::headless(80, 24).expect("sink");
+    let row = |i: u64| Id::keyed(Id::named("row"), i);
+    // Two frames of the same list, the second one filtered so the focused row is gone. A group over
+    // the header, a trap around the footer, and the walk resolved from the ring each time.
+    let two_frames = |driver: &mut Driver, keep: u64| {
+        driver.frame(|cx| {
+            cx.scope(Id::named("header"), ScopeKind::Group, |cx| {
+                for i in 0..4u64 {
+                    cx.interact(
+                        Id::keyed(Id::named("tab"), i),
+                        Rect::new(0, 0, 8, 1),
+                        Interest::FOCUS,
+                    );
+                }
+            });
+            for i in 0..40u64 {
+                cx.interact(row(i), Rect::new(0, 1, 80, 1), Interest::FOCUS);
+            }
+            cx.scope(Id::named("footer"), ScopeKind::Trap, |cx| {
+                cx.interact(Id::named("ok"), Rect::new(0, 23, 8, 1), Interest::FOCUS);
+            });
+            cx.focus(row(39));
+        });
+        driver.frame(|cx| {
+            for i in 0..keep {
+                cx.interact(row(i), Rect::new(0, 1, 80, 1), Interest::FOCUS);
+            }
+        });
+    };
+    // Twice untimed, for the first-touch reason the other gates give: the ring, the previous ring,
+    // the scope list and the stamped table all take their allocation on the first frame that needs
+    // one, and keep it.
+    two_frames(&mut driver, 20);
+    two_frames(&mut driver, 20);
+
+    steady(|| {
+        for _ in 0..50 {
+            two_frames(&mut driver, 20);
+        }
+    });
+    assert_eq!(
+        driver.inspect().focused(),
+        Some(row(19)),
+        "the vanish rule ran on every one of those frames"
+    );
+    assert!(
+        driver.inspect().vanish_probes() > 0,
+        "and it was reached, rather than the gate measuring a frame that skipped it"
+    );
+}

@@ -583,6 +583,27 @@ impl KeyMap {
 #[derive(Clone, Debug, Default)]
 pub struct Matches {
     of: Vec<Match>,
+    ranges: Vec<Declared>,
+}
+
+/// One `key_map` call: **a range tagged with the scope that was open when it was made.**
+///
+/// Spec §9's scope resolution is this record and a walk outward. The flat pass — one list in
+/// declaration order — is wrong in the expensive direction: `Ctrl+S` under a
+/// [`Trap`](crate::focus::ScopeKind::Trap) fires the application's *Save* instead of the modal's,
+/// which is a document written behind a dialog the user has not confirmed.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct Declared {
+    /// The scope open at the declaration, as an index into the frame's scope list. `None` is the
+    /// frame level, which is where an application declares its own map.
+    scope: Option<u32>,
+    /// Where the copied bindings start.
+    at: u32,
+    /// How many there are.
+    len: u32,
+    /// How this map compares modifiers. **Per range and not per buffer**, because a modal may
+    /// legitimately match differently from the application under it.
+    mode: MatchMode,
 }
 
 impl Matches {
@@ -590,18 +611,54 @@ impl Matches {
     pub fn new() -> Matches {
         Matches {
             of: Vec::with_capacity(64),
+            ranges: Vec::with_capacity(8),
         }
     }
 
     /// Forget the contents and keep the allocation. Called once a frame.
     pub fn clear(&mut self) {
         self.of.clear();
+        self.ranges.clear();
     }
 
     /// Copy a map's routing half in. **The help is not copied**, which is the saving: 44 bytes a
     /// binding instead of 64, and no `&'static str` travelling with the frame.
     pub fn declare(&mut self, map: &KeyMap) {
+        self.declare_in(map, None);
+    }
+
+    /// Copy a map in, **tagged with the scope that is open**.
+    ///
+    /// The frame's own [`Ctx::key_map`](crate::Ctx::key_map) is the only caller that passes anything
+    /// but `None`; see [`Matches::match_in`] for the walk that reads the tag.
+    pub fn declare_in(&mut self, map: &KeyMap, scope: Option<u32>) {
+        let at = u32::try_from(self.of.len()).unwrap_or(u32::MAX);
         self.of.extend(map.bindings.iter().map(|b| b.m));
+        self.ranges.push(Declared {
+            scope,
+            at,
+            len: u32::try_from(map.bindings.len()).unwrap_or(u32::MAX),
+            mode: map.mode,
+        });
+    }
+
+    /// The first match among the maps declared **for exactly this scope**, in declaration order.
+    ///
+    /// One rung of the innermost-first walk: the caller climbs the scope's parents and finishes at
+    /// `None`, which is the frame level. **First match wins** inside a rung, exactly as it does
+    /// inside one map.
+    pub fn match_in(&self, k: &Key, scope: Option<u32>) -> Option<ActionId> {
+        self.ranges
+            .iter()
+            .filter(|r| r.scope == scope)
+            .find_map(|r| {
+                let from = r.at as usize;
+                let to = from + r.len as usize;
+                self.of[from..to]
+                    .iter()
+                    .find(|m| m.matches(k, r.mode))
+                    .map(|m| m.action)
+            })
     }
 
     /// The first match, in declaration order across everything declared this frame.

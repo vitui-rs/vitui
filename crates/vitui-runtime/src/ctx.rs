@@ -82,6 +82,7 @@ use vitui_engine::{
     Output, Presented, Rect, Screen, Surface, View, Written,
 };
 
+use crate::focus::{ScopeKind, Stop};
 use crate::id::IdStack;
 use crate::keys::Matches;
 use crate::route::{self, KeyQueue};
@@ -306,8 +307,10 @@ pub struct Frame {
     // ── the five structures rebuilt from the draw, swapped and cleared in `begin` ──────────────
     /// 1. The hit index, in draw order. A reverse scan gives the innermost.
     hits: Vec<Hit>,
-    /// 2. The focus ring: tab stops declared during the draw. Ticket 12 fills it.
-    ring: Vec<Id>,
+    /// 2. The focus ring: the tab stops declared during the draw, this frame's scopes over them, and
+    ///    **the previous frame's copy of both** — one more swapped buffer, which is the whole
+    ///    storage cost of the vanish rule. See [`crate::focus`].
+    ring: crate::focus::Ring,
     /// 3. The overlay request queue, ordered `(z, seq)`. Ticket 13 fills it.
     overlays: Vec<OverlayRequest>,
     /// 4. The deadline sink: **the earliest requested wake, and one value rather than a list**,
@@ -368,6 +371,16 @@ pub struct Frame {
     grab: Option<Id>,
     press_origin: Option<(Id, (i32, i32))>,
     focused: Option<Id>,
+    /// What the focus was when **this** frame's draw started.
+    focus_shown: Option<Id>,
+    /// What it was when the **previous** frame's draw started, which is what a widget saw last time
+    /// it asked. `focus_entered` and `focus_left` are the difference between the two, and neither can
+    /// be read off `focused` alone: the focus moves in `end`, so by the time a widget draws again the
+    /// move has already happened.
+    focus_before: Option<Id>,
+    /// Whether the focus sat inside an [`Isolated`](crate::focus::ScopeKind::Isolated) scope last
+    /// frame, which is the one question the drain has to answer before this frame has any scopes.
+    focus_isolated: bool,
     /// **Not swept**, deliberately: a click record outliving its widget is how a double click
     /// survives a redraw.
     click_record: Option<(Id, Instant)>,
@@ -484,7 +497,7 @@ impl Frame {
     fn new() -> Frame {
         Frame {
             hits: Vec::with_capacity(512),
-            ring: Vec::with_capacity(64),
+            ring: crate::focus::Ring::new(),
             overlays: Vec::with_capacity(8),
             deadline: None,
             keys: KeyQueue::new(),
@@ -504,6 +517,9 @@ impl Frame {
             grab: None,
             press_origin: None,
             focused: None,
+            focus_shown: None,
+            focus_before: None,
+            focus_isolated: false,
             click_record: None,
             ids: IdTable::new(),
             stack: IdStack::new(),
@@ -539,7 +555,7 @@ impl Frame {
         self.delivered = self.awarded.take();
 
         self.hits.clear();
-        self.ring.clear();
+        self.ring.begin();
         self.overlays.clear();
         self.deadline = None;
         self.keys.begin();
@@ -557,6 +573,15 @@ impl Frame {
         // the field.
         self.route_to = self.focused;
         self.focus_draws = 0;
+
+        // **The two focus questions that must be answered before the draw**, and both are answered
+        // from the frame that has just ended rather than from the one about to start.
+        self.focus_before = self.focus_shown;
+        self.focus_shown = self.focused;
+        // Whether `Tab` is the ring's or the focused widget's. It cannot be a decline — by the time
+        // a key is declined the ring has already consumed it and moved the focus — so it is decided
+        // here, in the drain, from the previous frame's scopes.
+        self.focus_isolated = self.ring.was_isolated(self.focused);
 
         // Post the batch. It was split at a routing edge by `route::batch_len` before it got here,
         // so **everything in it is routed against one routing state** and at most one event in it
@@ -606,12 +631,17 @@ impl Frame {
     /// **A reverse scan, because the index is in draw order and later is innermost.** No quadtree: the
     /// engine already answers the layer question, and 312 entries is 142 ns.
     fn topmost_over(&self) -> Option<Id> {
+        self.topmost_over_entry().map(|h| h.id)
+    }
+
+    /// The same entry, whole, because the press award needs to know whether it is a tab stop.
+    fn topmost_over_entry(&self) -> Option<Hit> {
         let from = self.modal_from.unwrap_or(0);
         self.hits[from..]
             .iter()
             .rev()
             .find(|h| h.over && !h.interest.is_empty())
-            .map(|h| h.id)
+            .copied()
     }
 
     /// The innermost scrollable entry the pointer is over.
@@ -630,9 +660,17 @@ impl Frame {
     /// comments so that filling one is not also deciding where it goes.
     fn end(&mut self) -> Option<Instant> {
         self.award();
-        // resolve Tab — ticket 12.
-        // release the focus with the grab — ticket 12.
+        // **Absence before the walk**: a `Tab` pressed on the frame a row disappears has to start
+        // from where the vanish rule put the focus, not from a position belonging to an id that is
+        // no longer on screen.
+        self.vanish();
+        self.resolve_tab();
+        self.trap_focus();
         self.sweep();
+        self.settle_caret();
+        // **Where the focus ended, recorded for the next frame's vanish rule.** It is the last step
+        // because every one above it can move the focus.
+        self.ring.note(self.focused);
         // resolve scroll-into-view — ticket 14.
 
         // **Fold the deadline sink and the repaint flag into ONE wake.** This part is 08's, and it is
@@ -658,7 +696,8 @@ impl Frame {
             mods: self.mods,
             ..Awarded::default()
         };
-        let over = self.topmost_over();
+        let over_entry = self.topmost_over_entry();
+        let over = over_entry.map(|h| h.id);
         a.hovered = over;
 
         // **By index, and cleared afterwards.** `std::mem::take` here dropped the batch's
@@ -676,6 +715,20 @@ impl Frame {
                         self.grab = Some(id);
                         self.press_origin = Some((id, (i32::from(m.x), i32::from(m.y))));
                         a.pressed = Some(id);
+                    }
+                    // **`Tab` and the press are one mechanism**: both award at `end` from the
+                    // structure that has just drawn, and both mean the widget first sees itself
+                    // focused on the *next* frame. That is what `focus_entered` was built for, and
+                    // it has two producers rather than one.
+                    match over_entry {
+                        Some(h) if h.interest.contains(Interest::FOCUS) => {
+                            self.focused = Some(h.id);
+                        }
+                        // **A press on nothing interested is intent**: the user meant to defocus, and
+                        // the vanish rule must not undo it. A press on something that is interested
+                        // but is not a tab stop — a tree row, a table cell — leaves the focus alone.
+                        None => self.focused = None,
+                        Some(_) => {}
                     }
                 }
                 vitui_engine::MouseKind::Up(_) => {
@@ -775,9 +828,8 @@ impl Frame {
     /// so the sweep is three lookups rather than a scan, and 281 ns is the whole of it on a dense
     /// screen.
     fn sweep(&mut self) {
-        let drew = |id: Id, hits: &[Hit]| hits.iter().any(|h| h.id == id);
         if let Some(id) = self.grab
-            && !drew(id, &self.hits)
+            && !self.ids.drew(id)
         {
             self.grab = None;
             // The press origin goes with the grab: it is the same interaction, and a press origin
@@ -785,16 +837,78 @@ impl Frame {
             self.press_origin = None;
         }
         if let Some((id, _)) = self.press_origin
-            && !drew(id, &self.hits)
+            && !self.ids.drew(id)
         {
             self.press_origin = None;
         }
-        if let Some(id) = self.focused
-            && !drew(id, &self.hits)
-        {
-            self.focused = None;
+        // **The focus is not swept here**, and separating it from these two is ticket 12's finding.
+        // Answering absence with `None` costs the keyboard entirely — every key afterwards reaches
+        // nobody until the user picks the pointer back up — so absence is `vanish` and the `None`
+        // that stands is the award's. See [`Frame::vanish`].
+        //
+        // The click record is **not** swept either. See this function's documentation.
+    }
+
+    /// **The ring takes the `Tab` nobody drained.**
+    ///
+    /// Resolved here rather than in `begin`, which is what makes `Tab` a *closing* edge: the ring is
+    /// declared during the draw, so the frame that moves the focus is the frame that saw the ring
+    /// the user is looking at. Resolved in `begin` instead, a row inserted directly after the
+    /// focused one is jumped straight over — and a row *prepended* does not separate the two
+    /// answers, which is how a one-frame hop survives five tickets.
+    ///
+    /// A frame moves the focus **at most once**: a second `Tab` in the same batch waits, because
+    /// `route::batch_len` ended the batch at the first.
+    fn resolve_tab(&mut self) {
+        let Some(k) = self.keys.peek_edge() else {
+            return;
+        };
+        // `BackTab` is what a terminal sends for the shifted key when it can; the ones that cannot
+        // send `Tab` with the shift bit, and both mean the same direction.
+        let forward =
+            k.code != vitui_engine::KeyCode::BackTab && !k.mods.contains(vitui_engine::Mods::SHIFT);
+        let from = self.focused.and_then(|id| self.ring.position(id));
+        // **The ring takes the key only if it has somewhere to put the focus.** A frame with no tab
+        // stops moves nothing, and the `Tab` then reaches the application like any other key nobody
+        // took rather than disappearing into a mechanism that had no answer for it.
+        if let Some(id) = self.ring.advance(from, forward) {
+            self.focused = Some(id);
+            self.keys.drop_edge();
         }
-        // The click record is **not** swept. See this function's documentation.
+    }
+
+    /// **A standing trap pulls the focus into itself**, which is also where the focus goes when a
+    /// modal opens: the trap's first stop.
+    fn trap_focus(&mut self) {
+        if let Some(id) = self.ring.trap_pull(self.focused) {
+            self.focused = Some(id);
+        }
+    }
+
+    /// **The vanish rule.** The focused id stopped drawing, so the focus moves to the nearest
+    /// surviving entry in the previous frame's ring order.
+    ///
+    /// The two `None`s are separated here and they were conflated by two tickets at once: the
+    /// award's is *intent* — a press landed on nothing interested and the user meant to defocus, so
+    /// there is no id left to have vanished — and this one is *absence*, which is the answer only
+    /// when nothing in the previous ring survived.
+    fn vanish(&mut self) {
+        let Some(id) = self.focused else { return };
+        if self.ids.drew(id) {
+            return;
+        }
+        self.focused = self.ring.vanished(id);
+    }
+
+    /// **Nothing focused means no caret**, and the runtime blinks nothing.
+    ///
+    /// A caret on a screen where no widget holds the keyboard is a lie about where typing goes. The
+    /// terminal's own caret is what is being placed (ADR 0005), and a software caret is two wakeups
+    /// a second for as long as anything has focus — which is why `end` asks for no wake here.
+    fn settle_caret(&mut self) {
+        if self.focused.is_none() {
+            self.caret = None;
+        }
     }
 
     /// The hover style to apply, if anything is hovered. **Resolved from the index that has just
@@ -820,9 +934,135 @@ impl Frame {
         self.extent
     }
 
-    /// The focus ring.
-    pub fn ring(&self) -> &[Id] {
-        &self.ring
+    /// The focus ring: every entry that declared [`Interest::FOCUS`], in draw order.
+    ///
+    /// **Read-only, and there is no verb that reorders it.** *The ring is the reading order of the
+    /// source* is only true if nothing can rearrange it; a component that wants to be visited
+    /// earlier moves its call.
+    pub fn ring(&self) -> &[Stop] {
+        self.ring.stops()
+    }
+
+    /// The ring's ids, which is what most gates actually compare.
+    pub fn ring_ids(&self) -> impl Iterator<Item = Id> + '_ {
+        self.ring.stops().iter().map(|s| s.id)
+    }
+
+    /// How many **tab stops** this frame has, which is not how many ring entries it has: a
+    /// [`Group`](crate::focus::ScopeKind::Group) collapses its whole range onto one.
+    pub fn stop_count(&self) -> usize {
+        self.ring.stop_indices().count()
+    }
+
+    /// The tab stops, in ring order.
+    pub fn stop_ids(&self) -> impl Iterator<Item = Id> + '_ {
+        self.ring.stop_indices().map(|ix| self.ring.stops()[ix].id)
+    }
+
+    /// The order a keyboard walkthrough visits from where the focus is now.
+    ///
+    /// **A read, never a move.** The walk is not a verb a component can call: one that could would
+    /// move the focus during the draw, over a ring that is half built — the stale-ring defect this
+    /// ticket removed, reintroduced from above. The only focus verb is [`Ctx::focus`], which names a
+    /// widget rather than a direction, and there is no shape to ask for the other:
+    ///
+    /// ```compile_fail
+    /// use vitui_runtime::ctx::Driver;
+    ///
+    /// let mut d = Driver::headless(20, 3).expect("sink");
+    /// d.frame(|cx| {
+    ///     cx.focus_next();
+    /// });
+    /// ```
+    ///
+    /// Nor can a component reorder the ring: it is a private field behind a shared slice, and *the
+    /// ring is the reading order of the source* is only true while that stays so. A widget that
+    /// wants to be visited earlier moves its call.
+    ///
+    /// ```compile_fail
+    /// use vitui_runtime::ctx::Driver;
+    ///
+    /// let mut d = Driver::headless(20, 3).expect("sink");
+    /// d.frame(|_cx| {});
+    /// d.inspect().ring().sort_by_key(|stop| stop.rect.y);
+    /// ```
+    pub fn tab_walk(&self) -> impl Iterator<Item = Id> + '_ {
+        self.ring.walk()
+    }
+
+    /// This frame's scopes, as ranges over the ring.
+    ///
+    /// **Frame-local**: they are built during the draw and cleared by the next `begin`, so there is
+    /// nothing here to become a fifth id-keyed cross-frame fact.
+    ///
+    /// # The positive twin, naming the protected item by path
+    ///
+    /// A lone `compile_fail` also passes when the item has been renamed, so the shape that ships is
+    /// pinned here first — a rename fails *this* half rather than making the half below pass for the
+    /// wrong reason:
+    ///
+    /// ```
+    /// use vitui_runtime::ctx::{Ctx, Driver};
+    /// use vitui_runtime::focus::{ScopeKind, ScopeRec};
+    /// use vitui_runtime::Id;
+    ///
+    /// fn protected<'f, 'v>(cx: &mut Ctx<'f, 'v>, id: Id) {
+    ///     Ctx::scope(cx, id, ScopeKind::Trap, |_inner| {});
+    /// }
+    ///
+    /// let mut d = Driver::headless(20, 3).expect("sink");
+    /// d.frame(|cx| protected(cx, Id::named("modal")));
+    /// let scopes: &[ScopeRec] = d.inspect().scopes();
+    /// assert_eq!(scopes.len(), 1, "a scope is a range over the frame that made it");
+    /// ```
+    ///
+    /// # And the negative case: a scope cannot become a cross-frame fact
+    ///
+    /// The shape a caller would have to write to keep one is a borrow held across the next frame,
+    /// and the frame needs `&mut`:
+    ///
+    /// ```compile_fail,E0502
+    /// use vitui_runtime::ctx::Driver;
+    ///
+    /// let mut d = Driver::headless(20, 3).expect("sink");
+    /// d.frame(|_cx| {});
+    /// let scopes = d.inspect().scopes();      // borrowed from this frame
+    /// d.frame(|_cx| {});                      // and the next one needs `&mut`
+    /// let _kept = scopes.len();
+    /// ```
+    pub fn scopes(&self) -> &[crate::focus::ScopeRec] {
+        self.ring.scopes()
+    }
+
+    /// **The traps standing this frame.**
+    ///
+    /// Three components tickets read this to *name* the exception their keyboard-walkthrough gate
+    /// carries — *the walk repeats no id and reaches every stop, unless a trap is standing* — and
+    /// nothing else can answer it. An iterator rather than a `Vec`, because a `collect` on the frame
+    /// path is one allocation against a budget of zero.
+    pub fn trap_scopes(&self) -> impl Iterator<Item = Id> + '_ {
+        self.ring.trap_ids()
+    }
+
+    /// Who holds the focus.
+    pub fn focused(&self) -> Option<Id> {
+        self.focused
+    }
+
+    /// Where the caret goes, as `settle` will hand it to `Screen::set_cursor`.
+    ///
+    /// **The sink, and the gate asserts against it**: the shape a component asked for is the shape
+    /// in this `Cursor`, and the last write of the frame is the one that is here.
+    pub fn caret(&self) -> Option<Cursor> {
+        self.caret
+    }
+
+    /// **How many slots the vanish rule touched this frame. Zero on a quiet one.**
+    ///
+    /// A count and not a stopwatch, for the reason §20 gives: the defect this detects is a slope,
+    /// and a ratio of timings is a report.
+    pub fn vanish_probes(&self) -> u64 {
+        self.ring.probes()
     }
 
     /// How many overlays were requested.
@@ -1030,6 +1270,20 @@ pub struct Ctx<'f, 'v> {
     /// rectangle. Geometry is needed **inside** a frame and never across one (ADR 0015) — which is the
     /// rule, and is not the same as *no geometry*.
     pointer: Option<(i32, i32)>,
+    /// This context's origin **in root coordinates**.
+    ///
+    /// Accumulated on the way down rather than read off `rect`, which is in the *parent's*
+    /// coordinates and therefore only right one level deep. Two contexts writing `(0, 0)` name the
+    /// same cell without it, and last-write-wins then picks between two different places on screen.
+    /// The caret and the deferred hover restyle are the two readers.
+    origin: (i32, i32),
+    /// This context's origin **in the enclosing scroll area's content coordinates**, which is what a
+    /// ring entry's rectangle is in.
+    ///
+    /// It resets at the area boundary — a `scrolled` context *is* a content coordinate system — and
+    /// at the root, where the two are the same thing. Read at `end` and never across a frame
+    /// (ADR 0015).
+    content: (i32, i32),
     /// **Invariant in `'f`**, and the whole overlay guarantee rests on it: a covariant brand lets a
     /// caller shorten `'f` at a `child()` call, which makes the `+ 'f` bound on an overlay body
     /// satisfiable by a shorter capture. A lifetime in both argument and return position of a `fn`
@@ -1087,6 +1341,8 @@ impl<'f, 'v> Ctx<'f, 'v> {
             rect: r,
             origin: (self.origin.0 + r.x, self.origin.1 + r.y),
             pointer: self.pointer.map(|(x, y)| (x - r.x, y - r.y)),
+            origin: (self.origin.0 + r.x, self.origin.1 + r.y),
+            content: (self.content.0 + r.x, self.content.1 + r.y),
             _frame: PhantomData,
             _not_send: PhantomData,
         }
@@ -1103,6 +1359,10 @@ impl<'f, 'v> Ctx<'f, 'v> {
             // pointer takes on the line below.
             origin: (self.origin.0 - dx, self.origin.1 - dy),
             pointer: self.pointer.map(|(x, y)| (x - dx, y - dy)),
+            origin: (self.origin.0 - dx, self.origin.1 - dy),
+            // **The reset**: a scrolled context is a content coordinate system, so its own origin is
+            // the content origin. §13's `to_content` resets at the area boundary, and this is it.
+            content: (0, 0),
             _frame: PhantomData,
             _not_send: PhantomData,
         }
@@ -1282,6 +1542,8 @@ impl<'f, 'v> Ctx<'f, 'v> {
                 rect: self.rect,
                 origin: self.origin,
                 pointer: self.pointer,
+                origin: self.origin,
+                content: self.content,
                 _frame: PhantomData,
                 _not_send: PhantomData,
             };
@@ -1300,8 +1562,22 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// would otherwise rename every field of the form it traps**, and a form whose fields are renamed
     /// loses its focus and its scroll position for a reason nobody wrote down.
     ///
-    /// So the id stack is untouched here. Ticket 12 adds what a scope is *for* — grouping, trapping,
-    /// isolating the focus — and none of it touches identity.
+    /// So the id stack is untouched here, and **this is the one exception the container rule has**.
+    /// It is not a nicety: the frame a modal opens is the frame a [`Trap`](ScopeKind::Trap) appears
+    /// around a form that was already on screen. If the scope renamed its children, every field
+    /// would take a new id at exactly that moment, the focus would name a widget that no longer
+    /// exists, and the vanish rule would fire on the whole form — the failure arriving precisely
+    /// when the mechanism is needed.
+    ///
+    /// The price is the ordinary one: two structurally identical scoped subtrees in one frame are
+    /// one set of ids, and the author separates them with [`Ctx::with_key`] as for any other
+    /// repeated construct.
+    ///
+    /// # What the kind decides
+    ///
+    /// A [`ScopeKind`] is three answers about `Tab` and not three degrees of one — see
+    /// [`crate::focus`]. It is a **frame-local range over this frame's ring**, so nothing about it
+    /// survives the frame and there is no fifth id-keyed fact.
     ///
     /// # This is where bubbling happens, and it is not a walk of the id path
     ///
@@ -1327,16 +1603,23 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// a clickable region and then opens a scope under its own id**, which is how a bubbling
     /// container is actually written. Refusing to bubble there would leave the panel silently unable
     /// to see a keystroke, with no diagnostic and nothing on screen to notice.
-    pub fn scope<R>(&mut self, id: Id, f: impl FnOnce(&mut Ctx<'f, '_>) -> R) -> R {
+    pub fn scope<R>(
+        &mut self,
+        id: Id,
+        kind: ScopeKind,
+        f: impl FnOnce(&mut Ctx<'f, '_>) -> R,
+    ) -> R {
         // **The one id a bubbling container adds.** Not on the id stack — a scope renames nothing —
         // and not in the hit index either, because it declares no region. The claim is for the
         // identity side alone: it makes the id live, so the sweep and the counts see it.
         let _ = self.frame.ids.claim(id);
+        let opened = self.frame.ring.open_scope(id, kind);
         let before = self.frame.focus_draws;
         let r = {
             let mut inner = self.child(self.area());
             f(&mut inner)
         };
+        self.frame.ring.close_scope(opened);
         // The after-the-body moment.
         if self.frame.focus_draws != before {
             self.frame.route_to = Some(id);
@@ -1403,7 +1686,17 @@ impl<'f, 'v> Ctx<'f, 'v> {
         // The `max` over a totally ordered ladder, which is why combining is not a negotiation.
         self.frame.tracking = self.frame.tracking.max(i.tracking());
         if i.contains(Interest::FOCUS) {
-            self.frame.ring.push(id);
+            // **The ring is built during the draw**, one branch on a bit the widget is already
+            // passing — a cost moved from the frame a `Tab` arrives on to every frame, measured at
+            // 1.000×–1.009× of a dense frame, which is under the run-to-run spread of the frame
+            // itself. Built in `begin` instead it is a frame old, and `Tab` steps over a row
+            // inserted directly after the focused one.
+            let focused = self.frame.focused == Some(id);
+            self.frame.ring.push(
+                id,
+                Rect::new(r.x + self.content.0, r.y + self.content.1, r.w, r.h),
+                focused,
+            );
         }
         // **The bubbling detector**, incremented here because this is the one verb every focusable
         // widget calls. A scope reads it either side of its body; see `Ctx::scope`.
@@ -1439,8 +1732,12 @@ impl<'f, 'v> Ctx<'f, 'v> {
             // never given.
             local: local.map(|(x, y)| (x - r.x, y - r.y)),
             focused: self.frame.focused == Some(id),
-            focus_entered: false,
-            focus_left: false,
+            // **Compared against what the previous draw saw**, not against `focused`: the focus moves
+            // in `end`, so by the time a widget draws again the move has already happened and the
+            // difference is not visible from the live value. Both `Tab` and the press produce these,
+            // and validation-on-blur is the case they exist for.
+            focus_entered: self.frame.focused == Some(id) && self.frame.focus_before != Some(id),
+            focus_left: self.frame.focus_before == Some(id) && self.frame.focused != Some(id),
             // **Never written by the runtime.** A component with a value sets it before returning,
             // because the runtime does not hold the value and may not.
             changed: false,
@@ -1543,7 +1840,65 @@ impl<'f, 'v> Ctx<'f, 'v> {
         if self.frame.route_to != Some(id) {
             return None;
         }
+        // **The trap's second keyboard mechanism.** A trap that stood *last* frame refuses delivery
+        // outside itself, which is what stops an explicit `cx.focus` from handing the keyboard back
+        // to a widget behind the modal. It cannot reach the frame the trap opens — widgets behind
+        // draw first, so they pull their keys before the scope that would stop them exists — and
+        // that exposure is one key, because the click that opens a modal is a closing edge and ends
+        // its batch.
+        if !self.frame.ring.prev_delivers_to(id) {
+            return None;
+        }
+        // **`Tab` is the ring's key, not the focused widget's.** Withheld rather than declined,
+        // because by the time a key is declined the ring has already consumed it: what is handed
+        // back no longer describes the state. An [`Isolated`](ScopeKind::Isolated) scope is the one
+        // caller that gets it, and that is answered from the previous frame's scopes.
+        if !self.frame.focus_isolated
+            && self
+                .frame
+                .keys
+                .peek()
+                .is_some_and(|k| crate::route::edge_of(&vitui_engine::Event::Key(k)).is_some())
+        {
+            return None;
+        }
         self.frame.keys.take()
+    }
+
+    /// Give the focus to `id`.
+    ///
+    /// **The only focus verb, and it names a widget rather than a direction.** The walk is not
+    /// reachable from a component: one that could call it would move the focus during the draw, over
+    /// a ring that is half built.
+    pub fn focus(&mut self, id: Id) {
+        self.frame.focused = Some(id);
+    }
+
+    /// Whether `id` holds the focus.
+    pub fn is_focused(&self, id: Id) -> bool {
+        self.frame.focused == Some(id)
+    }
+
+    /// What this key fires, resolved **innermost-first from the open scope**.
+    ///
+    /// A key map is a range tagged with the scope that was open when [`Ctx::key_map`] declared it,
+    /// and this walks that scope's parents outward, finishing at the frame level where an
+    /// application declares its own. First match wins inside each rung.
+    ///
+    /// **The flat pass is wrong in the expensive direction**: `Ctrl+S` under a
+    /// [`Trap`](ScopeKind::Trap) fires the application's *Save* instead of the modal's, which is a
+    /// document written behind a dialog the user has not confirmed.
+    pub fn action(&self, k: &vitui_engine::Key) -> Option<crate::keys::ActionId> {
+        let mut at = self.frame.ring.open();
+        loop {
+            if let Some(action) = self.frame.maps.match_in(k, at) {
+                return Some(action);
+            }
+            // `None` is both the frame level and the end of the walk, so the rung above is asked
+            // first and only then does the loop finish.
+            let ix = at?;
+            at = self.frame.ring.parent_of(ix);
+        }
     }
 
     /// Hand a key back, **in order**: it is the next key the queue answers, to the next level out.
@@ -1577,9 +1932,13 @@ impl<'f, 'v> Ctx<'f, 'v> {
         self.frame.keys.put_back(k);
     }
 
-    /// Declare a key map for the open scope.
+    /// Declare a key map **for the open scope**.
+    ///
+    /// The scope is what [`Ctx::action`] walks outward from; a map declared with no scope open is
+    /// the application's, and is reached last.
     pub fn key_map(&mut self, map: &crate::keys::KeyMap) {
-        self.frame.maps.declare(map);
+        let scope = self.frame.ring.open();
+        self.frame.maps.declare_in(map, scope);
     }
 
     /// Queue an overlay.
@@ -1622,18 +1981,39 @@ impl<'f, 'v> Ctx<'f, 'v> {
         self.frame.repaint = true;
     }
 
-    /// Put the caret here.
+    /// Put the caret here, in this context's own coordinates.
+    ///
+    /// **The sink, and the last write of the frame wins** — `settle` forwards it to
+    /// `Screen::set_cursor` (ADR 0005). The shape is the theme's default; [`Ctx::caret_with`]
+    /// carries one.
+    ///
+    /// Two refusals, and both are the same sentence about lying: **nothing focused means no caret**,
+    /// because a caret on a screen where no widget holds the keyboard says typing goes somewhere it
+    /// does not; and a caret **outside this context's own area** is somebody else's cell, which is
+    /// what a field scrolled out of its pane would otherwise place. The runtime blinks nothing —
+    /// a software caret is two wakeups a second for as long as anything has focus.
     pub fn caret(&mut self, x: i32, y: i32) {
         self.caret_with(x, y, CursorShape::Terminal);
     }
 
     /// Put the caret here, with a shape.
     ///
-    /// `CursorShape` is the engine's, forwarded untouched.
+    /// **`CursorShape` is the engine's, re-exported and not redefined** — the same rule as
+    /// `GlyphSet` and for the same reason. `set_cursor` applies all three of `{ x, y, shape }`, so a
+    /// sink taking only `(x, y)` drops the third with no other door: a bar caret in an input beside a
+    /// block caret in a list was inexpressible above this runtime while the component library
+    /// recorded cursor shape as supported.
     pub fn caret_with(&mut self, x: i32, y: i32, shape: CursorShape) {
+        let area = self.area();
+        if x < area.x || y < area.y || x >= area.right() || y >= area.bottom() {
+            return;
+        }
+        // **Root coordinates, accumulated on the way down.** Two contexts writing `(0, 0)` name the
+        // same cell otherwise, and last-write-wins then picks between two different places.
+        let (rx, ry) = (x + self.origin.0, y + self.origin.1);
         self.frame.caret = Some(Cursor {
-            x: u16::try_from(x.max(0)).unwrap_or(u16::MAX),
-            y: u16::try_from(y.max(0)).unwrap_or(u16::MAX),
+            x: u16::try_from(rx.max(0)).unwrap_or(u16::MAX),
+            y: u16::try_from(ry.max(0)).unwrap_or(u16::MAX),
             shape,
         });
     }
@@ -1902,6 +2282,8 @@ impl Driver {
                 rect: Rect::new(0, 0, w, h),
                 origin: (0, 0),
                 pointer,
+                origin: (0, 0),
+                content: (0, 0),
                 _frame: PhantomData,
                 _not_send: PhantomData,
             };
@@ -2152,19 +2534,16 @@ mod routing_tests {
             cx.interact(focused, Rect::new(0, 0, 4, 1), Interest::FOCUS);
             while let Some(k) = cx.next_key(focused) {
                 got.push(k.code);
-                if k.code == KeyCode::Tab {
-                    // The ring's, not a widget's: hand it back so `end` can see it.
-                    cx.decline(k);
-                    break;
-                }
             }
         });
         assert_eq!(frames, 1, "both events, one frame");
-        assert_eq!(got, vec![KeyCode::Char('a'), KeyCode::Tab]);
-        assert_eq!(
-            d.unhandled().iter().map(|k| k.code).collect::<Vec<_>>(),
-            vec![KeyCode::Tab],
-            "and what nobody took is what moves the focus"
+        // **Ticket 12 corrected the second half of this gate.** Ticket 11 had the widget take the
+        // `Tab` and decline it, because nothing yet consumed one; the ring now withholds it, so a
+        // widget cannot drain the key that is about to move the focus off it.
+        assert_eq!(got, vec![KeyCode::Char('a')], "the Tab was never offered");
+        assert!(
+            d.unhandled().is_empty(),
+            "the ring took it: it is the ring's key and the application does not see it"
         );
     }
 
@@ -2190,8 +2569,9 @@ mod routing_tests {
         assert_eq!(frames, 2);
         assert_eq!(
             per_frame,
-            vec![vec![KeyCode::Tab], vec![KeyCode::Char('a')]],
-            "neither key was lost, and neither was routed against the other's focus"
+            vec![vec![], vec![KeyCode::Char('a')]],
+            "the Tab is the ring's and `a` is the widget's, and neither was routed against the \
+             other's focus"
         );
     }
 
@@ -2311,7 +2691,7 @@ mod routing_tests {
         let mut wrapped = driver();
         wrapped.frame(|cx| {
             let id = Id::from_raw(9_999);
-            cx.scope(id, |cx| rows(cx));
+            cx.scope(id, ScopeKind::Group, |cx| rows(cx));
         });
         let wrapped_hits: Vec<Id> = wrapped.inspect().hits().iter().map(|h| h.id).collect();
         let wrapped_live = wrapped.inspect().ids().live();
@@ -2342,7 +2722,7 @@ mod routing_tests {
         let mut captured = None;
         let mut bubbled = None;
         d.frame(|cx| {
-            cx.scope(panel, |cx| {
+            cx.scope(panel, ScopeKind::Group, |cx| {
                 // Capture: the container's own moment has not arrived, and asking here answers
                 // nothing because the container is not the routing target yet.
                 captured = cx.next_key(panel);
@@ -2435,7 +2815,7 @@ mod routing_tests {
         let mut bubbled = None;
         d.frame(|cx| {
             cx.interact(panel, Rect::new(0, 0, 20, 10), Interest::CLICK);
-            cx.scope(panel, |cx| {
+            cx.scope(panel, ScopeKind::Group, |cx| {
                 cx.interact(field, Rect::new(1, 1, 8, 1), Interest::FOCUS);
                 let k = cx.next_key(field).expect("offered to the focus");
                 cx.decline(k);
@@ -2460,11 +2840,11 @@ mod routing_tests {
         let mut stolen = None;
         let mut reached = None;
         d.frame(|cx| {
-            cx.scope(sidebar, |cx| {
+            cx.scope(sidebar, ScopeKind::Group, |cx| {
                 cx.interact(Id::from_raw(4), Rect::new(0, 0, 8, 1), Interest::CLICK);
             });
             stolen = cx.next_key(sidebar);
-            cx.scope(editor, |cx| {
+            cx.scope(editor, ScopeKind::Group, |cx| {
                 cx.interact(field, Rect::new(0, 10, 8, 1), Interest::FOCUS);
                 reached = cx.next_key(field);
             });
@@ -2964,7 +3344,11 @@ mod tests {
         d.frame(|cx| fields(cx, &mut without));
 
         let mut within = Vec::new();
-        d.frame(|cx| cx.scope(Id::named("modal"), |inner| fields(inner, &mut within)));
+        d.frame(|cx| {
+            cx.scope(Id::named("modal"), ScopeKind::Trap, |inner| {
+                fields(inner, &mut within)
+            })
+        });
         assert_eq!(without, within, "a scope changed an id");
 
         let mut scrolled = Vec::new();
@@ -3682,6 +4066,810 @@ mod pointer_tests {
             d.inspect().hover_styles.as_slice(),
             [(widget, Rect::new(14, 6, 8, 1), Role::FaceHover)],
             "10 + 3 + 1 and 4 + 1 + 1, and not 3 + 1 and 1 + 1"
+        );
+    }
+}
+
+#[cfg(test)]
+mod focus_tests {
+    //! Ticket 12's gates: **a sixth interest bit, three scope answers, and a vanish rule that was
+    //! 32% of the budget written the obvious way.**
+    //!
+    //! The walk, the group collapse and the vanish rule's own arithmetic have unit tests in
+    //! [`crate::focus`]. What is here is the half that needs a whole frame: the tracking delta, the
+    //! keyboard walkthrough, the trap's two mechanisms, the scope-resolved key map and the caret.
+
+    use super::*;
+    use crate::focus::ScopeKind;
+    use crate::id::Id;
+    use crate::keys::{Chord, KeyMap};
+    use vitui_engine::{
+        Button, Buttons, ColorDepth, Key, KeyCode, KeyKind, KeyText, Mouse, MouseKind,
+    };
+
+    fn driver() -> Driver {
+        Driver::headless(300, 80).expect("attaching to a sink cannot fail")
+    }
+
+    fn key(code: KeyCode) -> Key {
+        Key {
+            code,
+            mods: vitui_engine::Mods::NONE,
+            kind: KeyKind::Press,
+            text: KeyText::EMPTY,
+            at: Instant::now(),
+        }
+    }
+
+    fn chorded(code: KeyCode, mods: vitui_engine::Mods) -> Key {
+        Key {
+            code,
+            mods,
+            kind: KeyKind::Press,
+            text: KeyText::EMPTY,
+            at: Instant::now(),
+        }
+    }
+
+    fn press(x: u16, y: u16) -> Mouse {
+        Mouse {
+            x,
+            y,
+            kind: MouseKind::Down(Button::Left),
+            buttons: Buttons::NONE,
+            mods: vitui_engine::Mods::NONE,
+            at: Instant::now(),
+        }
+    }
+
+    /// Run frames until the queue is empty, and answer how many it took.
+    fn drain(d: &mut Driver, mut draw: impl FnMut(&mut Ctx<'_, '_>)) -> usize {
+        let mut frames = 0;
+        loop {
+            d.frame(&mut draw);
+            frames += 1;
+            if d.queued() == 0 {
+                break;
+            }
+            assert!(frames < 64, "the drain did not terminate");
+        }
+        frames
+    }
+
+    /// A cell of the dense screen, so a rectangle is never the interesting part.
+    fn cell(i: u64) -> Rect {
+        let i = i32::try_from(i).unwrap_or(0);
+        Rect::new(i % 300, i / 300, 1, 1)
+    }
+
+    /// **The dense IDE screen**: 312 interactive regions, 67 of them tab stops, 43 stops after the
+    /// three groups collapse.
+    ///
+    /// The shape is a *count* and the counts are asserted at every call site, which is the rule the
+    /// layout screen fixture already applies: a gate that quietly started measuring a smaller screen
+    /// would look good rather than fail.
+    ///
+    /// `stops` says whether the 67 declare [`Interest::FOCUS`] — **the delta gate needs the same
+    /// screen with the bit and without it**, and nothing else about the frame may differ.
+    fn dense(cx: &mut Ctx<'_, '_>, stops: bool) {
+        let base = cx.theme().hover_interest().with(Interest::CLICK);
+        let stop = if stops {
+            base.with(Interest::FOCUS)
+        } else {
+            base
+        };
+        let mut n = 0u64;
+        // Three groups — the menu bar, the toolbar and the tab strip — 27 entries and 3 stops.
+        for (name, count) in [("menu bar", 7u64), ("toolbar", 12), ("tab strip", 8)] {
+            cx.scope(Id::named(name), ScopeKind::Group, |cx| {
+                for i in 0..count {
+                    cx.interact(Id::keyed(Id::named(name), i), cell(n + i), stop);
+                }
+            });
+            n += count;
+        }
+        // Forty ordinary stops: fields, buttons, the two panes, the search box.
+        for i in 0..40u64 {
+            cx.interact(Id::keyed(Id::named("stop"), i), cell(n + i), stop);
+        }
+        n += 40;
+        // And 245 clickable regions that are **not** stops: 76 tree rows, 152 table cells, 17 others.
+        // No combination of the pointer's bits separates these from the 67 above, which is the whole
+        // reason `FOCUS` is a bit of its own.
+        for i in 0..245u64 {
+            cx.interact(Id::keyed(Id::named("row"), i), cell(n + i), base);
+        }
+    }
+
+    /// **The delta gate: declaring `FOCUS` on 67 entries does not raise the frame's tracking level.**
+    ///
+    /// A delta and not an absolute, because *the dense screen stays at `Drag`* is a statement about
+    /// the **theme**, not about this bit: the same screen is at `Motion` on a theme whose hover is
+    /// visible, and drops to `Drag` only after `resolve(ColorDepth::None)` has taken the highlight
+    /// away. Both arms are here, and the bit changes neither.
+    #[test]
+    fn declaring_focus_on_sixty_seven_entries_costs_no_tracking() {
+        // The tier is named: a truecolor theme's hover is visible, so 312 regions cost motion.
+        let mut rich = driver();
+        rich.frame(|cx| dense(cx, false));
+        let rich_without = rich.inspect().tracking();
+        rich.frame(|cx| dense(cx, true));
+        assert_eq!(rich.inspect().hits().len(), 312);
+        assert_eq!(rich.inspect().ring().len(), 67);
+        assert_eq!(
+            rich.inspect().tracking(),
+            rich_without,
+            "the bit is a delta"
+        );
+        assert_eq!(
+            rich_without,
+            MouseMode::Motion,
+            "a visible hover costs motion"
+        );
+
+        // And the flat theme, which is where the screen is at `Drag` — with the bit and without it.
+        let mut flat = driver();
+        flat.set_theme(Theme::default().resolve(ColorDepth::None));
+        flat.frame(|cx| dense(cx, false));
+        let flat_without = flat.inspect().tracking();
+        flat.frame(|cx| dense(cx, true));
+        assert_eq!(flat.inspect().ring().len(), 67);
+        assert_eq!(
+            flat.inspect().tracking(),
+            flat_without,
+            "the bit is a delta"
+        );
+        assert_eq!(
+            flat_without,
+            MouseMode::Buttons,
+            "**the dense screen does not pay for a highlight nobody can see**, and that is the \
+             theme's doing and not the bit's"
+        );
+        assert_eq!(Interest::FOCUS.tracking(), MouseMode::Off);
+    }
+
+    /// **A keyboard walkthrough visits every tab stop exactly once**, and 43 is not 67.
+    ///
+    /// The counts are the ticket's: 312 hit entries, 67 ring entries, 43 stops once the menu bar,
+    /// the toolbar and the tab strip collapse — 311 / 43 = 7.2× fewer things to visit. The walk is
+    /// driven by pressing `Tab`, not by reading the frame's own answer back: a walkthrough that
+    /// consulted [`Frame::tab_walk`] would be testing one expression against itself.
+    #[test]
+    fn a_keyboard_walkthrough_visits_every_tab_stop_exactly_once() {
+        let mut d = driver();
+        d.frame(|cx| dense(cx, true));
+        assert_eq!(d.inspect().hits().len(), 312, "the screen is 312 regions");
+        assert_eq!(
+            d.inspect().ring().len(),
+            67,
+            "and 67 of them are in the ring"
+        );
+        assert_eq!(d.inspect().stop_count(), 43, "and 43 of those are stops");
+
+        let mut visited = Vec::new();
+        for _ in 0..43 {
+            d.post_key(key(KeyCode::Tab));
+            drain(&mut d, |cx| dense(cx, true));
+            visited.push(d.inspect().focused().expect("a Tab always lands somewhere"));
+        }
+        let mut deduped = visited.clone();
+        deduped.sort_by_key(|id| id.raw());
+        deduped.dedup();
+        assert_eq!(deduped.len(), 43, "the walk repeated an id");
+        assert_eq!(
+            visited,
+            d.inspect().stop_ids().collect::<Vec<_>>(),
+            "and it visited them in the ring's order, which is the order of the source"
+        );
+
+        // The forty-fourth press is back at the beginning: the ring wraps.
+        d.post_key(key(KeyCode::Tab));
+        drain(&mut d, |cx| dense(cx, true));
+        assert_eq!(d.inspect().focused(), Some(visited[0]), "the ring wraps");
+    }
+
+    /// **A scope is a frame-local range, and it cannot become a cross-frame fact.**
+    ///
+    /// The behavioural half: the scopes are gone on the next frame, and the id-keyed facts are
+    /// still the four ADR 0012 closed the list at. **The compile outcome is on [`Frame::scopes`]**,
+    /// with its positive twin — a `compile_fail` inside a private test module is collected by
+    /// nobody, which is the defect ticket 19 exists to stop shipping.
+    #[test]
+    fn a_scope_is_a_frame_local_range_and_not_a_cross_frame_fact() {
+        let mut d = driver();
+        let form = Id::named("form");
+        d.frame(|cx| {
+            cx.scope(form, ScopeKind::Trap, |cx| {
+                for i in 0..3u64 {
+                    cx.interact(Id::keyed(form, i), cell(i), Interest::FOCUS);
+                }
+            });
+        });
+        let scope = d.inspect().scopes()[0];
+        assert_eq!(
+            (scope.start, scope.end),
+            (0, 3),
+            "a range over this frame's ring"
+        );
+        assert_eq!(scope.parent, None);
+        assert_eq!(scope.kind, ScopeKind::Trap);
+
+        // The next frame declares no scope, and there is nothing left of this one.
+        d.frame(|_cx| {});
+        assert!(
+            d.inspect().scopes().is_empty(),
+            "a scope survived its frame"
+        );
+        let (grab, origin, _focus, click) = d.inspect().id_keyed_facts();
+        assert_eq!(
+            (grab, origin, click),
+            (false, false, false),
+            "**still four id-keyed facts**, and a scope is not a fifth"
+        );
+    }
+
+    /// **`Trap`'s keyboard half is `next_key` itself**, and the frame it opens is exposed to at most
+    /// one key.
+    ///
+    /// The exposure is structural: widgets behind a modal draw *before* it, so they pull their keys
+    /// before the scope that would stop them exists. What bounds it is the batch — the click that
+    /// opens a modal is a closing edge and ends its batch, so a pointer-opened modal cannot leak at
+    /// all, and a key-opened one leaks exactly what is behind the opening key in **one** batch.
+    #[test]
+    fn the_frame_a_trap_opens_is_exposed_to_at_most_one_key() {
+        let mut d = driver();
+        let behind = Id::named("editor");
+        let modal = Id::named("modal");
+        let ok = Id::named("modal.ok");
+        d.plant(None, Some(behind), None);
+        // `o` opens the modal and `a` is behind it in the same batch.
+        d.post_key(key(KeyCode::Char('o')));
+        d.post_key(key(KeyCode::Char('a')));
+
+        let mut open = false;
+        let mut leaked = 0;
+        let mut opening = 0;
+        let draw = |cx: &mut Ctx<'_, '_>, open: &mut bool, leaked: &mut i32, opening: &mut i32| {
+            cx.interact(behind, cell(0), Interest::FOCUS);
+            while let Some(k) = cx.next_key(behind) {
+                if k.code == KeyCode::Char('o') {
+                    *open = true;
+                    *opening += 1;
+                } else {
+                    *leaked += 1;
+                }
+            }
+            if *open {
+                cx.scope(modal, ScopeKind::Trap, |cx| {
+                    cx.interact(ok, cell(1), Interest::FOCUS);
+                });
+            }
+        };
+        d.frame(|cx| draw(cx, &mut open, &mut leaked, &mut opening));
+        assert_eq!(opening, 1, "the key that opened it is the widget's own");
+        assert_eq!(
+            leaked, 1,
+            "**one key**, and it is the rest of the opening batch"
+        );
+        assert_eq!(
+            d.inspect().focused(),
+            Some(ok),
+            "and the trap has pulled the focus onto its first stop"
+        );
+
+        // Every frame after it: the widget behind gets nothing, however many keys arrive.
+        for c in ['b', 'c', 'd'] {
+            d.post_key(key(KeyCode::Char(c)));
+            d.frame(|cx| draw(cx, &mut open, &mut leaked, &mut opening));
+        }
+        assert_eq!(
+            leaked, 1,
+            "the trap holds the keyboard from the next frame on"
+        );
+
+        // **The alternative, with no trap declared**: the widget behind keeps the keyboard for as
+        // long as the modal is open, which is what the mechanism is against.
+        let mut loose = driver();
+        loose.plant(None, Some(behind), None);
+        let mut kept = 0;
+        for c in ['b', 'c', 'd'] {
+            loose.post_key(key(KeyCode::Char(c)));
+            loose.frame(|cx| {
+                cx.interact(behind, cell(0), Interest::FOCUS);
+                while cx.next_key(behind).is_some() {
+                    kept += 1;
+                }
+                // The modal draws, and declares nothing about the focus.
+                cx.interact(ok, cell(1), Interest::FOCUS);
+            });
+        }
+        assert_eq!(
+            kept, 3,
+            "without the trap, every key still reaches what is behind it"
+        );
+    }
+
+    /// **`Isolated` is decided in the drain, from the previous frame's scopes** — it could not have
+    /// been a `decline`, because the ring consumes the key first.
+    #[test]
+    fn an_isolated_scope_is_decided_in_the_drain_from_the_previous_frames_scopes() {
+        let editor = Id::named("editor");
+        let field = Id::named("field");
+        let code = Id::named("code");
+
+        // The ordinary case: the ring takes the `Tab` and the widget is never offered it.
+        let mut plain = driver();
+        plain.plant(None, Some(field), None);
+        let mut plain_got = Vec::new();
+        plain.post_key(key(KeyCode::Tab));
+        drain(&mut plain, |cx| {
+            cx.interact(field, cell(0), Interest::FOCUS);
+            cx.interact(Id::named("other"), cell(1), Interest::FOCUS);
+            while let Some(k) = cx.next_key(field) {
+                plain_got.push(k.code);
+            }
+        });
+        assert!(
+            plain_got.is_empty(),
+            "the ring's key, withheld from the widget"
+        );
+        assert_eq!(plain.inspect().focused(), Some(Id::named("other")));
+
+        // The isolated case. The scope has to have stood **last** frame, which is what makes this a
+        // drain decision rather than a draw one.
+        let mut d = driver();
+        d.plant(None, Some(code), None);
+        let draw = |cx: &mut Ctx<'_, '_>, got: &mut Vec<KeyCode>| {
+            cx.scope(editor, ScopeKind::Isolated, |cx| {
+                cx.interact(code, cell(0), Interest::FOCUS);
+                while let Some(k) = cx.next_key(code) {
+                    got.push(k.code);
+                }
+            });
+            cx.interact(Id::named("other"), cell(1), Interest::FOCUS);
+        };
+        let mut warm = Vec::new();
+        d.frame(|cx| draw(cx, &mut warm));
+
+        let mut got = Vec::new();
+        d.post_key(key(KeyCode::Tab));
+        drain(&mut d, |cx| draw(cx, &mut got));
+        assert_eq!(
+            got,
+            vec![KeyCode::Tab],
+            "the editor inserts a tab character"
+        );
+        assert_eq!(
+            d.inspect().focused(),
+            Some(code),
+            "and the ring did not move: the key never reached it"
+        );
+    }
+
+    /// **`dismissible` does not exist**: the runtime consumes no `Esc`, and nested traps receive it
+    /// innermost-first.
+    ///
+    /// The runtime may not close a modal — that is a write to application state it does not hold —
+    /// so it may not consume the key. `Esc` is an ordinary key on the decline queue, and the
+    /// innermost-first order is the drain's own, with no new code at all.
+    #[test]
+    fn the_runtime_consumes_no_esc_and_nested_traps_get_it_innermost_first() {
+        let mut d = driver();
+        let outer = Id::named("outer modal");
+        let inner = Id::named("inner modal");
+        let field = Id::named("inner.field");
+        d.plant(None, Some(field), None);
+        d.post_key(key(KeyCode::Escape));
+
+        let mut order = Vec::new();
+        d.frame(|cx| {
+            cx.scope(outer, ScopeKind::Trap, |cx| {
+                cx.scope(inner, ScopeKind::Trap, |cx| {
+                    cx.interact(field, cell(0), Interest::FOCUS);
+                    if let Some(k) = cx.next_key(field) {
+                        order.push("field");
+                        cx.decline(k);
+                    }
+                });
+                if let Some(k) = cx.next_key(inner) {
+                    order.push("inner");
+                    cx.decline(k);
+                }
+            });
+            if let Some(k) = cx.next_key(outer) {
+                order.push("outer");
+                cx.decline(k);
+            }
+        });
+        assert_eq!(
+            order,
+            vec!["field", "inner", "outer"],
+            "innermost-first, and for free — it is the drain order"
+        );
+        assert_eq!(
+            d.unhandled().iter().map(|k| k.code).collect::<Vec<_>>(),
+            vec![KeyCode::Escape],
+            "**and the runtime consumed nothing**: what nobody took reaches the application"
+        );
+    }
+
+    /// **The vanish rule's probe count**: bounded by the previous ring, where the obvious way is
+    /// bounded by the previous ring times this one.
+    ///
+    /// The scene is the map's: a search box filtering 600 keyed rows. One keystroke halves the list
+    /// and the focused row is one of the ones that went, so **every candidate the walk crosses is
+    /// dead** — which is the shape that makes the inner scan quadratic rather than incidental.
+    ///
+    /// Two counts and a ratio. The shipped form is a lazily filled stamped table: one pass over this
+    /// frame's ring plus about one probe a candidate. The obvious form is written out beside it, so
+    /// the detector is asserted to be detecting something rather than assumed to be — the shape
+    /// ticket 11's `Vec::remove(0)` twin has.
+    #[test]
+    fn the_vanish_rule_is_bounded_by_the_ring_and_not_by_the_ring_squared() {
+        let search = Id::named("search");
+        let row = |i: u64| Id::keyed(Id::named("row"), i);
+        let mut d = driver();
+        // Frame one: everything draws, and the last row holds the focus.
+        d.frame(|cx| {
+            cx.interact(search, cell(0), Interest::FOCUS);
+            for i in 0..600u64 {
+                cx.interact(row(i), cell(i + 1), Interest::FOCUS);
+            }
+            cx.focus(row(599));
+        });
+        assert_eq!(d.inspect().ring().len(), 601, "the scene is 601 stops");
+        assert_eq!(d.inspect().focused(), Some(row(599)));
+        assert_eq!(
+            d.inspect().vanish_probes(),
+            0,
+            "nothing vanished, nothing asked"
+        );
+
+        // Frame two: the filter keeps the first three hundred, and the focused row is gone.
+        let prev: Vec<Id> = d.inspect().ring_ids().collect();
+        d.frame(|cx| {
+            cx.interact(search, cell(0), Interest::FOCUS);
+            for i in 0..300u64 {
+                cx.interact(row(i), cell(i + 1), Interest::FOCUS);
+            }
+        });
+        let now: Vec<Id> = d.inspect().ring_ids().collect();
+        assert_eq!(now.len(), 301);
+        assert_eq!(
+            d.inspect().focused(),
+            Some(row(299)),
+            "the nearest survivor in the previous ring's order"
+        );
+
+        let shipped = d.inspect().vanish_probes();
+        assert!(
+            shipped <= 2 * u64::try_from(prev.len()).expect("601 fits"),
+            "the shipped form is bounded by the previous ring, not by it times this one: {shipped}"
+        );
+
+        // **The obvious way**, written out: walk the previous ring from the focus and ask, per
+        // candidate, whether that id is still in this one — with the inner question a scan.
+        let at = prev
+            .iter()
+            .position(|id| *id == row(599))
+            .expect("it was there");
+        let mut obvious = 0u64;
+        let mut landed = None;
+        for id in prev[at + 1..].iter().chain(prev[..at].iter().rev()) {
+            let mut found = false;
+            for other in &now {
+                obvious += 1;
+                if other == id {
+                    found = true;
+                    break;
+                }
+            }
+            if found {
+                landed = Some(*id);
+                break;
+            }
+        }
+        assert_eq!(
+            landed,
+            Some(row(299)),
+            "the two forms answer the same thing"
+        );
+        assert!(
+            obvious / shipped >= 100,
+            "the ratio is the detector, and it is {obvious} / {shipped}"
+        );
+
+        // And a quiet frame — the same screen again, nothing gone — pays nothing at all.
+        d.frame(|cx| {
+            cx.interact(search, cell(0), Interest::FOCUS);
+            for i in 0..300u64 {
+                cx.interact(row(i), cell(i + 1), Interest::FOCUS);
+            }
+        });
+        assert_eq!(d.inspect().vanish_probes(), 0, "**a quiet frame pays 0**");
+    }
+
+    /// **`Ctrl+S` under a `Trap` fires the modal's binding, never the application's.**
+    ///
+    /// A key map is a range tagged with the open scope and the walk is innermost-first. The flat
+    /// pass is written out beside it, because the failure is not a crash: it is a document written
+    /// behind a dialog the user has not confirmed.
+    #[test]
+    fn ctrl_s_under_a_trap_fires_the_modals_binding() {
+        const APP_SAVE: u32 = 1;
+        const MODAL_SAVE: u32 = 2;
+        let app = KeyMap::new().bind(&[Chord::key('s').ctrl()], APP_SAVE, "Save the document");
+        let modal = KeyMap::new().bind(&[Chord::key('s').ctrl()], MODAL_SAVE, "Save the settings");
+        let ctrl_s = chorded(KeyCode::Char('s'), vitui_engine::Mods::CTRL);
+
+        let mut d = driver();
+        let mut under_trap = None;
+        let mut at_the_frame_level = None;
+        let mut flat_pass = None;
+        d.frame(|cx| {
+            // The application declares first, because it draws first.
+            cx.key_map(&app);
+            cx.scope(Id::named("modal"), ScopeKind::Trap, |cx| {
+                cx.key_map(&modal);
+                under_trap = cx.action(&ctrl_s);
+            });
+            at_the_frame_level = cx.action(&ctrl_s);
+            // The flat pass: one list in declaration order, first match wins.
+            flat_pass = cx
+                .frame
+                .maps
+                .match_first(&ctrl_s, crate::keys::MatchMode::Masked);
+        });
+        assert_eq!(under_trap, Some(MODAL_SAVE), "innermost-first");
+        assert_eq!(
+            at_the_frame_level,
+            Some(APP_SAVE),
+            "and outside the scope the application's own map is still the answer"
+        );
+        assert_eq!(
+            flat_pass,
+            Some(APP_SAVE),
+            "**the flat pass is what fires the wrong one**, and it is wrong in the expensive \
+             direction"
+        );
+    }
+
+    /// `Ctx::focus`, `Ctx::is_focused`, and the two `Response` fields that arrive with the focus.
+    #[test]
+    fn focus_is_a_verb_and_entering_and_leaving_are_reported() {
+        let mut d = driver();
+        let a = Id::named("a");
+        let b = Id::named("b");
+        let mut seen = (false, false, false, false);
+        d.frame(|cx| {
+            cx.interact(a, cell(0), Interest::FOCUS);
+            assert!(!cx.is_focused(a));
+            cx.focus(a);
+            assert!(cx.is_focused(a), "and it takes effect at once");
+        });
+        d.frame(|cx| {
+            let ra = cx.interact(a, cell(0), Interest::FOCUS);
+            let rb = cx.interact(b, cell(1), Interest::FOCUS);
+            seen = (ra.focused, ra.focus_entered, rb.focused, rb.focus_left);
+        });
+        assert_eq!(
+            seen,
+            (true, true, false, false),
+            "it entered on the next frame"
+        );
+
+        d.frame(|cx| {
+            cx.interact(a, cell(0), Interest::FOCUS);
+            cx.interact(b, cell(1), Interest::FOCUS);
+            cx.focus(b);
+        });
+        let mut left = (false, false);
+        d.frame(|cx| {
+            let ra = cx.interact(a, cell(0), Interest::FOCUS);
+            let rb = cx.interact(b, cell(1), Interest::FOCUS);
+            left = (ra.focus_left, rb.focus_entered);
+        });
+        assert_eq!(
+            left,
+            (true, true),
+            "validation-on-blur is the case these exist for"
+        );
+    }
+
+    /// **A press moves the focus, and a press on nothing interested is intent.**
+    ///
+    /// The award's `None` stands; only the sweep's is absence, and that one is the vanish rule.
+    #[test]
+    fn a_press_focuses_a_stop_and_a_press_on_nothing_defocuses() {
+        let mut d = driver();
+        let stop = Id::named("field");
+        let plain = Id::named("tree row");
+        let screen = |cx: &mut Ctx<'_, '_>| {
+            cx.interact(
+                stop,
+                Rect::new(0, 0, 4, 1),
+                Interest::CLICK.with(Interest::FOCUS),
+            );
+            cx.interact(plain, Rect::new(0, 1, 4, 1), Interest::CLICK);
+        };
+        d.post_mouse(press(0, 0));
+        drain(&mut d, screen);
+        assert_eq!(
+            d.inspect().focused(),
+            Some(stop),
+            "the press moved the focus"
+        );
+
+        // A press on something clickable that is not a stop leaves it where it is.
+        d.post_mouse(press(0, 1));
+        drain(&mut d, screen);
+        assert_eq!(
+            d.inspect().focused(),
+            Some(stop),
+            "a tree row is not a tab stop"
+        );
+
+        // And a press on nothing at all is intent: the user meant to defocus.
+        d.post_mouse(press(200, 40));
+        drain(&mut d, screen);
+        assert_eq!(
+            d.inspect().focused(),
+            None,
+            "**intent, and the vanish rule leaves it alone**"
+        );
+    }
+
+    /// `Frame::trap_scopes` exposes the standing set, which nothing else can answer.
+    #[test]
+    fn trap_scopes_exposes_the_standing_set() {
+        let mut d = driver();
+        let outer = Id::named("outer");
+        let inner = Id::named("inner");
+        d.frame(|cx| {
+            cx.scope(Id::named("form"), ScopeKind::Group, |cx| {
+                cx.interact(Id::named("field"), cell(0), Interest::FOCUS);
+            });
+            cx.scope(outer, ScopeKind::Trap, |cx| {
+                cx.interact(Id::named("outer.ok"), cell(1), Interest::FOCUS);
+                cx.scope(inner, ScopeKind::Trap, |cx| {
+                    cx.interact(Id::named("inner.ok"), cell(2), Interest::FOCUS);
+                });
+            });
+        });
+        assert_eq!(
+            d.inspect().trap_scopes().collect::<Vec<_>>(),
+            vec![outer, inner],
+            "the groups are not traps, and both traps are standing"
+        );
+        d.frame(|_cx| {});
+        assert_eq!(
+            d.inspect().trap_scopes().count(),
+            0,
+            "and none of it survives"
+        );
+    }
+
+    /// **A ring entry carries a rectangle in the enclosing scroll area's content coordinates**, and
+    /// the hit index does not carry one at all.
+    #[test]
+    fn a_ring_entry_carries_a_content_coordinate_rectangle() {
+        let mut d = driver();
+        let plain = Id::named("plain");
+        let scrolled = Id::named("scrolled");
+        d.frame(|cx| {
+            // Nested twice, with no scroll area: content coordinates are root coordinates.
+            let mut pane = cx.child(Rect::new(10, 5, 40, 20));
+            let mut inner = pane.child(Rect::new(2, 3, 20, 10));
+            inner.interact(plain, Rect::new(1, 1, 8, 1), Interest::FOCUS);
+        });
+        assert_eq!(
+            d.inspect().ring()[0].rect,
+            Rect::new(13, 9, 8, 1),
+            "accumulated on the way down, not read off one level of it"
+        );
+
+        d.frame(|cx| {
+            let mut pane = cx.child(Rect::new(10, 5, 40, 20));
+            pane.scroll_scope(Id::named("list"), (0, 100), |cx| {
+                cx.interact(scrolled, Rect::new(0, 104, 8, 1), Interest::FOCUS);
+            });
+        });
+        assert_eq!(
+            d.inspect().ring()[0].rect,
+            Rect::new(0, 104, 8, 1),
+            "**the content rectangle, which is row 104 of the list** — the scroll offset is not \
+             applied, because a scroll area's own coordinates are what scroll-into-view reasons in"
+        );
+
+        // The hit index is a different structure and did not grow one.
+        assert_eq!(std::mem::size_of::<Hit>(), 16);
+    }
+
+    /// **The caret is the last write of the frame, in the shape it was asked for, and nothing
+    /// focused means none.**
+    #[test]
+    fn the_caret_is_the_last_write_and_nothing_focused_means_none() {
+        let mut d = driver();
+        let field = Id::named("field");
+        d.plant(None, Some(field), None);
+        d.frame(|cx| {
+            cx.interact(field, cell(0), Interest::FOCUS);
+            cx.caret(1, 0);
+            cx.caret_with(4, 2, CursorShape::Bar);
+        });
+        assert_eq!(
+            d.inspect().caret(),
+            Some(Cursor {
+                x: 4,
+                y: 2,
+                shape: CursorShape::Bar
+            }),
+            "the last write wins, whichever of the two verbs made it, and the shape is carried"
+        );
+
+        // The other order, so the gate is about *last* and not about *which verb*.
+        d.frame(|cx| {
+            cx.interact(field, cell(0), Interest::FOCUS);
+            cx.caret_with(4, 2, CursorShape::Block);
+            cx.caret(1, 0);
+        });
+        assert_eq!(
+            d.inspect().caret(),
+            Some(Cursor {
+                x: 1,
+                y: 0,
+                shape: CursorShape::Terminal
+            })
+        );
+
+        // Translated to root coordinates, because two contexts writing `(0, 0)` are two places.
+        d.frame(|cx| {
+            cx.interact(field, cell(0), Interest::FOCUS);
+            let mut pane = cx.child(Rect::new(10, 5, 40, 20));
+            let mut inner = pane.child(Rect::new(2, 3, 20, 10));
+            inner.caret_with(0, 0, CursorShape::Underline);
+        });
+        assert_eq!(
+            d.inspect().caret().map(|c| (c.x, c.y)),
+            Some((12, 8)),
+            "and a local (0, 0) is not the screen's"
+        );
+
+        // Outside the context's own area, no caret: a field scrolled out of its pane names somebody
+        // else's cell.
+        d.frame(|cx| {
+            cx.interact(field, cell(0), Interest::FOCUS);
+            let mut pane = cx.child(Rect::new(10, 5, 4, 2));
+            pane.caret(9, 0);
+        });
+        assert_eq!(d.inspect().caret(), None, "outside the clip, no caret");
+
+        // **Nothing focused means no caret**, whatever was written.
+        let mut empty = driver();
+        empty.frame(|cx| {
+            cx.caret_with(3, 3, CursorShape::Bar);
+        });
+        assert_eq!(empty.inspect().caret(), None);
+    }
+
+    /// **The runtime blinks nothing**: a frame that places a caret asks for no wake.
+    #[test]
+    fn a_caret_costs_no_wakeup() {
+        let mut d = driver();
+        let field = Id::named("field");
+        d.plant(None, Some(field), None);
+        d.frame(|cx| {
+            cx.interact(field, cell(0), Interest::FOCUS);
+            cx.caret_with(2, 0, CursorShape::Bar);
+        });
+        assert!(
+            d.inspect().caret().is_some(),
+            "the caret is placed, and the terminal's own caret is what does the blinking"
+        );
+        assert_eq!(
+            d.queued(),
+            0,
+            "nothing was queued for a repaint: a software caret would be two wakeups a second"
         );
     }
 }

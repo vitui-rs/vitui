@@ -22,6 +22,7 @@ use vitui_engine::{
     Button, Buttons, Event, Key, KeyCode, KeyKind, KeyText, Mods, Mouse, MouseKind, Rect,
 };
 use vitui_runtime::ctx::{Ctx, Driver, Interest};
+use vitui_runtime::focus::ScopeKind;
 use vitui_runtime::id::Id;
 use vitui_runtime::route;
 
@@ -242,7 +243,9 @@ fn bubbling() {
             return;
         }
         let id = Id::from_raw(100 + level);
-        cx.scope(id, |cx| nest(cx, level + 1, levels, field));
+        cx.scope(id, ScopeKind::Group, |cx| {
+            nest(cx, level + 1, levels, field)
+        });
         // The after-the-body moment: take what the level below declined, and decline it again so
         // the level above this one has something to take.
         while let Some(k) = cx.next_key(id) {
