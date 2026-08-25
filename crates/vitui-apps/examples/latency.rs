@@ -70,7 +70,7 @@ use vitui_runtime::keys::{ActionId, Chord, Code, KeyMap};
 use vitui_runtime::layout::rect;
 use vitui_runtime::theme::{CATPPUCCIN_MOCHA, Density};
 use vitui_runtime::work::{Task, Wake, WakeHandle, Worker};
-use vitui_runtime::{ColorDepth, Ctx, Interest, Rect, Role, Theme};
+use vitui_runtime::{ColorDepth, Config, Ctx, Interest, Rect, Role, Theme};
 
 // ── the feed ─────────────────────────────────────────────────────────────────────────────────────
 
@@ -510,7 +510,23 @@ fn main() {
     let map = key_map();
     let mut app = App::new();
 
-    let mut driver = match Driver::attach(Default::default(), app.theme()) {
+    // **The application says what its own cadence is, and it is 10 Hz and not 60.**
+    //
+    // `Config::max_frame_rate` is the number `perf.rs` derives *both* of its limits from: the
+    // in-loop budget is one frame interval, and the observer's stall limit is 64 of them. Attaching
+    // with the default said *hold me to 16.7 ms and call me hung after 1.07 s* while this feed
+    // advances once every `TICK` — so the engine was being told a rate the program never had.
+    //
+    // Saying the true one is not a way of buying headroom; it is the field's own contract, *set by
+    // the application, never discovered*. That it also widens the stall limit to 6.4 s is why a
+    // debug build can fold the top rung at all: the fold is ~20x slower unoptimised, and an
+    // iteration that does not come back inside the limit is aborted whatever permit it holds —
+    // correctly, because the observer is a liveness check and not a second budget.
+    let config = Config {
+        max_frame_rate: 1000.0 / TICK.as_millis() as f32,
+        ..Default::default()
+    };
+    let mut driver = match Driver::attach(config, app.theme()) {
         Ok(driver) => driver,
         Err(why) => {
             eprintln!("vitui could not attach: {why}");
