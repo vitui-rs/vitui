@@ -199,13 +199,22 @@ pub const SERIES_RGB: [(u8, u8, u8); 6] = [
 
 /// **The paint of series `i`.**
 ///
-/// # `Theme::custom` needs a background and a component cannot read the page's
+/// # `Theme::custom` needs a background, and the page is now readable
 ///
-/// It takes two [`Rgb`], and the thirteen roles are `Paint`s rather than colours — there is no
-/// `Theme::page()`, no `Role::Page` and no way to ask what the body's background is. So the
-/// background is derived from `Theme::is_dark`, which is the one bit about the page a component can
-/// read. That is a stated substitution and not a preference: a `Theme::custom_fg` taking one colour,
-/// or a readable page colour, would remove it, and neither exists. Filed with components ticket 28.
+/// It takes two [`Rgb`], and the thirteen roles are `Paint`s rather than colours. There was no way
+/// to ask what the body is painted on, so this derived the background from `Theme::is_dark` — the
+/// one bit about the page a component could read — and substituted `Rgb::new(0, 0, 0)` for a dark
+/// theme.
+///
+/// **The substitution was wrong on a real terminal and looked it.** Catppuccin Mocha's page is
+/// `#1e1e2e`, not black, so every plotted cell went out as `48:5:16` while the text around it went
+/// out as `48:5:235` — a black halo around every curve and every bar, on every dark theme this
+/// library ships. It was invisible to the gates because none of them reads a background: the round
+/// trip compares a replayed screen against the frame that produced it, and both carry the same
+/// wrong colour.
+///
+/// [`Theme::page`] removes it. The two colours are still the caller's, which is what keeps the
+/// obligations below true.
 pub fn series_paint(theme: &Theme, i: usize, role_series: bool) -> Paint {
     if role_series {
         // The failure this arm exists to price: three of the thirteen roles read as series colours
@@ -217,12 +226,7 @@ pub fn series_paint(theme: &Theme, i: usize, role_series: bool) -> Paint {
         });
     }
     let (r, g, b) = SERIES_RGB[i % SERIES_RGB.len()];
-    let page = if theme.is_dark() {
-        Rgb::new(0, 0, 0)
-    } else {
-        Rgb::new(0xff, 0xff, 0xff)
-    };
-    theme.custom(Rgb::new(r, g, b), page)
+    theme.custom(Rgb::new(r, g, b), theme.page())
 }
 
 // ── the stand-in painter ─────────────────────────────────────────────────────────────────────────

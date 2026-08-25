@@ -1099,6 +1099,24 @@ impl Theme {
         Paint(self.styles[r.index()])
     }
 
+    /// **The colour the page is painted in.**
+    ///
+    /// [`Theme::custom`] takes two [`Rgb`] and the thirteen roles are [`Paint`]s rather than
+    /// colours, so a component that needs an arbitrary foreground *over the page* had no way to ask
+    /// what the page is. `crate::chart` substituted `Rgb::new(0, 0, 0)` when [`Theme::is_dark`] said
+    /// dark — the one bit about the page a component could read — and the substitution is visible on
+    /// a real terminal: every plotted cell went out as `48:5:16`, pure black, while the text around
+    /// it went out as `48:5:235`. A black halo around every curve and every bar, on a page that is
+    /// `#1e1e2e`.
+    ///
+    /// **`Role::Body`'s background is the page**, which is what makes this a read rather than a
+    /// thirteenth role: a palette says what the body is painted on, and every other role is painted
+    /// on the same ground.
+    #[must_use]
+    pub fn page(&self) -> Rgb {
+        self.specs[Role::Body.index()].bg
+    }
+
     /// A paint from two colours the caller names.
     ///
     /// # Two obligations, and they are the reason this is documented rather than just provided
@@ -1385,6 +1403,42 @@ mod tests {
     /// The corpus is not vendored, so what is gated is the relation over the shipped set: **the
     /// shipped pairing is never worse than nailing the foreground, and for at least one theme it is
     /// better.** A relation rather than either number, because the number belongs to the palettes.
+    /// **The page is the ground every role is painted on, and it is not black.**
+    ///
+    /// `crate::chart::series_paint` had no way to ask and substituted `Rgb::new(0, 0, 0)` for a dark
+    /// theme. Catppuccin Mocha's page is `#1e1e2e`: on a real terminal every plotted cell went out
+    /// as `48:5:16` and every glyph around it as `48:5:235`, which is a black halo around every
+    /// curve on every dark theme this crate ships.
+    ///
+    /// Asserted over **all fourteen shipped schemes** rather than the default, and in both
+    /// directions: the page is what `Role::Body` is painted on, and no scheme's page is either pure
+    /// black or pure white — a palette whose ground really were `#000000` would make the old
+    /// substitution correct by accident and this gate vacuous for it.
+    #[test]
+    fn the_page_is_the_body_ground_and_no_shipped_scheme_paints_it_pure_black() {
+        for scheme in crate::theme::schemes::STANDARD {
+            let theme = scheme.theme(GlyphSet::default(), Density::default());
+            let name = theme.is_dark();
+            let page = theme.page();
+            assert_eq!(
+                page,
+                theme.specs[Role::Body.index()].bg,
+                "dark={name}: the page is the ground `Role::Body` is painted on",
+            );
+            assert_ne!(
+                (page.r, page.g, page.b),
+                (0, 0, 0),
+                "dark={name}: a page of pure black would make the substitution this replaces correct \
+                 by accident",
+            );
+            assert_ne!(
+                (page.r, page.g, page.b),
+                (0xff, 0xff, 0xff),
+                "dark={name}: and pure white is the same accident on the other side",
+            );
+        }
+    }
+
     #[test]
     fn pairing_by_luminance_never_costs_contrast_and_usually_buys_it() {
         // The four roles that carry a background of their own, which are the ones `readable_on`

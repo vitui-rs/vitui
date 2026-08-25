@@ -460,6 +460,17 @@ impl App {
     /// Every row is something the component is claiming: the write count that does not move with
     /// the data, the fold that does, and the two memos of the chain counted separately.
     fn readouts(&mut self, cx: &mut Ctx<'_, '_>, area: Rect) {
+        // **Paint the ground before writing on it.**
+        //
+        // `text` paints the band it is given, so the rows below wrote their own background and the
+        // rest of this column wrote nothing at all — and a cell nothing writes shows the
+        // *terminal's* background, not the theme's. On a page of `#1e1e2e` against a terminal
+        // defaulting to black that is a black rectangle from the last readout to the bottom of the
+        // panel, with a hard rectangular edge where the text stops.
+        //
+        // Invisible to every gate here for the same reason the halo was: nothing this crate can run
+        // reads a background, and a cell that is never written is a cell no counter counts.
+        cx.fill(area, " ", cx.theme().paint(Role::Body));
         let rows = [
             if self.building() {
                 format!(
@@ -510,20 +521,21 @@ fn main() {
     let map = key_map();
     let mut app = App::new();
 
-    // **The application says what its own cadence is, and it is 10 Hz and not 60.**
+    // **Sixty, and the feed's ten hertz is a different number.**
     //
-    // `Config::max_frame_rate` is the number `perf.rs` derives *both* of its limits from: the
-    // in-loop budget is one frame interval, and the observer's stall limit is 64 of them. Attaching
-    // with the default said *hold me to 16.7 ms and call me hung after 1.07 s* while this feed
-    // advances once every `TICK` — so the engine was being told a rate the program never had.
+    // `Config::max_frame_rate` is a *ceiling on painting* — ADR 0004's minimum gap, not a tick —
+    // and `perf.rs` derives both of its limits from it: the in-loop budget is one frame interval
+    // and the observer's stall limit is 64 of them. This application damages on a tick and on
+    // input, so it presents about ten times a second; what it is willing to do is sixty, and that
+    // is what the field states.
     //
-    // Saying the true one is not a way of buying headroom; it is the field's own contract, *set by
-    // the application, never discovered*. That it also widens the stall limit to 6.4 s is why a
-    // debug build can fold the top rung at all: the fold is ~20x slower unoptimised, and an
-    // iteration that does not come back inside the limit is aborted whatever permit it holds —
-    // correctly, because the observer is a liveness check and not a second budget.
+    // **It said ten for one commit and that was a workaround wearing a contract's clothes.** The
+    // bars fold cost 476 ns a point then, so a million-point frame took a second and the only way
+    // past the stall limit was to widen it. Declaring a low ceiling to survive a slow frame is
+    // exactly the shape of edit spec §21 forbids — a budget moved to fit a measurement — and the
+    // fold being 350x faster is what makes the honest number affordable again.
     let config = Config {
-        max_frame_rate: 1000.0 / TICK.as_millis() as f32,
+        max_frame_rate: 60.0,
         ..Default::default()
     };
     let mut driver = match Driver::attach(config, app.theme()) {
