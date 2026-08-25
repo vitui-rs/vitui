@@ -116,6 +116,7 @@ pub mod form;
 pub mod frame;
 pub mod gates;
 pub mod glyphs;
+pub mod grid;
 pub mod ink;
 pub mod inventory;
 pub mod keys;
