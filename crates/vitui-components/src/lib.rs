@@ -110,8 +110,10 @@
 #![warn(missing_docs)]
 
 pub mod app;
+pub mod clusters;
 pub mod counters;
 pub mod dense;
+pub mod document;
 pub mod form;
 pub mod frame;
 pub mod gates;
