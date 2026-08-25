@@ -29,7 +29,7 @@
 //! - [`obligations`] — §17's five obligations as queries over the freeze, each returning a count or
 //!   an equality. **Not one of them can be met yet, and every one of them says so out loud** rather
 //!   than returning green over an empty population.
-//! - [`gates`] — §21's register: **sixty-nine gates as rows, forty-four of them evaluated**, five
+//! - [`gates`] — §21's register: **eighty gates as rows, fifty-five of them evaluated**, seven
 //!   pinned red with their failing sets, six unreachable across the crate line with what would have
 //!   to become public, and fourteen with nothing yet to run over. An instrument is a value with a
 //!   file in it, so a row that has stopped running turns the register red here. **One of those rows
@@ -65,6 +65,20 @@
 //!   absorbed — [`dense::CHIP_FILLED_FACE`] is 1 095 where ticket 09 measured 1 149.
 //! - The module tree, one module per family (§19), joined to the freeze by
 //!   [`Component::families`].
+//!
+//! - [`accordion`] — **the accordion of twelve sections, and the fold set beside it**: 300x80,
+//!   twelve headers over bodies of thirty-four widgets each, and the one hostile axis whose defect
+//!   **no golden-cell gate can see**. A closed body that is drawn into an `h = 0` rectangle instead
+//!   of skipped declares **408 more hit entries and 408 more ring entries** — the same subtraction
+//!   twice, because `Ctx::interact` appends to both before either looks at the rectangle — on a
+//!   surface that is **0 cells over 0 rows** apart. Of §20's nine counters, `regions` and
+//!   `tab stops` see it and nothing that reads a cell does. §8's six declaration figures are this
+//!   screen's plus one constant pair fitted from the first of them, and the pair predicts the other
+//!   five to the unit, the mid-transition **273 against 247** included. Beside it, §21's fold row
+//!   reproduces exactly and needs no component at all: ten lines inserted at line 24 of a
+//!   200 000-line document leave **4 166 of 4 167** folds on a line that opens no block, and 0 when
+//!   they are reanchored. Its two scenes are **red**, both waiting for `collapsible`
+//!   (components 22).
 //!
 //! - [`listing`] — **the collection's screen**: 40x80, one collection and eighty rows a window, and
 //!   the four hostile axes standing on it instead of in a table — 75 of 80 rows for the inverted
@@ -131,6 +145,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod accordion;
 pub mod app;
 pub mod area;
 pub mod counters;

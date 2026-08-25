@@ -8,14 +8,13 @@
 //!
 //! # What it prints, and why each half is here
 //!
-//! 1. **The scene list, one line a scene, in §21's column order.** Sixteen of the thirty
+//! 1. **The scene list, one line a scene, in §21's column order.** Thirteen of the thirty-one
 //!    print the ticket that will build their subject rather than a row of zeros — see
 //!    [`vitui_components::scenes::report`], which argues that at length. One is a rehearsal over a
-//!    fixture and says so, three are stood up on their own components, and **seven are pinned
-//!    red**: components ticket 11 built the collection's five screens, four of which wait for
-//!    `collection` while the wheel gate waits for the fix, and components ticket 16 built the
-//!    tree's two, both of which wait for `tree`. `examples/listing_numbers.rs` and
-//!    `examples/tree_numbers.rs` are where those seven are measured.
+//!    fixture and says so, three are stood up on their own components, and **fifteen are pinned
+//!    red**: components ticket 11's five, ticket 14's two, ticket 16's two, ticket 18's four and
+//!    ticket 21's two. Every one of them waits for its subject except the wheel gate, which waits
+//!    for the fix.
 //! 2. **The four hostile axes, each caught.** *n cells over m rows*, beside what the defective build
 //!    cost — because the whole argument for an equality against a reference render is that **every
 //!    one of the four made the defective build look healthier**, and a report that printed only the
@@ -235,10 +234,10 @@ fn main() {
     assert_eq!(count(|s| s.standing.evaluated()), 3);
     assert_eq!(
         count(|s| matches!(s.standing, Standing::Red { .. })),
-        11,
+        15,
         "components ticket 11's five — four pinned to components 12 and one to components 20 — \
-         components ticket 16's two, both pinned to components 17, and components ticket 18's \
-         four, every one of them pinned to components 19"
+         ticket 14's two pinned to components 15, ticket 16's two to 17, ticket 18's four to 19 \
+         and ticket 21's two to 22"
     );
 }
 
