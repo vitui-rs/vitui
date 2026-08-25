@@ -504,7 +504,8 @@ impl Pen {
     /// Draw a string, record where it landed, and return the engine's own column count.
     pub fn text(&mut self, cx: &mut Ctx<'_, '_>, x: i32, y: i32, s: &str, st: Paint) -> u16 {
         let columns = self.tally.text(cx, x, y, s, st);
-        self.record(x, y, s, columns, st);
+        let (ox, oy) = cx.origin();
+        self.record(x + ox, y + oy, s, columns, st);
         columns
     }
 
@@ -513,7 +514,8 @@ impl Pen {
     /// The verb the reference render is written on: one cell at a time, no runs.
     pub fn set(&mut self, cx: &mut Ctx<'_, '_>, x: i32, y: i32, cluster: &str, st: Paint) -> u16 {
         let columns = self.tally.set(cx, x, y, cluster, st);
-        self.record(x, y, cluster, columns, st);
+        let (ox, oy) = cx.origin();
+        self.record(x + ox, y + oy, cluster, columns, st);
         columns
     }
 

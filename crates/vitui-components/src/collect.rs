@@ -4793,14 +4793,24 @@ mod tests {
             (cells, cells),
             "a partition of the rectangle it was handed, and of nothing else"
         );
-        // And nothing past its own right edge, in the one coordinate space there is.
+        // **And nothing outside the rectangle, in the coordinate space the surface is in.**
+        //
+        // The margin is on the **left** here and it used to be read on the right, because until
+        // components ticket 19 `Pen` recorded a verb where it was *called* rather than where it
+        // landed: a component narrowed to `x == MARGIN` recorded its first cell at column 0. That
+        // is runtime issue 32's whole subject, and this test is where the correction is visible —
+        // the assertion did not change its meaning, it changed which columns satisfy it.
         for y in 0..H {
-            for x in (W - MARGIN)..W {
+            for x in 0..MARGIN {
                 assert!(
                     pen.canvas().get(x, y).is_none(),
-                    "column {x} of row {y} is past the rectangle's width and was written"
+                    "column {x} of row {y} is left of the rectangle and was written"
                 );
             }
+            assert!(
+                pen.canvas().get(W - 1, y).is_some(),
+                "the rectangle reaches the last column and row {y} did not"
+            );
         }
         // The rectangles handed over are measured from `r.x`, two indent columns a level plus the
         // chevron — and their width is what is left of `r.w`, not of the context.
@@ -5567,14 +5577,14 @@ mod tests {
                     },
                 );
             });
-            (tally.writes(), tally.distinct(), tally.verbs())
+            (tally.writes(), tally.distinct(), tally.verbs(), tally)
         };
 
-        let (bare_w, bare_d, bare_v) = one(false, 0);
+        let (bare_w, bare_d, bare_v, _) = one(false, 0);
         assert_eq!(bare_w, bare_d, "no cell twice");
         assert_eq!(bare_w, 300 * 8, "and every cell of the rectangle once");
 
-        let (head_w, head_d, head_v) = one(true, 0);
+        let (head_w, head_d, head_v, _) = one(true, 0);
         assert!(
             head_v > bare_v,
             "the header is verbs the body did not issue"
@@ -5585,23 +5595,27 @@ mod tests {
             "every cell of the rectangle, still written once"
         );
 
-        // **The number that says why the header is off by default, and it is the recorder's.**
+        // **This used to be 300, and it was the recorder's number rather than the table's.**
         // `Ctx::scroll_scope` childs at the body's view, so the body's content row 0 is one row
         // down on the terminal and row 0 *in its own coordinates* — which is exactly where the
-        // header wrote. A `Tally` unions in the coordinates of the `Ctx` the verb was called on,
-        // so the two spaces land on top of each other and the pair reports a double write of
-        // precisely one header row.
+        // header wrote. A `Tally` unioned in the coordinates of the `Ctx` the verb was called on,
+        // so the two spaces landed on top of each other and the pair reported a double write of
+        // precisely one header row on a table that has none.
+        //
+        // **Components ticket 19 moved the union into root coordinates** — `Ctx::origin`, runtime
+        // architecture issue 32 — so the pair is meaningful over a table with a header now, and
+        // `crate::grid` playing its scene without one is a choice rather than a workaround.
         assert_eq!(
             head_w - head_d,
-            300,
-            "one header row, and not one cell more"
+            0,
+            "a table with a header writes no cell twice, and the counter can finally say so"
         );
-        assert_eq!(head_d, 300 * 7);
+        assert_eq!(head_d, 300 * 8);
         assert_eq!(
             bare_w - bare_d,
             0,
-            "and with no header there is one space and the pair is meaningful, which is why \
-             `crate::grid` plays the scene without one"
+            "and with no header, unchanged: the two readings were only ever different where a \
+             component narrows"
         );
 
         // **The origin, and it is the half `vitui-apps`'s `ledger` found.** The body draws inside
@@ -5611,16 +5625,17 @@ mod tests {
         // assertion above still passed — they all play at `x == 0`, where the two agree. A table
         // handed the interior of a panel drew its header one column into the border.
         //
-        // Offset the table by twelve and the two spaces stop coinciding, which is what lets the
-        // recorder answer at all. The body draws inside the scope's child, so it is at `0..288`;
-        // the header draws in the caller's context, so it is at `12..300`. The union is the body's
-        // 2 016 cells plus the twelve header cells past the body's right edge, and the reported
-        // double write is the 276 they share.
+        // Offset the table by twelve. **Components ticket 19 changed how this half is asserted and
+        // not what it asserts**: the recorder now unions in root coordinates, so both spaces are
+        // one space, the correct table is a partition of its rectangle, and the *defect* is what
+        // shows up as a double write instead of the correct build showing up as one.
         //
-        // Written without `head.x` the header was at `0..288` — **inside** the body's columns —
-        // so the union was the body's alone and the double write was 288. The number is the gate,
-        // and no accessor had to be added to the recorder: it was already there.
-        let (off_w, off_d, ..) = one(true, 12);
+        // Written without `head.x` the header sits at root `0..288` while the body sits at
+        // `12..300`: they share **276** columns, which the pair would report as 276 double writes,
+        // and the header's twelve cells left of the body would land outside the rectangle
+        // altogether. So the gate is the geometry as well as the pair, and both are read off the
+        // recorder that already had the accessor.
+        let (off_w, off_d, _, off_tally) = one(true, 12);
         assert_eq!(
             off_w,
             288 * 8,
@@ -5628,11 +5643,20 @@ mod tests {
         );
         assert_eq!(
             off_d,
-            288 * 7 + 12,
-            "the header is drawn a column left of the body it belongs to: without `head.x` the \
-             union is the body's alone"
+            288 * 8,
+            "and the header's row is part of that partition rather than a second reading of the \
+             body's"
         );
-        assert_eq!(off_w - off_d, 276);
+        assert_eq!(off_w - off_d, 0);
+        assert!(
+            off_tally.touched(299, 0),
+            "the header reaches the rectangle's last column, so it is drawn from `head.x`"
+        );
+        assert!(
+            !off_tally.touched(0, 0),
+            "and nothing was written left of the rectangle: a header at column 0 is the defect \
+             `vitui-apps`'s `ledger` found, one column into the panel's border"
+        );
         let (flat_w, flat_d, ..) = one(false, 12);
         assert_eq!(
             (flat_w, flat_d),

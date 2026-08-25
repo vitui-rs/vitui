@@ -436,14 +436,25 @@ const LISTING: &str = "crates/vitui-components/src/listing.rs";
 /// The scroll area's own file, which is where components ticket 18's four scenes are played.
 const AREA: &str = "crates/vitui-components/src/area.rs";
 
-/// **What pins components ticket 18's four scenes**, and it is the same three instruments on each:
-/// the verdict over the three undeclared subjects, the sentence that says *waiting for its subject*
+/// **The three scrolling components' own file**, which is where components ticket 19's gates live.
+/// A scene stands on the module its subject is in as well as on the module it is played in — that
+/// is what makes it a scene *of* a component rather than beside one.
+const SCROLL: &str = "crates/vitui-components/src/scroll.rs";
+
+/// **What stands components ticket 18's four scenes up**, and it is the same three instruments on
+/// each: the verdict over the three subjects, the sentence that would say *waiting for its subject*
 /// rather than *this is a defect*, and the scan that opens `scroll.rs` and reads what is declared
 /// there. The scene's own measurement is the fourth, and it is different on every row.
-const PINS_THE_AREA: [Instrument; 3] = [
+///
+/// **All three were inverted by components ticket 19 and none was deleted.** The verdict now reads
+/// `Met` over three; the waiting message is still watched being produced from a partial
+/// declaration list and still watched stopping over a full one, because a message nobody has
+/// watched stop is a message nobody has watched; and the scan reads the three declarations where
+/// it used to read their absence.
+const STANDS_THE_AREA: [Instrument; 3] = [
     Instrument::Unit {
         file: AREA,
-        name: "the_screens_are_waiting_for_three_subjects",
+        name: "the_screens_stand_on_three_declared_subjects",
     },
     Instrument::Unit {
         file: AREA,
@@ -458,8 +469,6 @@ const PINS_THE_AREA: [Instrument; 3] = [
 /// The three components of F3 scrolling, which all four of ticket 18's scenes wait on.
 const SCROLLING: &[&str] = &["scroll_area", "scrollbar", "sticky"];
 
-/// The failing set every one of ticket 18's four scenes shares: **no subject**.
-const OWED_ITS_SCROLL_AREA: &str = "`scroll_area`, `scrollbar` and `sticky` are undeclared, so what      stands on these screens is a stand-in row loop, a bar drawn from `scroll::thumb`'s own      arithmetic and two rectangles. Every number the screen itself can be asked is measured: 0      failures over 5 475 600 pairs in at most 3 passes, a row and a column lost permanently to      hysteresis, 99 flips in 99 frames, row 799 999 of 999 999 with no counter separating the two      builds, and 398 cells re-damaged against 0";
 /// The forest's own file, which is where components ticket 16's two scenes are played.
 const FOREST: &str = "crates/vitui-components/src/forest.rs";
 /// The grid's own file, which is where components ticket 14's two scenes are played.
@@ -1601,11 +1610,11 @@ pub const SCENES: [Scene; 32] = [
         stands: SCROLLING,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Red {
+        standing: Standing::Evaluated {
             by: &[
-                PINS_THE_AREA[0],
-                PINS_THE_AREA[1],
-                PINS_THE_AREA[2],
+                STANDS_THE_AREA[0],
+                STANDS_THE_AREA[1],
+                STANDS_THE_AREA[2],
                 Instrument::Unit {
                     file: AREA,
                     name: "the_bar_decision_is_a_fixpoint_over_five_million_pairs",
@@ -1618,9 +1627,18 @@ pub const SCENES: [Scene; 32] = [
                     file: AREA,
                     name: "a_body_that_is_not_antitone_flips_the_decision_every_frame",
                 },
+                // **The sweep is the component's own arithmetic**, and this is what says so:
+                // `crate::area::decide` forwards to `crate::scroll::decide`, and the viewport
+                // `scroll_area` reduces to is the rectangle that decision produced.
+                Instrument::Unit {
+                    file: AREA,
+                    name: "the_bar_fixpoint_stands_on_the_shipped_decision",
+                },
+                Instrument::Unit {
+                    file: SCROLL,
+                    name: "the_parts_of_a_reserved_area_tile_its_rectangle_exactly",
+                },
             ],
-            failing: OWED_ITS_SCROLL_AREA,
-            inverted_by: "components 19",
         },
         rehearsed_by: &[],
     },
@@ -1644,11 +1662,11 @@ pub const SCENES: [Scene; 32] = [
         stands: SCROLLING,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Red {
+        standing: Standing::Evaluated {
             by: &[
-                PINS_THE_AREA[0],
-                PINS_THE_AREA[1],
-                PINS_THE_AREA[2],
+                STANDS_THE_AREA[0],
+                STANDS_THE_AREA[1],
+                STANDS_THE_AREA[2],
                 Instrument::Unit {
                     file: AREA,
                     name: "the_row_measured_extent_cannot_reach_the_last_row",
@@ -1661,9 +1679,16 @@ pub const SCENES: [Scene; 32] = [
                     file: AREA,
                     name: "the_thumb_and_the_extent_share_a_unit",
                 },
+                Instrument::Unit {
+                    file: AREA,
+                    name: "the_extent_scene_stands_on_a_shipped_scroll_area",
+                },
+                // The four sites of §9's one unit, on the component rather than on the screen.
+                Instrument::Unit {
+                    file: SCROLL,
+                    name: "the_extent_the_offset_the_thumb_and_the_reveal_are_all_content_cells",
+                },
             ],
-            failing: OWED_ITS_SCROLL_AREA,
-            inverted_by: "components 19",
         },
         rehearsed_by: &[],
     },
@@ -1691,11 +1716,11 @@ pub const SCENES: [Scene; 32] = [
         // only the spec may change.
         owed: true,
         from_a_survived_defect: false,
-        standing: Standing::Red {
+        standing: Standing::Evaluated {
             by: &[
-                PINS_THE_AREA[0],
-                PINS_THE_AREA[1],
-                PINS_THE_AREA[2],
+                STANDS_THE_AREA[0],
+                STANDS_THE_AREA[1],
+                STANDS_THE_AREA[2],
                 Instrument::Unit {
                     file: AREA,
                     name: "an_overlay_bar_re_damages_what_the_body_draws_under_it",
@@ -1708,9 +1733,17 @@ pub const SCENES: [Scene; 32] = [
                     file: AREA,
                     name: "the_owed_figure_is_the_span_model_and_the_double_write_is_the_measurable_one",
                 },
+                // **The reserved arm is the shipped component and the overlay arm could not be**,
+                // which is components 19's first criterion from the instrument's side.
+                Instrument::Unit {
+                    file: AREA,
+                    name: "the_two_areas_scene_stands_on_a_shipped_scroll_area",
+                },
+                Instrument::Unit {
+                    file: SCROLL,
+                    name: "a_band_is_a_view_and_the_arithmetic_spelling_re_damages_what_is_under_it",
+                },
             ],
-            failing: OWED_ITS_SCROLL_AREA,
-            inverted_by: "components 19",
         },
         rehearsed_by: &[],
     },
@@ -1974,18 +2007,26 @@ pub const SCENES: [Scene; 32] = [
         stands: &["scroll_area"],
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Red {
+        standing: Standing::Evaluated {
             by: &[
-                PINS_THE_AREA[0],
-                PINS_THE_AREA[1],
-                PINS_THE_AREA[2],
+                STANDS_THE_AREA[0],
+                STANDS_THE_AREA[1],
+                STANDS_THE_AREA[2],
                 Instrument::Unit {
                     file: AREA,
                     name: "a_scroll_area_costs_its_content_and_a_collection_costs_its_window",
                 },
+                Instrument::Unit {
+                    file: AREA,
+                    name: "the_wrong_pairing_stands_on_a_shipped_scroll_area",
+                },
+                // The other half of C21 as a count: a body that reads the window it was published
+                // is the same frame at a thousand rows and at a million.
+                Instrument::Unit {
+                    file: SCROLL,
+                    name: "a_thousand_rows_and_a_million_are_the_same_frame",
+                },
             ],
-            failing: OWED_ITS_SCROLL_AREA,
-            inverted_by: "components 19",
         },
         rehearsed_by: &[],
     },
@@ -2316,7 +2357,7 @@ mod tests {
         }
     }
 
-    /// **Eight scenes have nothing to run over, fifteen are pinned red and nine are stood up.**
+    /// **Eight scenes have nothing to run over, seven are pinned red and seventeen are stood up.**
     ///
     /// `obligations.rs`'s arrangement and `gates.rs`'s: a count makes every change of colour a
     /// deliberate edit here rather than a quiet one. It was **twenty-five, none and three** until
@@ -2324,7 +2365,11 @@ mod tests {
     /// `collection` and rewrote `crate::listing::draw_into` to draw through it, which moved four
     /// of ticket 11's five red rows to `Evaluated` and left the fifth exactly where it was.
     ///
-    /// # The fifteen: one waits for a fix and fourteen wait for a subject
+    /// Components ticket 19 declared `scroll_area`, `scrollbar` and `sticky` and rewrote
+    /// `crate::area`'s four screens to draw through them, which moved **all four** of ticket 18's
+    /// red rows to `Evaluated` — 11 red and 13 stood up became 7 and 17.
+    ///
+    /// # The seven: one waits for a fix and six wait for a subject
     ///
     /// That split is the whole of criterion 7 and it is asserted rather than described. **Scene 6
     /// is not waiting for anything**: it is red because the defect is real, `CONTEXT.md` forbids
@@ -2333,7 +2378,7 @@ mod tests {
     /// ticket 20* — and a single `inverted_by` across the five would have made that ticket turn
     /// all five.
     #[test]
-    fn eight_scenes_have_nothing_to_run_over_eleven_are_red_and_thirteen_are_stood_up() {
+    fn eight_scenes_have_nothing_to_run_over_seven_are_red_and_seventeen_are_stood_up() {
         let red: Vec<u8> = SCENES
             .iter()
             .filter(|s| matches!(s.standing, Standing::Red { .. }))
@@ -2341,13 +2386,15 @@ mod tests {
             .collect();
         assert_eq!(
             red,
-            vec![6, 10, 11, 12, 13, 14, 17, 18, 19, 30, 32],
-            "the wheel gate, and then components ticket 18's four, 21's two, 23's three and 25's \
-             overlay family. Components ticket 27's two were here for one ticket and 28 inverted \
-             them; components ticket 14's two — scenes 7 and 31 — were here for one ticket and \
-             **15** inverted them; components ticket 16's two — scenes 8 and 9 — likewise, and \
-             **17** inverted them. A twelfth is a new one, and it owes an exact failing set and a \
-             ticket that inverts it"
+            vec![6, 10, 11, 12, 13, 14, 32],
+            "the wheel gate, and then components ticket 21's two, 23's three and 25's overlay \
+             family. Components ticket 27's two were here for one ticket and 28 inverted them; \
+             components ticket 14's two — scenes 7 and 31 — were here for one ticket and **15** \
+             inverted them; components ticket 16's two — scenes 8 and 9 — likewise, and **17** \
+             inverted them; components ticket 18's **four** — 17, 18, 19 and 30 — likewise, and \
+             **19** inverted all four together, because they were pinned on one fact and it was \
+             the subject. An eighth is a new one, and it owes an exact failing set and a ticket \
+             that inverts it"
         );
         let evaluated: Vec<u8> = SCENES
             .iter()
@@ -2356,7 +2403,7 @@ mod tests {
             .collect();
         assert_eq!(
             evaluated,
-            vec![1, 2, 3, 4, 5, 7, 8, 9, 15, 16, 28, 29, 31],
+            vec![1, 2, 3, 4, 5, 7, 8, 9, 15, 16, 17, 18, 19, 28, 29, 30, 31],
             "the dense screen and its two twins, the collection's four, the two million-point \
              series with the 175 712 axis pairs, and the table's two — the twelve-column screen \
              and the equality under a horizontal offset, both of which components 15 stood up by \
@@ -2417,10 +2464,6 @@ mod tests {
                 (12, "components 24"),
                 (13, "components 24"),
                 (14, "components 26"),
-                (17, "components 19"),
-                (18, "components 19"),
-                (19, "components 19"),
-                (30, "components 19"),
                 (32, "components 24"),
             ],
             "the wheel gate is not waiting for its subject and the other fourteen are. Merging \
@@ -2707,10 +2750,17 @@ mod tests {
     fn a_rehearsal_is_never_what_stands_a_scene_up() {
         // The files where a screen or one of its components is measured. `crate::runner`'s is not
         // one of them, and that is the whole check.
-        const SCREEN_FILES: [&str; 15] = [
+        const SCREEN_FILES: [&str; 16] = [
             DENSE,
             LISTING,
             AREA,
+            // **The component's own module is where its screen is measured too.** Components
+            // ticket 19: four of §9's gates are properties of `scroll_area`, `scrollbar` and
+            // `sticky` rather than of the screen they are played on — the partition of a reserved
+            // rectangle, the four bands' one hit entry, the four sites of one unit, and the frame
+            // that does not grow with the content — and a screen that could not name them would be
+            // pushing its own subject's gates out of its standing.
+            SCROLL,
             FOREST,
             GRID,
             ACCORDION,
@@ -2834,12 +2884,12 @@ mod tests {
             printed
                 .matches("stood up on its own components, by ")
                 .count(),
-            13,
+            17,
             "a stood-up scene says what stands it up, rather than reading as unplayed"
         );
         assert_eq!(
             printed.matches("red, pinned: `components ").count(),
-            11,
+            7,
             "the wheel gate, then ticket 18's four, 21's two, 23's three and 25's one, and a red \
              line is neither *not played* nor *stood up*"
         );

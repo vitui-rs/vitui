@@ -112,7 +112,7 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 23 of 45 tickets resolved (the last on 2026-08-25). `INVENTORY` is spec
+- **`vitui-components` has started**: 24 of 45 tickets resolved (the last on 2026-08-25). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
   answerable by the machine from here on. All five obligations are `Unmet` and each is watched
@@ -122,6 +122,58 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   (19/10, not ADR 0033's thirteen-unbuilt), the count of empty families (five, not §17's two), §1's
   layer rule against §6's own composition, and the `layer` column being uncheckable without stated
   edges. All four are asserted as measured rather than bent to fit.
+- **`scroll_area`, `scrollbar` and `sticky` are the tenth, eleventh and twelfth components, and the
+  ticket found that both of this crate's recorders were in the wrong coordinate system** (components
+  ticket 19, 2026-08-25). **Bars are reserved and there is no overlay option** (ADR 0029), checked as
+  arithmetic rather than as a measurement: the parts of a reserved area — the body's viewport, the
+  two bars, the corner and the four bands — **tile the rectangle exactly** at every size from 1×1 to
+  23×23, under both `Hide` spellings and three extents, and an overlay bar cannot satisfy that
+  equality at all because the cells under it belong to two parts. `sticky` is §9's **one** band
+  construction with `Which` as its four configurations — header and footer share `x`, the pinned
+  column shares `y`, the gutter shares neither — and **none of them declares anything**, so a frame
+  with four bands standing declares the same **3** regions as the same frame with none. `Hide::
+  WhenItFits` takes a *declared* extent because there is nowhere to put a closure that could measure
+  one, kept unwritable by a `compile_fail` pair rather than by a paragraph.
+  **The finding is one crate down and it is one components ticket 15 had already written down as a
+  constraint.** `Tally::distinct` and `Pen` recorded a verb where it was *called*: a scroll area with
+  a sticky header reported **299 double writes on a frame that has none**, two areas sixty columns
+  apart recorded their bands as one (**119 re-damaged against 0**), and a `tree` narrowed to `x == 5`
+  recorded its first cell at column 0 under a test that checked the wrong edge and passed for it. §6
+  says *a translated band makes `distinct` meaningless* — **as a rule about what a component may
+  do**, and it is a defect in the recorder. `Ctx::origin` is runtime architecture issue 32, additive,
+  the same arithmetic `hover_style`, `overlay`'s anchor and `caret` already did privately. **Nothing
+  drawn at the root moved**, so three tests changed and each was inverted rather than deleted — and
+  **one of the three was an argument**: `crate::frame`'s first ground for refusing a closure-taking
+  `block`, *124 double writes on a panel that has none*, is **struck**. The decision stands on
+  `CONTEXT.md`'s identity rule, which is not a measurement and cannot be repaired by one.
+  **Three of §9's five figures are timings and none reproduces.** The frame is **438–500 µs at
+  24 000 writes / 163 verbs / 3 regions / 0 allocations** against 48.83 / 33 890 / 1 453 / 59: this
+  screen writes **every cell of 300×80**, so `writes == distinct == 24 000` is a partition of the
+  whole terminal and the budget is the 1 ms class — where `tree` (436) and `table` (545) are. **The
+  regions are the finding inside that row**: 59 is a screen with per-row hit entries, and a
+  `scroll_area`'s body is the caller's and declares none. The shape change reproduces within 2.5% on
+  the arm with a prefix sum to rebuild (403.8 against 394.2) and is four times cheaper on the arm
+  without one (14.7 against 58.8). **1k → 1M is identical writes and identical verbs**, which is the
+  row that matters. Register 121 → **128 rows, 108 evaluated**; scenes **7 red, 17 stood up**, all
+  four of ticket 18's going green together because they were pinned on one fact and it was the
+  subject.
+  **Four defects were caught between the first green run and the commit**, all at coordinates the
+  gates never use: the two bars were keyed at `Id::keyed(id, 0)` and `(id, 1)`, which is what a body
+  keying per row writes for its first two rows — so an area **merged two widgets into one id**, and
+  the gate is watched catching it at 1 merge against 0; a horizontal `scrollbar` taller than one row
+  left both stepper columns unwritten below their first cell, which `scroll_area` cannot produce and
+  a caller can ask for; and the application both blanked its own body at any horizontal offset past a
+  screenful (padding from `Written::cells`, which inside a scrolled scope is *what survived the
+  clip*) and rebuilt the panel's interior by hand as the screen inset by two where `frame::draw`
+  insets by three under `Cosy`.
+  **The application is `reader`** — a build log of 120 000 entries, one in eight three rows tall —
+  and `u` is §9's unit rule on a screen: measured in rows, `End` reaches **entry 95 999 of 119 999**
+  and calls it the end, with the thumb a plausible size in a plausible place and every counter the
+  same at both ends of the content. Its own finding is runtime issue **33**: `Ctx::request_into_view`
+  never asks for the frame that applies it, so a reveal lands **one keystroke late** in any loop that
+  parks on `Driver::wait` — `collection`, `table`, `tree` and `accordion` all carry it, and **a gate
+  drives its own frames**, so the missing wake is invisible by construction.
+
 - **`tree` is the ninth component, and it found that §7's record had been the wrong width since
   components 13** (components ticket 17, 2026-08-25). It is `collection` plus a flatten index and the
   sentence is *checkable*: `tree_with` calls `collection_chorded`, and
@@ -387,14 +439,14 @@ crates/vitui-engine       cells, surfaces, layers, compositing, damage, serializ
                           └ crossterm behind a seam: raw mode, input, capability detection
 crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key maps, theming,
                           overlays, the data contract — no scene tree, no reactivity
-crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (9 of 29 built)
+crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (12 of 29 built)
                           └ the partition primitives return `vitui_runtime::Rect`. This crate used
                             to name its own rectangle (`Cells`) because `vitui_engine::Rect` was
                             unnameable across the crate line; runtime issue 22 re-exported it and
                             components issue 17 deleted the stand-in
 crates/vitui              facade re-export — engine, runtime, components
-crates/vitui-apps         the applications, one file each in `examples/` — 5: `counter`, `triage`,
-                          `latency`, `ledger`, `explorer`. **A component ticket ships one**: the surface's only
+crates/vitui-apps         the applications, one file each in `examples/` — 6: `counter`, `triage`,
+                          `latency`, `ledger`, `explorer`, `reader`. **A component ticket ships one**: the surface's only
                           consumer, and twice now the thing that found the defect its gates could not
                           └ a workspace MEMBER, so CI builds them: a consumer nobody builds is a
                             consumer nobody checks (`compare/run.sh` is the precedent). Depends on

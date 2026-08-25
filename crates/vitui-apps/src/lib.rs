@@ -61,7 +61,7 @@ pub struct App {
 /// and the reason is that there is nothing to port: what it demonstrates is *one component and one
 /// `Mode`*, and no other library's tutorial has an equivalent because no other library makes the
 /// claim.
-pub const APPS: [App; 5] = [
+pub const APPS: [App; 6] = [
     App {
         name: "counter",
         what: "A bordered panel, a centred value, and Left/Right/q. The smallest program anybody \
@@ -168,6 +168,31 @@ pub const APPS: [App; 5] = [
             "text::fit_with",
             "layout::rect::split_at_v",
             "ctx::Ctx::focused",
+            "ctx::Driver::wait",
+        ],
+        after: None,
+    },
+    App {
+        name: "reader",
+        what: "A build log of 120 000 entries in a scroll area whose bars are reserved and whose \
+               four bands are views. `u` measures the extent in rows instead of `Σ h` and `End` \
+               then stops a third short of the content with no counter moving; `n` takes the four \
+               bands away and the region count does not change; `b` swaps the always-cut gutters \
+               for the fixpoint",
+        uses: &[
+            "scroll::scroll_area_into",
+            "scroll::AreaState",
+            "scroll::AreaOpts",
+            "scroll::Hide",
+            "scroll::parts",
+            "scroll::Which",
+            "counters::Tally",
+            "ink::Direct",
+            "structure::panel_with",
+            "text::fit_with",
+            "ctx::Ctx::request_into_view",
+            "ctx::Ctx::visible_rows",
+            "ctx::Driver::unhandled",
             "ctx::Driver::wait",
         ],
         after: None,

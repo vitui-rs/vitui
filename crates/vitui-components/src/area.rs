@@ -48,14 +48,22 @@
 //!    the question is *who computes the reduced rectangle and when*, and the answer is *the
 //!    component, before it calls the body, from integers the caller already owns.* [`decide`] is a
 //!    sizing function in `CONTEXT.md`'s sense — nothing in section 1 draws.
-//! 2. **The extent scene draws a real frame**, measured with a [`Tally`] and the frame's own hit
-//!    index. It cannot go through [`Pen`], for [`crate::listing`]'s reason: a scrolled context is a
-//!    content coordinate system, so a body drawn at content coordinates writes far outside a
-//!    [`Canvas`] sixty-nine rows tall. It also cannot go through [`Ctx::scroll_scope`] yet, and
-//!    that is the fourth finding — see [`SCROLL_SCOPE_TRANSLATES_THE_WRONG_WAY`].
+//! 2. **The extent scene draws a real frame through the shipped component**, measured with a
+//!    [`Tally`] and the frame's own hit index. It cannot go through [`Pen`], for
+//!    [`crate::listing`]'s reason: a scrolled context is a content coordinate system, so a body
+//!    drawn at content coordinates writes far outside a [`Canvas`] sixty-nine rows tall. Until
+//!    components ticket 19 it could not go through [`Ctx::scroll_scope`] either — see
+//!    [`SCROLL_SCOPE_TRANSLATES_THE_WRONG_WAY`], which is now the record of a settled sign rather
+//!    than a live workaround.
 //! 3. **The two-areas scene goes through [`Pen`]**, because re-damage is a relation between two
 //!    frames and only a surface that survives one can hold it — `Pen::over`, ticket 07's
-//!    arrangement, and the reason the arms are played over four frames rather than one.
+//!    arrangement, and the reason the arms are played over four frames rather than one. Components
+//!    ticket 19 found that the surface was in the wrong coordinate system to hold it: `Pen`
+//!    recorded a verb where it was *called*, so two areas sixty columns apart recorded their bands
+//!    as one and the reserved twin reported 119 cells re-damaged on a frame that re-damages none.
+//!    The repair is `vitui_runtime::Ctx::origin`, which the runtime did not publish until runtime
+//!    architecture issue 32 — spec §6's *a translated band makes `distinct` meaningless* met from
+//!    a third side.
 //! 4. **The wrong pairing goes through both**, because its gate is a count and its figure is a
 //!    timing, and §20's rule keeps those apart.
 //!
@@ -129,31 +137,15 @@ impl Hide {
     }
 }
 
-/// The pair of decisions.
+/// **The pair of decisions, and the evidence beside it — both the shipped component's.**
 ///
-/// `v` is the vertical bar, which takes a **column**; `h` is the horizontal bar, which takes a
-/// **row**. The axis a bar *reports* and the axis it *costs* are perpendicular, which is the whole
-/// reason the two decisions are coupled at all and the whole reason the fixpoint exists.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
-pub struct Shown {
-    /// The vertical bar, down the right-hand edge.
-    pub v: bool,
-    /// The horizontal bar, along the bottom edge.
-    pub h: bool,
-}
-
-/// One decision, with the evidence the gate needs beside it.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct Decision {
-    /// What is shown.
-    pub shown: Shown,
-    /// **How many passes the loop took, including the one that changed nothing.** §9's gate is
-    /// *worst case 3 passes*, and the third is the pass that proves it is a fixpoint.
-    pub passes: u8,
-}
+/// [`crate::scroll::Shown`] and [`crate::scroll::Decision`] are re-exported here rather than
+/// declared again, which is what makes this screen a screen *of* `scroll_area` instead of a screen
+/// beside it: the sweep below runs the arithmetic that ships. Components ticket 19.
+pub use crate::scroll::{Decision, Shown};
 
 /// The largest number of passes [`decide`] is allowed to take. §9: **worst case 3 passes.**
-pub const MAX_PASSES: u8 = 3;
+pub use crate::scroll::MAX_PASSES;
 
 /// The viewport widths the sweep visits: `1..40`.
 pub const SWEEP_VIEWPORTS: u16 = 39;
@@ -182,6 +174,16 @@ pub const SWEEP_PAIRS: u64 = (SWEEP_VIEWPORTS as u64)
 /// where a body breaks it, and it is not hypothetical — a list that stacks two fields per row when
 /// it is narrow breaks it on purpose.
 pub fn decide(free: (u16, u16), extent: (u32, u32), bars: Bars) -> Decision {
+    // **The reserved arm is the shipped component's own arithmetic**, called and not copied:
+    // `crate::scroll::decide` is what `scroll_area` reduces its rectangle with, so the sweep below
+    // is a sweep of the component. Components ticket 19 — before it there was no subject to call.
+    if let Bars::Reserved = bars {
+        return crate::scroll::decide(free, extent, crate::scroll::Hide::WhenItFits);
+    }
+    // **The overlay arm cannot close the loop**, which is the negative case in one line: a bar that
+    // reserves nothing cannot make the other one necessary, so the two decisions are uncoupled and
+    // there is no fixpoint to take. It is kept here rather than in `scroll.rs` because
+    // `Bars::Overlay` is not an option any component offers (ADR 0029).
     let mut shown = Shown::default();
     let mut passes = 0u8;
     loop {
@@ -195,8 +197,6 @@ pub fn decide(free: (u16, u16), extent: (u32, u32), bars: Bars) -> Decision {
             return Decision { shown, passes };
         }
         shown = next;
-        // Monotone, so this is unreachable at three; it is here so that a future edit that breaks
-        // the monotonicity returns a `passes` the gate can fail on rather than hanging.
         if passes >= 8 {
             return Decision { shown, passes };
         }
@@ -233,10 +233,7 @@ pub fn decide_incremental(
 pub fn reduced(free: (u16, u16), shown: Shown, bars: Bars) -> (u16, u16) {
     match bars {
         Bars::Overlay => free,
-        Bars::Reserved => (
-            free.0.saturating_sub(u16::from(shown.v)),
-            free.1.saturating_sub(u16::from(shown.h)),
-        ),
+        Bars::Reserved => crate::scroll::reserved(free, shown),
     }
 }
 
@@ -412,6 +409,14 @@ pub const AW: u16 = 246;
 /// The area's height, in content cells. **Sixty-nine**, which is where *7 cells of 69* comes from
 /// as well: the bar's track is the viewport.
 pub const AH: u16 = 69;
+/// **The screen this scene is played on: one column wider than the viewport.**
+///
+/// Bars are reserved (ADR 0029), so a viewport [`AW`] wide needs a rectangle `AW + 1` wide. The
+/// constant exists rather than the arithmetic being inlined because it is the rule, not a margin.
+pub const SCREEN_W: u16 = AW + 1;
+/// **The cells the reserved vertical bar writes on every frame of this screen**: its own column,
+/// which is the screen's height. Two of them are `scrollbar`'s steppers.
+pub const BAR_CELLS: u64 = AH as u64;
 
 /// How many rows the content holds. §9's own screen.
 pub const ROWS: u64 = 1_000_000;
@@ -433,7 +438,8 @@ pub const LAST_ROW_IN_CELLS: u64 = 999_999;
 /// content is unreachable, on a screen that looks perfectly healthy.
 pub const LAST_ROW_IN_ROWS: u64 = 799_999;
 
-/// **`Ctx::scroll_scope` translates the content the wrong way, and this screen works around it.**
+/// **`Ctx::scroll_scope` translated the content the wrong way, and this screen used to work around
+/// it.**
 ///
 /// Filed as runtime architecture issue 26. At offset 5 in a six-row viewport the scope reports
 /// `visible_rows() == -5..1` and a write at content row 5 lands **0 cells** while one at content
@@ -445,13 +451,12 @@ pub const LAST_ROW_IN_ROWS: u64 = 799_999;
 /// [`crate::listing`]'s three volumes use, and it is why this ticket is the first thing in the
 /// workspace to meet it: nothing above the runtime had scrolled a `scroll_scope` yet.
 ///
-/// Until it is settled [`draw_into`] applies the offset itself, inside a `Ctx::child` of the same
-/// rectangle — which is what a working scope would have produced. **The substitution is on both
-/// arms**, so it is on the side of neither, and what separates them is the only thing under test:
-/// which unit the extent was measured in.
-/// `tests::a_scrolled_scope_translates_the_content_the_right_way` is the inverted reproduction, so
-/// the day the runtime is fixed this fails and the workaround comes out rather than staying for
-/// ever.
+/// **The workaround is gone, and components ticket 19 is what took it out.** While it stood,
+/// [`draw_into`] applied the offset itself inside a `Ctx::child` of the same rectangle — on **both**
+/// arms, so it was on the side of neither. The sign was settled by components 12 and this screen
+/// now draws through [`crate::scroll::scroll_area`], whose scope does the translation;
+/// `tests::a_scrolled_scope_translates_the_content_the_right_way` is the inverted reproduction that
+/// keeps it settled.
 pub const SCROLL_SCOPE_TRANSLATES_THE_WRONG_WAY: &str =
     "runtime architecture issue 26 (settled by components 12)";
 
@@ -568,6 +573,26 @@ impl Content {
             .min(self.rows.len() - 1)
     }
 
+    /// **Remove `n` rows from `from`, rebuilding the prefix sum when there is one.**
+    ///
+    /// The shape change §9 prices. The uniform arm is a `Vec::drain` and nothing else; the variable
+    /// arm has to rebuild `ytop` from the row after the cut, because every prefix sum past it moved.
+    pub fn remove(&mut self, from: usize, n: usize) {
+        let end = (from + n).min(self.rows.len());
+        let from = from.min(end);
+        self.rows.drain(from..end);
+        if self.variable {
+            // **The prefix sum is rebuilt from the cut and not from zero.** Everything before it is
+            // unchanged, which is the only saving there is: every entry after it moved.
+            self.ytop.truncate(from + 1);
+            let mut acc = self.ytop[from];
+            for row in &self.rows[from..] {
+                acc += u32::from(row.h);
+                self.ytop.push(acc);
+            }
+        }
+    }
+
     /// The half-open row range that intersects the cell window `[y, y + h)`. **Once a frame.**
     pub fn rows_in(&self, y: u32, h: u16) -> (usize, usize) {
         if self.rows.is_empty() || h == 0 {
@@ -650,42 +675,61 @@ pub fn draw_into<I: Ink>(
     offset: i32,
 ) -> (u64, u64) {
     let id = Id::named("scroll_area");
-    let view = cx.area();
+    let rect = cx.area();
     let extent = content.extent(unit);
-    let max = (0, max_offset(extent));
-    let offset = (0, offset.clamp(0, max.1));
-    let body = cx.theme().paint(Role::Body);
-
-    let _ = cx.scrollable(
-        id,
-        view,
-        Interest::CLICK.with(Interest::FOCUS),
-        Scrollable::between(offset, max),
-    );
-
+    let mut st = scroll::AreaState {
+        offset: (0, offset),
+    };
+    // **`WhenItFits` and a declared horizontal extent of exactly [`AW`]**, which is what puts the
+    // viewport at `(AW, AH)` on a screen [`SCREEN_W`] wide: the vertical bar is reserved and the
+    // horizontal one is not needed. ADR 0029 in the fixture itself — the screen is one column
+    // wider than the viewport *because* the bar took it.
+    let opts = scroll::AreaOpts {
+        hide: scroll::Hide::WhenItFits,
+        ..scroll::AreaOpts::default()
+    };
+    let paint = cx.theme().paint(Role::Body);
     let mut iterated = 0u64;
-    let top = u32::try_from(offset.1).unwrap_or(0);
-    let (lo, hi) = content.rows_in(top, AH);
-    // **The one substitution, and it is on both arms.** See [`SCROLL_SCOPE_TRANSLATES_THE_WRONG_WAY`]:
-    // the offset is applied here rather than by `Ctx::scroll_scope`, which is what a working scope
-    // would have produced and is what the day the runtime issue is settled deletes.
-    {
-        let mut scope = cx.child(view);
-        for i in lo..hi {
-            iterated += 1;
-            scope.with_key(i as u64, |cx| {
-                let row = cx.id();
-                let y = i32::try_from(content.top_of(i)).unwrap_or(i32::MAX)
-                    - i32::try_from(top).unwrap_or(0);
+    scroll::scroll_area_into(
+        ink,
+        cx,
+        id,
+        rect,
+        &mut st,
+        &opts,
+        (u32::from(AW), extent),
+        |_ink, _cx, _band| {},
+        |ink, cx| {
+            // **The body virtualises, which is what makes this a scene about the extent and not
+            // about C21**: it reads the window the scope published and iterates that. The wrong
+            // pairing — a body that iterates its whole content — is scene 30, below.
+            let window = cx.visible_rows();
+            let top = u32::try_from(window.start.max(0)).unwrap_or(0);
+            let (lo, hi) = content.rows_in(top, AH);
+            for i in lo..hi {
+                iterated += 1;
+                // **`Id::keyed` and not `Ctx::with_key`**, and the reason is a runtime defect this
+                // screen met from the other side. `Ctx::with_id` re-childs the view at
+                // `self.area()`, which inside a scrolled scope is content rows `0..h`; past the
+                // first screenful that does not overlap the window and the clip is empty — 69
+                // cells written on a frame that should write 16 974, all of them the bar's. It is
+                // runtime architecture issue 31, found by components ticket 15 in `table`, and the
+                // repair is the one `table` already takes: mint the row's id and hand it down.
+                let row = Id::keyed(id, i as u64);
+                // **Content coordinates**, because the component opened a scroll scope. Before
+                // components 19 this screen applied the offset itself inside a `Ctx::child`, which
+                // is what a working scope produces and is what the subject now is.
+                let y = i32::try_from(content.top_of(i)).unwrap_or(i32::MAX);
                 let h = u16::from(content.rows[i].h);
                 let _ = cx.interact(row, Rect::new(0, y, AW, h), Interest::CLICK);
                 for dy in 0..i32::from(h) {
-                    let _ = ink.run(cx, 0, y + dy, "-", AW, body);
+                    let _ = ink.run(cx, 0, y + dy, "-", AW, paint);
                 }
-            });
-        }
-    }
+            }
+        },
+    );
     // The last content row this frame could reach: the row holding the last cell of the window.
+    let top = u32::try_from(st.offset.1).unwrap_or(0);
     let last_cell = top.saturating_add(u32::from(AH)).saturating_sub(1);
     let last_row = u64::try_from(content.row_at(last_cell.min(content.extent_cells() - 1)))
         .unwrap_or(u64::MAX);
@@ -697,7 +741,7 @@ pub fn draw_into<I: Ink>(
 /// One warm-up frame and one measured one, because the frame structures take their allocation on the
 /// first frame that needs one and keep it — a cold frame is not a frame.
 pub fn frame_at(content: &Content, unit: Unit, offset: i32) -> Shape {
-    let mut driver = driver_at(AW, AH, Density::default());
+    let mut driver = driver_at(SCREEN_W, AH, Density::default());
     let mut warm = Tally::new();
     driver.frame(|cx| {
         let _ = draw_into(&mut warm, cx, content, unit, offset);
@@ -817,6 +861,139 @@ pub const THUMB_DRIFT: u16 = 14;
 /// than exactly, because it is a crossing between two floors and not a property of the mechanism.
 pub const DRIFT_REACHES_SEVEN_AT: f64 = 0.456;
 
+// ── the shipped frame, which is components ticket 19's own table ─────────────────────────────────
+
+/// **How many rows the shape change removes.** §9's own figure, and `4 × 87 381` exactly, which is
+/// what makes it reproduce digit for digit rather than approximately.
+pub const REMOVED: usize = 349_524;
+
+/// **One frame of the shipped `scroll_area` at 300×80 with both axes**, and what it cost.
+///
+/// §9's frame table, measured on the component rather than on a prototype. The body **virtualises**
+/// — it reads the window the scope published and iterates that — which is what makes the second row
+/// of that table (*1k → 1M, 1.00×*) a statement about the component and not about the content.
+///
+/// One warm-up frame first: the frame structures take their allocation on the first frame that needs
+/// one and keep it, so a cold frame is not a frame.
+pub fn shipped_frame(rows: u64, variable: bool, frames: u32) -> (Shape, Duration) {
+    assert!(frames > 0, "a per-frame figure needs a frame");
+    let content = Content::build(rows, variable);
+    let mut driver = driver_at(W, H, Density::default());
+    let mut warm = Tally::new();
+    driver.frame(|cx| {
+        let _ = shipped_into(&mut warm, cx, &content);
+    });
+
+    let mut tally = Tally::new();
+    let mut iterated = 0u64;
+    driver.frame(|cx| iterated = shipped_into(&mut tally, cx, &content));
+    let frame = driver.inspect();
+    let shape = Shape {
+        writes: tally.writes(),
+        distinct: tally.distinct(),
+        verbs: tally.verbs(),
+        regions: frame.hits().len(),
+        stops: frame.stop_count(),
+        iterated,
+        offset: 0,
+        last_row: 0,
+    };
+
+    let mut ink = Direct;
+    let started = Instant::now();
+    for _ in 0..frames {
+        driver.frame(|cx| {
+            let _ = shipped_into(&mut ink, cx, &content);
+        });
+    }
+    (shape, started.elapsed() / frames)
+}
+
+/// The shipped component with a sticky header and a virtualising body, drawn once.
+///
+/// Returns how many rows the body iterated, which is the mechanism the counters are the symptom of.
+pub fn shipped_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, content: &Content) -> u64 {
+    let id = Id::named("shipped");
+    let rect = cx.area();
+    let paint = cx.theme().paint(Role::Body);
+    let opts = scroll::AreaOpts {
+        hide: scroll::Hide::Never,
+        header: 1,
+        ..scroll::AreaOpts::default()
+    };
+    let extent = (scroll::COLS, content.extent_cells());
+    let mut st = scroll::AreaState::default();
+    let mut iterated = 0u64;
+    scroll::scroll_area_into(
+        ink,
+        cx,
+        id,
+        rect,
+        &mut st,
+        &opts,
+        extent,
+        |ink, cx, band| {
+            ink.run(cx, 0, 0, "=", band.rect.w, paint);
+        },
+        |ink, cx| {
+            let window = cx.visible_rows();
+            let top = u32::try_from(window.start.max(0)).unwrap_or(0);
+            let height = u16::try_from(window.end - window.start).unwrap_or(u16::MAX);
+            let (lo, hi) = content.rows_in(top, height);
+            for i in lo..hi {
+                iterated += 1;
+                let y = i32::try_from(content.top_of(i)).unwrap_or(i32::MAX);
+                for dy in 0..i32::from(content.rows[i].h) {
+                    ink.run(cx, 0, y + dy, ".", W, paint);
+                }
+            }
+        },
+    );
+    iterated
+}
+
+/// **What one `row_at` over a million rows costs**, which is what a frame pays once.
+pub fn row_at_cost(variable: bool, probes: u32) -> Duration {
+    assert!(probes > 0, "a per-probe figure needs a probe");
+    let content = Content::build(ROWS, variable);
+    let extent = content.extent_cells();
+    // Warm the branch predictor and the cache the same way every arm warms them.
+    let mut sink = 0usize;
+    for i in 0..probes {
+        sink ^= content.row_at((extent / probes.max(1)) * i % extent);
+    }
+    let started = Instant::now();
+    for i in 0..probes {
+        sink ^= content.row_at((extent / probes.max(1)) * i % extent);
+    }
+    let elapsed = started.elapsed();
+    assert!(sink < usize::MAX, "the probe is not optimised away");
+    elapsed / probes
+}
+
+/// **What a shape change costs**: [`REMOVED`] rows out of a million, and the prefix sum rebuilt
+/// when there is one.
+///
+/// §9 assigns the two halves: *a shape change costs 58.8 / 394.2 µs; the offset clamp is free,
+/// because `max` is recomputed every frame.* The uniform arm has no prefix sum to rebuild and the
+/// variable arm does, which is the whole of the difference.
+pub fn shape_change_cost(variable: bool, times: u32) -> Duration {
+    assert!(times > 0, "a per-change figure needs a change");
+    let built = Content::build(ROWS, variable);
+    // **The clone is outside the clock.** A million rows and a million prefix sums cost more to
+    // copy than the change costs to make, and timing the copy would price the fixture rather than
+    // the mechanism.
+    let mut total = Duration::ZERO;
+    for _ in 0..times {
+        let mut content = built.clone();
+        let started = Instant::now();
+        content.remove(1, REMOVED);
+        total += started.elapsed();
+        std::hint::black_box(&content);
+    }
+    total / times
+}
+
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
 // 3. Two scroll areas far apart, with overlay bars — scene 19
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
@@ -905,37 +1082,84 @@ pub fn right() -> Rect {
 
 /// **One scroll area: a sticky header, a body, and two bars — reserved or overlaid.**
 ///
-/// The two arms differ in **one** value, the [`Bars`] argument, which is `crate::frame`'s private
-/// `draw` and `crate::scroll`'s arrangement for its reason: the diff a reviewer would have to catch
-/// is the diff the register can point at.
+/// # The two arms are not one boolean apart any more, and that *is* criterion 1
+///
+/// Until components ticket 19 both arms were one stand-in with a [`Bars`] argument, which is
+/// `crate::frame`'s private `draw` and its reason. The subject changed the shape of the
+/// comparison rather than the comparison: **the reserved arm is
+/// [`crate::scroll::scroll_area`] and the overlay arm cannot be, because the component has no
+/// overlay option and ticket 19's first criterion is that it never will.** So what stands here is
+/// the shipped component against the spelling ADR 0029 refuses, and the refusal is visible in the
+/// fact that the second arm had to be written out by hand.
+///
+/// The two arms draw the same picture — one band across the top, a body under it, a bar down the
+/// right and a bar along the bottom — and differ in one thing: whether the body stopped short of
+/// the bars.
 pub fn area_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, rect: Rect, bars: Bars) {
-    let body_paint = cx.theme().paint(Role::Body);
-    let band_paint = cx.theme().paint(Role::Dim);
+    match bars {
+        Bars::Reserved => reserved_into(ink, cx, rect),
+        Bars::Overlay => overlaid_into(ink, cx, rect),
+    }
+}
 
-    // Both bars are shown: the content is a million rows and four hundred columns, so the fixpoint
-    // reaches `{ v: true, h: true }` in one pass and the decision is not what this screen is about.
-    let shown = Shown { v: true, h: true };
-    let (cols, rows) = reduced((rect.w, rect.h), shown, bars);
-
-    // The band shares `x` and pins `y` to zero — §9's construction — and it is a view, so the body
-    // below it cannot write into it whichever way the bars went.
-    let band = Rect::new(rect.x, rect.y, cols, BAND_H);
-    let body = Rect::new(
-        rect.x,
-        rect.y + i32::from(BAND_H),
-        cols,
-        rows.saturating_sub(BAND_H),
+/// **The reserved arm: the shipped [`crate::scroll::scroll_area`], with a sticky header.**
+///
+/// `Hide::Never` because the content is a million rows and four hundred columns: both bars stand
+/// whichever way the decision is taken, and the decision is scene 17's subject rather than this
+/// one's. What this arm demonstrates is the partition — the band, the body, the two bars and the
+/// corner tile the rectangle exactly, so a steady frame re-damages **nothing**.
+fn reserved_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, rect: Rect) {
+    let theme = cx.theme();
+    let band_paint = theme.paint(Role::Dim);
+    let body_paint = theme.paint(Role::Body);
+    // Two areas on one screen are two widgets, and `Id::named` alone would make them one.
+    let id = Id::keyed(Id::named("scroll_area"), u64::try_from(rect.x).unwrap_or(0));
+    let opts = scroll::AreaOpts {
+        hide: scroll::Hide::Never,
+        header: BAND_H,
+        ..scroll::AreaOpts::default()
+    };
+    let extent = (scroll::COLS, scroll::ROWS);
+    let view = scroll::parts(rect, extent, &opts).view;
+    let mut st = scroll::AreaState::default();
+    scroll::scroll_area_into(
+        ink,
+        cx,
+        id,
+        rect,
+        &mut st,
+        &opts,
+        extent,
+        |ink, cx, band| {
+            ink.run(cx, 0, 0, "=", band.rect.w, band_paint);
+        },
+        |ink, cx| {
+            for dy in 0..i32::from(view.h) {
+                ink.run(cx, 0, dy, ".", view.w, body_paint);
+            }
+        },
     );
+}
 
+/// **The overlay arm, and there is no component to draw it with.**
+///
+/// The body takes the whole rectangle and the two bars are laid over its last column and last row
+/// after it has drawn. Every cell of both bars is a cell the body already wrote, in the same frame,
+/// with a different value — [`OVERLAY_REDAMAGE`] of them across the two areas, on every steady
+/// frame, for ever.
+fn overlaid_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, rect: Rect) {
+    let theme = cx.theme();
+    let band_paint = theme.paint(Role::Dim);
+    let body_paint = theme.paint(Role::Body);
+    let track = theme.paint(Role::Border);
+    let thumb = theme.paint(Role::Face);
+
+    let band = Rect::new(rect.x, rect.y, rect.w, BAND_H);
+    let body = Rect::new(rect.x, rect.y + i32::from(BAND_H), rect.w, rect.h - BAND_H);
     ink.run(cx, band.x, band.y, "=", band.w, band_paint);
     for dy in 0..i32::from(body.h) {
         ink.run(cx, body.x, body.y + dy, ".", body.w, body_paint);
     }
-
-    // The bars, at the rectangle's own edges either way. Under `Reserved` the body stopped short of
-    // them; under `Overlay` it did not, and that difference **is** the scene.
-    let track = cx.theme().paint(Role::Border);
-    let thumb = cx.theme().paint(Role::Face);
     bar_into(
         ink,
         cx,
@@ -1088,7 +1312,7 @@ pub const REMEMBERED_PAIRING_US: f64 = 7_907.0;
 /// and the only thing under test is which rows the body walks.
 pub fn pairing_shape(pairing: Pairing, rows: u64) -> Shape {
     let content = Content::build(rows, false);
-    let mut driver = driver_at(AW, AH, Density::default());
+    let mut driver = driver_at(SCREEN_W, AH, Density::default());
     let mut warm = Tally::new();
     driver.frame(|cx| {
         let _ = pairing_into(&mut warm, cx, &content, pairing);
@@ -1205,10 +1429,9 @@ pub fn subjects_declared() -> Vec<&'static str> {
 
 /// **Whether these screens stand on their subjects, as a verdict rather than as a sentence.**
 ///
-/// `Unmet` over three, inverted by **components 19**. Everything the screens themselves can be asked
-/// is measured — the sweep over 5 475 600 pairs, the hysteresis, the reflow loop, the reachability
-/// at both units, the thumb drift, the two arms of the two-areas screen and the pairing count — and
-/// what is missing is the subject.
+/// **`Met` over three since components ticket 19**, and the `Unmet` arm is kept rather than deleted:
+/// [`owed_message`] is still watched producing the waiting sentence from a partial declaration list,
+/// because a message nobody has watched stop is a message nobody has watched.
 pub fn standing() -> Verdict {
     let declared = subjects_declared();
     Verdict::of(
@@ -1399,11 +1622,41 @@ mod tests {
         );
     }
 
-    /// Scene 17 is waiting for its subject, and the sentence says which failure it is.
+    /// **Scene 17 stands on its subject, and the arithmetic it stands on is the component's.**
+    ///
+    /// Inverted by components ticket 19. The sweep above runs [`crate::scroll::decide`], which is
+    /// what `scroll_area` reduces its rectangle with, so this is not a re-assertion of the
+    /// declaration scan: the two are the same function or this test is a lie.
     #[test]
-    #[should_panic(expected = "waiting for its subject rather than failing")]
-    fn the_bar_fixpoint_is_waiting_for_its_subject() {
+    fn the_bar_fixpoint_stands_on_the_shipped_decision() {
         assert_stands_up("scene 17, the bar fixpoint over 5 475 600 viewport x extent pairs");
+        for w in 1u16..40 {
+            for h in 1u16..40 {
+                for extent in [(0u32, 0u32), (u32::from(w), u32::from(h)), (400, 1_000_000)] {
+                    let free = (w, h);
+                    let mine = decide(free, extent, Bars::Reserved);
+                    let theirs =
+                        crate::scroll::decide(free, extent, crate::scroll::Hide::WhenItFits);
+                    assert_eq!(
+                        mine, theirs,
+                        "the screen and the component disagree at {w}x{h}"
+                    );
+                    let p = crate::scroll::parts(
+                        Rect::new(0, 0, w, h),
+                        extent,
+                        &crate::scroll::AreaOpts {
+                            hide: crate::scroll::Hide::WhenItFits,
+                            ..crate::scroll::AreaOpts::default()
+                        },
+                    );
+                    assert_eq!(
+                        (p.view.w, p.view.h),
+                        reduced(free, mine.shown, Bars::Reserved),
+                        "the component's viewport is not the rectangle the decision reduced"
+                    );
+                }
+            }
+        }
     }
 
     // ── scene 18: `Σ h` is the extent ────────────────────────────────────────────────────────────
@@ -1503,9 +1756,11 @@ mod tests {
         );
         assert_eq!(
             cells.writes,
-            u64::from(AW) * u64::from(AH),
-            "the body writes a partition of its viewport, which is what makes `writes` blind here: \
-             it is the viewport's area at every offset either build can reach"
+            u64::from(AW) * u64::from(AH) + BAR_CELLS,
+            "the frame writes a partition of its viewport plus the column the reserved bar took, \
+             which is what makes `writes` blind here: it is the same number at every offset either \
+             build can reach. The `+ BAR_CELLS` is components 19: before it this screen drew its \
+             own rows and its own bar with no component between them"
         );
     }
 
@@ -1630,11 +1885,20 @@ mod tests {
         );
     }
 
-    /// Scene 18 is waiting for its subject.
+    /// **Scene 18 stands on its subject**, and every frame above was drawn by it.
+    ///
+    /// [`draw_into`] calls [`crate::scroll::scroll_area_into`]; the offset is applied by the
+    /// component's own scroll scope rather than by this module, which is the workaround components
+    /// ticket 18 had to write and ticket 19 deleted.
     #[test]
-    #[should_panic(expected = "waiting for its subject rather than failing")]
-    fn the_extent_scene_is_waiting_for_its_subject() {
+    fn the_extent_scene_stands_on_a_shipped_scroll_area() {
         assert_stands_up("scene 18, a 1M-row scroll area with one row in eight three cells tall");
+        let source = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/area.rs"))
+            .expect("this module");
+        assert!(
+            crate::dense::declares(&source, "scroll::scroll_area_into("),
+            "the extent screen draws its frames through something that is not the component"
+        );
     }
 
     // ── scene 19: two areas far apart ────────────────────────────────────────────────────────────
@@ -1730,11 +1994,32 @@ mod tests {
         );
     }
 
-    /// Scene 19 is waiting for its subject.
+    /// **Scene 19 stands on its subject, and only one of its two arms could.**
+    ///
+    /// That is criterion 1 rather than a shortfall: [`reserved_into`] is
+    /// [`crate::scroll::scroll_area`] and [`overlaid_into`] had to be written by hand, because the
+    /// component has no overlay option and never will.
     #[test]
-    #[should_panic(expected = "waiting for its subject rather than failing")]
-    fn the_two_areas_scene_is_waiting_for_its_subject() {
+    fn the_two_areas_scene_stands_on_a_shipped_scroll_area() {
         assert_stands_up("scene 19, two scroll areas far apart with overlay bars");
+        let source = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/area.rs"))
+            .expect("this module");
+        assert!(
+            crate::dense::declares(&source, "scroll::scroll_area_into("),
+            "the reserved arm is not the component"
+        );
+        // **And there is no overlay option to call.** The needle is looked for in the component's
+        // own module rather than in this one, which is `crate::frame`'s scanner reporting itself:
+        // a test that searches its own file for a word contains that word.
+        let shipped =
+            std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/scroll.rs"))
+                .expect("the family module");
+        assert!(
+            !crate::dense::declares(&shipped, "Overlay"),
+            "`scroll.rs` declares an overlay bar, and ADR 0029 says there is no such option. It \
+             *describes* one in its rustdoc, which is what `dense::declares` skipping comment \
+             lines is for"
+        );
     }
 
     // ── the wrong pairing ────────────────────────────────────────────────────────────────────────
@@ -1771,32 +2056,28 @@ mod tests {
         );
     }
 
-    /// Scene 30 is waiting for its subject.
+    /// **Scene 30 stands on its subject.**
     #[test]
-    #[should_panic(expected = "waiting for its subject rather than failing")]
-    fn the_wrong_pairing_is_waiting_for_its_subject() {
+    fn the_wrong_pairing_stands_on_a_shipped_scroll_area() {
         assert_stands_up("scene 30, a scroll_area over unbounded data");
     }
 
     // ── the standing, in both directions ─────────────────────────────────────────────────────────
 
-    /// **The screens are red, and the verdict says over how many.**
+    /// **The screens stand, and the verdict says over how many.**
+    ///
+    /// Inverted by components ticket 19. The `Unmet` half is not deleted with it — [`owed_message`]
+    /// is still watched producing the waiting sentence from a partial declaration list, because a
+    /// message nobody has watched stop is a message nobody has watched.
     #[test]
-    fn the_screens_are_waiting_for_three_subjects() {
-        assert_eq!(subjects_declared(), Vec::<&str>::new());
+    fn the_screens_stand_on_three_declared_subjects() {
+        assert_eq!(subjects_declared(), SUBJECTS.to_vec());
         let verdict = standing();
-        assert!(!verdict.met());
-        let Verdict::Unmet {
-            over,
-            failing,
-            inverted_by,
-            ..
-        } = verdict
-        else {
-            unreachable!("`standing` returned `Met` over an undeclared subject")
+        assert!(verdict.met(), "{verdict:?}");
+        let Verdict::Met { over } = verdict else {
+            unreachable!("`standing` is `Unmet` over three declared subjects")
         };
-        assert_eq!((over, failing), (SUBJECTS.len(), SUBJECTS.len()));
-        assert_eq!(inverted_by, "components 19");
+        assert_eq!(over, SUBJECTS.len());
     }
 
     /// **The waiting message still says which failure it is**, fired from the other side.
@@ -1834,10 +2115,17 @@ mod tests {
         assert!(crate::dense::declares(&source, "pub fn bar("));
         for (_, declaration) in DECLARATIONS {
             assert!(
-                !crate::dense::declares(&source, declaration),
-                "`{declaration}` is declared and this module still says it is not"
+                crate::dense::declares(&source, declaration),
+                "`{declaration}` is not declared and components 19 says it is"
             );
         }
+        // The helper and the component are two declarations and not one, which is what the needle
+        // `pub fn scrollbar(` was chosen to tell apart.
+        assert_ne!(
+            source.find("pub fn bar("),
+            source.find("pub fn scrollbar("),
+            "the scan matched the helper where it means the component"
+        );
         // And a comment naming one does not satisfy it, which is `dense::declares`'s own rule.
         assert!(!crate::dense::declares(
             "// pub fn scroll_area(cx: &mut Ctx)",

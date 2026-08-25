@@ -257,8 +257,13 @@ impl Tally {
         self.writes += u64::from(columns);
         self.reported += u64::from(columns);
         self.asked += vitui_runtime::layout::text::width(s) as u64;
+        // **Root coordinates**, which is components ticket 19's correction: the union used to be
+        // taken where the verb was *called*, so a header at `(0, 0)` inside a band and a body row
+        // at content `(0, 0)` inside the scroll scope beside it counted as one cell. See
+        // [`Tally::distinct`].
+        let (ox, oy) = cx.origin();
         for dx in 0..i32::from(columns) {
-            self.cells.insert((x + dx, y));
+            self.cells.insert((x + ox + dx, y + oy));
         }
         columns
     }
@@ -275,25 +280,32 @@ impl Tally {
         self.writes += u64::from(columns);
         self.reported += u64::from(columns);
         self.asked += vitui_runtime::layout::text::width(cluster) as u64;
+        let (ox, oy) = cx.origin();
         for dx in 0..i32::from(columns) {
-            self.cells.insert((x + dx, y));
+            self.cells.insert((x + ox + dx, y + oy));
         }
         columns
     }
 
     /// Fold in a rectangle the caller has just filled. **Modelled, not reported.**
     ///
-    /// `Ctx::fill` returns `()`, so there is nothing for the engine to tell us; and `Rect` cannot be
-    /// named in this crate's signatures, so the geometry arrives as four scalars read off the
-    /// rectangle's public fields at the call site. Both facts are stated in this module's header
-    /// rather than hidden behind a convenience.
-    pub fn filled(&mut self, x: i32, y: i32, w: u16, h: u16) {
+    /// `Ctx::fill` returns `()`, so there is nothing for the engine to tell us; the geometry arrives
+    /// as four scalars read off the rectangle's public fields at the call site, which is stated in
+    /// this module's header rather than hidden behind a convenience. The `cx` is not a fifth
+    /// scalar's worth of ceremony: it carries the origin the union is taken in, and without it this
+    /// verb would be the one hole left in [`Tally::distinct`]'s promise.
+    pub fn filled(&mut self, cx: &Ctx<'_, '_>, x: i32, y: i32, w: u16, h: u16) {
         self.verbs += 1;
         self.writes += u64::from(w) * u64::from(h);
         self.asked += u64::from(w) * u64::from(h);
+        // **The context is here only for its origin**, and it is here because the union has to be in
+        // one coordinate system: a fixture that mixed `Ctx::fill` inside a `Ctx::child` with
+        // `Ctx::text` at the root would otherwise reproduce exactly the phantom double write
+        // components ticket 19 took out of the other two verbs. See [`Tally::distinct`].
+        let (ox, oy) = cx.origin();
         for dy in 0..i32::from(h) {
             for dx in 0..i32::from(w) {
-                self.cells.insert((x + dx, y + dy));
+                self.cells.insert((x + ox + dx, y + oy + dy));
             }
         }
     }
@@ -325,7 +337,21 @@ impl Tally {
         self.asked
     }
 
-    /// How many distinct cells were touched.
+    /// How many distinct cells were touched, **in the coordinates of the frame's root**.
+    ///
+    /// # Components ticket 19 moved this into root coordinates, and it was a defect
+    ///
+    /// The union used to be taken in the coordinates each verb was *called* in, which is exact for
+    /// a fixture drawn straight into the frame and wrong for every component that narrows. Spec §6
+    /// met it first — *both recorders union in the coordinates of the `Ctx` the verb was called on,
+    /// so a translated band makes `distinct` meaningless* — and components 19 met it as a number: a
+    /// scroll area with a sticky header reported **299 double writes on a frame that has none**,
+    /// because the band's first cell and the body's first cell are both `(0, 0)` in their own
+    /// contexts and land 299 columns and one row apart on the surface.
+    ///
+    /// The repair is [`vitui_runtime::Ctx::origin`], which the runtime did not publish until
+    /// runtime architecture issue 32. Nothing that draws at the root moved: every fixture on this
+    /// map before ticket 19 draws at origin `(0, 0)`, where the two readings are the same number.
     pub fn distinct(&self) -> u64 {
         self.cells.len() as u64
     }
@@ -636,7 +662,7 @@ mod tests {
             let body = cx.theme().paint(Role::Body);
             let band = cx.area();
             cx.fill(band, " ", body);
-            tally.filled(band.x, band.y, band.w, band.h);
+            tally.filled(cx, band.x, band.y, band.w, band.h);
         });
         assert_eq!(tally.writes(), 30);
         assert_eq!(tally.distinct(), 30);

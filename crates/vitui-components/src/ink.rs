@@ -245,9 +245,14 @@ impl Ink for Pen {
     fn award(&mut self, cx: &mut Ctx<'_, '_>, cells: Rect, resp: &Response, role: Role) {
         let painted = cx.theme().paint(role);
         cx.hover_style(resp, cells, role);
+        // **Root coordinates, like every other cell this instrument records.** `Ctx::hover_style`
+        // maps to the frame's root on its own, and a surface that recorded the award where the
+        // verb was called would put it in a different place from the cells it restyles the moment
+        // a component narrows. Components ticket 19, runtime issue 32.
+        let (ox, oy) = cx.origin();
         self.declare(Award {
-            x: cells.x,
-            y: cells.y,
+            x: cells.x + ox,
+            y: cells.y + oy,
             w: cells.w,
             h: cells.h,
             role,

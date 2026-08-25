@@ -21,16 +21,17 @@
 //! like the better design rather than a workaround. **It is refused, and on evidence rather than on
 //! taste.**
 //!
-//! - **It costs the counter, which is the whole ticket.** `Ctx::child` narrows the clip *and* moves
-//!   the origin, so the interior's writes are in a different coordinate system from the border's.
-//!   [`crate::counters::Tally`] unions spans in the coordinates of the context the verbs were called
-//!   on and says so in its own header, so one tally over a closure-form panel would union the
-//!   border's `(0, 0)` with the interior's first cell — also `(0, 0)` — and report a **double write
-//!   that did not happen**. Split into two tallies instead, the two halves each pass while their
-//!   union is checked by nothing, and the one thing criterion 2 asks to be measurable — *a `block`
-//!   that clears what it hands over* — becomes invisible, because the clear and the caller's writes
-//!   land in two different ledgers. `tests::a_child_context_collides_the_border_with_the_interior`
-//!   builds exactly that panel and prints the false count.
+//! - **~~It costs the counter, which is the whole ticket.~~ It did not, and components ticket 19
+//!   struck this ground.** The argument was that `Ctx::child` narrows the clip *and* moves the
+//!   origin, so one tally over a closure-form panel would union the border's `(0, 0)` with the
+//!   interior's first cell — also `(0, 0)` — and report **124 double writes on a panel that has
+//!   none**. The 124 were real and they were the *recorder's*: `Tally::distinct` unioned in the
+//!   coordinates each verb was called in, and ticket 19 moved it into the frame's root coordinates
+//!   (`vitui_runtime::Ctx::origin`, runtime architecture issue 32). The excess is now zero, and
+//!   `tests::a_child_context_no_longer_collides_the_border_with_the_interior` is the same
+//!   measurement inverted rather than deleted. **A ground that turned out to be an artefact of the
+//!   instrument is struck rather than quietly kept**, and the decision does not move, because of
+//!   the one below.
 //! - **It renames the caller's widgets, and the rule against that is not negotiable.** `CONTEXT.md`,
 //!   on identity: *"A container that returns a rectangle preserves its children's identity and one
 //!   that takes a closure renames them, with `scope` and `scroll_scope` the deliberate exceptions."*
@@ -40,7 +41,7 @@
 //!   which case the closure buys nothing the caller cannot already write as `cx.child(…)` and
 //!   `cx.with_id(…)` itself.
 //!
-//! So `block` returns. What it returns is a [`Rect`] and not a `Rect`, because `Rect` cannot be
+//! So `block` returns, on the identity rule alone. What it returns is a [`Rect`] and not a `Rect`, because `Rect` cannot be
 //! named from this package at all — [`vitui_runtime::layout::rect`] is that argument in full, and it is the
 //! components-side answer to runtime architecture issue 22.
 //!
@@ -664,15 +665,29 @@ mod tests {
         );
     }
 
-    /// **Why the interior is returned rather than handed to a closure**, as a number.
+    /// **One of the two grounds for returning the interior rather than handing it to a closure was
+    /// an instrument defect, and components ticket 19 removed it.**
     ///
-    /// The closure form delivers the interior through [`Ctx::child`], which moves the origin. A
-    /// single tally over the panel then unions the border's `(0, 0)` with the interior's first cell
-    /// — also `(0, 0)` in the child's coordinates — and reports double writes that did not happen.
-    /// The count below is what criterion 4's gate would read on a **correct** panel drawn the
-    /// closure way, which is the definition of a gate that cannot be trusted.
+    /// This test used to assert the opposite of what it asserts now, and the change is worth
+    /// reading rather than skipping. The closure form delivers the interior through [`Ctx::child`],
+    /// which moves the origin; a single [`Tally`] over the panel then unioned the border's
+    /// `(0, 0)` with the interior's first cell — also `(0, 0)` **in the child's coordinates** — and
+    /// reported **124 double writes on a panel that has none**. That was ticket 06's first
+    /// measurement against the closure form.
+    ///
+    /// It was never a fact about the closure; it was a fact about the counter. `Tally::distinct`
+    /// unioned in the coordinates each verb was called in, and components ticket 19 moved it into
+    /// the frame's root coordinates — `vitui_runtime::Ctx::origin`, runtime architecture issue 32.
+    /// The excess is now **zero**, and this test is what says so.
+    ///
+    /// **The decision does not move with it**, and that is the point of keeping the test rather
+    /// than deleting it. `block` returns its interior for the *second* reason, which is not a
+    /// measurement and cannot be repaired by one: `CONTEXT.md`'s identity rule — *a container that
+    /// returns a rectangle preserves its children's identity and one that takes a closure renames
+    /// them* — and `Ctx::child` is there so the **caller** can narrow. A ground that turned out to
+    /// be an artefact is struck; the one that stands is stated in `block`'s own rustdoc.
     #[test]
-    fn a_child_context_collides_the_border_with_the_interior() {
+    fn a_child_context_no_longer_collides_the_border_with_the_interior() {
         let mut driver = driver_at(60, 12, Density::Compact);
         let mut tally = Tally::new();
         let mut interior = Rect::default();
@@ -705,19 +720,20 @@ mod tests {
         let excess = tally.writes() - tally.distinct();
         assert!(
             phantom > 0,
-            "the collision is the point of this test and it did not happen"
+            "the cells that used to collide are the point of this test and there are none of them"
+        );
+        assert_eq!(
+            phantom, 124,
+            "the 124 of ticket 06's own note, so this test is the same measurement inverted rather \
+             than a different one"
         );
         assert_eq!(
             excess,
-            phantom,
-            "criterion 4's gate reads {excess} double writes on a panel that has none, because \
-             {phantom} of the {} cells the body wrote share a local coordinate with a cell the \
-             frame wrote. That is what the closure form costs the counter",
+            0,
+            "the panel has no double write and the counter now says so: {phantom} cells of the {} \
+             the body wrote share a *local* coordinate with a cell the frame wrote, and none of \
+             them shares a root one",
             (u64::from(interior.w) * u64::from(interior.h))
-        );
-        assert!(
-            excess > 100,
-            "the false reading is {excess} — large enough that nobody would look past it"
         );
     }
 

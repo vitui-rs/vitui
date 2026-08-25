@@ -367,6 +367,9 @@ const POPUP: &str = "crates/vitui-components/src/popup.rs";
 /// The collection's own file, which is where components ticket 12's rows run.
 const COLLECT: &str = "crates/vitui-components/src/collect.rs";
 
+/// The three scrolling components' own file. Components ticket 19's seven rows are measured here.
+const SCROLL: &str = "crates/vitui-components/src/scroll.rs";
+
 /// The order's own file, which is where components ticket 13's rows run.
 const ORDER: &str = "crates/vitui-components/src/order.rs";
 
@@ -419,10 +422,10 @@ pub const SPEC_ROWS: usize = 32;
 /// row still asserting *the four components do not exist* would now be asserting they are gone.
 /// That is the second inversion here worth being suspicious about: a red row phrased as an absence
 /// cannot be turned green by editing one field.
-pub const EVALUATED: usize = 101;
+pub const EVALUATED: usize = 108;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 121] = [
+pub const REGISTER: [Row; 128] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -2077,8 +2080,8 @@ pub const REGISTER: [Row; 121] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_eleven_are_red_and_thirteen_\
-                           are_stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_seven_are_red_and_\
+                           seventeen_are_stood_up",
                 },
             ],
         },
@@ -2307,8 +2310,8 @@ pub const REGISTER: [Row; 121] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_eleven_are_red_and_thirteen_\
-                           are_stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_seven_are_red_and_\
+                           seventeen_are_stood_up",
                 },
             ],
         },
@@ -2721,8 +2724,8 @@ pub const REGISTER: [Row; 121] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_eleven_are_red_and_thirteen_\
-                           are_stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_seven_are_red_and_\
+                           seventeen_are_stood_up",
                 },
             ],
             failing: "`field` is undeclared, so three scenes are pinned red — 12, 13 and 30 — and \
@@ -2863,8 +2866,8 @@ pub const REGISTER: [Row; 121] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_eleven_are_red_and_thirteen_\
-                           are_stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_seven_are_red_and_\
+                           seventeen_are_stood_up",
                 },
             ],
             failing: "neither `select` nor `overlay` is declared, so scene 14 is pinned red. \
@@ -3372,8 +3375,8 @@ pub const REGISTER: [Row; 121] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_eleven_are_red_and_thirteen_\
-                           are_stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_seven_are_red_and_\
+                           seventeen_are_stood_up",
                 },
             ],
         },
@@ -3810,6 +3813,179 @@ pub const REGISTER: [Row; 121] = [
             ],
         },
     },
+    // ── components ticket 19: `scroll_area`, `scrollbar` and `sticky` ────────────────────────────
+    Row {
+        number: 122,
+        on_spec_table: false,
+        gate: "the parts of a reserved scroll area tile its rectangle exactly, at every size",
+        kind: Kind::Equality,
+        owner: "C13",
+        section: "spec §9",
+        // **ADR 0029 as arithmetic rather than as a measurement.** Every cell of the rectangle
+        // belongs to exactly one part — the body's viewport, the two bars, the corner and the four
+        // bands — at every size a rectangle comes in and under both `Hide` spellings. **An overlay
+        // bar cannot satisfy this at all**, because the cells under it belong to two, which is why
+        // the rule is unconditional and not a default: *free where nothing is drawn under it* is
+        // not a property any component can guarantee of its body.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: SCROLL,
+                    name: "the_parts_of_a_reserved_area_tile_its_rectangle_exactly",
+                },
+                Instrument::Unit {
+                    file: AREA,
+                    name: "an_overlay_bar_re_damages_what_the_body_draws_under_it",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 123,
+        on_spec_table: false,
+        gate: "a band is one construction with an axis argument, and the four bands declare no hit \
+               entry of their own",
+        kind: Kind::Count,
+        owner: "C13",
+        section: "spec §9",
+        // **The count is that the hit count does not move.** A frame with four bands standing and
+        // the same frame with none declare the same three regions — the area and its two bars —
+        // because a band that published one would be a second scroll area and would win the wheel
+        // from the body it is a header of (R17 §5). The construction half is a source scan: one
+        // `scrolled` band view in `scroll.rs` and the negative case beside it.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: SCROLL,
+                    name: "a_band_is_one_construction_with_an_axis_argument",
+                },
+                Instrument::Unit {
+                    file: SCROLL,
+                    name: "four_bands_standing_declare_no_hit_entry_of_their_own",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 124,
+        on_spec_table: false,
+        gate: "a band drawn by arithmetic instead of into a view re-damages its overrun on every \
+               steady frame, at identical verbs",
+        kind: Kind::Count,
+        owner: "C13",
+        section: "spec §9, §6",
+        // **Spec §6's pinned-column finding on the other axis, which is what §9 asks to be shown.**
+        // The two arms are one `Ctx::child` apart: the same cells at the same coordinates through
+        // the same verbs, and the same origin. The view clips the overrun, the arithmetic spelling
+        // writes it onto the body below, the body draws afterwards and wins — so **the picture is
+        // identical** and the only counter that moves is the damage.
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: SCROLL,
+                name: "a_band_is_a_view_and_the_arithmetic_spelling_re_damages_what_is_under_it",
+            }],
+        },
+    },
+    Row {
+        number: 125,
+        on_spec_table: false,
+        gate: "`[extent, offset + viewport)` is written by the owner of the rectangle: a shrunk \
+               extent leaves no unwritten cell",
+        kind: Kind::Count,
+        owner: "C13",
+        section: "spec §9, §2",
+        // §9 assigns this line by name: *the offset clamp is free, because `max` is recomputed
+        // every frame; the tail is not.* The body draws what the content admits and the rest of the
+        // rectangle is the component's — left out, a scroll area whose extent has just shrunk shows
+        // the old rows under a correct offset.
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: SCROLL,
+                name: "a_shrunk_extent_leaves_no_unwritten_tail",
+            }],
+        },
+    },
+    Row {
+        number: 126,
+        on_spec_table: false,
+        gate: "the extent, the offset, the thumb and scroll-into-view are all content cells, and \
+               an offset past the end clamps on the next frame",
+        kind: Kind::Equality,
+        owner: "C05",
+        section: "spec §9",
+        // **C05's debt, collected at the four sites rather than at one.** Over content where one
+        // row in eight is three cells tall the row count and `Σ h` differ by a quarter; the extent
+        // bounds the offset in cells, the thumb is sized from the same two numbers, and the reveal
+        // arrives as a delta in the same unit and is applied without a conversion. A reveal
+        // measured in rows lands a quarter short at the bottom of the content, on a screen that
+        // looks perfectly healthy — which is `crate::area`'s row 799 999 of 999 999 one verb down.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: SCROLL,
+                    name: "the_extent_the_offset_the_thumb_and_the_reveal_are_all_content_cells",
+                },
+                Instrument::Unit {
+                    file: SCROLL,
+                    name: "an_offset_past_the_end_clamps_on_the_next_frame",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 127,
+        on_spec_table: false,
+        gate: "a thousand rows and a million are the same frame — identical writes and identical \
+               verbs",
+        kind: Kind::Equality,
+        owner: "C21",
+        section: "spec §9",
+        // The counter form of the standing budget's own invariant — *frame cost is proportional to
+        // visible cells, never to data volume* — over a body that reads the window the scope
+        // published. The other half of C21 is `crate::area`'s scene 30, where a body that iterates
+        // its whole content instead is measured at 100 000 rows against 69 **at identical writes**,
+        // because the engine reports a fully clipped verb as zero columns.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: SCROLL,
+                    name: "a_thousand_rows_and_a_million_are_the_same_frame",
+                },
+                Instrument::Unit {
+                    file: AREA,
+                    name: "a_scroll_area_costs_its_content_and_a_collection_costs_its_window",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 128,
+        on_spec_table: false,
+        gate: "a recorded surface holds a component's cells where they landed, not where the verb \
+               was called",
+        kind: Kind::Count,
+        owner: "C13",
+        section: "spec §9, §6",
+        // **The instrument's own row, and it is a defect this ticket found in the instrument.**
+        // `crate::runner::Pen` models the surface a component draws on and recorded a verb at the
+        // coordinates it was *called* with: two scroll areas sixty columns apart recorded their
+        // bands as one, and a component narrowed to `x == 5` recorded its first cell at column 0.
+        // It is components ticket 15's finding from the third side — *a translated band makes
+        // `distinct` meaningless* — and the repair is `vitui_runtime::Ctx::origin`, which the
+        // runtime did not publish until runtime architecture issue 32.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "a_tree_at_a_non_zero_origin_draws_inside_the_rectangle_it_was_given",
+                },
+                Instrument::Unit {
+                    file: AREA,
+                    name: "the_two_areas_scene_stands_on_a_shipped_scroll_area",
+                },
+            ],
+        },
+    },
 ];
 /// **The compile-outcome pair row 31 names, and its positive twin.**
 ///
@@ -4129,7 +4305,7 @@ mod tests {
              over a domain and needs no component to be run against, and whose row had been \
              citing spec §13 and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 121);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 128);
     }
 
     /// **The split, not the total.**
@@ -4140,10 +4316,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_eighty_nine_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_ninety_six_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 89);
+        assert_eq!(REGISTER.len() - on_table, 96);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,

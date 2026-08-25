@@ -58,28 +58,29 @@ fn main() {
     the_extent();
     the_two_areas();
     let pairing_us = the_wrong_pairing();
+    the_shipped_frame();
     o5();
     what_does_not_reproduce(pairing_us);
 }
 
 /// 1. The four scenes, and the ticket that inverts each.
 fn scene_list() {
-    println!("report  the four scenes, and why every one of them is red:");
+    println!("report  the four scenes, and what stands each of them up:");
     println!(
         "  {:>3}  {:<60}  {:<14}  inverted by",
         "#", "scene", "standing"
     );
-    let mut red = 0usize;
+    let mut evaluated = 0usize;
     for scene in SCENES
         .iter()
         .filter(|s| [17u8, 18, 19, 30].contains(&s.number))
     {
         let (word, ticket) = match scene.standing {
-            Standing::Red { inverted_by, .. } => {
-                red += 1;
-                ("red, pinned", inverted_by)
+            Standing::Red { inverted_by, .. } => ("red, pinned", inverted_by),
+            Standing::Evaluated { .. } => {
+                evaluated += 1;
+                ("evaluated", "-")
             }
-            Standing::Evaluated { .. } => ("evaluated", "-"),
             Standing::Unsubjected { inverted_by } => ("unsubjected", inverted_by),
             Standing::Unreachable { inverted_by, .. } => ("unreachable", inverted_by),
         };
@@ -88,7 +89,10 @@ fn scene_list() {
             scene.number, scene.name
         );
     }
-    assert_eq!(red, 4, "all four wait for the same subject");
+    assert_eq!(
+        evaluated, 4,
+        "all four were pinned on one fact and components 19 supplied it"
+    );
     println!(
         "\n  the subject: {:?}, declared: {:?}\n",
         area::SUBJECTS,
@@ -330,7 +334,81 @@ fn the_wrong_pairing() -> f64 {
     slow.as_secs_f64() * 1e6
 }
 
-/// 6. O5's three rows for this family.
+/// 6. The shipped frame, `row_at`, and the shape change — components ticket 19's own table.
+fn the_shipped_frame() {
+    println!(
+        "report  the shipped `scroll_area` at {}x{}, both axes, a sticky header, a virtualising \
+         body:",
+        area::W,
+        area::H
+    );
+    println!(
+        "  {:<9}  {:<9}  {:>9}  {:>7}  {:>8}  {:>5}  {:>7}  {:>5}  {:>8}",
+        "rows",
+        "heights",
+        "us/frame",
+        "writes",
+        "distinct",
+        "verbs",
+        "regions",
+        "stops",
+        "iterated"
+    );
+    let mut shapes = Vec::new();
+    for (rows, variable) in [(1_000u64, true), (ROWS, true), (ROWS, false)] {
+        let (shape, cost) = area::shipped_frame(rows, variable, FRAMES);
+        println!(
+            "  {rows:<9}  {:<9}  {:>9.2}  {:>7}  {:>8}  {:>5}  {:>7}  {:>5}  {:>8}",
+            if variable { "variable" } else { "uniform" },
+            cost.as_secs_f64() * 1e6,
+            shape.writes,
+            shape.distinct,
+            shape.verbs,
+            shape.regions,
+            shape.stops,
+            shape.iterated
+        );
+        shapes.push(shape);
+    }
+    assert_eq!(
+        (shapes[0].writes, shapes[0].verbs),
+        (shapes[1].writes, shapes[1].verbs),
+        "a thousand rows and a million are the same frame"
+    );
+    assert_eq!(
+        shapes[1].writes, shapes[1].distinct,
+        "the component writes a partition of the screen"
+    );
+    println!(
+        "  the frame is a partition of the whole screen — writes == distinct == {} — and it is \
+         the\n  full-screen class, so the budget it is under is 1 ms and not 100 us. The three \
+         regions are\n  the area and its two bars: the four bands declare nothing.",
+        shapes[1].distinct
+    );
+
+    println!(
+        "\nreport  `row_at` over {ROWS} rows, which a frame pays once, and the shape change \
+         `{}` rows:",
+        area::REMOVED
+    );
+    println!(
+        "  row_at   variable {:>9.4} us   uniform {:>9.4} us",
+        area::row_at_cost(true, 512).as_secs_f64() * 1e6,
+        area::row_at_cost(false, 512).as_secs_f64() * 1e6
+    );
+    println!(
+        "  reshape  variable {:>9.1} us   uniform {:>9.1} us",
+        area::shape_change_cost(true, 5).as_secs_f64() * 1e6,
+        area::shape_change_cost(false, 5).as_secs_f64() * 1e6
+    );
+    println!(
+        "  the uniform arm has no prefix sum to rebuild and the variable arm does, which is the \
+         whole\n  of the difference. The offset clamp is free either way: `max` is recomputed \
+         every frame.\n"
+    );
+}
+
+/// 7. O5's three rows for this family.
 fn o5() {
     println!("report  O5, for the three components of F3 scrolling:");
     for component in INVENTORY.iter().filter(|c| area::SUBJECTS.contains(&c.id)) {
@@ -365,7 +443,7 @@ fn o5() {
     println!();
 }
 
-/// 7. What does not reproduce, and what each disagreement says.
+/// 8. What does not reproduce, and what each disagreement says.
 fn what_does_not_reproduce(pairing_us: f64) {
     println!("finding what §9 remembers, against what this screen measures:");
     println!(
@@ -405,9 +483,15 @@ fn what_does_not_reproduce(pairing_us: f64) {
          `iterated` and the microseconds are a report."
     );
     println!(
-        "\n  and one defect found rather than remembered: `Ctx::scroll_scope` translates the \
-         content the wrong way ({}), which is why `crate::area::draw_into` applies the offset \
-         itself. Invisible at offset 0, which is every offset anything above the runtime had used.",
+        "\n  and two defects found rather than remembered. The first is `Ctx::scroll_scope`, \
+         which\n  translated the content the wrong way ({}) and was invisible at offset 0 — every \
+         offset\n  anything above the runtime had used. The second is the instrument's own, and \
+         components 19\n  found it: `Tally::distinct` and `Pen` both unioned in the coordinates \
+         each verb was\n  *called* in, so a scroll area with a sticky header reported 299 double \
+         writes on a frame\n  that has none, and two areas sixty columns apart recorded their \
+         bands as one. The repair is\n  `vitui_runtime::Ctx::origin` — runtime architecture issue \
+         32 — and it struck one of the two\n  grounds `crate::frame` refused a closure-taking \
+         `block` on. The other one stands.",
         area::SCROLL_SCOPE_TRANSLATES_THE_WRONG_WAY
     );
 }

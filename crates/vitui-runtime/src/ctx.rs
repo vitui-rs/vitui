@@ -1702,6 +1702,30 @@ impl<'f, 'v> Ctx<'f, 'v> {
         }
     }
 
+    /// **Where this context's own origin is, in the coordinates of the frame's root.**
+    ///
+    /// `Ctx::child` and [`Ctx::scrolled`] both move it, so a verb called at `(x, y)` on this
+    /// context reaches the surface at `(x + origin.0, y + origin.1)`. It is what
+    /// [`Ctx::hover_style`] already computes privately for the hover index, published so that an
+    /// **instrument** can compute it too.
+    ///
+    /// # Why an instrument needs it
+    ///
+    /// A recorder above this crate — `vitui-components`' `Pen`, which models the surface a
+    /// component draws on — sees the coordinates a verb was *called* with and nothing else. That is
+    /// exact for a component drawing straight into the frame and wrong for every one that narrows:
+    /// two bands of one scroll area both write their first cell at `x == 0`, land in different
+    /// columns, and collide on the recorded surface. Components ticket 19 met it on a screen with
+    /// two scroll areas sixty columns apart whose bands recorded as one, and components ticket 15
+    /// met the same fact from the other side — *a translated band makes `distinct` meaningless*.
+    ///
+    /// It is additive and it decides nothing: the runtime already maps to root coordinates in three
+    /// places ([`Ctx::hover_style`], [`Ctx::overlay`]'s anchor and [`Ctx::caret`]) and this is the
+    /// same arithmetic with a name. Runtime architecture issue 32.
+    pub fn origin(&self) -> (i32, i32) {
+        self.origin
+    }
+
     /// Which content rows can still be reached. **The virtualisation primitive**: a list over a
     /// million rows iterates this range and nothing else.
     pub fn visible_rows(&self) -> Range<i32> {
@@ -4272,6 +4296,36 @@ mod tests {
             assert!(rows.contains(&500_000), "and it is the right screenful");
             let cols = scrolled.visible_cols();
             assert!(cols.end - cols.start <= 40);
+        });
+    }
+
+    /// **A context knows where it is, and its origin is where a verb called on it lands.**
+    ///
+    /// Runtime architecture issue 32, and the assertion is the one an instrument needs: writing at
+    /// `(x, y)` on a narrowed, scrolled context reaches the surface at `origin + (x, y)`. It is
+    /// checked against the surface rather than against the field, so a change to `child` or
+    /// `scrolled` that moved one and not the other fails here.
+    #[test]
+    fn a_context_knows_where_a_verb_called_on_it_lands() {
+        let mut d = Driver::headless(40, 10).expect("a sink attaches");
+        d.frame(|cx| {
+            assert_eq!(cx.origin(), (0, 0), "the root is the root");
+            let mut child = cx.child(Rect::new(7, 3, 20, 5));
+            assert_eq!(child.origin(), (7, 3));
+            let mut scrolled = child.scrolled(0, -100);
+            assert_eq!(
+                scrolled.origin(),
+                (7, -97),
+                "a scroll moves the origin, and by the translation rather than by the position"
+            );
+            // What the origin claims, against what the engine reports: a run at content row 100
+            // lands on the child's first row, which is row 3 of the surface.
+            let paint = scrolled.theme().paint(crate::theme::Role::Body);
+            let written = scrolled.text(0, 100, "abcde", paint);
+            assert_eq!(written.cells, 5, "it landed");
+            let (ox, oy) = scrolled.origin();
+            let at = (ox, 100 + oy);
+            assert_eq!(at, (7, 3), "and it landed where the origin says");
         });
     }
 
