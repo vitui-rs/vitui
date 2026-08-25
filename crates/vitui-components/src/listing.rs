@@ -94,7 +94,9 @@ use std::time::{Duration, Instant};
 
 use vitui_runtime::{Ctx, Density, Id, Interest, Role, Scrollable};
 
+use crate::collect::{CollOpts, CollState, collection_into, defective as coll_defective};
 use crate::counters::{Allocations, Counter, Counters, Tally};
+use crate::frame::{Face, face_paint};
 use crate::ink::{Direct, Ink};
 use crate::obligations::Verdict;
 use crate::runner::{Diff, Fixture, Pen, compare, defective, play, reference, rows_at_a_time};
@@ -261,8 +263,19 @@ pub struct Shape {
 
 /// **Draw one frame of the listing at `rows` rows, scrolled to `offset`.**
 ///
-/// The rectangle is the whole context, so there is one scroll area and it is the screen. The row
-/// loop is the only thing [`Volume`] changes.
+/// The rectangle is the whole context, so there is one scroll area and it is the screen.
+///
+/// # It is the component now, and that is what turned four of these scenes green
+///
+/// Components ticket 11 wrote this as a stand-in row loop, because [`crate::collect::collection`]
+/// did not exist. It does (components 12), so the stand-in is gone: **both arms are the component**
+/// — [`Volume::Windowed`] is [`collection_into`] and [`Volume::WholeContent`] is
+/// [`crate::collect::defective::whole_content`], which is that function with one value changed —
+/// and what belongs to this screen is the row drawer, the geometry and the counting.
+///
+/// The row signature is §5's, `(cx, rect, index, Face)`, with a fifth argument the [`Ink`] seam adds
+/// so a gate can see the cells; the shipped four are what [`crate::collect::collection`] hands a
+/// component author.
 ///
 /// Generic over [`Ink`] so that a [`Tally`] and a [`Direct`] measure **the same drawing path**
 /// rather than a copy of it — [`crate::ink`]'s whole argument, and the reason [`volume_over`] and
@@ -270,6 +283,7 @@ pub struct Shape {
 ///
 /// [`Direct`]: crate::ink::Direct
 /// [`Ink`]: crate::ink::Ink
+/// [`collection_into`]: crate::collect::collection_into
 pub fn draw_into<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
@@ -277,54 +291,52 @@ pub fn draw_into<I: Ink>(
     rows: u64,
     offset: i32,
 ) -> u64 {
-    let id = Id::named("listing");
     let view = cx.area();
-    let max = (0, max_offset(rows));
-    let offset = (0, offset.clamp(0, max.1));
-    let body = cx.theme().paint(Role::Body);
-
-    // **One hit entry for the collection**, and it is the wheel chain's entry as well: a component
-    // that publishes a scrollable region owes the pair per axis, computed from its clamped offset.
-    let _ = cx.scrollable(
-        id,
-        view,
-        Interest::CLICK.with(Interest::FOCUS),
-        Scrollable::between(offset, max),
-    );
+    // **`Rows::of` and not a stated revision** (components 13): this screen has no order behind it,
+    // so its positions cannot be permuted and it is never told they went stale. `Rows::of` carries
+    // `Revision::UNKNOWN`, which never matches, and the component's comparison is guarded on
+    // `is_known()`.
+    let len = crate::order::Rows::of(usize::try_from(rows).unwrap_or(usize::MAX));
+    let opts = CollOpts::default();
+    let mut state = CollState::new();
+    state.offset = offset;
 
     let mut iterated = 0u64;
-    cx.scroll_scope(id, view, offset, max, |cx| {
-        let window = cx.visible_rows();
-        let all = 0..i32::try_from(rows).unwrap_or(i32::MAX);
-        let loop_over = match kind {
-            Volume::Windowed => window.clone(),
-            Volume::WholeContent => all,
-        };
-        for i in loop_over {
-            iterated += 1;
-            // A row's own target, per target and for visible rows only. The `WholeContent` arm
-            // declares one for every row of the content, which is the defect: `Ctx::declare` does
-            // not clip, so an off-screen declaration is a real entry in a real index.
-            cx.with_key(i as u64, |cx| {
-                let row = cx.id();
-                let cells = Rect::new(0, 0, W, 1);
-                let _ = cx.interact(row, cells, Interest::CLICK);
-                let written = ink.text(cx, 0, i, ROW, body);
-                // The trailing pad, so the row is a **partition** of its width and not a prefix of
-                // it (§2). `Ink::run` and not a `str::repeat`: under `Direct` it stages once and
-                // blits once, which is the verb a padding band is supposed to be and costs the
-                // frame no allocation.
-                let _ = ink.run(
-                    cx,
-                    i32::from(written),
-                    i,
-                    " ",
-                    W.saturating_sub(written),
-                    body,
-                );
-            });
+    // **The listing has no search**, which is not a hole: type-ahead is *the caller's search behind
+    // a budget*, and this screen's caller is a measurement with no labels in it.
+    // `crate::collect::type_ahead_cost` is where the budget is priced.
+    let find = |_: &str, _: std::ops::Range<usize>| None;
+    let row = |ink: &mut I, cx: &mut Ctx<'_, '_>, r: Rect, i: usize, face: Face| {
+        iterated += 1;
+        // A row's own target, per target and for visible rows only. The `WholeContent` arm
+        // declares one for every row of the content, which is the defect: `Ctx::declare` does
+        // not clip, so an off-screen declaration is a real entry in a real index.
+        cx.with_key(i as u64, |cx| {
+            let id = cx.id();
+            let _ = cx.interact(id, r, Interest::CLICK);
+            let paint = face_paint(cx.theme(), face);
+            let written = ink.text(cx, r.x, r.y, ROW, paint);
+            // The trailing pad, so the row is a **partition** of its width and not a prefix of
+            // it (§2). `Ink::run` and not a `str::repeat`: under `Direct` it stages once and
+            // blits once, which is the verb a padding band is supposed to be and costs the
+            // frame no allocation.
+            let _ = ink.run(
+                cx,
+                r.x + i32::from(written),
+                r.y,
+                " ",
+                W.saturating_sub(written),
+                paint,
+            );
+        });
+    };
+
+    let _ = match kind {
+        Volume::Windowed => collection_into(ink, cx, view, &mut state, &opts, len, find, row),
+        Volume::WholeContent => {
+            coll_defective::whole_content(ink, cx, view, &mut state, &opts, len, find, row)
         }
-    });
+    };
     iterated
 }
 
@@ -866,9 +878,11 @@ pub fn subjects_declared() -> Vec<&'static str> {
 
 /// **Whether the listing stands on its subject, as a verdict rather than as a sentence.**
 ///
-/// `Unmet` over one, inverted by **components 12**. Everything the screen itself can be asked is
-/// measured and green — the four equalities, the three volumes, the wheel gate in both directions —
-/// and what is missing is the subject. [`owed_message`] is the sentence that says so.
+/// **`Met` over one since components 12**, which declared `collection` in
+/// `crates/vitui-components/src/collect.rs` and rewrote [`draw_into`] to draw through it. It was
+/// `Unmet { over: 1, failing: 1 }` for exactly one ticket, and the failing sentence below is kept
+/// live rather than deleted — [`owed_message`] builds it over any declaration list, so the
+/// distinction criterion 7 is about survives the crate arriving on the other side of it.
 pub fn standing() -> Verdict {
     let declared = subjects_declared();
     Verdict::of(
@@ -1210,40 +1224,48 @@ mod tests {
         assert_eq!(wheeled(Reveal::Never, CLICKS).settled, MOVED);
     }
 
-    /// **Criterion 7: the five scenes are red because the subject is missing, and they say so.**
+    /// **Components ticket 12: the listing stands on `collection`, and the verdict says so.**
     ///
-    /// The inversion of this test is components ticket 12's, and it is a deliberate edit in three
-    /// files — here, in `crate::scenes`'s five standings and in `crate::gates::REGISTER`.
+    /// The exact set, in both directions: one subject, declared, and the verdict is `Met` over one
+    /// rather than `Met` over nothing — [`Verdict::of`]'s vacuity refusal doing the job it was
+    /// written for on the day the population stopped being empty.
+    ///
+    /// **This test is the inversion of `the_listing_is_red_because_collection_is_not_declared`**,
+    /// which ticket 11 pinned red and which `crate::gates::REGISTER`'s row 67 and four of
+    /// `crate::scenes`' five standings named. Changing it back is a deliberate edit in all three
+    /// places — and the fifth standing, the wheel gate's, is **not** one of them: it is red because
+    /// of the defect and components 20 inverts it.
     #[test]
-    fn the_listing_is_red_because_collection_is_not_declared() {
+    fn the_listing_stands_on_the_collection_it_is_a_screen_of() {
         assert_eq!(
             subjects_declared(),
-            Vec::<&str>::new(),
-            "`collection` is declared. That inverts five scenes and two register rows, and it is a \
-             deliberate edit in all three files"
+            SUBJECTS.to_vec(),
+            "`collection` has stopped being declared where the freeze homes it. That is not a \
+             defect in the screen: `crate::listing::DECLARATIONS` names the file and the signature \
+             it is looked for at"
         );
         let verdict = standing();
-        assert!(!verdict.met());
+        assert!(verdict.met());
         match verdict {
-            Verdict::Unmet {
-                over,
-                failing,
-                inverted_by,
-                ..
-            } => {
-                assert_eq!((over, failing), (1, 1), "one subject, and it is missing");
-                assert_eq!(inverted_by, "components 12");
-            }
-            Verdict::Met { over } => {
-                unreachable!("{over} declared, which the assertion above caught")
+            Verdict::Met { over } => assert_eq!(over, 1, "one subject, and it is here"),
+            Verdict::Unmet { over, failing, .. } => {
+                unreachable!("{failing} of {over} undeclared, which the assertion above caught")
             }
         }
+        // And the scenes do not panic any more, which is the whole ticket in one call.
+        assert_stands_up("a scrolled collection");
 
-        let panicked = std::panic::catch_unwind(|| assert_stands_up("a scrolled collection"));
-        assert!(
-            panicked.is_err(),
-            "a scene with no subject does not stand up"
-        );
+        // **Both arms of `draw_into` are the component**, which is what makes the four equalities
+        // above claims about `collection` rather than about a stand-in row loop. Read out of the
+        // source, because *this function calls that one* has no expression a test can write.
+        let source = include_str!("listing.rs");
+        for call in ["collection_into(ink", "coll_defective::whole_content(ink"] {
+            assert!(
+                crate::dense::declares(source, call),
+                "`draw_into` no longer calls `{call}`, so the scenes have stopped standing on the \
+                 component even though the subject scan still finds it"
+            );
+        }
     }
 
     /// **The waiting message says which failure it is**, which is the distinction criterion 7 is

@@ -144,7 +144,7 @@ pub const MAX_COLS: usize = 256;
 ///
 /// It is also **the only answer available**, because
 /// [`Ctx::scroll_scope`](vitui_runtime::Ctx::scroll_scope) scrolls the wrong way. See
-/// `tests::a_scroll_scope_at_a_nonzero_offset_shows_the_rows_above_the_content`, which pins the
+/// `tests::a_scroll_scope_at_a_nonzero_offset_shows_its_content`, which pins the
 /// measurement: at `offset = (0, 1 000)` the scope answers `visible_rows() == -1000..-920` and a
 /// write at content row 1 000 reports **zero columns**. The engine's own rule is that *a viewport
 /// scrolled `n` rows down is `scrolled(0, -n)`* and the scope passes `+n`, while
@@ -1918,7 +1918,7 @@ mod tests {
         }
     }
 
-    /// **`Ctx::scroll_scope` scrolls the wrong way, and this is the measurement.**
+    /// **`Ctx::scroll_scope` scrolled the wrong way, and this is the measurement inverted.**
     ///
     /// Not a gate on this crate's own code, and it is here because it is the reason [`OFFSET`] is
     /// zero. The runtime reads a scroll offset as **positive** everywhere it does arithmetic —
@@ -1935,7 +1935,7 @@ mod tests {
     /// Filed as `.scratch/vitui-runtime-architecture/issues/26`. Both directions are asserted, so
     /// the day the sign is corrected this test fails rather than quietly passing.
     #[test]
-    fn a_scroll_scope_at_a_nonzero_offset_shows_the_rows_above_the_content() {
+    fn a_scroll_scope_at_a_nonzero_offset_shows_its_content() {
         use vitui_runtime::Role;
 
         let mut driver = crate::runner::driver_at(W, H, Density::default());
@@ -1952,11 +1952,11 @@ mod tests {
         });
         assert_eq!(
             window,
-            -OFF..-OFF + i32::from(H),
-            "the scope's window is the rows above the content"
+            OFF..OFF + i32::from(H),
+            "the scope's window is the content the viewport is over"
         );
-        assert_eq!(at_content, 0, "and content row {OFF} is off the clip");
-        assert_eq!(at_negative, 1, "while row -{OFF} is on the screen");
+        assert_eq!(at_content, 1, "and content row {OFF} is on the screen");
+        assert_eq!(at_negative, 0, "while row -{OFF} is off the clip");
 
         // The other direction, at the offset this screen actually uses: at zero the sign cannot be
         // seen at all, which is why nothing has seen it.

@@ -449,10 +449,11 @@ pub const LAST_ROW_IN_ROWS: u64 = 799_999;
 /// rectangle — which is what a working scope would have produced. **The substitution is on both
 /// arms**, so it is on the side of neither, and what separates them is the only thing under test:
 /// which unit the extent was measured in.
-/// `tests::the_runtime_still_translates_a_scrolled_scope_the_wrong_way` is a live reproduction, so
+/// `tests::a_scrolled_scope_translates_the_content_the_right_way` is the inverted reproduction, so
 /// the day the runtime is fixed this fails and the workaround comes out rather than staying for
 /// ever.
-pub const SCROLL_SCOPE_TRANSLATES_THE_WRONG_WAY: &str = "runtime architecture issue 26";
+pub const SCROLL_SCOPE_TRANSLATES_THE_WRONG_WAY: &str =
+    "runtime architecture issue 26 (settled by components 12)";
 
 /// The offsets the equality is swept over. Every one of them is reachable in **both** builds, which
 /// is what makes the comparison a comparison: at an offset only one of them admits, the two frames
@@ -1589,7 +1590,7 @@ mod tests {
     /// `View::scrolled` this test fails, which is the point: a substitution nobody is watching is a
     /// substitution that becomes the design.
     #[test]
-    fn the_runtime_still_translates_a_scrolled_scope_the_wrong_way() {
+    fn a_scrolled_scope_translates_the_content_the_right_way() {
         use vitui_runtime::ctx::Driver;
         use vitui_runtime::scroll::Scrollable;
 
@@ -1614,18 +1615,18 @@ mod tests {
         });
         assert_eq!(
             seen.0,
-            -5..1,
-            "`visible_rows` inside a scope at offset 5 answers with negative content rows. If this \
-             now reads `5..11`, {SCROLL_SCOPE_TRANSLATES_THE_WRONG_WAY} has been settled and \
-             `crate::area::draw_into`'s substitution must come out"
+            5..11,
+            "`visible_rows` inside a scope at offset 5 answers with the content rows the viewport \
+             is over. It read `-5..1` when components ticket 18 filed \
+             {SCROLL_SCOPE_TRANSLATES_THE_WRONG_WAY}, and components ticket 12 settled the sign"
         );
         assert_eq!(
-            seen.1, 0,
-            "content row 5 is the top row and it writes nothing"
+            seen.1, 5,
+            "content row 5 is the top row and it writes its five cells"
         );
         assert_eq!(
-            seen.2, 5,
-            "content row 0 writes, and it is five rows off screen"
+            seen.2, 0,
+            "while content row 0 is five rows above the viewport and writes nothing"
         );
     }
 

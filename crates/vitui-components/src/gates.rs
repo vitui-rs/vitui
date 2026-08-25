@@ -55,7 +55,7 @@
 //!   claiming fifteen green gates over an empty population.
 //!
 //! **Forty-two evaluated, four red, six unreachable, fifteen unsubjected**, and
-//! `tests::sixty_two_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
+//! `tests::eighty_one_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
 //! deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
 //! and subjected row 27, the cross-family collapse gate; ticket 07 added five, and none of them
@@ -363,6 +363,12 @@ const CLUSTERS: &str = "crates/vitui-components/src/clusters.rs";
 
 /// The popup's own file, which is where components ticket 25's rows run.
 const POPUP: &str = "crates/vitui-components/src/popup.rs";
+
+/// The collection's own file, which is where components ticket 12's rows run.
+const COLLECT: &str = "crates/vitui-components/src/collect.rs";
+
+/// The order's own file, which is where components ticket 13's rows run.
+const ORDER: &str = "crates/vitui-components/src/order.rs";
 const FIELD_NUMBERS: &str = "crates/vitui-components/examples/field_numbers.rs";
 
 /// How many rows of [`REGISTER`] are spec §21's own table. **Thirty-two, and it is closed** — a
@@ -407,10 +413,10 @@ pub const SPEC_ROWS: usize = 32;
 /// row still asserting *the four components do not exist* would now be asserting they are gone.
 /// That is the second inversion here worth being suspicious about: a red row phrased as an absence
 /// cannot be turned green by editing one field.
-pub const EVALUATED: usize = 62;
+pub const EVALUATED: usize = 81;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 89] = [
+pub const REGISTER: [Row; 102] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -470,8 +476,25 @@ pub const REGISTER: [Row; 89] = [
         kind: Kind::Count,
         owner: "C01",
         section: "spec §20",
-        standing: Standing::Unsubjected {
-            inverted_by: "components 12",
+        // **Subjected by components 12, and row 66 is why this one is not enough on its own.** The
+        // engine reports a fully clipped verb as zero columns, so a listing that iterates its whole
+        // content writes exactly what a windowed one writes — 3 200 at every volume — while
+        // declaring 1 000 001 hit entries against 81. This row is green on that build. It is
+        // registered anyway, and beside rather than instead of 66, because *writes flat* is a real
+        // claim about the shipped component and the pair is what separates it from the defect.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: LISTING,
+                    name: "the_listing_writes_and_declares_the_same_at_a_thousand_rows_and_at_a_\
+                           million",
+                },
+                Instrument::Unit {
+                    file: LISTING,
+                    name: "a_listing_that_iterates_its_whole_content_writes_the_same_and_declares_\
+                           a_thousand_times_more",
+                },
+            ],
         },
     },
     // **Components ticket 08 inverted this row, and the standing it left was wrong rather than
@@ -620,8 +643,21 @@ pub const REGISTER: [Row; 89] = [
         kind: Kind::Equality,
         owner: "C03",
         section: "spec §5",
-        standing: Standing::Unsubjected {
-            inverted_by: "components 12",
+        // **§21's own spelling of what row 66 measures**, and components 12 gave it a subject: the
+        // listing's two arms are `crate::collect::collection_into` and its `defective` twin, so the
+        // equality is over the component rather than over a stand-in row loop.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: LISTING,
+                    name: "the_listing_writes_and_declares_the_same_at_a_thousand_rows_and_at_a_\
+                           million",
+                },
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "two_collections_on_one_screen_declare_two_entries_and_merge_nothing",
+                },
+            ],
         },
     },
     Row {
@@ -631,8 +667,14 @@ pub const REGISTER: [Row; 89] = [
         kind: Kind::Count,
         owner: "C03",
         section: "spec §5",
-        standing: Standing::Unsubjected {
-            inverted_by: "components 12",
+        // Subjected by components 12. §5's 208 does not reproduce — see
+        // `crate::collect::COLL_STATE_BYTES`, which says why rather than padding the struct — and
+        // what this row asks is the invariance, which does.
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: COLLECT,
+                name: "the_state_is_the_same_size_at_every_length",
+            }],
         },
     },
     Row {
@@ -664,8 +706,21 @@ pub const REGISTER: [Row; 89] = [
         kind: Kind::Equality,
         owner: "C05",
         section: "spec §10",
-        standing: Standing::Unsubjected {
-            inverted_by: "components 13",
+        // **A bit's position *is* its index**, so a splice moves every bit after the interval; a
+        // sorted span list moves the spans that meet it. One against nine hundred thousand at a
+        // million rows, which is the difference between a store proportional to the gestures and
+        // one proportional to the rows — on the single operation a bit vector cannot do cheaply,
+        // having been chosen for the two it can.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: ORDER,
+                    name: "a_splice_cannot_shatter_a_span_list_and_a_permutation_always_does",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/order_numbers.rs",
+                },
+            ],
         },
     },
     Row {
@@ -1971,20 +2026,25 @@ pub const REGISTER: [Row; 89] = [
         kind: Kind::CompileOutcome,
         owner: "C11",
         section: "spec §21",
-        // **The fourth red row, and it is row 61 one ticket later.** Ticket 09 pinned the dense
-        // screen's three scenes in exactly this shape and ticket 10 inverted it; this is the same
-        // distinction for `collection`, and it is a row rather than a comment because the whole
-        // argument of §21 is that an obligation stated as a sentence gets broken by someone who has
-        // read it.
+        // **It was the fourth red row and it is row 61 one ticket later, in both halves.** Ticket 09
+        // pinned the dense screen's three scenes in exactly this shape and ticket 10 inverted it;
+        // ticket 11 pinned the listing's five and **ticket 12 inverted four of them** — which is
+        // the interesting half, because a single `inverted_by` across the five would have turned
+        // the wheel gate too and erased the distinction the row is about.
         //
         // `CompileOutcome` for row 61's reason: what is asserted is that a *file* declares an item,
         // read by opening it — the one thing a `compile_fail` fence cannot say, because a fence
         // over a missing item passes today and passes again the day the module is renamed.
-        standing: Standing::Red {
+        //
+        // Both directions stay live. `crate::listing::owed_message` still builds the waiting
+        // sentence over any declaration list, and `the_waiting_message_separates_unimplemented_from_
+        // wrong` hands it an empty one — so the message this row is about is exercised on the side
+        // of the line the crate is no longer on.
+        standing: Standing::Evaluated {
             by: &[
                 Instrument::Unit {
                     file: LISTING,
-                    name: "the_listing_is_red_because_collection_is_not_declared",
+                    name: "the_listing_stands_on_the_collection_it_is_a_screen_of",
                 },
                 Instrument::Unit {
                     file: LISTING,
@@ -1996,17 +2056,10 @@ pub const REGISTER: [Row; 89] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "ten_scenes_have_nothing_to_run_over_nineteen_are_red_and_three_are_\
+                    name: "ten_scenes_have_nothing_to_run_over_fifteen_are_red_and_seven_are_\
                            stood_up",
                 },
             ],
-            failing: "`collection` is undeclared, so five scenes are pinned red — 3, 4, 5, 6 and \
-                      29 — and four of the five are waiting for it. `crates/vitui-components/src/\
-                      collect.rs` carries no `pub fn collection(`, which is what \
-                      `crate::listing::subjects_declared` opens the file to find out, and \
-                      `crate::listing::standing` is `Unmet { over: 1, failing: 1 }` rather than \
-                      `Met` over nothing",
-            inverted_by: "components 12",
         },
     },
     // ── components ticket 18's rows ──────────────────────────────────────────────────────────────
@@ -2140,7 +2193,7 @@ pub const REGISTER: [Row; 89] = [
                 },
                 Instrument::Unit {
                     file: AREA,
-                    name: "the_runtime_still_translates_a_scrolled_scope_the_wrong_way",
+                    name: "a_scrolled_scope_translates_the_content_the_right_way",
                 },
                 Instrument::Report {
                     file: "crates/vitui-components/examples/area_numbers.rs",
@@ -2226,7 +2279,7 @@ pub const REGISTER: [Row; 89] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "ten_scenes_have_nothing_to_run_over_nineteen_are_red_and_three_are_\
+                    name: "ten_scenes_have_nothing_to_run_over_fifteen_are_red_and_seven_are_\
                            stood_up",
                 },
             ],
@@ -2307,26 +2360,28 @@ pub const REGISTER: [Row; 89] = [
         kind: Kind::Count,
         owner: "C04",
         section: "spec §21",
-        // **The fifth red row, and the only one on this register whose subject is another crate.**
-        // It is here rather than nowhere because §21's rule for a red gate is *assert the exact
-        // failing set, fire in both directions, say what to invert*, and all three are writable:
-        // the failing set is a range, the other direction is the same call at offset zero, and what
-        // inverts it is a sign in `vitui_runtime::ctx::Ctx::scroll_scope`.
-        standing: Standing::Red {
-            by: &[Instrument::Unit {
-                file: GRID,
-                name: "a_scroll_scope_at_a_nonzero_offset_shows_the_rows_above_the_content",
-            }],
-            failing: "`Ctx::scroll_scope(id, view, (0, 1 000), ...)` answers `visible_rows() == \
-                      -1000..-920`, a write at content row 1 000 reports **0** columns and a write \
-                      at row -1 000 reports 1. The engine's rule is *a viewport scrolled `n` rows \
-                      down is `scrolled(0, -n)`* and the scope passes `+n`, while \
-                      `vitui_runtime::scroll::Area::into_view` and `Scrollable::between` both read \
-                      the offset as positive - so the two halves of the runtime's own scrolling \
-                      disagree about a sign. It is C03's inverted scroll sign inside the runtime's \
-                      own verb, and it survives because every caller that draws through a scroll \
-                      scope draws at offset 0",
-            inverted_by: "runtime architecture issue 26",
+        // **Filed red by components ticket 14, inverted by components ticket 12, and the two were
+        // built in parallel.** It was the only row on this register whose subject is another crate,
+        // and it is here rather than nowhere because §21's rule for a red gate is *assert the exact
+        // failing set, fire in both directions, say what to invert*, and all three were writable.
+        //
+        // What inverted it is a sign in `vitui_runtime::ctx::Ctx::scroll_scope`, which passed the
+        // offset through unnegated where the engine's rule is *a viewport scrolled `n` rows down is
+        // `scrolled(0, -n)`*. **Three tickets found it independently** — 14 as a first frame that
+        // drew nothing, 18 as `visible_rows() == -5..1`, 12 as a collection that would not scroll —
+        // which is why the row is kept with its history rather than deleted: a gate that was red for
+        // one integration and green after it is the register working, not noise.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: GRID,
+                    name: "a_scroll_scope_at_a_nonzero_offset_shows_its_content",
+                },
+                Instrument::Unit {
+                    file: AREA,
+                    name: "a_scrolled_scope_translates_the_content_the_right_way",
+                },
+            ],
         },
     },
     Row {
@@ -2646,7 +2701,7 @@ pub const REGISTER: [Row; 89] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "ten_scenes_have_nothing_to_run_over_nineteen_are_red_and_three_are_\
+                    name: "ten_scenes_have_nothing_to_run_over_fifteen_are_red_and_seven_are_\
                            stood_up",
                 },
             ],
@@ -2788,7 +2843,7 @@ pub const REGISTER: [Row; 89] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "ten_scenes_have_nothing_to_run_over_nineteen_are_red_and_three_are_\
+                    name: "ten_scenes_have_nothing_to_run_over_fifteen_are_red_and_seven_are_\
                            stood_up",
                 },
             ],
@@ -2804,6 +2859,391 @@ pub const REGISTER: [Row; 89] = [
                       frames for a dialog owned by a menu row, and three different ids for the \
                       three answers to a closing modal",
             inverted_by: "components 26",
+        },
+    },
+    // ── components ticket 12's rows: the collection ──────────────────────────────────────────────
+    Row {
+        number: 90,
+        on_spec_table: false,
+        gate: "one component, one `Mode`, thirteen match arms, and no inventory row duplicates one \
+               of them",
+        kind: Kind::Count,
+        owner: "C03",
+        section: "spec §5",
+        // **The arm count is read out of the source and not declared**, which is the register's own
+        // rule applied to the one number §5 leads with: an instrument is a value with a file in it,
+        // and a constant asserting `13 == 13` is a tautology wearing a gate's clothes.
+        //
+        // The second half is the other direction of ADR 0028's *six inventory entries collapse into
+        // one*: `list`, `option_list`, `menu`, `multi_select`, `tabs`, `radio_group` and
+        // `segmented_control` are `Mode`s, and a row reappearing under one of those names is that
+        // collapse being quietly undone.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "one_component_one_mode_and_thirteen_match_arms",
+                },
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "a_radio_group_and_a_file_manager_differ_by_the_arms_and_nothing_else",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/collection_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 91,
+        on_spec_table: false,
+        gate: "select-all is one span and 16 bytes at every length, and the pathological selection \
+               is proportional to the gestures",
+        kind: Kind::Equality,
+        owner: "C03",
+        section: "spec §5",
+        // **An equality across four volumes and not a threshold**, because *one span* is a property
+        // of the mechanism: `[0, len)` is one interval whatever `len` is. The three stores that were
+        // refused are `crate::collect::stores`, kept runnable so §5's table is a measurement rather
+        // than a memory — and one of them is a keystroke at 234x the whole frame budget.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "select_all_is_one_span_and_sixteen_bytes_at_every_length",
+                },
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "the_span_list_is_sorted_disjoint_and_non_adjacent_under_every_gesture",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/collection_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 92,
+        on_spec_table: false,
+        gate: "the scan cursor seeks once a frame and the naive form seeks once a row",
+        kind: Kind::Count,
+        owner: "C03",
+        section: "spec §5",
+        // **`O(log k + h)` against `O(h · log k)` as a count**, which is §21's rule: a gate is a
+        // count, a ratio, an equality or a compile outcome, and a timing is a report. Timed instead,
+        // the two are indistinguishable at the sizes a terminal reaches — which is exactly why the
+        // shape is worth gating rather than measuring.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "the_scan_cursor_seeks_once_and_the_naive_form_seeks_a_row",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/collection_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 93,
+        on_spec_table: false,
+        gate: "a collection declares one hit entry, and `merges == 0` on a screen with two of them",
+        kind: Kind::Count,
+        owner: "C03, C01",
+        section: "spec §5, §4",
+        // **Two claims and one screen, because they fail together.** ADR 0028's *one hit entry per
+        // collection* is what makes per-row hover arithmetic off `Response::local` rather than 389
+        // regions for a frame-old answer; ADR 0027's *the row loop is wrapped in `cx.with_id`* is
+        // what stops the second collection on the screen being inert. The second is the one that
+        // renders **pixel for pixel correctly** when it is broken, which is why `merges` is the
+        // only instrument that reports it — `crate::collect::defective::unkeyed_rows` is that build.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "two_collections_on_one_screen_declare_two_entries_and_merge_nothing",
+                },
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "a_row_is_hovered_by_arithmetic_on_this_frames_pointer",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/collection_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 94,
+        on_spec_table: false,
+        gate: "`size_of::<CollState>()` is the same at every length, and no field is keyed by a row",
+        kind: Kind::Count,
+        owner: "C03",
+        section: "spec §5",
+        // §5's 208 does **not** reproduce and `crate::collect::COLL_STATE_BYTES` says why rather
+        // than padding the struct: the 208 is C03's prototype struct, which carried the three
+        // refused stores and a discriminant to choose between them. What §5 gates is the
+        // invariance, and that reproduces exactly — the type mentions no length, so `size_of`
+        // cannot depend on one.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "the_state_is_the_same_size_at_every_length",
+                },
+                // **The frame's own zero-allocation half, and it is a `tests/` gate rather than a
+                // number in the report.** A collection over a million rows draws through the
+                // *shipped* entry point with the row drawer a component author would write —
+                // `stage` and `blit` — and a `format!` a row would be eighty allocations a frame.
+                // Register entry 12's finding one crate down is why it is not left in the example:
+                // an example is compiled and evaluated by nothing.
+                Instrument::Unit {
+                    file: "crates/vitui-components/tests/gates.rs",
+                    name: "a_collection_over_a_million_rows_allocates_nothing_in_a_steady_frame",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/collection_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 95,
+        on_spec_table: false,
+        gate: "ctrl-click and shift-click are the same gestures as their keyboard twins, and no \
+               component reads a modifier from anywhere else",
+        kind: Kind::Equality,
+        owner: "C03",
+        section: "spec §5, §22",
+        // **The row §5 said could not exist.** It records ctrl-click and shift-click as
+        // inexpressible, because `rt::Input` was `Move`, `Down`, `Up`, `Wheel` and `Key` and only
+        // `Key` carried a modifier byte. Runtime 10 carries `mods: Mods` on `Response`, so the two
+        // readings are one vocabulary and the equality is over the arms rather than over a
+        // substitution.
+        //
+        // The *and no component reads a modifier from anywhere else* half is a source scan, for the
+        // reason `crate::state`'s press gate is: an absence has no expression, and a second reader
+        // arriving is exactly the edit that would make the equality above true and meaningless.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "ctrl_click_and_shift_click_are_the_same_gestures_as_their_keyboard_twins",
+                },
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "the_modifier_byte_is_read_in_one_function_and_it_takes_a_response",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/collection_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 96,
+        on_spec_table: false,
+        gate: "one type-ahead keystroke looks at the budget and not at the content",
+        kind: Kind::Ratio,
+        owner: "C03",
+        section: "spec §5",
+        // **A ratio of rows looked at, not of microseconds.** §5 states 70.79 us bounded against
+        // 1 507.83 and the search alone at 211x; the 211 is the *ratio* and it is a property of the
+        // bound, so what is gated is `content / budget` and the microseconds are printed beside it.
+        // `crate::collect::type_ahead_cost` measures both arms and the example prints them.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "one_keystroke_into_a_million_rows_looks_at_the_budget_and_not_at_the_\
+                           content",
+                },
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "a_collection_declines_a_chord_and_swallows_no_accelerator",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/collection_numbers.rs",
+                },
+            ],
+        },
+    },
+    // ── components ticket 13's rows: the order, the index and the memo ───────────────────────────
+    Row {
+        number: 97,
+        on_spec_table: false,
+        gate: "one structure has five names, and every field of the record is earned by one of them",
+        kind: Kind::Count,
+        owner: "C05, C06",
+        section: "spec §10",
+        // **Both directions, which is what makes it a gate rather than a table.** Every use must
+        // name only fields that exist, and every field must be spent by at least one use — a field
+        // nothing spends is a fifth structure's field living in the shared one, which is exactly
+        // the drift ADR 0031's *three names for one mechanism is already one too many* is about.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: ORDER,
+                    name: "one_structure_has_five_names_and_every_field_is_earned",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/order_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 98,
+        on_spec_table: false,
+        gate: "`Rows { len, rev }` is one `u64`, every edit stamps it, and a revision the component \
+               has not seen clears every position it holds",
+        kind: Kind::Count,
+        owner: "C04, C05",
+        section: "spec §10",
+        // **The failure this gates is a perfectly correct frame.** A sort changes no data and no
+        // length, so nothing inside a collection can notice: the frame after draws a correct list
+        // with the wrong rows selected and the editor open on the wrong row. No counter anywhere in
+        // the stack moves, which is why the gate is on the *store* and not on a screen.
+        //
+        // Three directions, because the middle one is the mechanism: an unrecognised revision
+        // clears, `CollState::reconciled` says the caller carried the positions across and the
+        // branch does not fire, and `Revision::UNKNOWN` never matches — so a caller with no order
+        // is never told its positions went stale, which is right, since it has nothing that can
+        // permute them.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: ORDER,
+                    name: "the_revision_is_one_u64_and_every_edit_stamps_it",
+                },
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "a_revision_the_component_has_not_seen_clears_every_position_it_holds",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 99,
+        on_spec_table: false,
+        gate: "the request is one slot, and a component holding the order shared cannot edit it",
+        kind: Kind::CompileOutcome,
+        owner: "C05",
+        section: "spec §10",
+        // **`E0502`, which is a compile outcome and therefore a gate rather than a sentence.** §10
+        // states *a component may only ask* and gives two reasons; the second is this one, and it
+        // is the half that cannot be worked around. The pair sits on `order::Asked` with a positive
+        // twin naming `Order::splice` **by path** — a lone `compile_fail` passes when the item has
+        // been renamed, and the mechanism cannot tell `E0433` from `E0502`.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Pair {
+                    file: ORDER,
+                    hostile: "let _ = order.splice(1..3, [Entry::default()]);",
+                },
+                Instrument::Unit {
+                    file: ORDER,
+                    name: "the_request_is_one_slot_and_it_answers_once",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 100,
+        on_spec_table: false,
+        gate: "a splice transforms a span list in O(spans) and cannot shatter; a permutation always \
+               does",
+        kind: Kind::Ratio,
+        owner: "C05",
+        section: "spec §10",
+        // **A count and a ratio, not a timing.** Whatever the interval, a contiguous selection
+        // comes out of a splice as *at most two* spans — a head and a tail — because a splice is an
+        // interval and every span is entirely before it, entirely after it, or crosses it. A
+        // permutation of the same edit comes out as one span a row. The microseconds are the
+        // example's; the bound is the mechanism.
+        //
+        // Select-all escapes both at O(1) and **not by special-casing**: `[0, len)` is invariant
+        // under any permutation of that length, so the answer is known without touching a row.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: ORDER,
+                    name: "a_splice_cannot_shatter_a_span_list_and_a_permutation_always_does",
+                },
+                Instrument::Unit {
+                    file: ORDER,
+                    name: "a_collapse_splices_the_interval_and_a_rebuild_builds_the_forest",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/order_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 101,
+        on_spec_table: false,
+        gate: "the four reconcile policies, their settled defaults, and the one that is refused",
+        kind: Kind::Count,
+        owner: "C05",
+        section: "spec §10, §7",
+        // **The refusal is the row.** `Clear` under a splice throws away spans that were nowhere
+        // near the fold for no saving at all, and the three real policies are all O(spans) and all
+        // free — so there is nothing to buy and the choice between them is *behavioural*. The
+        // admissions table is asserted in full rather than at the interesting corner, because a
+        // refusal stated for one arm and forgotten for another is the shape this register exists
+        // to catch.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: ORDER,
+                    name: "the_four_policies_have_settled_defaults_and_clear_is_refused_for_a_\
+                           splice",
+                },
+                Instrument::Unit {
+                    file: ORDER,
+                    name: "the_three_real_policies_are_all_proportional_to_the_spans",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/order_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 102,
+        on_spec_table: false,
+        gate: "a memo keyed on the revision alone recomputes less, runs faster, and is wrong on the \
+               rendered surface",
+        kind: Kind::Ratio,
+        owner: "C06, C08, C09",
+        section: "spec §10",
+        // **The row that exists because the natural detector points the wrong way.** `recomputes`
+        // goes *down* when the key has forgotten an input, so the instrument the runtime provides
+        // for exactly this question reports an improvement — 1 against 2 on the 300 → 120 resize,
+        // at a third of the cost. The two detectors that work are the memoised object recording the
+        // input it was built at (`Keyed::built_at`) and the rendered surface, and the gate asserts
+        // both.
+        //
+        // The magnitudes are this crate's corpus and §10's are C06's; the *shape* is what
+        // reproduces — fewer rows than the narrow width needs, most of the window carrying the
+        // wrong source line, and one recomputation against two.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: ORDER,
+                    name: "a_memo_keyed_on_the_revision_alone_recomputes_less_and_is_wrong_on_the_\
+                           screen",
+                },
+                Instrument::Unit {
+                    file: ORDER,
+                    name: "every_memo_spells_its_key_and_records_what_it_was_built_at",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/order_numbers.rs",
+                },
+            ],
         },
     },
 ];
@@ -3086,7 +3526,7 @@ mod tests {
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn fifty_nine_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn eighty_one_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -3102,7 +3542,7 @@ mod tests {
         assert_eq!(evaluated, EVALUATED, "the count §21 asks a test to assert");
         assert_eq!(
             red,
-            vec![7, 8, 29, 67, 74, 77, 78, 85, 89],
+            vec![7, 8, 29, 74, 78, 85, 89],
             "the four gates that are red and pinned: the sentinel, the palette after a swap, \
              twenty wheel clicks and the collection's five scenes waiting for their subject. The \
              glyph-set count was one of them and components ticket 05 inverted it; row 61 was \
@@ -3118,13 +3558,13 @@ mod tests {
              the value anyway, so a chord can be pressed after all"
         );
         assert_eq!(
-            unsubjected, 12,
+            unsubjected, 8,
             "and the fourteen with nothing to run over. **It was fifteen until components ticket \
              18**, which supplied the subject for row 20 — the bar fixpoint, which is arithmetic \
              over a domain and needs no component to be run against, and whose row had been \
              citing spec §13 and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 89);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 102);
     }
 
     /// **The split, not the total.**
@@ -3135,10 +3575,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_fifty_seven_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_seventy_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 57);
+        assert_eq!(REGISTER.len() - on_table, 70);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -3443,6 +3883,7 @@ mod tests {
             vec![
                 "area_numbers.rs".to_string(),
                 "collapsible_numbers.rs".to_string(),
+                "collection_numbers.rs".to_string(),
                 "dense_numbers.rs".to_string(),
                 "field_numbers.rs".to_string(),
                 "gates_numbers.rs".to_string(),
@@ -3451,6 +3892,7 @@ mod tests {
                 "keys_numbers.rs".to_string(),
                 "listing_numbers.rs".to_string(),
                 "nav_numbers.rs".to_string(),
+                "order_numbers.rs".to_string(),
                 "partition_numbers.rs".to_string(),
                 "popup_numbers.rs".to_string(),
                 "press_numbers.rs".to_string(),
