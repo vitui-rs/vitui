@@ -2101,6 +2101,16 @@ pub const REGISTER: [Row; 80] = [
                     file: COLLECT,
                     name: "the_state_is_the_same_size_at_every_length",
                 },
+                // **The frame's own zero-allocation half, and it is a `tests/` gate rather than a
+                // number in the report.** A collection over a million rows draws through the
+                // *shipped* entry point with the row drawer a component author would write —
+                // `stage` and `blit` — and a `format!` a row would be eighty allocations a frame.
+                // Register entry 12's finding one crate down is why it is not left in the example:
+                // an example is compiled and evaluated by nothing.
+                Instrument::Unit {
+                    file: "crates/vitui-components/tests/gates.rs",
+                    name: "a_collection_over_a_million_rows_allocates_nothing_in_a_steady_frame",
+                },
                 Instrument::Report {
                     file: "crates/vitui-components/examples/collection_numbers.rs",
                 },

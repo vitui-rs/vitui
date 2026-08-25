@@ -560,3 +560,87 @@ fn the_two_partition_helpers_allocate_nothing_as_a_total_over_the_run() {
     );
     black_box(&driver);
 }
+
+/// **A collection over a million rows allocates nothing in a steady frame**, which is components
+/// ticket 12's ninth criterion and the one number in it that is a *gate* rather than a report.
+///
+/// Warmed for the reason the gate above documents, and over the **shipped** entry point —
+/// `collect::collection`, which takes `&mut dyn FnMut` closures precisely so that a component-facing
+/// signature needs no monomorphisation and no boxing at a call site.
+///
+/// The row drawer is the one this crate would write: `Ctx::stage` and `Ctx::blit`, which format into
+/// the frame's own reusable buffer. A `format!` per row would be eighty allocations a frame and the
+/// gate would say so — which is the half worth having, because *zero allocations during frame
+/// composition* is a claim about what a component author can write and not only about what the
+/// library does underneath.
+///
+/// `examples/collection_numbers.rs` prints the same number, and this is where it is asserted: an
+/// example is compiled by `cargo clippy --all-targets` and evaluated by nothing, which is register
+/// entry 12's own finding one crate down.
+#[test]
+fn a_collection_over_a_million_rows_allocates_nothing_in_a_steady_frame() {
+    use vitui_components::collect::{CollOpts, CollState, collection};
+    use vitui_components::frame::{Face, face_paint};
+    use vitui_components::order::Rows;
+    use vitui_runtime::Rect;
+
+    const ROWS: usize = 1_000_000;
+
+    let mut driver = Driver::headless(W, H).expect("a sink cannot fail to attach");
+    let mut st = CollState::new();
+    let opts = CollOpts::default();
+    let frame = |driver: &mut Driver, st: &mut CollState| {
+        driver.frame(|cx| {
+            let area = cx.area();
+            let _ = collection(
+                cx,
+                area,
+                st,
+                &opts,
+                Rows::of(ROWS),
+                &mut |_: &str, _: std::ops::Range<usize>| None,
+                &mut |cx: &mut Ctx<'_, '_>, r: Rect, i: usize, f: Face| {
+                    let paint = face_paint(cx.theme(), f);
+                    let _ = cx.stage(format_args!("row {i}"));
+                    let written = cx.blit(r.x, r.y, paint);
+                    cx.fill(
+                        Rect::new(
+                            r.x + i32::from(written.cells),
+                            r.y,
+                            r.w.saturating_sub(written.cells),
+                            1,
+                        ),
+                        " ",
+                        paint,
+                    );
+                },
+            );
+        });
+    };
+    frame(&mut driver, &mut st);
+    frame(&mut driver, &mut st);
+
+    let (_, total) = count_allocations(|| {
+        for _ in 0..FRAMES {
+            frame(&mut driver, &mut st);
+        }
+    });
+
+    let seen = Allocations::over(FRAMES, total as u64);
+    assert_eq!(
+        seen.total(),
+        0,
+        "{} allocations over {} frames of a collection at {ROWS} rows, and the budget is a total \
+         of zero",
+        seen.total(),
+        seen.frames()
+    );
+    // And the frame really drew: a gate over a collection that iterated nothing would report zero
+    // for the same reason a correct one does.
+    assert_eq!(
+        driver.inspect().hits().len(),
+        1,
+        "one hit entry, and it drew"
+    );
+    black_box(&driver);
+}
