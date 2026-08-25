@@ -76,6 +76,19 @@
 //!   listing that declares a million hit entries, which is why the equality it registers is on
 //!   `regions`.
 //!
+//! - [`area`] — **the scroll area's screens**: the bar fixpoint over 5 475 600 viewport x extent
+//!   pairs (0 failures, 3 passes, 0 unneeded bars), the spelling a reader writes instead — which
+//!   keeps both bars over content that fits and loses 19 of 20 rows and 19 of 20 columns for ever —
+//!   `Σ h` against the row count at row **799 999 of 999 999** with **no counter separating the two
+//!   builds**, and an overlay bar re-damaging **398 cells a frame against 0**. Its four scenes are
+//!   red and all four wait for `scroll_area`, `scrollbar` and `sticky` (components 19). Three of
+//!   §9's figures do not reproduce and each disagreement is a result: **3 535 is a span-model
+//!   picture of a ~423-cell double write** and the engine ships the structure that makes the span
+//!   model 1.00x; the thumb's *up to 7 of 69* is the figure at **45.6%** of the reachable range and
+//!   14 at its end; and the wrong pairing's microseconds are another screen's, so the gate is the
+//!   mechanism — **100 000 rows iterated against 69**. It also found the one defect on this page
+//!   that is not a remembered number: [`area::SCROLL_SCOPE_TRANSLATES_THE_WRONG_WAY`].
+//!
 //! **And all seven of spec §3's helpers now exist**, which is the first code here that a component
 //! will call rather than be measured by: [`text::fit`] and [`frame::block`] are the two partition
 //! primitives; [`state::press`] returns **one role** so that the face a widget draws and the face it
@@ -110,6 +123,7 @@
 #![warn(missing_docs)]
 
 pub mod app;
+pub mod area;
 pub mod counters;
 pub mod dense;
 pub mod form;

@@ -8,7 +8,7 @@
 //!
 //! # What it prints, and why each half is here
 //!
-//! 1. **The scene list, one line a scene, in §21's column order.** Twenty-one of the twenty-nine
+//! 1. **The scene list, one line a scene, in §21's column order.** Eighteen of the thirty
 //!    print the ticket that will build their subject rather than a row of zeros — see
 //!    [`vitui_components::scenes::report`], which argues that at length. One is a rehearsal over a
 //!    fixture and says so, three are stood up on their own components, and **five are pinned red**:
@@ -19,7 +19,7 @@
 //!    cost — because the whole argument for an equality against a reference render is that **every
 //!    one of the four made the defective build look healthier**, and a report that printed only the
 //!    diff would leave the reader to take that on trust.
-//! 3. **O5's coverage**, fourteen of thirty-four, with the twenty bare pairs named.
+//! 3. **O5's coverage**, sixteen of thirty-four, with the eighteen bare pairs named.
 //!
 //! # It asserts the shape and not the timings
 //!
@@ -50,7 +50,7 @@ const H: u16 = 80;
 
 fn main() {
     println!(
-        "§21's scene list — twenty-eight scenes, twenty-seven of them the spec's table, and the \
+        "§21's scene list — thirty scenes, twenty-seven of them the spec's table, and the \
          spec's table is the authority\n"
     );
 
@@ -182,7 +182,7 @@ fn main() {
             println!("    {id:<20} {}", axis.name());
         }
     }
-    assert_eq!(covered, 14);
+    assert_eq!(covered, 16);
     assert_eq!(coverage.len(), 34);
     assert_eq!(
         INVENTORY
@@ -234,8 +234,8 @@ fn main() {
     assert_eq!(count(|s| s.standing.evaluated()), 3);
     assert_eq!(
         count(|s| matches!(s.standing, Standing::Red { .. })),
-        5,
-        "components ticket 11's five, four pinned to components 12 and one to components 20"
+        9,
+        "components ticket 11's five — four pinned to components 12 and one to components 20 —          and components ticket 18's four, every one of them pinned to components 19"
     );
 }
 
