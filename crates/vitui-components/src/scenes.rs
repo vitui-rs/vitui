@@ -45,8 +45,10 @@
 //! is *up*: `Unsubjected` says *nothing runs*, and scenes 3, 4, 5, 6 and 29 now run a great deal —
 //! the inverted sign is refused by an equality at 75 of 80 rows, the stale tail at 71 of 80, the
 //! missing ellipsis at one cell a row, and the three volumes agree on writes, regions and tab stops
-//! to the unit. What they do not have is `collection`, which is [`crate::listing::standing`]'s
-//! verdict and components ticket 12's job.
+//! to the unit. What they did not have was `collection`, which was [`crate::listing::standing`]'s
+//! verdict and components ticket 12's job — **and ticket 12 did it**: `crate::listing::draw_into`'s
+//! two arms are now the component and its `defective` twin, one value apart, so scenes 3, 4, 5 and
+//! 29 are `Evaluated` and the screen really is a screen *of* something.
 //!
 //! **One of the five is not waiting for a subject and that is the point of the split.** Scene 6, the
 //! twenty wheel clicks, is pinned to **components 20**: its failing set is the unconditional

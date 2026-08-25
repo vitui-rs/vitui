@@ -1,4 +1,4 @@
-//! Spec §21's register: **sixty-seven gates as a value, one row per gate, and a number for how many
+//! Spec §21's register: **eighty gates as a value, one row per gate, and a number for how many
 //! of them anything runs.**
 //!
 //! > The register is data, not prose — one row per gate with its kind, its owner, where it stood at
@@ -54,8 +54,8 @@
 //!   to run over** — no component exists — and a register that filed those as `Evaluated` would be
 //!   claiming fifteen green gates over an empty population.
 //!
-//! **Forty-two evaluated, four red, six unreachable, fifteen unsubjected**, and
-//! `tests::forty_two_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
+//! **Sixty evaluated, three red, six unreachable, eleven unsubjected**, and
+//! `tests::sixty_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
 //! deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
 //! and subjected row 27, the cross-family collapse gate; ticket 07 added five, and none of them
@@ -88,6 +88,23 @@
 //! the click cannot be posted*, which is the distinction row 5 got wrong. **Runtime architecture
 //! issue 22 has since lifted that barrier too**; the substitution stays until components 20, and the
 //! row stays red because the defect it names is the unconditional reveal.
+//!
+//! **Components ticket 12 added seven and inverted four, and the four are the interesting half.**
+//! Rows 68–74 are `collection` — the mode count and the thirteen arms *read out of the source*, the
+//! span store, the scan cursor, the one hit entry beside `merges == 0`, the state's size, the
+//! pointer gestures §5 called inexpressible, and the type-ahead budget. What moved is rows 4, 9 and
+//! 10 from `Unsubjected` — they had a subject at last — and **row 67 from `Red`**, which is row 61
+//! one ticket later in both halves: ticket 11 pinned five scenes and ticket 12 turned **four**,
+//! leaving the wheel gate exactly where it was. A single `inverted_by` across the five would have
+//! turned it too and erased the distinction the row is about.
+//!
+//! **Components ticket 13 added six and subjected one.** Rows 75–80 are the order, the index and
+//! the memo: the five names against one record, `Rows { len, rev }` compared once a frame inside
+//! `collection`, the `E0502` that makes *a component may only ask* a compile outcome, the splice
+//! that cannot shatter, the four policies with the one that is refused, and **the memo that
+//! recomputes less and is wrong on the screen**. Row 13 — *an interval edit on the selection store
+//! against a bit vector* — is `Evaluated` for the first time, and it is 1 span against 900 000 bits:
+//! a bit's position *is* its index, so a splice moves every bit after the interval.
 //!
 //! # Row 5 was not *not yet*. It was wrong, and an `Unreachable` that is wrong is the worst standing
 //!
@@ -2591,7 +2608,7 @@ mod tests {
         assert_eq!(seen, expected);
     }
 
-    /// **Forty-two evaluated, and the other twenty-five each say why not.**
+    /// **Sixty evaluated, and the other twenty each say why not.**
     ///
     /// This is the number §21 asks for: *how many gates are actually evaluated is a number a test
     /// asserts rather than a claim in a document*. Saying it out loud is what stops the next change
