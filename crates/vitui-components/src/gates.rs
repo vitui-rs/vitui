@@ -345,6 +345,9 @@ const DENSE: &str = "crates/vitui-components/src/dense.rs";
 /// The listing's own file, which is where components ticket 11's two rows run.
 const LISTING: &str = "crates/vitui-components/src/listing.rs";
 
+/// The accordion's own file, which is where components ticket 21's rows run.
+const ACCORDION: &str = "crates/vitui-components/src/accordion.rs";
+
 /// How many rows of [`REGISTER`] are spec §21's own table. **Thirty-two, and it is closed** — a
 /// thirty-third would be a spec change.
 pub const SPEC_ROWS: usize = 32;
@@ -387,10 +390,10 @@ pub const SPEC_ROWS: usize = 32;
 /// row still asserting *the four components do not exist* would now be asserting they are gone.
 /// That is the second inversion here worth being suspicious about: a red row phrased as an absence
 /// cannot be turned green by editing one field.
-pub const EVALUATED: usize = 42;
+pub const EVALUATED: usize = 45;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 67] = [
+pub const REGISTER: [Row; 69] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -752,11 +755,27 @@ pub const REGISTER: [Row; 67] = [
         kind: Kind::Count,
         owner: "C14",
         section: "spec §8",
+        // **Components ticket 21 put §8's own accordion under it.** `tests/gates.rs` states the
+        // rule at twelve sections of five focusables — 72 against 12, the same shape — and the
+        // accordion is the shape at §8's own scale: 421 hit entries against 13 and 420 tab stops
+        // against 12, which is 408 on both columns and §8's `478 - 70 == 423 - 15` exactly.
         standing: Standing::Evaluated {
-            by: &[Instrument::Unit {
-                file: "crates/vitui-components/tests/gates.rs",
-                name: "a_component_drawn_into_a_zero_height_rectangle_declares_no_tab_stops",
-            }],
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/tests/gates.rs",
+                    name: "a_component_drawn_into_a_zero_height_rectangle_declares_no_tab_stops",
+                },
+                Instrument::Unit {
+                    file: ACCORDION,
+                    name: "a_closed_body_is_not_called_and_the_h_zero_spelling_declares_four_\
+                           hundred_and_eight_more",
+                },
+                Instrument::Unit {
+                    file: ACCORDION,
+                    name: "the_two_surfaces_are_identical_and_no_counter_that_reads_a_cell_can_\
+                           see_it",
+                },
+            ],
         },
     },
     Row {
@@ -766,8 +785,33 @@ pub const REGISTER: [Row; 67] = [
         kind: Kind::Count,
         owner: "C14",
         section: "spec §8",
-        standing: Standing::Unsubjected {
-            inverted_by: "components 22",
+        // **`Unsubjected` until components ticket 21, and it did not need `collapsible` after
+        // all.** §8 is explicit that the closed folds are *caller state* — a `Vec<u32>` beside a
+        // document, for the same forced reason a collection's selection is — so the whole of this
+        // gate is standable with no component built: 4 166 of 4 167 folds on a line that opens no
+        // block against 0 reanchored, both §8's own numbers, both exact.
+        //
+        // `Evaluated` over the fold set rather than over `collapsible`, which is components ticket
+        // 04's standing and its reason: what it gates is that *the instrument separates a correct
+        // build from a defective one*, watched in both directions. The **scene** stays red, because
+        // a scene is a screen and this is not one.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: ACCORDION,
+                    name: "four_thousand_one_hundred_and_sixty_six_folds_of_four_thousand_one_\
+                           hundred_and_sixty_seven_land_wrong",
+                },
+                Instrument::Unit {
+                    file: ACCORDION,
+                    name: "the_folds_that_survive_are_exactly_the_ones_above_the_edit",
+                },
+                Instrument::Unit {
+                    file: ACCORDION,
+                    name: "the_document_opens_sixteen_thousand_blocks_and_a_quarter_of_them_are_\
+                           closed",
+                },
+            ],
         },
     },
     Row {
@@ -1887,8 +1931,8 @@ pub const REGISTER: [Row; 67] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "twenty_one_scenes_have_nothing_to_run_over_five_are_red_and_three_are_\
-                           stood_up",
+                    name: "nineteen_scenes_have_nothing_to_run_over_seven_are_red_and_three_\
+                           are_stood_up",
                 },
             ],
             failing: "`collection` is undeclared, so five scenes are pinned red — 3, 4, 5, 6 and \
@@ -1898,6 +1942,89 @@ pub const REGISTER: [Row; 67] = [
                       `crate::listing::standing` is `Unmet { over: 1, failing: 1 }` rather than \
                       `Met` over nothing",
             inverted_by: "components 12",
+        },
+    },
+    // ── components ticket 21's two, and both are about what a count can see ──────────────────────
+    Row {
+        number: 68,
+        on_spec_table: false,
+        gate: "a body declares a count proportional to the rectangle it was handed, and one that \
+               ignores it declares a count flat in the height",
+        kind: Kind::Relation,
+        owner: "C14",
+        section: "spec §8, §21",
+        // **A relation and not an equality, because the number belongs to the body.** §21's own
+        // example is `verbs <= writes` and its own sentence is *never verb equality across sizes*;
+        // what is asserted here is the *shape* of the two curves over every height from one to ten,
+        // not a pair of magnitudes. §8 states one point on them — 273 ring entries against 247 —
+        // and the point is the height where the difference is 26, which is two rows of body left.
+        //
+        // `Evaluated` over the accordion rather than over `collapsible`, which is components
+        // ticket 04's standing. The scene stays red; `crate::scenes` says why those are not one
+        // claim.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: ACCORDION,
+                    name: "a_body_that_does_not_cull_declares_a_count_flat_in_the_rectangle_it_\
+                           was_handed",
+                },
+                Instrument::Unit {
+                    file: ACCORDION,
+                    name: "the_mid_transition_pair_is_this_screen_plus_the_same_chrome",
+                },
+                Instrument::Unit {
+                    file: ACCORDION,
+                    name: "twelve_open_sections_declare_fewer_than_twice_six_because_one_off_\
+                           screen_declares_nothing",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/collapsible_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 69,
+        on_spec_table: false,
+        gate: "no counter that reads a cell separates a closed body from one declared and not \
+               drawn: `regions` and `tab stops`, and nothing else",
+        kind: Kind::Count,
+        owner: "C14",
+        section: "spec §8, §20",
+        // **This is the row that says why row 22 has to be a count over the hit index.** §8's
+        // sentence is *no golden-cell gate can see it*, and this is that sentence as a list over
+        // §20's nine: the two surfaces are 0 cells over 0 rows apart, `writes`, `distinct` and
+        // `asked` are equal to the unit, and the two counters that move are the two the defect is
+        // about.
+        //
+        // **It found one thing §8 does not record.** `verbs` separates the spelling §8 measured —
+        // a body called at `h = 0` that *draws* every row makes 1 328 drawing calls against 104 —
+        // so a gate written on the cheapest counter that happened to work would look green. It is
+        // blind to the body beside it, which declares every row and paints only the admitted ones:
+        // same verbs, same writes, same asked, same surface, and the same 408 entries nobody can
+        // reach. Both arms are in the instrument.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: ACCORDION,
+                    name: "the_two_surfaces_are_identical_and_no_counter_that_reads_a_cell_can_\
+                           see_it",
+                },
+                Instrument::Unit {
+                    file: ACCORDION,
+                    name: "this_screen_opens_no_group_so_its_ring_and_its_stop_count_are_the_same_\
+                           number",
+                },
+                Instrument::Unit {
+                    file: ACCORDION,
+                    name: "the_rest_of_8s_declaration_figures_are_this_screen_plus_the_chrome_\
+                           fitted_from_the_first",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/collapsible_numbers.rs",
+                },
+            ],
         },
     },
 ];
@@ -2163,14 +2290,14 @@ mod tests {
         assert_eq!(seen, expected);
     }
 
-    /// **Forty-two evaluated, and the other twenty-five each say why not.**
+    /// **Forty-five evaluated, and the other twenty-four each say why not.**
     ///
     /// This is the number §21 asks for: *how many gates are actually evaluated is a number a test
     /// asserts rather than a claim in a document*. Saying it out loud is what stops the next change
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn forty_two_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn forty_five_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -2201,8 +2328,8 @@ mod tests {
              found row 5's barrier misread: `Mods` is unnameable here and `Chord::mods` hands over \
              the value anyway, so a chord can be pressed after all"
         );
-        assert_eq!(unsubjected, 15, "and the fifteen with nothing to run over");
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 67);
+        assert_eq!(unsubjected, 14, "and the fourteen with nothing to run over");
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 69);
     }
 
     /// **The split, not the total.**
@@ -2213,10 +2340,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_thirty_five_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_thirty_seven_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 35);
+        assert_eq!(REGISTER.len() - on_table, 37);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -2515,6 +2642,7 @@ mod tests {
         assert_eq!(
             found,
             vec![
+                "collapsible_numbers.rs".to_string(),
                 "dense_numbers.rs".to_string(),
                 "gates_numbers.rs".to_string(),
                 "glyph_numbers.rs".to_string(),

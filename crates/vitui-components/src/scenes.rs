@@ -34,12 +34,18 @@
 //! ([`Scene::owed`] and [`Scene::from_a_survived_defect`]), because the value can hold both and a
 //! count cannot.
 //!
-//! # Twenty-one scenes are `Unsubjected`, five are `Red` and three are `Evaluated`
+//! # Nineteen scenes are `Unsubjected`, seven are `Red` and three are `Evaluated`
 //!
 //! [`crate::gates::Standing::Unsubjected`] means *it could run and there is nothing to run it over*.
 //! Twenty-four of the twenty-nine components do not exist, so most of these screens cannot be stood
 //! up at all. Filing any of them as `Evaluated` would be
 //! [`crate::obligations::Verdict::of`]'s vacuity accident arriving on the scene list.
+//!
+//! **Components ticket 21 moved two more**, scenes 10 and 11, and both are waiting for
+//! `collapsible` rather than for a fix — see [`crate::accordion`], where the accordion's 408 on two
+//! identical surfaces and the fold anchor's 4 166 of 4 167 are measured. One of the two carried an
+//! `inverted_by` naming **components 16** while it was `Unsubjected`, and 16's own table is scenes 8
+//! and 9; it names components 22 now.
 //!
 //! **Components ticket 11 moved four rows off `Unsubjected` and added a fifth**, and the direction
 //! is *up*: `Unsubjected` says *nothing runs*, and scenes 3, 4, 5, 6 and 29 now run a great deal —
@@ -53,7 +59,7 @@
 //! `scroll_into_view` itself, which `CONTEXT.md` forbids and which four *resolved* tickets wrote
 //! anyway. Ticket 12's own criterion says so — *every scene of ticket 11 is green except the wheel
 //! gate, which stays pinned red for ticket 20* — and
-//! `tests::twenty_one_scenes_have_nothing_to_run_over_five_are_red_and_three_are_stood_up` asserts
+//! `tests::nineteen_scenes_have_nothing_to_run_over_seven_are_red_and_three_are_stood_up` asserts
 //! the pairing rather than the count alone, because a single `inverted_by` across the five would
 //! erase the distinction while keeping the number right.
 //!
@@ -490,6 +496,82 @@ const PINS_SCENE_29: &[Instrument] = &[
     WAITING_FOR_COLLECTION[1],
 ];
 
+// ── components ticket 21's two, and they wait for one component between them ─────────────────────
+
+/// The accordion's own file, which is where components ticket 21's two scenes are played.
+const ACCORDION: &str = "crates/vitui-components/src/accordion.rs";
+
+/// **What both of components ticket 21's scenes are scenes of, and it is not declared yet.**
+///
+/// [`crate::accordion::SUBJECTS`], reached through this alias for [`SUBJECTS`]'s reason: two rows
+/// below claim `collapsible` stands on their screen, and the failing set they are pinned in is
+/// computed by opening the file the freeze homes `collapsible` in.
+const COLLAPSIBLE: &[&str] = &crate::accordion::SUBJECTS;
+
+/// **The pair both of components ticket 21's scenes are pinned by**, written once because it is one
+/// fact: `collapsible` is not declared, and the accordion says which failure that is.
+const WAITING_FOR_COLLAPSIBLE: &[Instrument] = &[
+    Instrument::Unit {
+        file: ACCORDION,
+        name: "the_accordion_is_red_because_collapsible_is_not_declared",
+    },
+    Instrument::Unit {
+        file: ACCORDION,
+        name: "the_waiting_message_separates_unimplemented_from_wrong",
+    },
+];
+
+/// The failing set both scenes of components ticket 21 are pinned in.
+///
+/// **One sentence and not two**, because it is one fact — unlike components ticket 11's five, where
+/// the wheel gate's failing set is a *defect* and the other four's is a missing subject. Neither of
+/// these two is pinned on a defect: both screens are measured and green and the component is
+/// missing.
+const OWED_ITS_COLLAPSIBLE: &str = "`collapsible` is not declared in `crates/vitui-components/src/disclose.rs`, so the accordion \
+     is a stand-in stack of headers and bodies and the fold set is the input a component that does \
+     not exist would read. Everything the screens themselves can be asked is measured and green — \
+     13 hit entries closed against 421 at `h = 0`, 408 on the hit index and the ring at once, 0 \
+     cells over 0 rows between the two surfaces, 26 halfway down a collapse, and 4 166 of 4 167 \
+     folds on a line that opens no block against 0 reanchored. What is missing is the subject";
+
+/// What pins scene 10, the fold anchor, beyond the pair both share.
+const PINS_SCENE_10: &[Instrument] = &[
+    Instrument::Unit {
+        file: ACCORDION,
+        name: "four_thousand_one_hundred_and_sixty_six_folds_of_four_thousand_one_hundred_and_\
+               sixty_seven_land_wrong",
+    },
+    Instrument::Unit {
+        file: ACCORDION,
+        name: "the_folds_that_survive_are_exactly_the_ones_above_the_edit",
+    },
+    WAITING_FOR_COLLAPSIBLE[0],
+    WAITING_FOR_COLLAPSIBLE[1],
+];
+
+/// What pins scene 11, the accordion. See [`PINS_SCENE_10`].
+const PINS_SCENE_11: &[Instrument] = &[
+    Instrument::Unit {
+        file: ACCORDION,
+        name: "a_closed_body_is_not_called_and_the_h_zero_spelling_declares_four_hundred_and_\
+               eight_more",
+    },
+    Instrument::Unit {
+        file: ACCORDION,
+        name: "the_two_surfaces_are_identical_and_no_counter_that_reads_a_cell_can_see_it",
+    },
+    Instrument::Unit {
+        file: ACCORDION,
+        name: "the_mid_transition_pair_is_this_screen_plus_the_same_chrome",
+    },
+    Instrument::Unit {
+        file: "crates/vitui-components/tests/gates.rs",
+        name: "a_component_drawn_into_a_zero_height_rectangle_declares_no_tab_stops",
+    },
+    WAITING_FOR_COLLAPSIBLE[0],
+    WAITING_FOR_COLLAPSIBLE[1],
+];
+
 /// **What stands scenes 1, 2 and 28 up**, written once because it is one fact: the four components
 /// are declared, and the screen is drawn through them.
 ///
@@ -839,14 +921,27 @@ pub const SCENES: [Scene; 29] = [
         name: "a 200 000-line document with 4 167 folds and an insert above them",
         size: Size::Unstated,
         content: Content::Rows { rows: 200_000 },
-        gestures: &[Gesture::Fold { rows: 4_167 }, Gesture::Insert { above: 1 }],
-        decided: "the anchor: 4 166 of 4 167 wrong, reanchored for 1.04 us",
+        gestures: &[
+            Gesture::Fold { rows: 4_167 },
+            // **Ten, and it was one.** §8's edit is *insert ten lines at line 24*, and the number
+            // is not decoration: it is what every one of the 4 166 folds below it moves by.
+            Gesture::Insert { above: 10 },
+        ],
+        decided: "the anchor: 4 166 of 4 167 wrong, reanchored for 1.04 us. Both counts reproduce \
+                  exactly here — the fold set is caller state and needs no component to be built — \
+                  and nothing throws on either arm",
         covers: &[],
-        stands: &[],
+        stands: COLLAPSIBLE,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Unsubjected {
-            inverted_by: "components 16",
+        // **This row said `components 16` and 16 does not own it.** Components ticket 16's table is
+        // scenes 8 and 9 — the forest and the fold over 349 524 rows — and ticket 21's is 10 and 11.
+        // Corrected here rather than left, because `inverted_by` is what a reader follows to find
+        // out who owes a scene its subject.
+        standing: Standing::Red {
+            by: PINS_SCENE_10,
+            failing: OWED_ITS_COLLAPSIBLE,
+            inverted_by: "components 22",
         },
         rehearsed_by: &[],
     },
@@ -861,13 +956,18 @@ pub const SCENES: [Scene; 29] = [
             Gesture::Open { bodies: 6 },
             Gesture::Open { bodies: 12 },
         ],
-        decided: "closed content is not drawn: 478 hit entries against 70",
+        decided: "closed content is not drawn: 478 hit entries against 70, and 423 tab stops \
+                  against 15, on two surfaces that are identical cell for cell. The excess is 408 \
+                  on both columns because `Ctx::interact` appends to the hit index and to the ring \
+                  before either looks at the rectangle, so no golden-cell gate can see it",
         covers: &[("collapsible", Axis::Shrunk)],
-        stands: &[],
+        stands: COLLAPSIBLE,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Unsubjected {
-            inverted_by: "components 21",
+        standing: Standing::Red {
+            by: PINS_SCENE_11,
+            failing: OWED_ITS_COLLAPSIBLE,
+            inverted_by: "components 22",
         },
         rehearsed_by: &[],
     },
@@ -1519,24 +1619,25 @@ mod tests {
         }
     }
 
-    /// **Twenty-one scenes have nothing to run over, five are pinned red and three are stood up.**
+    /// **Nineteen scenes have nothing to run over, seven are pinned red and three are stood up.**
     ///
     /// `obligations.rs`'s arrangement and `gates.rs`'s: a count makes every change of colour a
     /// deliberate edit here rather than a quiet one. It was **twenty-five, none and three** until
-    /// components ticket 11, and the four that moved off `Unsubjected` moved *up*: `Unsubjected`
-    /// says *it could run and there is nothing to run it over*, and a great deal now runs.
+    /// components ticket 11 and **twenty-one, five and three** until components ticket 21, and every
+    /// row that moved off `Unsubjected` moved *up*: `Unsubjected` says *it could run and there is
+    /// nothing to run it over*, and a great deal now runs.
     ///
-    /// # Four of the five are pinned to components 12 and the fifth to components 20
+    /// # Six of the seven are waiting for a subject and the seventh is not
     ///
     /// That split is the whole of criterion 7 and it is asserted rather than described. Scenes 3, 4,
-    /// 5 and 29 are waiting for `collection` — their screens are drawn and their numbers measured,
-    /// and what is missing is the subject. **Scene 6 is not waiting for anything**: it is red
-    /// because the defect is real, `CONTEXT.md` forbids it and four *resolved* tickets wrote it
-    /// anyway. Components ticket 12's own criterion says so — *every scene of ticket 11 is green
-    /// except the wheel gate, which stays pinned red for ticket 20* — and a single `inverted_by`
-    /// across the five would erase it.
+    /// 5 and 29 are waiting for `collection` and 10 and 11 for `collapsible` — their screens are
+    /// drawn and their numbers measured, and what is missing is the subject. **Scene 6 is not
+    /// waiting for anything**: it is red because the defect is real, `CONTEXT.md` forbids it and
+    /// four *resolved* tickets wrote it anyway. Components ticket 12's own criterion says so —
+    /// *every scene of ticket 11 is green except the wheel gate, which stays pinned red for ticket
+    /// 20* — and a single `inverted_by` across them would erase it.
     #[test]
-    fn twenty_one_scenes_have_nothing_to_run_over_five_are_red_and_three_are_stood_up() {
+    fn nineteen_scenes_have_nothing_to_run_over_seven_are_red_and_three_are_stood_up() {
         let red: Vec<u8> = SCENES
             .iter()
             .filter(|s| matches!(s.standing, Standing::Red { .. }))
@@ -1544,10 +1645,11 @@ mod tests {
             .collect();
         assert_eq!(
             red,
-            vec![3, 4, 5, 6, 29],
-            "components ticket 11's five: the three volumes, the inverted sign, the stale tail, \
-             the twenty wheel clicks and the narrow collection. A sixth is a new one, and it owes \
-             an exact failing set and a ticket that inverts it"
+            vec![3, 4, 5, 6, 10, 11, 29],
+            "components ticket 11's five — the three volumes, the inverted sign, the stale tail, \
+             the twenty wheel clicks and the narrow collection — and components ticket 21's two, \
+             the fold anchor and the accordion. An eighth is a new one, and it owes an exact \
+             failing set and a ticket that inverts it"
         );
         let evaluated: Vec<u8> = SCENES
             .iter()
@@ -1562,7 +1664,7 @@ mod tests {
              fourth arriving here is a deliberate edit to this module's header and to \
              `crate::gates::REGISTER`"
         );
-        assert_eq!(SCENES.len() - evaluated.len() - red.len(), 21);
+        assert_eq!(SCENES.len() - evaluated.len() - red.len(), 19);
 
         let mut pinned_to = Vec::new();
         for scene in SCENES {
@@ -1612,10 +1714,14 @@ mod tests {
                 (4, "components 12"),
                 (5, "components 12"),
                 (6, "components 20"),
+                (10, "components 22"),
+                (11, "components 22"),
                 (29, "components 12"),
             ],
-            "the wheel gate is not waiting for its subject and the other four are. Merging the two \
-             loses the distinction components 11's criterion 7 is about"
+            "the wheel gate is not waiting for its subject and the other six are. Merging the two \
+             loses the distinction components 11's criterion 7 is about — and scene 10 said \
+             `components 16` while it was `Unsubjected`, which is a ticket whose own table names \
+             scenes 8 and 9"
         );
     }
 
@@ -1894,9 +2000,10 @@ mod tests {
     fn a_rehearsal_is_never_what_stands_a_scene_up() {
         // The files where a screen or one of its components is measured. `crate::runner`'s is not
         // one of them, and that is the whole check.
-        const SCREEN_FILES: [&str; 6] = [
+        const SCREEN_FILES: [&str; 7] = [
             DENSE,
             LISTING,
+            ACCORDION,
             "crates/vitui-components/src/text.rs",
             "crates/vitui-components/src/input.rs",
             "crates/vitui-components/src/structure.rs",
@@ -2004,7 +2111,7 @@ mod tests {
             SCENES.len() + 1,
             "one line a scene, plus the heading"
         );
-        assert_eq!(printed.matches("not played: `components ").count(), 21);
+        assert_eq!(printed.matches("not played: `components ").count(), 19);
         assert_eq!(
             printed
                 .matches("stood up on its own components, by ")
@@ -2014,8 +2121,9 @@ mod tests {
         );
         assert_eq!(
             printed.matches("red, pinned: `components ").count(),
-            5,
-            "components ticket 11's five, and a red line is neither *not played* nor *stood up*"
+            7,
+            "components ticket 11's five and components ticket 21's two, and a red line is neither \
+             *not played* nor *stood up*"
         );
         assert_eq!(printed.matches("[rehearsed over a fixture").count(), 1);
         assert!(
