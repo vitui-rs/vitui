@@ -233,13 +233,13 @@ pub const SPEC_ROWS: usize = 15;
 
 /// Spec §20's register, entry for entry, and the backlog's gates beside it.
 ///
-/// **The count is 40 where the ticket's estimate was "roughly twice the register".** That estimate
+/// **The count is 41 where the ticket's estimate was "roughly twice the register".** That estimate
 /// is left in the ticket rather than corrected into it, because it was an estimate: the backlog's
 /// eighteen tickets declare sixty-nine gate bullets between them, many of which are the same gate
 /// stated from two sides, and twenty-four survive deduplication against §20's fifteen. A row is
 /// here when it is a gate somebody can break; a bullet that restates a neighbour is not a second
 /// row.
-pub const REGISTER: [Entry; 40] = [
+pub const REGISTER: [Entry; 41] = [
     // ── spec §20's table, in its order ───────────────────────────────────────────────────────────
     Entry {
         number: 1,
@@ -1149,6 +1149,31 @@ pub const REGISTER: [Entry; 40] = [
             ],
         },
     },
+    Entry {
+        number: 41,
+        on_spec_table: false,
+        property: "Nothing holds the focus until an application seats it, and the two seating forms \
+                   are different programs",
+        kind: Kind::Gate,
+        qualifier: "equality \u{2014} between *where the focus ends up after the user moves it* on \
+                    the two forms an application might write. `focused().is_none()` and \
+                    `!is_focused(sink)` read alike and diverge only once there is somewhere else to \
+                    be: the second drags the keyboard back every frame the user has tabbed away, \
+                    which presents as a `Tab` that does nothing. **Both arms seat it correctly on \
+                    the first frame**, which is why a one-widget program cannot tell them apart and \
+                    why this is a gate rather than a review note. The first frame having nobody \
+                    focused is asserted on both arms, because that is the finding the verb exists \
+                    for. It is **a property of the mechanism rather than of the data**: nothing \
+                    varies across the two arms but which of two lines the application wrote, and \
+                    there is no size, no corpus and no input",
+        source: "issue 25",
+        state: State::Wired {
+            by: &[Instrument::Unit {
+                file: "crates/vitui-runtime/src/ctx.rs",
+                name: "the_guarded_seating_form_seats_once_and_the_is_focused_form_steals_it_back",
+            }],
+        },
+    },
 ];
 
 /// How many `compile_fail` fences the crate carries.
@@ -1457,7 +1482,8 @@ mod tests {
 
     /// **Every entry names somewhere to look, and a red one names an implementation ticket.**
     ///
-    /// `issue NN` joins `R NN` and `all` at entry 40, and the widening is the honest form rather
+    /// `issue NN` joins `R NN` and `all` at entry 40 and again at 41, and the widening is the
+    /// honest form rather
     /// than a loosening: the implementation backlog **closed** on 2026-08-24, so a gate written
     /// after it has no `R` number to cite, and giving it one would be a citation to a file that
     /// does not exist. An architecture issue is somewhere to look, which is what this test is
@@ -1511,16 +1537,17 @@ mod tests {
         assert_eq!(seen, expected, "the numbers are not 1..={}", REGISTER.len());
     }
 
-    /// **Thirty-nine wired, none red**, and that is R 20 closing the last one.
+    /// **Forty-one wired, none red.**
     ///
     /// This register was thirty-eight and one from ticket 19 until ticket 20 built the gate entry
-    /// 12 was red for the absence of, and forty since architecture issue 23 — the first row here
-    /// whose source is an *architecture* issue rather than an implementation ticket, because the
-    /// backlog was closed when the gap was found. Saying *how many* is what stops a red row arriving
-    /// unremarked, and it now has the second job the engine's has: **a register at all-green says
-    /// so**, so the next red row is a deliberate edit to this number rather than a quiet one.
+    /// 12 was red for the absence of; forty since architecture issue 23 — the first row here whose
+    /// source is an *architecture* issue rather than an implementation ticket, because the backlog
+    /// was closed when the gap was found — and forty-one since issue 25, which is the second and
+    /// arrived the same way. Saying *how many* is what stops a red row arriving unremarked, and it
+    /// has the second job the engine's has: **a register at all-green says so**, so the next red row
+    /// is a deliberate edit to this number rather than a quiet one.
     #[test]
-    fn forty_are_wired_and_none_are_red() {
+    fn forty_one_are_wired_and_none_are_red() {
         let red: Vec<u8> = REGISTER
             .iter()
             .filter(|e| matches!(e.state, State::Red { .. }))
@@ -1533,7 +1560,7 @@ mod tests {
              documentation, and in the module comment above — the count is the thing that stops it \
              arriving unremarked"
         );
-        assert_eq!(REGISTER.len() - red.len(), 40);
+        assert_eq!(REGISTER.len() - red.len(), 41);
     }
 
     /// **The split, not the total.**
@@ -1548,8 +1575,8 @@ mod tests {
         assert_eq!(on_table, SPEC_ROWS, "spec §20's table is fifteen rows");
         assert_eq!(
             REGISTER.len() - on_table,
-            25,
-            "the backlog's gates, deduplicated against §20's fifteen, plus issue 23's"
+            26,
+            "the backlog's gates, deduplicated against §20's fifteen, plus issues 23's and 25's"
         );
         // And §20's fifteen come first, so the table reads in the spec's order.
         for (index, entry) in REGISTER.iter().enumerate() {

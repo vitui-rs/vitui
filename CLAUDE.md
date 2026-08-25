@@ -221,6 +221,21 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   what makes every file in it a standing proof that the component-facing surface is sufficient — the
   facade re-exports the engine, so depending on it would make `Rect` nameable and evaporate the claim
   without a line changing. A test reads the source rather than the manifest for the same reason.
+- **Nothing holds the focus until an application says so** (architecture issue 25, 2026-08-25).
+  The first application drew correctly, parked at 0.00/0.00 and **ignored the keyboard**:
+  `Frame::focused` starts `None` and nothing sets it — not `interact`, not `Interest::FOCUS`, not the
+  ring — while `next_key` answers nobody but the focused id. **0 against 5** over five `Right`
+  presses. The click is an *accidental repair*, which is why it presents as *the terminal lost focus*.
+  Settled additively: **`Ctx::focused() -> Option<Id>`**, so `if cx.focused().is_none() { cx.focus(sink) }`
+  is writable inside the draw — `Ctx` could ask `is_focused(id)` and had no way to ask whether
+  *anything* held the focus, so the obligation had needed a flag outside the frame. **A runtime that
+  seats the first stop was refused**: it is an opinion about which widget is primary on a runtime with
+  no scene tree, *first* means **draw order**, and it collides with the vanish rule — a closing modal
+  would hand the keyboard to whatever draws first. A `Driver` flag only relocates the argument. The
+  gate is that the two seating forms are **different programs**: both seat correctly on the first
+  frame, so a one-widget program cannot tell them apart, and after the user tabs away
+  `!is_focused(sink)` drags the keyboard back — a `Tab` that appears to do nothing. Register 40 → 41,
+  spec §8 gained the section it never had, and `counter.rs` lost its `focused: bool`.
 - **Writing it found that no loop could be written at all** — runtime architecture issue 23, now
   resolved. §1's frame sequence opens with `wait()`; `Screen::wait` is the app thread's only
   blocking call; `Driver` owned its `Screen` privately and `attach` bound the `WakeHandle` as `_wake`

@@ -57,25 +57,22 @@ use vitui_runtime::keys::{ActionId, Chord, Code, KeyMap};
 use vitui_runtime::work::Wake;
 use vitui_runtime::{Ctx, Interest, Role, Themes};
 
-/// Everything this application knows. Two fields and a flag.
+/// Everything this application knows. Two fields.
+///
+/// **There was a third, and architecture issue 25 removed the need for it.** `Ctx::next_key` answers
+/// only the focused id — *nothing focused, nothing routed*, in its own doctest — and `frame.focused`
+/// starts as `None`, so an application that never calls [`Ctx::focus`] is deaf to the keyboard until
+/// a click awards the focus to something. That is exactly how it was found here: `->` did nothing
+/// until the terminal was clicked.
+///
+/// Seating the focus correctly used to need a `focused: bool` the application kept **outside** the
+/// frame, because `Ctx` could ask `is_focused(id)` and had no way to ask whether *anything* held the
+/// focus — and `if !cx.is_focused(sink) { cx.focus(sink) }` is not the same program: it takes the
+/// keyboard back every frame the user has tabbed away, so `Tab` appears to do nothing. `Ctx::focused`
+/// makes the statement writable inside the draw, and the flag is gone.
 struct App {
     counter: u8,
     exit: bool,
-    /// Whether the keyboard has been given to anybody yet.
-    ///
-    /// **The runtime focuses nothing on its own, and nothing said so.** `Ctx::next_key` answers
-    /// only the focused id — *nothing focused, nothing routed*, in its own doctest — and
-    /// `frame.focused` starts as `None`. So an application that never calls [`Ctx::focus`] is deaf
-    /// to the keyboard until a click awards the focus to something, which is exactly how this was
-    /// found: `->` did nothing until the terminal was clicked.
-    ///
-    /// It is a flag rather than `if !cx.is_focused(sink) { cx.focus(sink) }`, and the difference
-    /// only shows up in an application bigger than this one: the conditional form takes the focus
-    /// **back** every frame the user has tabbed away, so `Tab` would appear to do nothing. *Give
-    /// the keyboard to the widget it should start on* is a statement about the first frame, and a
-    /// statement about a sequence of frames needs a value the application keeps —
-    /// `vitui_components::app::Clears` is the same shape for a different property.
-    focused: bool,
 }
 
 const DEC: ActionId = 1;
@@ -140,11 +137,11 @@ impl App {
         // gives each its own id and each drains its own; here there is one.
         let sink = cx.id();
         let _ = cx.interact(sink, cx.area(), Interest::FOCUS);
-        // **Give it the keyboard on the first frame.** See `App::focused`: without this the
-        // application is deaf until a click awards the focus to something.
-        if !self.focused {
+        // **Give it the keyboard while nobody has it.** Without this the application is deaf until
+        // a click awards the focus to something. `focused().is_none()` and not
+        // `!is_focused(sink)` — see `App`'s documentation for why those differ.
+        if cx.focused().is_none() {
             cx.focus(sink);
-            self.focused = true;
         }
         while let Some(key) = cx.next_key(sink) {
             match cx.action(&key) {
@@ -164,7 +161,6 @@ fn main() {
     let mut app = App {
         counter: 0,
         exit: false,
-        focused: false,
     };
 
     // **`Default::default()` and not `Config { .. }`** — see this file's header. The theme is the

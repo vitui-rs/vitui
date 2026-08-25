@@ -2405,15 +2405,25 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// *it starts working after I click on it*. `crates/vitui-apps/examples/counter.rs` is where
     /// this was found and carries the fix.
     ///
-    /// **Focus on the first frame, from a flag the application keeps** — not
-    /// `if !cx.is_focused(id) { cx.focus(id) }`, which reads as the same thing and is not: the
-    /// conditional form takes the keyboard **back** every frame the user has tabbed away, so `Tab`
-    /// appears to do nothing. *Which widget starts with the keyboard* is a statement about the first
-    /// frame, and a statement about a sequence of frames needs a value outside the frame.
+    /// **Focus on the first frame, guarded by [`Ctx::focused`]:**
     ///
-    /// **Whether the runtime should focus the first stop when nothing holds the focus is not
-    /// decided here** — it is a map question, and this doc is the obligation as it stands rather
-    /// than an argument that it should stand.
+    /// ```ignore
+    /// if cx.focused().is_none() {
+    ///     cx.focus(sink);
+    /// }
+    /// ```
+    ///
+    /// **Not `if !cx.is_focused(id) { cx.focus(id) }`**, which reads as the same thing and is not:
+    /// the conditional form takes the keyboard **back** every frame the user has tabbed away, so
+    /// `Tab` appears to do nothing. *Which widget starts with the keyboard* is a statement about the
+    /// first frame; asking whether **anything** holds the focus is what makes that statement
+    /// writable inside the draw, and until architecture issue 25 it was not askable at all — so this
+    /// obligation used to require a flag the application kept outside the frame.
+    ///
+    /// **The runtime still focuses nothing on its own, and that is now a decision rather than an
+    /// omission** (issue 25). Auto-focusing the first stop would be an opinion about which widget is
+    /// primary, on a runtime with no scene tree and no such opinion, and *first* would mean first in
+    /// draw order.
     pub fn focus(&mut self, id: Id) {
         self.frame.focused = Some(id);
     }
@@ -2421,6 +2431,44 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// Whether `id` holds the focus.
     pub fn is_focused(&self, id: Id) -> bool {
         self.frame.focused == Some(id)
+    }
+
+    /// **Who holds the focus, if anyone** — and the question [`Ctx::focus`]'s obligation needs.
+    ///
+    /// Architecture issue 25. `is_focused(id)` asks about one id and there was **no way to ask
+    /// whether anything at all holds the focus**: `Frame::focused` exists and is reachable only
+    /// through `Driver::inspect()`, which is between frames, where the `Ctx` is gone. So the
+    /// obligation [`Ctx::focus`] documents — *focus something on the first frame* — could be
+    /// satisfied correctly only by a flag the application keeps outside the frame.
+    ///
+    /// With this, it is one line inside the draw and there is no flag:
+    ///
+    /// ```ignore
+    /// if cx.focused().is_none() {
+    ///     cx.focus(sink);
+    /// }
+    /// ```
+    ///
+    /// **Read the difference from `if !cx.is_focused(sink)` carefully, because they look alike and
+    /// one of them is a defect.** The `is_focused` form takes the keyboard *back* every frame the
+    /// user has tabbed away, so `Tab` appears to do nothing. This form fires only while **nobody**
+    /// holds it, which is true on the first frame and false ever after — unless the focus is
+    /// genuinely lost, and then re-seating it is the wanted behaviour rather than a theft.
+    ///
+    /// # What it reads, and when
+    ///
+    /// The focus as of the **start of this frame**, plus any [`Ctx::focus`] call already made during
+    /// it. The focus *moves* in `end` — `Tab`, the traps, the vanish rule — so a widget drawing
+    /// after a move sees the value that was current when its frame began, which is the same value
+    /// `route_to` was taken from and therefore the one that decides who `next_key` answers.
+    ///
+    /// **The runtime still focuses nothing on its own**, and issue 25 refused two candidates that
+    /// would have: a runtime that focuses the first stop is a runtime with an opinion about which
+    /// widget is primary, on a design whose whole shape is that it has no scene tree and no such
+    /// opinion — and *first* would mean first in **draw order**, a layout accident. A `Driver` flag
+    /// only moves the argument, because its default is still the decision.
+    pub fn focused(&self) -> Option<Id> {
+        self.frame.focused
     }
 
     /// What this key fires, resolved **innermost-first from the open scope**.
@@ -5734,6 +5782,89 @@ mod focus_tests {
             left,
             (true, true),
             "validation-on-blur is the case these exist for"
+        );
+    }
+
+    /// **The two seating forms differ, and the wrong one is a `Tab` that appears to do nothing.**
+    ///
+    /// Architecture issue 25's whole point as a gate. `if cx.focused().is_none()` and
+    /// `if !cx.is_focused(sink)` read alike and are not the same program, so both arms are driven
+    /// over the same four frames and the difference is asserted rather than described.
+    ///
+    /// The three facts, in order: nothing holds the focus on the first frame (which is why an
+    /// application that never seats it is deaf); the guarded form seats it once; and after the user
+    /// moves the focus away, the guarded form **leaves it moved** while the `is_focused` form drags
+    /// it back — the frame after which `Tab` has visibly done nothing.
+    #[test]
+    fn the_guarded_seating_form_seats_once_and_the_is_focused_form_steals_it_back() {
+        let sink = Id::named("sink");
+        let other = Id::named("other");
+
+        // The two arms as one function with one boolean between them, which is `crate::frame`'s
+        // arrangement in the components crate and for its reason: a reviewer's diff is one line.
+        fn arm(steal_back: bool) -> (bool, Option<Id>, Option<Id>) {
+            let sink = Id::named("sink");
+            let other = Id::named("other");
+            let mut d = driver();
+
+            let mut nobody_on_the_first_frame = false;
+            let seat = |cx: &mut Ctx<'_, '_>| {
+                cx.interact(sink, cell(0), Interest::FOCUS);
+                cx.interact(other, cell(1), Interest::FOCUS);
+                match steal_back {
+                    true if !cx.is_focused(sink) => cx.focus(sink),
+                    false if cx.focused().is_none() => cx.focus(sink),
+                    _ => {}
+                }
+            };
+
+            d.frame(|cx| {
+                nobody_on_the_first_frame = cx.focused().is_none();
+                seat(cx);
+            });
+            let after_seating = d.inspect().focused();
+
+            // The user moves the focus, the way `Tab` does.
+            d.frame(|cx| {
+                cx.interact(sink, cell(0), Interest::FOCUS);
+                cx.interact(other, cell(1), Interest::FOCUS);
+                cx.focus(other);
+            });
+            // ...and the application draws one more time, running its seating line again.
+            d.frame(seat);
+            (
+                nobody_on_the_first_frame,
+                after_seating,
+                d.inspect().focused(),
+            )
+        }
+
+        let (guarded_empty, guarded_seated, guarded_after) = arm(false);
+        let (stealing_empty, stealing_seated, stealing_after) = arm(true);
+
+        // 1. Nothing holds the focus until an application says so — the finding itself.
+        assert!(guarded_empty, "the first frame starts with nobody focused");
+        assert!(stealing_empty, "and it is the same on both arms");
+
+        // 2. Both forms seat it, which is why the defect is invisible in a one-widget program.
+        assert_eq!(guarded_seated, Some(sink));
+        assert_eq!(stealing_seated, Some(sink));
+
+        // 3. The difference, and it only appears once there is somewhere else to be.
+        assert_eq!(
+            guarded_after,
+            Some(other),
+            "`focused().is_none()` fires only while nobody holds it, so the move stands"
+        );
+        assert_eq!(
+            stealing_after,
+            Some(sink),
+            "`!is_focused(sink)` fires every frame the user has moved away, which is a `Tab` that \
+             appears to do nothing"
+        );
+        assert_ne!(
+            guarded_after, stealing_after,
+            "if these ever agree this gate has stopped separating the two forms"
         );
     }
 
