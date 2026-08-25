@@ -234,8 +234,9 @@ fn main() {
     assert_eq!(count(|s| s.standing.evaluated()), 3);
     assert_eq!(
         count(|s| matches!(s.standing, Standing::Red { .. })),
-        5,
-        "components ticket 11's five, four pinned to components 12 and one to components 20"
+        6,
+        "components ticket 11's five — four pinned to components 12 and one to components 20 — and \
+         ticket 25's overlay family, pinned to components 26"
     );
 }
 
