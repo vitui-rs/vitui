@@ -1495,28 +1495,99 @@ mod tests {
     /// `src/inventory.rs` as the violator. A source scan that its own documentation satisfies is
     /// the mirror image of `register.rs`'s vacuous scan one crate down — that one was always green,
     /// this one was always red, and neither was looking at the code.
+    ///
+    /// # One file is excepted, and the exception is not decided here — components ticket 27
+    ///
+    /// `CONTEXT.md` says both halves of a collision in two adjacent paragraphs: **Repertoire** — *a
+    /// component branches on it* — and **Glyph** — *the sub-cell ladders are the case … a component
+    /// names no repertoire*. [`crate::chart::raster::geom`] is that ladder, and §21's refinement 3
+    /// says what to do: **name the exception; do not loosen the gate.**
+    ///
+    /// The exception is argued in **one** place, `crate::gates`'s own scan, which asserts the exact
+    /// three lines that may spell a repertoire in that file. This one skips the file by name and
+    /// says where the real check is, because *two* gates each keeping their own idea of the
+    /// exception is how the two come to disagree — which is the failure mode the register's near
+    /// miss records. What is not skipped is the half this test shares with it: no private fallback
+    /// module, in that file or in any other.
+    ///
+    /// # It was not recursive, and until this crate had a subdirectory nothing could tell
+    ///
+    /// The walk was one `read_dir` over `src/`, so a component in a subdirectory was never scanned
+    /// at all. `chart/` is **the first subdirectory this crate has ever had** — components ticket 28
+    /// added it — and the defect became reachable and was found in the same commit: the exception
+    /// pointed at `src/series.rs`, which by then named a repertoire only in a doc comment, while
+    /// `src/chart/raster.rs`, which names three, was outside the walk. A gate that agrees with its
+    /// twin about a file neither of them opened is the shape this crate's register already records
+    /// twice.
     #[test]
     fn no_component_source_names_the_repertoire() {
-        let src = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/src"));
-        for entry in std::fs::read_dir(&src).expect("the crate has a src directory") {
-            let path = entry.expect("a readable directory entry").path();
-            if path.extension().and_then(|e| e.to_str()) != Some("rs") {
-                continue;
+        /// Every `.rs` file under `dir`, recursively.
+        fn walk(dir: &std::path::Path, out: &mut Vec<PathBuf>) {
+            let Ok(entries) = std::fs::read_dir(dir) else {
+                return;
+            };
+            for entry in entries {
+                let path = entry.expect("a readable directory entry").path();
+                if path.is_dir() {
+                    walk(&path, out);
+                } else if path.extension().and_then(|e| e.to_str()) == Some("rs") {
+                    out.push(path);
+                }
             }
-            let source = std::fs::read_to_string(&path).expect("a readable source file");
-            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("?");
+        }
+
+        // The one file `crate::gates` excepts, by name. See this test's documentation.
+        const LADDER: &str = "chart/raster.rs";
+        let src = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/src"));
+        let mut files = Vec::new();
+        walk(&src, &mut files);
+        assert!(
+            files.len() > 20,
+            "the walk found only {} files, so whatever it reports is about the walk",
+            files.len()
+        );
+        assert!(
+            files.iter().any(|p| p.parent() != Some(src.as_path())),
+            "the walk reached no subdirectory, and this crate has one. A non-recursive scan of \
+             `src/` reports zero about every module it never opened"
+        );
+
+        let mut excepted = 0usize;
+        for path in &files {
+            let source = std::fs::read_to_string(path).expect("a readable source file");
+            let name = path
+                .strip_prefix(&src)
+                .unwrap_or(path)
+                .to_string_lossy()
+                .replace('\\', "/");
             // **Both needles are assembled rather than written.** A scan for a literal that its
             // own message contains finds itself in every file that carries the gate — which is the
             // vacuous-source-scan failure `register.rs` records one layer down, arriving from the
             // other side.
             let repertoire = format!("{}{}", "Glyph", "Set::");
             let private_table = format!("{} {}", "mod", "missing");
-            assert!(
-                !source.contains(&repertoire),
-                "`src/{name}` names the repertoire type by path. A component names a role and a \
-                 glyph and never a repertoire — the theme owns the table because there was nowhere \
-                 else to put one"
-            );
+            // Code, not prose: a line that is a comment names nothing, which is what separates the
+            // ladder from the four files that only *talk* about it.
+            let names_it = source
+                .lines()
+                .map(str::trim_start)
+                .any(|line| !line.starts_with("//") && line.contains(&repertoire));
+            if name == LADDER {
+                excepted += 1;
+                assert!(
+                    names_it,
+                    "`src/{LADDER}` is excepted from the repertoire count and no longer needs to \
+                     be. Drop the exception here and in `crate::gates`, in that order"
+                );
+            } else {
+                assert!(
+                    !names_it,
+                    "`src/{name}` names the repertoire type by path. A component names a role and \
+                     a glyph and never a repertoire — the theme owns the table because there was \
+                     nowhere else to put one. The one exception is `src/{LADDER}`, and it is \
+                     argued in `crate::gates`"
+                );
+            }
             assert!(
                 !source.contains(&private_table),
                 "`src/{name}` grows a private fallback module, which is the exact shape nine \
@@ -1524,5 +1595,10 @@ mod tests {
                  repertoire"
             );
         }
+        assert_eq!(
+            excepted, 1,
+            "the one named exception was never reached, so this scan agrees with `crate::gates` \
+             about a file neither of them looked at"
+        );
     }
 }

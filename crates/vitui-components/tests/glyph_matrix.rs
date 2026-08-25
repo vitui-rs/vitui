@@ -28,7 +28,7 @@
 //! three rungs to sweep them — a repertoire is declared and never probed (ADR 0010). **Naming the
 //! exception rather than loosening the gate**, which is `crate::gates`'s own refinement 3: the
 //! exception is this file and `examples/glyph_numbers.rs`, neither is a component, and
-//! [`the_axis_is_named_in_two_files_and_neither_is_a_component`] asserts the list so that a third is
+//! [`the_axis_is_named_in_three_files_and_one_of_them_is_a_components`] asserts the list so that a fifth is
 //! a deliberate edit rather than a drift back to twenty-four occurrences.
 
 use vitui_components::glyphs::{
@@ -253,13 +253,27 @@ fn the_signal_column_is_the_product_of_the_two_partitions() {
     assert!(ascii.signals < SIGNAL_PAIRS);
 }
 
-/// **The axis is named in two files and neither of them is a component.**
+/// **The axis is named in three files, and one of them is a component's.**
 ///
-/// The exception, named rather than the gate loosened. `src/` is scanned to zero by two tests in two
-/// other files; this is the other half — the whole crate is walked, and the only files that may
-/// carry the needle are this one and the report beside it.
+/// The exception, named rather than the gate loosened. This is the whole-crate half; `src/` is
+/// scanned by `vitui_components::gates` and by `vitui_components::inventory`, and the register's is
+/// the one that carries the *argument*.
+///
+/// # The fourth file is `src/series.rs`, and it is the one worth reading twice
+///
+/// Two of the four are reports about the ladder — this file and `examples/glyph_numbers.rs` — and
+/// components ticket 27 added a third of that kind, `examples/series_numbers.rs`, which prints the
+/// sub-cell ladder as a table. The fourth is inside the crate's own source, which is exactly what
+/// the count is over, and `CONTEXT.md` states both halves of the collision in two adjacent
+/// paragraphs: **Repertoire** — *a component branches on it rather than the engine substituting
+/// behind its back* — and **Glyph** — *anything failing either rule is not a glyph, it is a branch;
+/// **the sub-cell ladders are the case** … a component names no repertoire.*
+///
+/// So the `src/` half of this test is now *three files must not and one may*, and the one that may
+/// is held by `vitui_components::gates`' scan to the exact three lines that may spell a repertoire
+/// in it. §21's refinement 3: **name the exception; do not loosen the gate.**
 #[test]
-fn the_axis_is_named_in_two_files_and_neither_is_a_component() {
+fn the_axis_is_named_in_three_files_and_one_of_them_is_a_components() {
     use std::path::{Path, PathBuf};
 
     // Assembled, not written: a scan for a literal its own source carries finds itself in every file
@@ -311,18 +325,23 @@ fn the_axis_is_named_in_two_files_and_neither_is_a_component() {
         naming,
         vec![
             "examples/glyph_numbers.rs".to_string(),
+            "src/chart/raster.rs".to_string(),
             "tests/glyph_matrix.rs".to_string(),
         ],
-        "the repertoire is named outside the two files that measure it. A component names a role \
-         and a glyph and never a repertoire — that is the count that replaces the type `Paint` was \
-         able to be (§16)"
+        "the repertoire is named outside the files that measure it and the one branch that is \
+         allowed to. A component names a role and a glyph and never a repertoire — that is the \
+         count that replaces the type `Paint` was able to be (§16) — and the sub-cell ladder is \
+         the stated exception (see this test's documentation)"
     );
-    for named in &naming {
-        assert!(
-            !named.starts_with("src/"),
-            "`{named}` is inside the crate's own source, which is what the count is over"
-        );
-    }
+    // **The one file inside the crate's own source, named.** A second would be a second branch, and
+    // it would need its own argument rather than this one's.
+    let inside: Vec<&String> = naming.iter().filter(|n| n.starts_with("src/")).collect();
+    assert_eq!(
+        inside,
+        vec![&"src/chart/raster.rs".to_string()],
+        "a second component source names a repertoire. The exception is `src/chart/raster.rs` and \
+         it is argued in `vitui_components::gates`"
+    );
 
     // And the other direction, through the same predicate: a scan that has quietly stopped scanning
     // reports an empty list as loudly as a clean crate does.

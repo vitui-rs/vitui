@@ -61,7 +61,7 @@ pub struct App {
 /// and the reason is that there is nothing to port: what it demonstrates is *one component and one
 /// `Mode`*, and no other library's tutorial has an equivalent because no other library makes the
 /// claim.
-pub const APPS: [App; 2] = [
+pub const APPS: [App; 3] = [
     App {
         name: "counter",
         what: "A bordered panel, a centred value, and Left/Right/q. The smallest program anybody \
@@ -92,6 +92,26 @@ pub const APPS: [App; 2] = [
             "layout::Row",
             "layout::Col",
             "ctx::Ctx::focused",
+            "ctx::Driver::wait",
+        ],
+        after: None,
+    },
+    App {
+        name: "latency",
+        what: "A live p50/p99 latency monitor with an SLO rule and a throughput chart. The volume, \
+               the repertoire, the colour depth and the threshold's second axis are all under a \
+               key, because each of them is a claim you have to watch to believe",
+        uses: &[
+            "chart::plot_with",
+            "chart::chart_with",
+            "chart::Series::push",
+            "chart::raster::PlotState",
+            "chart::raster::RUNGS",
+            "structure::panel_with",
+            "text::text_with",
+            "layout::rect::split_at_h",
+            "ctx::Ctx::deadline",
+            "ctx::Driver::set_theme",
             "ctx::Driver::wait",
         ],
         after: None,

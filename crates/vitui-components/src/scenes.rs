@@ -36,7 +36,7 @@
 //! ([`Scene::owed`] and [`Scene::from_a_survived_defect`]), because the value can hold both and a
 //! count cannot.
 //!
-//! # Eleven scenes are `Unsubjected`, eighteen are `Red` and three are `Evaluated`
+//! # Eight scenes are `Unsubjected`, fifteen are `Red` and nine are `Evaluated`
 //!
 //! [`crate::gates::Standing::Unsubjected`] means *it could run and there is nothing to run it over*.
 //! Twenty-four of the twenty-nine components do not exist, so most of these screens cannot be stood
@@ -511,6 +511,34 @@ const WAITING_FOR_FIELD: &[Instrument] = &[
     },
 ];
 
+/// The series screen's own file, which is where components ticket 27's two scenes are played.
+const SERIES: &str = "crates/vitui-components/src/series.rs";
+
+/// **What the series screen is a screen of, and both are declared.**
+///
+/// [`crate::series::SUBJECTS`], reached through this alias for [`SUBJECTS`]'s reason: the two rows
+/// below claim `chart` and `plot` stand on their screen, and whether they do is computed by opening
+/// the file the freeze homes both in.
+const CHART_AND_PLOT: &[&str] = &crate::series::SUBJECTS;
+
+/// **The pair both of components ticket 27's scenes rest on**, written once because it is one fact:
+/// `chart` and `plot` are declared where the freeze homes them, and the sentence for the day one of
+/// them is not is still watched being produced.
+///
+/// It was `STANDS_ON_CHART_AND_PLOT` for exactly one ticket and components 28 inverted it.
+/// [`STANDS_ON_ITS_COMPONENTS`] one ticket family over, and for the same reason: the *pair* is what
+/// makes a standing rest on the subjects being declared rather than on the screen being drawn.
+const STANDS_ON_CHART_AND_PLOT: &[Instrument] = &[
+    Instrument::Unit {
+        file: SERIES,
+        name: "the_series_screen_stands_on_its_two_declared_components",
+    },
+    Instrument::Unit {
+        file: SERIES,
+        name: "the_waiting_message_separates_unimplemented_from_wrong",
+    },
+];
+
 /// The failing set all three of components ticket 23's scenes are pinned in.
 const OWED_ITS_FIELD: &str = "`field` is not declared in `crates/vitui-components/src/input.rs`, \
                               so the three screens stand on a caret and a wrap index written in \
@@ -596,6 +624,55 @@ const PINS_SCENE_32: &[Instrument] = &[
     },
     WAITING_FOR_FIELD[0],
     WAITING_FOR_FIELD[1],
+];
+
+/// What stands scene 15 up: the screen's own measurements, plus the pair that says the subjects
+/// are declared. See [`STANDS_SCENE_1`].
+const STANDS_SCENE_15: &[Instrument] = &[
+    Instrument::Unit {
+        file: SERIES,
+        name: "the_frame_costs_the_rectangle_and_the_verbs_track_the_picture",
+    },
+    Instrument::Unit {
+        file: SERIES,
+        name: "a_sixty_by_twenty_raster_is_two_thousand_four_hundred_bytes_at_every_volume",
+    },
+    Instrument::Unit {
+        file: SERIES,
+        name: "the_legend_that_does_not_narrow_is_green_at_three_hundred_and_red_at_sixty",
+    },
+    Instrument::Unit {
+        file: SERIES,
+        name: "culling_to_the_visible_index_window_loses_the_series_and_writes_the_same",
+    },
+    Instrument::Unit {
+        file: SERIES,
+        name: "a_sampled_axis_range_is_wrong_and_buys_nothing",
+    },
+    Instrument::Unit {
+        file: SERIES,
+        name: "striding_loses_the_peaks_and_the_union_does_not",
+    },
+    Instrument::Unit {
+        file: SERIES,
+        name: "the_third_rung_is_the_plots_and_not_the_charts",
+    },
+    STANDS_ON_CHART_AND_PLOT[0],
+    STANDS_ON_CHART_AND_PLOT[1],
+];
+
+/// What stands scene 16 up. See [`STANDS_SCENE_15`].
+const STANDS_SCENE_16: &[Instrument] = &[
+    Instrument::Unit {
+        file: SERIES,
+        name: "the_axis_loop_oscillates_on_four_hundred_and_sixty_four_and_the_whole_domain_on_none",
+    },
+    Instrument::Unit {
+        file: SERIES,
+        name: "a_narrower_plotting_area_can_produce_a_wider_label",
+    },
+    STANDS_ON_CHART_AND_PLOT[0],
+    STANDS_ON_CHART_AND_PLOT[1],
 ];
 
 /// **The pair every one of components ticket 11's five scenes is pinned by**, written once because
@@ -1488,11 +1565,11 @@ pub const SCENES: [Scene; 32] = [
         ],
         decided: "the raster memo, 1 849 000x; and 60x20, where C08's overlap is red",
         covers: &[("chart", Axis::Narrow), ("plot", Axis::Narrow)],
-        stands: &[],
+        stands: CHART_AND_PLOT,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Unsubjected {
-            inverted_by: "components 27",
+        standing: Standing::Evaluated {
+            by: STANDS_SCENE_15,
         },
         rehearsed_by: &[Instrument::Unit {
             file: RUNNER,
@@ -1508,11 +1585,11 @@ pub const SCENES: [Scene; 32] = [
         gestures: &[Gesture::Sweep { pairs: 175_712 }],
         decided: "the axis loop oscillates on 464; from the whole domain, 0",
         covers: &[],
-        stands: &[],
+        stands: CHART_AND_PLOT,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Unsubjected {
-            inverted_by: "components 27",
+        standing: Standing::Evaluated {
+            by: STANDS_SCENE_16,
         },
         rehearsed_by: &[],
     },
@@ -2256,7 +2333,7 @@ mod tests {
         }
     }
 
-    /// **Ten scenes have nothing to run over, fifteen are pinned red and seven are stood up.**
+    /// **Eight scenes have nothing to run over, fifteen are pinned red and nine are stood up.**
     ///
     /// `obligations.rs`'s arrangement and `gates.rs`'s: a count makes every change of colour a
     /// deliberate edit here rather than a quiet one. It was **twenty-five, none and three** until
@@ -2273,7 +2350,7 @@ mod tests {
     /// ticket 20* — and a single `inverted_by` across the five would have made that ticket turn
     /// all five.
     #[test]
-    fn ten_scenes_have_nothing_to_run_over_fifteen_are_red_and_seven_are_stood_up() {
+    fn eight_scenes_have_nothing_to_run_over_fifteen_are_red_and_nine_are_stood_up() {
         let red: Vec<u8> = SCENES
             .iter()
             .filter(|s| matches!(s.standing, Standing::Red { .. }))
@@ -2283,8 +2360,9 @@ mod tests {
             red,
             vec![6, 7, 8, 9, 10, 11, 12, 13, 14, 17, 18, 19, 30, 31, 32],
             "the wheel gate, and then components ticket 14's two, 16's two, 18's four, 21's \
-             two, 23's three and 25's overlay family. A sixteenth is a new one, and it owes an \
-             exact failing set and a ticket that inverts it"
+             two, 23's three and 25's overlay family. Components ticket 27's two were here for \
+             one ticket and components 28 inverted them. A sixteenth is a new one, and it owes \
+             an exact failing set and a ticket that inverts it"
         );
         let evaluated: Vec<u8> = SCENES
             .iter()
@@ -2293,13 +2371,13 @@ mod tests {
             .collect();
         assert_eq!(
             evaluated,
-            vec![1, 2, 3, 4, 5, 28, 29],
-            "the dense screen and its two twins, and the collection's four — the three volumes, \
-             the inverted sign, the stale tail and the narrow row. A screen played over a stand-in \
-             for its components is rehearsed and not stood up, so an eighth arriving here is a \
+            vec![1, 2, 3, 4, 5, 15, 16, 28, 29],
+            "the dense screen and its two twins, the collection's four, and the two \
+             million-point series with the 175 712 axis pairs. A screen played over a stand-in \
+             for its components is rehearsed and not stood up, so a tenth arriving here is a \
              deliberate edit to this module's header and to `crate::gates::REGISTER`"
         );
-        assert_eq!(SCENES.len() - evaluated.len() - red.len(), 10);
+        assert_eq!(SCENES.len() - evaluated.len() - red.len(), 8);
 
         let mut pinned_to = Vec::new();
         for scene in SCENES {
@@ -2645,7 +2723,7 @@ mod tests {
     fn a_rehearsal_is_never_what_stands_a_scene_up() {
         // The files where a screen or one of its components is measured. `crate::runner`'s is not
         // one of them, and that is the whole check.
-        const SCREEN_FILES: [&str; 14] = [
+        const SCREEN_FILES: [&str; 15] = [
             DENSE,
             LISTING,
             AREA,
@@ -2655,6 +2733,7 @@ mod tests {
             DOCUMENT,
             CLUSTERS,
             POPUP,
+            SERIES,
             "crates/vitui-components/src/text.rs",
             "crates/vitui-components/src/input.rs",
             "crates/vitui-components/src/structure.rs",
@@ -2766,12 +2845,12 @@ mod tests {
             SCENES.len() + 1,
             "one line a scene, plus the heading"
         );
-        assert_eq!(printed.matches("not played: `components ").count(), 10);
+        assert_eq!(printed.matches("not played: `components ").count(), 8);
         assert_eq!(
             printed
                 .matches("stood up on its own components, by ")
                 .count(),
-            7,
+            9,
             "a stood-up scene says what stands it up, rather than reading as unplayed"
         );
         assert_eq!(

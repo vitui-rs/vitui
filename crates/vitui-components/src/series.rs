@@ -1,0 +1,1448 @@
+//! **The series screen: two million-point series, at 300x80 and at 60x20, and 175 712 axis pairs.**
+//!
+//! Components ticket 27. Spec §13, §21. This is the screen `chart`'s and `plot`'s scenes are scenes
+//! *of*, and it is the third of these after [`crate::dense`] and [`crate::listing`].
+//!
+//! | scene | what it decides |
+//! |---|---|
+//! | two million-point series at 1k / 100k / 1M, at 300x80 and 60x20 | the raster memo; and 60x20, where the overlap is red |
+//! | 175 712 axis viewport x dataset pairs | the axis loop oscillates on **464**; from the whole domain, **0** |
+//!
+//! # A plot cannot satisfy the data-volume invariant the way a collection does
+//!
+//! [`crate::listing`] satisfies *frame cost is proportional to visible cells* by **never folding**:
+//! the window says which rows can be reached and the rest are never touched. A plot must fold,
+//! because which of a million points land in the rectangle is not knowable without looking at them.
+//! So §13 splits the cost in two instead:
+//!
+//! > **The frame costs the rectangle. The edit costs the data. There is no third option, and the
+//! > memo is the only thing standing between them.**
+//!
+//! What is folded is the **raster** — one sub-cell bitmask per cell, `w x h` bytes — because that is
+//! the smallest object whose *size* is the rectangle and whose *contents* are the data.
+//!
+//! # 60x20 is the hostile axis, and it is why the scene runs at two sizes
+//!
+//! The overlap defect is green at 300x80 and red at 60x20. It is one of the four axes established by
+//! a defect that passed every gate then in force, and the instrument is [`crate::runner`]'s two-size
+//! comparison — the same one [`crate::dense`] uses for the label that does not narrow.
+//!
+//! # Three false greens, each faster and each wrong on the surface
+//!
+//! [`Reach::CulledByIndex`] is what a virtualised collection does and it is **correct there**: an
+//! index window is a window on rows. Here an index is not an x coordinate, so it draws less, faster,
+//! and loses the series. [`Range::Sampled`] is an axis range from a stride sample, which optimises a
+//! cost the memo had already removed. [`Reach::Strided`] is every *n*-th point instead of the union,
+//! and the union is what makes a column's extrema survive by construction.
+//!
+//! Each is a field on [`Opts`], so a comparison is **the same screen with one thing changed** — the
+//! arrangement [`crate::dense`] and [`crate::listing`] both use, and its reason: a second painter
+//! written against the alternative would be a gate testing a copy.
+//!
+//! # Verbs are not flat and are not gated as flat
+//!
+//! §21's register carries `verbs <= writes` for this component and says *never verb equality across
+//! sizes* in as many words. A run ends where a cell's owner changes, so a plot's verb count tracks
+//! the **picture** and is not monotone in *n*. [`Shape`] carries both, and the gate is the relation
+//! while the counts are a report.
+//!
+//! # One file in this crate names a glyph repertoire, and it is not this one
+//!
+//! [`crate::gates::REGISTER`]'s row 26 is *`GlyphSet::` in `vitui-components` == 0*. `CONTEXT.md`
+//! states both halves of a collision in two adjacent paragraphs: **Repertoire** — *a component
+//! branches on it rather than the engine substituting behind its back* — and **Glyph** — *the
+//! sub-cell ladders are the case … a component names no repertoire*. The sub-cell ladder is named in
+//! the second sentence as the thing that *is* a branch, and a branch on the repertoire is a
+//! component naming the repertoire.
+//!
+//! Settled the way §21's own refinement 3 settles this shape — **name the exception, do not loosen
+//! the gate** — and the exception is [`crate::chart::raster::geom`], which the register's scan holds
+//! to the exact lines that may spell one.
+//!
+//! # What this screen re-exports, and why
+//!
+//! Every name below that belongs to the components rather than to the screen is `pub use`d from
+//! [`crate::chart`], for the reason `crate::lib`'s own root re-exports exist: `chart::raster::` in
+//! front of each is noise at the one place they are read, which is a report about this screen. The
+//! modules stay public — a reader looking for *why the ladder is a branch* should land on
+//! [`crate::chart::raster`]'s documentation.
+//!
+//! # The screen stands on its subjects
+//!
+//! [`standing`] is a [`Verdict`] over two subjects, and [`owed_message`] is the sentence that
+//! separated *waiting for its subject* from *the code is wrong* while it had none — ticket 09's
+//! criterion 7, inherited whole and kept live so the hostile case is one call away.
+
+use std::fmt::Write as _;
+use std::time::{Duration, Instant};
+
+use vitui_runtime::ctx::Driver;
+use vitui_runtime::layout::rect;
+use vitui_runtime::theme::CATPPUCCIN_MOCHA;
+use vitui_runtime::{ColorDepth, Ctx, Density, Glyph, GlyphSet, Rect, Role, Theme};
+
+use crate::counters::Tally;
+use crate::frame::{BlockOpts, block_into};
+use crate::ink::{Direct, Ink};
+use crate::obligations::Verdict;
+use crate::runner::{Canvas, Diff, Pen};
+use crate::text::{FitOpts, fit_into};
+
+pub use crate::chart::axes::{
+    AXIS_DATASETS, AXIS_H, AXIS_PAIRS, AXIS_POINTS, AXIS_W, AxisTally, Live, Outcome, PPC, Sizing,
+    axis_sweep, dataset, decimals, gutter, label_width, nice_step, settle, tick_count, tick_value,
+};
+pub use crate::chart::raster::{
+    Domain, Geom, Kind, OWNER_THRESHOLD, PlotState, RUNGS, Range, Raster, Reach, SHARED, cluster,
+    domain_of, geom,
+};
+pub use crate::chart::{Opts, SERIES_RGB, Series, series_paint};
+// ── the screen ───────────────────────────────────────────────────────────────────────────────────
+
+/// The wide screen's width. §21's own 300x80.
+pub const W: u16 = 300;
+/// The wide screen's height.
+pub const H: u16 = 80;
+/// **The narrow screen's width. Sixty**, and it is the hostile half of the two-size scene.
+pub const NARROW_W: u16 = 60;
+/// The narrow screen's height. Twenty.
+pub const NARROW_H: u16 = 20;
+
+/// How many series the screen stands up. **Two**, which is §21's own content and the number that
+/// makes a shared cell possible at all — one series never shares a cell with itself.
+pub const SERIES: usize = 2;
+
+/// The three data volumes §21's scene 15 states.
+pub const VOLUMES: [usize; 3] = [1_000, 100_000, 1_000_000];
+
+/// **Interactive regions the screen declares. Two** — one for the plot and one for the chart.
+///
+/// The three panes' chrome declares none: it goes through [`block_into`], which draws a frame and
+/// returns the interior and registers nothing. `crate::structure::panel_into` would declare a third
+/// each, and a panel that is not the subject of a click is a region nothing reads.
+pub const REGIONS: usize = 2;
+
+/// **The whole screen as one value**, so a comparison is one word at the call site.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct Build {
+    /// The repertoire the theme is told about.
+    pub glyphs: GlyphSet,
+    /// The colour depth the theme is resolved for.
+    pub depth: ColorDepth,
+    /// The plot pane.
+    pub plot: Opts,
+    /// The chart pane.
+    pub chart: Opts,
+    /// **Whether the legend's label narrows through [`fit_into`].**
+    ///
+    /// The two-size axis as one field: `true` is the correct build and `false` is
+    /// [`defective::legend_that_does_not_narrow`]. The two are **indistinguishable at 300x80**,
+    /// which is the whole reason the scene is played at two sizes.
+    pub narrowing_legend: bool,
+}
+
+impl Build {
+    /// The correct screen: braille, truecolor, both panes as §13 states them.
+    pub fn correct() -> Build {
+        Build {
+            glyphs: RUNGS[2],
+            depth: ColorDepth::TrueColor,
+            plot: Opts::plot(),
+            chart: Opts::chart(),
+            narrowing_legend: true,
+        }
+    }
+
+    /// The same screen with one thing changed in **both** panes.
+    pub fn both(mut self, f: impl Fn(&mut Opts)) -> Build {
+        f(&mut self.plot);
+        f(&mut self.chart);
+        self
+    }
+
+    /// The same screen at another repertoire.
+    pub fn at(mut self, glyphs: GlyphSet) -> Build {
+        self.glyphs = glyphs;
+        self
+    }
+
+    /// The same screen at another colour depth.
+    pub fn tier(mut self, depth: ColorDepth) -> Build {
+        self.depth = depth;
+        self
+    }
+
+    /// The theme this build asks for.
+    pub fn theme(self) -> Theme {
+        Theme::authored(&CATPPUCCIN_MOCHA, self.glyphs, Density::default()).resolve(self.depth)
+    }
+}
+
+/// **The screen's state: one [`PlotState`] a pane.**
+#[derive(Debug, Default)]
+pub struct ScreenState {
+    /// The plot pane's.
+    pub plot: PlotState,
+    /// The chart pane's.
+    pub chart: PlotState,
+    /// **The legend's row buffer, allocated once.**
+    ///
+    /// It is a field rather than a local of [`legend_into`] because a `String::with_capacity` on the
+    /// draw path is **one allocation a frame, for ever** — measured at 8 over 8 frames against a
+    /// budget of zero, by `examples/series_numbers.rs`'s total. The same shape as
+    /// `player::chrome`'s `Vec<f32>`, which the components backlog records as already fixed and
+    /// asks nobody to re-fix.
+    pub legend: String,
+}
+
+impl ScreenState {
+    /// Two panes that have drawn nothing.
+    pub fn new() -> ScreenState {
+        ScreenState::default()
+    }
+}
+
+/// **The legend, and it is a partition of every row it draws.**
+///
+/// The label goes through [`fit_into`], which is where truncation is decided and where §16's
+/// one-cell ellipsis holds. [`defective::legend_that_does_not_narrow`] is the same function with the
+/// label written whole and the clip left to decide where it stops — **green at 300x80 and red at
+/// 60x20**, which is the two-size axis this screen is played at two sizes for.
+pub fn legend_into<I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    n: usize,
+    o: &Opts,
+    buf: &mut String,
+) {
+    legend_drawn(ink, cx, area, n, o, buf, true);
+}
+
+/// [`legend_into`] and [`defective::legend_that_does_not_narrow`], **one function with one boolean
+/// between them**, so a reviewer's diff is one line.
+///
+/// [`crate::structure::defective::panel_over_title`]'s arrangement and its reason.
+#[allow(clippy::too_many_arguments)]
+fn legend_drawn<I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    n: usize,
+    o: &Opts,
+    buf: &mut String,
+    narrows: bool,
+) {
+    if area.w < 3 || area.h == 0 {
+        return;
+    }
+    let dim = cx.theme().paint(Role::Dim);
+    let bullet = cx.theme().glyph(Glyph::Bullet);
+    let mut paints = [dim; SERIES_RGB.len()];
+    for (i, p) in paints.iter_mut().enumerate() {
+        *p = series_paint(cx.theme(), i, o.role_series);
+    }
+    let opts = FitOpts {
+        role: Role::Dim,
+        pad: Role::Dim,
+        ..Default::default()
+    };
+    for i in 0..usize::from(area.h).min(n) {
+        let y = area.y + i as i32;
+        let _ = ink.run(cx, area.x, y, bullet, 1, paints[i % paints.len()]);
+        let _ = ink.run(cx, area.x + 1, y, " ", 1, dim);
+        buf.clear();
+        let _ = write!(buf, "series {i}");
+        let row = Rect::new(area.x + 2, y, area.w - 2, 1);
+        if narrows {
+            let _ = fit_into(ink, cx, row, buf, &opts);
+        } else {
+            // **The label written whole, with the clip left to decide where it stops.** At 300x80
+            // it fits and this is the correct build; at 60x20 the legend's interior is two columns
+            // and the engine's clip is the *pane's* and not the interior's, so the tail lands on
+            // the panel's own right border — one cell written twice, per row, for ever.
+            let w = ink.text(cx, row.x, y, buf, dim);
+            if w < row.w {
+                let _ = ink.run(cx, row.x + i32::from(w), y, " ", row.w - w, dim);
+            }
+        }
+    }
+}
+
+/// **The spellings ADR 0026 prices, kept because a gate nobody has watched fail is not a gate.**
+pub mod defective {
+    use super::{Ctx, Ink, Opts, Rect, legend_drawn};
+
+    /// **A legend whose label is written whole and clipped**, which is
+    /// [`crate::listing::does_not_narrow`] arriving on a screen whose narrow size is 60x20.
+    ///
+    /// Identical to [`super::legend_into`] at 300x80, where nothing truncates.
+    pub fn legend_that_does_not_narrow<I: Ink>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Rect,
+        n: usize,
+        o: &Opts,
+        buf: &mut String,
+    ) {
+        legend_drawn(ink, cx, area, n, o, buf, false);
+    }
+}
+
+// ── the screen ───────────────────────────────────────────────────────────────────────────────────
+
+/// The three panes' rectangles, cut from `a` the way the screen cuts them.
+///
+/// **Cut from the context's own rectangle and not from constants**, which is what makes a resize
+/// experiment a resize: a screen written against `W` and `H` hands the panes the same rectangle they
+/// had before, and a memo-key experiment over it reports a clean bill for a key with no rectangle in
+/// it.
+pub fn panes(a: Rect) -> (Rect, Rect, Rect) {
+    let (wide, rest) = rect::split_at_h(a, a.w * 3 / 5);
+    let (mid, right) = rect::split_at_h(rest, rest.w * 3 / 4);
+    (wide, mid, right)
+}
+
+/// The block a pane's chrome is drawn as. **`padded: false`**, so the interior is the rectangle
+/// minus the border and the write counts are arithmetic a reader can do.
+fn chrome(title: &str) -> BlockOpts<'_> {
+    BlockOpts {
+        title,
+        bordered: true,
+        padded: false,
+        ..Default::default()
+    }
+}
+
+/// **One frame of the whole screen.**
+///
+/// Three panes: a `plot` of two series, a `chart` of bars over the same data, and a legend. The two
+/// components declare one region each and the chrome declares none, so the screen is [`REGIONS`].
+pub fn screen_into<I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    build: &Build,
+    data: &Series,
+    st: &mut ScreenState,
+) {
+    let (wide, mid, right) = panes(cx.area());
+    let interior = block_into(ink, cx, wide, &chrome("plot"));
+    if !interior.is_empty() {
+        let _ = crate::chart::plot_into(ink, cx, interior, data, &mut st.plot, &build.plot);
+    }
+    let interior = block_into(ink, cx, mid, &chrome("chart"));
+    if !interior.is_empty() {
+        let _ = crate::chart::chart_into(ink, cx, interior, data, &mut st.chart, &build.chart);
+    }
+    let interior = block_into(ink, cx, right, &chrome("legend"));
+    if !interior.is_empty() {
+        if build.narrowing_legend {
+            legend_into(ink, cx, interior, SERIES, &build.plot, &mut st.legend);
+        } else {
+            defective::legend_that_does_not_narrow(
+                ink,
+                cx,
+                interior,
+                SERIES,
+                &build.plot,
+                &mut st.legend,
+            );
+        }
+    }
+}
+
+// ── the instruments ──────────────────────────────────────────────────────────────────────────────
+
+/// **What one frame of the screen turned out to be**, returned rather than printed.
+///
+/// A number only a report prints is a number no gate can read — [`crate::dense::Shape`]'s rule.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct Shape {
+    /// Columns the engine reported written.
+    pub writes: u64,
+    /// Distinct cells touched. Equal to [`Shape::writes`] iff the screen is a partition.
+    pub distinct: u64,
+    /// **Drawing calls made. Reported and never gated as flat** — see this module's header.
+    pub verbs: u64,
+    /// Entries in the runtime's hit index.
+    pub regions: usize,
+    /// Entries in the focus ring.
+    pub stops: usize,
+    /// **Bytes the two rasters hold.** The size that is the rectangle at every data volume.
+    pub raster_bytes: usize,
+    /// **Points the last raster build looked at.** The edit's cost, as a count.
+    pub touched: u64,
+    /// How many times the rasters were rebuilt during the measured frames. Zero in a steady frame.
+    pub misses: u32,
+    /// How many times the ranges were refolded during the measured frames.
+    pub range_misses: u32,
+}
+
+/// A headless driver carrying `build`'s theme.
+fn driver_for(build: Build, w: u16, h: u16) -> Driver {
+    let mut driver = Driver::headless(w, h).expect("a sink cannot fail to attach");
+    driver.set_theme(build.theme());
+    driver
+}
+
+/// **A screen that has already drawn its first frame**, so that everything asked of it afterwards
+/// is a *steady* frame.
+///
+/// It exists because the allocation column cannot be filled from inside the library: `vitui-alloc-\
+/// probe` is a dev-dependency and a library cannot install a global allocator on a consumer's
+/// behalf, so the caller wraps [`Session::frame`] in its own counter. That is
+/// [`crate::runner::Run::counters`]'s arrangement, and its reason: *a figure defaulted to zero is a
+/// counter that prints `0` when it means nobody counted.*
+pub struct Session {
+    driver: Driver,
+    data: Series,
+    build: Build,
+    state: ScreenState,
+}
+
+impl Session {
+    /// Attach a sink, build the data, and draw the warm-up frames.
+    ///
+    /// **A cold frame is not a frame**: the five frame structures take their allocation on the first
+    /// frame that needs one and keep it, and the pane caches take their rasters there.
+    ///
+    /// # Two frames and not one, and the second one is a measurement
+    ///
+    /// One warm-up leaves **exactly one allocation** on the next frame and none on any frame after
+    /// it — measured `[1, 0, 0, 0, 0, 0, 0, 0, 0, 0]` at both sizes, which is a structure doubling
+    /// once rather than a per-frame cost. [`crate::listing::volume_over`] warms with one because one
+    /// is enough there; here it is not, and the number is written down rather than absorbed into a
+    /// loop count somebody would later shorten.
+    pub fn open(build: Build, size: (u16, u16), points: usize) -> Session {
+        let mut session = Session {
+            driver: driver_for(build, size.0, size.1),
+            data: Series::build(points, SERIES),
+            build,
+            state: ScreenState::new(),
+        };
+        session.frame();
+        session.frame();
+        session
+    }
+
+    /// **One steady frame, through [`Direct`]** — the path a component takes.
+    pub fn frame(&mut self) {
+        let Session {
+            driver,
+            data,
+            build,
+            state,
+        } = self;
+        driver.frame(|cx| screen_into(&mut Direct, cx, build, data, state));
+    }
+
+    /// **One steady frame, through a [`Tally`]**, and what it turned out to be.
+    ///
+    /// Separate from [`Session::frame`] because a `Tally` keeps a set of every cell it sees, so a
+    /// *timing* taken with one in the loop is a report about the instrument.
+    pub fn tallied(&mut self) -> Shape {
+        let before = (self.state.plot.misses(), self.state.chart.misses());
+        let before_range = (
+            self.state.plot.range_misses(),
+            self.state.chart.range_misses(),
+        );
+        let Session {
+            driver,
+            data,
+            build,
+            state,
+        } = self;
+        let mut tally = Tally::new();
+        driver.frame(|cx| screen_into(&mut tally, cx, build, data, state));
+        let frame = driver.inspect();
+        Shape {
+            writes: tally.writes(),
+            distinct: tally.distinct(),
+            verbs: tally.verbs(),
+            regions: frame.hits().len(),
+            stops: frame.stop_count(),
+            raster_bytes: state.plot.raster().bytes() + state.chart.raster().bytes(),
+            touched: state.plot.raster().touched() + state.chart.raster().touched(),
+            misses: (state.plot.misses() - before.0) + (state.chart.misses() - before.1),
+            range_misses: (state.plot.range_misses() - before_range.0)
+                + (state.chart.range_misses() - before_range.1),
+        }
+    }
+
+    /// The two panes' state, for a caller that wants the rasters themselves.
+    pub fn state(&self) -> &ScreenState {
+        &self.state
+    }
+}
+
+/// **The screen at one size and one data volume, as a shape.**
+pub fn shape(build: Build, size: (u16, u16), points: usize) -> Shape {
+    Session::open(build, size, points).tallied()
+}
+
+/// **The screen at every one of [`VOLUMES`]**, which is what the equality is asserted over.
+pub fn across_volumes(build: Build, size: (u16, u16)) -> Vec<(usize, Shape)> {
+    VOLUMES
+        .into_iter()
+        .map(|n| (n, shape(build, size, n)))
+        .collect()
+}
+
+/// **The screen as a recorded surface.** The instrument every one of the false greens is caught by.
+pub fn render(build: Build, size: (u16, u16), points: usize) -> Canvas {
+    let data = Series::build(points, SERIES);
+    let mut driver = driver_for(build, size.0, size.1);
+    let mut state = ScreenState::new();
+    let mut pen = Pen::new(size.0, size.1);
+    for _ in 0..2 {
+        driver.frame(|cx| screen_into(&mut pen, cx, &build, &data, &mut state));
+    }
+    pen.into_canvas()
+}
+
+/// **What the frame costs a component**, drawn through [`Direct`] rather than through a [`Pen`].
+///
+/// A report and never a gate. Separate from [`shape`] for [`crate::listing::volume_cost`]'s reason:
+/// a `Tally` keeps a set of every cell it sees, so a figure taken with one in the loop is a report
+/// about the instrument.
+///
+/// # Panics
+///
+/// Panics on zero frames.
+pub fn cost(build: Build, size: (u16, u16), points: usize, frames: u32) -> Duration {
+    assert!(frames > 0, "a per-frame figure needs a frame");
+    let mut session = Session::open(build, size, points);
+    let mut best = Duration::MAX;
+    for _ in 0..frames {
+        let started = Instant::now();
+        session.frame();
+        best = best.min(started.elapsed());
+    }
+    best
+}
+
+/// **[`Raster::build`] timed on its own, with the points it looked at.**
+///
+/// This is the cost the invariant *permits* to be proportional to the data, and it is the only such
+/// cost in the component. Minimum of three, which is `vitui-bench`'s own rule.
+pub fn edit_cost(
+    points: usize,
+    w: u16,
+    h: u16,
+    kind: Kind,
+    set: GlyphSet,
+    reach: Reach,
+) -> (Duration, u64) {
+    let data = Series::build(points, SERIES);
+    let g = geom(kind, set);
+    let dom = domain_of(data.points(), Range::Whole).padded();
+    let mut raster = Raster::empty();
+    let cull = (0usize, usize::from(h).min(data.len()));
+    raster.build(w, h, kind, g, dom, data.points(), reach, cull);
+    let mut best = Duration::MAX;
+    for _ in 0..3 {
+        let started = Instant::now();
+        raster.build(w, h, kind, g, dom, data.points(), reach, cull);
+        best = best.min(started.elapsed());
+    }
+    (best, raster.touched())
+}
+
+/// **The same call on a cache hit**, averaged over `n`. The other half of the ratio.
+///
+/// # Panics
+///
+/// Panics on zero iterations.
+pub fn hit_cost(points: usize, w: u16, h: u16, kind: Kind, set: GlyphSet, n: u32) -> Duration {
+    assert!(n > 0, "a per-call figure needs a call");
+    let data = Series::build(points, SERIES);
+    let g = geom(kind, set);
+    let dom = domain_of(data.points(), Range::Whole).padded();
+    let mut st = PlotState::new();
+    let cull = (0usize, usize::from(h).min(data.len()));
+    let rev = data.revision();
+    st.refresh(rev, w, h, kind, g, dom, data.points(), Reach::Mapped, cull);
+    let started = Instant::now();
+    for _ in 0..n {
+        st.refresh(
+            std::hint::black_box(rev),
+            std::hint::black_box(w),
+            h,
+            kind,
+            g,
+            dom,
+            data.points(),
+            Reach::Mapped,
+            cull,
+        );
+    }
+    started.elapsed() / n
+}
+
+/// **Three numbers about two surfaces, because a lost series and a lost colour are separable.**
+///
+/// The middle number alone hides which.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct Split {
+    /// Cells whose cluster differs.
+    pub cluster: usize,
+    /// Cells whose cluster **or** paint differs.
+    pub any: usize,
+    /// Cells the second surface left blank where the first had something.
+    pub blanked: usize,
+    /// Rows carrying at least one differing cluster.
+    pub rows: usize,
+    /// The first differing cluster in reading order.
+    pub first: Option<(u16, u16)>,
+}
+
+impl Split {
+    /// **Cells that differ by style and not by cluster.** The signature of a colour-only distinction
+    /// dying.
+    pub fn style_only(self) -> usize {
+        self.any - self.cluster
+    }
+
+    /// Whether the two surfaces agree everywhere in the rectangle.
+    pub fn clean(self) -> bool {
+        self.any == 0
+    }
+
+    /// The cluster half as a [`Diff`], which is the form every defect on this map is legible in.
+    pub fn as_diff(self, over: (u16, u16)) -> Diff {
+        Diff {
+            cells: self.cluster,
+            rows: self.rows,
+            first: self.first,
+            over,
+        }
+    }
+}
+
+/// **Compare two surfaces inside one rectangle**, so a defect confined to one pane is not diluted by
+/// the pane beside it.
+pub fn split_diff(a: &Canvas, b: &Canvas, r: Rect) -> Split {
+    let mut out = Split::default();
+    for y in r.y..r.bottom() {
+        let mut row_differs = false;
+        for x in r.x..r.right() {
+            let (Ok(x), Ok(y)) = (u16::try_from(x), u16::try_from(y)) else {
+                continue;
+            };
+            let (left, right) = (a.get(x, y), b.get(x, y));
+            let text = |c: Option<&crate::runner::Cell>| c.map(|c| c.cluster.clone());
+            let paint = |c: Option<&crate::runner::Cell>| c.map(|c| c.paint);
+            let cluster_differs = text(left) != text(right);
+            if cluster_differs {
+                out.cluster += 1;
+                row_differs = true;
+                if out.first.is_none() {
+                    out.first = Some((x, y));
+                }
+                if right.is_none_or(|c| c.cluster == " " || c.cluster.is_empty()) {
+                    out.blanked += 1;
+                }
+            }
+            if cluster_differs || paint(left) != paint(right) {
+                out.any += 1;
+            }
+        }
+        if row_differs {
+            out.rows += 1;
+        }
+    }
+    out
+}
+
+/// The whole screen, as a rectangle.
+pub fn whole(size: (u16, u16)) -> Rect {
+    Rect::new(0, 0, size.0, size.1)
+}
+
+/// **The plot pane's interior**, which is where the third repertoire rung is earned.
+pub fn plot_pane(size: (u16, u16)) -> Rect {
+    rect::inset(panes(whole(size)).0, 1)
+}
+
+/// **The chart pane's interior**, which is where it is not.
+pub fn chart_pane(size: (u16, u16)) -> Rect {
+    rect::inset(panes(whole(size)).1, 1)
+}
+
+/// **The rectangle changes and the data does not. Which memo keys survive it?**
+///
+/// Returns the cells the narrow screen gets wrong, against a screen that never saw the wide one.
+/// The comparison is on the **rendered surface** and not on the miss counter, because the miss
+/// counter points the wrong way here: a narrower key recomputes *less* often and is wrong.
+///
+/// The stale raster does not panic and does not blank the screen. `Raster::at` answers `(0, 0)`
+/// outside its own bounds — the defensive read every real component has, because the alternative is
+/// a panic on a resize — so what a reader sees is a **smaller, older plot inside a bigger
+/// rectangle**: fewer writes, faster, no counter moved.
+pub fn resize_wrong_cells(mode: crate::chart::raster::KeyMode) -> usize {
+    let build = Build::correct().both(|o| o.key = mode);
+    let data = Series::build(50_000, SERIES);
+    let narrow = (W - 60, H);
+
+    let mut state = ScreenState::new();
+    let mut driver = driver_for(build, W, H);
+    for _ in 0..2 {
+        driver.frame(|cx| screen_into(&mut Direct, cx, &build, &data, &mut state));
+    }
+    // The same application state, drawn into a narrower screen.
+    let mut driver = driver_for(build, narrow.0, narrow.1);
+    let mut pen = Pen::new(narrow.0, narrow.1);
+    for _ in 0..2 {
+        driver.frame(|cx| screen_into(&mut pen, cx, &build, &data, &mut state));
+    }
+    let after = pen.into_canvas();
+
+    // The reference: the same narrow screen, drawn by a plot that never saw the wide one.
+    let mut fresh = ScreenState::new();
+    let mut driver = driver_for(build, narrow.0, narrow.1);
+    let mut pen = Pen::new(narrow.0, narrow.1);
+    for _ in 0..2 {
+        driver.frame(|cx| screen_into(&mut pen, cx, &build, &data, &mut fresh));
+    }
+    split_diff(&pen.into_canvas(), &after, whole(narrow)).cluster
+}
+
+/// **Memo misses over the same resize.** The counter that points the wrong way, as a number.
+pub fn resize_misses(mode: crate::chart::raster::KeyMode) -> (u32, u32) {
+    let build = Build::correct().both(|o| o.key = mode);
+    let data = Series::build(50_000, SERIES);
+    let mut state = ScreenState::new();
+    let mut driver = driver_for(build, W, H);
+    for _ in 0..2 {
+        driver.frame(|cx| screen_into(&mut Direct, cx, &build, &data, &mut state));
+    }
+    let mut driver = driver_for(build, W - 60, H);
+    for _ in 0..2 {
+        driver.frame(|cx| screen_into(&mut Direct, cx, &build, &data, &mut state));
+    }
+    (
+        state.plot.misses() + state.chart.misses(),
+        state.plot.range_misses() + state.chart.range_misses(),
+    )
+}
+
+// ── the subject, and the scan that says whether it is here ───────────────────────────────────────
+
+/// **The two components these scenes are scenes of, and neither is declared yet.**
+pub const SUBJECTS: [&str; 2] = ["chart", "plot"];
+
+/// Where [`SUBJECTS`] belong, as `(module file, the declaration)`.
+///
+/// The home is the freeze's, joined through [`crate::Family`]: both name `F10Charts`, whose module
+/// is `chart.rs`. A component is `fn(&mut Ctx, Rect, …) -> Response` (spec §1, rule 1), so the thing
+/// to look for is a public function of the component's own name in its own family's module.
+pub const DECLARATIONS: [(&str, &str); 2] =
+    [("chart.rs", "pub fn chart("), ("chart.rs", "pub fn plot(")];
+
+/// **Which of [`SUBJECTS`] this crate actually declares. Today: neither.**
+///
+/// A source scan and not a `use`, for [`crate::dense::subjects_declared`]'s reason: *the item does
+/// not exist* has no expression, and a `compile_fail` fence would pass today and pass again the day
+/// somebody renames the module. The predicate is `crate::dense::declares`, shared rather than
+/// copied — one definition of *a line that is not a comment*.
+pub fn subjects_declared() -> Vec<&'static str> {
+    let mut out = Vec::new();
+    for (subject, (file, declaration)) in SUBJECTS.into_iter().zip(DECLARATIONS) {
+        let path = std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/src")).join(file);
+        let source = std::fs::read_to_string(&path).unwrap_or_default();
+        if crate::dense::declares(&source, declaration) {
+            out.push(subject);
+        }
+    }
+    out
+}
+
+/// **Whether the screen stands on its subjects, as a verdict rather than as a sentence.**
+///
+/// `Unmet` over two, inverted by **components 28**. Everything the screen itself can be asked is
+/// measured and green; what is missing is the subjects.
+pub fn standing() -> Verdict {
+    let declared = subjects_declared();
+    Verdict::of(
+        SUBJECTS.len(),
+        SUBJECTS.len() - declared.len(),
+        "neither `chart` nor `plot` is declared in this crate, so what stands on the series screen \
+         is a stand-in pane and not the components. The screen, its 2 regions, its 21 872 writes at \
+         1k / 100k / 1M, its equality at 300x80 and at 60x20, its three false greens and its \
+         175 712 axis pairs are measured and green; what is missing is the subject",
+        "components 28",
+    )
+}
+
+/// **The sentence a scene waiting for its subject fails with**, or `None` once both are declared.
+///
+/// Criterion 7, and it is the distinction the whole ticket rests on: a scene that fails because it
+/// is unimplemented and a scene that fails because the code is wrong are **the same failure** unless
+/// the message separates them. This one names the subjects, the file they belong in, the
+/// declarations to look for, and the ticket — and says in as many words that it is not a defect in
+/// the screen.
+///
+/// It takes the declaration list as an argument for [`crate::dense::owed_message`]'s reason: the day
+/// the crate is on the other side of it, the hostile case is still one call away.
+pub fn owed_message(declared: &[&str], scene: &str) -> Option<String> {
+    if declared.len() == SUBJECTS.len() {
+        return None;
+    }
+    let owed: Vec<String> = SUBJECTS
+        .into_iter()
+        .zip(DECLARATIONS)
+        .filter(|(id, _)| !declared.contains(id))
+        .map(|(id, (file, declaration))| format!("`{id}` (`src/{file}`: `{declaration}…)`)"))
+        .collect();
+    Some(format!(
+        "{scene} is not standing, and it is waiting for its subject rather than failing: {} of {} \
+         components are undeclared — {}. This is not a defect in the screen. The series screen is \
+         drawn, its two regions are counted, its writes are identical at 1 000, 100 000 and \
+         1 000 000 points at both sizes, its three false greens are caught on the rendered surface \
+         and its axis sweep visits all 175 712 pairs — see `crate::series::tests`. Inverted by \
+         `components 28`",
+        owed.len(),
+        SUBJECTS.len(),
+        owed.join(", "),
+    ))
+}
+
+/// **Fail with the subjects that are missing, the file they belong in, and the ticket.**
+///
+/// # Panics
+///
+/// Panics while [`SUBJECTS`] are undeclared, which is **today**. Components ticket 28 inverts it.
+pub fn assert_stands_up(scene: &str) {
+    if let Some(message) = owed_message(&subjects_declared(), scene) {
+        panic!("{message}");
+    }
+}
+
+// ── the numbers this screen is measured at ───────────────────────────────────────────────────────
+
+/// **Rect a correct frame writes at 300x80, at every one of [`VOLUMES`]. 21 872.**
+///
+/// It is arithmetic a reader can do: `300 * 80` is 24 000, the legend's interior is `28 * 78` and it
+/// draws only [`SERIES`] of those rows, so `24 000 - (2 184 - 56)` is 21 872. §13's own figure,
+/// reproduced exactly.
+pub const WRITES: u64 = 21_872;
+
+/// **Rect a correct frame writes at 60x20. 1 136**, by the same arithmetic: `1 200 - (72 - 8)`.
+pub const NARROW_WRITES: u64 = 1_136;
+
+/// **Cells the legend that does not narrow writes twice at 60x20. Two** — one a row, for ever.
+pub const NARROW_DOUBLE_WRITES: u64 = 2;
+
+/// **Cells the two legend arms disagree about at 60x20. Four over two rows.**
+pub const NARROW_LEGEND_CELLS: usize = 4;
+
+/// **Cells the two legend arms disagree about at 300x80. None**, which is why the scene needs the
+/// second size at all.
+pub const WIDE_LEGEND_CELLS: usize = 0;
+
+/// **A 60x20 raster, in bytes. 2 400 — at every data volume**, which is the whole claim.
+pub const RASTER_BYTES_60X20: usize = 2 * 60 * 20;
+
+/// The data volume the surface comparisons are taken at.
+///
+/// **Two hundred thousand and not a million**, and the reason is the instrument rather than the
+/// claim: a [`Pen`] records every cell of a 300x80 surface and the equality is over the *picture*,
+/// which the volume does not change once it is past the point where every column is occupied. The
+/// invariance claim is [`across_volumes`]'s and it is asserted at all three.
+pub const COMPARED_AT: usize = 200_000;
+
+/// **Cells the plot pane gains from the third repertoire rung. 882.**
+pub const RUNG_PLOT_CELLS: usize = 882;
+
+/// **Cells the chart pane gains from it. None** — a bar chart at Extended is byte-identical to one
+/// at Unicode, so the third rung is `plot`'s alone.
+pub const RUNG_CHART_CELLS: usize = 0;
+
+/// **Cells ASCII and Unicode disagree about, over the whole screen. 7 276, over 80 of 80 rows** —
+/// ADR 0009 literally, a different construction rather than the same one with worse glyphs.
+pub const ASCII_CELLS: usize = 7_276;
+
+/// Cells the culled arm gets wrong.
+pub const CULLED_CELLS: usize = 5_546;
+/// How many of them it leaves blank.
+pub const CULLED_BLANKED: usize = 5_500;
+/// Cells the sampled-range arm gets wrong.
+pub const SAMPLED_CELLS: usize = 3_431;
+/// How many rows carry one.
+pub const SAMPLED_ROWS: usize = 78;
+/// Cells the strided arm gets wrong.
+pub const STRIDED_CELLS: usize = 2_953;
+/// How many of them it leaves blank.
+pub const STRIDED_BLANKED: usize = 2_544;
+
+/// **Cells of the plot pane where two series share one. Twenty-five**, and it is the same at the
+/// quadrant rung and at the braille rung — which is what makes the third rung's colour price a
+/// price rather than a rounding.
+pub const SHARED_CELLS: u32 = 25;
+
+/// **Fixpoint pairs that reach one.** 175 248 of [`AXIS_PAIRS`].
+pub const AXIS_CONVERGED: u64 = 175_248;
+/// **Fixpoint pairs that never do. 464.**
+pub const AXIS_OSCILLATES: u64 = 464;
+/// The most passes a converging pair needs. Four.
+pub const AXIS_MAX_PASSES: u8 = 4;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A 60x20 raster built over `points`, which is §13's own object.
+    fn raster_60x20(points: usize) -> Raster {
+        let data = Series::build(points, SERIES);
+        let g = geom(Kind::Marks, RUNGS[2]);
+        let dom = domain_of(data.points(), Range::Whole).padded();
+        let mut raster = Raster::empty();
+        raster.build(
+            60,
+            20,
+            Kind::Marks,
+            g,
+            dom,
+            data.points(),
+            Reach::Mapped,
+            (0, 20),
+        );
+        raster
+    }
+
+    /// The build with the legend that does not narrow, which is the two-size axis' other arm.
+    fn does_not_narrow() -> Build {
+        Build {
+            narrowing_legend: false,
+            ..Build::correct()
+        }
+    }
+
+    /// **The frame costs the rectangle and not the data, at both sizes — and the verbs do not.**
+    ///
+    /// The screen with the best excuse not to pass this passes it: three data volumes, one
+    /// rectangle, every *count* identical. **Verbs are not one of them and must not be gated as
+    /// one**: a run ends where a cell's owner changes, so the verb count tracks the picture and is
+    /// **not monotone in `n`** — which is the proof rather than an excuse. What is gated is the bound
+    /// the invariant actually claims, `verbs <= writes`, and §21 says *never verb equality across
+    /// sizes* in as many words.
+    #[test]
+    fn the_frame_costs_the_rectangle_and_the_verbs_track_the_picture() {
+        for (size, writes) in [((W, H), WRITES), ((NARROW_W, NARROW_H), NARROW_WRITES)] {
+            let across = across_volumes(Build::correct(), size);
+            assert_eq!(across.len(), VOLUMES.len());
+            let mut verbs = Vec::new();
+            for (points, shape) in &across {
+                assert_eq!(
+                    shape.writes, writes,
+                    "{}x{} at {points} points",
+                    size.0, size.1
+                );
+                assert_eq!(
+                    shape.distinct, writes,
+                    "the screen is a partition: no cell written twice, at {points} points"
+                );
+                assert_eq!(
+                    shape.regions, REGIONS,
+                    "one region a component and none for the \
+                                                   chrome"
+                );
+                assert_eq!(shape.stops, 0, "neither pane declares a tab stop");
+                assert_eq!(
+                    (shape.misses, shape.range_misses),
+                    (0, 0),
+                    "a steady frame refolded the data at {points} points"
+                );
+                assert!(
+                    shape.verbs <= shape.writes,
+                    "{} verbs over {} writes",
+                    shape.verbs,
+                    shape.writes
+                );
+                verbs.push(shape.verbs);
+            }
+            // **And the verbs really do move**, or the relation above would be a gate over a
+            // constant and `never verb equality` would be a sentence about nothing.
+            assert!(
+                verbs.iter().any(|v| *v != verbs[0]),
+                "{}x{}: the verb count did not move with the data, so the relation is untested",
+                size.0,
+                size.1
+            );
+        }
+    }
+
+    /// **The verb count is not monotone in `n`**, at the size §13 states it at.
+    ///
+    /// §13's own 2 551 / 3 772 / 2 472 does not reproduce and the **shape** does: this screen is
+    /// **2 554 / 3 775 / 2 475**, three more at every volume and the same rise and fall. The three
+    /// are structural and are the same three at every volume — one verb a pane, from the chrome
+    /// going through `crate::frame::block_into` rather than through a prototype's own border loop —
+    /// so the difference between the volumes, which is what the claim is about, is identical.
+    #[test]
+    fn the_verb_count_rises_and_falls_with_the_picture_and_not_with_the_volume() {
+        let across = across_volumes(Build::correct(), (W, H));
+        let verbs: Vec<u64> = across.iter().map(|(_, s)| s.verbs).collect();
+        assert_eq!(verbs, vec![2_554, 3_775, 2_475]);
+        assert!(
+            verbs[1] > verbs[0] && verbs[2] < verbs[0],
+            "the count is monotone, which is the shape §13 says it does not have: {verbs:?}"
+        );
+        // The differences, which are what the claim is about and what reproduces exactly.
+        assert_eq!(verbs[1] - verbs[0], 1_221);
+        assert_eq!(verbs[0] - verbs[2], 79);
+    }
+
+    /// **A 60x20 raster is 2 400 B at 1 000, 100 000 and 1 000 000 points.**
+    ///
+    /// The size is the rectangle; the contents are the data, and [`Raster::touched`] is where the
+    /// volume is allowed to appear.
+    #[test]
+    fn a_sixty_by_twenty_raster_is_two_thousand_four_hundred_bytes_at_every_volume() {
+        let mut touched = Vec::new();
+        for points in VOLUMES {
+            let raster = raster_60x20(points);
+            assert_eq!(raster.bytes(), RASTER_BYTES_60X20, "at {points} points");
+            assert_eq!((raster.w(), raster.h()), (60, 20));
+            touched.push(raster.touched());
+        }
+        assert_eq!(
+            touched,
+            VOLUMES.iter().map(|n| *n as u64 * 2).collect::<Vec<_>>(),
+            "the edit's cost is the data's, and it is the only thing here that is"
+        );
+    }
+
+    /// **The screen's own rasters are the plotting rectangle, and the plotting rectangle moves with
+    /// the domain.**
+    ///
+    /// A finding rather than a caveat: the raster's size is the rectangle *the axis left over*, and
+    /// the gutter is as wide as the widest tick label, which is data. At 100 000 and 1 000 000 points
+    /// the two agree to the byte; at 1 000 the domain is narrower, the labels are shorter and the
+    /// panes each keep one column more. Nothing about the *volume* moves it — [`across_volumes`]'s
+    /// write counts are identical at all three — and the honest statement is that *the size is the
+    /// rectangle* holds exactly, while *the rectangle is independent of the data* does not.
+    #[test]
+    fn the_panes_rasters_are_the_plotting_rectangle_and_the_gutter_is_data() {
+        let at = |n: usize| shape(Build::correct(), (W, H), n).raster_bytes;
+        assert_eq!(at(VOLUMES[1]), at(VOLUMES[2]));
+        assert_ne!(at(VOLUMES[0]), at(VOLUMES[1]));
+        assert_eq!(at(VOLUMES[0]) - at(VOLUMES[1]), 308);
+    }
+
+    /// **The two-size axis, in both directions: green at 300x80 and red at 60x20.**
+    ///
+    /// The correct legend and the one that writes its label whole are **one function with one
+    /// boolean between them**, and at 300x80 they are indistinguishable — identical writes,
+    /// identical verbs, zero cells apart. At 60x20 the interior is two columns, the clip belongs to
+    /// the pane rather than to the interior, and the tail of every label lands on the panel's own
+    /// right border: **two cells written twice, and one verb *fewer* than the correct build.**
+    #[test]
+    fn the_legend_that_does_not_narrow_is_green_at_three_hundred_and_red_at_sixty() {
+        let wide = shape(Build::correct(), (W, H), VOLUMES[0]);
+        let wide_bad = shape(does_not_narrow(), (W, H), VOLUMES[0]);
+        assert_eq!(wide, wide_bad, "the two arms differ at the wide size");
+        assert_eq!(
+            split_diff(
+                &render(Build::correct(), (W, H), VOLUMES[0]),
+                &render(does_not_narrow(), (W, H), VOLUMES[0]),
+                whole((W, H)),
+            )
+            .cluster,
+            WIDE_LEGEND_CELLS
+        );
+
+        let narrow = shape(Build::correct(), (NARROW_W, NARROW_H), VOLUMES[0]);
+        let narrow_bad = shape(does_not_narrow(), (NARROW_W, NARROW_H), VOLUMES[0]);
+        assert_eq!(narrow.writes, NARROW_WRITES);
+        assert_eq!(
+            narrow.distinct, NARROW_WRITES,
+            "the correct arm is a partition"
+        );
+        assert_eq!(
+            narrow_bad.writes - narrow_bad.distinct,
+            NARROW_DOUBLE_WRITES,
+            "the defect is a double write and there is no third counter that sees it"
+        );
+        assert_eq!(
+            narrow_bad.distinct, narrow.distinct,
+            "and it touches exactly the cells the correct arm touches, which is why `distinct` \
+             cannot see it either"
+        );
+        assert!(
+            narrow_bad.verbs < narrow.verbs,
+            "the defective arm did not look cheaper, so the scene's argument is untested: {} \
+             against {}",
+            narrow_bad.verbs,
+            narrow.verbs
+        );
+
+        let diff = split_diff(
+            &render(Build::correct(), (NARROW_W, NARROW_H), VOLUMES[0]),
+            &render(does_not_narrow(), (NARROW_W, NARROW_H), VOLUMES[0]),
+            whole((NARROW_W, NARROW_H)),
+        );
+        assert_eq!((diff.cluster, diff.rows), (NARROW_LEGEND_CELLS, SERIES));
+    }
+
+    /// **False green one: culling to the visible index window.**
+    ///
+    /// It is what a virtualised collection does and it is correct there. Here an index is not an x
+    /// coordinate: it draws **the same number of cells**, faster, and loses the series.
+    #[test]
+    fn culling_to_the_visible_index_window_loses_the_series_and_writes_the_same() {
+        let good = render(Build::correct(), (W, H), COMPARED_AT);
+        let build = Build::correct().both(|o| o.reach = Reach::CulledByIndex);
+        let bad = render(build, (W, H), COMPARED_AT);
+        let diff = split_diff(&good, &bad, whole((W, H)));
+        assert_eq!(
+            (diff.cluster, diff.blanked),
+            (CULLED_CELLS, CULLED_BLANKED),
+            "{:?}",
+            diff
+        );
+        assert_eq!(
+            shape(build, (W, H), COMPARED_AT).writes,
+            WRITES,
+            "the write count is unmoved, which is why it cannot be the gate"
+        );
+        assert!(
+            shape(build, (W, H), COMPARED_AT).touched < 1_000,
+            "the defect did not look cheaper on the one counter that can see it"
+        );
+    }
+
+    /// **False green two: an axis range from a stride sample.**
+    ///
+    /// It optimises a cost the memo had already removed, it is *slower* than the fold it replaces,
+    /// and the domain it produces stops **26 units short of the data**.
+    #[test]
+    fn a_sampled_axis_range_is_wrong_and_buys_nothing() {
+        let good = render(Build::correct(), (W, H), COMPARED_AT);
+        let build = Build::correct().both(|o| o.range = Range::Sampled(1_000));
+        let bad = render(build, (W, H), COMPARED_AT);
+        let diff = split_diff(&good, &bad, whole((W, H)));
+        assert_eq!(
+            (diff.cluster, diff.rows),
+            (SAMPLED_CELLS, SAMPLED_ROWS),
+            "{diff:?}"
+        );
+
+        let data = Series::build(COMPARED_AT, SERIES);
+        let whole_domain = domain_of(data.points(), Range::Whole).padded();
+        let sampled = domain_of(data.points(), Range::Sampled(1_000)).padded();
+        assert_eq!(
+            (
+                format!("{:.2}", whole_domain.y0),
+                format!("{:.2}", whole_domain.y1)
+            ),
+            ("30.00".to_string(), "103.07".to_string())
+        );
+        assert_eq!(
+            (format!("{:.2}", sampled.y0), format!("{:.2}", sampled.y1)),
+            ("30.00".to_string(), "77.05".to_string()),
+            "the stride happened not to see the spikes, which is the whole of the defect"
+        );
+        assert!(sampled.y1 < whole_domain.y1);
+    }
+
+    /// **False green three: every *n*-th point instead of the union.**
+    ///
+    /// The output has the same shape and the same frame cost, and the peaks are gone. The union does
+    /// not lose them because a union is idempotent and an extremum is a set member.
+    #[test]
+    fn striding_loses_the_peaks_and_the_union_does_not() {
+        let good = render(Build::correct(), (W, H), COMPARED_AT);
+        let build = Build::correct().both(|o| o.reach = Reach::Strided);
+        let bad = render(build, (W, H), COMPARED_AT);
+        let diff = split_diff(&good, &bad, whole((W, H)));
+        assert_eq!(
+            (diff.cluster, diff.blanked),
+            (STRIDED_CELLS, STRIDED_BLANKED),
+            "{diff:?}"
+        );
+        assert_eq!(shape(build, (W, H), COMPARED_AT).writes, WRITES);
+    }
+
+    /// **The third rung is the plot's and not the chart's, as a count on the rendered surface.**
+    ///
+    /// A bar chart at Extended is byte-identical to one at Unicode — **0 cells** — and a plot is not
+    /// — **882**. That is C09's handed-over question answered by measurement rather than by argument.
+    #[test]
+    fn the_third_rung_is_the_plots_and_not_the_charts() {
+        let unicode = render(Build::correct().at(RUNGS[1]), (W, H), COMPARED_AT);
+        let extended = render(Build::correct().at(RUNGS[2]), (W, H), COMPARED_AT);
+        assert_eq!(
+            split_diff(&unicode, &extended, chart_pane((W, H))).any,
+            RUNG_CHART_CELLS,
+            "a bar chart gained something from the third rung"
+        );
+        assert_eq!(
+            split_diff(&unicode, &extended, plot_pane((W, H))).cluster,
+            RUNG_PLOT_CELLS,
+            "a plot gained nothing from the third rung"
+        );
+    }
+
+    /// **ASCII is a different construction and not the same one with worse glyphs.**
+    ///
+    /// 7 276 cells over **80 of 80 rows**, which is ADR 0009 literally.
+    #[test]
+    fn ascii_is_a_different_construction_over_every_row_of_the_screen() {
+        let ascii = render(Build::correct().at(RUNGS[0]), (W, H), COMPARED_AT);
+        let unicode = render(Build::correct().at(RUNGS[1]), (W, H), COMPARED_AT);
+        let diff = split_diff(&ascii, &unicode, whole((W, H)));
+        assert_eq!(
+            (diff.cluster, diff.rows),
+            (ASCII_CELLS, H as usize),
+            "{diff:?}"
+        );
+    }
+
+    /// **The ladders, as the branch states them.** 1 / 8 / 8 for a prefix, 1x1 / 2x2 / 2x4 for a set.
+    ///
+    /// The vertical resolution doubles at the third rung and the horizontal does not, which is what
+    /// makes that rung worth exactly one bit of `y` and nothing else.
+    #[test]
+    fn the_ladders_are_one_eight_eight_and_one_by_one_two_by_two_two_by_four() {
+        let rungs = RUNGS;
+        let bars: Vec<(u8, u8)> = rungs
+            .iter()
+            .map(|set| {
+                let g = geom(Kind::Bars, *set);
+                (g.sx, g.sy)
+            })
+            .collect();
+        assert_eq!(bars, vec![(1, 1), (1, 8), (1, 8)]);
+        let marks: Vec<(u8, u8)> = rungs
+            .iter()
+            .map(|set| {
+                let g = geom(Kind::Marks, *set);
+                (g.sx, g.sy)
+            })
+            .collect();
+        assert_eq!(marks, vec![(1, 1), (2, 2), (2, 4)]);
+
+        // And the states, which is the column the third rung has to be argued from: 2 / 9 / 9
+        // against 2 / 16 / 256.
+        let bar_states: Vec<u32> = rungs
+            .iter()
+            .map(|s| geom(Kind::Bars, *s).states(Kind::Bars))
+            .collect();
+        assert_eq!(bar_states, vec![2, 9, 9]);
+        let mark_states: Vec<u32> = rungs
+            .iter()
+            .map(|s| geom(Kind::Marks, *s).states(Kind::Marks))
+            .collect();
+        assert_eq!(mark_states, vec![2, 16, 256]);
+    }
+
+    /// **Every spelling this branch produces is exactly one cell**, which is the rule the theme's
+    /// table keeps for a glyph and which a *branch* has to keep for itself.
+    #[test]
+    fn every_construction_spells_exactly_one_cell() {
+        for kind in [Kind::Bars, Kind::Marks] {
+            for set in RUNGS {
+                let g = geom(kind, set);
+                for bits in 0u16..=255 {
+                    let spelled = cluster(kind, g, bits as u8);
+                    let mut buf = [0u8; 4];
+                    assert_eq!(
+                        vitui_runtime::layout::text::width(spelled.encode_utf8(&mut buf)),
+                        1,
+                        "{kind:?} {set:?} {bits}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// **The third rung buys resolution and pays in series colour**, and the payment is a count.
+    ///
+    /// Twenty-five cells of the plot pane carry two series at once. A braille cell has one `Paint`
+    /// for all eight dots; a quadrant carries a foreground *and* a background — so the ladder is not
+    /// monotone in what it can express. The per-cell quadrant fallback that would recover it is named
+    /// in spec §22 and not built.
+    #[test]
+    fn the_third_rung_costs_colour_where_two_series_share_a_cell() {
+        for set in [RUNGS[1], RUNGS[2]] {
+            let data = Series::build(COMPARED_AT, SERIES);
+            let g = geom(Kind::Marks, set);
+            let dom = domain_of(data.points(), Range::Whole).padded();
+            let mut raster = Raster::empty();
+            raster.build(
+                174,
+                77,
+                Kind::Marks,
+                g,
+                dom,
+                data.points(),
+                Reach::Mapped,
+                (0, 77),
+            );
+            assert_eq!(raster.shared(), SHARED_CELLS, "at {set:?}");
+        }
+    }
+
+    /// **The axis loop, over all 175 712 viewport x dataset pairs.**
+    ///
+    /// The naive fixpoint converges on 175 248 in at most four passes and **oscillates on 464**. The
+    /// hysteresis form never loops and settles on a gutter that is not a fixed point of its own rule
+    /// on **all 464** — §9's outcome exactly. Computing the gutter from the whole domain is 175 712
+    /// pairs, **0 oscillations, always 1 pass**: there is no edge left to oscillate in.
+    #[test]
+    fn the_axis_loop_oscillates_on_four_hundred_and_sixty_four_and_the_whole_domain_on_none() {
+        let tally = axis_sweep();
+        assert_eq!(tally.pairs, AXIS_PAIRS);
+        assert_eq!(tally.pairs, 175_712, "the product §21 states");
+        assert_eq!(tally.converged, AXIS_CONVERGED);
+        assert_eq!(tally.oscillates, AXIS_OSCILLATES);
+        assert_eq!(tally.converged + tally.oscillates, tally.pairs);
+        assert_eq!(tally.max_passes, AXIS_MAX_PASSES);
+        assert_eq!(
+            tally.hysteresis_settled_off, AXIS_OSCILLATES,
+            "the hysteresis form settles on a non-fixed-point gutter on all of them"
+        );
+        assert_eq!(tally.whole_pairs, AXIS_PAIRS);
+        assert_eq!(tally.whole_oscillates, 0);
+        assert_eq!(tally.whole_max_passes, 1);
+    }
+
+    /// **The precondition §9 needs is false for ordinary data, and here is the instance.**
+    ///
+    /// *A narrower plotting area may not produce a wider label* is what would make the loop
+    /// converge. It fails here because the window's own contents change: a narrower area shows fewer
+    /// samples, dropping the older and larger ones, and what is left is small decimals whose labels
+    /// are **wider** than the integers they replaced. Found by looking rather than by construction —
+    /// the pair below is the first one the sweep's own datasets produce.
+    ///
+    /// # §13's illustration is not reachable on a 1 / 2 / 5 ladder, and it is not the mechanism
+    ///
+    /// §13 offers `0 2.5 5 7.5 10` against `0 5 10` as the reason fewer ticks are not a subset of
+    /// more. `nice_step(10, 5)` on a 1 / 2 / 5 x 10^k ladder is **2.0**, not 2.5, so that particular
+    /// pair needs a ladder with 2.5 on it. The *finding* survives untouched — the sweep oscillates on
+    /// 464 pairs — because the mechanism that produces it is the second sentence of §13's own
+    /// paragraph: *dropping older, larger samples can leave `-0.05` where `900` was.*
+    #[test]
+    fn a_narrower_plotting_area_can_produce_a_wider_label() {
+        let ys = dataset(0, AXIS_POINTS);
+        let live = Live::over(&ys, *AXIS_W.end());
+        let plot_h = 78u16;
+        let mut found = None;
+        for narrow in 1u16..300 {
+            let wide = narrow + 1;
+            let a = gutter(live.window_domain(narrow), plot_h);
+            let b = gutter(live.window_domain(wide), plot_h);
+            if a > b {
+                found = Some((narrow, a, wide, b));
+                break;
+            }
+        }
+        let (narrow, a, wide, b) = found.expect(
+            "no narrowing produced a wider gutter, so the precondition holds and nothing here \
+             could oscillate",
+        );
+        assert!(narrow < wide && a > b, "{narrow} -> {a}, {wide} -> {b}");
+
+        // And the two domains really are different windows on one series, which is what makes this
+        // a fact about the data rather than about the arithmetic.
+        assert_ne!(
+            live.window_domain(narrow).bits(),
+            live.window_domain(wide).bits()
+        );
+
+        // The ladder, asserted rather than assumed, because §13's illustration needs a rung it does
+        // not have.
+        assert_eq!(nice_step(10.0, 5), 2.0);
+        assert_eq!(nice_step(10.0, 3), 5.0);
+    }
+
+    /// **The screen stands on its two declared components**, and the fact is computed rather than
+    /// typed.
+    ///
+    /// Ticket 27's criterion 7, inverted by ticket 28. [`subjects_declared`] opens the file the
+    /// freeze homes both components in and reads what is declared there, so the day one of them
+    /// moves this test fails and the standing is a deliberate edit — in the same direction it was
+    /// made in. It is the same shape `crate::dense`'s went through one ticket family earlier, and
+    /// the hostile half of it is still live in
+    /// [`tests::the_waiting_message_separates_unimplemented_from_wrong`].
+    #[test]
+    fn the_series_screen_stands_on_its_two_declared_components() {
+        assert_eq!(SUBJECTS, ["chart", "plot"]);
+        assert_eq!(
+            subjects_declared(),
+            SUBJECTS.to_vec(),
+            "a component of the series screen is no longer declared where the freeze homes it, so \
+             scenes 15 and 16 are standing on a screen made of their construction again"
+        );
+        let verdict = standing();
+        assert!(verdict.met(), "{verdict:?}");
+        assert!(matches!(verdict, Verdict::Met { over: 2 }), "{verdict:?}");
+
+        // And the screen really does draw **through** them: the two ids in the frame's hit index are
+        // the two the components minted, and there are exactly two.
+        assert_eq!(shape(Build::correct(), (W, H), VOLUMES[0]).regions, REGIONS);
+    }
+
+    /// **The waiting message separates *unimplemented* from *wrong*.** Ticket 09's criterion 7.
+    ///
+    /// It names the subjects, the file, the declarations and the ticket, and says in as many words
+    /// that it is not a defect in the screen.
+    ///
+    /// **Both subjects are declared now and this still runs**, because [`owed_message`] takes the
+    /// declaration list as an argument rather than reading the crate. That is the half of ticket
+    /// 09's arrangement that would otherwise have been deleted along with the red row: a scene that
+    /// fails because it is unimplemented and one that fails because the code is wrong are the same
+    /// failure unless the message distinguishes them, and the day a component moves that message is
+    /// what a reader will see.
+    #[test]
+    fn the_waiting_message_separates_unimplemented_from_wrong() {
+        let message = owed_message(&[], "scene 15").expect("neither subject is declared");
+        assert!(message.contains("waiting for its subject rather than failing"));
+        assert!(message.contains("not a defect in the screen"));
+        assert!(message.contains("`chart`"));
+        assert!(message.contains("`plot`"));
+        assert!(message.contains("pub fn chart("));
+        assert!(message.contains("components 28"));
+
+        // One of two declared is still a scene that is not standing, and the message says which.
+        let half = owed_message(&["chart"], "scene 15").expect("one of two is not standing");
+        assert!(half.contains("1 of 2"));
+        assert!(!half.contains("`chart` (`src/chart.rs`: `pub fn chart("));
+
+        // And the day both are declared it stops being a failure at all.
+        assert!(owed_message(&["chart", "plot"], "scene 15").is_none());
+    }
+
+    /// **The scan finds a declaration when there is one and not when it is a comment.**
+    ///
+    /// Through `crate::dense::declares`, which is one definition of *a line that is not a comment* —
+    /// shared rather than copied, because that is the only thing that makes *fires in both
+    /// directions* mean anything.
+    #[test]
+    fn the_subject_scan_finds_a_declaration_when_there_is_one() {
+        assert!(crate::dense::declares(
+            "pub fn plot(cx: &mut Ctx<'_, '_>) -> Response {",
+            "pub fn plot("
+        ));
+        assert!(!crate::dense::declares(
+            "// one day there will be a pub fn plot( here",
+            "pub fn plot("
+        ));
+        assert!(!crate::dense::declares("", "pub fn plot("));
+    }
+
+    /// **`assert_stands_up` passes today, and the sentence it would have produced is still
+    /// watched being produced.**
+    ///
+    /// Two directions in one test, which is what an inverted red row owes: the live call is silent
+    /// because both subjects are declared, and the same function over a declaration list that is
+    /// missing one still says which failure it is.
+    #[test]
+    fn the_screen_stands_up_and_the_refusal_is_still_watched() {
+        assert_stands_up("scene 15");
+        let refused = owed_message(&["plot"], "scene 16").expect("one of two is not standing");
+        assert!(refused.contains("waiting for its subject rather than failing"));
+        assert!(refused.contains("`chart`"));
+    }
+}
