@@ -1,11 +1,11 @@
 //! **The series screen: the raster, the ladder, the three false greens and the axis sweep, as
 //! numbers.**
 //!
-//! Components ticket 27. The convention is the runtime's — a file in `examples/` named
+//! Components tickets 27 and 28. The convention is the runtime's — a file in `examples/` named
 //! `<subject>_numbers.rs` that prints the numbers a human reads — and so is the rule about what an
 //! example may be: **`cargo test` does not run this file.** Rows 68 and 69 of
-//! [`vitui_components::gates::REGISTER`] *cite* it, and each names a `#[test]` in
-//! `src/series.rs` beside the citation.
+//! [`vitui_components::gates::REGISTER`] *cite* it, and each names a `#[test]` in `src/series.rs`
+//! beside the citation.
 //!
 //! # What it prints
 //!
@@ -19,7 +19,8 @@
 //! 5. **The repertoire ladder**, and the two cell counts that decide which rung `plot` earns.
 //! 6. **The axis sweep**, over all 175 712 pairs.
 //! 7. **The edit**, which is the one cost the invariant permits to be proportional to the data.
-//! 8. **What does not reproduce**, said out loud rather than engineered away.
+//! 8. **The memo chain and the colour**, which is components ticket 28's half.
+//! 9. **What does not reproduce**, said out loud rather than engineered away.
 //!
 //! # It asserts the shape and not the timings
 //!
@@ -31,13 +32,14 @@
 use std::time::Duration;
 
 use vitui_alloc_probe::{CountingAllocator, count_allocations};
+use vitui_components::chart::raster::KeyMode;
 use vitui_components::gates::Standing;
 use vitui_components::scenes::{SCENES, scenes_for};
 use vitui_components::series::{
-    self, AXIS_PAIRS, Build, COMPARED_AT, H, Kind, NARROW_H, NARROW_W, Range, Reach, SERIES,
+    self, AXIS_PAIRS, Build, COMPARED_AT, H, Kind, NARROW_H, NARROW_W, RUNGS, Range, Reach, SERIES,
     Session, VOLUMES, W,
 };
-use vitui_runtime::GlyphSet;
+use vitui_runtime::{ColorDepth, Role};
 
 // **The probe, because `allocations` is a total and a total needs something that counts.** Installed
 // here rather than defaulted to zero inside the library: a figure defaulted to zero is a counter
@@ -63,24 +65,25 @@ fn main() {
     the_ladder();
     the_axis_sweep();
     the_edit();
+    the_chain_and_the_colour();
     what_does_not_reproduce();
 }
 
 /// 1. The two scenes, and which ticket inverts each.
 fn scene_list() {
-    println!("report  the two scenes, and why they are red:");
+    println!("report  the two scenes, and where each stands:");
     println!(
         "  {:>3}  {:<58}  {:<12}  inverted by",
         "#", "scene", "standing"
     );
-    let mut red = 0usize;
+    let mut stood = 0usize;
     for scene in SCENES.iter().filter(|s| s.stands.contains(&"plot")) {
         let (word, ticket) = match scene.standing {
-            Standing::Red { inverted_by, .. } => {
-                red += 1;
-                ("red, pinned", inverted_by)
+            Standing::Red { inverted_by, .. } => ("red, pinned", inverted_by),
+            Standing::Evaluated { .. } => {
+                stood += 1;
+                ("evaluated", "-")
             }
-            Standing::Evaluated { .. } => ("evaluated", "-"),
             Standing::Unsubjected { inverted_by } => ("unsubjected", inverted_by),
             Standing::Unreachable { inverted_by, .. } => ("unreachable", inverted_by),
         };
@@ -89,7 +92,10 @@ fn scene_list() {
             scene.number, scene.name
         );
     }
-    assert_eq!(red, 2, "both scenes are red until components 28 lands");
+    assert_eq!(
+        stood, 2,
+        "both scenes stand on `chart` and `plot`, which components 28 declared"
+    );
     println!(
         "\n  scenes_for(\"chart\") answers {} and scenes_for(\"plot\") answers {}",
         scenes_for("chart").count(),
@@ -258,7 +264,7 @@ fn the_ladder() {
         "construction", "Ascii", "Unicode", "Extended"
     );
     for kind in [Kind::Bars, Kind::Marks] {
-        let cells: Vec<String> = [GlyphSet::Ascii, GlyphSet::Unicode, GlyphSet::Extended]
+        let cells: Vec<String> = RUNGS
             .iter()
             .map(|set| {
                 let g = series::geom(kind, *set);
@@ -273,9 +279,9 @@ fn the_ladder() {
             cells[2]
         );
     }
-    let unicode = series::render(Build::correct().at(GlyphSet::Unicode), (W, H), COMPARED_AT);
-    let extended = series::render(Build::correct().at(GlyphSet::Extended), (W, H), COMPARED_AT);
-    let ascii = series::render(Build::correct().at(GlyphSet::Ascii), (W, H), COMPARED_AT);
+    let unicode = series::render(Build::correct().at(RUNGS[1]), (W, H), COMPARED_AT);
+    let extended = series::render(Build::correct().at(RUNGS[2]), (W, H), COMPARED_AT);
+    let ascii = series::render(Build::correct().at(RUNGS[0]), (W, H), COMPARED_AT);
     println!(
         "  Unicode against Extended: {} cells in the CHART pane, {} in the PLOT pane",
         series::split_diff(&unicode, &extended, series::chart_pane((W, H))).cluster,
@@ -317,39 +323,69 @@ fn the_axis_sweep() {
 fn the_edit() {
     println!("report  the edit — the one cost the invariant permits to be the data's:");
     for points in VOLUMES {
-        let (cost, touched) = series::edit_cost(
-            points,
-            170,
-            78,
-            Kind::Marks,
-            GlyphSet::Extended,
-            Reach::Mapped,
-        );
+        let (cost, touched) =
+            series::edit_cost(points, 170, 78, Kind::Marks, RUNGS[2], Reach::Mapped);
         println!("  Raster::build over {points:>9} points: {cost:?} over {touched} touched");
     }
-    let hit = series::hit_cost(
-        VOLUMES[2],
-        170,
-        78,
-        Kind::Marks,
-        GlyphSet::Extended,
-        100_000,
-    );
-    let (miss, _) = series::edit_cost(
-        VOLUMES[2],
-        170,
-        78,
-        Kind::Marks,
-        GlyphSet::Extended,
-        Reach::Mapped,
-    );
+    let hit = series::hit_cost(VOLUMES[2], 170, 78, Kind::Marks, RUNGS[2], 100_000);
+    let (miss, _) = series::edit_cost(VOLUMES[2], 170, 78, Kind::Marks, RUNGS[2], Reach::Mapped);
     println!(
         "  the same call on a hit:              {hit:?}  — {:.0}x\n",
         ratio(hit, miss)
     );
 }
 
-/// 8. What does not reproduce, and why.
+/// 8. The memo chain, the key that is every input, and the colour. Components ticket 28.
+fn the_chain_and_the_colour() {
+    println!("report  the memo chain, and the key that is every input:");
+    println!(
+        "  {:<32}  {:>14}  {:>12}  {:>14}",
+        "keyed on", "raster folds", "range folds", "cells wrong"
+    );
+    for mode in [KeyMode::Full, KeyMode::DataRect, KeyMode::DataOnly] {
+        let (raster, range) = series::resize_misses(mode);
+        println!(
+            "  {:<32}  {raster:>14}  {range:>12}  {:>14}",
+            mode.word(),
+            series::resize_wrong_cells(mode)
+        );
+    }
+    println!(
+        "  the narrower key folds FEWER times and is wrong, which is why the detector is the \
+         surface and never the counter\n"
+    );
+
+    println!("report  colour, and the second axis a paint alone does not have:");
+    let sixteen = Build::correct().tier(ColorDepth::Ansi16);
+    let theme = sixteen.theme();
+    println!(
+        "  at sixteen colours, Danger/Warn differ on the wire? {}; Warn/Ok? {}",
+        theme.roles_differ_on_wire(Role::Danger, Role::Warn),
+        theme.roles_differ_on_wire(Role::Warn, Role::Ok),
+    );
+    let named = series::render(sixteen, (W, H), COMPARED_AT);
+    let roled = series::render(sixteen.both(|o| o.role_series = true), (W, H), COMPARED_AT);
+    let diff = series::split_diff(&named, &roled, series::whole((W, H)));
+    println!(
+        "  role-derived series against `Theme::custom`: {} cells by style, {} by cluster — the \
+         signature of a colour-only distinction dying",
+        diff.style_only(),
+        diff.cluster,
+    );
+    let with = series::render(sixteen, (W, H), COMPARED_AT);
+    let without = series::render(
+        sixteen.both(|o| o.threshold_glyph = false),
+        (W, H),
+        COMPARED_AT,
+    );
+    let diff = series::split_diff(&with, &without, series::whole((W, H)));
+    println!(
+        "  a threshold carried by a paint alone against paint + HLine: {} cells over {} row\n",
+        diff.cluster, diff.rows
+    );
+}
+
+/// 9. What does not reproduce, and why.
 fn what_does_not_reproduce() {
     println!("report  what does not reproduce, and why:");
     let verbs: Vec<u64> = series::across_volumes(Build::correct(), (W, H))
@@ -378,6 +414,13 @@ fn what_does_not_reproduce() {
          The raster's size is the *plotting* rectangle, and the gutter is as wide as the widest \
          tick label — which is data. `the size is the rectangle` holds exactly; `the rectangle is \
          independent of the data` does not"
+    );
+    println!(
+        "  §13 says `roles_differ_on_wire(Danger, Warn)` and `(Warn, Ok)` are BOTH false at \
+         sixteen colours. On the shipped Catppuccin Mocha palette the first is true and only the \
+         second is false. The palette was deliberately not swapped to make the old number, and the \
+         obligation is unchanged: one collapsing pair is enough to owe a second axis, and the 215 \
+         cells over 1 row are that axis being drawn"
     );
     println!(
         "  the culled arm is 1.37x faster here against §13's 1.39x, and the memo ratio is over two \

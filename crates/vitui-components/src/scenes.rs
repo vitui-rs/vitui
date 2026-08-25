@@ -394,24 +394,24 @@ const COLLECTION: &[&str] = &crate::listing::SUBJECTS;
 /// The series screen's own file, which is where components ticket 27's two scenes are played.
 const SERIES: &str = "crates/vitui-components/src/series.rs";
 
-/// **What the series screen is a screen of, and neither is declared yet.**
+/// **What the series screen is a screen of, and both are declared.**
 ///
 /// [`crate::series::SUBJECTS`], reached through this alias for [`SUBJECTS`]'s reason: the two rows
-/// below claim `chart` and `plot` stand on their screen, and the failing set they are pinned in is
-/// computed by opening the file the freeze homes both in.
+/// below claim `chart` and `plot` stand on their screen, and whether they do is computed by opening
+/// the file the freeze homes both in.
 const CHART_AND_PLOT: &[&str] = &crate::series::SUBJECTS;
 
-/// **The pair components ticket 27's two scenes are pinned by**, written once because it is one
-/// fact: neither `chart` nor `plot` is declared, and the series screen says which failure that is.
+/// **The pair both of components ticket 27's scenes rest on**, written once because it is one fact:
+/// `chart` and `plot` are declared where the freeze homes them, and the sentence for the day one of
+/// them is not is still watched being produced.
 ///
-/// [`WAITING_FOR_COLLECTION`] one ticket family over, and the same two directions criterion 7 asks
-/// for — [`crate::series::standing`] is the verdict over the two subjects, and
-/// [`crate::series::owed_message`] is the sentence that separates *waiting for its subject* from
-/// *the code is wrong*.
-const WAITING_FOR_CHART_AND_PLOT: &[Instrument] = &[
+/// It was `STANDS_ON_CHART_AND_PLOT` for exactly one ticket and components 28 inverted it.
+/// [`STANDS_ON_ITS_COMPONENTS`] one ticket family over, and for the same reason: the *pair* is what
+/// makes a standing rest on the subjects being declared rather than on the screen being drawn.
+const STANDS_ON_CHART_AND_PLOT: &[Instrument] = &[
     Instrument::Unit {
         file: SERIES,
-        name: "the_series_screen_is_red_because_chart_and_plot_are_not_declared",
+        name: "the_series_screen_stands_on_its_two_declared_components",
     },
     Instrument::Unit {
         file: SERIES,
@@ -419,22 +419,9 @@ const WAITING_FOR_CHART_AND_PLOT: &[Instrument] = &[
     },
 ];
 
-/// The failing set both of components ticket 27's scenes are pinned in.
-///
-/// One sentence and not two, because it is one fact: the screens are measured and green and the two
-/// components are missing.
-const OWED_ITS_CHART_AND_PLOT: &str = "neither `chart` nor `plot` is declared in `crates/vitui-components/src/chart.rs`, so the two \
-     screens stand on a stand-in pane. Everything the screens themselves can be asked is measured \
-     and green — 21 872 writes at 300x80 and 1 136 at 60x20, identical at 1 000, 100 000 and \
-     1 000 000 points; a 60x20 raster of 2 400 B at every one of them; the legend that does not \
-     narrow at 0 cells wide and 4 cells over 2 rows narrow, writing 2 cells twice and costing one \
-     verb fewer; 5 546 / 3 431 / 2 953 cells for the three false greens; 0 and 882 for the third \
-     repertoire rung and 7 276 over 80 of 80 rows for ASCII; and 464 oscillations of 175 712 axis \
-     pairs against 0 from the whole domain — and what is missing is the subject";
-
-/// What pins scene 15: the screen's own measurements, plus the pair that says the subject is
-/// missing.
-const PINS_SCENE_15: &[Instrument] = &[
+/// What stands scene 15 up: the screen's own measurements, plus the pair that says the subjects
+/// are declared. See [`STANDS_SCENE_1`].
+const STANDS_SCENE_15: &[Instrument] = &[
     Instrument::Unit {
         file: SERIES,
         name: "the_frame_costs_the_rectangle_and_the_verbs_track_the_picture",
@@ -463,12 +450,12 @@ const PINS_SCENE_15: &[Instrument] = &[
         file: SERIES,
         name: "the_third_rung_is_the_plots_and_not_the_charts",
     },
-    WAITING_FOR_CHART_AND_PLOT[0],
-    WAITING_FOR_CHART_AND_PLOT[1],
+    STANDS_ON_CHART_AND_PLOT[0],
+    STANDS_ON_CHART_AND_PLOT[1],
 ];
 
-/// What pins scene 16. See [`PINS_SCENE_15`].
-const PINS_SCENE_16: &[Instrument] = &[
+/// What stands scene 16 up. See [`STANDS_SCENE_15`].
+const STANDS_SCENE_16: &[Instrument] = &[
     Instrument::Unit {
         file: SERIES,
         name: "the_axis_loop_oscillates_on_four_hundred_and_sixty_four_and_the_whole_domain_on_none",
@@ -477,8 +464,8 @@ const PINS_SCENE_16: &[Instrument] = &[
         file: SERIES,
         name: "a_narrower_plotting_area_can_produce_a_wider_label",
     },
-    WAITING_FOR_CHART_AND_PLOT[0],
-    WAITING_FOR_CHART_AND_PLOT[1],
+    STANDS_ON_CHART_AND_PLOT[0],
+    STANDS_ON_CHART_AND_PLOT[1],
 ];
 
 /// **The pair every one of components ticket 11's five scenes is pinned by**, written once because
@@ -1047,10 +1034,8 @@ pub const SCENES: [Scene; 29] = [
         stands: CHART_AND_PLOT,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Red {
-            by: PINS_SCENE_15,
-            failing: OWED_ITS_CHART_AND_PLOT,
-            inverted_by: "components 28",
+        standing: Standing::Evaluated {
+            by: STANDS_SCENE_15,
         },
         rehearsed_by: &[Instrument::Unit {
             file: RUNNER,
@@ -1069,10 +1054,8 @@ pub const SCENES: [Scene; 29] = [
         stands: CHART_AND_PLOT,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Red {
-            by: PINS_SCENE_16,
-            failing: OWED_ITS_CHART_AND_PLOT,
-            inverted_by: "components 28",
+        standing: Standing::Evaluated {
+            by: STANDS_SCENE_16,
         },
         rehearsed_by: &[],
     },
@@ -1638,11 +1621,11 @@ mod tests {
             .collect();
         assert_eq!(
             red,
-            vec![3, 4, 5, 6, 15, 16, 29],
-            "components ticket 11's five — the three volumes, the inverted sign, the stale tail, \
-             the twenty wheel clicks and the narrow collection — and components ticket 27's two, \
-             the two million-point series and the 175 712 axis pairs. An eighth is a new one, and \
-             it owes an exact failing set and a ticket that inverts it"
+            vec![3, 4, 5, 6, 29],
+            "components ticket 11's five: the three volumes, the inverted sign, the stale tail, \
+             the twenty wheel clicks and the narrow collection. Components ticket 27's two were \
+             here for one ticket and components 28 inverted them. A sixth is a new one, and it \
+             owes an exact failing set and a ticket that inverts it"
         );
         let evaluated: Vec<u8> = SCENES
             .iter()
@@ -1651,11 +1634,11 @@ mod tests {
             .collect();
         assert_eq!(
             evaluated,
-            vec![1, 2, 28],
-            "the dense screen, the same screen drawn naive and correct, and the narrow axis. A \
-             screen played over a stand-in for its components is rehearsed and not stood up, so a \
-             fourth arriving here is a deliberate edit to this module's header and to \
-             `crate::gates::REGISTER`"
+            vec![1, 2, 15, 16, 28],
+            "the dense screen, the same screen drawn naive and correct, the two million-point \
+             series, the 175 712 axis pairs and the narrow axis. A screen played over a stand-in \
+             for its components is rehearsed and not stood up, so a sixth arriving here is a \
+             deliberate edit to this module's header and to `crate::gates::REGISTER`"
         );
         assert_eq!(SCENES.len() - evaluated.len() - red.len(), 19);
 
@@ -1707,8 +1690,6 @@ mod tests {
                 (4, "components 12"),
                 (5, "components 12"),
                 (6, "components 20"),
-                (15, "components 28"),
-                (16, "components 28"),
                 (29, "components 12"),
             ],
             "the wheel gate is not waiting for its subject and the other four are. Merging the two \
@@ -2107,14 +2088,13 @@ mod tests {
             printed
                 .matches("stood up on its own components, by ")
                 .count(),
-            3,
+            5,
             "a stood-up scene says what stands it up, rather than reading as unplayed"
         );
         assert_eq!(
             printed.matches("red, pinned: `components ").count(),
-            7,
-            "components ticket 11's five and components ticket 27's two, and a red line is neither \
-             *not played* nor *stood up*"
+            5,
+            "components ticket 11's five, and a red line is neither *not played* nor *stood up*"
         );
         assert_eq!(printed.matches("[rehearsed over a fixture").count(), 1);
         assert!(

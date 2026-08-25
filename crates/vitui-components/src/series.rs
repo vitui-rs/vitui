@@ -46,38 +46,40 @@
 //! the **picture** and is not monotone in *n*. [`Shape`] carries both, and the gate is the relation
 //! while the counts are a report.
 //!
-//! # This module names a glyph repertoire, and that is the finding this ticket carries
+//! # One file in this crate names a glyph repertoire, and it is not this one
 //!
 //! [`crate::gates::REGISTER`]'s row 26 is *`GlyphSet::` in `vitui-components` == 0*. `CONTEXT.md`
-//! states both halves of the collision in two adjacent paragraphs: **Repertoire** — *a component
+//! states both halves of a collision in two adjacent paragraphs: **Repertoire** — *a component
 //! branches on it rather than the engine substituting behind its back* — and **Glyph** — *the
 //! sub-cell ladders are the case … a component names no repertoire*. The sub-cell ladder is named in
-//! the second sentence as the thing that is a branch, and a branch on the repertoire is a component
-//! naming the repertoire.
+//! the second sentence as the thing that *is* a branch, and a branch on the repertoire is a
+//! component naming the repertoire.
 //!
-//! It is settled the way §21's own refinement 3 settles this shape: **name the exception, do not
-//! loosen the gate.** [`geom`] is the one branch, this is the only file in the crate that carries
-//! one, and the register's scan excepts this file **by name and by count** — a second file, or a
-//! different number of occurrences in this one, fails it.
+//! Settled the way §21's own refinement 3 settles this shape — **name the exception, do not loosen
+//! the gate** — and the exception is [`crate::chart::raster::geom`], which the register's scan holds
+//! to the exact lines that may spell one.
 //!
-//! # The screen is red until components ticket 28 lands
+//! # What this screen re-exports, and why
 //!
-//! [`standing`] is a [`Verdict`] over two subjects and [`owed_message`] is the sentence that
-//! separates *waiting for its subject* from *the code is wrong* — ticket 09's criterion 7, inherited
-//! whole. Everything the screen itself can be asked is measured here; what is missing is
-//! `pub fn chart(` and `pub fn plot(` in `src/chart.rs`.
+//! Every name below that belongs to the components rather than to the screen is `pub use`d from
+//! [`crate::chart`], for the reason `crate::lib`'s own root re-exports exist: `chart::raster::` in
+//! front of each is noise at the one place they are read, which is a report about this screen. The
+//! modules stay public — a reader looking for *why the ladder is a branch* should land on
+//! [`crate::chart::raster`]'s documentation.
+//!
+//! # The screen stands on its subjects
+//!
+//! [`standing`] is a [`Verdict`] over two subjects, and [`owed_message`] is the sentence that
+//! separated *waiting for its subject* from *the code is wrong* while it had none — ticket 09's
+//! criterion 7, inherited whole and kept live so the hostile case is one call away.
 
 use std::fmt::Write as _;
 use std::time::{Duration, Instant};
 
 use vitui_runtime::ctx::Driver;
-use vitui_runtime::data::Revision;
 use vitui_runtime::layout::rect;
 use vitui_runtime::theme::CATPPUCCIN_MOCHA;
-use vitui_runtime::{
-    ColorDepth, Ctx, Density, Glyph, GlyphSet, Id, Interest, Paint, Rect, Response, Rgb, Role,
-    Theme,
-};
+use vitui_runtime::{ColorDepth, Ctx, Density, Glyph, GlyphSet, Rect, Role, Theme};
 
 use crate::counters::Tally;
 use crate::frame::{BlockOpts, block_into};
@@ -86,6 +88,15 @@ use crate::obligations::Verdict;
 use crate::runner::{Canvas, Diff, Pen};
 use crate::text::{FitOpts, fit_into};
 
+pub use crate::chart::axes::{
+    AXIS_DATASETS, AXIS_H, AXIS_PAIRS, AXIS_POINTS, AXIS_W, AxisTally, Live, Outcome, PPC, Sizing,
+    axis_sweep, dataset, decimals, gutter, label_width, nice_step, settle, tick_count, tick_value,
+};
+pub use crate::chart::raster::{
+    Domain, Geom, Kind, OWNER_THRESHOLD, PlotState, RUNGS, Range, Raster, Reach, SHARED, cluster,
+    domain_of, geom,
+};
+pub use crate::chart::{Opts, SERIES_RGB, Series, series_paint};
 // ── the screen ───────────────────────────────────────────────────────────────────────────────────
 
 /// The wide screen's width. §21's own 300x80.
@@ -111,892 +122,6 @@ pub const VOLUMES: [usize; 3] = [1_000, 100_000, 1_000_000];
 /// each, and a panel that is not the subject of a click is a region nothing reads.
 pub const REGIONS: usize = 2;
 
-// ── the two constructions, and the sub-cell ladder ───────────────────────────────────────────────
-
-/// The two constructions. **Not two skins of one component**: they differ in what a cell means, in
-/// how many states a cell has, and — the part no glyph table can carry — in how many samples they
-/// ask the data for.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Kind {
-    /// `chart`: bottom-anchored bars. A cell is a **prefix** of a column, so its states are ordered
-    /// and the sub-column axis is unused.
-    Bars,
-    /// `plot`: arbitrary marks. A cell is a **set** of positions, so its states are a power set and
-    /// both sub-axes are live.
-    Marks,
-}
-
-impl Kind {
-    /// The word a report prints.
-    pub const fn word(self) -> &'static str {
-        match self {
-            Kind::Bars => "chart (bars)",
-            Kind::Marks => "plot (marks)",
-        }
-    }
-}
-
-/// Sub-cells per cell, on each axis.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct Geom {
-    /// Sub-columns.
-    pub sx: u8,
-    /// Sub-rows.
-    pub sy: u8,
-}
-
-impl Geom {
-    /// How many bits a cell's mask carries.
-    pub const fn bits(self) -> u32 {
-        self.sx as u32 * self.sy as u32
-    }
-
-    /// **How many distinguishable states a cell has**, which is the number the third repertoire rung
-    /// has to be argued from.
-    ///
-    /// For bars a cell is a prefix, so it is `sy + 1`; for marks it is the power set.
-    pub const fn states(self, kind: Kind) -> u32 {
-        match kind {
-            Kind::Bars => self.sy as u32 + 1,
-            Kind::Marks => 1u32 << self.bits(),
-        }
-    }
-}
-
-/// **The branch, stated once — and the only place in `vitui-components` that names a repertoire.**
-///
-/// `CONTEXT.md` defines the middle rung as *Unicode with box drawing **and block elements***, and
-/// the eighth blocks are block elements: U+2581…U+2588, one contiguous run with the half blocks. An
-/// operator who promises block elements has promised all of them; no font has the half block and
-/// lacks the third. So the bar ladder is **1 / 8 / 8** and the third rung buys a bar chart
-/// *nothing*.
-///
-/// Marks are the other story. A bottom-anchored prefix needs one sub-column; an arbitrary point
-/// needs two axes. Block elements give the quadrants — a 2x2 grid, 16 states. Braille gives 2x4, 256
-/// states. **That factor of two on the vertical axis is the entire earning of the third rung, and it
-/// is `plot`'s and not `chart`'s.**
-///
-/// # Why this cannot be a `Glyph`, and why it therefore has to name a repertoire
-///
-/// A glyph is *a lookup with a spelling at every repertoire level, every spelling exactly one cell,
-/// and no spelling blank* (`CONTEXT.md`). The same cell here is one of 2, 9, 16 or **256**
-/// characters, keyed on a *bitmask*, and the number of samples asked of the data changes with the
-/// rung — so the theme's table cannot carry it and the branch is the component's. `CONTEXT.md` says
-/// exactly that, in the `Glyph` entry, and in the same breath says *a component names no
-/// repertoire*. Both cannot hold here, and the collision is filed rather than decided: see this
-/// module's header and `.scratch/vitui-components-impl/issues/28`.
-///
-/// Nothing else in this crate branches on a repertoire. What a component wants a *spelling* for
-/// still goes through `Theme::glyph`, and this screen's chrome does.
-pub fn geom(kind: Kind, set: GlyphSet) -> Geom {
-    match (kind, set) {
-        // At the bottom rung a cell is one sub-cell whatever the construction — `#` or `*`, two
-        // states, and no sub-axis at all. One arm and not two, because that is one fact.
-        (_, GlyphSet::Ascii) => Geom { sx: 1, sy: 1 },
-        // A prefix needs one sub-column, and the eighth blocks are the *middle* rung by
-        // `CONTEXT.md`'s own definition of it.
-        (Kind::Bars, _) => Geom { sx: 1, sy: 8 },
-        // A mark needs two axes. Quadrants are 2x2; braille is 2x4, and that one bit of vertical
-        // resolution is the whole earning of the third rung.
-        (Kind::Marks, GlyphSet::Unicode) => Geom { sx: 2, sy: 2 },
-        (Kind::Marks, _) => Geom { sx: 2, sy: 4 },
-    }
-}
-
-/// The nine prefixes a bar cell is one of, at the eighth-block rung.
-const BAR8: [char; 9] = [
-    ' ', '\u{2581}', '\u{2582}', '\u{2583}', '\u{2584}', '\u{2585}', '\u{2586}', '\u{2587}',
-    '\u{2588}',
-];
-
-/// The sixteen quadrants a mark cell is one of, at the 2x2 rung. Indexed by the raw bitmask, which
-/// is what makes this an array rather than a match.
-const QUAD: [char; 16] = [
-    ' ', '\u{2598}', '\u{259D}', '\u{2580}', '\u{2596}', '\u{258C}', '\u{259E}', '\u{259B}',
-    '\u{2597}', '\u{259A}', '\u{2590}', '\u{259C}', '\u{2584}', '\u{2599}', '\u{259F}', '\u{2588}',
-];
-
-/// Bit `b = r * sx + c` renumbered into the braille pattern's own dot order.
-const BRAILLE_BIT: [u8; 8] = [0, 3, 1, 4, 2, 5, 6, 7];
-
-/// **The cluster a cell's bitmask spells, in the given construction.**
-///
-/// Two `match`es and a sixteen-entry array, which is §13's own description of the branch. It returns
-/// a `char` rather than a `&'static str` because the braille rung is 256 spellings computed from the
-/// mask, and a table of 256 static strings would be the private fallback table §16 forbids wearing a
-/// different hat.
-pub fn cluster(kind: Kind, g: Geom, bits: u8) -> char {
-    match kind {
-        Kind::Bars => {
-            if g.sy == 1 {
-                if bits == 0 { ' ' } else { '#' }
-            } else {
-                BAR8[bits.count_ones() as usize]
-            }
-        }
-        Kind::Marks => match (g.sx, g.sy) {
-            (1, 1) => {
-                if bits == 0 {
-                    ' '
-                } else {
-                    '*'
-                }
-            }
-            (2, 2) => QUAD[usize::from(bits & 0x0F)],
-            _ => {
-                let mut pat = 0u32;
-                for (b, dot) in BRAILLE_BIT.iter().enumerate() {
-                    if bits & (1 << b) != 0 {
-                        pat |= 1 << dot;
-                    }
-                }
-                if pat == 0 {
-                    ' '
-                } else {
-                    char::from_u32(0x2800 + pat).unwrap_or(' ')
-                }
-            }
-        },
-    }
-}
-
-// ── the domain, and where an axis range is allowed to come from ──────────────────────────────────
-
-/// The value range an axis maps onto its sub-rows.
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub struct Domain {
-    /// The bottom.
-    pub y0: f32,
-    /// The top.
-    pub y1: f32,
-}
-
-impl Domain {
-    /// A nudge outward, so a maximum lands **inside** the top cell rather than on its edge.
-    pub fn padded(self) -> Domain {
-        let span = (self.y1 - self.y0).max(f32::EPSILON);
-        Domain {
-            y0: self.y0,
-            y1: self.y1 + span * 0.001,
-        }
-    }
-
-    /// Its two ends as bits, which is what a memo key can hold. `f32` is not `Eq`.
-    pub fn bits(self) -> (u32, u32) {
-        (self.y0.to_bits(), self.y1.to_bits())
-    }
-}
-
-/// **How the axis range is obtained.** Both are folds over the data; only one of them is over *the*
-/// data.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Range {
-    /// Every point. `O(n)` — on the **edit**, behind the same memo as the raster.
-    Whole,
-    /// **A stride sample**, the shape everyone reaches for when a fold looks expensive. False green
-    /// two: it is an optimisation of a cost the memo had already removed, and it is *slower*.
-    Sampled(u32),
-}
-
-impl Range {
-    /// The word a report prints.
-    pub const fn word(self) -> &'static str {
-        match self {
-            Range::Whole => "the whole domain",
-            Range::Sampled(_) => "a stride sample",
-        }
-    }
-}
-
-/// The extremes of `series`, obtained the way `how` says.
-pub fn domain_of(series: &[Vec<f32>], how: Range) -> Domain {
-    let step = match how {
-        Range::Whole => 1usize,
-        Range::Sampled(s) => (s as usize).max(1),
-    };
-    let (mut lo, mut hi) = (f32::INFINITY, f32::NEG_INFINITY);
-    for s in series {
-        let mut i = 0usize;
-        while i < s.len() {
-            let v = s[i];
-            if v < lo {
-                lo = v;
-            }
-            if v > hi {
-                hi = v;
-            }
-            i += step;
-        }
-    }
-    if !lo.is_finite() || !hi.is_finite() {
-        return Domain { y0: 0.0, y1: 1.0 };
-    }
-    if (hi - lo).abs() < f32::EPSILON {
-        return Domain {
-            y0: lo,
-            y1: lo + 1.0,
-        };
-    }
-    Domain { y0: lo, y1: hi }
-}
-
-// ── the raster ───────────────────────────────────────────────────────────────────────────────────
-
-/// **Which points a build is allowed to look at.**
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Reach {
-    /// Every point maps to a column, and the ones outside the domain are discarded **after** the
-    /// map. Correct, and `O(n)` on the edit.
-    Mapped,
-    /// **The list instinct**: cull to the visible *index* window first, then map. Correct for a
-    /// virtualised collection — [`crate::listing::Volume::Windowed`] is exactly this — and wrong for
-    /// a plot, because an index is not an x coordinate. False green one.
-    CulledByIndex,
-    /// **Rasterise every *k*-th point**, `k = n / w`. The output has the same shape and the same
-    /// frame cost, and the peaks are gone. False green three.
-    Strided,
-}
-
-impl Reach {
-    /// The word a report prints.
-    pub const fn word(self) -> &'static str {
-        match self {
-            Reach::Mapped => "every point, mapped",
-            Reach::CulledByIndex => "culled to the visible index window",
-            Reach::Strided => "every n-th point",
-        }
-    }
-}
-
-/// The owner id a cell two or more series reached carries.
-pub const SHARED: u8 = 255;
-/// The owner id a threshold row carries, so it takes part in the same run splitting as a series.
-pub const OWNER_THRESHOLD: u8 = 254;
-
-/// **One cell's worth of the rectangle, plus who owns it.**
-///
-/// `bits` and `owner` are each `w * h` bytes, so a 60x20 raster is 2 400 B — **at every data
-/// volume**, which is the whole claim.
-#[derive(Clone, Debug)]
-pub struct Raster {
-    w: u16,
-    h: u16,
-    kind: Kind,
-    geom: Geom,
-    dom: Domain,
-    bits: Vec<u8>,
-    owner: Vec<u8>,
-    touched: u64,
-    shared: u32,
-}
-
-impl Raster {
-    /// A raster over nothing.
-    pub fn empty() -> Raster {
-        Raster {
-            w: 0,
-            h: 0,
-            kind: Kind::Marks,
-            geom: Geom { sx: 1, sy: 1 },
-            dom: Domain { y0: 0.0, y1: 1.0 },
-            bits: Vec::new(),
-            owner: Vec::new(),
-            touched: 0,
-            shared: 0,
-        }
-    }
-
-    /// **How many bytes it holds. `2 * w * h`**, and it is the number that does not move with the
-    /// data.
-    pub fn bytes(&self) -> usize {
-        self.bits.len() + self.owner.len()
-    }
-
-    /// Its width in cells.
-    pub fn w(&self) -> u16 {
-        self.w
-    }
-
-    /// Its height in cells.
-    pub fn h(&self) -> u16 {
-        self.h
-    }
-
-    /// The domain it was built against.
-    pub fn domain(&self) -> Domain {
-        self.dom
-    }
-
-    /// **Points the build looked at.** The edit's cost as a count — the only place data volume is
-    /// allowed to appear.
-    pub fn touched(&self) -> u64 {
-        self.touched
-    }
-
-    /// **Cells two or more series reached.** The number the braille/quadrant colour trade is decided
-    /// on: a braille cell has one `Paint` for all eight dots and a quadrant carries a foreground and
-    /// a background, so the third rung buys resolution and pays here.
-    pub fn shared(&self) -> u32 {
-        self.shared
-    }
-
-    /// **The defensive read that makes a wrongly-keyed memo invisible.**
-    ///
-    /// A raster built for one rectangle and read for another is out of bounds, and every real
-    /// component has this `if` in it because the alternative is a panic on a resize. With it, a
-    /// stale raster draws a *smaller, older* plot inside a bigger rectangle: no panic, no counter,
-    /// fewer writes, faster.
-    pub fn at(&self, x: u16, y: u16) -> (u8, u8) {
-        if x >= self.w || y >= self.h {
-            return (0, 0);
-        }
-        let i = usize::from(y) * usize::from(self.w) + usize::from(x);
-        (self.bits[i], self.owner[i])
-    }
-
-    fn resize(&mut self, w: u16, h: u16) {
-        let n = usize::from(w) * usize::from(h);
-        self.bits.clear();
-        self.bits.resize(n, 0);
-        self.owner.clear();
-        self.owner.resize(n, 0);
-        self.w = w;
-        self.h = h;
-    }
-
-    fn put(&mut self, cx: u16, cy: u16, bit: u8, series: u8) {
-        let i = usize::from(cy) * usize::from(self.w) + usize::from(cx);
-        self.bits[i] |= 1 << bit;
-        let o = self.owner[i];
-        if o == 0 {
-            self.owner[i] = series;
-        } else if o != series && o != SHARED {
-            self.owner[i] = SHARED;
-            self.shared += 1;
-        }
-    }
-
-    /// **The whole of the data-volume cost, in one function.**
-    ///
-    /// It runs on a memo miss — an edit, a resize, a zoom or a repertoire swap — and on nothing
-    /// else. Every loop over `n` in this module is inside it.
-    ///
-    /// **It is a union, and a union is idempotent.** A point sets bits; two points in one cell set
-    /// the union of their bits. So a column's extrema survive *by construction* and downsampling is
-    /// not a technique this component contains.
-    #[allow(clippy::too_many_arguments)]
-    pub fn build(
-        &mut self,
-        w: u16,
-        h: u16,
-        kind: Kind,
-        g: Geom,
-        dom: Domain,
-        series: &[Vec<f32>],
-        reach: Reach,
-        cull: (usize, usize),
-    ) {
-        self.resize(w, h);
-        self.kind = kind;
-        self.geom = g;
-        self.dom = dom;
-        self.touched = 0;
-        self.shared = 0;
-        if w == 0 || h == 0 {
-            return;
-        }
-        let subw = u32::from(w) * u32::from(g.sx);
-        let subh = u32::from(h) * u32::from(g.sy);
-        let span = (dom.y1 - dom.y0).max(f32::EPSILON);
-
-        for (si, s) in series.iter().enumerate() {
-            let n = s.len();
-            if n == 0 {
-                continue;
-            }
-            let sid = (si as u8) + 1;
-            let (lo, hi, step) = match reach {
-                Reach::Mapped => (0usize, n, 1usize),
-                Reach::CulledByIndex => (cull.0.min(n), cull.1.min(n), 1usize),
-                Reach::Strided => (0usize, n, (n / usize::from(w).max(1)).max(1)),
-            };
-            let mut i = lo;
-            while i < hi {
-                self.touched += 1;
-                let v = s[i];
-                // x: the point's position in the series, mapped onto the sub-column axis.
-                let sx_pos = ((i as u64 * u64::from(subw)) / (n as u64).max(1)) as u32;
-                let sx_pos = sx_pos.min(subw - 1);
-                // y: the value, mapped onto the sub-row axis, top down.
-                let t = (dom.y1 - v) / span;
-                let sy_pos = (t * subh as f32) as i32;
-                if sy_pos < 0 || sy_pos >= subh as i32 {
-                    // Discarded **after** the map. That ordering is what separates this from the
-                    // culled arm, which discards before it.
-                    i += step;
-                    continue;
-                }
-                let sy_pos = sy_pos as u32;
-                let cx = (sx_pos / u32::from(g.sx)) as u16;
-                let c = (sx_pos % u32::from(g.sx)) as u8;
-                match kind {
-                    Kind::Marks => {
-                        let cy = (sy_pos / u32::from(g.sy)) as u16;
-                        let r = (sy_pos % u32::from(g.sy)) as u8;
-                        self.put(cx, cy, r * g.sx + c, sid);
-                    }
-                    Kind::Bars => {
-                        // A bar is the prefix from the value's sub-row to the bottom. **The union of
-                        // two prefixes is the taller one**, so a column's maximum survives without
-                        // anybody computing a maximum.
-                        let mut sy = sy_pos;
-                        while sy < subh {
-                            let cy = (sy / u32::from(g.sy)) as u16;
-                            let r = (sy % u32::from(g.sy)) as u8;
-                            self.put(cx, cy, r * g.sx + c, sid);
-                            sy += 1;
-                        }
-                    }
-                }
-                i += step;
-            }
-        }
-    }
-}
-
-// ── axes: §9's loop in a second place, and here it oscillates ────────────────────────────────────
-
-/// **A 1 / 2 / 5 x 10^k step, and the reason monotonicity fails.**
-///
-/// Fewer ticks do not give a subset of the labels. Five ticks over 0…10 are `0 2.5 5 7.5 10`; three
-/// are `0 5 10`. The five-tick set contains a label one column wider than anything in the three-tick
-/// set, and **neither set contains the other** — which is §9's precondition, *a narrower plotting
-/// area may not produce a wider label*, failing for ordinary data.
-pub fn nice_step(span: f32, target: u16) -> f32 {
-    let target = f32::from(target.max(1));
-    let raw = (span / target).max(f32::MIN_POSITIVE);
-    let mag = 10f32.powf(raw.log10().floor());
-    let n = raw / mag;
-    let step = if n <= 1.0 {
-        1.0
-    } else if n <= 2.0 {
-        2.0
-    } else if n <= 5.0 {
-        5.0
-    } else {
-        10.0
-    };
-    step * mag
-}
-
-/// How many decimals a step needs, so a label is not `0.30000001`.
-pub fn decimals(step: f32) -> u32 {
-    if step <= 0.0 || !step.is_finite() {
-        return 0;
-    }
-    let d = -step.log10().floor();
-    if d <= 0.0 { 0 } else { (d as u32).min(4) }
-}
-
-/// **The width of a label, computed rather than formatted**, so the frame path allocates nothing.
-pub fn label_width(v: f32, dec: u32) -> u16 {
-    let neg = v < 0.0;
-    let a = v.abs();
-    let int_digits = if a < 1.0 {
-        1
-    } else {
-        u16::try_from(a.log10().floor() as i64 + 1)
-            .unwrap_or(1)
-            .max(1)
-    };
-    int_digits + u16::from(neg) + if dec > 0 { 1 + dec as u16 } else { 0 }
-}
-
-/// How many ticks a plotting area of this height carries. One every third row, at least two.
-pub fn tick_count(plot_h: u16) -> u16 {
-    (plot_h / 3).max(2)
-}
-
-/// The *i*-th tick's value, from the bottom.
-pub fn tick_value(dom: Domain, step: f32, i: u16) -> f32 {
-    let first = (dom.y0 / step).ceil() * step;
-    first + step * f32::from(i)
-}
-
-/// **The gutter a domain needs**: the widest of its tick labels, plus one column of separation.
-pub fn gutter(dom: Domain, plot_h: u16) -> u16 {
-    let n = tick_count(plot_h);
-    let step = nice_step(dom.y1 - dom.y0, n);
-    let dec = decimals(step);
-    let mut w = 1u16;
-    let mut i = 0u16;
-    loop {
-        let v = tick_value(dom, step, i);
-        if v > dom.y1 + step * 0.5 {
-            break;
-        }
-        w = w.max(label_width(v, dec));
-        i += 1;
-        if i > 64 {
-            break;
-        }
-    }
-    w + 1
-}
-
-/// **How the gutter is obtained, which is the whole decision.**
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Sizing {
-    /// The naive one: recompute from the window the current gutter produces, and feed it back.
-    Fixpoint,
-    /// **§9's hysteresis form**: compute from *last frame's* plotting width. Never loops, and
-    /// settles on a gutter that is not a fixed point of its own rule.
-    LastFrame,
-    /// **The decision.** The gutter comes from the whole series' range, which is data — so it does
-    /// not depend on the rectangle at all and there is no loop to solve.
-    ///
-    /// > A layout loop is worth solving only when both ends are genuinely layout; when one end is
-    /// > data, decouple it.
-    WholeDomain,
-}
-
-impl Sizing {
-    /// The word a report prints.
-    pub const fn word(self) -> &'static str {
-        match self {
-            Sizing::Fixpoint => "auto-scaled to the window, fed back",
-            Sizing::LastFrame => "last frame's plotting width",
-            Sizing::WholeDomain => "the whole domain",
-        }
-    }
-}
-
-/// What settling the loop turned out to be.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Outcome {
-    /// A fixed point, reached in this many passes.
-    Converged(u8),
-    /// **A cycle of length two or more.** The screen flips for ever.
-    Oscillates(u8),
-}
-
-/// How many samples a plotting column shows, for a live series.
-pub const PPC: usize = 4;
-
-/// **A live series, with the window domains it answers precomputed.**
-///
-/// The cache is a memo over a pure function and not a shortcut: `window_domain(plot_w)` depends on
-/// the series and on `plot_w` and on nothing else, and the sweep asks for the same few hundred
-/// values 175 712 times. Without it the sweep is a scan of the data per pass per pair.
-pub struct Live<'a> {
-    y: &'a [f32],
-    cached: Vec<Domain>,
-    whole: Domain,
-}
-
-impl<'a> Live<'a> {
-    /// A live series whose window domains are precomputed for every plotting width up to `max_w`.
-    pub fn over(y: &'a [f32], max_w: u16) -> Live<'a> {
-        let mut cached = Vec::with_capacity(usize::from(max_w) + 1);
-        for w in 0..=max_w {
-            cached.push(Live::scan(y, w));
-        }
-        let whole = Live::scan(y, u16::MAX);
-        Live { y, cached, whole }
-    }
-
-    fn scan(y: &[f32], plot_w: u16) -> Domain {
-        let want = usize::from(plot_w).saturating_mul(PPC).max(1);
-        let lo = y.len().saturating_sub(want);
-        let (mut a, mut b) = (f32::INFINITY, f32::NEG_INFINITY);
-        for &v in &y[lo..] {
-            if v < a {
-                a = v;
-            }
-            if v > b {
-                b = v;
-            }
-        }
-        if !a.is_finite() || (b - a).abs() < f32::EPSILON {
-            return Domain { y0: 0.0, y1: 1.0 };
-        }
-        Domain { y0: a, y1: b }
-    }
-
-    /// **The auto-scaled range of what a plotting area this wide is showing.**
-    pub fn window_domain(&self, plot_w: u16) -> Domain {
-        match self.cached.get(usize::from(plot_w)) {
-            Some(d) => *d,
-            None => Live::scan(self.y, plot_w),
-        }
-    }
-
-    /// The range of the whole series, which is data and does not depend on the rectangle.
-    pub fn whole_domain(&self) -> Domain {
-        self.whole
-    }
-}
-
-/// **Iterate the loop over a `w` by `h` viewport and say which of the three outcomes it is.**
-///
-/// `last` is the previous frame's gutter, and it is read only by [`Sizing::LastFrame`].
-pub fn settle(live: &Live<'_>, w: u16, h: u16, sizing: Sizing, last: u16) -> (u16, Outcome) {
-    let plot_h = h.saturating_sub(2).max(1);
-    match sizing {
-        Sizing::WholeDomain => {
-            let g = gutter(live.whole_domain(), plot_h);
-            (g.min(w.saturating_sub(1)), Outcome::Converged(1))
-        }
-        Sizing::LastFrame => {
-            let plot_w = w.saturating_sub(last).max(1);
-            let g = gutter(live.window_domain(plot_w), plot_h);
-            (g.min(w.saturating_sub(1)), Outcome::Converged(1))
-        }
-        Sizing::Fixpoint => {
-            let mut seen = [u16::MAX; 12];
-            let mut g = 0u16;
-            for pass in 0..12u8 {
-                let plot_w = w.saturating_sub(g).max(1);
-                let next = gutter(live.window_domain(plot_w), plot_h).min(w.saturating_sub(1));
-                if next == g {
-                    return (g, Outcome::Converged(pass + 1));
-                }
-                if let Some(k) = seen.iter().position(|&s| s == next) {
-                    return (g, Outcome::Oscillates((pass + 1) - k as u8));
-                }
-                seen[usize::from(pass)] = next;
-                g = next;
-            }
-            (g, Outcome::Oscillates(12))
-        }
-    }
-}
-
-/// **A dataset built so the recent samples are small decimals and the older ones are large
-/// integers.**
-///
-/// Nothing exotic: it is a latency trace after a deploy, or a queue depth that drained. That shape
-/// is what makes *dropping the older samples out of the window* leave `-0.05` where `900` was, which
-/// is five columns of label where three were.
-pub fn dataset(seed: u32, n: usize) -> Vec<f32> {
-    let mut v = Vec::with_capacity(n);
-    let tail = 40 + (seed as usize % 400);
-    for i in 0..n {
-        if i + tail < n {
-            let a = ((i as u32).wrapping_mul(2_654_435_761).wrapping_add(seed) >> 8) % 900;
-            v.push(100.0 + a as f32);
-        } else {
-            let a = ((i as u32).wrapping_mul(40_503).wrapping_add(seed) >> 4) % 100;
-            v.push(a as f32 / 1000.0 - 0.05);
-        }
-    }
-    v
-}
-
-/// How many datasets the sweep runs over. Eight.
-pub const AXIS_DATASETS: u32 = 8;
-/// How long each of them is.
-pub const AXIS_POINTS: usize = 20_000;
-/// The narrowest viewport the sweep visits.
-pub const AXIS_W: std::ops::RangeInclusive<u16> = 12..=300;
-/// The shortest viewport the sweep visits.
-pub const AXIS_H: std::ops::RangeInclusive<u16> = 5..=80;
-
-/// **How many viewport x dataset pairs the sweep visits. 175 712** — `8 * 289 * 76`, and §21 states
-/// the product rather than the factors.
-pub const AXIS_PAIRS: u64 = AXIS_DATASETS as u64 * 289 * 76;
-
-/// What the sweep found, in the three columns §9 named.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
-pub struct AxisTally {
-    /// How many pairs were visited.
-    pub pairs: u64,
-    /// How many reached a fixed point.
-    pub converged: u64,
-    /// **How many never do.** The screen flips for ever.
-    pub oscillates: u64,
-    /// The most passes any converging pair needed.
-    pub max_passes: u8,
-    /// Converging pairs the hysteresis form disagrees with the fixpoint about.
-    pub hysteresis_wrong: u64,
-    /// **Oscillating pairs the hysteresis form silently stabilises** — no loop, and a gutter that is
-    /// not a fixed point of its own rule. §9's outcome, in this second place.
-    pub hysteresis_settled_off: u64,
-    /// How many pairs the whole-domain form visited.
-    pub whole_pairs: u64,
-    /// **How many of them oscillate.** Zero: there is no edge to oscillate in.
-    pub whole_oscillates: u64,
-    /// How many passes the whole-domain form ever needs. One.
-    pub whole_max_passes: u8,
-}
-
-/// **Sweep the full [`AXIS_PAIRS`] and report all three forms.**
-pub fn axis_sweep() -> AxisTally {
-    let mut t = AxisTally::default();
-    let sets: Vec<Vec<f32>> = (0..AXIS_DATASETS)
-        .map(|s| dataset(s, AXIS_POINTS))
-        .collect();
-    for ys in &sets {
-        let live = Live::over(ys, *AXIS_W.end());
-        for w in AXIS_W {
-            for h in AXIS_H {
-                t.pairs += 1;
-                let (g, out) = settle(&live, w, h, Sizing::Fixpoint, 0);
-                let settled = hysteresis_steady(&live, w, h);
-                match out {
-                    Outcome::Converged(p) => {
-                        t.converged += 1;
-                        t.max_passes = t.max_passes.max(p);
-                        if settled != g {
-                            t.hysteresis_wrong += 1;
-                        }
-                    }
-                    Outcome::Oscillates(_) => {
-                        t.oscillates += 1;
-                        // Is what it settled on a fixed point of the rule it is meant to keep?
-                        let plot_w = w.saturating_sub(settled).max(1);
-                        let want = gutter(live.window_domain(plot_w), h.saturating_sub(2).max(1))
-                            .min(w.saturating_sub(1));
-                        if want != settled {
-                            t.hysteresis_settled_off += 1;
-                        }
-                    }
-                }
-                t.whole_pairs += 1;
-                let (_, out) = settle(&live, w, h, Sizing::WholeDomain, 0);
-                match out {
-                    Outcome::Oscillates(_) => t.whole_oscillates += 1,
-                    Outcome::Converged(p) => t.whole_max_passes = t.whole_max_passes.max(p),
-                }
-            }
-        }
-    }
-    t
-}
-
-/// The gutter the hysteresis form comes to rest on, run to its own steady state.
-fn hysteresis_steady(live: &Live<'_>, w: u16, h: u16) -> u16 {
-    let mut last = 0u16;
-    for _ in 0..8 {
-        let (next, _) = settle(live, w, h, Sizing::LastFrame, last);
-        if next == last {
-            break;
-        }
-        last = next;
-    }
-    last
-}
-
-// ── the data ─────────────────────────────────────────────────────────────────────────────────────
-
-/// **The two series the screen stands up, and the revision that keys their memo.**
-#[derive(Clone, Debug)]
-pub struct Series {
-    points: Vec<Vec<f32>>,
-    rev: Revision,
-}
-
-impl Series {
-    /// `series` series of `n` points each, with rare one-sample spikes scattered rather than
-    /// periodic.
-    ///
-    /// **The spikes are the whole reason *every n-th point* is not a downsampling strategy.** At 1M
-    /// points into 170 columns the stride is 5 882, and a one-sample spike survives it with
-    /// probability one in 5 882. A union keeps every one of them, because an extremum is a set
-    /// member and a union is idempotent.
-    pub fn build(n: usize, series: usize) -> Series {
-        let mut out = Vec::with_capacity(series);
-        for s in 0..series {
-            let mut v = Vec::with_capacity(n);
-            for i in 0..n {
-                let t = i as f32 / n.max(1) as f32;
-                let base = (t * 12.0 + s as f32).sin() * 20.0 + 50.0 + s as f32 * 7.0;
-                let hit = (i as u32)
-                    .wrapping_mul(2_654_435_761)
-                    .wrapping_add(s as u32 * 7_919)
-                    >> 7;
-                v.push(if hit % 1_501 == 3 { base + 26.0 } else { base });
-            }
-            out.push(v);
-        }
-        Series {
-            points: out,
-            rev: Revision::fresh(),
-        }
-    }
-
-    /// The points, per series.
-    pub fn points(&self) -> &[Vec<f32>] {
-        &self.points
-    }
-
-    /// The revision the memo chain is keyed on.
-    pub fn revision(&self) -> Revision {
-        self.rev
-    }
-
-    /// How many points each series holds.
-    pub fn len(&self) -> usize {
-        self.points.first().map_or(0, Vec::len)
-    }
-
-    /// Whether there is nothing to draw.
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-}
-
-// ── the options: every alternative under measurement is one field ────────────────────────────────
-
-/// **What a pane is, and every variant this ticket has to price is one field of it.**
-///
-/// [`crate::dense::Build`]'s arrangement and [`crate::listing::Volume`]'s, for the same reason: a
-/// second painter written against the alternative is a gate testing a copy.
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub struct Opts {
-    /// Bars or marks.
-    pub kind: Kind,
-    /// Which points the raster is allowed to look at.
-    pub reach: Reach,
-    /// Where the axis range comes from.
-    pub range: Range,
-    /// The threshold value, if the pane draws one.
-    pub threshold: Option<f32>,
-    /// **Whether the threshold is carried on the glyph axis as well as on the paint axis.**
-    ///
-    /// §16's *carried on both axes*, in the place a chart meets it: at sixteen colours `Danger`,
-    /// `Warn` and `Ok` need not differ on the wire, so a threshold carried by a paint alone is
-    /// invisible and a rule drawn in `HLine` is not.
-    pub threshold_glyph: bool,
-    /// **Whether series colours are role-derived rather than named.**
-    ///
-    /// The failure this exists to price: there are thirteen roles, and the three that read as series
-    /// colours collapse to one at sixteen colours.
-    pub role_series: bool,
-}
-
-impl Opts {
-    /// The plot pane: marks, every point, the whole domain, a threshold on both axes.
-    pub fn plot() -> Opts {
-        Opts {
-            kind: Kind::Marks,
-            reach: Reach::Mapped,
-            range: Range::Whole,
-            threshold: Some(84.0),
-            threshold_glyph: true,
-            role_series: false,
-        }
-    }
-
-    /// The chart pane: the same, as bars.
-    pub fn chart() -> Opts {
-        Opts {
-            kind: Kind::Bars,
-            ..Opts::plot()
-        }
-    }
-}
-
 /// **The whole screen as one value**, so a comparison is one word at the call site.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Build {
@@ -1020,7 +145,7 @@ impl Build {
     /// The correct screen: braille, truecolor, both panes as §13 states them.
     pub fn correct() -> Build {
         Build {
-            glyphs: GlyphSet::Extended,
+            glyphs: RUNGS[2],
             depth: ColorDepth::TrueColor,
             plot: Opts::plot(),
             chart: Opts::chart(),
@@ -1053,190 +178,13 @@ impl Build {
     }
 }
 
-// ── colour: the one legitimate use of `Theme::custom` ────────────────────────────────────────────
-
-/// **The series palette. Counted, not scattered.**
-///
-/// This is the only place in `vitui-components` that names a colour, and it exists because there are
-/// as many series as the data says and no theme can enumerate them: there are thirteen roles.
-/// [`Theme::custom`] is what makes it legal; a `Style` literal would not be, and there are none in
-/// this crate.
-pub const SERIES_RGB: [(u8, u8, u8); 6] = [
-    (0x5f, 0xaf, 0xff),
-    (0xff, 0x87, 0x5f),
-    (0x87, 0xd7, 0x5f),
-    (0xd7, 0x87, 0xff),
-    (0xff, 0xd7, 0x5f),
-    (0x5f, 0xd7, 0xd7),
-];
-
-/// **The paint of series `i`.**
-///
-/// # `Theme::custom` needs a background and a component cannot read the page's
-///
-/// It takes two [`Rgb`], and the thirteen roles are `Paint`s rather than colours — there is no
-/// `Theme::page()`, no `Role::Page` and no way to ask what the body's background is. So the
-/// background is derived from `Theme::is_dark`, which is the one bit about the page a component can
-/// read. That is a stated substitution and not a preference: a `Theme::custom_fg` taking one colour,
-/// or a readable page colour, would remove it, and neither exists. Filed with components ticket 28.
-pub fn series_paint(theme: &Theme, i: usize, role_series: bool) -> Paint {
-    if role_series {
-        // The failure this arm exists to price: three of the thirteen roles read as series colours
-        // and they collapse to one at sixteen colours.
-        return theme.paint(match i % 3 {
-            0 => Role::Danger,
-            1 => Role::Warn,
-            _ => Role::Ok,
-        });
-    }
-    let (r, g, b) = SERIES_RGB[i % SERIES_RGB.len()];
-    let page = if theme.is_dark() {
-        Rgb::new(0, 0, 0)
-    } else {
-        Rgb::new(0xff, 0xff, 0xff)
-    };
-    theme.custom(Rgb::new(r, g, b), page)
-}
-
-// ── the pane's own state, and the cache the frame reads ──────────────────────────────────────────
-
-/// What a raster was built for.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-struct PaneKey {
-    rev: u64,
-    w: u16,
-    h: u16,
-    kind: u8,
-    sx: u8,
-    sy: u8,
-    series: u8,
-    y0: u32,
-    y1: u32,
-    reach: u8,
-}
-
-/// **A pane's own state, and the cache lives in it** — `CONTEXT.md`'s rule that a memo is *keyed by
-/// where it is stored*, which is why it consumes no `Id`.
-///
-/// **This is a cache and not yet §13's memo chain.** Components ticket 28 replaces it with
-/// [`vitui_runtime::data::Memo`] over a folded key, prices the two narrow keys against it, and turns
-/// the range half into a separate memo the raster's chains from. What is here is the smallest thing
-/// that makes the screen measurable at a million points: without it every frame is a fold.
-#[derive(Debug)]
-pub struct PaneState {
-    key: Option<PaneKey>,
-    dom_key: Option<(u64, u8)>,
-    dom: Domain,
-    dom_misses: u32,
-    raster: Raster,
-    misses: u32,
-    /// The row buffer the frame spells into, allocated once.
-    row: String,
-    /// The label buffer the gutter formats into, allocated once.
-    label: String,
-}
-
-impl PaneState {
-    /// A pane that has drawn nothing.
-    pub fn new() -> PaneState {
-        PaneState {
-            key: None,
-            dom_key: None,
-            dom: Domain { y0: 0.0, y1: 1.0 },
-            dom_misses: 0,
-            raster: Raster::empty(),
-            misses: 0,
-            row: String::with_capacity(1024),
-            label: String::with_capacity(64),
-        }
-    }
-
-    /// The raster the last frame drew from.
-    pub fn raster(&self) -> &Raster {
-        &self.raster
-    }
-
-    /// How many times the raster has been rebuilt.
-    pub fn misses(&self) -> u32 {
-        self.misses
-    }
-
-    /// How many times the range has been refolded.
-    pub fn range_misses(&self) -> u32 {
-        self.dom_misses
-    }
-
-    /// The domain the last frame drew against.
-    pub fn domain(&self) -> Domain {
-        self.dom
-    }
-
-    /// **The range half.** Its key is the data revision and the policy; the rectangle is
-    /// deliberately not in it, because a resize does not change what the data's extremes are.
-    fn range(&mut self, rev: Revision, how: Range, series: &[Vec<f32>]) -> Domain {
-        let k = (
-            rev.raw(),
-            match how {
-                Range::Whole => 0u8,
-                Range::Sampled(_) => 1,
-            },
-        );
-        if self.dom_key != Some(k) {
-            self.dom_key = Some(k);
-            self.dom_misses += 1;
-            self.dom = domain_of(series, how).padded();
-        }
-        self.dom
-    }
-
-    /// The raster half. Its key is every input, including the domain the range half just answered.
-    #[allow(clippy::too_many_arguments)]
-    fn refresh(
-        &mut self,
-        rev: Revision,
-        w: u16,
-        h: u16,
-        kind: Kind,
-        g: Geom,
-        dom: Domain,
-        series: &[Vec<f32>],
-        reach: Reach,
-        cull: (usize, usize),
-    ) {
-        let (y0, y1) = dom.bits();
-        let key = PaneKey {
-            rev: rev.raw(),
-            w,
-            h,
-            kind: kind as u8,
-            sx: g.sx,
-            sy: g.sy,
-            series: series.len() as u8,
-            y0,
-            y1,
-            reach: reach as u8,
-        };
-        if self.key != Some(key) {
-            self.key = Some(key);
-            self.misses += 1;
-            self.raster.build(w, h, kind, g, dom, series, reach, cull);
-        }
-    }
-}
-
-impl Default for PaneState {
-    fn default() -> PaneState {
-        PaneState::new()
-    }
-}
-
-/// **The screen's state: one [`PaneState`] a pane.**
+/// **The screen's state: one [`PlotState`] a pane.**
 #[derive(Debug, Default)]
 pub struct ScreenState {
     /// The plot pane's.
-    pub plot: PaneState,
+    pub plot: PlotState,
     /// The chart pane's.
-    pub chart: PaneState,
+    pub chart: PlotState,
     /// **The legend's row buffer, allocated once.**
     ///
     /// It is a field rather than a local of [`legend_into`] because a `String::with_capacity` on the
@@ -1251,212 +199,6 @@ impl ScreenState {
     /// Two panes that have drawn nothing.
     pub fn new() -> ScreenState {
         ScreenState::default()
-    }
-}
-
-// ── the stand-in painter ─────────────────────────────────────────────────────────────────────────
-
-/// **One pane, drawn from its raster.** The stand-in components ticket 28 replaces.
-///
-/// The signature is spec §1's `(cx, rect, data, …)` plus the options struct and the pane's own
-/// state, drawing through an [`Ink`] so a counter and a recorded surface see the shipped path rather
-/// than a copy of it.
-///
-/// The data arrives as `&Series` and is **never iterated here** — every loop over `n` is inside
-/// [`Raster::build`], which runs on a cache miss.
-///
-/// It writes a **partition** of `area`: the gutter, the axis column, the body and the axis row are
-/// disjoint and together they are every cell.
-pub fn pane_into<I: Ink>(
-    ink: &mut I,
-    cx: &mut Ctx<'_, '_>,
-    area: Rect,
-    id: Id,
-    o: &Opts,
-    data: &Series,
-    st: &mut PaneState,
-) -> Response {
-    let response = cx.interact(id, area, Interest::HOVER);
-    if area.w < 6 || area.h < 3 {
-        return response;
-    }
-
-    let g = geom(o.kind, cx.theme().glyphs());
-    let dom = st.range(data.revision(), o.range, data.points());
-    let plot_h = area.h - 1;
-    let gut = gutter(dom, plot_h).min(area.w - 2);
-    let plot_w = area.w - gut;
-    // What the list instinct would compute: the index window a virtualised collection uses.
-    let cull = (0usize, usize::from(plot_h).min(data.len()));
-    st.refresh(
-        data.revision(),
-        plot_w,
-        plot_h,
-        o.kind,
-        g,
-        dom,
-        data.points(),
-        o.reach,
-        cull,
-    );
-
-    // The chrome's spellings come from the *lookup* half, which is the theme's and not this
-    // module's — the sub-cell ladder is the only thing here that is a branch.
-    let (vline, hline, corner) = {
-        let theme = cx.theme();
-        (
-            theme.glyph(Glyph::VLine),
-            theme.glyph(Glyph::HLine),
-            theme.glyph(Glyph::BottomLeft),
-        )
-    };
-    let axis = cx.theme().paint(Role::Border);
-    let dim = cx.theme().paint(Role::Dim);
-    let threshold_paint = cx.theme().paint(Role::Danger);
-    let mut series_paints = [dim; SERIES_RGB.len()];
-    for (i, p) in series_paints.iter_mut().enumerate() {
-        *p = series_paint(cx.theme(), i, o.role_series);
-    }
-
-    let step = nice_step(dom.y1 - dom.y0, tick_count(plot_h));
-    let dec = decimals(step) as usize;
-    let span = (dom.y1 - dom.y0).max(f32::EPSILON);
-    let threshold_row = o.threshold.and_then(|t| {
-        let row = (((dom.y1 - t) / span) * f32::from(plot_h)) as i32;
-        (row >= 0 && row < i32::from(plot_h)).then_some(row as u16)
-    });
-    let label_w = gut - 1;
-
-    // **The ticks, resolved to rows once, into a fixed array.** Asking *is there a tick on this row*
-    // once per row is `rows x ticks` float divisions a frame for an answer that does not depend on
-    // the row.
-    let mut tick_row = [u16::MAX; 64];
-    let mut tick_at = [0u16; 64];
-    let mut ticks = 0usize;
-    {
-        let mut i = 0u16;
-        while ticks < 64 && i <= 128 {
-            let v = tick_value(dom, step, i);
-            if v > dom.y1 {
-                break;
-            }
-            let row = (((dom.y1 - v) / span) * f32::from(plot_h)) as i32;
-            if row >= 0 && row < i32::from(plot_h) {
-                tick_row[ticks] = row as u16;
-                tick_at[ticks] = i;
-                ticks += 1;
-            }
-            i += 1;
-        }
-    }
-
-    // ── the gutter: a label where a tick lands, blanks elsewhere, then the axis column ───────────
-    for y in 0..plot_h {
-        let mut drawn = 0u16;
-        if let Some(k) = tick_row[..ticks].iter().position(|&r| r == y) {
-            let v = tick_value(dom, step, tick_at[k]);
-            st.label.clear();
-            let _ = write!(
-                st.label,
-                "{v:>width$.dec$}",
-                width = usize::from(label_w),
-                dec = dec
-            );
-            drawn = ink.text(cx, area.x, area.y + i32::from(y), &st.label, dim);
-        }
-        if drawn < label_w {
-            let _ = ink.run(
-                cx,
-                area.x + i32::from(drawn),
-                area.y + i32::from(y),
-                " ",
-                label_w - drawn,
-                dim,
-            );
-        }
-        let _ = ink.run(
-            cx,
-            area.x + i32::from(label_w),
-            area.y + i32::from(y),
-            vline,
-            1,
-            axis,
-        );
-    }
-
-    // ── the body: one row at a time, split into runs by who owns the cell ────────────────────────
-    let PaneState { raster, row, .. } = st;
-    for y in 0..plot_h {
-        let mut run_owner = 0u8;
-        let mut run_x = 0u16;
-        row.clear();
-        for x in 0..plot_w {
-            let (bits, owner) = raster.at(x, y);
-            let (ch, own) = if bits != 0 {
-                (cluster(o.kind, g, bits), owner)
-            } else if Some(y) == threshold_row {
-                // **The threshold's second axis.** A rule the terminal can draw whatever the palette
-                // did, which is what §16's *carried on both axes* asks for.
-                (
-                    if o.threshold_glyph {
-                        hline.chars().next().unwrap_or('-')
-                    } else {
-                        ' '
-                    },
-                    OWNER_THRESHOLD,
-                )
-            } else {
-                (' ', 0u8)
-            };
-            if own != run_owner && !row.is_empty() {
-                let paint = paint_of(run_owner, &series_paints, dim, threshold_paint);
-                let _ = ink.text(
-                    cx,
-                    area.x + i32::from(gut + run_x),
-                    area.y + i32::from(y),
-                    row,
-                    paint,
-                );
-                row.clear();
-                run_x = x;
-            }
-            if row.is_empty() {
-                run_x = x;
-                run_owner = own;
-            }
-            row.push(ch);
-        }
-        if !row.is_empty() {
-            let paint = paint_of(run_owner, &series_paints, dim, threshold_paint);
-            let _ = ink.text(
-                cx,
-                area.x + i32::from(gut + run_x),
-                area.y + i32::from(y),
-                row,
-                paint,
-            );
-        }
-    }
-
-    // ── the axis row: the blank gutter, the corner, then the rule ────────────────────────────────
-    let y = area.y + i32::from(plot_h);
-    let _ = ink.run(cx, area.x, y, " ", label_w, dim);
-    let _ = ink.run(cx, area.x + i32::from(label_w), y, corner, 1, axis);
-    let _ = ink.run(cx, area.x + i32::from(gut), y, hline, plot_w, axis);
-    response
-}
-
-/// The paint a run of cells owned by `owner` is drawn in.
-///
-/// **A shared cell can carry only one colour**, which is the third rung's price: a braille cell has
-/// one `Paint` for all eight dots where a quadrant carries a foreground *and* a background. The
-/// per-cell quadrant fallback that would recover it is named in spec §22 and not built.
-fn paint_of(owner: u8, series: &[Paint; 6], dim: Paint, threshold: Paint) -> Paint {
-    match owner {
-        0 => dim,
-        OWNER_THRESHOLD => threshold,
-        SHARED => series[0],
-        n => series[(usize::from(n) - 1) % series.len()],
     }
 }
 
@@ -1586,27 +328,11 @@ pub fn screen_into<I: Ink>(
     let (wide, mid, right) = panes(cx.area());
     let interior = block_into(ink, cx, wide, &chrome("plot"));
     if !interior.is_empty() {
-        let _ = pane_into(
-            ink,
-            cx,
-            interior,
-            Id::named("series.plot"),
-            &build.plot,
-            data,
-            &mut st.plot,
-        );
+        let _ = crate::chart::plot_into(ink, cx, interior, data, &mut st.plot, &build.plot);
     }
     let interior = block_into(ink, cx, mid, &chrome("chart"));
     if !interior.is_empty() {
-        let _ = pane_into(
-            ink,
-            cx,
-            interior,
-            Id::named("series.chart"),
-            &build.chart,
-            data,
-            &mut st.chart,
-        );
+        let _ = crate::chart::chart_into(ink, cx, interior, data, &mut st.chart, &build.chart);
     }
     let interior = block_into(ink, cx, right, &chrome("legend"));
     if !interior.is_empty() {
@@ -1832,7 +558,7 @@ pub fn hit_cost(points: usize, w: u16, h: u16, kind: Kind, set: GlyphSet, n: u32
     let data = Series::build(points, SERIES);
     let g = geom(kind, set);
     let dom = domain_of(data.points(), Range::Whole).padded();
-    let mut st = PaneState::new();
+    let mut st = PlotState::new();
     let cull = (0usize, usize::from(h).min(data.len()));
     let rev = data.revision();
     st.refresh(rev, w, h, kind, g, dom, data.points(), Reach::Mapped, cull);
@@ -1941,6 +667,63 @@ pub fn plot_pane(size: (u16, u16)) -> Rect {
 /// **The chart pane's interior**, which is where it is not.
 pub fn chart_pane(size: (u16, u16)) -> Rect {
     rect::inset(panes(whole(size)).1, 1)
+}
+
+/// **The rectangle changes and the data does not. Which memo keys survive it?**
+///
+/// Returns the cells the narrow screen gets wrong, against a screen that never saw the wide one.
+/// The comparison is on the **rendered surface** and not on the miss counter, because the miss
+/// counter points the wrong way here: a narrower key recomputes *less* often and is wrong.
+///
+/// The stale raster does not panic and does not blank the screen. `Raster::at` answers `(0, 0)`
+/// outside its own bounds — the defensive read every real component has, because the alternative is
+/// a panic on a resize — so what a reader sees is a **smaller, older plot inside a bigger
+/// rectangle**: fewer writes, faster, no counter moved.
+pub fn resize_wrong_cells(mode: crate::chart::raster::KeyMode) -> usize {
+    let build = Build::correct().both(|o| o.key = mode);
+    let data = Series::build(50_000, SERIES);
+    let narrow = (W - 60, H);
+
+    let mut state = ScreenState::new();
+    let mut driver = driver_for(build, W, H);
+    for _ in 0..2 {
+        driver.frame(|cx| screen_into(&mut Direct, cx, &build, &data, &mut state));
+    }
+    // The same application state, drawn into a narrower screen.
+    let mut driver = driver_for(build, narrow.0, narrow.1);
+    let mut pen = Pen::new(narrow.0, narrow.1);
+    for _ in 0..2 {
+        driver.frame(|cx| screen_into(&mut pen, cx, &build, &data, &mut state));
+    }
+    let after = pen.into_canvas();
+
+    // The reference: the same narrow screen, drawn by a plot that never saw the wide one.
+    let mut fresh = ScreenState::new();
+    let mut driver = driver_for(build, narrow.0, narrow.1);
+    let mut pen = Pen::new(narrow.0, narrow.1);
+    for _ in 0..2 {
+        driver.frame(|cx| screen_into(&mut pen, cx, &build, &data, &mut fresh));
+    }
+    split_diff(&pen.into_canvas(), &after, whole(narrow)).cluster
+}
+
+/// **Memo misses over the same resize.** The counter that points the wrong way, as a number.
+pub fn resize_misses(mode: crate::chart::raster::KeyMode) -> (u32, u32) {
+    let build = Build::correct().both(|o| o.key = mode);
+    let data = Series::build(50_000, SERIES);
+    let mut state = ScreenState::new();
+    let mut driver = driver_for(build, W, H);
+    for _ in 0..2 {
+        driver.frame(|cx| screen_into(&mut Direct, cx, &build, &data, &mut state));
+    }
+    let mut driver = driver_for(build, W - 60, H);
+    for _ in 0..2 {
+        driver.frame(|cx| screen_into(&mut Direct, cx, &build, &data, &mut state));
+    }
+    (
+        state.plot.misses() + state.chart.misses(),
+        state.plot.range_misses() + state.chart.range_misses(),
+    )
 }
 
 // ── the subject, and the scan that says whether it is here ───────────────────────────────────────
@@ -2111,7 +894,7 @@ mod tests {
     /// A 60x20 raster built over `points`, which is §13's own object.
     fn raster_60x20(points: usize) -> Raster {
         let data = Series::build(points, SERIES);
-        let g = geom(Kind::Marks, GlyphSet::Extended);
+        let g = geom(Kind::Marks, RUNGS[2]);
         let dom = domain_of(data.points(), Range::Whole).padded();
         let mut raster = Raster::empty();
         raster.build(
@@ -2387,8 +1170,8 @@ mod tests {
     /// — **882**. That is C09's handed-over question answered by measurement rather than by argument.
     #[test]
     fn the_third_rung_is_the_plots_and_not_the_charts() {
-        let unicode = render(Build::correct().at(GlyphSet::Unicode), (W, H), COMPARED_AT);
-        let extended = render(Build::correct().at(GlyphSet::Extended), (W, H), COMPARED_AT);
+        let unicode = render(Build::correct().at(RUNGS[1]), (W, H), COMPARED_AT);
+        let extended = render(Build::correct().at(RUNGS[2]), (W, H), COMPARED_AT);
         assert_eq!(
             split_diff(&unicode, &extended, chart_pane((W, H))).any,
             RUNG_CHART_CELLS,
@@ -2406,8 +1189,8 @@ mod tests {
     /// 7 276 cells over **80 of 80 rows**, which is ADR 0009 literally.
     #[test]
     fn ascii_is_a_different_construction_over_every_row_of_the_screen() {
-        let ascii = render(Build::correct().at(GlyphSet::Ascii), (W, H), COMPARED_AT);
-        let unicode = render(Build::correct().at(GlyphSet::Unicode), (W, H), COMPARED_AT);
+        let ascii = render(Build::correct().at(RUNGS[0]), (W, H), COMPARED_AT);
+        let unicode = render(Build::correct().at(RUNGS[1]), (W, H), COMPARED_AT);
         let diff = split_diff(&ascii, &unicode, whole((W, H)));
         assert_eq!(
             (diff.cluster, diff.rows),
@@ -2422,7 +1205,7 @@ mod tests {
     /// makes that rung worth exactly one bit of `y` and nothing else.
     #[test]
     fn the_ladders_are_one_eight_eight_and_one_by_one_two_by_two_two_by_four() {
-        let rungs = [GlyphSet::Ascii, GlyphSet::Unicode, GlyphSet::Extended];
+        let rungs = RUNGS;
         let bars: Vec<(u8, u8)> = rungs
             .iter()
             .map(|set| {
@@ -2459,7 +1242,7 @@ mod tests {
     #[test]
     fn every_construction_spells_exactly_one_cell() {
         for kind in [Kind::Bars, Kind::Marks] {
-            for set in [GlyphSet::Ascii, GlyphSet::Unicode, GlyphSet::Extended] {
+            for set in RUNGS {
                 let g = geom(kind, set);
                 for bits in 0u16..=255 {
                     let spelled = cluster(kind, g, bits as u8);
@@ -2482,7 +1265,7 @@ mod tests {
     /// in spec §22 and not built.
     #[test]
     fn the_third_rung_costs_colour_where_two_series_share_a_cell() {
-        for set in [GlyphSet::Unicode, GlyphSet::Extended] {
+        for set in [RUNGS[1], RUNGS[2]] {
             let data = Series::build(COMPARED_AT, SERIES);
             let g = geom(Kind::Marks, set);
             let dom = domain_of(data.points(), Range::Whole).padded();
@@ -2574,32 +1357,44 @@ mod tests {
         assert_eq!(nice_step(10.0, 3), 5.0);
     }
 
-    /// **The screen is red because `chart` and `plot` are not declared**, and the verdict says so
-    /// over a population of two rather than returning green over nothing.
+    /// **The screen stands on its two declared components**, and the fact is computed rather than
+    /// typed.
+    ///
+    /// Ticket 27's criterion 7, inverted by ticket 28. [`subjects_declared`] opens the file the
+    /// freeze homes both components in and reads what is declared there, so the day one of them
+    /// moves this test fails and the standing is a deliberate edit — in the same direction it was
+    /// made in. It is the same shape `crate::dense`'s went through one ticket family earlier, and
+    /// the hostile half of it is still live in
+    /// [`tests::the_waiting_message_separates_unimplemented_from_wrong`].
     #[test]
-    fn the_series_screen_is_red_because_chart_and_plot_are_not_declared() {
+    fn the_series_screen_stands_on_its_two_declared_components() {
         assert_eq!(SUBJECTS, ["chart", "plot"]);
-        assert_eq!(subjects_declared(), Vec::<&str>::new());
-        let verdict = standing();
-        assert!(!verdict.met());
-        assert!(
-            matches!(
-                verdict,
-                Verdict::Unmet {
-                    over: 2,
-                    failing: 2,
-                    ..
-                }
-            ),
-            "{verdict:?}"
+        assert_eq!(
+            subjects_declared(),
+            SUBJECTS.to_vec(),
+            "a component of the series screen is no longer declared where the freeze homes it, so \
+             scenes 15 and 16 are standing on a screen made of their construction again"
         );
+        let verdict = standing();
+        assert!(verdict.met(), "{verdict:?}");
+        assert!(matches!(verdict, Verdict::Met { over: 2 }), "{verdict:?}");
+
+        // And the screen really does draw **through** them: the two ids in the frame's hit index are
+        // the two the components minted, and there are exactly two.
+        assert_eq!(shape(Build::correct(), (W, H), VOLUMES[0]).regions, REGIONS);
     }
 
     /// **The waiting message separates *unimplemented* from *wrong*.** Ticket 09's criterion 7.
     ///
     /// It names the subjects, the file, the declarations and the ticket, and says in as many words
-    /// that it is not a defect in the screen. The other direction is watched through the declaration
-    /// list, so the hostile case stays one call away after ticket 28 lands.
+    /// that it is not a defect in the screen.
+    ///
+    /// **Both subjects are declared now and this still runs**, because [`owed_message`] takes the
+    /// declaration list as an argument rather than reading the crate. That is the half of ticket
+    /// 09's arrangement that would otherwise have been deleted along with the red row: a scene that
+    /// fails because it is unimplemented and one that fails because the code is wrong are the same
+    /// failure unless the message distinguishes them, and the day a component moves that message is
+    /// what a reader will see.
     #[test]
     fn the_waiting_message_separates_unimplemented_from_wrong() {
         let message = owed_message(&[], "scene 15").expect("neither subject is declared");
@@ -2637,10 +1432,17 @@ mod tests {
         assert!(!crate::dense::declares("", "pub fn plot("));
     }
 
-    /// **`assert_stands_up` panics today, and its message is the one above.**
+    /// **`assert_stands_up` passes today, and the sentence it would have produced is still
+    /// watched being produced.**
+    ///
+    /// Two directions in one test, which is what an inverted red row owes: the live call is silent
+    /// because both subjects are declared, and the same function over a declaration list that is
+    /// missing one still says which failure it is.
     #[test]
-    #[should_panic(expected = "waiting for its subject rather than failing")]
-    fn the_screen_is_watched_refusing_to_stand_up() {
+    fn the_screen_stands_up_and_the_refusal_is_still_watched() {
         assert_stands_up("scene 15");
+        let refused = owed_message(&["plot"], "scene 16").expect("one of two is not standing");
+        assert!(refused.contains("waiting for its subject rather than failing"));
+        assert!(refused.contains("`chart`"));
     }
 }

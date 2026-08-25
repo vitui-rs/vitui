@@ -28,7 +28,7 @@
 //! three rungs to sweep them — a repertoire is declared and never probed (ADR 0010). **Naming the
 //! exception rather than loosening the gate**, which is `crate::gates`'s own refinement 3: the
 //! exception is this file and `examples/glyph_numbers.rs`, neither is a component, and
-//! [`the_axis_is_named_in_four_files_and_one_of_them_is_a_components`] asserts the list so that a fifth is
+//! [`the_axis_is_named_in_three_files_and_one_of_them_is_a_components`] asserts the list so that a fifth is
 //! a deliberate edit rather than a drift back to twenty-four occurrences.
 
 use vitui_components::glyphs::{
@@ -253,7 +253,7 @@ fn the_signal_column_is_the_product_of_the_two_partitions() {
     assert!(ascii.signals < SIGNAL_PAIRS);
 }
 
-/// **The axis is named in four files, and one of them is a component's.**
+/// **The axis is named in three files, and one of them is a component's.**
 ///
 /// The exception, named rather than the gate loosened. This is the whole-crate half; `src/` is
 /// scanned by `vitui_components::gates` and by `vitui_components::inventory`, and the register's is
@@ -273,7 +273,7 @@ fn the_signal_column_is_the_product_of_the_two_partitions() {
 /// is held by `vitui_components::gates`' scan to the exact three lines that may spell a repertoire
 /// in it. §21's refinement 3: **name the exception; do not loosen the gate.**
 #[test]
-fn the_axis_is_named_in_four_files_and_one_of_them_is_a_components() {
+fn the_axis_is_named_in_three_files_and_one_of_them_is_a_components() {
     use std::path::{Path, PathBuf};
 
     // Assembled, not written: a scan for a literal its own source carries finds itself in every file
@@ -325,8 +325,7 @@ fn the_axis_is_named_in_four_files_and_one_of_them_is_a_components() {
         naming,
         vec![
             "examples/glyph_numbers.rs".to_string(),
-            "examples/series_numbers.rs".to_string(),
-            "src/series.rs".to_string(),
+            "src/chart/raster.rs".to_string(),
             "tests/glyph_matrix.rs".to_string(),
         ],
         "the repertoire is named outside the files that measure it and the one branch that is \
@@ -339,9 +338,9 @@ fn the_axis_is_named_in_four_files_and_one_of_them_is_a_components() {
     let inside: Vec<&String> = naming.iter().filter(|n| n.starts_with("src/")).collect();
     assert_eq!(
         inside,
-        vec![&"src/series.rs".to_string()],
-        "a second component source names a repertoire. The exception is `src/series.rs` and it is \
-         argued in `vitui_components::gates`"
+        vec![&"src/chart/raster.rs".to_string()],
+        "a second component source names a repertoire. The exception is `src/chart/raster.rs` and \
+         it is argued in `vitui_components::gates`"
     );
 
     // And the other direction, through the same predicate: a scan that has quietly stopped scanning

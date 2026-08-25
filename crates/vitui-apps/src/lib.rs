@@ -57,21 +57,45 @@ pub struct App {
 
 /// Every application in `examples/`.
 ///
-/// One row so far, and the first one is a port rather than an invention on purpose — see
-/// [`App::after`].
-pub const APPS: [App; 1] = [App {
-    name: "counter",
-    what: "A bordered panel, a centred value, and Left/Right/q. The smallest program anybody \
-           calls a TUI application",
-    uses: &[
-        "structure::panel_with",
-        "text::text_with",
-        "layout::rect::split_at_v",
-        "keys::KeyMap",
-        "ctx::Driver::wait",
-    ],
-    after: Some("https://ratatui.rs/tutorials/counter-app/basic-app/"),
-}];
+/// The first one is a port rather than an invention on purpose — see [`App::after`]. The second is
+/// an invention, and it says why in its own header: nothing published makes the four things a
+/// charting component is *for* visible at once, and three of the four are only visible in a program
+/// that is running.
+pub const APPS: [App; 2] = [
+    App {
+        name: "counter",
+        what: "A bordered panel, a centred value, and Left/Right/q. The smallest program \
+               anybody calls a TUI application",
+        uses: &[
+            "structure::panel_with",
+            "text::text_with",
+            "layout::rect::split_at_v",
+            "keys::KeyMap",
+            "ctx::Driver::wait",
+        ],
+        after: Some("https://ratatui.rs/tutorials/counter-app/basic-app/"),
+    },
+    App {
+        name: "latency",
+        what: "A live p50/p99 latency monitor with an SLO rule and a throughput chart. The volume, \
+               the repertoire, the colour depth and the threshold's second axis are all under a \
+               key, because each of them is a claim you have to watch to believe",
+        uses: &[
+            "chart::plot_with",
+            "chart::chart_with",
+            "chart::Series::push",
+            "chart::raster::PlotState",
+            "chart::raster::RUNGS",
+            "structure::panel_with",
+            "text::text_with",
+            "layout::rect::split_at_h",
+            "ctx::Ctx::deadline",
+            "ctx::Driver::set_theme",
+            "ctx::Driver::wait",
+        ],
+        after: None,
+    },
+];
 
 #[cfg(test)]
 mod tests {

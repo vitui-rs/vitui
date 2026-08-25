@@ -348,6 +348,9 @@ const LISTING: &str = "crates/vitui-components/src/listing.rs";
 /// The series screen's own file, which is where components ticket 27's three rows run.
 const SERIES: &str = "crates/vitui-components/src/series.rs";
 
+/// The two charting components' own file, which is where components ticket 28's three rows run.
+const CHART: &str = "crates/vitui-components/src/chart.rs";
+
 /// How many rows of [`REGISTER`] are spec §21's own table. **Thirty-two, and it is closed** — a
 /// thirty-third would be a spec change.
 pub const SPEC_ROWS: usize = 32;
@@ -390,10 +393,10 @@ pub const SPEC_ROWS: usize = 32;
 /// row still asserting *the four components do not exist* would now be asserting they are gone.
 /// That is the second inversion here worth being suspicious about: a red row phrased as an absence
 /// cannot be turned green by editing one field.
-pub const EVALUATED: usize = 44;
+pub const EVALUATED: usize = 48;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 70] = [
+pub const REGISTER: [Row; 73] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -834,7 +837,7 @@ pub const REGISTER: [Row; 70] = [
                 // failing test rather than a drift back to twenty-four occurrences.
                 Instrument::Unit {
                     file: "crates/vitui-components/tests/glyph_matrix.rs",
-                    name: "the_axis_is_named_in_four_files_and_one_of_them_is_a_components",
+                    name: "the_axis_is_named_in_three_files_and_one_of_them_is_a_components",
                 },
             ],
         },
@@ -1987,42 +1990,147 @@ pub const REGISTER: [Row; 70] = [
     Row {
         number: 70,
         on_spec_table: false,
-        gate: "the series screen's two scenes fail differently from a screen whose code is wrong",
+        gate: "scenes 15 and 16 stand on `chart` and `plot`, and the failure a missing one produces \
+               still says which failure it is",
         kind: Kind::CompileOutcome,
         owner: "C08, C11",
         section: "spec §21",
-        // **Row 67 one ticket family over**, and it is a row rather than a comment for row 67's
-        // reason: §21's whole argument is that an obligation stated as a sentence gets broken by
-        // someone who has read it.
+        // **Red for one ticket, and inverting it rewrote the gate rather than the standing.** It
+        // read *the series screen's two scenes fail differently from a screen whose code is wrong*
+        // with `0 of 2` as its failing set. Row 61 is the precedent and it is the same shape: a row
+        // that asserts an **absence** cannot be turned green by editing one field, because a row
+        // still asserting the absence would now be asserting the components are gone.
         //
         // `CompileOutcome` for row 61's reason: what is asserted is that a *file* declares an item,
         // read by opening it — the one thing a `compile_fail` fence cannot say, because a fence over
         // a missing item passes today and passes again the day the module is renamed.
-        standing: Standing::Red {
+        standing: Standing::Evaluated {
             by: &[
                 Instrument::Unit {
                     file: SERIES,
-                    name: "the_series_screen_is_red_because_chart_and_plot_are_not_declared",
+                    name: "the_series_screen_stands_on_its_two_declared_components",
                 },
+                // The other direction, and it is the half that would otherwise have been deleted
+                // with the red row. `owed_message` takes a declaration list rather than reading the
+                // crate, so the hostile case is one call away for ever.
                 Instrument::Unit {
                     file: SERIES,
                     name: "the_waiting_message_separates_unimplemented_from_wrong",
                 },
                 Instrument::Unit {
                     file: SERIES,
-                    name: "the_screen_is_watched_refusing_to_stand_up",
+                    name: "the_screen_stands_up_and_the_refusal_is_still_watched",
                 },
                 Instrument::Unit {
                     file: SERIES,
                     name: "the_subject_scan_finds_a_declaration_when_there_is_one",
                 },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/scenes.rs",
+                    name: "twenty_one_scenes_have_nothing_to_run_over_five_are_red_and_three_are_\
+                           stood_up",
+                },
             ],
-            failing: "neither `chart` nor `plot` is declared, so scenes 15 and 16 are pinned red. \
-                      `crates/vitui-components/src/chart.rs` carries no `pub fn chart(` and no \
-                      `pub fn plot(`, which is what `crate::series::subjects_declared` opens the \
-                      file to find out, and `crate::series::standing` is \
-                      `Unmet { over: 2, failing: 2 }` rather than `Met` over nothing",
-            inverted_by: "components 28",
+        },
+    },
+    // ── components ticket 28's three ─────────────────────────────────────────────────────────────
+    Row {
+        number: 71,
+        on_spec_table: false,
+        gate: "the raster memo's key is every input, and the range memo is a separate one it chains \
+               from: a resize invalidates the raster and not the range",
+        kind: Kind::Count,
+        owner: "C08",
+        section: "spec §13",
+        // **The chain as two counts and the narrow key as a surface.** The counts are the mechanism
+        // — one range fold over two rectangles against two raster folds — and the surface is the
+        // detector, because the miss counter **points the wrong way** on this class of defect: a
+        // narrower key folds *fewer* times and is wrong. §13's fifth independent arrival of that
+        // rule on this map.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: CHART,
+                    name: "the_memo_is_a_chain_and_a_resize_invalidates_the_raster_and_not_the_\
+                           range",
+                },
+                Instrument::Unit {
+                    file: CHART,
+                    name: "a_raster_keyed_on_the_revision_alone_is_wrong_and_folds_less_often",
+                },
+                Instrument::Unit {
+                    file: CHART,
+                    name: "the_gutter_comes_from_the_whole_domain_and_a_window_scaled_axis_must_\
+                           declare_its_range",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 72,
+        on_spec_table: false,
+        gate: "no downsampling spelling exists in `vitui-components`, and each absent one is named \
+               by path",
+        kind: Kind::CompileOutcome,
+        owner: "C08",
+        section: "spec §13",
+        // **A pair and a scan, because neither half holds alone.** The `compile_fail` fences name
+        // `downsample`, `stride_sample` and `every_nth` by path with a twin naming `Raster::build`
+        // by path beside them — a lone fence also passes when the module has been renamed. The scan
+        // is what catches the spelling coming back **`pub(crate)`**, which is how a deleted helper
+        // actually returns; `crate::frame`'s deleted focus ring is the precedent, and its own scan
+        // reported itself on its first run.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Pair {
+                    file: "crates/vitui-components/src/chart.rs",
+                    hostile: concat!("vitui_components::chart::raster::down", "sample"),
+                },
+                Instrument::Unit {
+                    file: CHART,
+                    name: "no_downsampling_spelling_exists_anywhere_in_this_crate",
+                },
+                Instrument::Unit {
+                    file: SERIES,
+                    name: "striding_loses_the_peaks_and_the_union_does_not",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 73,
+        on_spec_table: false,
+        gate: "series colours are one six-entry `Theme::custom` table, `Style` literals == 0, and a \
+               threshold is carried on both axes",
+        kind: Kind::Count,
+        owner: "C08, C09",
+        section: "spec §13, §16",
+        // **Three counts about one rule.** §16: *a distinction survives the whole matrix iff it is
+        // carried on both axes*, and a component reading `false` from `roles_differ_on_wire` owes a
+        // second axis — a glyph, a rule, a position — and never a darker colour. The palette is the
+        // one legitimate use of `Theme::custom` and it is counted rather than scattered: **one call
+        // site in the crate**, read off the source.
+        //
+        // The `Style`-literal half is worth reading twice. Two looser needles were tried and both
+        // reported `crate::form`'s own private `enum Style` — a form's word for a wrapping mode —
+        // so the needle is the runtime's *re-export path*, which is the only way this crate could
+        // reach the engine's type at all.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: CHART,
+                    name: "the_series_palette_is_six_customs_and_the_crate_holds_no_style_literal",
+                },
+                Instrument::Unit {
+                    file: CHART,
+                    name: "a_threshold_is_carried_on_both_axes_and_a_paint_alone_dies_at_sixteen_\
+                           colours",
+                },
+                Instrument::Unit {
+                    file: CHART,
+                    name: "role_derived_series_collapse_and_the_difference_is_style_only",
+                },
+            ],
         },
     },
 ];
@@ -2311,13 +2419,12 @@ mod tests {
         assert_eq!(evaluated, EVALUATED, "the count §21 asks a test to assert");
         assert_eq!(
             red,
-            vec![7, 8, 29, 67, 70],
-            "the five gates that are red and pinned: the sentinel, the palette after a swap, \
-             twenty wheel clicks, the collection's five scenes waiting for their subject and the \
-             series screen's two waiting for theirs. The glyph-set count was one of them and \
-             components ticket 05 inverted it; row 61 was another and components ticket 10 \
-             inverted it, which took rewriting the gate rather than the standing — the row \
-             asserted an *absence*"
+            vec![7, 8, 29, 67],
+            "the four gates that are red and pinned: the sentinel, the palette after a swap, \
+             twenty wheel clicks and the collection's five scenes waiting for their subject. Three \
+             have been inverted and two of the three took **rewriting the gate** rather than the \
+             standing, because each asserted an *absence*: the glyph-set count (components 05), \
+             row 61 (components 10) and row 70 (components 28)"
         );
         assert_eq!(
             unreachable,
@@ -2328,7 +2435,7 @@ mod tests {
              the value anyway, so a chord can be pressed after all"
         );
         assert_eq!(unsubjected, 15, "and the fifteen with nothing to run over");
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 70);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 73);
     }
 
     /// **The split, not the total.**
@@ -2342,7 +2449,7 @@ mod tests {
     fn thirty_two_rows_are_the_specs_and_thirty_five_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 38);
+        assert_eq!(REGISTER.len() - on_table, 41);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -2570,7 +2677,7 @@ mod tests {
     /// two `match`es and a 16-entry array in the component crate.*
     ///
     /// Both cannot hold, and §21's own refinement 3 says what to do about it: **name the exception;
-    /// do not loosen the gate.** So `crate::series::geom` is excepted by file name, and the number
+    /// do not loosen the gate.** So `crate::chart::raster::geom` is excepted by file name, and the number
     /// of occurrences in that file is asserted — a second file fails, and a fourth occurrence in
     /// this one fails. What is *not* excepted is the thing row 26 is actually about: no private
     /// fallback table, anywhere, including there.
@@ -2581,7 +2688,9 @@ mod tests {
 
         // **The one exception, and it is a file rather than a rule.** The sub-cell ladder, which
         // `CONTEXT.md` names as a branch in the same paragraph that forbids naming a repertoire.
-        const LADDER: &str = "series.rs";
+        // Components ticket 28 moved it from `series.rs` — the screen — to `chart/raster.rs`, which
+        // is where the branch belongs, and the three lines moved with it.
+        const LADDER: &str = "chart/raster.rs";
         // **The lines that may spell one, exactly.** A list rather than a count, because a count
         // says *how many* and this has to say *which*: two arms of one `match`, plus the rung the
         // correct build is drawn at. Anything else — a second branch, a repertoire test moved out
@@ -2594,7 +2703,10 @@ mod tests {
         let ladder_lines = [
             format!("(_, {glyph_set}Ascii) => Geom {{ sx: 1, sy: 1 }},"),
             format!("(Kind::Marks, {glyph_set}Unicode) => Geom {{ sx: 2, sy: 2 }},"),
-            format!("glyphs: {glyph_set}Extended,"),
+            format!(
+                "pub const RUNGS: [GlyphSet; 3] = [{glyph_set}Ascii, {glyph_set}Unicode, \
+                 {glyph_set}Extended];"
+            ),
         ];
 
         let mut files = Vec::new();
@@ -2609,7 +2721,7 @@ mod tests {
             let source = std::fs::read_to_string(path).unwrap_or_default();
             scanned += 1;
             let names_a_set = carries(&source, glyph_set);
-            let is_the_ladder = path.ends_with(LADDER);
+            let is_the_ladder = path.to_string_lossy().ends_with(LADDER);
             if names_a_set && is_the_ladder {
                 excepted += 1;
                 // **The shipped half of the file**, which is what the rule is about: a test

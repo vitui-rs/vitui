@@ -60,6 +60,35 @@ silently.
 | example | what | after |
 |---|---|---|
 | `counter` | A bordered panel, a centred value, `Left`/`Right`/`q` | [ratatui's counter-app tutorial](https://ratatui.rs/tutorials/counter-app/basic-app/) |
+| `latency` | A live p50/p99 latency monitor, an SLO rule and a throughput chart. `g` repertoire · `c` colour depth · `t` threshold axis · `space` pause · `+`/`-` points · `q` quit | — |
+
+```sh
+cargo run -p vitui-apps --example latency
+```
+
+**`latency` is an invention, and it is the first one here.** A port was not available: nothing
+published makes the four things a charting component is *for* visible at once, and three of the four
+are only visible in a program that is **running**.
+
+- **`+` and `-` move the series between 1 000, 100 000 and 1 000 000 points.** The readouts show the
+  write count and the frame time unmoved and the *fold* time moving by three orders of magnitude.
+  Two screenshots side by side cannot show that, because the interesting part is that one number
+  moved and the other did not.
+- **`g` cycles the repertoire.** The bar chart is byte-identical at Unicode and Extended — block
+  elements are the middle rung by `CONTEXT.md`'s own definition — and the plot is not, because
+  braille buys exactly one bit of vertical resolution. At ASCII both become a *different
+  construction* rather than a worse-looking one.
+- **`c` cycles the colour depth and `t` takes the SLO rule off the glyph axis.** At sixteen colours a
+  threshold carried by a paint alone stops being distinguishable and nobody is told. That is §16's
+  *carried on both axes*, and watching it disappear is the only way to believe it.
+- **The readouts count the two memos of the chain separately.** A resize moves the raster's fold
+  count and not the range's; a new sample moves both; a still frame moves neither.
+
+What writing it found: **`Theme::custom` needs a background colour and a component cannot read the
+page's.** There is no `Theme::page()`, no `Role::Page` and no accessor for a role's background, so
+`vitui_components::chart::series_paint` derives one from `Theme::is_dark` — the single bit about the
+page that *is* readable. It is right at both ends of the ladder and a guess in the middle, and it is
+recorded in the component rather than worked around in the application.
 
 **Ports rather than inventions, where a port is available.** A tutorial's shape is not ours to argue
 with, so what it cannot express here is a fact about this surface instead of a taste. `counter`
