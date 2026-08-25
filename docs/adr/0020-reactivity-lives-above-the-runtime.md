@@ -12,9 +12,8 @@ date: 2026-08-19
 3. deadlines
 4. `Memo`
 
-A TEA pump is a `while` loop over `Ctx` and needs no crate at all. A signal graph is
-`vitui-signals` — accepted as a crate, deliberately kept **out of the facade**, and enforced in both
-directions by `deny.toml`.
+A TEA pump is a `while` loop over `Ctx` and needs no crate at all. A signal graph is an application's
+own dependency; **this workspace ships none** — see the Update below.
 
 ## Why
 
@@ -27,9 +26,21 @@ differing cells** on a runtime none of them modified, and the non-modification i
 rather than a claim: the reactivity module `#[path]`s the runtime as its *child*, so the diff over
 every prototype module is **0 lines** and both layers see nothing but `pub`.
 
-The facade excludes `vitui-signals` because the two shapes measured identical — all three drivers are
-inside the ±0.5 µs noise floor of one another, and the signal layer alone is 4.5 ns, 0.0045%. A
-facade that shipped one of them would be picking a winner on no evidence.
+**The numbers are here rather than in the crate that produced them**, because that crate has since
+been deleted and a result whose instrument does not exist is an assertion again. One quiet frame,
+300×80, `--release` on the M1 Max:
+
+| driver | ns |
+|---|---|
+| direct | 19 558.40 |
+| TEA | 19 591.80 |
+| signals | 19 550.00 |
+| **spread** | **41.80 — 0.21% of the slowest** |
+
+Three drivers of one screen are indistinguishable, with **0 of 24 000 differing cells** beside it,
+and the signal layer's whole per-frame work — read 3, write 1, ask — is **3.60 ns**. Neither shape is
+in the facade, and on this evidence neither should be: shipping one would be picking a winner on a
+0.21% spread.
 
 ## Consequences
 
@@ -44,8 +55,18 @@ the loss is silent for exactly one frame because routing uses the previous frame
 The expected barrier was the type system and there is none — a stored `Box<dyn Fn(&mut Ctx)>`
 compiles, runs and passes. The barrier is a count.
 
-**What a graph may skip is what `Memo` skips** — the computation, 132× — and `Computed<T>` turns out
-to be `Memo` with the key filled in.
+**What a graph may skip is what `Memo` skips** — the computation — and `Computed<T>` turns out to be
+`Memo` with the key filled in. **The ratio belongs to the fold's length, not to the mechanism**, and
+the 132× this ADR used to quote was one derived value at one length:
+
+| rows | folded | memoised | ratio |
+|---|---|---|---|
+| 600 | 46.25 ns | 1.46 ns | 31.8× |
+| 4 800 | 413.12 ns | 1.67 ns | 248.1× |
+
+At the screen's own 600 rows the memo saves **44.79 ns against a 19 558 ns frame — 0.23%**, and
+against the 89.9 µs dense frame, 0.05%. `Memo` is in `vitui_runtime::data` and stays; it is the part
+that measured a real win.
 
 **`request_frame()` is on `Ctx`, which TEA cannot reach.** `update` runs after the view by definition
 and every `Ctx` is gone by then. This costs no runtime change and has two available fixes, both
@@ -64,14 +85,33 @@ from here.
 One asymmetry belongs to the shapes rather than to the runtime: TEA shows a new value one frame later
 than a direct write.
 
-**`vitui-signals` is a detached workspace, and that is this decision taken literally rather than a
-build convenience.** Runtime ticket 18 built the crate and found that *nothing in this workspace may
-depend on it* is stronger than it reads: `cargo deny`'s `[bans] deny` bans a crate's **presence in
-the graph**, with `wrappers` as the exception list, so a workspace member with nothing depending on
-it is banned all the same — `error[banned]: crate 'vitui-signals = 0.0.0' is explicitly banned`, with
-no dependent to name. An empty `wrappers` list is therefore satisfiable only by a crate outside the
-workspace, which is what `crates/vitui-signals`'s own `[workspace]` table and the root's `exclude`
-make it. It also makes the rule **live**: the ban now fires the day a member writes the dependency,
-naming the wrapper, where before it was already failing for the crate merely existing. The cost is
-that `cargo test --workspace` does not reach its gates, which is why they have a CI invocation of
-their own — a crate nobody builds is a crate nobody checks.
+## Update — 2026-08-25, `vitui-signals` deleted
+
+**The decision stands and is not reopened; the crate that proved it is gone.** Runtime architecture
+issue 24, decided by the user after the numbers above were **re-measured rather than recalled**. The
+crate was 112 lines of `Signal<T>`, `Graph` and `Computed<T>`, and what it was is ergonomics over one
+runtime hook plus a cache over another — and the cache, `vitui_runtime::data::Memo`, was already in
+the runtime.
+
+**What is lost, knowingly.** *Reactivity lives above the runtime* was **proved**: the same screen
+written three ways over a runtime none of them modified, the non-modification a compile outcome
+rather than a claim. It is now a result whose instrument does not exist, which is why the numbers are
+inline above rather than cited — *a decision written in a comment is a decision the next edit can
+undo silently*, and the same is true of one written in a deleted crate.
+
+**Two findings the crate discovered and had no other home for**, kept because they are facts about
+the tools rather than about it:
+
+- `cargo deny`'s `[bans] deny` bans a crate's **presence in the graph**, with `wrappers` as the
+  exception list — so a workspace member with nothing depending on it is banned all the same:
+  `error[banned]: crate 'vitui-signals = 0.0.0' is explicitly banned`, with **no dependent to name**.
+  An empty `wrappers` list is satisfiable only by a crate outside the workspace, which is why that
+  crate carried its own `[workspace]` table and the root excluded it. `deny.toml` keeps this beside
+  the `vitui-engine` entry, whose non-empty list is the contrast.
+- `request_frame()` is unreachable from a TEA `update`, because every `Ctx` is gone by then. The
+  mechanism half closed with [issue 23](../../.scratch/vitui-runtime-architecture/issues/23-no-loop-could-be-written-at-all.md)
+  — there is a loop to put the fix in now — but this is still why the hook is shaped as it is.
+
+**Not in scope, and not to be re-added by a later reading:** no replacement crate, no `signals`
+feature, no reactivity module in the runtime. The four hooks above are the surface. A reader who
+disagrees should reopen issue 24 rather than quietly restoring the crate.

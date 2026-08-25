@@ -103,29 +103,6 @@ jobs:
         working-directory: conform
       - run: cargo test
         working-directory: conform
-      # `vitui-signals`'s gates. A detached workspace too, and detached for a reason none of the
-      # others has: `deny.toml` bans the crate with an empty `wrappers` list, and cargo-deny bans a
-      # crate's **presence in the graph** rather than only its dependents — so a workspace member
-      # with nothing depending on it fails `cargo deny check` outright, with no dependent to name.
-      # Detaching is the only shape in which *the crate may exist and be published, and nothing in
-      # this workspace may depend on it* is a sentence a tool can hold, and it makes the ban live:
-      # it fires the day a member writes the dependency, instead of already failing.
-      #
-      # `--test-threads=1` because `tests/alloc.rs` installs a process-global counting allocator, and
-      # on all three runners for the reason `conform/`'s note gives: nothing in it is
-      # platform-specific, which is what makes Windows the interesting arm.
-      - run: cargo fmt --all --check
-        working-directory: crates/vitui-signals
-      - run: cargo clippy --all-targets
-        working-directory: crates/vitui-signals
-      # A detached workspace does not inherit the root's `[workspace.lints.rust] warnings = "deny"`,
-      # and that table is what makes a broken intra-doc link an error rather than a warning — so the
-      # crate's own `[lints.rust]` and this line are the two halves of the same gate. It found three
-      # redundant explicit link targets on the day it was added.
-      - run: cargo doc --no-deps
-        working-directory: crates/vitui-signals
-      - run: cargo test -- --test-threads=1
-        working-directory: crates/vitui-signals
 
   # The dependency policy is a decision, not a preference: the engine takes crossterm and nothing
   # else, and the runtime takes nothing at all. See docs/adr/0001-crossterm-behind-a-seam.md.

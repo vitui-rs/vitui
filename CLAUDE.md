@@ -75,20 +75,25 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   a body whose real error is `E0432` still reports `ok`. The codes are documentation of intent; a
   pair is held to its subject by a twin that names the protected item, and where the pair does not
   sit on that item a `**Protects:**` line says which one it is.
-- **`vitui-signals` exists, and it is a detached workspace because the rule taken literally required
-  one** (ticket 18, 2026-08-24). 112 lines of code above `vitui-runtime` — `Signal<T>`, `Graph`,
-  `Computed<T>` — and the facade deliberately does not re-export it. `deny.toml` has carried
-  `{ name = "vitui-signals", wrappers = [] }` since ticket 14, glossed as *the crate may exist and be
-  published, and nothing in this workspace may depend on it*; **building it found that sentence is
-  stronger than it reads.** `cargo deny`'s `[bans] deny` bans a crate's *presence in the graph* and
-  `wrappers` is the exception list, so a member with no dependents at all fails the gate outright —
-  which is what the first `cargo deny check` said, with no dependent to name. So the crate carries its
-  own `[workspace]` table and the root excludes it, which is also **what makes the ban live**: it now
-  fires the day a member writes the dependency instead of already failing. Its gates are folded into
-  the `test` job, because `cargo test --workspace` cannot reach them. Three drivers of one screen agree
-  in **0 of 24 000 cells**, and a frame that redraws one region declares **1 hit entry against 312 and
-  0 tab stops against 43** with **24 000 of 24 000** cells still correct: *fine-grained reactivity here
-  is not expensive; it is a request to revert the hit index.*
+- **`vitui-signals` was built, and it is deleted** (ticket 18 built it 2026-08-24; architecture
+  issue 24 removed it 2026-08-25, on the user's decision after the numbers were **re-measured rather
+  than recalled**). *Reactivity stays out* stands and is not reopened — what went is the crate built
+  to prove it. Three drivers of one screen measure **19 558.40 / 19 591.80 / 19 550.00 ns**, a spread
+  of **41.80 ns — 0.21% of the slowest** — with **0 of 24 000 differing cells**, and the signal
+  layer's whole per-frame work is **3.60 ns**. That is ergonomics over one runtime hook plus a cache
+  over another, and the cache is `vitui_runtime::data::Memo`, which stays. **The 132× in the old
+  spec and ADR was on the wrong denominator**: it is one derived value at one fold length — 31.8× at
+  600 rows, 248.1× at 4 800 — and at the screen's own 600 rows the memo saves 44.79 ns against a
+  19 558 ns frame, **0.23%**. ADR 0020 is **rewritten and not deleted**, carrying those numbers
+  **inline**, because a result whose instrument no longer exists is an assertion again. Two findings
+  survive the crate as facts about the tools: `cargo deny`'s `[bans] deny` bans a crate's *presence
+  in the graph* with `wrappers` as the exception list — so a member with no dependents fails outright,
+  which is why that crate had to be detached — and `request_frame()` is unreachable from a TEA
+  `update` because every `Ctx` is gone by then. The still-true half of the old bullet: a frame that
+  redraws one region declares **1 hit entry against 312 and 0 tab stops against 43** with 24 000 of
+  24 000 cells correct — *fine-grained reactivity here is not expensive; it is a request to revert
+  the hit index.* **No replacement crate, no `signals` feature, no reactivity module** — reopen
+  issue 24 rather than restoring it.
 - **There is no `unsafe` in any shipped crate, at any layer** (ticket 21, 2026-08-24; ADR 0034).
   `vitui-runtime`, `vitui-components` and the `vitui` facade each carry `#![forbid(unsafe_code)]`
   beside the engine's, and the subsumed `#![forbid(unsafe_op_in_unsafe_fn)]` is removed rather than
@@ -266,17 +271,13 @@ crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers 
                             partition primitives return one of these — but runtime issue 22 is
                             now resolved the other way and `vitui_runtime::Rect` is writable here.
                             What to do about `Cells` is components architecture issue 17, open
-crates/vitui              facade re-export — engine, runtime, components, and deliberately not signals
+crates/vitui              facade re-export — engine, runtime, components
 crates/vitui-apps         the applications, one file each in `examples/` — 1 so far: `counter`
                           └ a workspace MEMBER, so CI builds them: a consumer nobody builds is a
                             consumer nobody checks (`compare/run.sh` is the precedent). Depends on
                             runtime + components and NOT on the `vitui` facade — the facade
                             re-exports the engine, which would make `Rect` nameable here and
                             evaporate the proof that the component surface is sufficient
-crates/vitui-signals      a fine-grained signal graph, 112 lines above the runtime
-                          └ a detached workspace, and the only one detached by a `deny.toml` rule:
-                            `wrappers = []` bans the crate's presence in the graph, not only its
-                            dependents, so a member with nothing depending on it fails outright
 crates/vitui-bench        round-robin minimum-of-N measurement, no deps (publish = false)
 crates/vitui-alloc-probe  counting global allocator for the allocation gates (publish = false)
 examples/app-template     copy-this-directory starting point, and the home of spec §11's lint rung
@@ -317,7 +318,6 @@ cargo doc --workspace --no-deps             # a gate: a broken intra-doc link fa
 cargo deny check                            # needs `cargo install cargo-deny`
 (cd fuzz && cargo deny check)               # detached workspace: its own graph, its own gate
 (cd conform && cargo test)                  # the conformance gate, over committed captures
-(cd crates/vitui-signals && cargo test -- --test-threads=1)   # detached: --workspace misses it
 cargo run -p vitui-apps --example counter   # the first real application; q to quit
 (cd conform && cargo run --example tmux)    # the one conformance soak that is headless
 (cd conform && cargo run --example kitty)   # a window, but no automation grant and no config file
@@ -333,7 +333,6 @@ lives in examples that print a report:
 ```bash
 cargo run --release --example budget -p vitui-engine     # asserts the gates, prints the numbers
 cargo run --release --example layout_numbers -p vitui-runtime   # one of sixteen *_numbers reports
-(cd crates/vitui-signals && cargo run --release --example signals_numbers)
 scripts/idle-gate.sh 30       # 0.00 user / 0.00 sys over 30 s; thirty is a floor, not a preference
 scripts/observer-gate.sh      # the debug observer is absent from a release binary
 scripts/steady-report.sh      # 60 fps for 30 s against 5% of a core

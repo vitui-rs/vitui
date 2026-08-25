@@ -34,13 +34,21 @@
 //!    cannot happen; a `pub use` of an item that *becomes* restricted is the same error arriving a
 //!    commit later, and this is the direction a scan sees before the compiler does.
 //!
-//! # The row the map does not have
+//! # The row the map did not have
 //!
-//! The shipped crate declares **fifteen** modules where spec §4's map has fourteen rows plus a
+//! The shipped crate declares **fifteen** modules where spec §4's map had fourteen rows plus a
 //! `debug` row that is fog: `route` is ticket 11's, spec §7 and ADR 0016 specify it, and §4's table
-//! never gained a line for it. [`MODULES`] carries it with `Origin::Added` beside it rather than
-//! quietly matching a shorter list, and the discrepancy is filed as architecture issue 21 — **a
+//! never gained a line for it. [`MODULES`] carried it with `Origin::Added` beside it rather than
+//! quietly matching a shorter list, and the discrepancy was filed as architecture issue 21 — **a
 //! module is not deleted to make a table come out even.**
+//!
+//! **Issue 21 is resolved and §4 has the row**, so `route` is `Origin::Spec4` and the two lists are
+//! the same length by agreement rather than by omission. `Origin::Added` is kept and carries an
+//! `#[expect(dead_code)]`, which is the arrangement `register.rs` uses for `State::Red`: the next
+//! module that ships ahead of the spec must be able to say so, and a vacated arm removed is a
+//! sentence the type can no longer form. **The same amendment marked `debug` *not built* rather than
+//! leaving it *fog*** — a row that is missing and a row that is not built yet read identically, and
+//! that is what cost this reading twice.
 
 /// Where a module row came from.
 ///
@@ -52,6 +60,18 @@ pub enum Origin {
     /// A row of spec §4's module map.
     Spec4,
     /// Not in §4's map. The implementation ticket that shipped it, and why.
+    ///
+    /// **Nothing constructs this today**, and that is a statement about the map being current rather
+    /// than about the arm being spare. `route` was the one row that carried it — for four tickets,
+    /// until architecture issue 21 put the line in §4 — and the arm stays for `register.rs`'s
+    /// `State::Red` reason: *a distinction the type cannot make is one a row stops making.* This is
+    /// the only mechanism this crate has for saying **the code is ahead of the map**, and deleting it
+    /// would mean the next module shipped without a spec row has no way to say so and simply looks
+    /// like drift.
+    #[expect(
+        dead_code,
+        reason = "the map is current; the arm stays so a module ahead of the spec can say so"
+    )]
     Added {
         /// The implementation ticket, as `R NN`.
         by: &'static str,
@@ -117,14 +137,14 @@ pub const MODULES: [Module; 15] = [
         section: "§10",
         origin: Origin::Spec4,
     },
+    // **This row is why `Origin` has two arms, and it is `Spec4` now.** It shipped as
+    // `Origin::Added { by: "R11", … }` because §4's module map had no `route` line for four tickets;
+    // architecture issue 21 added the line, so the row is a spec row like any other. The arm it
+    // vacated is kept — see [`Origin::Added`].
     Module {
         name: "route",
         section: "§7",
-        origin: Origin::Added {
-            by: "R11",
-            why: "spec §7 and ADR 0016 specify the one key queue and the routing edge; §4's table \
-                  never gained a row for it",
-        },
+        origin: Origin::Spec4,
     },
     Module {
         name: "scroll",
@@ -821,16 +841,20 @@ mod tests {
     /// that moved five without a single `deny.toml` edit is the maintenance cost the refusal is
     /// about.
     ///
-    /// **Ticket 18 shipped a seventh crate and the number stayed 33**, which is the `vitui-signals`
-    /// wrapper line asserted below doing what it says: cargo-deny bans that crate's *presence* in
-    /// the graph, so it is not a workspace member and never enters it. The figure went to 34 for as
-    /// long as it was one, and the day a member depends on it the ban fires instead of the count
-    /// moving.
+    /// **Ticket 18 shipped a seventh crate and the number stayed 33**; runtime architecture issue 24
+    /// deleted it again and the number is unmoved a third time. `vitui-signals` was banned by a
+    /// `wrappers = []` line — cargo-deny bans a crate's *presence* in the graph, not only its
+    /// dependents — so it was never a workspace member and never entered the count. The figure went
+    /// to 34 for as long as it was one. That entry is gone with the crate and the assertion below
+    /// went with it; what survives is the property, in `deny.toml`'s comment beside the engine
+    /// entry, because it is a fact about the tool rather than about that crate.
     #[test]
     fn the_dependency_line_is_a_gate_and_the_allowlist_is_refused() {
         let deny = read(&workspace_root().join("deny.toml"));
         assert!(deny.contains(r#"{ name = "crossterm", wrappers = ["vitui-engine"] }"#));
-        assert!(deny.contains(r#"{ name = "vitui-signals", wrappers = [] }"#));
+        assert!(
+            deny.contains(r#"{ name = "vitui-engine", wrappers = ["vitui-runtime", "vitui"] }"#)
+        );
         // **The `[bans]` table only.** `[licenses] allow` is a different key with the same name and
         // is legitimately there — a scan over the whole file fails on it, which is how this gate
         // learned to say which table it means.

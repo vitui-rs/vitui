@@ -23,8 +23,9 @@ readme = "README.md"
 # Dependency policy, from the map and restated by runtime ticket 14: vitui-runtime takes NO
 # dependencies beyond the engine. Layout, keys, theming, animation and the data contract are written
 # by hand and are modules of this crate; reactivity is not here at all — it is an application's, and
-# `vitui-signals` is the crate for the shape that wants one. Do not add a crate here without a
-# decision.
+# this workspace ships no reactivity crate of its own (architecture issue 24 deleted the one it had,
+# on a 0.21% spread across three drivers). ADR 0020's four hooks are the whole surface. Do not add a
+# crate here without a decision.
 [dependencies]
 vitui-engine.workspace = true
 

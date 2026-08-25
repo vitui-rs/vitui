@@ -10,8 +10,7 @@
 #   vitui-components  vitui-runtime **and nothing else** — components spec §19's constraint C6, and
 #                     in particular **not** `vitui-engine`. Third-party dependencies remain case by
 #                     case; the closed door is the one downward, not the one outward.
-#   vitui-signals     vitui-runtime and nothing else, and nothing in this workspace depends on it.
-#   vitui             the facade: engine, runtime, components. Deliberately not signals.
+#   vitui             the facade: engine, runtime, components.
 #
 # See docs/adr/0001-crossterm-behind-a-seam.md and runtime ticket 14.
 #
@@ -34,24 +33,6 @@ deny = [
     # `vitui-runtime/Cargo.toml`, which fails the gate.
     { name = "crossterm", wrappers = ["vitui-engine"] },
 
-    # **Runtime ticket 14's facade decision, enforced the same way.** R13 built `vitui-signals` and
-    # recommended it as a crate; R14 accepts it and keeps it *out of the facade*, because a facade
-    # that re-exports one of two reactivity shapes has picked a winner between two that measured
-    # identical — 0 of 24 000 differing cells, all inside a ±0.5 µs noise floor. An empty `wrappers`
-    # list is that decision: the crate may exist and be published, and nothing in this workspace may
-    # depend on it. An application adds one line to its own `Cargo.toml`, which is the visibility
-    # the choice deserves.
-    #
-    # **Ticket 18 built the crate and found that sentence is stronger than it reads.** `[bans] deny`
-    # bans a crate's *presence in the graph*, and `wrappers` is the exception list — so a workspace
-    # member with nothing depending on it is still banned, and the first `cargo deny check` after the
-    # crate was added read `error[banned]: crate 'vitui-signals = 0.0.0' is explicitly banned` with
-    # no dependent to name. An empty list is therefore satisfiable only by a crate that is not in this
-    # workspace at all, which is why `crates/vitui-signals` is in the root `Cargo.toml`'s `exclude`
-    # and carries its own `[workspace]` table. **That is what makes this line live rather than
-    # decorative**: it now fires the day a member writes the dependency, naming the wrapper, where
-    # before it was already failing for the crate merely existing.
-    { name = "vitui-signals", wrappers = [] },
 
     # **Components spec §19's constraint C6, enforced rather than reviewed.** `vitui-components` may
     # name `vitui-runtime` and nothing else, and the case that matters is `vitui-engine`: a component
@@ -67,10 +48,16 @@ deny = [
     #
     # `wrappers` is the two crates that legitimately hold the engine: the runtime, which is the seam,
     # and the facade, which re-exports all three. Counted from the manifests rather than assumed —
-    # nothing else in this workspace names it. Note the asymmetry with `vitui-signals` above: that
-    # entry's list is **empty** because nothing may depend on it at all, and a member with no
-    # dependents fails `cargo deny` outright, which is why that crate is detached. This one has two
-    # real dependents, so it stays a member and the list names them.
+    # nothing else in this workspace names it. This one has two real dependents, so it stays a
+    # member and the list names them.
+    #
+    # **There used to be a second entry here, and its asymmetry with this one is worth keeping even
+    # though the entry is gone.** `{ name = "vitui-signals", wrappers = [] }` banned a crate's
+    # *presence in the graph* with no exception at all, which is a different instrument from this
+    # line: an empty list is satisfiable only by a crate outside the workspace, so the crate had to
+    # be detached to pass its own gate. `vitui-signals` was deleted by runtime architecture issue 24
+    # — three drivers of one screen measured 0.21% apart — and the fact that `[bans] deny` bans
+    # presence rather than dependency survives the crate as this comment.
     { name = "vitui-engine", wrappers = ["vitui-runtime", "vitui"] },
 
     # Signals that crossterm's `event-stream` feature has been enabled, or that an async runtime has
@@ -113,10 +100,11 @@ deny = [
 # holds both halves — the two wrapper lines above and the absence of `allow` in `[bans]` — because
 # ticket 17 found all three of them true and unchecked.
 #
-# **Ticket 18 shipped `vitui-signals` and the number did not move**, which is the wrapper line above
+# **Ticket 18 shipped `vitui-signals` and the number did not move**, which was the wrapper line above
 # doing exactly what it says. It went to 34 for as long as the crate was a workspace member, and back
-# to 33 when the member line came out — see that entry and the root `Cargo.toml`'s `exclude`. The
-# number lives in exactly one place, this comment, and `crate::line` reads it.
+# to 33 when the member line came out. Issue 24 has since deleted the crate, and the number is
+# unmoved a third time for the same reason. It lives in exactly one place, this comment, and
+# `crate::line` reads it.
 
 [licenses]
 allow = [
