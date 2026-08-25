@@ -848,13 +848,13 @@ const STANDS_SCENE_29: &[Instrument] = &[
 /// **The pair both of components ticket 14's scenes are pinned by**, written once because it is one
 /// fact: `table` is not declared, and the grid says which failure that is.
 ///
-/// [`STANDS_ON_COLLECTION`] one ticket later and one component over. Both halves are live: the
-/// verdict over the one subject, and the sentence that separates *waiting for its subject* from
-/// *the code is wrong*.
-const WAITING_FOR_TABLE: &[Instrument] = &[
+/// [`STANDS_ON_COLLECTION`] one component over, and it was `WAITING_FOR_TABLE` for exactly one
+/// ticket — components 15 inverted it. Both halves are live: the verdict over the one subject, and
+/// the sentence that separates *waiting for its subject* from *the code is wrong*.
+const STANDS_ON_TABLE: &[Instrument] = &[
     Instrument::Unit {
         file: GRID,
-        name: "the_grid_is_red_because_table_is_not_declared",
+        name: "the_grid_stands_on_the_table_it_is_a_screen_of",
     },
     Instrument::Unit {
         file: GRID,
@@ -887,13 +887,23 @@ const WAITING_FOR_COLLAPSIBLE: &[Instrument] = &[
     },
 ];
 
-/// The failing set both of components ticket 14's scenes are pinned in.
+/// The failing set both of components ticket 14's scenes **were** pinned in, until components 15
+/// declared the subject.
 ///
-/// One sentence and not two, because it is one fact: the screen is measured and green and the
-/// component is missing. **Unlike components ticket 11's five, there is no second reason here** —
+/// One sentence and not two, because it was one fact: the screen was measured and green and the
+/// component was missing. **Unlike components ticket 11's five, there was no second reason here** —
 /// the band defect is not pinned as a defect, because it is a defect of a *spelling* the grid holds
-/// as an arm rather than of code anything ships. What the two scenes are waiting for is the same
-/// thing.
+/// as an arm rather than of code anything ships.
+///
+/// Kept and not deleted, and `tests` still reads it: it is what these two rows say the day `table`
+/// stops being declared where the freeze homes it, and a sentence no test can read is a sentence
+/// that rots.
+#[expect(
+    dead_code,
+    reason = "the failing set of a row that has gone green. Deleting it would leave the next \
+              ticket to invent the sentence again, which is how a pinned red stops being \
+              reproducible; `tests::the_owed_sentences_name_their_subject` reads it"
+)]
 const OWED_ITS_TABLE: &str = "`table` is not declared in `crates/vitui-components/src/collect.rs`, so the two screens stand \
      on a stand-in row loop. Everything the screens themselves can be asked is measured and green — \
      24 000 cells written once at 12, 40, 120 and 240 declared columns and at 1 000, 100 000 and \
@@ -919,8 +929,8 @@ const PINS_SCENE_7: &[Instrument] = &[
         file: GRID,
         name: "the_equality_is_blind_to_the_band_and_the_pair_is_not",
     },
-    WAITING_FOR_TABLE[0],
-    WAITING_FOR_TABLE[1],
+    STANDS_ON_TABLE[0],
+    STANDS_ON_TABLE[1],
 ];
 
 /// What pins scene 30, the equality under a horizontal offset. See [`PINS_SCENE_7`].
@@ -938,8 +948,8 @@ const PINS_SCENE_30: &[Instrument] = &[
         file: GRID,
         name: "the_oracle_and_the_grid_are_two_programs_that_agree",
     },
-    WAITING_FOR_TABLE[0],
-    WAITING_FOR_TABLE[1],
+    STANDS_ON_TABLE[0],
+    STANDS_ON_TABLE[1],
 ];
 
 /// The failing set both scenes of components ticket 21 are pinned in.
@@ -1343,11 +1353,7 @@ pub const SCENES: [Scene; 32] = [
         stands: TABLE,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Red {
-            by: PINS_SCENE_7,
-            failing: OWED_ITS_TABLE,
-            inverted_by: "components 15",
-        },
+        standing: Standing::Evaluated { by: PINS_SCENE_7 },
         rehearsed_by: &[],
     },
     Scene {
@@ -2041,11 +2047,7 @@ pub const SCENES: [Scene; 32] = [
         // is the authority on which rows carry the flag, and a fourth arriving here to make a point
         // would change a normative count to make an argument. The argument is in `decided`.
         from_a_survived_defect: false,
-        standing: Standing::Red {
-            by: PINS_SCENE_30,
-            failing: OWED_ITS_TABLE,
-            inverted_by: "components 15",
-        },
+        standing: Standing::Evaluated { by: PINS_SCENE_30 },
         rehearsed_by: &[],
     },
     // **The third scene §21 does not carry**, and components ticket 04 predicted it by name:
@@ -2350,7 +2352,7 @@ mod tests {
     /// ticket 20* — and a single `inverted_by` across the five would have made that ticket turn
     /// all five.
     #[test]
-    fn eight_scenes_have_nothing_to_run_over_fifteen_are_red_and_nine_are_stood_up() {
+    fn eight_scenes_have_nothing_to_run_over_thirteen_are_red_and_eleven_are_stood_up() {
         let red: Vec<u8> = SCENES
             .iter()
             .filter(|s| matches!(s.standing, Standing::Red { .. }))
@@ -2358,11 +2360,12 @@ mod tests {
             .collect();
         assert_eq!(
             red,
-            vec![6, 7, 8, 9, 10, 11, 12, 13, 14, 17, 18, 19, 30, 31, 32],
-            "the wheel gate, and then components ticket 14's two, 16's two, 18's four, 21's \
-             two, 23's three and 25's overlay family. Components ticket 27's two were here for \
-             one ticket and components 28 inverted them. A sixteenth is a new one, and it owes \
-             an exact failing set and a ticket that inverts it"
+            vec![6, 8, 9, 10, 11, 12, 13, 14, 17, 18, 19, 30, 32],
+            "the wheel gate, and then components ticket 16's two, 18's four, 21's two, 23's \
+             three and 25's overlay family. Components ticket 27's two were here for one ticket \
+             and 28 inverted them; components ticket 14's two — scenes 7 and 31 — were here for \
+             one ticket and **15** inverted them. A fourteenth is a new one, and it owes an exact \
+             failing set and a ticket that inverts it"
         );
         let evaluated: Vec<u8> = SCENES
             .iter()
@@ -2371,11 +2374,14 @@ mod tests {
             .collect();
         assert_eq!(
             evaluated,
-            vec![1, 2, 3, 4, 5, 15, 16, 28, 29],
-            "the dense screen and its two twins, the collection's four, and the two \
-             million-point series with the 175 712 axis pairs. A screen played over a stand-in \
-             for its components is rehearsed and not stood up, so a tenth arriving here is a \
-             deliberate edit to this module's header and to `crate::gates::REGISTER`"
+            vec![1, 2, 3, 4, 5, 7, 15, 16, 28, 29, 31],
+            "the dense screen and its two twins, the collection's four, the two million-point \
+             series with the 175 712 axis pairs, and the table's two — the twelve-column screen \
+             and the equality under a horizontal offset, both of which components 15 stood up by \
+             declaring `table` and rewriting `crate::grid::draw_into` to draw through it. A \
+             screen played over a stand-in for its components is rehearsed and not stood up, so a \
+             twelfth arriving here is a deliberate edit to this module's header and to \
+             `crate::gates::REGISTER`"
         );
         assert_eq!(SCENES.len() - evaluated.len() - red.len(), 8);
 
@@ -2424,7 +2430,6 @@ mod tests {
             pinned_to,
             vec![
                 (6, "components 20"),
-                (7, "components 15"),
                 (8, "components 17"),
                 (9, "components 17"),
                 (10, "components 22"),
@@ -2436,7 +2441,6 @@ mod tests {
                 (18, "components 19"),
                 (19, "components 19"),
                 (30, "components 19"),
-                (31, "components 15"),
                 (32, "components 24"),
             ],
             "the wheel gate is not waiting for its subject and the other fourteen are. Merging \
@@ -2850,12 +2854,12 @@ mod tests {
             printed
                 .matches("stood up on its own components, by ")
                 .count(),
-            9,
+            11,
             "a stood-up scene says what stands it up, rather than reading as unplayed"
         );
         assert_eq!(
             printed.matches("red, pinned: `components ").count(),
-            15,
+            13,
             "the wheel gate, then ticket 14's two, 16's two, 18's four, 21's two, 23's three \
              and 25's one, and a red line is neither *not played* nor *stood up*"
         );

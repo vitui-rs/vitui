@@ -67,14 +67,17 @@ fn scene_list() {
         "  {:>3}  {:<14}  {:<13}  scene",
         "#", "standing", "inverted by"
     );
-    let mut red = 0usize;
+    let (mut red, mut stood) = (0usize, 0usize);
     for scene in SCENES.iter().filter(|s| s.stands.contains(&"table")) {
         let (word, ticket) = match scene.standing {
             Standing::Red { inverted_by, .. } => {
                 red += 1;
                 ("red, pinned", inverted_by)
             }
-            Standing::Evaluated { .. } => ("evaluated", "-"),
+            Standing::Evaluated { .. } => {
+                stood += 1;
+                ("evaluated", "-")
+            }
             Standing::Unsubjected { inverted_by } => ("unsubjected", inverted_by),
             Standing::Unreachable { inverted_by, .. } => ("unreachable", inverted_by),
         };
@@ -83,11 +86,17 @@ fn scene_list() {
             scene.number, scene.name
         );
     }
-    assert_eq!(red, 2, "both are pinned red");
+    assert_eq!(
+        (red, stood),
+        (0, 2),
+        "both stand on `table` since components 15"
+    );
     println!(
-        "\n  Both are waiting for `table` and neither is waiting for anything else. Unlike \
-         components\n  ticket 11's five, there is no second reason here: the band defect is a \
-         defect of a *spelling*\n  the grid holds as an arm, not of code anything ships.\n"
+        "\n  Both stood up when components 15 declared `table` and rewrote `grid::draw_into` to \
+         draw\n  through it. They were red for one ticket and neither was waiting for anything \
+         else — unlike\n  components ticket 11's five, there was no second reason here: the band \
+         defect is a defect of a\n  *spelling* the grid holds as an arm, not of code anything \
+         ships.\n"
     );
 }
 
@@ -224,10 +233,13 @@ fn the_column_axis() {
     println!(
         "\n  Flat across all four, and the clip-only spelling at 120 costs {:.1}x the verbs and \
          {:.1}x what it\n  asks for — for **identical writes**, because the engine reports a fully \
-         clipped verb as zero\n  columns. §6 measured 3.3x the frame and 7.2x the verbs on its own \
-         screen, which capped a frame\n  at 128 drawn columns where this one does not.\n",
+         clipped verb as zero\n  columns. §6 measured **548 µs and 18 049 verbs** at 120 declared columns \
+         — 3.3x the frame and\n  7.2x the verbs on its own screen, which capped a frame at 128 \
+         drawn columns where this one\n  does not. Here the same arm is {} verbs, and the \
+         microseconds are the column above.\n",
         clip.verbs as f64 / virtualised[0].verbs as f64,
         clip.asked as f64 / virtualised[0].asked as f64,
+        clip.verbs,
     );
 
     let volumes = grid::across_volumes(Opts::correct());
@@ -412,10 +424,10 @@ fn o5() {
     }
     let stands: Vec<u8> = scenes_for("table").map(|s| s.number).collect();
     println!("  `scenes_for(\"table\")` answers {stands:?}");
-    assert_eq!(stands, vec![7, 30]);
+    assert_eq!(stands, vec![7, 31]);
     println!(
         "\n  O5 did not move, and that is correct: §21's row 7 already claimed \
-         `(table, scrolled)` and\n  `(table, narrow)`, and scene 30 is a second **instrument** on \
+         `(table, scrolled)` and\n  `(table, narrow)`, and scene 31 is a second **instrument** on \
          one axis rather than a second axis.\n  Two of the four axes `table` declares — shrunk and \
          wheeled — still have no scene, and this\n  ticket does not pretend otherwise.\n"
     );
@@ -455,11 +467,17 @@ fn what_does_not_reproduce() {
         "    own text fills its column has no padding and costs one. Two of the eleven columns drawn",
         "    are such cells and both are pins. No cell costs three.",
         "",
-        "  And one number that is nobody's remembered figure: `Ctx::scroll_scope` at a nonzero",
-        "    offset answers `visible_rows() == -1000..-920` for an offset of a thousand. That is",
-        "    C03's inverted scroll sign inside the runtime's own verb, register row 70, filed as",
-        "    `.scratch/vitui-runtime-architecture/issues/26`, and it is why every frame here is",
-        "    drawn at a vertical offset of zero.",
+        "  And one number that was nobody's remembered figure: `Ctx::scroll_scope` at a nonzero",
+        "    offset answered `visible_rows() == -1000..-920` for an offset of a thousand — C03's",
+        "    inverted scroll sign inside the runtime's own verb, filed as runtime architecture",
+        "    issue 26 and negated there. Register row 77 is green and the test that found it keeps",
+        "    its assertion; every frame here is still drawn at a vertical offset of zero, because",
+        "    §21's gesture for this scene is `rows: 0`, which was always the other reason.",
+        "",
+        "  Components 15 found the same shape one verb over, and that one is still open:",
+        "    `Ctx::with_key` inside a scroll scope draws 0 cells of 8 at an offset of 100 and 8 of",
+        "    8 at zero, because `with_id` re-childs at `self.area()` and that is the content's",
+        "    origin there. Register row 112, `.scratch/vitui-runtime-architecture/issues/31`.",
     ] {
         println!("{line}");
     }

@@ -108,6 +108,8 @@ use std::ops::Range;
 use std::time::Instant;
 
 use vitui_runtime::keys::{Code, Edge, Pressed};
+use vitui_runtime::layout::text::{truncate, width};
+use vitui_runtime::layout::{Constraint, solve};
 use vitui_runtime::{Ctx, Id, Interest, Mods, Rect, Response, Revision, Role, Scrollable};
 
 use crate::frame::Face;
@@ -1217,7 +1219,9 @@ pub fn search_range(lead: usize, len: usize, budget: usize) -> Range<usize> {
 /// line and every one of them **passes at least one gate the correct build passes**.
 pub mod defective {
     use super::{
-        CollOpts, CollState, Ctx, Face, Ink, Range, Rect, Response, Reveal, Rows, Shape, draw_with,
+        Band, BandShape, Cell, CellKeys, ColVirt, CollOpts, CollState, Column, Ctx, Face, HSign,
+        Id, Ink, Range, Rect, Response, Reveal, Rows, Scan, Shape, TableOpts, TableShape,
+        TableState, draw_with, table_with,
     };
 
     /// **The listing that iterates its whole content and lets the clip reject the rest.**
@@ -1389,6 +1393,356 @@ pub mod defective {
                     );
                     let _ = ink.run(cx, 0, y, " ", area.w, paint);
                 });
+            }
+        });
+    }
+
+    // ── `table`'s four, and the one that is refused while being correct ──────────────────────────
+
+    /// **The band written by arithmetic instead of into a view.** §6's refused arm.
+    ///
+    /// One `child` fewer than [`super::table_into`] and nothing else changed, so a reviewer's diff
+    /// is one field. The band's edge column reaches past the viewport and overwrites the pinned band
+    /// — **identical verbs, identical time**, and a band of cells re-damaged on every steady frame
+    /// for ever. Where the overrun is on the *right* the picture even survives, because the pin
+    /// draws afterwards and wins; the pair `writes` against `distinct` is what sees it, and an
+    /// equality against a reference render does not.
+    #[track_caller]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "`table_into`'s nine exactly, because a defective arm that took a different \
+                  signature would be a different function rather than the same one with one value \
+                  changed"
+    )]
+    pub fn arithmetic_band<I, F, C>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Rect,
+        st: &mut TableState,
+        opts: &TableOpts,
+        cols: &[Column],
+        rows: Rows,
+        find: F,
+        cell: C,
+    ) -> Response
+    where
+        I: Ink,
+        F: FnMut(&str, Range<usize>) -> Option<usize>,
+        C: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, Cell, Face),
+    {
+        table_with(
+            ink,
+            cx,
+            area,
+            st,
+            opts,
+            cols,
+            rows,
+            find,
+            cell,
+            TableShape {
+                band: BandShape::Arithmetic,
+                ..TableShape::default()
+            },
+        )
+    }
+
+    /// **Every declared column drawn, with the clip left to discard what does not fit.**
+    ///
+    /// The column half of *frame cost is proportional to visible cells*, refused. **The writes are
+    /// identical** — the engine reports a fully clipped verb as zero columns — so the one counter a
+    /// reader reaches for first cannot see it at all; what it costs is verbs, and they grow with the
+    /// *declared* column count rather than with the visible one.
+    #[track_caller]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "[`arithmetic_band`]'s, unchanged"
+    )]
+    pub fn clip_only<I, F, C>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Rect,
+        st: &mut TableState,
+        opts: &TableOpts,
+        cols: &[Column],
+        rows: Rows,
+        find: F,
+        cell: C,
+    ) -> Response
+    where
+        I: Ink,
+        F: FnMut(&str, Range<usize>) -> Option<usize>,
+        C: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, Cell, Face),
+    {
+        table_with(
+            ink,
+            cx,
+            area,
+            st,
+            opts,
+            cols,
+            rows,
+            find,
+            cell,
+            TableShape {
+                cols: ColVirt::ClipOnly,
+                ..TableShape::default()
+            },
+        )
+    }
+
+    /// **The horizontal offset added where it should be subtracted.** §3.3's trap on the column
+    /// axis, and C03's inverted scroll sign one axis over.
+    ///
+    /// The band shows a partly blank stretch, issues every verb it would have issued, and **measures
+    /// as an improvement** because the clip eats the writes. Nothing but an equality against a
+    /// reference render separates it from the correct build.
+    #[track_caller]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "[`arithmetic_band`]'s, unchanged"
+    )]
+    pub fn inverted_sign<I, F, C>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Rect,
+        st: &mut TableState,
+        opts: &TableOpts,
+        cols: &[Column],
+        rows: Rows,
+        find: F,
+        cell: C,
+    ) -> Response
+    where
+        I: Ink,
+        F: FnMut(&str, Range<usize>) -> Option<usize>,
+        C: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, Cell, Face),
+    {
+        table_with(
+            ink,
+            cx,
+            area,
+            st,
+            opts,
+            cols,
+            rows,
+            find,
+            cell,
+            TableShape {
+                hsign: HSign::Minus,
+                ..TableShape::default()
+            },
+        )
+    }
+
+    /// **A row key and no column key**, which is one microsecond cheaper and correct until a cell
+    /// declares a target.
+    ///
+    /// Then every cell of a row derives one id and the row is one widget: the first cell answers and
+    /// the rest are inert, on a screen that renders correctly. `merges` is the counter that sees it
+    /// and nothing that reads a cell does.
+    #[track_caller]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "[`arithmetic_band`]'s, unchanged"
+    )]
+    pub fn row_keyed_cells<I, F, C>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Rect,
+        st: &mut TableState,
+        opts: &TableOpts,
+        cols: &[Column],
+        rows: Rows,
+        find: F,
+        cell: C,
+    ) -> Response
+    where
+        I: Ink,
+        F: FnMut(&str, Range<usize>) -> Option<usize>,
+        C: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, Cell, Face),
+    {
+        table_with(
+            ink,
+            cx,
+            area,
+            st,
+            opts,
+            cols,
+            rows,
+            find,
+            cell,
+            TableShape {
+                keys: CellKeys::PerRow,
+                ..TableShape::default()
+            },
+        )
+    }
+
+    /// **One row pass with three bands inside it — the shipped loop structure, standing alone.**
+    ///
+    /// The correct half of the pair §6's *4% cheaper and refused* is measured over. It is not
+    /// [`super::table`]: the shipped component also runs the keyboard, the type-ahead, the reveal
+    /// and the tail, none of which is the subject, and a timing that included them would be a timing
+    /// of `collection`. Both halves of this pair are this one function with `per_band` flipped, so
+    /// the 4% is the loop structure and nothing else.
+    pub fn one_row_pass<I, C>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Rect,
+        st: &mut TableState,
+        cols: &[Column],
+        len: usize,
+        cell: C,
+    ) where
+        I: Ink,
+        C: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, Cell, Face),
+    {
+        passes(ink, cx, area, st, cols, len, false, cell);
+    }
+
+    /// **A pass per band: correct, measured cheaper, and refused.**
+    ///
+    /// §6: *the band view is opened per row inside one row pass, not once per band. A pass per band
+    /// measures 4% cheaper and is refused, because three loops share nothing but the author writing
+    /// the same bounds three times and cannot share §5's lockstep scan cursor.*
+    ///
+    /// Both halves of the refusal are visible here. It **is** cheaper — one
+    /// [`Ctx::child`](vitui_runtime::Ctx::child) for the whole band instead of one a row. And it
+    /// **cannot share the cursor**: each of the three passes seeks its own [`Scan`], so the
+    /// `O(log k + h)` §5 buys becomes `3·(log k + h)`, and the three sets of bounds are three chances
+    /// for an author to write one of them differently.
+    ///
+    /// It is here to be priced rather than argued about, and it is the one arm in this module that
+    /// is **correct**: it writes the same cells in a different order.
+    pub fn per_band_pass<I, C>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Rect,
+        st: &mut TableState,
+        cols: &[Column],
+        len: usize,
+        cell: C,
+    ) where
+        I: Ink,
+        C: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, Cell, Face),
+    {
+        passes(ink, cx, area, st, cols, len, true, cell);
+    }
+
+    /// The pair above, one boolean apart.
+    #[track_caller]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the seven both halves take plus the one value between them, which is the whole \
+                  point of writing them as one function"
+    )]
+    fn passes<I, C>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Rect,
+        st: &mut TableState,
+        cols: &[Column],
+        len: usize,
+        per_band: bool,
+        mut cell: C,
+    ) where
+        I: Ink,
+        C: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, Cell, Face),
+    {
+        let tid = cx.id();
+        let solved = super::solve_columns(area.w, cols);
+        let hoff = st.hoff.clamp(0, solved.max_hoff());
+        let (vlo, vhi) = super::visible_columns(&solved, hoff);
+        let max = (0, CollState::max_offset(len, area.h));
+        let _ = cx.scrollable(
+            tid,
+            area,
+            vitui_runtime::Interest::CLICK,
+            vitui_runtime::Scrollable::between((0, st.coll.offset), max),
+        );
+        let band_x = i32::from(solved.left_w);
+        let right_x = band_x + i32::from(solved.view_w);
+        let sel = &st.coll.sel;
+        cx.scroll_scope(tid, area, (0, st.coll.offset), max, |cx| {
+            let window = cx.visible_rows();
+            let lo = window.start.max(0);
+            let hi = window.end.min(i32::try_from(len).unwrap_or(i32::MAX));
+            let first = usize::try_from(lo).unwrap_or(0);
+            let face_of = |scan: &mut Scan<'_>, i: usize| Face {
+                selected: scan.at(i),
+                cursor: sel.lead == i,
+                active: false,
+                hovered: false,
+                disabled: false,
+            };
+            let mut one = |ink: &mut I,
+                           cx: &mut Ctx<'_, '_>,
+                           slot: usize,
+                           x: i32,
+                           y: i32,
+                           row: usize,
+                           face: Face| {
+                let key = cols[usize::from(solved.spec[slot])].key;
+                let id = Id::keyed(Id::keyed(tid, row as u64), u64::from(key));
+                let r = Rect::new(x, y, solved.w[slot], 1);
+                cell(ink, cx, r, Cell { row, key, id }, face);
+            };
+            if per_band {
+                // **Three passes, three seeks, three copies of the bounds.** The band's view is
+                // opened once for the whole band here, which is where the 4% comes from — and the
+                // three [`Scan`]s are what §6 means by *cannot share the lockstep scan cursor*.
+                for band in [Band::Left, Band::Scroll, Band::Right] {
+                    let (blo, bhi) = match band {
+                        Band::Scroll => (vlo, vhi),
+                        other => solved.range(other),
+                    };
+                    let mut scan = Scan::seek(sel, first);
+                    if band == Band::Scroll {
+                        let h = u16::try_from(hi - lo).unwrap_or(u16::MAX);
+                        let rect = Rect::new(band_x, lo, solved.view_w, h);
+                        let mut clipped = cx.child(rect);
+                        let mut view = clipped.scrolled(-rect.x, -rect.y);
+                        for y in lo..hi {
+                            let Ok(i) = usize::try_from(y) else { continue };
+                            let face = face_of(&mut scan, i);
+                            for slot in blo..bhi {
+                                let x = band_x + solved.x[slot] - hoff;
+                                one(ink, &mut view, slot, x, y, i, face);
+                            }
+                        }
+                    } else {
+                        let base = if band == Band::Left { 0 } else { right_x };
+                        for y in lo..hi {
+                            let Ok(i) = usize::try_from(y) else { continue };
+                            let face = face_of(&mut scan, i);
+                            for slot in blo..bhi {
+                                one(ink, cx, slot, base + solved.x[slot], y, i, face);
+                            }
+                        }
+                    }
+                }
+            } else {
+                let mut scan = Scan::seek(sel, first);
+                for y in lo..hi {
+                    let Ok(i) = usize::try_from(y) else { continue };
+                    let face = face_of(&mut scan, i);
+                    for slot in solved.left.0..solved.left.1 {
+                        one(ink, cx, slot, solved.x[slot], y, i, face);
+                    }
+                    {
+                        let rect = Rect::new(band_x, y, solved.view_w, 1);
+                        let mut clipped = cx.child(rect);
+                        let mut view = clipped.scrolled(-rect.x, -rect.y);
+                        for slot in vlo..vhi {
+                            let x = band_x + solved.x[slot] - hoff;
+                            one(ink, &mut view, slot, x, y, i, face);
+                        }
+                    }
+                    for slot in solved.right.0..solved.right.1 {
+                        one(ink, cx, slot, right_x + solved.x[slot], y, i, face);
+                    }
+                }
             }
         });
     }
@@ -1645,6 +1999,1060 @@ pub fn label(i: usize) -> &'static str {
         "alpha", "bravo", "delta", "echo", "gamma", "kilo", "lima", "mike",
     ];
     NAMES[i % NAMES.len()]
+}
+
+// ── `table` = `collection` + column rectangles ───────────────────────────────────────────────────
+
+/// **Where a column sits when the table is scrolled sideways.**
+///
+/// **A pinned column may not be elastic, and it is enforced by construction rather than
+/// documented**: `Left` and `Right` carry their own width, and the [`Column::width`] a pinned column
+/// declares is not reachable from [`solve_columns`] at all — every reader of a pin's width goes
+/// through [`Pin::width`], and there is nowhere for a [`Constraint`] to enter. §6's reason is two
+/// denominators: a pin claims a share of the *table* and a scrolling lane a share of the *content*,
+/// and `max(viewport, Σ minima)` is not the table.
+///
+/// The enforcement is a *type* and not a check, which is the difference between this and a
+/// `debug_assert`: the failure the rule is about has no spelling.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Pin {
+    /// Pinned to the table's left edge, this many cells wide.
+    Left(u16),
+    /// In the scrolling band.
+    None,
+    /// Pinned to the table's right edge, this many cells wide.
+    Right(u16),
+}
+
+impl Pin {
+    /// The fixed width a pin claims, or `None` for a scrolling column.
+    pub const fn width(self) -> Option<u16> {
+        match self {
+            Pin::Left(w) | Pin::Right(w) => Some(w),
+            Pin::None => None,
+        }
+    }
+}
+
+/// **One declared column.**
+///
+/// The `key` is **stable identity**, independent of position and of visibility: hiding and
+/// reordering columns are two of §6's twenty-two grid features and both move positions, so nothing
+/// stored may be keyed on one. [`CellSel`] and the column half of [`TableState::editing`] are the
+/// two things a table stores per column, and both take the key.
+#[derive(Clone, Copy, Debug)]
+pub struct Column {
+    /// **Stable identity.** Not a position.
+    pub key: u16,
+    /// What the column is called. Written by the header when [`TableOpts::header`] asks for one.
+    pub title: &'static str,
+    /// **Consulted only when `pin` is [`Pin::None`].** See [`Pin`].
+    pub width: Constraint,
+    /// Which of the three bands it lands in.
+    pub pin: Pin,
+}
+
+impl Column {
+    /// A scrolling column.
+    pub const fn new(key: u16, title: &'static str, width: Constraint) -> Column {
+        Column {
+            key,
+            title,
+            width,
+            pin: Pin::None,
+        }
+    }
+
+    /// The same column, pinned to the left edge at a fixed width.
+    pub const fn pinned_left(self, w: u16) -> Column {
+        Column {
+            pin: Pin::Left(w),
+            ..self
+        }
+    }
+
+    /// The same column, pinned to the right edge at a fixed width.
+    pub const fn pinned_right(self, w: u16) -> Column {
+        Column {
+            pin: Pin::Right(w),
+            ..self
+        }
+    }
+}
+
+/// Which of §6's three bands a solved column landed in.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Band {
+    /// Pinned to the table's left edge.
+    Left,
+    /// Scrolling.
+    Scroll,
+    /// Pinned to the table's right edge.
+    Right,
+}
+
+/// **The most columns one declaration list may hold.**
+///
+/// A fixed array, because a `Vec` per table per frame is an allocation per frame and the standing
+/// budget is zero. Two hundred and fifty-six is past §6's own sweep, whose widest arm is 240.
+pub const MAX_COLS: usize = 256;
+
+/// **What one frame's column solve produced.** Plain arrays: no allocation, no per-frame scratch.
+///
+/// Built by [`solve_columns`] **once a frame, over the declared columns, touching no row** — §6's
+/// sentence, and the one [`table`] is measured against. The three bands are three ranges into the
+/// same arrays rather than three vectors, for the same reason.
+#[derive(Clone)]
+pub struct Solved {
+    /// How many columns were placed.
+    pub n: usize,
+    /// Index into the caller's `&[Column]`, so `key` and `title` are one hop away.
+    pub spec: [u16; MAX_COLS],
+    /// Which band each landed in.
+    pub band: [Band; MAX_COLS],
+    /// x **in the coordinates of the column's own band**.
+    pub x: [i32; MAX_COLS],
+    /// Its width.
+    pub w: [u16; MAX_COLS],
+    /// Cells the left pins claimed.
+    pub left_w: u16,
+    /// Cells the right pins claimed.
+    pub right_w: u16,
+    /// The scrolling band's viewport.
+    pub view_w: u16,
+    /// **The scrolling band's content width, `max(view_w, Σ minima)`** — the one width in a table
+    /// that is not a viewport, and the denominator §6's two-denominator sentence is about.
+    pub content_w: u16,
+    /// `[lo, hi)` into the arrays for the left band.
+    pub left: (usize, usize),
+    /// `[lo, hi)` for the scrolling band.
+    pub scroll: (usize, usize),
+    /// `[lo, hi)` for the right band.
+    pub right: (usize, usize),
+}
+
+impl Default for Solved {
+    fn default() -> Solved {
+        Solved {
+            n: 0,
+            spec: [0; MAX_COLS],
+            band: [Band::Scroll; MAX_COLS],
+            x: [0; MAX_COLS],
+            w: [0; MAX_COLS],
+            left_w: 0,
+            right_w: 0,
+            view_w: 0,
+            content_w: 0,
+            left: (0, 0),
+            scroll: (0, 0),
+            right: (0, 0),
+        }
+    }
+}
+
+impl Solved {
+    /// The largest horizontal offset the scrolling band admits.
+    pub fn max_hoff(&self) -> i32 {
+        i32::from(self.content_w) - i32::from(self.view_w)
+    }
+
+    /// One band's `[lo, hi)`.
+    pub const fn range(&self, b: Band) -> (usize, usize) {
+        match b {
+            Band::Left => self.left,
+            Band::Scroll => self.scroll,
+            Band::Right => self.right,
+        }
+    }
+}
+
+/// The floor a constraint shrinks to when the band overflows its viewport.
+const fn col_floor(c: Constraint) -> u16 {
+    match c {
+        Constraint::Fixed(v) | Constraint::Min(v) | Constraint::Max(v) => v,
+        Constraint::Percent(_) | Constraint::Ratio(_, _) | Constraint::Weight(_) => 6,
+    }
+}
+
+/// **The whole of a table's layout. Runs once a frame, touches no row, allocates nothing.**
+///
+/// The three bands are solved separately and that is §6's decision rather than an implementation
+/// detail: a pin is a *band*, so it is a rect split, and the scrolling columns then have exactly one
+/// denominator. The band handed to R03's solver is `content_w` and not `view_w` — when the columns
+/// fit the two are the same and the elastic ones share the viewport; when they do not, the band is
+/// Σ minima and the difference is what a horizontal offset scrolls over.
+///
+/// Columns past [`MAX_COLS`] are dropped rather than panicking: the caller of a component is an
+/// application, and [`Solved::n`] says how many were placed.
+pub fn solve_columns(area_w: u16, specs: &[Column]) -> Solved {
+    let mut out = Solved::default();
+    let mut left_w: u32 = 0;
+    let mut right_w: u32 = 0;
+    for s in specs {
+        match s.pin {
+            Pin::Left(w) => left_w += u32::from(w),
+            Pin::Right(w) => right_w += u32::from(w),
+            Pin::None => {}
+        }
+    }
+    let total = u32::from(area_w);
+    let left_w = left_w.min(total);
+    let right_w = right_w.min(total - left_w);
+    out.left_w = left_w as u16;
+    out.right_w = right_w as u16;
+    out.view_w = (total - left_w - right_w) as u16;
+
+    let mut n = 0usize;
+    let mut x = 0i32;
+    out.left.0 = n;
+    for (i, s) in specs.iter().enumerate() {
+        if n == MAX_COLS {
+            break;
+        }
+        if let Pin::Left(w) = s.pin {
+            out.spec[n] = i as u16;
+            out.band[n] = Band::Left;
+            out.x[n] = x;
+            out.w[n] = w;
+            x += i32::from(w);
+            n += 1;
+        }
+    }
+    out.left.1 = n;
+
+    let mut spec_buf = [Constraint::Fixed(0); MAX_COLS];
+    let mut idx_buf = [0u16; MAX_COLS];
+    let mut m = 0usize;
+    let mut min_sum: u32 = 0;
+    for (i, s) in specs.iter().enumerate() {
+        if s.pin != Pin::None || m == MAX_COLS {
+            continue;
+        }
+        spec_buf[m] = s.width;
+        idx_buf[m] = i as u16;
+        min_sum += u32::from(col_floor(s.width));
+        m += 1;
+    }
+    let content_w = min_sum.max(u32::from(out.view_w)).min(u32::from(u16::MAX));
+    out.content_w = content_w as u16;
+
+    let mut rects = [Rect::default(); MAX_COLS];
+    let (k, _) = solve(content_w, &spec_buf[..m], &mut rects[..m]);
+    out.scroll.0 = n;
+    let mut bx = 0i32;
+    for (j, rect) in rects[..k].iter().enumerate() {
+        if n == MAX_COLS {
+            break;
+        }
+        out.spec[n] = idx_buf[j];
+        out.band[n] = Band::Scroll;
+        out.x[n] = bx;
+        out.w[n] = rect.w;
+        bx += i32::from(rect.w);
+        n += 1;
+    }
+    out.scroll.1 = n;
+
+    out.right.0 = n;
+    let mut rx = 0i32;
+    for (i, s) in specs.iter().enumerate() {
+        if n == MAX_COLS {
+            break;
+        }
+        if let Pin::Right(w) = s.pin {
+            out.spec[n] = i as u16;
+            out.band[n] = Band::Right;
+            out.x[n] = rx;
+            out.w[n] = w;
+            rx += i32::from(w);
+            n += 1;
+        }
+    }
+    out.right.1 = n;
+    out.n = n;
+    out
+}
+
+/// **The column half of the invariant**: `[lo, hi)` into the scrolling band — the columns a viewport
+/// `view_w` wide at horizontal offset `hoff` can show, and nothing else.
+///
+/// Binary search rather than a walk, because the walk stays correct while the declared column count
+/// grows and the cost grows with it. At forty columns the two are indistinguishable; the point of
+/// writing the search is that at two hundred and forty they are not.
+///
+/// **This is the fast path and [`Ctx::visible_cols`](vitui_runtime::Ctx::visible_cols) is its
+/// oracle**, not the other way round — the arithmetic band opens no view, so there is nothing for it
+/// to ask. `crate::grid`'s sweep over every offset the content admits is where the two are held to
+/// each other.
+pub fn visible_columns(s: &Solved, hoff: i32) -> (usize, usize) {
+    let (lo0, hi0) = s.scroll;
+    if hi0 <= lo0 || s.view_w == 0 {
+        return (lo0, lo0);
+    }
+    let left = hoff;
+    let right = hoff + i32::from(s.view_w);
+    let lo = col_partition(lo0, hi0, |i| s.x[i] + i32::from(s.w[i]) <= left);
+    let hi = col_partition(lo, hi0, |i| s.x[i] < right);
+    (lo, hi)
+}
+
+/// The first index in `[lo, hi)` for which `pred` is false. `pred` must be monotone.
+fn col_partition(lo: usize, hi: usize, pred: impl Fn(usize) -> bool) -> usize {
+    let (mut a, mut b) = (lo, hi);
+    while a < b {
+        let mid = a + (b - a) / 2;
+        if pred(mid) { a = mid + 1 } else { b = mid }
+    }
+    a
+}
+
+// ── cell selection: a run list per column key ────────────────────────────────────────────────────
+
+/// **Cell selection: one [`Selection`] per column key, and no second store.**
+///
+/// §6's decision, and it is decided **entirely by what a gesture costs** — the frame does not
+/// distinguish the two candidates at all, because both are amortised `O(1)` a cell through the same
+/// [`Scan`] the row loop already runs.
+///
+/// The alternative is a flattened `row · ncols + col` index into one [`Selection`], which is
+/// [`flattened_header_click`] and is kept runnable rather than remembered: one click on a column
+/// header at a million rows is **one run and [`SPAN_BYTES`] bytes here** against a million runs and
+/// sixteen megabytes there — *C03's rejected `HashSet` arriving as a different type*, because a
+/// column of a row-major flattening is a stride and a stride of length one is not a run.
+///
+/// **The losses are real and they are bounded by the declared column count**: select-all and
+/// select-one-row are one run under the flattening and one run *per column* here. A table's row
+/// count is unbounded and its column count is not, which is the whole of why the trade goes this
+/// way.
+///
+/// It is not a second selection store: the entries are [`Selection`] — the same span list
+/// [`CollState`] keeps, queried through the same [`Scan`].
+#[derive(Clone, Default, PartialEq, Eq, Debug)]
+pub struct CellSel {
+    /// Sorted by key, so a lookup is a binary search and the ordering is not the caller's problem.
+    by_key: Vec<(u16, Selection)>,
+}
+
+impl CellSel {
+    /// Nothing selected, in no column.
+    pub fn new() -> CellSel {
+        CellSel::default()
+    }
+
+    /// The rows selected in `key`, if the column has an entry.
+    pub fn column(&self, key: u16) -> Option<&Selection> {
+        let i = self.by_key.binary_search_by_key(&key, |(k, _)| *k).ok()?;
+        Some(&self.by_key[i].1)
+    }
+
+    /// The rows selected in `key`, minting the column's entry if it has none.
+    pub fn column_mut(&mut self, key: u16) -> &mut Selection {
+        match self.by_key.binary_search_by_key(&key, |(k, _)| *k) {
+            Ok(i) => &mut self.by_key[i].1,
+            Err(i) => {
+                self.by_key.insert(i, (key, Selection::new()));
+                &mut self.by_key[i].1
+            }
+        }
+    }
+
+    /// Whether `(row, key)` is selected.
+    pub fn contains(&self, row: usize, key: u16) -> bool {
+        self.column(key).is_some_and(|s| s.contains(row))
+    }
+
+    /// **Select every row of one column. §6's header click**, and the gesture the store was chosen
+    /// for: one run and [`SPAN_BYTES`] bytes at any length.
+    pub fn select_column(&mut self, key: u16, len: usize) {
+        self.column_mut(key).select_all(len);
+    }
+
+    /// **Select one row across `keys`. The gesture this store is worse at**, and the loss is bounded
+    /// by the declared column count rather than by the length.
+    pub fn select_row(&mut self, keys: &[u16], row: usize) {
+        for &k in keys {
+            self.column_mut(k).select_only(row);
+        }
+    }
+
+    /// Runs held, over every column. The counter §6's 1 000 000-against-1 is stated in.
+    pub fn span_count(&self) -> usize {
+        self.by_key.iter().map(|(_, s)| s.span_count()).sum()
+    }
+
+    /// Bytes the spans hold, over every column.
+    pub fn bytes(&self) -> usize {
+        self.by_key.iter().map(|(_, s)| s.bytes()).sum()
+    }
+
+    /// Columns with an entry.
+    pub fn columns(&self) -> usize {
+        self.by_key.len()
+    }
+
+    /// Nothing selected anywhere. **Every span here is a row position**, so this is what a revision
+    /// change costs the cell store — see [`table`].
+    pub fn clear(&mut self) {
+        self.by_key.clear();
+    }
+}
+
+/// **The flattened spelling, kept runnable: one header click under `row · ncols + col`.**
+///
+/// Returns `(runs, bytes)`. A column of a row-major flattening is a stride, and a stride of length
+/// one is a run of length one — so selecting a column of `rows` rows is `rows` runs, which is what
+/// §6 prices at 1 000 000 and 16 MB against [`CellSel::select_column`]'s one and sixteen.
+///
+/// A function rather than a variant of [`CellSel`], for [`stores::Alt`]'s reason: a refused store
+/// kept as an arm of the shipped one is a shipped store somebody will reach for.
+pub fn flattened_header_click(rows: usize, ncols: usize, col: usize) -> (usize, usize) {
+    let mut sel = Selection::new();
+    for r in 0..rows {
+        let at = r * ncols + col;
+        sel.insert(at, at + 1);
+    }
+    (sel.span_count(), sel.bytes())
+}
+
+/// **Which cell this is, and the id it may declare a target under.**
+///
+/// # The id is handed over rather than pushed, and that is a measured workaround
+///
+/// ADR 0027's rule is *a container roots its children inside its own id*, and §4 says `with_key` is
+/// the only verb that mints one. **It is not available here**, and the reason is a defect one crate
+/// down rather than a preference: [`Ctx::with_id`](vitui_runtime::Ctx::with_id) — which
+/// `Ctx::with_key` is written on — re-childs the view at `self.area()`, and `area()` is
+/// `Rect::new(0, 0, w, h)` in the *current* coordinate system. Inside a scroll scope that origin is
+/// the **content's**, so the clip it intersects with is content rows `0..h` while the window is at
+/// the offset: at any offset past the first screenful the two do not overlap and a cell keyed that
+/// way **draws nothing at all**.
+///
+/// [`collection`] states the same fact from one level up — it is why the row loop's `cx.with_id` is
+/// outside the scope rather than around the loop — and `tests::a_with_key_inside_a_scroll_scope_/// draws_nothing_past_the_first_screenful` is it as a measurement rather than as an argument.
+/// Filed as `.scratch/vitui-runtime-architecture/issues/31`.
+///
+/// So the container mints with [`Id::keyed`](vitui_runtime::Id::keyed) — the same arithmetic
+/// `with_key` performs — and hands the result down. §4's *every workaround on this map that looks
+/// like a hack is the id being opaque* is the same sentence one axis over: the value is a hash, so
+/// **handing it over is the only way to root a child whose context cannot be re-clipped**.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+pub struct Cell {
+    /// The content row.
+    pub row: usize,
+    /// The column's **key**, never its position.
+    pub key: u16,
+    /// **The id this cell may declare a target under**, rooted in the table's own id.
+    ///
+    /// `keyed(keyed(table, row), key)` in the shipped build, and `keyed(table, row)` in
+    /// [`defective::row_keyed_cells`] — where every cell of a row is one widget, the first
+    /// claimant wins, and `merges` is the only counter that says so.
+    pub id: Id,
+}
+
+// ── the table's state and options ────────────────────────────────────────────────────────────────
+
+/// **Everything a table keeps across frames, and it is [`CollState`] plus three fields.**
+///
+/// The row axis — the offset, the row selection, the type-ahead buffer, the editing row and the
+/// revision — is [`CollState`] and is not duplicated here. What a table adds is the horizontal
+/// offset, the per-column cell selection, and the **column half** of the editing slot.
+///
+/// # The editing slot is `Option<(row, col)>`, stored as its two halves
+///
+/// §6: *`Option<(row, col)>` and no wider — 0.29 µs to follow a million-row sort, because it is one
+/// position. The row half is revalidated against the order's revision, which is a field beside the
+/// slot rather than a widening of it. The column half needs nothing, because it is a **key** and not
+/// a position.*
+///
+/// The row half is [`CollState::editing`] — the one slot ADR 0028 allows, and the one [`collection`]
+/// already clears when the revision it was stamped at stops matching, so the revalidation is
+/// inherited rather than written twice. The column half is here, and it is a `u16` rather than an
+/// `Option<u16>` because it means nothing while the row half is `None`: two `Option`s would admit a
+/// state — a column with no row — that [`TableState::editing`] would then have to invent an answer
+/// for.
+///
+/// # The horizontal offset is the caller's, and the asymmetry is deliberate
+///
+/// The vertical offset is [`collection`]'s, applied from **this frame's** wheel inside the draw.
+/// [`TableState::hoff`] is not: the column solve runs *before* the row pass, so a horizontal wheel
+/// read where the vertical one is read would be applied a frame after it arrived — which is exactly
+/// the defect runtime ticket 14 found and removed. Until a table can read the wheel before it
+/// solves, the honest shape is the one `CONTEXT.md` states for every offset: *the application owns
+/// it*.
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
+pub struct TableState {
+    /// The row axis. §6's `+` is on the other one.
+    pub coll: CollState,
+    /// **The first visible content column of the scrolling band**, clamped by [`table`] to what the
+    /// solve admits.
+    pub hoff: i32,
+    /// Cell selection, one run list per column key.
+    pub cells: CellSel,
+    /// The column half of the editing slot. Meaningless while [`CollState::editing`] is `None`.
+    edit_col: u16,
+}
+
+impl TableState {
+    /// A table at the top left of its content with nothing selected.
+    pub fn new() -> TableState {
+        TableState::default()
+    }
+
+    /// **The cell being edited, as §6's `Option<(row, col)>`.**
+    ///
+    /// The row half comes back through [`CollState::editing`], so a reorder the caller did not
+    /// reconcile has already closed the editor by the time this is asked.
+    pub const fn editing(&self) -> Option<(usize, u16)> {
+        match self.coll.editing {
+            Some(row) => Some((row, self.edit_col)),
+            None => None,
+        }
+    }
+
+    /// Open the inline editor on `(row, key)`.
+    pub const fn edit(&mut self, row: usize, key: u16) {
+        self.coll.editing = Some(row);
+        self.edit_col = key;
+    }
+
+    /// Close the inline editor.
+    pub const fn stop_editing(&mut self) {
+        self.coll.editing = None;
+    }
+
+    /// **Carry the editing slot across a reorder — §6's 0.29 µs, as one lookup.**
+    ///
+    /// `to` answers *where did the row that was at `i` go*, and it is the caller's because only the
+    /// caller has both orders (ADR 0031). The cost is one call at any length **because the slot is
+    /// one position**; the column half is untouched, because it is a key.
+    pub fn follow(&mut self, to: impl FnOnce(usize) -> Option<usize>) {
+        if let Some(row) = self.coll.editing {
+            self.coll.editing = to(row);
+        }
+    }
+}
+
+/// [`table`]'s options. Spec §1's rule 3: a `Default` struct, never a required builder.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct TableOpts {
+    /// The row axis's options, unchanged. **No second [`Mode`].**
+    pub coll: CollOpts,
+    /// Whether to write a header row of [`Column::title`]s above the body.
+    ///
+    /// **Off by default, and the default is a measurement decision rather than a taste one** — see
+    /// [`table`]'s *the header* section.
+    pub header: bool,
+}
+
+// ── the component ────────────────────────────────────────────────────────────────────────────────
+
+/// **`table` — [`collection`] plus a column rect split, and the `+` is paid in verbs.**
+///
+/// Spec §6, ADR 0028. Spec §1's shape exactly: `fn(&mut Ctx, Rect, …) -> Response`.
+///
+/// # It is `collection`, and the sentence is checkable rather than decorative
+///
+/// There is **no second selection store** — [`CellSel`] holds the same [`Selection`] the row axis
+/// holds — **no second scan cursor**, because the row's [`Face`] arrives from `collection`'s own
+/// lockstep [`Scan`] — and **no second [`Mode`]**. The row axis, the wheel, the keyboard, the
+/// type-ahead, the reveal, the tail below the content and the revision check are all `collection`'s,
+/// reached by calling it. What this function adds is [`solve_columns`] once a frame and a cell loop
+/// inside the row drawer.
+///
+/// # The `+` is paid in verbs
+///
+/// Damage is marked once per verb, and a table cuts each row into one short run per column where a
+/// list writes one long one — then §2's partition rule makes each column **two** verbs, the text and
+/// then the padding after it, because the alternative is a cell written twice. **Two verbs a cell is
+/// the floor**, and it is a floor rather than an equality: a cell whose own text fills its column
+/// has no padding and costs one.
+///
+/// # Three bands, each a view, opened per row inside one row pass
+///
+/// A band is a rect split, so the clip is what makes it one: a cell that writes past its own column
+/// cannot reach the band beside it, whatever the caller's cell drawer does.
+/// [`Ctx::child`](vitui_runtime::Ctx::child) translates as well as clips, and a band needs only the
+/// clip — so each view is immediately scrolled back by its own origin, which is what keeps every
+/// cell of the row in **one** coordinate system. The pair `writes` against `distinct` is
+/// meaningless across two.
+///
+/// That also leaves this build and [`defective::arithmetic_band`] writing the same arguments at the
+/// same call sites with one `child` between them, and the arithmetic one lets the band's edge column
+/// overwrite the pinned band: identical verbs, identical time, and a band of cells re-damaged on
+/// every steady frame for ever.
+///
+/// §6 also refuses a spelling that is **correct**: one pass per band instead of one pass per row.
+/// [`defective::per_band_pass`] is that build with [`defective::one_row_pass`] beside it, one value
+/// apart, so §6's *4% cheaper and refused* is a measurement rather than a memory — and **the 4%
+/// does not reproduce.** Over sixty interleaved rounds the difference is inside ±1.5% and its sign
+/// flips between runs; the saving (one band view for the whole window instead of one a row) and its
+/// price (three row loops, three `Scan::seek`s) cancel on a screen whose pins are three columns of
+/// eleven. The refusal stands untouched, because §6 refuses the spelling on an argument and not on
+/// a timing: three loops share nothing but the author writing the same bounds three times, and
+/// cannot share §5's lockstep scan cursor at all.
+///
+/// # Identity is per cell, and only where a cell declares a target
+///
+/// Each row is keyed by its index and each cell by its column **key**, so a cell that calls
+/// [`Ctx::interact`](vitui_runtime::Ctx::interact) gets an id of its own. Keying per row alone is
+/// cheaper and correct **until a cell declares a target**, and then every cell of a row is one
+/// widget: [`defective::row_keyed_cells`] is that build and `merges` is the counter that sees it.
+/// Keying costs no region — a table declares **one** hit entry, `collection`'s, however many cells
+/// are on screen.
+///
+/// # The header, and what cannot be measured while one is drawn
+///
+/// [`TableOpts::header`] writes [`Column::title`] into the same column rectangles, one row above the
+/// body, through the same three bands and the same window — so a column's title and its cells cannot
+/// disagree about where the column is. It is **off by default** because a header moves the body's
+/// view off the table's own row 0 and the body draws inside a scroll scope, so the header's cells and
+/// the body's cells land in two coordinate spaces and neither [`crate::counters::Tally`] nor
+/// [`crate::runner::Pen`] can union them. That is components ticket 14's finding, inherited
+/// unchanged: a limit of the recorders and not of the component, and `Ctx` publishes no accessor for
+/// the frame's own origin that would lift it.
+///
+/// # Arguments
+///
+/// `cell` is handed `(cx, rect, row, key, face)` and **owes every cell of the rectangle** (§2). The
+/// `Face` is the row's, because §5's five independent bits are a row's bits; a cell that wants the
+/// cell selection reads [`TableState::cells`], which is the caller's to consult and the caller's to
+/// gesture on.
+///
+/// ```
+/// use vitui_components::collect::{Column, TableOpts, TableState, table};
+/// use vitui_components::frame::face_paint;
+/// use vitui_components::order::Rows;
+/// use vitui_runtime::ctx::Driver;
+/// use vitui_runtime::layout::Constraint;
+///
+/// let cols = [
+///     Column::new(0, "id", Constraint::Fixed(4)).pinned_left(4),
+///     Column::new(1, "name", Constraint::Weight(1)),
+/// ];
+/// let mut st = TableState::new();
+/// let mut driver = Driver::headless(20, 3).expect("a sink attaches");
+/// driver.frame(|cx| {
+///     let area = cx.area();
+///     let opts = TableOpts::default();
+///     let _ = table(
+///         cx,
+///         area,
+///         &mut st,
+///         &opts,
+///         &cols,
+///         Rows::of(3),
+///         &mut |_buf, _range| None,
+///         &mut |cx, r, c, face| {
+///             let paint = face_paint(cx.theme(), face);
+///             let text = if c.key == 0 { "id" } else { "name" };
+///             cx.text(r.x, r.y, text, paint);
+///             let _ = c.row;
+///         },
+///     );
+/// });
+/// ```
+#[track_caller]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "`collection`'s seven with the column list added, which is exactly what §6's \
+              `table = collection + column rectangles` says the signature is. Folding any of them \
+              into a parameter struct would put the difference between the two components \
+              somewhere a reader cannot see it"
+)]
+pub fn table(
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    st: &mut TableState,
+    opts: &TableOpts,
+    cols: &[Column],
+    rows: Rows,
+    find: &mut dyn FnMut(&str, Range<usize>) -> Option<usize>,
+    cell: &mut dyn FnMut(&mut Ctx<'_, '_>, Rect, Cell, Face),
+) -> Response {
+    table_into(
+        &mut Direct,
+        cx,
+        area,
+        st,
+        opts,
+        cols,
+        rows,
+        find,
+        |_ink, cx, r, c, face| cell(cx, r, c, face),
+    )
+}
+
+/// **[`table`], drawing through an [`Ink`] so an instrument can see every cell.**
+///
+/// The entry point a gate takes; [`table`] is this with [`Direct`]. See [`crate::ink`] for why the
+/// seam exists rather than a second implementation written against a `Tally`.
+#[track_caller]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "`table`'s own eight plus the `Ink` seam's writer, which is `collection_into`'s shape \
+              one component down"
+)]
+pub fn table_into<I, F, C>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    st: &mut TableState,
+    opts: &TableOpts,
+    cols: &[Column],
+    rows: Rows,
+    find: F,
+    cell: C,
+) -> Response
+where
+    I: Ink,
+    F: FnMut(&str, Range<usize>) -> Option<usize>,
+    C: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, Cell, Face),
+{
+    table_with(
+        ink,
+        cx,
+        area,
+        st,
+        opts,
+        cols,
+        rows,
+        find,
+        cell,
+        TableShape::default(),
+    )
+}
+
+/// **The three ways `table = collection + column rectangles` can be false**, as one value.
+///
+/// One struct rather than three booleans in a signature, so that a reviewer's diff between the
+/// shipped build and any refused one is a single field. Every one of them **compiles, renders almost
+/// right, and passes at least one gate the correct build passes** — which is the property
+/// [`defective`] exists for.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+struct TableShape {
+    /// How the scrolling band reaches the surface.
+    band: BandShape,
+    /// Whether the column window is asked for.
+    cols: ColVirt,
+    /// Whether a cell gets a key of its own.
+    keys: CellKeys,
+    /// The sign of the horizontal offset.
+    hsign: HSign,
+}
+
+/// How the scrolling band reaches the surface.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+enum BandShape {
+    /// **The rule.** A view per row: a column at the viewport's edge is clipped, and the cells past
+    /// the edge belong to the pinned band.
+    #[default]
+    View,
+    /// **The defect.** No view, the offset applied as arithmetic.
+    Arithmetic,
+}
+
+/// Whether the column window is asked for or left to the clip.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+enum ColVirt {
+    /// **The rule.** Only the columns the viewport admits are drawn.
+    #[default]
+    Virtualised,
+    /// **The defect.** Every declared column is drawn and the clip discards what does not fit.
+    ClipOnly,
+}
+
+/// Whether a cell gets a key of its own.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+enum CellKeys {
+    /// **The rule.** The row key, then the column key.
+    #[default]
+    PerCell,
+    /// **The defect.** The row key alone.
+    PerRow,
+}
+
+/// The sign of the horizontal offset — §3.3's trap on the column axis.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+enum HSign {
+    /// **The rule.** The content moves the other way from the offset.
+    #[default]
+    Plus,
+    /// **The defect.** The offset added where it should be subtracted. The band shows a partly blank
+    /// stretch, issues every verb it would have issued, and measures as an improvement because the
+    /// clip eats the writes.
+    Minus,
+}
+
+/// **`#[track_caller]` all the way down**, for [`draw_with`]'s reason: `Ctx::id` mints from
+/// `Location::caller()`, and an attribute that stops one frame short of the call makes every table
+/// in the application one table.
+#[track_caller]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "`table_into`'s nine plus the shape that separates the correct build from the four \
+              refused ones. Splitting it would put the defects in a second function where a \
+              reviewer's diff could not be one line"
+)]
+fn table_with<I, F, C>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    st: &mut TableState,
+    opts: &TableOpts,
+    cols: &[Column],
+    rows: Rows,
+    find: F,
+    mut cell: C,
+    shape: TableShape,
+) -> Response
+where
+    I: Ink,
+    F: FnMut(&str, Range<usize>) -> Option<usize>,
+    C: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, Cell, Face),
+{
+    // **The table's own id, taken outside every closure** (ADR 0027). `#[track_caller]` all the
+    // way down makes it the *application's* call site, so two tables on one screen are two tables;
+    // every cell's id is minted from it and handed over — see [`Cell::id`] for why it is minted
+    // rather than pushed.
+    let tid = cx.id();
+    // **Once a frame, over the declared columns, touching no row** (§6). Above the row loop and
+    // above `collection`, so there is nowhere for a row to reach it.
+    let solved = solve_columns(area.w, cols);
+    st.hoff = st.hoff.clamp(0, solved.max_hoff());
+    let hoff = st.hoff;
+    let signed = match shape.hsign {
+        HSign::Plus => hoff,
+        HSign::Minus => -hoff,
+    };
+    let (vlo, vhi) = match shape.cols {
+        ColVirt::Virtualised => visible_columns(&solved, hoff),
+        ColVirt::ClipOnly => solved.scroll,
+    };
+
+    // **Every span in the cell store is a row position**, so the rule ADR 0031 states for the row
+    // axis is the same rule here: an order the caller has not reconciled invalidates them. The
+    // comparison is `collection`'s own and is read *before* the call, because `collection` stamps
+    // the revision on its way through and there is nothing left to notice afterwards.
+    let held = st.coll.revision();
+    if held.is_known() && rows.rev.is_known() && held != rows.rev {
+        st.cells.clear();
+    }
+
+    // The header, and the body's rectangle beneath it. §6's one `cut`.
+    let body = if opts.header {
+        let (head, rest) = split_header(area);
+        header_row(ink, cx, &solved, cols, head, signed, (vlo, vhi));
+        rest
+    } else {
+        area
+    };
+
+    collection_into(
+        ink,
+        cx,
+        body,
+        &mut st.coll,
+        &opts.coll,
+        rows,
+        find,
+        |ink, cx, r, row, face| {
+            let row_id = Id::keyed(tid, row as u64);
+            let mut draw = |ink: &mut I, cx: &mut Ctx<'_, '_>, slot: usize, x: i32| {
+                let key = cols[usize::from(solved.spec[slot])].key;
+                let rect = Rect::new(x, r.y, solved.w[slot], 1);
+                let id = match shape.keys {
+                    CellKeys::PerCell => Id::keyed(row_id, u64::from(key)),
+                    CellKeys::PerRow => row_id,
+                };
+                cell(ink, cx, rect, Cell { row, key, id }, face);
+            };
+            // **One row pass, three bands, and each band is a view.** A band is a rect split, so
+            // the clip is what makes it one: a cell that writes past its own column cannot reach
+            // the band beside it, whatever the caller's cell drawer does.
+            //
+            // [`Ctx::child`](vitui_runtime::Ctx::child) translates as well as clips and the band
+            // needs only the clip, so each view is immediately scrolled back by its own origin.
+            // That is what keeps every cell of the row in **one** coordinate system — the pair
+            // `writes` against `distinct` is meaningless across two — and it is what leaves this
+            // build and [`defective::arithmetic_band`] writing the same arguments at the same call
+            // sites with one `child` between them.
+            let band_x = i32::from(solved.left_w);
+            let right_x = band_x + i32::from(solved.view_w);
+            let in_band =
+                |ink: &mut I,
+                 cx: &mut Ctx<'_, '_>,
+                 at: i32,
+                 w: u16,
+                 range: (usize, usize),
+                 shift: i32,
+                 draw: &mut dyn FnMut(&mut I, &mut Ctx<'_, '_>, usize, i32)| {
+                    let rect = Rect::new(at, r.y, w, 1);
+                    let mut clipped = cx.child(rect);
+                    let mut view = clipped.scrolled(-rect.x, -rect.y);
+                    for slot in range.0..range.1 {
+                        draw(ink, &mut view, slot, at + solved.x[slot] - shift);
+                    }
+                };
+            in_band(ink, cx, 0, solved.left_w, solved.left, 0, &mut draw);
+            match shape.band {
+                BandShape::View => {
+                    in_band(
+                        ink,
+                        cx,
+                        band_x,
+                        solved.view_w,
+                        (vlo, vhi),
+                        signed,
+                        &mut draw,
+                    );
+                }
+                // **The defect, and it is one `child` and nothing else.** Written straight into the
+                // row's context, the band's edge column reaches past the viewport and overwrites
+                // the pinned band that follows it.
+                BandShape::Arithmetic => {
+                    for slot in vlo..vhi {
+                        draw(ink, cx, slot, band_x + solved.x[slot] - signed);
+                    }
+                }
+            }
+            in_band(ink, cx, right_x, solved.right_w, solved.right, 0, &mut draw);
+        },
+    )
+}
+
+/// The header's row and the body's rectangle beneath it. §6's one `cut`.
+fn split_header(area: Rect) -> (Rect, Rect) {
+    let h = area.h.min(1);
+    (
+        Rect::new(area.x, area.y, area.w, h),
+        Rect::new(area.x, area.y + i32::from(h), area.w, area.h - h),
+    )
+}
+
+/// **The header: [`Column::title`] in the same column rectangles, one row above the body.**
+///
+/// The same three bands and the same window, so a column's title and its cells cannot disagree about
+/// where the column is. It writes a partition of `head` — the title, then the padding after it — for
+/// the same reason a cell does.
+fn header_row<I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    s: &Solved,
+    cols: &[Column],
+    head: Rect,
+    signed: i32,
+    window: (usize, usize),
+) {
+    if head.is_empty() {
+        return;
+    }
+    let paint = cx.theme().paint(Role::Title);
+    let y = head.y;
+    let mut write = |ink: &mut I, cx: &mut Ctx<'_, '_>, slot: usize, x: i32| {
+        let title = cols[usize::from(s.spec[slot])].title;
+        let cut = truncate(title, s.w[slot]);
+        let used = width(cut);
+        let _ = ink.text(cx, x, y, cut, paint);
+        let _ = ink.run(cx, x + i32::from(used), y, " ", s.w[slot] - used, paint);
+    };
+    let band_x = i32::from(s.left_w);
+    let right_x = band_x + i32::from(s.view_w);
+    // Three views, the same three the body opens, so a column's title and its cells cannot
+    // disagree about where the column is or about what clips it.
+    let in_band = |ink: &mut I,
+                   cx: &mut Ctx<'_, '_>,
+                   at: i32,
+                   w: u16,
+                   range: (usize, usize),
+                   shift: i32,
+                   write: &mut dyn FnMut(&mut I, &mut Ctx<'_, '_>, usize, i32)| {
+        let rect = Rect::new(at, y, w, 1);
+        let mut clipped = cx.child(rect);
+        let mut view = clipped.scrolled(-rect.x, -rect.y);
+        for slot in range.0..range.1 {
+            write(ink, &mut view, slot, at + s.x[slot] - shift);
+        }
+    };
+    in_band(ink, cx, 0, s.left_w, s.left, 0, &mut write);
+    in_band(ink, cx, band_x, s.view_w, window, signed, &mut write);
+    in_band(ink, cx, right_x, s.right_w, s.right, 0, &mut write);
+}
+
+// ── what the table's two stores and its one slot cost ────────────────────────────────────────────
+
+/// **The row count §6 prices the two cell stores at.** One million.
+pub const CELL_ROWS: usize = 1_000_000;
+
+/// **The declared column count the two stores are priced over.** Forty, which is §6's own
+/// *select-all, select-one-row: 40 runs against 1* — the loss the per-column store takes, stated as
+/// a column count rather than as a row count, because that is the half that is bounded.
+pub const CELL_COLS: usize = 40;
+
+/// **What one click on a column header costs, both ways.** `(runs, bytes, nanoseconds)` each.
+///
+/// The per-column store first, the flattened one second. §6 states **1 / 16 B / 0.08 µs** against
+/// **1 000 000 / 16 MB / 62 535 µs**; what reproduces exactly is the *runs*, which are arithmetic
+/// over the store's shape, and the bytes follow from them. The microseconds are a report and the
+/// ratio is the gate — see [`crate::grid`]'s rule, which is §21's.
+pub fn header_click_costs(
+    rows: usize,
+    ncols: usize,
+    col: usize,
+) -> ((usize, usize, u128), (usize, usize, u128)) {
+    let mut cells = CellSel::new();
+    let key = u16::try_from(col).unwrap_or(u16::MAX);
+    let started = Instant::now();
+    cells.select_column(key, rows);
+    let per_column = (
+        cells.span_count(),
+        cells.bytes(),
+        started.elapsed().as_nanos(),
+    );
+
+    let started = Instant::now();
+    let (runs, bytes) = flattened_header_click(rows, ncols, col);
+    ((per_column), (runs, bytes, started.elapsed().as_nanos()))
+}
+
+/// **The gesture the per-column store is worse at**, so the trade is stated from both sides.
+///
+/// `(per_column_runs, flattened_runs)` for selecting one whole row across `ncols` columns. §6:
+/// *the per-column store's only losses (select-all, select-one-row: 40 runs against 1) are bounded
+/// by the declared column count.* One run a column here; one run there, because a row is contiguous
+/// under a row-major flattening.
+pub fn row_click_costs(ncols: usize, row: usize) -> (usize, usize) {
+    let keys: Vec<u16> = (0..ncols)
+        .map(|c| u16::try_from(c).unwrap_or(u16::MAX))
+        .collect();
+    let mut cells = CellSel::new();
+    cells.select_row(&keys, row);
+    let mut flat = Selection::new();
+    flat.insert(row * ncols, row * ncols + ncols);
+    (cells.span_count(), flat.span_count())
+}
+
+/// **What it costs to follow a reorder, one slot against a map keyed per cell.** `(slot, map)` in
+/// nanoseconds.
+///
+/// §6's **0.29 µs**, and its reason: *it is one position*. The slot is one lookup at any length; the
+/// map is one lookup a stored cell, and a per-cell map over a sorted million-row table is what the
+/// slot exists instead of. The map arm is priced over `entries` rather than over `len`, because a
+/// map that held one entry a row would not be a *map* argument at all — it would be the length
+/// argument §5 already settled.
+pub fn edit_follow_costs(len: usize, entries: usize) -> (u128, u128) {
+    let mut st = TableState::new();
+    st.edit(len / 2, 7);
+    let started = Instant::now();
+    st.follow(|row| Some(len - 1 - row));
+    let slot = started.elapsed().as_nanos();
+
+    let mut map: Vec<(usize, u16)> = (0..entries).map(|i| (i, 7)).collect();
+    let started = Instant::now();
+    for e in &mut map {
+        e.0 = len - 1 - e.0;
+    }
+    map.sort_unstable();
+    (slot, started.elapsed().as_nanos())
 }
 
 #[cfg(test)]
@@ -2494,5 +3902,416 @@ mod tests {
         // **The defect**: it asks on a frame where nothing moved, for ever, which is what kills the
         // wheel. Components 20 owns the gate; what this asserts is that the arm exists and differs.
         assert!(play(&[], false).0);
+    }
+    // ── components ticket 15: `table` ────────────────────────────────────────────────────────────
+
+    /// **Criterion 1: `table` is `collection` plus a column rect split, and nothing else.**
+    ///
+    /// *No second selection store, no second scan cursor, no second `Mode`* has no expression a
+    /// type system can carry, so it is read out of this file: the table's body calls
+    /// `collection_into`, and the three things it must not have are counted by the declarations
+    /// this module makes. [`crate::listing`]'s inversion is the precedent — *this function calls
+    /// that one* has no expression a test can write, and a scan is the honest substitute.
+    #[test]
+    fn table_is_collection_plus_a_column_split_and_names_no_second_store() {
+        let source = include_str!("collect.rs");
+        assert!(
+            crate::dense::declares(source, "    collection_into("),
+            "`table_with` no longer draws through `collection`, so `table = collection + column \
+             rectangles` has stopped being true of the code"
+        );
+
+        // **One `Mode`, one selection store, one scan cursor**, counted by their declarations
+        // rather than asserted. A second of any of them is a second `pub enum Mode` / `pub struct
+        // Selection` / `pub struct Scan` in this module, which is what the freeze homes here.
+        for (kind, declaration) in [
+            ("mode", "pub enum Mode {"),
+            ("selection store", "pub struct Selection {"),
+            ("scan cursor", "pub struct Scan<'a> {"),
+        ] {
+            let n = source
+                .lines()
+                .map(str::trim)
+                .filter(|l| !l.starts_with("//") && l.starts_with(declaration))
+                .count();
+            assert_eq!(n, 1, "a second {kind} arrived in this module");
+        }
+
+        // And the cell store is not one of them: it *holds* `Selection`, which is the whole of
+        // §6's *no second store*.
+        let mut cells = CellSel::new();
+        let sel: &mut Selection = cells.column_mut(0);
+        sel.select_all(9);
+        assert_eq!(cells.span_count(), 1);
+    }
+
+    /// **Criterion 2: the rect split runs once a frame over the declared columns and touches no
+    /// row.**
+    ///
+    /// *Touches no row* is a fact about the signature and is asserted as one: [`solve_columns`]
+    /// takes a width and a column list, so there is no row for it to reach. *Once a frame* is read
+    /// out of the source, and the position matters as much as the count — the call has to be
+    /// **above** the one that opens the row loop.
+    #[test]
+    fn the_column_solve_touches_no_row_and_runs_once_a_frame() {
+        // No row in the signature, and the compiler is the one saying so.
+        let _: fn(u16, &[Column]) -> Solved = solve_columns;
+
+        let source = include_str!("collect.rs");
+        let body = source
+            .split_once("fn table_with<I, F, C>(")
+            .expect("`table_with` is this file's")
+            .1
+            .split_once("\n/// The header's row")
+            .expect("and it ends before the header split")
+            .0;
+        assert_eq!(
+            body.matches("solve_columns(area.w, cols)").count(),
+            1,
+            "the solve runs more than once a frame"
+        );
+        let solve_at = body
+            .find("solve_columns(area.w, cols)")
+            .expect("it is there");
+        let rows_at = body
+            .find("collection_into(")
+            .expect("the row loop is there");
+        assert!(
+            solve_at < rows_at,
+            "the solve is inside the row loop, which is what *once a frame* forbids"
+        );
+
+        // And the answer does not depend on the row count, which is the same statement measured:
+        // the sweep in `crate::grid` reports identical writes and verbs at 1k, 100k and 1M.
+        let specs = crate::grid::columns(12);
+        let a = solve_columns(300, &specs);
+        let b = solve_columns(300, &specs);
+        assert_eq!((a.n, a.content_w, a.view_w), (b.n, b.content_w, b.view_w));
+    }
+
+    /// **Criterion 5: a pinned column may not be elastic, enforced rather than documented.**
+    ///
+    /// Both directions. A `Weight` on a pinned column is ignored because [`Pin::width`] is the only
+    /// reader of a pin's width and no [`Constraint`] reaches it; the same `Weight` on the same
+    /// column unpinned is honoured, so the constraint is not being dropped on the floor.
+    #[test]
+    fn a_pinned_column_may_not_be_elastic() {
+        let pinned = [
+            Column::new(0, "pinned", Constraint::Weight(9)).pinned_left(8),
+            Column::new(1, "free", Constraint::Weight(1)),
+        ];
+        let s = solve_columns(100, &pinned);
+        assert_eq!(
+            s.w[0], 8,
+            "the pin's own width, not nine tenths of the table"
+        );
+        assert_eq!(s.left_w, 8);
+        assert_eq!(s.view_w, 92, "and the band's denominator is what is left");
+        assert_eq!(s.w[1], 92, "the one elastic column takes the whole band");
+
+        let free = [
+            Column::new(0, "was pinned", Constraint::Weight(9)),
+            Column::new(1, "free", Constraint::Weight(1)),
+        ];
+        let t = solve_columns(100, &free);
+        assert_eq!(t.w[0], 90, "unpinned, the same weight is honoured");
+
+        // The two denominators §6 names: a pin claims a share of the *table*, a lane a share of the
+        // *content*, and `max(viewport, Σ minima)` is not the table.
+        let overflowing = [
+            Column::new(0, "pin", Constraint::Fixed(10)).pinned_left(10),
+            Column::new(1, "wide", Constraint::Fixed(500)),
+        ];
+        let u = solve_columns(100, &overflowing);
+        assert_eq!((u.left_w, u.view_w, u.content_w), (10, 90, 500));
+        assert_eq!(u.max_hoff(), 410);
+    }
+
+    /// **Criterion 6: cell selection is a run list per column key.**
+    ///
+    /// §6's `1 000 000 / 16 MB` against `1 / 16 B` on one header click, and the loss beside it so
+    /// the trade is stated from both sides. The runs and the bytes are the gate; the microseconds
+    /// are `examples/table_numbers.rs`'s and are a report.
+    #[test]
+    fn cell_selection_is_one_run_per_column_key_and_the_flattening_is_a_million() {
+        let (per_column, flat) = header_click_costs(CELL_ROWS, CELL_COLS, 3);
+        assert_eq!(per_column.0, 1, "one run, and it is one at any length");
+        assert_eq!(per_column.1, SPAN_BYTES, "sixteen bytes");
+        assert_eq!(
+            flat.0, CELL_ROWS,
+            "a column of a row-major flattening is a stride, and a stride of length one is not a \
+             run"
+        );
+        assert_eq!(flat.1, CELL_ROWS * SPAN_BYTES);
+
+        // Independent of the length, which is the half that makes it a store decision rather than
+        // a measurement of this row count.
+        let short = header_click_costs(1_000, CELL_COLS, 3);
+        assert_eq!((short.0.0, short.0.1), (1, SPAN_BYTES));
+        assert_eq!(short.1.0, 1_000);
+
+        // The loss, bounded by the declared column count and not by the length.
+        assert_eq!(row_click_costs(CELL_COLS, 17), (CELL_COLS, 1));
+        assert_eq!(row_click_costs(4, 17), (4, 1));
+
+        // **And the frame does not distinguish them at all**, which is why the store is decided
+        // entirely by what a gesture costs: both answer a cell through one `Scan`.
+        let mut cells = CellSel::new();
+        cells.select_column(3, CELL_ROWS);
+        assert!(cells.contains(999_999, 3));
+        assert!(!cells.contains(999_999, 4));
+        assert_eq!(cells.columns(), 1);
+    }
+
+    /// **Criterion 7: in-cell editing is `Option<(row, col)>`, the row half revalidates and the
+    /// column half is a key.**
+    #[test]
+    fn the_editing_slot_is_one_position_and_the_column_half_is_a_key() {
+        let mut st = TableState::new();
+        assert_eq!(st.editing(), None);
+        st.edit(42, 7);
+        assert_eq!(st.editing(), Some((42, 7)));
+
+        // **One position, so following a reorder is one call at any length.** The column half does
+        // not move, because hiding and reordering columns move *positions* and a key is not one.
+        st.follow(|row| Some(999_999 - row));
+        assert_eq!(st.editing(), Some((999_957, 7)));
+
+        // A row that the reorder removed closes the editor rather than pointing at a stranger.
+        st.follow(|_| None);
+        assert_eq!(st.editing(), None);
+
+        // And the slot is one slot: there is nowhere here to put a value per row (ADR 0028).
+        st.edit(1, 3);
+        st.edit(2, 4);
+        assert_eq!(st.editing(), Some((2, 4)));
+        st.stop_editing();
+        assert_eq!(st.editing(), None);
+    }
+
+    /// **The row half is revalidated against the order's revision, and it is `collection`'s
+    /// revalidation rather than a second copy of one.**
+    ///
+    /// Both halves in one frame: an order the caller did not reconcile closes the editor **and**
+    /// clears the cell selection, because every span in it is a row position. A caller that says
+    /// it has carried the positions across keeps both.
+    #[test]
+    fn a_reorder_the_caller_did_not_reconcile_clears_the_cells_and_the_slot() {
+        let sorted = |st: &mut TableState, rows: Rows| {
+            let specs = crate::grid::columns(12);
+            let opts = TableOpts::default();
+            let mut driver = crate::runner::driver_at(60, 8, vitui_runtime::Density::default());
+            driver.frame(|cx| {
+                let area = cx.area();
+                let _ = table(
+                    cx,
+                    area,
+                    st,
+                    &opts,
+                    &specs,
+                    rows,
+                    &mut |_, _| None,
+                    &mut |_, _, _, _| {},
+                );
+            });
+        };
+
+        let first = Rows::new(100, Revision::fresh());
+        let mut st = TableState::new();
+        sorted(&mut st, first);
+        st.edit(9, 3);
+        st.cells.select_column(3, 100);
+        st.coll.sel.select_only(9);
+        assert_eq!(st.cells.span_count(), 1);
+
+        // The same length and the same data, in a different order: the revision is the only thing
+        // that makes it noticeable.
+        let resorted = Rows::new(100, Revision::fresh());
+        sorted(&mut st, resorted);
+        assert_eq!(st.editing(), None, "the editor closed");
+        assert_eq!(
+            st.cells.span_count(),
+            0,
+            "and every cell span was a position"
+        );
+
+        // The other direction: a caller that reconciled keeps both.
+        let mut kept = TableState::new();
+        sorted(&mut kept, first);
+        kept.edit(9, 3);
+        kept.cells.select_column(3, 100);
+        let next = Rows::new(100, Revision::fresh());
+        kept.coll.reconciled(next);
+        sorted(&mut kept, next);
+        assert_eq!(kept.editing(), Some((9, 3)));
+        assert_eq!(kept.cells.span_count(), 1);
+    }
+
+    /// **Criterion 8: identity is per cell where a cell declares a target.**
+    ///
+    /// Two tables on one screen, every visible cell declaring one: `merges == 0` on the shipped
+    /// build and every cell of a row inert but the first on the row-keyed one. §4's *one axis out,
+    /// the same defect has a different arithmetic*, as the count the runtime already makes.
+    ///
+    /// **The screen is identical either way** — drawing does not consume an id — so a cell gate
+    /// cannot see it. That is the whole of why the counter is `merges`.
+    #[test]
+    fn identity_is_per_cell_and_merges_is_the_only_counter_that_says_so() {
+        let (keyed_regions, keyed_merges) = crate::grid::identity_merges(true);
+        let (row_regions, row_merges) = crate::grid::identity_merges(false);
+        let (inert_regions, inert_merges) = crate::grid::inert_cells();
+
+        assert_eq!(keyed_merges, 0, "the shipped build merges nothing");
+        assert_eq!(inert_merges, 0);
+        assert!(
+            row_merges > 0,
+            "the row-keyed build is the defect and has stopped reproducing it"
+        );
+
+        // **Every cell of a row but the first is inert**, which is the arithmetic §4 states.
+        let cells = keyed_regions - inert_regions;
+        let rows_on_screen = row_regions - inert_regions;
+        assert_eq!(
+            u64::try_from(cells - rows_on_screen).expect("a count"),
+            row_merges,
+            "one target a row survives and the rest merge"
+        );
+
+        // And the component's own entry count is one a table, however many cells are on screen.
+        assert_eq!(
+            inert_regions, 2,
+            "one hit entry per table, and there are two"
+        );
+    }
+
+    /// **`Ctx::with_key` inside a scroll scope draws nothing past the first screenful, and that is
+    /// why a cell's id is handed over rather than pushed.**
+    ///
+    /// [`Cell::id`] carries the argument; this is the measurement behind it. `Ctx::with_id` — which
+    /// `with_key` is written on — re-childs the view at `self.area()`, and `area()` is
+    /// `Rect::new(0, 0, w, h)` in the **current** coordinate system. Inside a scroll scope that
+    /// origin is the content's, so the clip it intersects with is content rows `0..h` while the
+    /// window is at the offset.
+    ///
+    /// Both directions and two offsets, so the day the runtime fixes it this test fails rather than
+    /// quietly passing. Filed as `.scratch/vitui-runtime-architecture/issues/31`.
+    #[test]
+    fn a_with_key_inside_a_scroll_scope_draws_nothing_past_the_first_screenful() {
+        let landed = |offset: i32, keyed: bool| {
+            let id = vitui_runtime::Id::named("scope");
+            let view = Rect::new(0, 0, 20, 8);
+            let mut driver = crate::runner::driver_at(20, 8, vitui_runtime::Density::default());
+            let mut cells = 0u32;
+            driver.frame(|cx| {
+                cx.scroll_scope(id, view, (0, offset), (0, 1_000), |cx| {
+                    let paint = cx.theme().paint(Role::Body);
+                    for y in cx.visible_rows() {
+                        if keyed {
+                            cx.with_key(y as u64, |cx| {
+                                cells += u32::from(cx.text(0, y, "x", paint).cells);
+                            });
+                        } else {
+                            cells += u32::from(cx.text(0, y, "x", paint).cells);
+                        }
+                    }
+                });
+            });
+            cells
+        };
+
+        assert_eq!(landed(0, false), 8, "eight rows, eight cells");
+        assert_eq!(
+            landed(0, true),
+            8,
+            "and at offset zero the key costs nothing"
+        );
+        assert_eq!(
+            landed(100, false),
+            8,
+            "the scope itself is correct at an offset"
+        );
+        assert_eq!(
+            landed(100, true),
+            0,
+            "a `with_key` inside the scope clips the whole window away, which is why `table` \
+             mints a cell's id with `Id::keyed` and hands it over"
+        );
+    }
+
+    /// **The header writes a partition of its row, in the same columns the body writes.**
+    ///
+    /// And the reason it is off by default is asserted rather than described: with a header the
+    /// body's view starts one row down, so the two land in two coordinate spaces and a recorder
+    /// that unions in the coordinates of the `Ctx` the verb was called on cannot compare them.
+    /// Components ticket 14's finding, inherited.
+    #[test]
+    fn the_header_writes_a_partition_of_its_row_in_the_same_columns() {
+        let specs = crate::grid::columns(12);
+        let one = |header: bool| {
+            let opts = TableOpts {
+                header,
+                ..TableOpts::default()
+            };
+            let mut st = TableState::new();
+            st.hoff = crate::grid::HOFF;
+            let mut driver = crate::runner::driver_at(300, 8, vitui_runtime::Density::default());
+            let mut tally = crate::counters::Tally::new();
+            driver.frame(|cx| {
+                let area = cx.area();
+                let _ = table_into(
+                    &mut tally,
+                    cx,
+                    area,
+                    &mut st,
+                    &opts,
+                    &specs,
+                    Rows::of(1_000),
+                    &mut |_: &str, _: Range<usize>| None,
+                    |ink: &mut crate::counters::Tally,
+                     cx: &mut Ctx<'_, '_>,
+                     r: Rect,
+                     _c: Cell,
+                     _f: Face| {
+                        let paint = cx.theme().paint(Role::Body);
+                        let _ = ink.run(cx, r.x, r.y, "-", r.w, paint);
+                    },
+                );
+            });
+            (tally.writes(), tally.distinct(), tally.verbs())
+        };
+
+        let (bare_w, bare_d, bare_v) = one(false);
+        assert_eq!(bare_w, bare_d, "no cell twice");
+        assert_eq!(bare_w, 300 * 8, "and every cell of the rectangle once");
+
+        let (head_w, head_d, head_v) = one(true);
+        assert!(
+            head_v > bare_v,
+            "the header is verbs the body did not issue"
+        );
+        assert_eq!(
+            head_w,
+            300 * 8,
+            "every cell of the rectangle, still written once"
+        );
+
+        // **The number that says why the header is off by default, and it is the recorder's.**
+        // `Ctx::scroll_scope` childs at the body's view, so the body's content row 0 is one row
+        // down on the terminal and row 0 *in its own coordinates* — which is exactly where the
+        // header wrote. A `Tally` unions in the coordinates of the `Ctx` the verb was called on,
+        // so the two spaces land on top of each other and the pair reports a double write of
+        // precisely one header row.
+        assert_eq!(
+            head_w - head_d,
+            300,
+            "one header row, and not one cell more"
+        );
+        assert_eq!(head_d, 300 * 7);
+        assert_eq!(
+            bare_w - bare_d,
+            0,
+            "and with no header there is one space and the pair is meaningful, which is why \
+             `crate::grid` plays the scene without one"
+        );
     }
 }

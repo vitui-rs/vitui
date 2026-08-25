@@ -112,7 +112,7 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 11 of 43 tickets resolved (2026-08-24). `INVENTORY` is spec
+- **`vitui-components` has started**: 22 of 43 tickets resolved (the last on 2026-08-25). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
   answerable by the machine from here on. All five obligations are `Unmet` and each is watched
@@ -122,6 +122,33 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   (19/10, not ADR 0033's thirteen-unbuilt), the count of empty families (five, not §17's two), §1's
   layer rule against §6's own composition, and the `layer` column being uncheckable without stated
   edges. All four are asserted as measured rather than bent to fit.
+- **`table` is the eighth component and the second one that reached down into another crate's
+  defect** (components ticket 15, 2026-08-25). It is `collection` plus a column rect split and the
+  sentence is *checkable*: `table_with` calls `collection_into`, and *no second selection store, no
+  second scan cursor, no second `Mode`* is read out of the file. **Three of §6's remembered figures
+  did not reproduce.** The headline's and identity's magnitudes are the prototype screen's, which
+  ticket 14 had already established — the structure is exact (24 000 cells either way, **160 verbs
+  against 1 600**) and **640 of 800 targets are inert** on the row-keyed arm, §4's arithmetic over a
+  different population. And *a pass per band measures 4% cheaper* is **inside ±1.5% with its sign
+  flipping between runs of the same binary** — which only became visible after the instrument was
+  rewritten from `A × 40, B × 40` to sixty interleaved rounds and a minimum. The refusal stands
+  untouched, and that is the point rather than a consolation: §6 refuses that spelling on an
+  **argument** — three loops cannot share §5's lockstep scan cursor — and *a spelling refused on an
+  argument does not become acceptable when the clock stops agreeing with it*.
+  **The finding is a defect one crate down.** `Ctx::with_key` inside a scroll scope draws **0 cells
+  of 8 at an offset of 100 and 8 of 8 at zero**: `Ctx::with_id` re-childs the view at `self.area()`,
+  which is `Rect::new(0, 0, w, h)` in the *current* coordinate system, and inside a scroll scope that
+  origin is the **content's**. `collection` had worked around it without naming it — its `with_id` is
+  outside the scope — and `table` cannot take the same workaround, because a cell's key varies with
+  the row. Nor can it translate the band to make `with_key` work, because both recorders union in the
+  coordinates of the `Ctx` the verb was called on and a translated band makes `distinct` meaningless.
+  So a cell's id is minted with `Id::keyed` and handed down on `collect::Cell::id`, which is spec
+  §4's *every workaround that looks like a hack is the id being opaque* one axis over. Filed as
+  `.scratch/vitui-runtime-architecture/issues/31` and pinned as **components register row 112**, the
+  second row on that register whose subject is another crate. Register 108 → **112 rows, 91
+  evaluated**; scenes 7 and 31 green with row 78; the frame is **545 µs against a 544 µs stand-in**,
+  so drawing through `collection` costs ~2%, and 166 µs over the budget while damaging nothing is
+  recorded rather than optimised against.
 - **Ticket 05 is the one that reached down into the runtime**, and §16's split says so in as many
   words: the runtime owns the mechanism and the two-count invariant, the ticket owned the entry
   list. So `vitui_runtime::Glyph` went from **7 entries to 20** and `Distinction` from **3 to 10**,

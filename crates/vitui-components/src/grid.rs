@@ -107,13 +107,16 @@
 use std::fmt;
 use std::time::{Duration, Instant};
 
+use vitui_runtime::layout::Constraint;
 use vitui_runtime::layout::text::{truncate, width};
-use vitui_runtime::layout::{Constraint, solve};
-use vitui_runtime::{Ctx, Density, Id, Interest, Rect, Role, Scrollable};
+use vitui_runtime::{Ctx, Density, Rect, Role};
 
+use crate::collect::{Cell, TableOpts, TableState, defective as coll_defective, table_into};
 use crate::counters::{Allocations, Counter, Counters, Tally};
+use crate::frame::Face;
 use crate::ink::{Direct, Ink};
 use crate::obligations::Verdict;
+use crate::order::Rows;
 use crate::runner::{Diff, Fixture, Pen, compare};
 
 // ── the screen ───────────────────────────────────────────────────────────────────────────────────
@@ -132,104 +135,35 @@ pub const VOLUMES: [u64; 3] = [1_000, 100_000, 1_000_000];
 /// The declared-column counts §6 sweeps. **Twelve is the scene's; the other three are the sweep.**
 pub const DECLARED: [usize; 4] = [12, 40, 120, 240];
 
-/// The most columns a declaration list may hold. A fixed array, because a `Vec` per table per frame
-/// is an allocation per frame and the budget is zero.
-pub const MAX_COLS: usize = 256;
-
 /// **The vertical offset every frame here is drawn at. Zero, and it is a finding rather than a
 /// default.**
 ///
 /// §21's row 7 states the gesture as `rows: 0` — this scene's axis is the horizontal one, and the
 /// vertical one is §21's row 4, `collection`'s. So a zero here would be the right answer anyway.
 ///
-/// It is also **the only answer available**, because
-/// [`Ctx::scroll_scope`](vitui_runtime::Ctx::scroll_scope) scrolls the wrong way. See
-/// `tests::a_scroll_scope_at_a_nonzero_offset_shows_its_content`, which pins the
-/// measurement: at `offset = (0, 1 000)` the scope answers `visible_rows() == -1000..-920` and a
-/// write at content row 1 000 reports **zero columns**. The engine's own rule is that *a viewport
-/// scrolled `n` rows down is `scrolled(0, -n)`* and the scope passes `+n`, while
-/// `vitui_runtime::scroll::Area::into_view` and `Scrollable::between` both read the offset as
-/// positive — so the two halves of the runtime's own scrolling disagree about a sign.
-///
-/// **It is C03's inverted scroll sign, in the runtime's own verb**, and it is invisible for exactly
-/// the reason §21 gives for the scene existing at all: every caller that draws through a scroll
-/// scope draws at offset zero. Filed as `.scratch/vitui-runtime-architecture/issues/26`.
+/// For components ticket 14 it was also **the only answer available**, because
+/// [`Ctx::scroll_scope`](vitui_runtime::Ctx::scroll_scope) scrolled the wrong way — C03's inverted
+/// scroll sign inside the runtime's own verb, filed as
+/// `.scratch/vitui-runtime-architecture/issues/26` and negated there. That half is spent: the scope
+/// now answers `offset..offset + h`, `tests::a_scroll_scope_at_a_nonzero_offset_shows_its_content`
+/// asserts the corrected sign, and what keeps this constant at zero is §21's gesture and nothing
+/// else.
 pub const OFFSET: i32 = 0;
 
-// ── the columns ──────────────────────────────────────────────────────────────────────────────────
+// ── the columns are the component's ─────────────────────────────────────────────────────────────
 
-/// Where a column sits when the table is scrolled sideways.
+/// The scrolling band's window, under the name this screen gives it.
+pub use crate::collect::visible_columns as visible;
+/// **The column vocabulary is [`crate::collect`]'s, re-exported here under the names this screen
+/// has always used.**
 ///
-/// **A pinned column may not be elastic**, and it is enforced by construction rather than
-/// documented: `Left`/`Right` carry their width and the solver is never consulted for them. §6's
-/// reason is two denominators — a pin claims a share of the *table* and a scrolling lane a share of
-/// the *content*, and `max(viewport, Σ minima)` is not the table.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Pin {
-    /// Pinned to the table's left edge, this many cells wide.
-    Left(u16),
-    /// In the scrolling band.
-    None,
-    /// Pinned to the table's right edge, this many cells wide.
-    Right(u16),
-}
-
-/// One declared column.
-///
-/// The `key` is **stable identity**, independent of position and of visibility: hiding and
-/// reordering columns are two of §6's twenty-two grid features and both move positions, so nothing
-/// stored may be keyed on one.
-#[derive(Clone, Copy, Debug)]
-pub struct ColSpec {
-    /// Stable identity.
-    pub key: u16,
-    /// What the column is called. Declared here even though this screen draws no header — see this
-    /// module's header for why there is none.
-    pub title: &'static str,
-    /// Consulted only when `pin` is [`Pin::None`].
-    pub width: Constraint,
-    /// Which band it lands in.
-    pub pin: Pin,
-}
-
-impl ColSpec {
-    /// A scrolling column.
-    const fn new(key: u16, title: &'static str, width: Constraint) -> ColSpec {
-        ColSpec {
-            key,
-            title,
-            width,
-            pin: Pin::None,
-        }
-    }
-
-    /// The same column, pinned to the left edge at its fixed width.
-    const fn pinned_left(self, w: u16) -> ColSpec {
-        ColSpec {
-            pin: Pin::Left(w),
-            ..self
-        }
-    }
-
-    /// The same column, pinned to the right edge at its fixed width.
-    const fn pinned_right(self, w: u16) -> ColSpec {
-        ColSpec {
-            pin: Pin::Right(w),
-            ..self
-        }
-    }
-}
-
-/// Which of §6's three bands a solved column landed in.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Band {
-    /// Pinned to the table's left edge.
-    Left,
-    /// Scrolling.
-    Scroll,
-    /// Pinned to the table's right edge.
-    Right,
-}
+/// Components ticket 14 wrote these types on this screen because there was no `table` to own them.
+/// Components ticket 15 declared the component, and the screen now draws *through* it — so a second
+/// definition here would be exactly what [`crate::ink`] refuses one file over: **a gate written
+/// against a copy of the code tests the copy.** `ColSpec` keeps its spelling because §21's scene and
+/// this module's whole vocabulary use it; the component calls it [`crate::collect::Column`], and the
+/// two are one type.
+pub use crate::collect::{Band, Column as ColSpec, MAX_COLS, Pin, Solved, solve_columns};
 
 /// **The twelve columns of §21's scene**, or the sweep's forty, hundred-and-twenty or
 /// two-hundred-and-forty.
@@ -247,7 +181,10 @@ pub enum Band {
 ///
 /// # Panics
 ///
-/// Panics above [`MAX_COLS`], which is the fixed array the solve writes into.
+/// Panics above [`MAX_COLS`], which is the fixed array the component's solve writes into. The
+/// component itself truncates rather than panicking — an application is not a scene — and this is
+/// the scene's own tighter rule: a sweep whose widest arm silently lost columns would be a sweep
+/// reporting *flat* about a table that had stopped growing.
 pub fn columns(declared: usize) -> Vec<ColSpec> {
     assert!(declared <= MAX_COLS, "{declared} columns is past the array");
     if declared <= 1 {
@@ -416,179 +353,6 @@ pub const INVERTED_CELLS: usize = 17_022;
 pub const INVERTED_WRITES: u64 = 8_640;
 
 // ── the solve ────────────────────────────────────────────────────────────────────────────────────
-
-/// What one frame's solve produced. Plain arrays: no allocation, no per-frame scratch.
-#[derive(Clone)]
-pub struct Solved {
-    /// How many columns were placed.
-    pub n: usize,
-    /// Index into the caller's `&[ColSpec]`, so `key` and `title` are one hop away.
-    pub spec: [u16; MAX_COLS],
-    /// Which band each landed in.
-    pub band: [Band; MAX_COLS],
-    /// x **in the coordinates of the column's own band**.
-    pub x: [i32; MAX_COLS],
-    /// Its width.
-    pub w: [u16; MAX_COLS],
-    /// Cells the left pins claimed.
-    pub left_w: u16,
-    /// Cells the right pins claimed.
-    pub right_w: u16,
-    /// The scrolling band's viewport.
-    pub view_w: u16,
-    /// The scrolling band's content width, `max(view_w, Σ minima)`.
-    pub content_w: u16,
-    /// `[lo, hi)` into the arrays for the left band.
-    pub left: (usize, usize),
-    /// `[lo, hi)` for the scrolling band.
-    pub scroll: (usize, usize),
-    /// `[lo, hi)` for the right band.
-    pub right: (usize, usize),
-}
-
-impl Default for Solved {
-    fn default() -> Solved {
-        Solved {
-            n: 0,
-            spec: [0; MAX_COLS],
-            band: [Band::Scroll; MAX_COLS],
-            x: [0; MAX_COLS],
-            w: [0; MAX_COLS],
-            left_w: 0,
-            right_w: 0,
-            view_w: 0,
-            content_w: 0,
-            left: (0, 0),
-            scroll: (0, 0),
-            right: (0, 0),
-        }
-    }
-}
-
-impl Solved {
-    /// The largest horizontal offset the scrolling band admits.
-    pub fn max_hoff(&self) -> i32 {
-        i32::from(self.content_w) - i32::from(self.view_w)
-    }
-}
-
-/// The floor a constraint shrinks to when the band overflows its viewport.
-const fn floor(c: Constraint) -> u16 {
-    match c {
-        Constraint::Fixed(v) | Constraint::Min(v) | Constraint::Max(v) => v,
-        Constraint::Percent(_) | Constraint::Ratio(_, _) | Constraint::Weight(_) => 6,
-    }
-}
-
-/// **The whole of a table's layout.** Runs once a frame, touches no row, allocates nothing.
-///
-/// The three bands are solved separately and that is §6's decision rather than an implementation
-/// detail: a pin is a *band*, so it is a rect split, and the scrolling columns then have exactly one
-/// denominator. The band handed to the solver is `content_w` and not `view_w` — when the columns fit
-/// the two are the same and the elastic ones share the viewport; when they do not, the band is
-/// Σ minima and the difference is what a horizontal offset scrolls over.
-pub fn solve_columns(area_w: u16, specs: &[ColSpec]) -> Solved {
-    let mut out = Solved::default();
-    let mut left_w: u32 = 0;
-    let mut right_w: u32 = 0;
-    for s in specs {
-        match s.pin {
-            Pin::Left(w) => left_w += u32::from(w),
-            Pin::Right(w) => right_w += u32::from(w),
-            Pin::None => {}
-        }
-    }
-    let total = u32::from(area_w);
-    let left_w = left_w.min(total);
-    let right_w = right_w.min(total - left_w);
-    out.left_w = left_w as u16;
-    out.right_w = right_w as u16;
-    out.view_w = (total - left_w - right_w) as u16;
-
-    let mut n = 0usize;
-    let mut x = 0i32;
-    out.left.0 = n;
-    for (i, s) in specs.iter().enumerate() {
-        if let Pin::Left(w) = s.pin {
-            out.spec[n] = i as u16;
-            out.band[n] = Band::Left;
-            out.x[n] = x;
-            out.w[n] = w;
-            x += i32::from(w);
-            n += 1;
-        }
-    }
-    out.left.1 = n;
-
-    let mut spec_buf = [Constraint::Fixed(0); MAX_COLS];
-    let mut idx_buf = [0u16; MAX_COLS];
-    let mut m = 0usize;
-    let mut min_sum: u32 = 0;
-    for (i, s) in specs.iter().enumerate() {
-        if s.pin != Pin::None || m == MAX_COLS {
-            continue;
-        }
-        spec_buf[m] = s.width;
-        idx_buf[m] = i as u16;
-        min_sum += u32::from(floor(s.width));
-        m += 1;
-    }
-    let content_w = min_sum.max(u32::from(out.view_w)).min(u32::from(u16::MAX));
-    out.content_w = content_w as u16;
-
-    let mut rects = [Rect::default(); MAX_COLS];
-    let (k, _) = solve(content_w, &spec_buf[..m], &mut rects[..m]);
-    out.scroll.0 = n;
-    let mut cx = 0i32;
-    for (j, rect) in rects[..k].iter().enumerate() {
-        out.spec[n] = idx_buf[j];
-        out.band[n] = Band::Scroll;
-        out.x[n] = cx;
-        out.w[n] = rect.w;
-        cx += i32::from(rect.w);
-        n += 1;
-    }
-    out.scroll.1 = n;
-
-    out.right.0 = n;
-    let mut rx = 0i32;
-    for (i, s) in specs.iter().enumerate() {
-        if let Pin::Right(w) = s.pin {
-            out.spec[n] = i as u16;
-            out.band[n] = Band::Right;
-            out.x[n] = rx;
-            out.w[n] = w;
-            rx += i32::from(w);
-            n += 1;
-        }
-    }
-    out.right.1 = n;
-    out.n = n;
-    out
-}
-
-/// **The column half of the invariant**: `[lo, hi)` into the scrolling band, the columns a viewport
-/// `view_w` wide at horizontal offset `hoff` can show and nothing else.
-///
-/// Binary search rather than a walk, because the walk stays correct while the declared column count
-/// grows and the cost grows with it. At forty columns the two are indistinguishable; the point of
-/// writing the search is that at two hundred and forty they are not.
-///
-/// **This is the fast path and [`Ctx::visible_cols`](vitui_runtime::Ctx::visible_cols) is its
-/// oracle**, not the other way round: [`BandShape::Arithmetic`] opens no view, so there is nothing
-/// for it to ask. `tests::the_column_window_agrees_with_the_runtimes_own_visible_cols` sweeps every
-/// offset the content admits and asserts the two name the same columns.
-pub fn visible(s: &Solved, hoff: i32) -> (usize, usize) {
-    let (lo0, hi0) = s.scroll;
-    if hi0 <= lo0 || s.view_w == 0 {
-        return (lo0, lo0);
-    }
-    let left = hoff;
-    let right = hoff + i32::from(s.view_w);
-    let lo = partition(lo0, hi0, |i| s.x[i] + i32::from(s.w[i]) <= left);
-    let hi = partition(lo, hi0, |i| s.x[i] < right);
-    (lo, hi)
-}
 
 /// The first index in `[lo, hi)` for which `pred` is false. `pred` must be monotone.
 fn partition(lo: usize, hi: usize, pred: impl Fn(usize) -> bool) -> usize {
@@ -784,12 +548,27 @@ impl Opts {
 
 /// **Draw one frame of the grid**, and return how many rows the body iterated.
 ///
-/// Generic over [`Ink`] so that a [`Tally`], a [`Pen`] and a [`Direct`] measure **the same drawing
-/// path** rather than a copy of it — [`crate::ink`]'s whole argument.
+/// **This is [`crate::collect::table`] and its four refused twins, and nothing else.** Components
+/// ticket 14 wrote a stand-in row loop here because there was no component to call; ticket 15
+/// declared one, and the arm is now chosen by picking which function to call rather than by a branch
+/// inside a loop this file owns. That is what makes every number below a number about `table` — the
+/// arrangement [`crate::listing::draw_into`] took one component earlier, and its reason: *a gate
+/// written against a copy of the code tests the copy.*
+///
+/// Generic over [`Ink`] so that a [`Tally`], a [`Pen`] and a [`Direct`] measure the same drawing
+/// path — [`crate::ink`]'s whole argument, and the reason the component has a `_into` entry point at
+/// all.
 ///
 /// The rectangle is the whole context. One hit entry, one tab stop, and the cell under the pointer
 /// is arithmetic on both axes (ADR 0028 on the row axis, §6's cumulative array on the column axis) —
 /// which is why there is no per-cell target and no per-row one.
+///
+/// # Panics
+///
+/// Panics on an [`Opts`] with **two** defects set at once. Each of the component's refused arms is
+/// one field changed against the shipped build, so a pair of them is a build nothing on this map has
+/// priced; §21's rule is that a screen states what it plays, and a silently-composed double defect
+/// is a screen playing something else.
 ///
 /// [`Direct`]: crate::ink::Direct
 pub fn draw_into<I: Ink>(
@@ -801,84 +580,55 @@ pub fn draw_into<I: Ink>(
     offset: i32,
     hoff: i32,
 ) -> u64 {
-    let id = Id::named("grid");
-    let view = cx.area();
-    let s = solve_columns(view.w, specs);
-    let max = (s.max_hoff(), max_offset(rows));
-    let at = (hoff.clamp(0, max.0), offset.clamp(0, max.1));
+    let mut st = TableState::new();
+    st.coll.offset = offset;
+    st.hoff = hoff;
+    let opts = TableOpts::default();
+    let len = usize::try_from(rows).unwrap_or(usize::MAX);
     let body = cx.theme().paint(Role::Body);
-
-    // **One hit entry for the table**, and it is the wheel chain's entry as well.
-    let _ = cx.scrollable(
-        id,
-        view,
-        Interest::CLICK.with(Interest::FOCUS),
-        Scrollable::between(at, max),
-    );
-
-    let (vlo, vhi) = match o.cols {
-        ColVirt::Virtualised => visible(&s, at.0),
-        ColVirt::ClipOnly => s.scroll,
-    };
-    let signed = match o.hsign {
-        HSign::Plus => at.0,
-        HSign::Minus => -at.0,
-    };
-    let left_w = i32::from(s.left_w);
-    let band_x = left_w;
     let mut buf = Buf::default();
     let mut iterated = 0u64;
-
-    // The vertical axis is the runtime's, and `visible_rows` is the row half of the invariant.
-    // **Nothing is drawn outside this scope**, which is what keeps the whole screen in one
-    // coordinate space — see this module's header.
-    cx.scroll_scope(id, view, (0, at.1), (0, max.1), |cx| {
-        let window = cx.visible_rows();
-        let lo = window.start.max(0);
-        let hi = window.end.min(i32::try_from(rows).unwrap_or(i32::MAX));
-        for i in lo..hi {
+    // **One cell drawer for every arm**, so the arms differ by the component they are drawn through
+    // and by nothing this file does. `Role::Body` unconditionally rather than through
+    // [`crate::frame::face_paint`]: nothing on this screen is selected, hovered or focused, and a
+    // paint that depended on the face would make the oracle depend on the runtime's palette.
+    let mut seen: Option<usize> = None;
+    let mut cell = |ink: &mut I, cx: &mut Ctx<'_, '_>, r: Rect, c: Cell, _f: Face| {
+        // Counted here rather than in the row loop, because the row loop is the component's now.
+        // The rows arrive in order, so a change of row is a row.
+        if seen != Some(c.row) {
+            seen = Some(c.row);
             iterated += 1;
-            let row = i as u64;
-            cx.with_key(row, |cx| {
-                for slot in s.left.0..s.left.1 {
-                    let key = specs[usize::from(s.spec[slot])].key;
-                    let text = cell_text(&mut buf, key, row);
-                    emit(ink, cx, s.x[slot], i, s.w[slot], text, body);
-                }
-                match o.band {
-                    // **The clip, and the translation immediately undone.** `Ctx::child` narrows
-                    // and moves the origin; the band needs the first and not the second, and
-                    // undoing it is what leaves the two arms writing identical arguments at
-                    // identical call sites with one `child` between them.
-                    BandShape::View => {
-                        let rect = Rect::new(band_x, i, s.view_w, 1);
-                        let mut clipped = cx.child(rect);
-                        let mut band = clipped.scrolled(-rect.x, -rect.y);
-                        for slot in vlo..vhi {
-                            let key = specs[usize::from(s.spec[slot])].key;
-                            let text = cell_text(&mut buf, key, row);
-                            let x = band_x + s.x[slot] - signed;
-                            emit(ink, &mut band, x, i, s.w[slot], text, body);
-                        }
-                    }
-                    BandShape::Arithmetic => {
-                        for slot in vlo..vhi {
-                            let key = specs[usize::from(s.spec[slot])].key;
-                            let text = cell_text(&mut buf, key, row);
-                            let x = band_x + s.x[slot] - signed;
-                            emit(ink, cx, x, i, s.w[slot], text, body);
-                        }
-                    }
-                }
-                let right_x = band_x + i32::from(s.view_w);
-                for slot in s.right.0..s.right.1 {
-                    let key = specs[usize::from(s.spec[slot])].key;
-                    let text = cell_text(&mut buf, key, row);
-                    emit(ink, cx, right_x + s.x[slot], i, s.w[slot], text, body);
-                }
-            });
         }
-    });
+        let text = cell_text(&mut buf, c.key, c.row as u64);
+        emit(ink, cx, r.x, r.y, r.w, text, body);
+    };
+    let mut find = |_: &str, _: std::ops::Range<usize>| None;
+    let rows = Rows::of(len);
+    let area = cx.area();
+    match (o.band, o.cols, o.hsign) {
+        (BandShape::View, ColVirt::Virtualised, HSign::Plus) => {
+            let _ = table_into(
+                ink, cx, area, &mut st, &opts, specs, rows, &mut find, &mut cell,
+            );
+        }
+        (BandShape::Arithmetic, ColVirt::Virtualised, HSign::Plus) => {
+            let _ = coll_defective::arithmetic_band(
+                ink, cx, area, &mut st, &opts, specs, rows, &mut find, &mut cell,
+            );
+        }
+        (BandShape::View, ColVirt::ClipOnly, HSign::Plus) => {
+            let _ = coll_defective::clip_only(
+                ink, cx, area, &mut st, &opts, specs, rows, &mut find, &mut cell,
+            );
+        }
+        (BandShape::View, ColVirt::Virtualised, HSign::Minus) => {
+            let _ = coll_defective::inverted_sign(
+                ink, cx, area, &mut st, &opts, specs, rows, &mut find, &mut cell,
+            );
+        }
+        other => panic!("{other:?} is two defects at once, and no ticket has priced that build"),
+    }
     iterated
 }
 
@@ -1280,12 +1030,232 @@ pub fn equality(arm: crate::runner::Painter, hoff: i32) -> Diff {
     compare(per_cell, arm, &[oracle(12, hoff)])
 }
 
+// ── components ticket 15's two measurements over this screen ─────────────────────────────────────
+
+/// **The two loop structures §6 weighs against each other, as shapes.** `(one row pass, per band)`.
+///
+/// They write the same cells — that is the whole reason the refusal needs an argument rather than a
+/// counter. A [`Tally`] over each is how *the same cells* stops being a claim.
+pub fn band_pass_shapes() -> (Shape, Shape) {
+    (band_pass_shape(false), band_pass_shape(true))
+}
+
+fn band_pass_shape(per_band: bool) -> Shape {
+    let specs = columns(12);
+    let mut driver = crate::runner::driver_at(W, H, Density::default());
+    let mut warm = Tally::new();
+    driver.frame(|cx| band_pass_draw(&mut warm, cx, &specs, per_band));
+    let mut t = Tally::new();
+    driver.frame(|cx| band_pass_draw(&mut t, cx, &specs, per_band));
+    let f = driver.inspect();
+    Shape {
+        writes: t.writes(),
+        distinct: t.distinct(),
+        asked: t.asked(),
+        verbs: t.verbs(),
+        regions: f.hits().len(),
+        stops: f.stop_count(),
+        iterated: u64::from(H),
+        columns: COLUMNS_DRAWN,
+    }
+}
+
+/// **The per-frame cost of each loop structure.** `(one row pass, per band)`, a report and never a
+/// gate.
+///
+/// §6 states the difference as **4% cheaper and refused**. What the refusal buys is on the other
+/// side of the equals sign and no timer can see it: three loops share nothing but the author writing
+/// the same bounds three times, and each of the three has to seek its own
+/// [`Scan`](crate::collect::Scan) — so §5's `O(log k + h)` becomes `3·(log k + h)` on a selection
+/// query the shipped shape does once.
+///
+/// # Round-robin and minimum-of-N, because the two arms are within each other's noise
+///
+/// The first shape this measurement took ran `A × 40` and then `B × 40` and answered **+1.3%** and
+/// **−5.0%** on two consecutive runs of the same binary — a sign that flips is not a measurement.
+/// `crates/vitui-bench`'s own header is the argument and it is followed here rather than depended
+/// on: *an observed duration is the true duration plus interference, and interference is
+/// non-negative*, so the **minimum** is the sample least contaminated; and a ratio between two
+/// variants is only meaningful if both saw the same interference, so the two are interleaved
+/// `A, B, A, B, …` rather than run one after the other.
+///
+/// It is a dependency this crate does not take for constraint C6's reason. Fifteen lines inlined
+/// with the reasoning cited beats a manifest whose dependency table stops being one line.
+///
+/// # Panics
+///
+/// Panics on zero rounds.
+pub fn band_pass_costs(rounds: u32) -> (Duration, Duration) {
+    assert!(rounds > 0, "a minimum over no rounds is not a minimum");
+    let specs = columns(12);
+    let mut driver = crate::runner::driver_at(W, H, Density::default());
+    let mut ink = Direct;
+    // One warm frame of each: the frame structures take their allocation on the first frame that
+    // needs one and keep it, so a cold frame is not a frame.
+    driver.frame(|cx| band_pass_draw(&mut ink, cx, &specs, false));
+    driver.frame(|cx| band_pass_draw(&mut ink, cx, &specs, true));
+    let (mut row, mut band) = (Duration::MAX, Duration::MAX);
+    for _ in 0..rounds {
+        for (per_band, best) in [(false, &mut row), (true, &mut band)] {
+            let started = Instant::now();
+            driver.frame(|cx| band_pass_draw(&mut ink, cx, &specs, per_band));
+            *best = (*best).min(started.elapsed());
+        }
+    }
+    (row, band)
+}
+
+fn band_pass_draw<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, specs: &[ColSpec], per_band: bool) {
+    let mut st = TableState::new();
+    st.hoff = HOFF;
+    let body = cx.theme().paint(Role::Body);
+    let mut buf = Buf::default();
+    let area = cx.area();
+    let len = usize::try_from(VOLUMES[2]).unwrap_or(usize::MAX);
+    let mut cell = |ink: &mut I, cx: &mut Ctx<'_, '_>, r: Rect, c: Cell, _f: Face| {
+        let text = cell_text(&mut buf, c.key, c.row as u64);
+        emit(ink, cx, r.x, r.y, r.w, text, body);
+    };
+    if per_band {
+        coll_defective::per_band_pass(ink, cx, area, &mut st, specs, len, &mut cell);
+    } else {
+        coll_defective::one_row_pass(ink, cx, area, &mut st, specs, len, &mut cell);
+    }
+}
+
+/// **Two tables on one screen, every visible cell declaring a target.** `(regions, merges)`.
+///
+/// `keyed` picks the shipped build; `false` is [`crate::collect::defective::row_keyed_cells`], where
+/// a row's cells all derive one id. §4's *one axis out, the same defect has a different arithmetic*
+/// as a measurement: the screen renders identically either way, because **drawing does not consume
+/// an id**, and `merges` is the only counter that separates them.
+///
+/// The two tables are at two source lines and neither is wrapped in a `cx.with_key`, which is
+/// `crate::collect::tests::side_by_side`'s arrangement and its reason: `#[track_caller]` gives the
+/// two *tables* two ids, so the outer level is already distinct and what is under test is the cells.
+pub fn identity_merges(keyed: bool) -> (usize, u64) {
+    const N: usize = 200;
+    let specs = columns(12);
+    let mut driver = crate::runner::driver_at(W, H, Density::default());
+    let (mut left, mut right) = (TableState::new(), TableState::new());
+    left.hoff = HOFF;
+    right.hoff = HOFF;
+    let opts = TableOpts::default();
+    driver.frame(|cx| {
+        let area = cx.area();
+        let w = area.w / 2;
+        let bands = [
+            Rect::new(0, 0, w, area.h),
+            Rect::new(i32::from(w), 0, w, area.h),
+        ];
+        let mut cell = |_ink: &mut Direct, cx: &mut Ctx<'_, '_>, r: Rect, c: Cell, _f: Face| {
+            let _ = cx.interact(c.id, r, vitui_runtime::Interest::CLICK);
+        };
+        let mut find = |_: &str, _: std::ops::Range<usize>| None;
+        if keyed {
+            let _ = table_into(
+                &mut Direct,
+                cx,
+                bands[0],
+                &mut left,
+                &opts,
+                &specs,
+                Rows::of(N),
+                &mut find,
+                &mut cell,
+            );
+            let _ = table_into(
+                &mut Direct,
+                cx,
+                bands[1],
+                &mut right,
+                &opts,
+                &specs,
+                Rows::of(N),
+                &mut find,
+                &mut cell,
+            );
+        } else {
+            let _ = coll_defective::row_keyed_cells(
+                &mut Direct,
+                cx,
+                bands[0],
+                &mut left,
+                &opts,
+                &specs,
+                Rows::of(N),
+                &mut find,
+                &mut cell,
+            );
+            let _ = coll_defective::row_keyed_cells(
+                &mut Direct,
+                cx,
+                bands[1],
+                &mut right,
+                &opts,
+                &specs,
+                Rows::of(N),
+                &mut find,
+                &mut cell,
+            );
+        }
+    });
+    let frame = driver.inspect();
+    (frame.hits().len(), u64::from(frame.ids().merges()))
+}
+
+/// **The same two tables with no target declared in a cell**, which is what a table costs when it
+/// is only a picture. `(regions, merges)`.
+///
+/// §6's *a table declares 59 regions against 1 195 for one entry per visible cell* one screen over:
+/// the entry count is a choice a **cell** makes, and the component's own is one a table.
+pub fn inert_cells() -> (usize, u64) {
+    let specs = columns(12);
+    let mut driver = crate::runner::driver_at(W, H, Density::default());
+    let (mut left, mut right) = (TableState::new(), TableState::new());
+    let opts = TableOpts::default();
+    driver.frame(|cx| {
+        let area = cx.area();
+        let w = area.w / 2;
+        let bands = [
+            Rect::new(0, 0, w, area.h),
+            Rect::new(i32::from(w), 0, w, area.h),
+        ];
+        let mut cell = |_ink: &mut Direct, _cx: &mut Ctx<'_, '_>, _r: Rect, _c: Cell, _f: Face| {};
+        let mut find = |_: &str, _: std::ops::Range<usize>| None;
+        let _ = table_into(
+            &mut Direct,
+            cx,
+            bands[0],
+            &mut left,
+            &opts,
+            &specs,
+            Rows::of(200),
+            &mut find,
+            &mut cell,
+        );
+        let _ = table_into(
+            &mut Direct,
+            cx,
+            bands[1],
+            &mut right,
+            &opts,
+            &specs,
+            Rows::of(200),
+            &mut find,
+            &mut cell,
+        );
+    });
+    let frame = driver.inspect();
+    (frame.hits().len(), u64::from(frame.ids().merges()))
+}
+
 // ── the subject, and the scan that says whether it is here ───────────────────────────────────────
 
-/// **The component these two scenes are scenes of, and it is not declared yet.**
+/// **The component these two scenes are scenes of, and it is declared since components 15.**
 ///
 /// One subject and not two, which is [`Verdict::of`]'s vacuity refusal doing its job on a population
-/// of one: *no component exists* is `Unmet` over one rather than `Met` over nothing.
+/// of one: *no component exists* was `Unmet` over one rather than `Met` over nothing.
 pub const SUBJECTS: [&str; 1] = ["table"];
 
 /// Where [`SUBJECTS`] is declared, as `(module file, the declaration)`.
@@ -1294,7 +1264,7 @@ pub const SUBJECTS: [&str; 1] = ["table"];
 /// `F7Collections`, whose module is `collect.rs`.
 pub const DECLARATIONS: [(&str, &str); 1] = [("collect.rs", "pub fn table(")];
 
-/// **Which of [`SUBJECTS`] this crate actually declares. Today: none.**
+/// **Which of [`SUBJECTS`] this crate actually declares. Today: `table`.**
 ///
 /// A source scan and not a `use`, for [`crate::dense::subjects_declared`]'s reason: *the item does
 /// not exist* has no expression, and a `compile_fail` fence would pass today and pass again the day
@@ -1313,7 +1283,9 @@ pub fn subjects_declared() -> Vec<&'static str> {
 
 /// **Whether the grid stands on its subject, as a verdict rather than as a sentence.**
 ///
-/// `Unmet` over one, inverted by **components 15**.
+/// `Met` over one since components 15. The failing sentence is kept live rather than deleted: it is
+/// what the day `table` stops being declared where the freeze homes it looks like, and a message no
+/// test can read is a message that rots.
 pub fn standing() -> Verdict {
     let declared = subjects_declared();
     Verdict::of(
@@ -1364,7 +1336,8 @@ pub fn owed_message(declared: &[&str], scene: &str) -> Option<String> {
 ///
 /// # Panics
 ///
-/// Panics while [`SUBJECTS`] is undeclared, which is **today**. Components ticket 15 inverts it.
+/// Panics while [`SUBJECTS`] is undeclared, which it no longer is — components ticket 15 declared
+/// `table`. Kept because it is the only thing that says so out loud the day it stops being true.
 pub fn assert_stands_up(scene: &str) {
     if let Some(message) = owed_message(&subjects_declared(), scene) {
         panic!("{message}");
@@ -1918,28 +1891,27 @@ mod tests {
         }
     }
 
-    /// **`Ctx::scroll_scope` scrolled the wrong way, and this is the measurement inverted.**
+    /// **`Ctx::scroll_scope` scrolled the wrong way, and this is that measurement inverted.**
     ///
-    /// Not a gate on this crate's own code, and it is here because it is the reason [`OFFSET`] is
-    /// zero. The runtime reads a scroll offset as **positive** everywhere it does arithmetic —
-    /// `vitui_runtime::scroll::Area::into_view` compares against `offset..offset + window`, and
-    /// `Scrollable::between((0, 0), (0, max))` answers `DOWN` — and the engine's rule is that *a
-    /// viewport scrolled `n` rows down is `scrolled(0, -n)`*. `scroll_scope` passes `+n`.
+    /// Not a gate on this crate's own code. Components ticket 14 wrote it red: the runtime read a
+    /// scroll offset as **positive** everywhere it did arithmetic — `Area::into_view` compares
+    /// against `offset..offset + window`, `Scrollable::between((0, 0), (0, max))` answers `DOWN` —
+    /// while the engine's rule is that *a viewport scrolled `n` rows down is `scrolled(0, -n)`*, and
+    /// `scroll_scope` passed `+n`. At an offset of a thousand the scope answered `-1000..-920`, a
+    /// write at content row 1 000 reported zero columns, and a write at −1 000 landed.
     ///
-    /// So the scope's own window is the rows **above** the content: at an offset of a thousand it
-    /// answers `-1000..-920`, a write at content row 1 000 reports zero columns, and a write at
-    /// −1 000 lands. **It is C03's inverted scroll sign inside the runtime's own verb**, and it has
-    /// survived because every caller that draws through a scroll scope draws at offset zero —
-    /// which is §21's argument for the scene list, arriving one layer down.
+    /// Runtime architecture issue 26 negated the sign, and this is the same measurement asserting
+    /// the corrected answer — kept rather than deleted, because a gate that was red for one
+    /// integration and green after it is the register working. Register row 77.
     ///
-    /// Filed as `.scratch/vitui-runtime-architecture/issues/26`. Both directions are asserted, so
-    /// the day the sign is corrected this test fails rather than quietly passing.
+    /// **It is no longer the reason [`OFFSET`] is zero**; §21's own gesture for this scene is
+    /// `rows: 0`, and that was always the other reason.
     #[test]
     fn a_scroll_scope_at_a_nonzero_offset_shows_its_content() {
         use vitui_runtime::Role;
 
         let mut driver = crate::runner::driver_at(W, H, Density::default());
-        let id = Id::named("grid");
+        let id = vitui_runtime::Id::named("grid");
         let view = Rect::new(0, 0, W, H);
         let (mut window, mut at_content, mut at_negative) = (0..0, 0u16, 0u16);
         driver.frame(|cx| {
@@ -1972,42 +1944,85 @@ mod tests {
         );
     }
 
-    /// **Criterion 7: the two scenes are red because the subject is missing, and they say so.**
+    /// **The two loop structures write the same cells, which is why the refusal needs an
+    /// argument.**
     ///
-    /// The inversion of this test is components ticket 15's, and it is a deliberate edit in three
-    /// files — here, in `crate::scenes`'s two standings and in `crate::gates::REGISTER`.
+    /// §6 refuses one pass per band while calling it *4% cheaper*. This is the half a counter can
+    /// check: identical writes, identical distinct cells, identical verbs. The timing half is
+    /// [`band_pass_costs`] and it is a **report** — and the 4% does not reproduce, see
+    /// `examples/table_numbers.rs`.
     #[test]
-    fn the_grid_is_red_because_table_is_not_declared() {
+    fn the_two_loop_structures_write_the_same_cells() {
+        let (row, band) = band_pass_shapes();
+        assert_eq!(row.writes, band.writes);
+        assert_eq!(row.distinct, band.distinct);
+        assert_eq!(row.verbs, band.verbs);
+        assert_eq!(row.writes, row.distinct, "and neither writes a cell twice");
+        assert_eq!(row.writes, CELLS, "over a partition of the whole rectangle");
+        // The one thing that *is* different, and it is not a cell: three passes, three seeks.
+        let source = include_str!("../src/collect.rs");
+        let body = source
+            .split_once("            if per_band {")
+            .expect("the pair is one function with one boolean")
+            .1
+            .split_once("            } else {")
+            .expect("and the other half follows it")
+            .0;
+        assert_eq!(
+            body.matches("Scan::seek(sel, first)").count(),
+            1,
+            "the per-band arm seeks inside its band loop, so one occurrence is three seeks a \
+             frame — and the shipped arm's is one"
+        );
+    }
+
+    /// **The two scenes stand on the component they are scenes of.**
+    ///
+    /// Components ticket 14 wrote this test red and named its inverter; components ticket 15 is that
+    /// inverter, and the edit is the one it promised in three files — here, in `crate::scenes`'s two
+    /// standings and in `crate::gates::REGISTER`.
+    ///
+    /// **Two halves, because the subject scan alone is not enough.** The scan says `table` is
+    /// declared where the freeze homes it; what it cannot say is that *this screen draws through
+    /// it*, and a screen that kept its stand-in row loop beside a declared component would pass the
+    /// first half for ever. [`crate::listing`]'s own inversion is the precedent and the second half
+    /// is read out of the source for its reason: *this function calls that one* has no expression a
+    /// test can write.
+    #[test]
+    fn the_grid_stands_on_the_table_it_is_a_screen_of() {
         assert_eq!(
             subjects_declared(),
-            Vec::<&str>::new(),
-            "`table` is declared. That inverts two scenes and one register row, and it is a \
-             deliberate edit in all three files"
+            SUBJECTS.to_vec(),
+            "`table` has stopped being declared where the freeze homes it. That is not a defect in \
+             the screen: `crate::grid::DECLARATIONS` names the file and the signature it is looked \
+             for at"
         );
         let verdict = standing();
-        assert!(!verdict.met());
+        assert!(verdict.met());
         match verdict {
-            Verdict::Unmet {
-                over,
-                failing,
-                inverted_by,
-                ..
-            } => {
-                assert_eq!((over, failing), (1, 1), "one subject, and it is missing");
-                assert_eq!(inverted_by, "components 15");
-            }
-            Verdict::Met { over } => {
-                unreachable!("{over} declared, which the assertion above caught")
+            Verdict::Met { over } => assert_eq!(over, 1, "one subject, and it is here"),
+            Verdict::Unmet { over, failing, .. } => {
+                unreachable!("{failing} of {over} undeclared, which the assertion above caught")
             }
         }
+        // And the scenes do not panic any more, which is the whole ticket in one call.
+        assert_stands_up("a twelve-column 1M-row table, pinned both edges");
 
-        let panicked = std::panic::catch_unwind(|| {
-            assert_stands_up("a twelve-column 1M-row table, pinned both edges")
-        });
-        assert!(
-            panicked.is_err(),
-            "a scene with no subject does not stand up"
-        );
+        // **Every arm of `draw_into` is the component**, which is what makes every number on this
+        // page a claim about `table` rather than about a row loop this file owns.
+        let source = include_str!("grid.rs");
+        for call in [
+            "table_into(",
+            "coll_defective::arithmetic_band(",
+            "coll_defective::clip_only(",
+            "coll_defective::inverted_sign(",
+        ] {
+            assert!(
+                crate::dense::declares(source, call),
+                "`draw_into` no longer calls `{call}`, so the scenes have stopped standing on the \
+                 component even though the subject scan still finds it"
+            );
+        }
     }
 
     /// **The waiting message says which failure it is**, which is the distinction criterion 7 is

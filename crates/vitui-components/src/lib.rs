@@ -5,9 +5,11 @@
 //! Being built one ticket at a time from `.scratch/vitui-components-architecture/spec.md`, whose
 //! map is closed; the backlog is `.scratch/vitui-components-impl/`, forty-three tickets.
 //!
-//! **Five of the twenty-nine components are written** — [`text::text`], [`text::chip`],
-//! [`input::button`] and [`structure::panel`] (components ticket 10), and [`collect::collection`]
-//! (components ticket 12) — and the dense screen and the listing are now drawn *through* them
+//! **Eight of the twenty-nine components are written** — [`text::text`], [`text::chip`],
+//! [`input::button`] and [`structure::panel`] (components ticket 10), [`collect::collection`]
+//! (components ticket 12), [`chart::chart`] and [`chart::plot`] (components ticket 28) and
+//! [`collect::table`] (components ticket 15) — and the dense screen, the listing and the grid are
+//! now drawn *through* them
 //! rather than through their construction. They are spec §1's four rules with
 //! **two stated substitutions**: [`Rect`] stands in for `Rect`, which cannot be named from a
 //! package whose dependency table is `vitui-runtime` and nothing else; and
@@ -107,6 +109,30 @@
 //!   volume, with per-row hover resolved by arithmetic on **this frame's** pointer; the scan cursor
 //!   at one `partition_point` a frame against one a row; and 3 200 writes / 81 regions / 1 stop /
 //!   0 allocations at 1 000, 100 000 and 1 000 000 rows, at 52.8–53.0 µs.
+//!
+//! - [`collect::table`] — **`table` = `collection` + column rectangles, and the `+` is paid in
+//!   verbs** (components ticket 15). The same rectangle costs **24 000 cells and 160 verbs** as one
+//!   column and **24 000 and 1 600** as twelve, so the cells are identical and the verbs are the
+//!   difference — §6's structure, on a screen that is one table rather than §6's two tables and
+//!   three bars. Three bands, the middle one a **view** opened per row; a pinned column that may
+//!   not be elastic because [`collect::Pin::width`] is the only reader of its width; cell selection
+//!   as **one run and sixteen bytes** against a flattened index's **1 000 000 and 16 MB** on one
+//!   header click, with the loss (forty runs against one for a whole row) asserted beside the win;
+//!   and an editing slot that is `Option<(row, col)>` where the row half is [`collect::collection`]'s
+//!   own revalidation and the column half is a key. **Two of §6's three remembered figures did not
+//!   reproduce and each is written down**: *a pass per band measures 4% cheaper* is inside ±1.5%
+//!   over sixty interleaved rounds with its **sign flipping between runs**, so the refusal stands on
+//!   §6's argument rather than on a clock; and the identity numbers are this screen's population
+//!   rather than the prototype's.
+//!
+//!   Its own finding is a defect one crate down. **`Ctx::with_key` inside a scroll scope draws
+//!   nothing past the first screenful** — `with_id` re-childs at `self.area()`, which is the
+//!   *content's* origin there — so a container cannot key a child per row inside a virtualised
+//!   body: 0 cells of 8 at an offset of 100, and 8 of 8 at zero, which is why nothing had seen it.
+//!   `collection` had already worked around it without naming it; `table` cannot take the same
+//!   workaround, so it mints each cell's id with `Id::keyed` and hands it over on
+//!   [`collect::Cell::id`]. Filed as `.scratch/vitui-runtime-architecture/issues/31` and pinned as
+//!   register row 112.
 //!
 //! - [`order`] — **the order, the index and the memo**: `table`'s sort order, `tree`'s flatten
 //!   index, `textarea`'s wrap index, `collapsible`'s fold index and `table`'s prefix sum are one

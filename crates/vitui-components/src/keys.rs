@@ -728,11 +728,12 @@ mod tests {
         }
         assert_eq!(
             built,
-            vec!["collection"],
-            "row 5's population is six sinks and one component since components ticket 12. A name \
-             arriving here or leaving it is a deliberate edit: the row is a claim about what a \
-             chord does to *every* focusable, and which of them are real components is the half \
-             this test keeps honest"
+            vec!["collection", "table"],
+            "row 5's population is six sinks and two components since components ticket 15, which \
+             declared `table` beside the `collection` ticket 12 declared. A name arriving here or \
+             leaving it is a deliberate edit: the row is a claim about what a chord does to \
+             *every* focusable, and which of them are real components is the half this test keeps \
+             honest"
         );
         // No duplicates, or the count above is not the population.
         let mut sorted = TEXT_BEARING.to_vec();

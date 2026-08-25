@@ -55,7 +55,7 @@
 //!   claiming fifteen green gates over an empty population.
 //!
 //! **Forty-two evaluated, four red, six unreachable, fifteen unsubjected**, and
-//! `tests::eighty_seven_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
+//! `tests::ninety_one_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
 //! deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
 //! and subjected row 27, the cross-family collapse gate; ticket 07 added five, and none of them
@@ -419,10 +419,10 @@ pub const SPEC_ROWS: usize = 32;
 /// row still asserting *the four components do not exist* would now be asserting they are gone.
 /// That is the second inversion here worth being suspicious about: a red row phrased as an absence
 /// cannot be turned green by editing one field.
-pub const EVALUATED: usize = 87;
+pub const EVALUATED: usize = 91;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 108] = [
+pub const REGISTER: [Row; 112] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -2077,8 +2077,8 @@ pub const REGISTER: [Row; 108] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_fifteen_are_red_and_nine_are_\
-                           stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_thirteen_are_red_and_eleven_\
+                           are_stood_up",
                 },
             ],
         },
@@ -2300,8 +2300,8 @@ pub const REGISTER: [Row; 108] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_fifteen_are_red_and_nine_are_\
-                           stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_thirteen_are_red_and_eleven_\
+                           are_stood_up",
                 },
             ],
             failing: "`tree` is undeclared, so scenes 8 and 9 are pinned red — both of them, and \
@@ -2416,11 +2416,16 @@ pub const REGISTER: [Row; 108] = [
         // the whole argument of §21 is that an obligation stated as a sentence gets broken by
         // someone who has read it. `CompileOutcome` because what is asserted is that a *file*
         // declares an item, read by opening it - the one thing a `compile_fail` fence cannot say.
-        standing: Standing::Red {
+        // **Inverted by components 15**, and the row is kept with its history for row 77's reason:
+        // a gate that was red for one ticket and green after it is the register working. What
+        // inverted it is `pub fn table(` in `collect.rs` **and** `crate::grid::draw_into` calling
+        // it — the second half is the one a subject scan cannot see, and it is why the standing
+        // names three instruments rather than one.
+        standing: Standing::Evaluated {
             by: &[
                 Instrument::Unit {
                     file: GRID,
-                    name: "the_grid_is_red_because_table_is_not_declared",
+                    name: "the_grid_stands_on_the_table_it_is_a_screen_of",
                 },
                 Instrument::Unit {
                     file: GRID,
@@ -2431,12 +2436,6 @@ pub const REGISTER: [Row; 108] = [
                     name: "the_subject_scan_finds_a_declaration_and_the_freeze_agrees_with_it",
                 },
             ],
-            failing: "`table` is undeclared, so scenes 7 and 30 are pinned red and both are \
-                      waiting for it. `crates/vitui-components/src/collect.rs` carries no \
-                      `pub fn table(`, which is what `crate::grid::subjects_declared` opens the \
-                      file to find out, and `crate::grid::standing` is `Unmet { over: 1, failing: \
-                      1 }` rather than `Met` over nothing",
-            inverted_by: "components 15",
         },
     },
     // ── components ticket 21's two, and both are about what a count can see ──────────────────────
@@ -2722,8 +2721,8 @@ pub const REGISTER: [Row; 108] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_fifteen_are_red_and_nine_are_\
-                           stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_thirteen_are_red_and_eleven_\
+                           are_stood_up",
                 },
             ],
             failing: "`field` is undeclared, so three scenes are pinned red — 12, 13 and 30 — and \
@@ -2864,8 +2863,8 @@ pub const REGISTER: [Row; 108] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_fifteen_are_red_and_nine_are_\
-                           stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_thirteen_are_red_and_eleven_\
+                           are_stood_up",
                 },
             ],
             failing: "neither `select` nor `overlay` is declared, so scene 14 is pinned red. \
@@ -3373,8 +3372,8 @@ pub const REGISTER: [Row; 108] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_fifteen_are_red_and_nine_are_\
-                           stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_thirteen_are_red_and_eleven_\
+                           are_stood_up",
                 },
             ],
         },
@@ -3477,6 +3476,95 @@ pub const REGISTER: [Row; 108] = [
                     name: "role_derived_series_collapse_and_the_difference_is_style_only",
                 },
             ],
+        },
+    },
+    // ── components ticket 15's four, and one of them is a defect one crate down ──────────────────
+    Row {
+        number: 109,
+        on_spec_table: false,
+        gate: "one click on a column header costs one run at any length, and the flattened index \
+               costs one a row",
+        kind: Kind::Ratio,
+        owner: "C04",
+        section: "spec §6",
+        // **A ratio and not a timing, which is the whole of why §6's two candidates are decided by
+        // a gesture.** The frame does not distinguish them at all — both answer a cell through the
+        // same `Scan`, amortised O(1) — so the microseconds are a report and the runs are the
+        // gate. Both directions: the per-column store's own loss (one run a column for a whole
+        // row) is asserted beside the win, because a store measured only where it wins is a store
+        // whose trade nobody wrote down.
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: COLLECT,
+                name: "cell_selection_is_one_run_per_column_key_and_the_flattening_is_a_million",
+            }],
+        },
+    },
+    Row {
+        number: 110,
+        on_spec_table: false,
+        gate: "two tables on one screen with a target in every visible cell merge nothing, and the \
+               row-keyed spelling leaves every cell of a row inert but the first",
+        kind: Kind::Count,
+        owner: "C04",
+        section: "spec §4, §6",
+        // **Row 71 one axis over**, and §4 says so in as many words: *one axis out, the same defect
+        // has a different arithmetic*. The screen is identical on both arms — drawing does not
+        // consume an id — so `merges` is the only counter that separates them, and it is free and
+        // already computed.
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: COLLECT,
+                name: "identity_is_per_cell_and_merges_is_the_only_counter_that_says_so",
+            }],
+        },
+    },
+    Row {
+        number: 111,
+        on_spec_table: false,
+        gate: "a pinned column may not be elastic, and the same constraint unpinned is honoured",
+        kind: Kind::Invariant,
+        owner: "C04",
+        section: "spec §6",
+        // **Enforced and not documented**, which is the ticket's own wording: `Pin::width` is the
+        // only reader of a pinned column's width and no `Constraint` reaches it, so the failure the
+        // rule is about has no spelling. Both directions, because a rule that is enforced by
+        // dropping the value on the floor and a rule that is enforced by a type look identical from
+        // the failing side.
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: COLLECT,
+                name: "a_pinned_column_may_not_be_elastic",
+            }],
+        },
+    },
+    Row {
+        number: 112,
+        on_spec_table: false,
+        gate: "a container may key its children inside a scroll scope",
+        kind: Kind::Count,
+        owner: "C04",
+        section: "spec §4",
+        // **The second row on this register whose subject is another crate**, and row 77 is the
+        // precedent that says it belongs here: §21's rule for a red gate is *assert the exact
+        // failing set, fire in both directions, say what to invert*, and all three are writable.
+        //
+        // `Ctx::with_id` — which `Ctx::with_key` is written on — re-childs the view at
+        // `self.area()`, and `area()` is `Rect::new(0, 0, w, h)` in the *current* coordinate
+        // system. Inside a scroll scope that origin is the content's, so the clip it intersects
+        // with is content rows `0..h` while the window is at the offset. `collection` already
+        // works around it by pushing its id outside the scope; `table` cannot, because a cell's key
+        // is per row, so it mints with `Id::keyed` and hands the value down.
+        standing: Standing::Red {
+            by: &[Instrument::Unit {
+                file: COLLECT,
+                name: "a_with_key_inside_a_scroll_scope_draws_nothing_past_the_first_screenful",
+            }],
+            failing: "at a vertical offset of 100 over an 8-row view, a `cx.with_key` around each \
+                      row's write lands 0 cells of 8; without it the same loop lands 8, and at \
+                      offset 0 both land 8. So the defect is invisible at the one offset every \
+                      caller on this map draws at",
+            inverted_by: "runtime architecture issue 31",
         },
     },
 ];
@@ -3759,7 +3847,7 @@ mod tests {
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn eighty_seven_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn ninety_one_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -3775,12 +3863,13 @@ mod tests {
         assert_eq!(evaluated, EVALUATED, "the count §21 asks a test to assert");
         assert_eq!(
             red,
-            vec![7, 8, 29, 74, 78, 85, 89],
-            "the four gates that are red and pinned: the sentinel, the palette after a swap, \
-             twenty wheel clicks and the collection's five scenes waiting for their subject. The \
-             glyph-set count was one of them and components ticket 05 inverted it; row 61 was \
-             another and components ticket 10 inverted it, which took rewriting the gate rather \
-             than the standing — the row asserted an *absence*"
+            vec![7, 8, 29, 74, 85, 89, 112],
+            "the gates that are red and pinned: the sentinel, the palette after a swap, twenty \
+             wheel clicks and the scenes still waiting for their subject. Three have been \
+             inverted and each says what it took — the glyph-set count by components 05, row 61 \
+             by components 10 (which took rewriting the *gate* rather than the standing, because \
+             the row asserted an *absence*), and row 78 by components 15, which took `table` \
+             being declared **and** `crate::grid::draw_into` calling it"
         );
         assert_eq!(
             unreachable,
@@ -3797,7 +3886,7 @@ mod tests {
              over a domain and needs no component to be run against, and whose row had been \
              citing spec §13 and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 108);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 112);
     }
 
     /// **The split, not the total.**
@@ -3808,10 +3897,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_seventy_six_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_eighty_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 76);
+        assert_eq!(REGISTER.len() - on_table, 80);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -4203,6 +4292,7 @@ mod tests {
                 "primitive_numbers.rs".to_string(),
                 "scene_numbers.rs".to_string(),
                 "series_numbers.rs".to_string(),
+                "table_numbers.rs".to_string(),
                 "tree_numbers.rs".to_string()
             ],
             "the count on this lineage was 0 against the runtime's 19"
