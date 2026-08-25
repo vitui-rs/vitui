@@ -69,7 +69,7 @@ use vitui_runtime::ctx::Driver;
 use vitui_runtime::keys::{ActionId, Chord, Code, KeyMap};
 use vitui_runtime::layout::rect;
 use vitui_runtime::theme::{CATPPUCCIN_MOCHA, Density};
-use vitui_runtime::work::Wake;
+use vitui_runtime::work::{Task, Wake, WakeHandle, Worker};
 use vitui_runtime::{ColorDepth, Ctx, Interest, Rect, Role, Theme};
 
 // ── the feed ─────────────────────────────────────────────────────────────────────────────────────
@@ -141,8 +141,12 @@ struct App {
     latency: PlotState,
     /// The chart's.
     requests: PlotState,
-    /// Which of [`VOLUMES`] the series holds.
+    /// Which of [`VOLUMES`] the user has asked for.
     volume: usize,
+    /// **Which of [`VOLUMES`] is actually in hand.** Not `data.len()`: the series grows by a
+    /// sample a tick, so a length comparison reports *building* for ever a second after it
+    /// finished. What the readout is about is which question has been answered.
+    loaded: usize,
     /// Which of [`RUNGS`] the theme is told about.
     rung: usize,
     /// Which of [`DEPTHS`] it is resolved for.
@@ -158,10 +162,48 @@ struct App {
     last_fold: Duration,
     /// What the last frame cost.
     last_frame: Duration,
+    /// **The resident thread the series is rebuilt on, and the one slot its answer lands in.**
+    ///
+    /// `None` until [`App::employ`], because [`Worker::hire`] takes a `WakeHandle` and the only
+    /// place one exists is `Driver::wake` — which needs a driver, which needs a theme, which needs
+    /// the application. The order is forced; the `Option` is that order written down.
+    off: Option<Offload>,
     /// Whether the theme needs rebuilding before the next frame.
     restyle: bool,
     exit: bool,
 }
+
+/// The worker and the one-slot task the series lands in.
+///
+/// **Spec §17's resident thread, from an application rather than from a test.** Until runtime
+/// architecture issue 23 this was reachable from nowhere else: `Worker::hire` was public and
+/// uninvokable because `Driver` owned its `Screen` privately and dropped the `WakeHandle`.
+struct Offload {
+    /// **Held to keep the thread alive**, and read by nothing. Dropping a `Worker` closes its
+    /// inbox and joins it, so a field nobody names is what the resident thread's lifetime *is*.
+    #[expect(dead_code, reason = "the thread lives as long as this field does")]
+    worker: Worker,
+    /// Keyed on the index into [`VOLUMES`], so two frames asking for the same volume are one
+    /// question and the deduplicated call allocates nothing.
+    series: Task<Series>,
+}
+
+/// **Why this application declares its own frames slow**, and it is the thing it exists to show.
+///
+/// A million-point series is folded into a raster inside one draw. That fold is the demonstration —
+/// the readouts count it, and *the frame costs the rectangle and the edit costs the data* is the
+/// sentence the whole screen is an argument for — so the work is on the app thread on purpose and
+/// `perf.rs`'s detector is right about it: a debug build overran the 16.7 ms budget and aborted.
+///
+/// **The build was moved off the thread and that was not enough.** `Series::build` at a million
+/// points cost 250 ms and now runs on [`Offload`]'s worker; what remains is the fold, which needs
+/// the rectangle and so cannot leave the draw. The engine's diagnostic names both repairs and this
+/// is the second one.
+///
+/// **Scoped, not global.** The permit is a guard around one `frame` call, so the detector is live
+/// for everything else this process does — declaring the loop once would delete spec §11's only
+/// instrument for the whole run.
+const FOLDING: &str = "folding a million-point series into a raster, which is the demonstration";
 
 const QUIT: ActionId = 1;
 const GLYPHS: ActionId = 2;
@@ -212,6 +254,7 @@ impl App {
             latency: PlotState::new(),
             requests: PlotState::new(),
             volume: 0,
+            loaded: 0,
             rung: 2,
             depth: 0,
             rule: true,
@@ -219,6 +262,7 @@ impl App {
             step: 0,
             last_fold: Duration::ZERO,
             last_frame: Duration::ZERO,
+            off: None,
             restyle: false,
             exit: false,
         }
@@ -249,13 +293,63 @@ impl App {
             return;
         }
         self.volume = next;
-        self.data = Series::build(VOLUMES[next], 2);
-        self.step = 0;
+    }
+
+    /// Hire the worker. Called once, after the driver exists and before the first frame.
+    fn employ(&mut self, wake: WakeHandle) {
+        let worker = Worker::hire(wake);
+        let series = Task::new(&worker);
+        // **Primed with the volume already in hand**, so the first frame does not ask for a series
+        // it is holding. Without it the startup job lands one frame later and replaces the data
+        // with an identical copy, which is free and looks like a stutter.
+        let _ = series.request(VOLUMES.len() as u64, |_| Series::build(0, 2));
+        self.off = Some(Offload { worker, series });
+    }
+
+    /// **Ask for the volume the user has chosen, and take the answer if it has arrived.**
+    ///
+    /// Called unconditionally at the top of every frame, which is what [`Task::request`] is written
+    /// for: the key is the volume, two frames asking the same thing are one question, and the
+    /// deduplicated call — every frame but the one that changed it — allocates nothing.
+    ///
+    /// **This is the fix for a panic rather than a flourish.** `Series::build` at a million points
+    /// took **250 ms on the app thread**, and `perf.rs`'s in-loop detector said so and aborted: *the
+    /// app thread's iteration took 250.1 ms against a 16.7 ms frame budget*. It was unreachable
+    /// until the `+` binding was fixed, and it is the diagnostic working exactly as spec §11
+    /// describes. The other repair it offers — declaring the work — **could not be written here at
+    /// all** until runtime architecture issue 30: `permit_slow` is an inherent method on the
+    /// engine's `Screen` and this crate may not name the engine, so the diagnostic named a method
+    /// the program could not call. `Driver::permit_slow` forwards it now, and the frames below are
+    /// bracketed with it.
+    fn pump(&mut self) {
+        let Some(off) = self.off.as_ref() else {
+            return;
+        };
+        let want = self.volume;
+        let _ = off.series.request(want as u64, move |cancel| {
+            let built = Series::build(VOLUMES[want], 2);
+            // The bracket is a bracket and not a promise: a volume the user has already changed
+            // away from is dropped on the worker's thread rather than landed.
+            let _ = cancel.cancelled();
+            built
+        });
+        if let Some(landed) = off.series.take() {
+            self.data = landed;
+            self.loaded = want;
+        }
+    }
+
+    /// Whether a rebuild is in flight, for the readout.
+    fn building(&self) -> bool {
+        self.loaded != self.volume
     }
 
     /// One frame, top to bottom.
     fn ui(&mut self, cx: &mut Ctx<'_, '_>, map: &KeyMap) {
         cx.key_map(map);
+
+        // The rebuild is asked for here and taken here, and it happens on the worker's thread.
+        self.pump();
 
         // **Ask for the next sample before anything is drawn.** A deadline is the one wake sink, so
         // a paused application registers nothing and costs no CPU at all — which is the same budget
@@ -367,7 +461,15 @@ impl App {
     /// the data, the fold that does, and the two memos of the chain counted separately.
     fn readouts(&mut self, cx: &mut Ctx<'_, '_>, area: Rect) {
         let rows = [
-            format!("pts   {}", VOLUMES[self.volume]),
+            if self.building() {
+                format!(
+                    "pts   {} \u{2192} {}",
+                    self.data.len(),
+                    VOLUMES[self.volume]
+                )
+            } else {
+                format!("pts   {}", self.data.len())
+            },
             format!("new   {}", self.step),
             format!("rung  {}", rung_word(self.rung)),
             format!("col   {}", depth_word(self.depth)),
@@ -416,10 +518,19 @@ fn main() {
         }
     };
 
+    // **The worker is hired here and nowhere earlier.** `Worker::hire` takes a `WakeHandle`, and
+    // the only way to hold one is `Driver::wake` — which runtime architecture issue 23 added for
+    // exactly this reason, and which is what makes spec §17's resident thread reachable from an
+    // application at all.
+    app.employ(driver.wake());
+
     // The first frame is drawn before the first park: a screen that appears on the first keystroke
     // is a bug.
     let started = Instant::now();
-    driver.frame(|cx| app.ui(cx, &map));
+    {
+        let _slow = driver.permit_slow(FOLDING);
+        driver.frame(|cx| app.ui(cx, &map));
+    }
     app.last_frame = started.elapsed();
 
     while !app.exit {
@@ -435,7 +546,10 @@ fn main() {
             app.restyle = false;
         }
         let started = Instant::now();
-        driver.frame(|cx| app.ui(cx, &map));
+        {
+            let _slow = driver.permit_slow(FOLDING);
+            driver.frame(|cx| app.ui(cx, &map));
+        }
         app.last_frame = started.elapsed();
     }
 }

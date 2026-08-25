@@ -215,7 +215,7 @@ pub struct EngineName {
 /// `Style` is on the list because `pub struct Paint(pub(crate) Style)` names it in a public
 /// declaration, and it is the one entry nothing is blocked by: the field is restricted, which is the
 /// whole design — a component names a role and can never construct a paint.
-pub const ENGINE_NAMES: [EngineName; 29] = [
+pub const ENGINE_NAMES: [EngineName; 30] = [
     // **Every row carries a path**, and `the_engine_names_on_the_surface_are_all_reachable` is what
     // makes that a gate rather than a claim. Nine of them predate issue 22 and sit in the module that
     // owns the concept; the twenty that arrived with it sit at the crate root, which owns none.
@@ -321,6 +321,14 @@ pub const ENGINE_NAMES: [EngineName; 29] = [
     EngineName {
         name: "AttachError",
         reachable_as: Some("vitui_runtime::AttachError"),
+    },
+    // **Arrived with `Driver::permit_slow`**, and by the same argument as the twenty issue 22
+    // added: `perf.rs` names `Screen::permit_slow` in the diagnostic it aborts with, and an
+    // application that may not name the engine could read that sentence and not act on it. A name a
+    // consumer can be *told to use* but cannot write is the same barrier as one it cannot build.
+    EngineName {
+        name: "Permit",
+        reachable_as: Some("vitui_runtime::Permit"),
     },
     EngineName {
         name: "Presented",

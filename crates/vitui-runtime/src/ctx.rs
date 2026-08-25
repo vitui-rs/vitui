@@ -79,7 +79,7 @@ use std::time::{Duration, Instant};
 
 use vitui_engine::{
     AttachError, Capabilities, Clock, Config, Cursor, CursorShape, Engine, LayerId, MouseMode,
-    Output, Presented, Rect, Screen, Surface, View, Wake, WakeHandle, Written,
+    Output, Permit, Presented, Rect, Screen, Surface, View, Wake, WakeHandle, Written,
 };
 
 use crate::focus::{ScopeKind, Stop};
@@ -3058,6 +3058,31 @@ impl Driver {
     /// a `Slot` and a post, never a `Ctx` and never a `Frame`.
     pub fn wake(&self) -> WakeHandle {
         self.wake.clone()
+    }
+
+    /// **Declare that the next stretch of app-thread work is slow on purpose.**
+    ///
+    /// `perf.rs`'s in-loop detector aborts when an iteration overruns the frame budget, and its
+    /// message names two repairs: *move the work to another thread and post a wake, or declare it
+    /// with `Screen::permit_slow`*. The first is reachable from an application — that is what
+    /// [`Driver::wake`] and [`Worker::hire`](crate::work::Worker::hire) are for. **The second was
+    /// not**, and by exactly the shape runtime architecture issue 22 is about: `permit_slow` is an
+    /// inherent method on `vitui_engine::Screen`, `Driver` owns its `Screen` privately, and a crate
+    /// that may not name the engine had no second spelling.
+    ///
+    /// It was found by an application rather than argued: `vitui-apps`' `latency` example folds a
+    /// million-point series inside one draw, which is the cost it exists to display, and a debug
+    /// build overran the budget and aborted with a diagnostic naming a method the program could not
+    /// call.
+    ///
+    /// # This is an escape hatch and it is scoped
+    ///
+    /// The [`Permit`] is a guard: the exemption lasts exactly as long as the value, so a permit
+    /// taken for one expensive frame does not silence the detector for the run. Declaring the whole
+    /// loop would turn the one instrument spec §11 has for *the app thread is the interface* into a
+    /// no-op, which is why this returns a guard rather than setting a flag.
+    pub fn permit_slow(&self, reason: &'static str) -> Permit {
+        self.screen.permit_slow(reason)
     }
 
     /// Run one frame: `begin`, the base pass, the overlay pass, `end`, `settle`, `present`.

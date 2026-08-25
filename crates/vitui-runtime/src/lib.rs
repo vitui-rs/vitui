@@ -176,6 +176,6 @@ pub use theme::{Scheme, Themes};
 // make a gate come out even is the move this repository forbids by name — `route` is the precedent.
 pub use vitui_engine::{
     AttachError, Button, Buttons, Capabilities, ColorDepth, Config, Cursor, CursorShape, Event,
-    Mods, Mouse, MouseKind, MouseMode, Presented, Rect, Restyle, Rgb, Style, Wheel as Notch,
-    Written,
+    Mods, Mouse, MouseKind, MouseMode, Permit, Presented, Rect, Restyle, Rgb, Style,
+    Wheel as Notch, Written,
 };
