@@ -55,7 +55,7 @@
 //!   claiming fifteen green gates over an empty population.
 //!
 //! **Forty-two evaluated, four red, six unreachable, fifteen unsubjected**, and
-//! `tests::fifty_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
+//! `tests::fifty_two_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
 //! deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
 //! and subjected row 27, the cross-family collapse gate; ticket 07 added five, and none of them
@@ -351,6 +351,9 @@ const AREA: &str = "crates/vitui-components/src/area.rs";
 /// The forest's own file, which is where components ticket 16's rows run.
 const FOREST: &str = "crates/vitui-components/src/forest.rs";
 
+/// The grid's own file, which is where components ticket 14's four rows run.
+const GRID: &str = "crates/vitui-components/src/grid.rs";
+
 /// How many rows of [`REGISTER`] are spec §21's own table. **Thirty-two, and it is closed** — a
 /// thirty-third would be a spec change.
 pub const SPEC_ROWS: usize = 32;
@@ -393,10 +396,10 @@ pub const SPEC_ROWS: usize = 32;
 /// row still asserting *the four components do not exist* would now be asserting they are gone.
 /// That is the second inversion here worth being suspicious about: a red row phrased as an absence
 /// cannot be turned green by editing one field.
-pub const EVALUATED: usize = 50;
+pub const EVALUATED: usize = 52;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 74] = [
+pub const REGISTER: [Row; 78] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -1941,7 +1944,7 @@ pub const REGISTER: [Row; 74] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "sixteen_scenes_have_nothing_to_run_over_eleven_are_red_and_three_are_\
+                    name: "fifteen_scenes_have_nothing_to_run_over_thirteen_are_red_and_three_are_\
                            stood_up",
                 },
             ],
@@ -2171,7 +2174,7 @@ pub const REGISTER: [Row; 74] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "sixteen_scenes_have_nothing_to_run_over_eleven_are_red_and_three_are_\
+                    name: "fifteen_scenes_have_nothing_to_run_over_thirteen_are_red_and_three_are_\
                            stood_up",
                 },
             ],
@@ -2182,6 +2185,130 @@ pub const REGISTER: [Row; 74] = [
                       `crate::forest::standing` is `Unmet { over: 1, failing: 1 }` rather than \
                       `Met` over nothing",
             inverted_by: "components 17",
+        },
+    },
+    // -- components ticket 14's four, and the third is not about this crate ----------------------
+    Row {
+        number: 75,
+        on_spec_table: false,
+        gate: "writes and verbs identical at 12, 40, 120 and 240 declared columns",
+        kind: Kind::Equality,
+        owner: "C04",
+        section: "spec §6",
+        // **This is row 11 evaluated over a screen rather than row 11 turned green.** Row 11 is
+        // §21's and it stays `Unsubjected` until `table` exists, which is components 15's; what
+        // this row gates is that *the instrument separates a correct build from a defective one*,
+        // watched in both directions — the virtualised arm is flat across all four declared counts
+        // and the clip-only arm costs 10.9x the verbs for the same 24 000 writes. Components
+        // ticket 11's row 66 has the same standing and the same reason.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: GRID,
+                    name: "writes_and_verbs_are_identical_across_declared_column_counts",
+                },
+                Instrument::Unit {
+                    file: GRID,
+                    name: "the_clip_only_spelling_costs_verbs_and_no_writes_at_all",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/grid_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 76,
+        on_spec_table: false,
+        gate: "a band written by arithmetic re-damages the pinned band it overruns",
+        kind: Kind::Count,
+        owner: "C04",
+        section: "spec §6",
+        // **Not row 12, and the difference is the finding.** Row 12 is *the same table under a
+        // horizontal offset, against itself* — an equality — and the equality is **blind** to this
+        // defect: §6's own clause says why, *the screen is correct, because the pinned band draws
+        // afterwards and wins*, so the two surfaces are 0 cells over 0 rows apart. What sees it is
+        // the pair `writes` against `distinct`, which is row 6, C02's, filed by §21 as a *report
+        // per component*. So §6's *no gate left by C01, C02 or C03 sees it* is half true: C02 named
+        // the counter and nobody was running it.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: GRID,
+                    name: "the_equality_is_blind_to_the_band_and_the_pair_is_not",
+                },
+                Instrument::Unit {
+                    file: GRID,
+                    name: "at_an_offset_inside_a_column_the_overrun_is_on_the_left_and_the_\
+                           picture_is_wrong",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/grid_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 77,
+        on_spec_table: false,
+        gate: "a scroll scope at a nonzero offset shows its content and not the rows above it",
+        kind: Kind::Count,
+        owner: "C04",
+        section: "spec §21",
+        // **The fifth red row, and the only one on this register whose subject is another crate.**
+        // It is here rather than nowhere because §21's rule for a red gate is *assert the exact
+        // failing set, fire in both directions, say what to invert*, and all three are writable:
+        // the failing set is a range, the other direction is the same call at offset zero, and what
+        // inverts it is a sign in `vitui_runtime::ctx::Ctx::scroll_scope`.
+        standing: Standing::Red {
+            by: &[Instrument::Unit {
+                file: GRID,
+                name: "a_scroll_scope_at_a_nonzero_offset_shows_the_rows_above_the_content",
+            }],
+            failing: "`Ctx::scroll_scope(id, view, (0, 1 000), ...)` answers `visible_rows() == \
+                      -1000..-920`, a write at content row 1 000 reports **0** columns and a write \
+                      at row -1 000 reports 1. The engine's rule is *a viewport scrolled `n` rows \
+                      down is `scrolled(0, -n)`* and the scope passes `+n`, while \
+                      `vitui_runtime::scroll::Area::into_view` and `Scrollable::between` both read \
+                      the offset as positive - so the two halves of the runtime's own scrolling \
+                      disagree about a sign. It is C03's inverted scroll sign inside the runtime's \
+                      own verb, and it survives because every caller that draws through a scroll \
+                      scope draws at offset 0",
+            inverted_by: "runtime architecture issue 26",
+        },
+    },
+    Row {
+        number: 78,
+        on_spec_table: false,
+        gate: "a table scene with no subject fails differently from one whose code is wrong",
+        kind: Kind::CompileOutcome,
+        owner: "C11",
+        section: "spec §21",
+        // **Row 67 one component over**, and it is a row rather than a comment for row 67's reason:
+        // the whole argument of §21 is that an obligation stated as a sentence gets broken by
+        // someone who has read it. `CompileOutcome` because what is asserted is that a *file*
+        // declares an item, read by opening it - the one thing a `compile_fail` fence cannot say.
+        standing: Standing::Red {
+            by: &[
+                Instrument::Unit {
+                    file: GRID,
+                    name: "the_grid_is_red_because_table_is_not_declared",
+                },
+                Instrument::Unit {
+                    file: GRID,
+                    name: "the_waiting_message_separates_unimplemented_from_wrong",
+                },
+                Instrument::Unit {
+                    file: GRID,
+                    name: "the_subject_scan_finds_a_declaration_and_the_freeze_agrees_with_it",
+                },
+            ],
+            failing: "`table` is undeclared, so scenes 7 and 30 are pinned red and both are \
+                      waiting for it. `crates/vitui-components/src/collect.rs` carries no \
+                      `pub fn table(`, which is what `crate::grid::subjects_declared` opens the \
+                      file to find out, and `crate::grid::standing` is `Unmet { over: 1, failing: \
+                      1 }` rather than `Met` over nothing",
+            inverted_by: "components 15",
         },
     },
 ];
@@ -2464,7 +2591,7 @@ mod tests {
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn fifty_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn fifty_two_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -2480,7 +2607,7 @@ mod tests {
         assert_eq!(evaluated, EVALUATED, "the count §21 asks a test to assert");
         assert_eq!(
             red,
-            vec![7, 8, 29, 67, 74],
+            vec![7, 8, 29, 67, 74, 77, 78],
             "the four gates that are red and pinned: the sentinel, the palette after a swap, \
              twenty wheel clicks and the collection's five scenes waiting for their subject. The \
              glyph-set count was one of them and components ticket 05 inverted it; row 61 was \
@@ -2502,7 +2629,7 @@ mod tests {
              over a domain and needs no component to be run against, and whose row had been \
              citing spec §13 and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 74);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 78);
     }
 
     /// **The split, not the total.**
@@ -2513,10 +2640,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_forty_two_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_forty_six_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 42);
+        assert_eq!(REGISTER.len() - on_table, 46);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -2819,6 +2946,7 @@ mod tests {
                 "dense_numbers.rs".to_string(),
                 "gates_numbers.rs".to_string(),
                 "glyph_numbers.rs".to_string(),
+                "grid_numbers.rs".to_string(),
                 "keys_numbers.rs".to_string(),
                 "listing_numbers.rs".to_string(),
                 "nav_numbers.rs".to_string(),
