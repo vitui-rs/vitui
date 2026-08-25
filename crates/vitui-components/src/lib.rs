@@ -148,8 +148,10 @@
 pub mod accordion;
 pub mod app;
 pub mod area;
+pub mod clusters;
 pub mod counters;
 pub mod dense;
+pub mod document;
 pub mod forest;
 pub mod form;
 pub mod frame;

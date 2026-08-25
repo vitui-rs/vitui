@@ -199,7 +199,19 @@ impl<'a> Iterator for Wrap<'a> {
         }
         // A break point inside what fits: cut there, and the whitespace goes with the line being
         // ended rather than starting the next one.
-        if last_break > 0 && last_break <= end {
+        //
+        // **`end + 1` and not `end`, and the difference is a defect this guard used to have.** The
+        // loop above records a break at *every* space it sees, including the one that ends the
+        // fitted content and does not itself fit — and that space is the legal break, because the
+        // row is everything before it. The guard read `<= end`, so a line that **exactly filled its
+        // band** and was followed by a space failed it and fell through to the overhang branch
+        // below, which cuts at the *first* space instead: `wrap("ab cde fg", 6)` answered
+        // `["ab", "cde fg"]` where `["ab cde", "fg"]` is the greedy answer. All four break
+        // characters are one byte, and the loop breaks at the first cluster that does not fit, so
+        // the only non-fitting space it can have seen is the adjacent one — which is why `end + 1`
+        // is exact rather than slack. Found by components ticket 23, whose wrap index over a cluster
+        // corpus was drawing three rows where two were needed.
+        if last_break > 0 && last_break <= end + 1 {
             let (line, rest) = self.rest.split_at(last_break);
             self.rest = rest.trim_start_matches(is_ascii_space_char);
             return Some(line.trim_end());
@@ -481,5 +493,49 @@ mod tests {
         assert!(width(lines[0]) > 6, "so the one line overhangs");
         // And the answer for a component that must not be wrong: truncate, which is exact.
         assert_eq!(width(truncate("漢字漢字漢字漢字漢字", 6)), 6);
+    }
+
+    /// **A row that exactly fills its band keeps what fitted**, and does not fall through to the
+    /// overhang branch.
+    ///
+    /// The defect this is the regression for: the break guard read `last_break <= end`, and the
+    /// space that *ends* the fitted content sits one byte past `end` because it does not itself
+    /// fit. So a line whose content came out at exactly `w` columns failed the guard and was cut at
+    /// the **first** space instead of the last — `["ab", "cde fg"]` where `["ab cde", "fg"]` is
+    /// what a greedy wrap answers.
+    ///
+    /// Found by components ticket 23, from the other end: a wrap index over a cluster corpus drew
+    /// three visual rows for a line that needs two, and the fixture's own 625/875 construction is
+    /// what noticed. Every case here is ASCII, because the defect is not about clusters.
+    #[test]
+    fn a_line_that_exactly_fills_its_band_is_not_cut_at_the_first_space() {
+        assert_eq!(wrap("ab cde fg", 6).collect::<Vec<_>>(), ["ab cde", "fg"]);
+        assert_eq!(wrap("ab cd ef", 5).collect::<Vec<_>>(), ["ab cd", "ef"]);
+        assert_eq!(
+            wrap("a b c d e f", 5).collect::<Vec<_>>(),
+            ["a b c", "d e f"]
+        );
+
+        // The neighbours the guard was there for, unchanged: an over-long word still overhangs, and
+        // a break inside what fits is still the last one rather than the first.
+        assert_eq!(
+            wrap("ab cdefghijkl mn", 6).collect::<Vec<_>>(),
+            ["ab", "cdefghijkl", "mn"]
+        );
+        assert_eq!(
+            wrap("ab cd efghij", 6).collect::<Vec<_>>(),
+            ["ab cd", "efghij"]
+        );
+
+        // The width relation the fix is really about: every emitted row fits the band unless it is
+        // one over-long word, and no row is shorter than it had to be.
+        for w in 2u16..12 {
+            let rows: Vec<&str> = wrap("ab cde fg hijk lm", w).collect();
+            for (i, row) in rows.iter().enumerate() {
+                if width(row) > w {
+                    assert!(!row.contains(' '), "row {i} overhangs and is not one word");
+                }
+            }
+        }
     }
 }

@@ -55,7 +55,7 @@
 //!   claiming fifteen green gates over an empty population.
 //!
 //! **Forty-two evaluated, four red, six unreachable, fifteen unsubjected**, and
-//! `tests::fifty_five_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
+//! `tests::fifty_nine_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
 //! deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
 //! and subjected row 27, the cross-family collapse gate; ticket 07 added five, and none of them
@@ -357,6 +357,11 @@ const GRID: &str = "crates/vitui-components/src/grid.rs";
 /// The accordion's own file, which is where components ticket 21's rows run.
 const ACCORDION: &str = "crates/vitui-components/src/accordion.rs";
 
+/// The document's own file, which is where components ticket 23's rows run.
+const DOCUMENT: &str = "crates/vitui-components/src/document.rs";
+const CLUSTERS: &str = "crates/vitui-components/src/clusters.rs";
+const FIELD_NUMBERS: &str = "crates/vitui-components/examples/field_numbers.rs";
+
 /// How many rows of [`REGISTER`] are spec §21's own table. **Thirty-two, and it is closed** — a
 /// thirty-third would be a spec change.
 pub const SPEC_ROWS: usize = 32;
@@ -399,10 +404,10 @@ pub const SPEC_ROWS: usize = 32;
 /// row still asserting *the four components do not exist* would now be asserting they are gone.
 /// That is the second inversion here worth being suspicious about: a red row phrased as an absence
 /// cannot be turned green by editing one field.
-pub const EVALUATED: usize = 55;
+pub const EVALUATED: usize = 59;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 80] = [
+pub const REGISTER: [Row; 85] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -1988,7 +1993,7 @@ pub const REGISTER: [Row; 80] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "thirteen_scenes_have_nothing_to_run_over_fifteen_are_red_and_three_are_\
+                    name: "eleven_scenes_have_nothing_to_run_over_eighteen_are_red_and_three_are_\
                            stood_up",
                 },
             ],
@@ -2218,7 +2223,7 @@ pub const REGISTER: [Row; 80] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "thirteen_scenes_have_nothing_to_run_over_fifteen_are_red_and_three_are_\
+                    name: "eleven_scenes_have_nothing_to_run_over_eighteen_are_red_and_three_are_\
                            stood_up",
                 },
             ],
@@ -2436,6 +2441,219 @@ pub const REGISTER: [Row; 80] = [
                     file: "crates/vitui-components/examples/collapsible_numbers.rs",
                 },
             ],
+        },
+    },
+    // ── components ticket 23's five, and four of them are about what a counter cannot see ────────
+    Row {
+        number: 81,
+        on_spec_table: false,
+        gate: "every gate of spec §11 runs on clusters that are not one code point, and the same \
+               gate over ASCII reports nothing",
+        kind: Kind::Count,
+        owner: "C06",
+        section: "spec §11",
+        // **The row that makes the corpus a value rather than a string literal.** §11's sentence is
+        // *every number and every gate runs on clusters that are not one code point*, and a
+        // sentence is what gets broken by somebody who has read it (§17). What is asserted is the
+        // pair: the corpus carries all seven kinds §11 names, and the same sweep over a corpus of
+        // nothing but ASCII reports 0 steps inside a cluster and 0 width surprises — so a gate that
+        // has quietly started running on ASCII fails rather than passing.
+        //
+        // **The barrier is the finding underneath it.** `vitui_engine::graphemes` is a free
+        // function, not a type, so it is on no `pub use vitui_engine::` line in the runtime and
+        // `crate::line::ENGINE_NAMES` — a list of types — cannot carry it. A forward cluster step
+        // is reconstructed here from two `truncate` probes, which is exact while no cluster is zero
+        // columns wide; a **line break is zero columns wide**, so the step is wrong across one and
+        // `crate::document::step` handles the break itself. Components ticket 24 is where the cost
+        // of that is argued, and this row is where it is pointed at.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: CLUSTERS,
+                    name: "the_corpus_carries_every_kind_section_eleven_names",
+                },
+                Instrument::Unit {
+                    file: CLUSTERS,
+                    name: "no_cluster_in_the_corpus_is_zero_columns_wide",
+                },
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "a_char_caret_lands_inside_clusters_and_changes_widths_nobody_typed",
+                },
+                Instrument::Barrier {
+                    file: "crates/vitui-runtime/src/layout/text.rs",
+                    line: "use vitui_engine::{graphemes, width_of};",
+                },
+                Instrument::Report {
+                    file: FIELD_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 82,
+        on_spec_table: false,
+        gate: "no counter of §20's nine separates a build that violates one of §11's four gates \
+               from one that does not, and the allocation total prefers the defective build",
+        kind: Kind::Count,
+        owner: "C06",
+        section: "spec §11, §20",
+        // **§11 heads its four gates *none of them visible on the rendered screen*, and measured
+        // that sentence splits in two.** Gates 1 and 2 are invisible in the strong sense — the
+        // caret is `Screen::set_cursor` and not a cell, so both arms draw the same 24 000 cells.
+        // Gates 3 and 4 change the screen a great deal and **no counter can tell**: the memo-key
+        // defect draws 69 of 80 rows wrong while writing the same cells, making the same verbs,
+        // declaring the same regions and recomputing *once* against the correct build's twice.
+        //
+        // This is components ticket 11's `counters_that_separate_them` one component over, run over
+        // four defects rather than one, and the answer is the empty list on all four. A non-empty
+        // one would mean a cheaper gate than the equality exists and the scenes are optional.
+        //
+        // **The ninth column is the caller's and it is not a hole.** `vitui-alloc-probe` is a
+        // dev-dependency, so a library cannot measure it; the tests below hand both arms the same
+        // value, which makes that column inert rather than false, and
+        // `examples/field_numbers.rs` measures it with the probe installed. Measured, it separates
+        // exactly one of the four — **in the direction that approves the defect**, because a stale
+        // index has 625 rows where 875 are needed and the defective frame allocates less. §21's
+        // refinement 1 in one number: a counter on the wrong side of the question is not a weak
+        // gate, it is a green one.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "no_counter_separates_a_field_that_violates_one_of_the_four_gates_from_\
+                           one_that_does_not",
+                },
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "the_two_caret_gates_change_no_cell_and_the_two_index_gates_change_many",
+                },
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "the_caret_is_where_the_two_caret_defects_are_visible_and_it_is_not_a_\
+                           cell",
+                },
+                Instrument::Report {
+                    file: FIELD_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 83,
+        on_spec_table: false,
+        gate: "a splice restarted one row before the edit's agrees with a rebuild 500 times in 500, \
+               and one restarted at the edit's own row does not",
+        kind: Kind::Equality,
+        owner: "C06",
+        section: "spec §10, §11",
+        // §11 states *499 times in 500* about the naive restart point and *provably enough* about
+        // the one a row earlier. Both halves are run over the same five hundred deterministic
+        // edits, and the screen the surface figure comes from is drawn at the **first** of the five
+        // hundred the naive point gets wrong — so the count and the picture are about one edit.
+        //
+        // **`provably enough` was false when this row was first written, and the cause was a defect
+        // rather than the rule.** `vitui_runtime::layout::text::wrap` discarded a row that exactly
+        // filled its band and fell through to the overhang branch, so a line's break structure could
+        // change arbitrarily far back and five of the five hundred disagreed. Fixed by this ticket,
+        // with the regression in the runtime's own module.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "five_hundred_splices_separate_the_two_restart_points",
+                },
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "a_splice_restarted_at_the_row_of_the_edit_keeps_a_break_the_edit_\
+                           invalidated",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-runtime/src/layout/text.rs",
+                    name: "a_line_that_exactly_fills_its_band_is_not_cut_at_the_first_space",
+                },
+                Instrument::Report {
+                    file: FIELD_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 84,
+        on_spec_table: false,
+        gate: "a wrap memo keyed on the revision alone draws 625 rows where 875 are needed, and \
+               `recomputes` prefers it 1 against 2",
+        kind: Kind::Equality,
+        owner: "C06",
+        section: "spec §11, §21",
+        // §21's scene 13, as an equality against a correct render rather than as a row count. The
+        // second clause is the reason it cannot be gated on `recomputes`: the defective key is a
+        // cache **hit** on the resize, so the counter a reader would reach for first reports the
+        // defect as the cheaper build.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "the_resize_differs_on_sixty_nine_of_eighty_rows",
+                },
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "the_defective_memo_recomputes_once_and_the_correct_one_twice",
+                },
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "a_memo_keyed_on_the_revision_alone_draws_an_index_built_at_another_\
+                           width",
+                },
+                Instrument::Report {
+                    file: FIELD_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 85,
+        on_spec_table: false,
+        gate: "a `field` scene with no subject fails differently from one whose code is wrong",
+        kind: Kind::CompileOutcome,
+        owner: "C06",
+        section: "spec §21",
+        // **Row 67 one ticket later, for a different component.** Ticket 09 pinned the dense
+        // screen's three scenes in this shape and ticket 10 inverted it; ticket 11 pinned the
+        // listing's five; this is the same distinction for `field`, and it is a row rather than a
+        // comment because §21's whole argument is that an obligation stated as a sentence gets
+        // broken by someone who has read it.
+        //
+        // `CompileOutcome` for row 61's reason: what is asserted is that a *file* declares an item,
+        // read by opening it — the one thing a `compile_fail` fence cannot say, because a fence
+        // over a missing item passes today and passes again the day the module is renamed.
+        standing: Standing::Red {
+            by: &[
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "the_document_is_red_because_field_is_not_declared",
+                },
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "the_waiting_message_separates_unimplemented_from_wrong",
+                },
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "the_subject_scan_finds_a_declaration_when_there_is_one",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/scenes.rs",
+                    name: "eleven_scenes_have_nothing_to_run_over_eighteen_are_red_and_three_are_\
+                           stood_up",
+                },
+            ],
+            failing: "`field` is undeclared, so three scenes are pinned red — 12, 13 and 30 — and \
+                      all three are waiting for it. `crates/vitui-components/src/input.rs` carries \
+                      no `pub fn field` declaration, which is what \
+                      `crate::document::subjects_declared` opens the file to find out, and \
+                      `crate::document::standing` is `Unmet { over: 1, failing: 1 }` rather than \
+                      `Met` over nothing",
+            inverted_by: "components 24",
         },
     },
 ];
@@ -2718,7 +2936,7 @@ mod tests {
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn fifty_five_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn fifty_nine_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -2734,7 +2952,7 @@ mod tests {
         assert_eq!(evaluated, EVALUATED, "the count §21 asks a test to assert");
         assert_eq!(
             red,
-            vec![7, 8, 29, 67, 74, 77, 78],
+            vec![7, 8, 29, 67, 74, 77, 78, 85],
             "the four gates that are red and pinned: the sentinel, the palette after a swap, \
              twenty wheel clicks and the collection's five scenes waiting for their subject. The \
              glyph-set count was one of them and components ticket 05 inverted it; row 61 was \
@@ -2756,7 +2974,7 @@ mod tests {
              over a domain and needs no component to be run against, and whose row had been \
              citing spec §13 and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 80);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 85);
     }
 
     /// **The split, not the total.**
@@ -2767,10 +2985,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_forty_eight_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_fifty_three_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 48);
+        assert_eq!(REGISTER.len() - on_table, 53);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -2890,7 +3108,11 @@ mod tests {
             .iter()
             .filter(|r| r.gate.contains("allocation"))
             .collect();
-        assert_eq!(rows.len(), 2, "row 32 and row 36");
+        assert_eq!(
+            rows.len(),
+            3,
+            "row 32, row 36 and components ticket 23's row 82"
+        );
         assert!(
             rows.iter().any(|r| r.gate.contains("total")),
             "the steady-frame allocation row must say `total`"
@@ -3072,6 +3294,7 @@ mod tests {
                 "area_numbers.rs".to_string(),
                 "collapsible_numbers.rs".to_string(),
                 "dense_numbers.rs".to_string(),
+                "field_numbers.rs".to_string(),
                 "gates_numbers.rs".to_string(),
                 "glyph_numbers.rs".to_string(),
                 "grid_numbers.rs".to_string(),

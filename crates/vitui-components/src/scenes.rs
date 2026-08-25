@@ -36,7 +36,7 @@
 //! ([`Scene::owed`] and [`Scene::from_a_survived_defect`]), because the value can hold both and a
 //! count cannot.
 //!
-//! # Thirteen scenes are `Unsubjected`, fifteen are `Red` and three are `Evaluated`
+//! # Eleven scenes are `Unsubjected`, eighteen are `Red` and three are `Evaluated`
 //!
 //! [`crate::gates::Standing::Unsubjected`] means *it could run and there is nothing to run it over*.
 //! Twenty-four of the twenty-nine components do not exist, so most of these screens cannot be stood
@@ -69,7 +69,7 @@
 //! `scroll_into_view` itself, which `CONTEXT.md` forbids and which four *resolved* tickets wrote
 //! anyway. Ticket 12's own criterion says so — *every scene of ticket 11 is green except the wheel
 //! gate, which stays pinned red for ticket 20* — and
-//! `tests::thirteen_scenes_have_nothing_to_run_over_fifteen_are_red_and_three_are_stood_up`
+//! `tests::eleven_scenes_have_nothing_to_run_over_eighteen_are_red_and_three_are_stood_up`
 //! asserts
 //! the pairing rather than the count alone, because a single `inverted_by` across the five would
 //! erase the distinction while keeping the number right.
@@ -230,6 +230,18 @@ pub enum Content {
     Files {
         /// How many.
         files: u32,
+    },
+    /// **Text, addressed as clusters rather than as bytes.**
+    ///
+    /// The arm components ticket 23 adds, and it is an arm rather than a reuse of
+    /// [`Content::Fields`] because a corpus is not a screen: §11's *every number and every gate
+    /// runs on clusters that are not one code point* is a statement about an **input**, and filing
+    /// it as a field would make `bytes` the quantity when the quantity is *which kinds are in it*.
+    Corpus {
+        /// How many clusters.
+        clusters: u32,
+        /// How many kinds of cluster. Seven of them are §11's own list.
+        kinds: u8,
     },
 }
 
@@ -436,6 +448,11 @@ const OWED_ITS_SCROLL_AREA: &str = "`scroll_area`, `scrollbar` and `sticky` are 
 const FOREST: &str = "crates/vitui-components/src/forest.rs";
 /// The grid's own file, which is where components ticket 14's two scenes are played.
 const GRID: &str = "crates/vitui-components/src/grid.rs";
+/// The document's own file, which is where components ticket 23's three scenes are played.
+const DOCUMENT: &str = "crates/vitui-components/src/document.rs";
+
+/// The cluster corpus's own file. Scene 30 is a scene *of* it.
+const CLUSTERS: &str = "crates/vitui-components/src/clusters.rs";
 
 /// **What the dense screen is a screen of, and none of the four is declared yet.**
 ///
@@ -456,6 +473,114 @@ const COLLECTION: &[&str] = &crate::listing::SUBJECTS;
 /// components ticket 14 pins claim `table` stands on their screen, and the failing set they are
 /// pinned in is computed by opening the file the freeze homes `table` in.
 const TABLE: &[&str] = &crate::grid::SUBJECTS;
+/// **What the field's scenes are scenes of, and it is not declared yet.**
+///
+/// [`crate::document::SUBJECTS`], reached through this alias for [`COLLECTION`]'s reason.
+const FIELD: &[&str] = &crate::document::SUBJECTS;
+
+/// **The pair every one of components ticket 23's three scenes is pinned by.**
+///
+/// One fact — `field` is not declared — stated once, and the two halves are the two directions
+/// criterion 8 asks for: [`crate::document::standing`] is the verdict over the one subject, and
+/// [`crate::document::owed_message`] is the sentence that separates *waiting for its subject* from
+/// *the code is wrong*.
+const WAITING_FOR_FIELD: &[Instrument] = &[
+    Instrument::Unit {
+        file: DOCUMENT,
+        name: "the_document_is_red_because_field_is_not_declared",
+    },
+    Instrument::Unit {
+        file: DOCUMENT,
+        name: "the_waiting_message_separates_unimplemented_from_wrong",
+    },
+];
+
+/// The failing set all three of components ticket 23's scenes are pinned in.
+const OWED_ITS_FIELD: &str = "`field` is not declared in `crates/vitui-components/src/input.rs`, \
+                              so the three screens stand on a caret and a wrap index written in \
+                              `crate::document`. Everything the screens themselves can be asked \
+                              is measured and green — 167 clusters over the seven kinds §11 \
+                              names, 625 visual rows at 300 columns against 875 at 120, 69 of 80 \
+                              rows differing under a memo keyed on the revision alone, 500 \
+                              splices separating the two restart points, and all four of §11's \
+                              gates watched firing while none of §20's nine counters can see any \
+                              of them. What is missing is the subject";
+
+/// What pins scene 12, beyond the pair all three share.
+const PINS_SCENE_12: &[Instrument] = &[
+    Instrument::Unit {
+        file: DOCUMENT,
+        name: "the_document_screen_stands_twenty_fields_and_writes_every_cell_once",
+    },
+    Instrument::Unit {
+        file: DOCUMENT,
+        name: "left_at_the_end_of_a_megabyte_costs_one_row_with_an_index_and_the_buffer_\
+               without_one",
+    },
+    Instrument::Unit {
+        file: DOCUMENT,
+        name: "the_caret_is_always_on_a_cluster_boundary_and_the_off_boundary_arm_is_not",
+    },
+    Instrument::Unit {
+        file: DOCUMENT,
+        name: "the_carets_column_is_the_engines_tables_and_counting_code_points_is_not",
+    },
+    Instrument::Unit {
+        file: DOCUMENT,
+        name: "the_caret_is_where_the_two_caret_defects_are_visible_and_it_is_not_a_cell",
+    },
+    WAITING_FOR_FIELD[0],
+    WAITING_FOR_FIELD[1],
+];
+
+/// What pins scene 13. See [`PINS_SCENE_12`].
+const PINS_SCENE_13: &[Instrument] = &[
+    Instrument::Unit {
+        file: DOCUMENT,
+        name: "the_resize_differs_on_sixty_nine_of_eighty_rows",
+    },
+    Instrument::Unit {
+        file: DOCUMENT,
+        name: "the_document_is_six_hundred_and_twenty_five_rows_wide_and_eight_hundred_\
+               and_seventy_five_narrow",
+    },
+    Instrument::Unit {
+        file: DOCUMENT,
+        name: "the_defective_memo_recomputes_once_and_the_correct_one_twice",
+    },
+    Instrument::Unit {
+        file: DOCUMENT,
+        name: "five_hundred_splices_separate_the_two_restart_points",
+    },
+    WAITING_FOR_FIELD[0],
+    WAITING_FOR_FIELD[1],
+];
+
+/// What pins scene 30, the cluster corpus. See [`PINS_SCENE_12`].
+const PINS_SCENE_32: &[Instrument] = &[
+    Instrument::Unit {
+        file: CLUSTERS,
+        name: "the_corpus_carries_every_kind_section_eleven_names",
+    },
+    Instrument::Unit {
+        file: CLUSTERS,
+        name: "the_three_derivations_of_the_boundary_set_agree",
+    },
+    Instrument::Unit {
+        file: CLUSTERS,
+        name: "no_cluster_in_the_corpus_is_zero_columns_wide",
+    },
+    Instrument::Unit {
+        file: DOCUMENT,
+        name: "a_char_caret_lands_inside_clusters_and_changes_widths_nobody_typed",
+    },
+    Instrument::Barrier {
+        file: "crates/vitui-runtime/src/layout/text.rs",
+        line: "use vitui_engine::{graphemes, width_of};",
+    },
+    WAITING_FOR_FIELD[0],
+    WAITING_FOR_FIELD[1],
+];
 
 /// **The pair every one of components ticket 11's five scenes is pinned by**, written once because
 /// it is one fact: `collection` is not declared, and the listing says which failure that is.
@@ -902,7 +1027,7 @@ const STANDS_SCENE_28: &[Instrument] = &[
 
 /// Spec §21's scene list, row for row, and this backlog's scenes beside it. **Thirty, of which
 /// twenty-seven are §21's table and §21's table is the authority.**
-pub const SCENES: [Scene; 31] = [
+pub const SCENES: [Scene; 32] = [
     Scene {
         number: 1,
         on_spec_table: true,
@@ -1215,13 +1340,17 @@ pub const SCENES: [Scene; 31] = [
             Gesture::Type { bytes: 1_048_576 },
             Gesture::Press { chord: "Left" },
         ],
-        decided: "the caret pair and the index: 9 655x on one `Left`",
+        decided: "the caret pair and the index: 9 655x on one `Left`. Twenty hit entries here, \
+                  24 000 of 24 000 cells written once, and the two caret gates watched firing \
+                  while the surface stays 0 cells apart",
         covers: &[],
-        stands: &[],
+        stands: FIELD,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Unsubjected {
-            inverted_by: "components 23",
+        standing: Standing::Red {
+            by: PINS_SCENE_12,
+            failing: OWED_ITS_FIELD,
+            inverted_by: "components 24",
         },
         rehearsed_by: &[],
     },
@@ -1238,13 +1367,16 @@ pub const SCENES: [Scene; 31] = [
             bytes: 1_048_576,
         },
         gestures: &[Gesture::Resize { w: 120, h: 80 }],
-        decided: "the memo key: 625 rows drawn where 875 are needed",
+        decided: "the memo key: 625 rows drawn where 875 are needed, 69 of 80 rows differing on \
+                  the surface — and `recomputes` points the wrong way at 1 against 2",
         covers: &[("field", Axis::Narrow)],
-        stands: &[],
+        stands: FIELD,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Unsubjected {
-            inverted_by: "components 23",
+        standing: Standing::Red {
+            by: PINS_SCENE_13,
+            failing: OWED_ITS_FIELD,
+            inverted_by: "components 24",
         },
         rehearsed_by: &[],
     },
@@ -1770,6 +1902,44 @@ pub const SCENES: [Scene; 31] = [
         },
         rehearsed_by: &[],
     },
+    // **The third scene §21 does not carry**, and components ticket 04 predicted it by name:
+    // *`issues/23` will ask for the cluster corpus*. The ticket asks for it as a **fixture**, and
+    // it is registered as a scene anyway for the reason at the top of this module — the ticket's
+    // own sentence is *the corpus is not optional and is not sampled*, and a fixture can be
+    // sampled away by a later ticket with nothing saying so. A scene cannot: it is removed only by
+    // a ticket naming the property it can no longer distinguish.
+    //
+    // **It stands no component and covers no axis**, which is why `scenes_for("field")` still
+    // answers two. A corpus is what the other two scenes are run *over*.
+    Scene {
+        number: 32,
+        on_spec_table: false,
+        name: "the cluster corpus, seven kinds and a hundred and sixty-seven clusters",
+        size: Size::Unstated,
+        content: Content::Corpus {
+            clusters: 167,
+            kinds: 8,
+        },
+        // The cluster step, which is the gesture the whole corpus exists to be crossed by.
+        gestures: &[Gesture::Press { chord: "Right" }],
+        decided: "that a caret gate run on ASCII has said nothing: 251 char steps to cross 167 \
+                  clusters, 84 of them landing inside one, and 42 insertions at those positions \
+                  changing the buffer's width by something other than what was typed — against 0, \
+                  0 and 0 over the same shape in ASCII",
+        covers: &[],
+        stands: &[],
+        owed: false,
+        // Not a survived defect of §21's — it is a fixture §11 states in one sentence — but it did
+        // find two: `truncate` cannot segment across a line break, and `layout::text::wrap` cut a
+        // line that exactly filled its band at the *first* space.
+        from_a_survived_defect: false,
+        standing: Standing::Red {
+            by: PINS_SCENE_32,
+            failing: OWED_ITS_FIELD,
+            inverted_by: "components 24",
+        },
+        rehearsed_by: &[],
+    },
 ];
 
 /// **Every scene that stands `component` up.** Criterion 2's enumeration, from the scene's side.
@@ -1953,9 +2123,9 @@ mod tests {
     /// has twenty-seven rows; the spec is the authority and the count below reads the spec.
     #[test]
     fn the_specs_table_is_twenty_seven_rows_and_this_list_carries_them_all() {
-        assert_eq!(SCENES.len(), 31);
+        assert_eq!(SCENES.len(), 32);
         let numbers: BTreeSet<u8> = SCENES.iter().map(|s| s.number).collect();
-        assert_eq!(numbers, (1..=31).collect::<BTreeSet<u8>>());
+        assert_eq!(numbers, (1..=32).collect::<BTreeSet<u8>>());
         let names: BTreeSet<&str> = SCENES.iter().map(|s| s.name).collect();
         assert_eq!(names.len(), SCENES.len(), "two scenes share a name");
 
@@ -1966,10 +2136,11 @@ mod tests {
         assert_eq!(on_table, 27);
         assert_eq!(
             SCENES.len() - on_table,
-            4,
+            5,
             "components 09's narrow axis, components 11's narrow collection, components 14's \
-             equality under a horizontal offset — a *register* row of §21's and not a scene of \
-             §21's, so it arrives on this side of the line — and components 18's wrong pairing"
+             equality under a horizontal offset, components 18's wrong pairing and components \
+             23's cluster corpus — the last of which this module's header predicted by name one \
+             ticket after it was written"
         );
         for (index, scene) in SCENES.iter().enumerate() {
             assert_eq!(
@@ -2016,7 +2187,7 @@ mod tests {
         }
     }
 
-    /// **Thirteen scenes have nothing to run over, fifteen are pinned red and three are stood up.**
+    /// **Eleven scenes have nothing to run over, eighteen are pinned red and three are stood up.**
     ///
     /// `obligations.rs`'s arrangement and `gates.rs`'s: a count makes every change of colour a
     /// deliberate edit here rather than a quiet one. It was **twenty-five, none and three** until
@@ -2035,7 +2206,7 @@ mod tests {
     /// *every scene of ticket 11 is green except the wheel gate, which stays pinned red for ticket
     /// 20* — and a single `inverted_by` across them would erase it.
     #[test]
-    fn thirteen_scenes_have_nothing_to_run_over_fifteen_are_red_and_three_are_stood_up() {
+    fn eleven_scenes_have_nothing_to_run_over_eighteen_are_red_and_three_are_stood_up() {
         let red: Vec<u8> = SCENES
             .iter()
             .filter(|s| matches!(s.standing, Standing::Red { .. }))
@@ -2043,11 +2214,12 @@ mod tests {
             .collect();
         assert_eq!(
             red,
-            vec![3, 4, 5, 6, 7, 8, 9, 10, 11, 17, 18, 19, 29, 30, 31],
-            "components ticket 11's five, components ticket 14's two, components ticket 16's \
-             two, components ticket 18's four and components ticket 21's two — the fold anchor \
-             and the accordion. A sixteenth is a new one, and it owes an exact failing set and a \
-             ticket that inverts it"
+            vec![
+                3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 17, 18, 19, 29, 30, 31, 32
+            ],
+            "components ticket 11's five, 14's two, 16's two, 18's four, 21's two and 23's \
+             three — the twenty fields, the resize and the cluster corpus. A nineteenth is a new \
+             one, and it owes an exact failing set and a ticket that inverts it"
         );
         let evaluated: Vec<u8> = SCENES
             .iter()
@@ -2062,7 +2234,7 @@ mod tests {
              fourth arriving here is a deliberate edit to this module's header and to \
              `crate::gates::REGISTER`"
         );
-        assert_eq!(SCENES.len() - evaluated.len() - red.len(), 13);
+        assert_eq!(SCENES.len() - evaluated.len() - red.len(), 11);
 
         let mut pinned_to = Vec::new();
         for scene in SCENES {
@@ -2117,17 +2289,19 @@ mod tests {
                 (9, "components 17"),
                 (10, "components 22"),
                 (11, "components 22"),
+                (12, "components 24"),
+                (13, "components 24"),
                 (17, "components 19"),
                 (18, "components 19"),
                 (19, "components 19"),
                 (29, "components 12"),
                 (30, "components 19"),
                 (31, "components 15"),
+                (32, "components 24"),
             ],
-            "the wheel gate is not waiting for its subject and the other fourteen are. Merging \
-             the two loses the distinction components 11's criterion 7 is about. Components \
-             ticket 14's pair, 16's pair, 18's four and 21's pair are all on the subject side \
-             of it: `table`, `tree`, `collapsible`, `scroll_area`, `scrollbar` and `sticky` are \
+            "the wheel gate is not waiting for its subject and the other seventeen are. Merging \
+             the two loses the distinction components 11's criterion 7 is about: `table`, \
+             `tree`, `collapsible`, `field`, `scroll_area`, `scrollbar` and `sticky` are \
              undeclared and no defect of theirs is pinned here"
         );
     }
@@ -2409,13 +2583,15 @@ mod tests {
     fn a_rehearsal_is_never_what_stands_a_scene_up() {
         // The files where a screen or one of its components is measured. `crate::runner`'s is not
         // one of them, and that is the whole check.
-        const SCREEN_FILES: [&str; 10] = [
+        const SCREEN_FILES: [&str; 12] = [
             DENSE,
             LISTING,
             AREA,
             FOREST,
             GRID,
             ACCORDION,
+            DOCUMENT,
+            CLUSTERS,
             "crates/vitui-components/src/text.rs",
             "crates/vitui-components/src/input.rs",
             "crates/vitui-components/src/structure.rs",
@@ -2523,7 +2699,7 @@ mod tests {
             SCENES.len() + 1,
             "one line a scene, plus the heading"
         );
-        assert_eq!(printed.matches("not played: `components ").count(), 13);
+        assert_eq!(printed.matches("not played: `components ").count(), 11);
         assert_eq!(
             printed
                 .matches("stood up on its own components, by ")
@@ -2533,9 +2709,9 @@ mod tests {
         );
         assert_eq!(
             printed.matches("red, pinned: `components ").count(),
-            15,
-            "components ticket 11's five, ticket 14's two, ticket 16's two, ticket 18's four \
-             and ticket 21's two, and a red line is neither *not played* nor *stood up*"
+            18,
+            "components ticket 11's five, 14's two, 16's two, 18's four, 21's two and 23's \
+             three, and a red line is neither *not played* nor *stood up*"
         );
         assert_eq!(printed.matches("[rehearsed over a fixture").count(), 1);
         assert!(
@@ -2574,6 +2750,6 @@ mod tests {
             .map(|s| s.number)
             .collect();
         assert_eq!(still, vec![1, 2, 26]);
-        assert_eq!(SCENES.len() - still.len(), 28);
+        assert_eq!(SCENES.len() - still.len(), 29);
     }
 }
