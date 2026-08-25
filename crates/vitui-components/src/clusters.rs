@@ -127,6 +127,61 @@ impl Kind {
     pub fn named_by_spec(self) -> bool {
         self != Kind::Ascii
     }
+
+    /// **Whether `cluster` really is one of these**, checked against the code points it is made of
+    /// rather than against the label somebody put on it.
+    ///
+    /// The label alone is a vacuous gate and it was one: the first version of
+    /// `tests::the_corpus_carries_every_kind_section_eleven_names` counted the `kinds` vector, so
+    /// the ZWJ family's word could be replaced with `"f", "a", "m"` and the corpus still reported
+    /// seven ZWJ clusters. That is exactly the accident
+    /// [`crate::obligations::Verdict::of`] refuses one file over — *an equality between two things
+    /// that do not exist holds* — arriving on the one value the whole ticket runs over.
+    ///
+    /// The joining spaces are `Kind::Ascii` and satisfy it, which is why the ASCII arm is the
+    /// permissive one.
+    pub fn describes(self, cluster: &str) -> bool {
+        let points: Vec<char> = cluster.chars().collect();
+        let columns = width(cluster);
+        match self {
+            Kind::Ascii => points.len() == 1 && points[0].is_ascii() && columns == 1,
+            // A base and one combining mark, one column wide.
+            Kind::Acute => points.len() == 2 && points[1] == '\u{301}' && columns == 1,
+            // A base and two, still one column wide — which is the whole point of the kind.
+            Kind::TwoMarks => {
+                points.len() == 3
+                    && points[1] == '\u{323}'
+                    && points[2] == '\u{302}'
+                    && columns == 1
+            }
+            // Four emoji and three joiners: seven code points, two columns.
+            Kind::ZwjFamily => {
+                points.len() >= 5
+                    && points.iter().filter(|c| **c == '\u{200D}').count() >= 2
+                    && columns == 2
+            }
+            // An emoji and a `U+1F3FB`-`U+1F3FF` selector.
+            Kind::SkinTone => {
+                points.len() == 2
+                    && ('\u{1F3FB}'..='\u{1F3FF}').contains(&points[1])
+                    && columns == 2
+            }
+            // The presentation selector, which is what makes the cluster two columns rather than
+            // one — so the width is not decoration here, it is the kind.
+            Kind::Presentation => points.len() == 2 && points[1] == '\u{FE0F}' && columns == 2,
+            // Two regional indicators, which are a flag exactly when there are two of them.
+            Kind::RegionalPair => {
+                points.len() == 2
+                    && points
+                        .iter()
+                        .all(|c| ('\u{1F1E6}'..='\u{1F1FF}').contains(c))
+                    && columns == 2
+            }
+            // **One code point and two columns**, which is the one kind that is wide without being
+            // long.
+            Kind::Cjk => points.len() == 1 && !points[0].is_ascii() && columns == 2,
+        }
+    }
 }
 
 /// One word of the corpus, **as a list of clusters rather than as a string**.
@@ -436,6 +491,32 @@ mod tests {
             7,
             "spec §11 names seven kinds; the eighth is the ASCII the wrap needs"
         );
+
+        // **And every kind is checked against its code points rather than against its label.**
+        // Counting the `kinds` vector alone is a vacuous gate and it *was* one: the ZWJ family's
+        // word could be replaced with three ASCII letters and the corpus went on reporting seven
+        // ZWJ clusters. See [`Kind::describes`].
+        for word in ROTA {
+            let carrier = word
+                .clusters
+                .iter()
+                .filter(|c| word.kind.describes(c))
+                .count();
+            assert!(
+                carrier >= 1,
+                "no cluster of the `{}` word is actually a `{}` — the label is the only thing \
+                 saying so",
+                word.clusters.concat(),
+                word.kind.word()
+            );
+        }
+
+        // The other direction, on the substitution that used to pass: three ASCII letters are not
+        // a ZWJ family, whatever the row beside them says.
+        assert!(!Kind::ZwjFamily.describes("f"));
+        assert!(!Kind::Cjk.describes("a"));
+        assert!(!Kind::Acute.describes("e"));
+        assert!(Kind::Acute.describes("e\u{301}"));
     }
 
     /// **No cluster in the corpus is zero columns wide**, which is [`next_cluster`]'s precondition
