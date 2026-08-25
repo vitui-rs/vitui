@@ -149,6 +149,16 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   evaluated**; scenes 7 and 31 green with row 78; the frame is **545 µs against a 544 µs stand-in**,
   so drawing through `collection` costs ~2%, and 166 µs over the budget while damaging nothing is
   recorded rather than optimised against.
+  **Its application found a second defect, in code that was already green.**
+  `crates/vitui-apps/examples/ledger.rs` is the first thing to put a table inside anything, and
+  `header_row` drew its bands from `x = 0` rather than from `head.x` — so a table handed a panel's
+  interior put its header one column into the border, and **every gate in the crate passed**,
+  because every one of them plays at `x == 0` where the header's coordinates and the body's agree.
+  They do not come from the same place: the body draws inside `Ctx::scroll_scope`, which childs at
+  the body's rectangle. Register row 113, gated on the reported double write at a non-zero origin —
+  276 of 2 304 right against 288 wrong. The app then made the mirror-image mistake in itself, a cell
+  drawer writing with `cx.text` instead of through the ink it was handed: **78 cells and 10 verbs on
+  a frame that wrote 1 560**, on a screen that looked correct.
 - **Ticket 05 is the one that reached down into the runtime**, and §16's split says so in as many
   words: the runtime owns the mechanism and the two-count invariant, the ticket owned the entry
   list. So `vitui_runtime::Glyph` went from **7 entries to 20** and `Distinction` from **3 to 10**,
@@ -330,7 +340,9 @@ crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers 
                             unnameable across the crate line; runtime issue 22 re-exported it and
                             components issue 17 deleted the stand-in
 crates/vitui              facade re-export — engine, runtime, components
-crates/vitui-apps         the applications, one file each in `examples/` — 1 so far: `counter`
+crates/vitui-apps         the applications, one file each in `examples/` — 4: `counter`, `triage`,
+                          `latency`, `ledger`. **A component ticket ships one**: the surface's only
+                          consumer, and twice now the thing that found the defect its gates could not
                           └ a workspace MEMBER, so CI builds them: a consumer nobody builds is a
                             consumer nobody checks (`compare/run.sh` is the precedent). Depends on
                             runtime + components and NOT on the `vitui` facade — the facade

@@ -2948,6 +2948,12 @@ fn header_row<I: Ink>(
     }
     let paint = cx.theme().paint(Role::Title);
     let y = head.y;
+    // **`head.x`, and leaving it out was a real defect.** The body draws inside
+    // `Ctx::scroll_scope`, which childs at the body's rectangle — so a body cell's `x` is relative
+    // to the table while a header cell's is relative to the **caller's** context. A table handed
+    // the interior of a panel then drew its header one column into the border. Found by
+    // `vitui-apps`'s `ledger`, which is the first thing to put a table inside anything.
+    let base = head.x;
     let mut write = |ink: &mut I, cx: &mut Ctx<'_, '_>, slot: usize, x: i32| {
         let title = cols[usize::from(s.spec[slot])].title;
         let cut = truncate(title, s.w[slot]);
@@ -2973,9 +2979,9 @@ fn header_row<I: Ink>(
             write(ink, &mut view, slot, at + s.x[slot] - shift);
         }
     };
-    in_band(ink, cx, 0, s.left_w, s.left, 0, &mut write);
-    in_band(ink, cx, band_x, s.view_w, window, signed, &mut write);
-    in_band(ink, cx, right_x, s.right_w, s.right, 0, &mut write);
+    in_band(ink, cx, base, s.left_w, s.left, 0, &mut write);
+    in_band(ink, cx, base + band_x, s.view_w, window, signed, &mut write);
+    in_band(ink, cx, base + right_x, s.right_w, s.right, 0, &mut write);
 }
 
 // ── what the table's two stores and its one slot cost ────────────────────────────────────────────
@@ -4247,7 +4253,7 @@ mod tests {
     #[test]
     fn the_header_writes_a_partition_of_its_row_in_the_same_columns() {
         let specs = crate::grid::columns(12);
-        let one = |header: bool| {
+        let one = |header: bool, x: i32| {
             let opts = TableOpts {
                 header,
                 ..TableOpts::default()
@@ -4257,7 +4263,7 @@ mod tests {
             let mut driver = crate::runner::driver_at(300, 8, vitui_runtime::Density::default());
             let mut tally = crate::counters::Tally::new();
             driver.frame(|cx| {
-                let area = cx.area();
+                let area = Rect::new(x, 0, u16::try_from(300 - x).expect("a width"), 8);
                 let _ = table_into(
                     &mut tally,
                     cx,
@@ -4280,11 +4286,11 @@ mod tests {
             (tally.writes(), tally.distinct(), tally.verbs())
         };
 
-        let (bare_w, bare_d, bare_v) = one(false);
+        let (bare_w, bare_d, bare_v) = one(false, 0);
         assert_eq!(bare_w, bare_d, "no cell twice");
         assert_eq!(bare_w, 300 * 8, "and every cell of the rectangle once");
 
-        let (head_w, head_d, head_v) = one(true);
+        let (head_w, head_d, head_v) = one(true, 0);
         assert!(
             head_v > bare_v,
             "the header is verbs the body did not issue"
@@ -4312,6 +4318,42 @@ mod tests {
             0,
             "and with no header there is one space and the pair is meaningful, which is why \
              `crate::grid` plays the scene without one"
+        );
+
+        // **The origin, and it is the half `vitui-apps`'s `ledger` found.** The body draws inside
+        // `Ctx::scroll_scope`, which childs at the body's rectangle, so a body cell's `x` is
+        // relative to the table; a header cell's is relative to the **caller's** context. Written
+        // without `head.x` the header started at column 0 whatever the rectangle said, and every
+        // assertion above still passed — they all play at `x == 0`, where the two agree. A table
+        // handed the interior of a panel drew its header one column into the border.
+        //
+        // Offset the table by twelve and the two spaces stop coinciding, which is what lets the
+        // recorder answer at all. The body draws inside the scope's child, so it is at `0..288`;
+        // the header draws in the caller's context, so it is at `12..300`. The union is the body's
+        // 2 016 cells plus the twelve header cells past the body's right edge, and the reported
+        // double write is the 276 they share.
+        //
+        // Written without `head.x` the header was at `0..288` — **inside** the body's columns —
+        // so the union was the body's alone and the double write was 288. The number is the gate,
+        // and no accessor had to be added to the recorder: it was already there.
+        let (off_w, off_d, ..) = one(true, 12);
+        assert_eq!(
+            off_w,
+            288 * 8,
+            "the rectangle is 288 wide and still written once"
+        );
+        assert_eq!(
+            off_d,
+            288 * 7 + 12,
+            "the header is drawn a column left of the body it belongs to: without `head.x` the \
+             union is the body's alone"
+        );
+        assert_eq!(off_w - off_d, 276);
+        let (flat_w, flat_d, ..) = one(false, 12);
+        assert_eq!(
+            (flat_w, flat_d),
+            (288 * 8, 288 * 8),
+            "and with no header the body alone is a partition wherever it starts"
         );
     }
 }

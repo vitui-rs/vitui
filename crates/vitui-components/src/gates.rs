@@ -55,7 +55,7 @@
 //!   claiming fifteen green gates over an empty population.
 //!
 //! **Forty-two evaluated, four red, six unreachable, fifteen unsubjected**, and
-//! `tests::ninety_one_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
+//! `tests::ninety_two_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
 //! deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
 //! and subjected row 27, the cross-family collapse gate; ticket 07 added five, and none of them
@@ -419,10 +419,10 @@ pub const SPEC_ROWS: usize = 32;
 /// row still asserting *the four components do not exist* would now be asserting they are gone.
 /// That is the second inversion here worth being suspicious about: a red row phrased as an absence
 /// cannot be turned green by editing one field.
-pub const EVALUATED: usize = 91;
+pub const EVALUATED: usize = 92;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 112] = [
+pub const REGISTER: [Row; 113] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -3567,8 +3567,32 @@ pub const REGISTER: [Row; 112] = [
             inverted_by: "runtime architecture issue 31",
         },
     },
+    Row {
+        number: 113,
+        on_spec_table: false,
+        gate: "a table draws its header where its body starts",
+        kind: Kind::Count,
+        owner: "C04",
+        section: "spec §6",
+        // **Found by a consumer and not by a gate**, which is what `vitui-apps` is for. The body
+        // draws inside `Ctx::scroll_scope`, which childs at the body's rectangle, so a body cell's
+        // `x` is relative to the table; a header cell's is relative to the caller's context.
+        // Written without `head.x` the header started at column 0 whatever the rectangle said —
+        // and every test on this register still passed, because they all play at `x == 0`, where
+        // the two agree. `ledger` put a table inside a panel and the header landed one column into
+        // the border.
+        //
+        // The gate is the reported double write at a non-zero origin: 276 of 2 304 when the origin
+        // is right and 288 when it is not, because a header inside the body's columns is contained
+        // by them. No accessor had to be added to the recorder — the number was already there.
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: COLLECT,
+                name: "the_header_writes_a_partition_of_its_row_in_the_same_columns",
+            }],
+        },
+    },
 ];
-
 /// **The compile-outcome pair row 31 names, and its positive twin.**
 ///
 /// # The twin, naming the protected items by path
@@ -3847,7 +3871,7 @@ mod tests {
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn ninety_one_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn ninety_two_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -3886,7 +3910,7 @@ mod tests {
              over a domain and needs no component to be run against, and whose row had been \
              citing spec §13 and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 112);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 113);
     }
 
     /// **The split, not the total.**
@@ -3897,10 +3921,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_eighty_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_eighty_one_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 80);
+        assert_eq!(REGISTER.len() - on_table, 81);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,

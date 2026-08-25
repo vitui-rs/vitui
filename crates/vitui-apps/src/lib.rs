@@ -61,7 +61,7 @@ pub struct App {
 /// and the reason is that there is nothing to port: what it demonstrates is *one component and one
 /// `Mode`*, and no other library's tutorial has an equivalent because no other library makes the
 /// claim.
-pub const APPS: [App; 3] = [
+pub const APPS: [App; 4] = [
     App {
         name: "counter",
         what: "A bordered panel, a centred value, and Left/Right/q. The smallest program anybody \
@@ -112,6 +112,34 @@ pub const APPS: [App; 3] = [
             "layout::rect::split_at_h",
             "ctx::Ctx::deadline",
             "ctx::Driver::set_theme",
+            "ctx::Driver::wait",
+        ],
+        after: None,
+    },
+    App {
+        name: "ledger",
+        what: "A general ledger of a million entries in twelve columns, both edges pinned. The \
+               verb counter is on the screen and `Alt+1`/`Alt+2` move it by an order of magnitude \
+               without moving the cell count; the footer sums a cell selection whose whole-column \
+               gesture is one span at any length; and `Alt+s` against `Alt+S` is the editing \
+               slot's revalidation with and without the caller carrying the positions across",
+        uses: &[
+            "collect::table_into",
+            "collect::TableState",
+            "collect::TableOpts",
+            "collect::Cell",
+            "collect::CellSel",
+            "collect::solve_columns",
+            "collect::visible_columns",
+            "counters::Tally",
+            "ink::Direct",
+            "frame::face_paint",
+            "order::Rows",
+            "structure::panel_with",
+            "text::fit_with",
+            "layout::Col",
+            "ctx::Ctx::focused",
+            "ctx::Driver::unhandled",
             "ctx::Driver::wait",
         ],
         after: None,
