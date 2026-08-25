@@ -146,7 +146,7 @@ pub const APPS: [App; 5] = [
     },
     App {
         name: "explorer",
-        what: "A workspace of 262 145 nodes over a caller-owned flatten index. `←`/`→` fold and \
+        what: "A workspace of 258 313 nodes over a caller-owned flatten index. `←`/`→` fold and \
                unfold, and what the component does is **ask** — the splice, the reconciliation and \
                the revision all happen after the draw, in the application, because the index is \
                the caller's. `d` swaps the clamped indent for §7's unclamped one and the counters \

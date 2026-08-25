@@ -162,7 +162,15 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   than not called (not calling it makes *rows iterated* a second counter that separates the arms),
   and `indent_columns` is the single decision both the component and the screen read, pinned to the
   component by `label.x == indent + 1`.
-  **The application is `explorer`**, 262 145 nodes over a caller-owned index, and its finding is the
+  **A review of the first commit found the application's keyboard dead**, and the cause is this
+  ticket's own finding one level up: `explorer` read its five keys with a second `cx.next_key(id)`
+  loop after the component returned, and `collection` had already declined the first key it did not
+  own — which closes the level's queue. **A container gets its keys inside `collection`'s one drain
+  loop and an application gets them after the frame, from `driver.unhandled()`; there is no third
+  place.** Beside it: a toggle that swaps *which function* draws a widget swaps the widget, because
+  `Ctx::id` mints from `Location::caller()` — so `d` re-seats the focus, and `v` does not have to,
+  because `impl<T: Ink + ?Sized> Ink for &mut T` makes the ink erasable and the call site one.
+  **The application is `explorer`**, 258 313 nodes over a caller-owned index, and its finding is the
   glyph column: `INVENTORY` declares `VLine`, `TeeLeft` and `BottomLeft` for `tree` and the component
   draws none of them, because a guide column at depth *d* is a fact about *d* **ancestors** and the
   flatten index does not hold that. Filed as components architecture issue 20 with the three

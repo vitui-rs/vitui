@@ -105,6 +105,39 @@ pub trait Ink {
     fn award(&mut self, cx: &mut Ctx<'_, '_>, cells: Rect, resp: &Response, role: Role);
 }
 
+/// **A `&mut` to an ink is an ink**, which is what lets an application choose one at runtime.
+///
+/// Without it `&mut dyn Ink` does not satisfy `I: Ink`, so a program that draws through a `Tally`
+/// on one keystroke and through [`Direct`] on the next has to write the call **twice** — and two
+/// calls is two `Location::caller()`s, so it is two `Id`s and therefore two widgets. Toggling the
+/// counters then loses the focus and re-declares the hit entry under a new id, on a screen that
+/// looks identical. `crates/vitui-apps/examples/explorer.rs` is the caller this exists for and says
+/// so in its own header.
+///
+/// It also covers `&mut Direct` and `&mut Tally`, which is what makes the erasure spellable at the
+/// call site rather than at the definition.
+impl<T: Ink + ?Sized> Ink for &mut T {
+    fn text(&mut self, cx: &mut Ctx<'_, '_>, x: i32, y: i32, s: &str, st: Paint) -> u16 {
+        (**self).text(cx, x, y, s, st)
+    }
+
+    fn run(
+        &mut self,
+        cx: &mut Ctx<'_, '_>,
+        x: i32,
+        y: i32,
+        cluster: &str,
+        n: u16,
+        st: Paint,
+    ) -> u16 {
+        (**self).run(cx, x, y, cluster, n, st)
+    }
+
+    fn award(&mut self, cx: &mut Ctx<'_, '_>, cells: Rect, resp: &Response, role: Role) {
+        (**self).award(cx, cells, resp, role);
+    }
+}
+
 /// **The implementation a component gets: draw, count nothing, allocate nothing.**
 ///
 /// A unit struct rather than `impl Ink for ()`, so that a signature saying `Direct` says which of
@@ -277,5 +310,43 @@ mod tests {
             assert_eq!(tally.writes(), 0);
             assert_eq!(tally.distinct(), 0);
         });
+    }
+    /// **A `&mut dyn Ink` is an `Ink`, and it exists so a caller can choose one at runtime.**
+    ///
+    /// The blanket impl has no caller inside this crate — its consumer is
+    /// `crates/vitui-apps/examples/explorer.rs` — so this is what stops it reading as a spare part.
+    /// What it buys is **one call site**: without it a program that draws through a `Tally` on one
+    /// keystroke and through [`Direct`] on the next writes the call twice, and two calls are two
+    /// `Location::caller()`s, so `Ctx::id` mints two ids and the toggle silently replaces the
+    /// widget.
+    ///
+    /// Both halves: the erased ink draws, and it reports the same counters the concrete one would.
+    #[test]
+    fn an_erased_ink_is_an_ink_and_one_call_site_serves_both() {
+        let mut driver = Driver::headless(20, 3).expect("a sink cannot fail to attach");
+
+        // One function, one call site, either ink.
+        fn draw<I: Ink + ?Sized>(ink: &mut I, cx: &mut Ctx<'_, '_>, paint: vitui_runtime::Paint) {
+            let _ = ink.text(cx, 0, 0, "abc", paint);
+            let _ = ink.run(cx, 3, 0, "-", 4, paint);
+        }
+
+        let mut counted = Tally::new();
+        let mut direct = Direct;
+        driver.frame(|cx| {
+            let paint = cx.theme().paint(Role::Body);
+            for on in [true, false] {
+                let mut sink: &mut dyn Ink = match on {
+                    true => &mut counted,
+                    false => &mut direct,
+                };
+                draw(&mut sink, cx, paint);
+            }
+        });
+        assert_eq!(
+            (counted.verbs(), counted.writes(), counted.distinct()),
+            (2, 7, 7),
+            "the erased ink counted what the concrete one would have"
+        );
     }
 }

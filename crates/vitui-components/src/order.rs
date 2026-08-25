@@ -123,6 +123,10 @@ pub struct Entry {
     pub flags: u8,
     /// How many screen rows it occupies. **The fourth field, and it is why variable row height is a
     /// field rather than a fifth structure** (§7).
+    ///
+    /// **At least one.** Zero is read as one by [`Heights::built`] rather than honoured — see there
+    /// for why a zero-height row breaks the prefix sum's own invariant, and why *not shown* is
+    /// spelled by not being in the index.
     pub h: u8,
 }
 
@@ -147,6 +151,14 @@ impl Entry {
     /// The same entry `depth` levels down.
     pub const fn at_depth(self, depth: u16) -> Entry {
         Entry { depth, ..self }
+    }
+
+    /// The same entry `h` screen rows tall. **Clamped to at least one** — see [`Entry::h`].
+    pub const fn with_height(self, h: u8) -> Entry {
+        Entry {
+            h: if h == 0 { 1 } else { h },
+            ..self
+        }
     }
 
     /// Whether its subtree has been taken out of the order.
@@ -470,8 +482,27 @@ impl Order {
     /// Proportional to what it inserts, which beats a rebuild by `total / inserted` — 1.15× at the
     /// root and **700× at a 340-row subtree**. The rows are the caller's because the index is: what
     /// was folded away was not kept, and keeping it is what a `Vec<u32>` order does.
+    ///
+    /// **Unfolding nothing is a no-op and does not stamp**, which is [`Order::fold`]'s guard from
+    /// the other side and is not symmetry for its own sake: a caller answering an
+    /// [`Ask::Expand`] whose children it can no longer materialise — a filter applied since, a key
+    /// that has gone — would otherwise move the revision for an edit that inserted nothing, and the
+    /// next frame would clear every position the component holds. It would also clear
+    /// [`Entry::FOLDED`] on a node that gained no children, leaving a row that says *expanded* with
+    /// nothing under it.
+    ///
+    /// The rows are collected first, because *did it insert anything* is not answerable of an
+    /// `IntoIterator` without asking it. That is one allocation on the **edit**, which is where §10
+    /// puts the whole cost of an edit; the frame is untouched.
     pub fn unfold(&mut self, i: usize, rows: impl IntoIterator<Item = Entry>) -> Splice {
         let at = (i + 1).min(self.entries.len());
+        let rows: Vec<Entry> = rows.into_iter().collect();
+        if rows.is_empty() {
+            return Splice {
+                removed: at..at,
+                inserted: 0,
+            };
+        }
         let splice = self.splice(at..at, rows);
         if let Some(e) = self.entries.get_mut(i) {
             e.flags &= !Entry::FOLDED;
@@ -759,12 +790,19 @@ impl Heights {
     }
 
     /// Accumulate `order` in one pass.
+    ///
+    /// **A row is at least one screen row tall**, and `h == 0` is read as one rather than honoured.
+    /// [`Entry::h`] is a public `u8` with nothing to validate it, and zero is the natural spelling
+    /// for *hidden* — but a zero-height row makes two content rows share a prefix sum, and then
+    /// [`Heights::row_at`]'s own invariant (`top_of(row) <= y < top_of(row + 1)`) is false for
+    /// whichever of the pair the binary search happens to land on. A row that is not to be shown is
+    /// a row that is not in the index, which is what a fold already is.
     pub fn built(order: &Order) -> Heights {
         let mut sum = Vec::with_capacity(order.len() + 1);
         let mut at = 0u32;
         sum.push(at);
         for e in order.entries() {
-            at = at.saturating_add(u32::from(e.h));
+            at = at.saturating_add(u32::from(e.h.max(1)));
             sum.push(at);
         }
         Heights { sum }
@@ -2045,6 +2083,17 @@ mod tests {
         assert!(!spliced.at(0).expect("the root").is_folded());
         assert_eq!(spliced.len(), forest.len(), "the round trip is exact");
 
+        // **Unfolding nothing is the same guard from the other side**, and it is the one a caller
+        // reaches by answering an `Ask::Expand` whose children it can no longer produce.
+        let quiet = spliced.rows().rev;
+        let nothing = spliced.unfold(0, []);
+        assert_eq!(nothing.inserted, 0);
+        assert_eq!(
+            spliced.rows().rev,
+            quiet,
+            "an unfold that inserted nothing may not stamp"
+        );
+
         // The leaf. **No splice, no revision, no flag.**
         let last = spliced.len() - 1;
         let quiet = spliced.rows().rev;
@@ -2087,6 +2136,27 @@ mod tests {
             16 * 3 + 48,
             "sixteen tall rows and forty-eight short"
         );
+
+        // **A zero-height row is read as one**, because two content rows sharing a prefix sum
+        // makes the invariant below false for whichever of the pair the search lands on. `h == 0`
+        // is the natural spelling for *hidden* and the index's own answer for that is *not in the
+        // index*.
+        let mut hidden = Order::built((0..8u32).map(Entry::of).collect());
+        let _ = hidden.splice(0..1, [Entry::of(0).with_height(0)]);
+        let heights_of_hidden = Heights::built(&hidden);
+        assert_eq!(heights_of_hidden.screen_rows(), 8, "zero counts as one");
+        assert_eq!(
+            Entry::of(0).with_height(0).h,
+            1,
+            "and the builder says so too"
+        );
+        for y in 0..heights_of_hidden.screen_rows() {
+            let row = heights_of_hidden.row_at(y);
+            assert!(
+                heights_of_hidden.top_of(row) <= y && y < heights_of_hidden.top_of(row + 1),
+                "the invariant holds over a row that asked to be zero tall"
+            );
+        }
 
         // `row_at` over the whole screen, and not at one index: every screen row belongs to the
         // content row whose interval contains it.

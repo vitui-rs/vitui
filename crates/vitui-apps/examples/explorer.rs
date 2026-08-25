@@ -1,4 +1,4 @@
-//! A workspace of 262 145 nodes, folded and unfolded through a caller-owned flatten index.
+//! A workspace of 258 313 nodes, folded and unfolded through a caller-owned flatten index.
 //!
 //! Components ticket 17's application, and the fifth in this crate. It is the first thing to put a
 //! [`tree`] anywhere, and — like `ledger` one ticket before it — it exists because **the surface's
@@ -24,7 +24,7 @@
 //! | `←` `→` | fold and unfold — **a request**, drained after the draw, spliced by the caller |
 //! | click a chevron | the same request from the pointer, on the press edge |
 //! | `Space` | the selection, which survives a fold **because the fold is an interval** |
-//! | `f` | fold every crate: 262 145 rows out in one pass |
+//! | `f` | fold every crate: 258 248 rows out in one pass |
 //! | `u` | unfold everything |
 //! | `d` | draw through `collect::defective::unclamped_indent` — §7's negative case, live |
 //! | `v` | the live counters, through a `Tally` |
@@ -41,6 +41,18 @@
 //! `v` and then `d` and watch it: the cells written do not move, the distinct cells do not move,
 //! and the **verbs go down**. The one number that moves is `asked`, and the `Tally`'s own version of
 //! it saturates at 65 535 a verb — so even the instrument that can see it under-reports.
+//!
+//! # A toggle that changes which function draws a widget changes the widget
+//!
+//! `Ctx::id` mints from `Location::caller()`, so two draws written at two lines are two `Id`s (ADR
+//! 0027) — which is right, and is what makes two trees on one screen two trees. It also means an
+//! application whose `d` swaps `tree` for `defective::unclamped_indent` has swapped the widget: the
+//! id holding the keyboard stops existing, and `cx.focused().is_none()` is *false* because a stale
+//! id still holds it. So `d` sets a flag and the next frame seats the focus unconditionally.
+//!
+//! `v` does **not** need one, and the difference is worth the paragraph: the ink is erased to
+//! `&mut dyn Ink` before the call, so there is one call site whichever it is. That is what
+//! `vitui_components::ink`'s blanket `impl<T: Ink + ?Sized> Ink for &mut T` is for.
 //!
 //! # What it cannot say, and it is the surface's to fix
 //!
@@ -71,7 +83,7 @@ use vitui_components::order::{Ask, Entry, Order, Policy, Splice, reconcile_splic
 use vitui_components::structure::{PanelOpts, panel_with};
 use vitui_components::text::{FitOpts, Justify, fit_with};
 use vitui_runtime::ctx::Driver;
-use vitui_runtime::keys::{ActionId, Chord, KeyMap};
+use vitui_runtime::keys::{Code, Pressed};
 use vitui_runtime::layout::rect;
 use vitui_runtime::work::Wake;
 use vitui_runtime::{Ctx, Rect, Role, Themes};
@@ -79,6 +91,11 @@ use vitui_runtime::{Ctx, Rect, Role, Themes};
 // ── the caller's data ────────────────────────────────────────────────────────────────────────────
 
 /// How many crates the workspace holds.
+///
+/// **The three counts below multiply out to 258 313 nodes** — `CRATES × (1 + MODULES × (1 + ITEMS))`
+/// plus the deep branch's root and its `DEEP` levels — and the panel's title prints
+/// `Forest::len()` rather than a constant, so the screen cannot disagree with the data. The header
+/// said 262 145 for one commit; the number is arithmetic and is stated as such here.
 const CRATES: usize = 64;
 
 /// How many modules each crate holds.
@@ -202,22 +219,6 @@ const ITEM_NAMES: [&str; 8] = [
 
 // ── the application ──────────────────────────────────────────────────────────────────────────────
 
-const QUIT: ActionId = 1;
-const FOLD_ALL: ActionId = 2;
-const UNFOLD_ALL: ActionId = 3;
-const COUNTERS: ActionId = 4;
-const DEFECT: ActionId = 5;
-
-/// The bindings, built once.
-fn key_map() -> KeyMap {
-    KeyMap::new()
-        .bind(&[Chord::key('q')], QUIT, "Quit")
-        .bind(&[Chord::key('f')], FOLD_ALL, "Fold every crate")
-        .bind(&[Chord::key('u')], UNFOLD_ALL, "Unfold everything")
-        .bind(&[Chord::key('v')], COUNTERS, "Live counters")
-        .bind(&[Chord::key('d')], DEFECT, "Unclamped indent")
-}
-
 /// Everything the application knows.
 struct App {
     forest: Forest,
@@ -235,13 +236,20 @@ struct App {
     defect: bool,
     /// `(writes, distinct, verbs, asked)` from the last counted frame.
     counted: (u64, u64, u64, u64),
+    /// **Seat the focus unconditionally on the next frame.**
+    ///
+    /// Set by `d`, which swaps the component the tree is drawn through — and a different call site
+    /// is a different `Id`, so the id holding the keyboard has just stopped existing. Without this
+    /// the guard below is `cx.focused().is_none()`, which is *false* (a stale id still holds it) and
+    /// the application goes deaf. See [`App::draw_tree`].
+    reseat: bool,
     exit: bool,
 }
 
 impl App {
     fn new() -> App {
         let forest = Forest::workspace();
-        // Start with every crate folded, so the first screen is the workspace rather than 262 145
+        // Start with every crate folded, so the first screen is the workspace rather than 258 313
         // rows of items — and so the first `→` is a splice with something to insert.
         let mut folded: Vec<u32> = (0..forest.len())
             .filter(|i| forest.depth[*i] == 0)
@@ -258,13 +266,13 @@ impl App {
             counters: false,
             defect: false,
             counted: (0, 0, 0, 0),
+            reseat: false,
             exit: false,
         }
     }
 
     /// One frame, top to bottom.
-    fn ui(&mut self, cx: &mut Ctx<'_, '_>, map: &KeyMap) {
-        cx.key_map(map);
+    fn ui(&mut self, cx: &mut Ctx<'_, '_>) {
         let block = panel_with(
             cx,
             cx.area(),
@@ -286,105 +294,103 @@ impl App {
 
         // **Give it the keyboard while nobody has it** — architecture issue 25, and `counter.rs`
         // says at length why it is `focused().is_none()` and not `!is_focused(id)`.
-        if cx.focused().is_none() {
+        if cx.focused().is_none() || std::mem::take(&mut self.reseat) {
             cx.focus(id);
         }
-        // The application's own keys, taken **after** the component has drained what is its. A key
-        // the tree declined is still on the queue; one it took is gone, which is the contract.
-        while let Some(key) = cx.next_key(id) {
-            match cx.action(&key) {
-                Some(QUIT) => self.exit = true,
-                Some(FOLD_ALL) => self.fold_all(),
-                Some(UNFOLD_ALL) => self.unfold_all(),
-                Some(COUNTERS) => self.counters = !self.counters,
-                Some(DEFECT) => self.defect = !self.defect,
-                _ => cx.decline(key),
+    }
+
+    /// **The application's own keys, read from what nothing wanted — never from inside the draw.**
+    ///
+    /// This is `triage`'s and `ledger`'s arrangement and it is **forced**, which the first build of
+    /// this file got wrong: a second `cx.next_key(id)` loop after the component returns reads
+    /// nothing at all, so `q` could not quit it. `Ctx::decline` hands a key back **and ends the
+    /// level's turn at the queue** — `next_key` answers `None` afterwards until the routing target
+    /// moves outward — and `collection` declines the first key it does not own. Every one of the
+    /// five keys below is a key `collection` does not own.
+    ///
+    /// It is the same fact `collect::Refusal` exists for, from the other side: a container gets its
+    /// keys *inside* the one drain loop, and an **application** gets them after the frame.
+    fn take_unhandled(&mut self, keys: &[Pressed]) {
+        for key in keys {
+            match key.code {
+                Code::Char('q') => self.exit = true,
+                Code::Char('f') => self.fold_all(),
+                Code::Char('u') => self.unfold_all(),
+                Code::Char('v') => self.counters = !self.counters,
+                Code::Char('d') => {
+                    self.defect = !self.defect;
+                    // A different call site is a different widget — see `App::draw_tree`.
+                    self.reseat = true;
+                }
+                _ => {}
             }
         }
     }
 
-    /// The tree, drawn through one of four (ink × indent) pairs — **the same code path**.
+    /// The tree, drawn through one ink chosen at runtime — **one call site an arm, and one is a
+    /// different component**.
+    ///
+    /// `v` picks the ink and `d` picks the function, and the two are not the same kind of switch:
+    ///
+    /// - **The ink is erased**, so `v` does not move the call site. `&mut dyn Ink` satisfies
+    ///   `I: Ink` through `vitui_components::ink`'s blanket impl, which exists for exactly this —
+    ///   two calls would be two `Location::caller()`s, and `Ctx::id` mints from one, so the
+    ///   counters toggle would silently replace the widget with a differently-identified one.
+    /// - **The function is not, and cannot be.** `d` swaps `tree_into` for
+    ///   `defective::unclamped_indent`, which is a *different component* as far as identity goes —
+    ///   a second call site, a second id. That is the runtime being right rather than a limitation:
+    ///   two draws written at two lines are two widgets (ADR 0027). The application answers for it
+    ///   by re-seating the focus on the frame after the toggle, which is what [`App::reseat`] is.
     fn draw_tree(&mut self, cx: &mut Ctx<'_, '_>, area: Rect) -> vitui_runtime::Id {
         let opts = TreeOpts {
             coll: CollOpts::default(),
             furniture: Role::Dim,
         };
-        // Everything the row drawer reads, taken out of `self` before the closure: `tree_into`
-        // borrows `self.tree` and `self.index` for the whole draw.
+        // Everything the row drawer reads, taken out of `self` before the closure: the draw borrows
+        // `self.tree` and `self.index` for its whole length.
         let names = &self.forest.name;
         let mut find = |_: &str, _: std::ops::Range<usize>| None;
+        let mut tally = Tally::new();
+        let mut direct = Direct;
+        // **The one place the ink is chosen**, and after this line the two arms are one type.
+        let mut sink: &mut dyn Ink = match self.counters {
+            true => &mut tally,
+            false => &mut direct,
+        };
+        let mut label = |ink: &mut &mut dyn Ink, cx: &mut Ctx<'_, '_>, r, n, f| {
+            label_row(ink, cx, r, n, f, names);
+        };
 
-        let resp = match (self.counters, self.defect) {
-            (true, false) => {
-                let mut tally = Tally::new();
-                let resp = tree_into(
-                    &mut tally,
-                    cx,
-                    area,
-                    &mut self.tree,
-                    &opts,
-                    &self.index,
-                    &mut find,
-                    |ink: &mut Tally, cx: &mut Ctx<'_, '_>, r, n, f| label(ink, cx, r, n, f, names),
-                );
-                self.counted = (
-                    tally.writes(),
-                    tally.distinct(),
-                    tally.verbs(),
-                    tally.asked(),
-                );
-                resp
-            }
-            (true, true) => {
-                let mut tally = Tally::new();
-                let resp = coll_defective::unclamped_indent(
-                    &mut tally,
-                    cx,
-                    area,
-                    &mut self.tree,
-                    &opts,
-                    &self.index,
-                    &mut find,
-                    |ink: &mut Tally, cx: &mut Ctx<'_, '_>, r, n, f| label(ink, cx, r, n, f, names),
-                );
-                self.counted = (
-                    tally.writes(),
-                    tally.distinct(),
-                    tally.verbs(),
-                    tally.asked(),
-                );
-                resp
-            }
-            (false, false) => {
-                self.counted = (0, 0, 0, 0);
-                tree_into(
-                    &mut Direct,
-                    cx,
-                    area,
-                    &mut self.tree,
-                    &opts,
-                    &self.index,
-                    &mut find,
-                    |ink: &mut Direct, cx: &mut Ctx<'_, '_>, r, n, f| {
-                        label(ink, cx, r, n, f, names)
-                    },
-                )
-            }
-            (false, true) => {
-                self.counted = (0, 0, 0, 0);
-                coll_defective::unclamped_indent(
-                    &mut Direct,
-                    cx,
-                    area,
-                    &mut self.tree,
-                    &opts,
-                    &self.index,
-                    &mut find,
-                    |ink: &mut Direct, cx: &mut Ctx<'_, '_>, r, n, f| {
-                        label(ink, cx, r, n, f, names)
-                    },
-                )
-            }
+        let resp = match self.defect {
+            false => tree_into(
+                &mut sink,
+                cx,
+                area,
+                &mut self.tree,
+                &opts,
+                &self.index,
+                &mut find,
+                &mut label,
+            ),
+            true => coll_defective::unclamped_indent(
+                &mut sink,
+                cx,
+                area,
+                &mut self.tree,
+                &opts,
+                &self.index,
+                &mut find,
+                &mut label,
+            ),
+        };
+        self.counted = match self.counters {
+            true => (
+                tally.writes(),
+                tally.distinct(),
+                tally.verbs(),
+                tally.asked(),
+            ),
+            false => (0, 0, 0, 0),
         };
         resp.id
     }
@@ -525,7 +531,14 @@ impl App {
 /// **Through the ink it was handed and never through `cx.text`.** `ledger` got that wrong on its
 /// first build and the counters read 78 cells on a frame that wrote 1 560 — on a screen that looked
 /// perfectly correct.
-fn label<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, r: Rect, n: Node, f: Face, names: &[String]) {
+fn label_row<I: Ink + ?Sized>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    r: Rect,
+    n: Node,
+    f: Face,
+    names: &[String],
+) {
     if r.w == 0 {
         return;
     }
@@ -551,7 +564,6 @@ fn label<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, r: Rect, n: Node, f: Face, n
 }
 
 fn main() {
-    let map = key_map();
     let mut app = App::new();
 
     let mut driver = match Driver::attach(Default::default(), *Themes::standard().theme()) {
@@ -562,7 +574,7 @@ fn main() {
         }
     };
 
-    driver.frame(|cx| app.ui(cx, &map));
+    driver.frame(|cx| app.ui(cx));
     app.answer();
 
     while !app.exit {
@@ -570,7 +582,11 @@ fn main() {
             Wake::Quit => break,
             Wake::Input | Wake::Posted | Wake::Deadline => {}
         }
-        driver.frame(|cx| app.ui(cx, &map));
+        // **What nothing wanted, read before the frame that acts on it.** See
+        // `App::take_unhandled`: a key this application owns cannot be read inside the draw.
+        let unhandled: Vec<Pressed> = driver.unhandled().to_vec();
+        app.take_unhandled(&unhandled);
+        driver.frame(|cx| app.ui(cx));
         // **After the draw, and this is the whole of *a component may only ask*.**
         app.answer();
     }

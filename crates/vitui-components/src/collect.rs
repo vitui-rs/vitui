@@ -3511,14 +3511,20 @@ where
             // of them plays at `x == 0`.
             let ind = indent_columns(shape.indent, e.depth, r.w);
             if ind > 0 {
-                let _ = ink.run(
-                    cx,
-                    r.x,
-                    r.y,
-                    " ",
-                    u16::try_from(ind).unwrap_or(u16::MAX),
-                    paint,
+                // **The narrowing is here and nowhere else, and it saturates rather than wraps.**
+                // [`indent_columns`] returns a `usize` because `depth * 2` at 59 999 is 119 998 and
+                // `as u16` makes that 54 462 — a truncation that reads as a clamp. `Ink::run` takes
+                // a `u16`, so a row *can* only request 65 535 columns however many it asked for:
+                // that is a saturation, it is stated here, and it is exactly where
+                // [`crate::counters::Tally::asked`] saturates too (`layout::text::width` returns a
+                // `u16`), so the instrument's number and the request agree. **The ask itself is the
+                // caller's `usize`** and `crate::forest::Shape` prints both beside each other.
+                let requested = u16::try_from(ind).unwrap_or(u16::MAX);
+                debug_assert!(
+                    matches!(shape.indent, Indent::Unclamped) || usize::from(requested) == ind,
+                    "a clamped indent is bounded by the rectangle and may never saturate"
                 );
+                let _ = ink.run(cx, r.x, r.y, " ", requested, paint);
             }
             // **The label rectangle collapses when the indent has eaten it**, which only the
             // unclamped arm can do: a clamped indent reserves two columns by construction. The
