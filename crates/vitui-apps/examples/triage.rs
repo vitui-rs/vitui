@@ -56,6 +56,15 @@
 //! | `Enter` | apply the action the menu's cursor is on to the selection |
 //! | `q` | quit |
 //!
+//! # Switching the view is an edit, and the selection goes with it
+//!
+//! Components ticket 13. The message list stores **positions in the filtered order**, and switching
+//! the filter replaces that order without changing any data — so nothing inside the collection can
+//! notice, and the frame after would draw a perfectly correct list with the wrong messages
+//! selected. The caller stamps a fresh revision on the change, the component compares one `u64`
+//! once a frame, and the selection is cleared. Watch `rev` in the status bar move and the selection
+//! empty as you `Tab` into **View** and press `↓`.
+//!
 //! # The pointer
 //!
 //! | | |
@@ -104,12 +113,13 @@
 
 use vitui_components::collect::{CollOpts, CollState, Mode, collection};
 use vitui_components::frame::{Face, face_paint};
+use vitui_components::order::Rows;
 use vitui_components::structure::{PanelOpts, panel_with};
 use vitui_components::text::{FitOpts, Justify, fit_with};
 use vitui_runtime::ctx::Driver;
 use vitui_runtime::layout::{Col, Constraint::Fixed, Constraint::Weight, Row};
 use vitui_runtime::work::Wake;
-use vitui_runtime::{Ctx, Id, Interest, Rect, Role, Themes};
+use vitui_runtime::{Ctx, Id, Interest, Rect, Revision, Role, Themes};
 
 // ── the data, which is a function and not a store ────────────────────────────────────────────────
 
@@ -222,6 +232,18 @@ struct App {
     actions: CollState,
     /// What the last `Enter` did, for the status bar.
     last: String,
+    /// **The revision of the message order**, moved when the view filter changes.
+    ///
+    /// Components ticket 13, and it is the whole of §10 in one field: the message list stores
+    /// *positions* in the filtered order, and switching the filter replaces that order without
+    /// changing any data. Nothing inside the collection can notice — the frame after would draw a
+    /// perfectly correct list with the wrong rows selected — so the caller stamps a fresh revision
+    /// and the component compares it once a frame and applies `Policy::Clear`, which is the honest
+    /// default for an edit nobody explained.
+    order_rev: Revision,
+    /// Which filter the revision above was stamped for, so the stamp happens on the change and not
+    /// every frame. A revision that moves every frame is a `Clear` every frame.
+    stamped_for: usize,
     exit: bool,
 }
 
@@ -233,6 +255,8 @@ impl App {
             messages: CollState::new(),
             actions: CollState::new(),
             last: String::from("nothing yet"),
+            order_rev: Revision::fresh(),
+            stamped_for: 2,
             exit: false,
         };
         // Options can never be empty, so it starts on one. A `Mode::Options` collection whose store
@@ -263,6 +287,12 @@ impl App {
         let [view, folders] = Col::new().split(left, [Fixed(5), Weight(1)]);
 
         self.view_list(cx, view);
+        // **The filter changed, so the order the message list holds positions in is a different
+        // order.** One `u64`, stamped here and compared once a frame inside the component.
+        if self.tabs.sel.lead != self.stamped_for {
+            self.stamped_for = self.tabs.sel.lead;
+            self.order_rev = Revision::fresh();
+        }
         self.folder_list(cx, folders);
         let msg_id = self.message_list(cx, messages);
         self.action_menu(cx, actions);
@@ -299,7 +329,7 @@ impl App {
             panel.interior,
             &mut self.tabs,
             &opts,
-            TABS.len(),
+            Rows::of(TABS.len()),
             &mut |buf: &str, range: std::ops::Range<usize>| {
                 range.into_iter().find(|&i| starts_with_ci(TABS[i], buf))
             },
@@ -332,7 +362,7 @@ impl App {
             panel.interior,
             &mut self.folders,
             &opts,
-            FOLDERS.len(),
+            Rows::of(FOLDERS.len()),
             &mut |buf: &str, range: std::ops::Range<usize>| {
                 range.into_iter().find(|&i| starts_with_ci(FOLDERS[i], buf))
             },
@@ -375,7 +405,7 @@ impl App {
             panel.interior,
             &mut self.messages,
             &opts,
-            shown,
+            Rows::new(shown, self.order_rev),
             &mut |buf: &str, range: std::ops::Range<usize>| {
                 range
                     .into_iter()
@@ -437,7 +467,7 @@ impl App {
             panel.interior,
             &mut self.actions,
             &opts,
-            ACTIONS.len(),
+            Rows::of(ACTIONS.len()),
             &mut |buf: &str, range: std::ops::Range<usize>| {
                 range.into_iter().find(|&i| starts_with_ci(ACTIONS[i], buf))
             },
@@ -463,7 +493,7 @@ impl App {
         let sel = &self.messages.sel;
         let line = format!(
             " cursor {}  anchor {}  selected {} in {} span(s), {} B  ·  offset {}  ·  \
-             search {:?}  ·  last: {}  ·  q to quit ",
+             search {:?}  ·  rev {}  ·  last: {}  ·  q to quit ",
             sel.lead,
             sel.anchor.map_or(-1, |a| a as i64),
             sel.count(),
@@ -471,6 +501,7 @@ impl App {
             sel.bytes(),
             self.messages.offset,
             self.messages.ahead.buffer(),
+            self.order_rev.raw(),
             self.last,
         );
         fit_with(

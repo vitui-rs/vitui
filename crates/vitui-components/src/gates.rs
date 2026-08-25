@@ -348,6 +348,9 @@ const LISTING: &str = "crates/vitui-components/src/listing.rs";
 /// The collection's own file, which is where components ticket 12's seven rows run.
 const COLLECT: &str = "crates/vitui-components/src/collect.rs";
 
+/// The order's own file, which is where components ticket 13's six rows run.
+const ORDER: &str = "crates/vitui-components/src/order.rs";
+
 /// How many rows of [`REGISTER`] are spec §21's own table. **Thirty-two, and it is closed** — a
 /// thirty-third would be a spec change.
 pub const SPEC_ROWS: usize = 32;
@@ -390,10 +393,10 @@ pub const SPEC_ROWS: usize = 32;
 /// row still asserting *the four components do not exist* would now be asserting they are gone.
 /// That is the second inversion here worth being suspicious about: a red row phrased as an absence
 /// cannot be turned green by editing one field.
-pub const EVALUATED: usize = 53;
+pub const EVALUATED: usize = 60;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 74] = [
+pub const REGISTER: [Row; 80] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -683,8 +686,21 @@ pub const REGISTER: [Row; 74] = [
         kind: Kind::Equality,
         owner: "C05",
         section: "spec §10",
-        standing: Standing::Unsubjected {
-            inverted_by: "components 13",
+        // **A bit's position *is* its index**, so a splice moves every bit after the interval; a
+        // sorted span list moves the spans that meet it. One against nine hundred thousand at a
+        // million rows, which is the difference between a store proportional to the gestures and
+        // one proportional to the rows — on the single operation a bit vector cannot do cheaply,
+        // having been chosen for the two it can.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: ORDER,
+                    name: "a_splice_cannot_shatter_a_span_list_and_a_permutation_always_does",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/order_numbers.rs",
+                },
+            ],
         },
     },
     Row {
@@ -2135,6 +2151,183 @@ pub const REGISTER: [Row; 74] = [
             ],
         },
     },
+    // ── components ticket 13's rows: the order, the index and the memo ───────────────────────────
+    Row {
+        number: 75,
+        on_spec_table: false,
+        gate: "one structure has five names, and every field of the record is earned by one of them",
+        kind: Kind::Count,
+        owner: "C05, C06",
+        section: "spec §10",
+        // **Both directions, which is what makes it a gate rather than a table.** Every use must
+        // name only fields that exist, and every field must be spent by at least one use — a field
+        // nothing spends is a fifth structure's field living in the shared one, which is exactly
+        // the drift ADR 0031's *three names for one mechanism is already one too many* is about.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: ORDER,
+                    name: "one_structure_has_five_names_and_every_field_is_earned",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/order_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 76,
+        on_spec_table: false,
+        gate: "`Rows { len, rev }` is one `u64`, every edit stamps it, and a revision the component \
+               has not seen clears every position it holds",
+        kind: Kind::Count,
+        owner: "C04, C05",
+        section: "spec §10",
+        // **The failure this gates is a perfectly correct frame.** A sort changes no data and no
+        // length, so nothing inside a collection can notice: the frame after draws a correct list
+        // with the wrong rows selected and the editor open on the wrong row. No counter anywhere in
+        // the stack moves, which is why the gate is on the *store* and not on a screen.
+        //
+        // Three directions, because the middle one is the mechanism: an unrecognised revision
+        // clears, `CollState::reconciled` says the caller carried the positions across and the
+        // branch does not fire, and `Revision::UNKNOWN` never matches — so a caller with no order
+        // is never told its positions went stale, which is right, since it has nothing that can
+        // permute them.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: ORDER,
+                    name: "the_revision_is_one_u64_and_every_edit_stamps_it",
+                },
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "a_revision_the_component_has_not_seen_clears_every_position_it_holds",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 77,
+        on_spec_table: false,
+        gate: "the request is one slot, and a component holding the order shared cannot edit it",
+        kind: Kind::CompileOutcome,
+        owner: "C05",
+        section: "spec §10",
+        // **`E0502`, which is a compile outcome and therefore a gate rather than a sentence.** §10
+        // states *a component may only ask* and gives two reasons; the second is this one, and it
+        // is the half that cannot be worked around. The pair sits on `order::Asked` with a positive
+        // twin naming `Order::splice` **by path** — a lone `compile_fail` passes when the item has
+        // been renamed, and the mechanism cannot tell `E0433` from `E0502`.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Pair {
+                    file: ORDER,
+                    hostile: "let _ = order.splice(1..3, [Entry::default()]);",
+                },
+                Instrument::Unit {
+                    file: ORDER,
+                    name: "the_request_is_one_slot_and_it_answers_once",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 78,
+        on_spec_table: false,
+        gate: "a splice transforms a span list in O(spans) and cannot shatter; a permutation always \
+               does",
+        kind: Kind::Ratio,
+        owner: "C05",
+        section: "spec §10",
+        // **A count and a ratio, not a timing.** Whatever the interval, a contiguous selection
+        // comes out of a splice as *at most two* spans — a head and a tail — because a splice is an
+        // interval and every span is entirely before it, entirely after it, or crosses it. A
+        // permutation of the same edit comes out as one span a row. The microseconds are the
+        // example's; the bound is the mechanism.
+        //
+        // Select-all escapes both at O(1) and **not by special-casing**: `[0, len)` is invariant
+        // under any permutation of that length, so the answer is known without touching a row.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: ORDER,
+                    name: "a_splice_cannot_shatter_a_span_list_and_a_permutation_always_does",
+                },
+                Instrument::Unit {
+                    file: ORDER,
+                    name: "a_collapse_splices_the_interval_and_a_rebuild_builds_the_forest",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/order_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 79,
+        on_spec_table: false,
+        gate: "the four reconcile policies, their settled defaults, and the one that is refused",
+        kind: Kind::Count,
+        owner: "C05",
+        section: "spec §10, §7",
+        // **The refusal is the row.** `Clear` under a splice throws away spans that were nowhere
+        // near the fold for no saving at all, and the three real policies are all O(spans) and all
+        // free — so there is nothing to buy and the choice between them is *behavioural*. The
+        // admissions table is asserted in full rather than at the interesting corner, because a
+        // refusal stated for one arm and forgotten for another is the shape this register exists
+        // to catch.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: ORDER,
+                    name: "the_four_policies_have_settled_defaults_and_clear_is_refused_for_a_\
+                           splice",
+                },
+                Instrument::Unit {
+                    file: ORDER,
+                    name: "the_three_real_policies_are_all_proportional_to_the_spans",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/order_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 80,
+        on_spec_table: false,
+        gate: "a memo keyed on the revision alone recomputes less, runs faster, and is wrong on the \
+               rendered surface",
+        kind: Kind::Ratio,
+        owner: "C06, C08, C09",
+        section: "spec §10",
+        // **The row that exists because the natural detector points the wrong way.** `recomputes`
+        // goes *down* when the key has forgotten an input, so the instrument the runtime provides
+        // for exactly this question reports an improvement — 1 against 2 on the 300 → 120 resize,
+        // at a third of the cost. The two detectors that work are the memoised object recording the
+        // input it was built at (`Keyed::built_at`) and the rendered surface, and the gate asserts
+        // both.
+        //
+        // The magnitudes are this crate's corpus and §10's are C06's; the *shape* is what
+        // reproduces — fewer rows than the narrow width needs, most of the window carrying the
+        // wrong source line, and one recomputation against two.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: ORDER,
+                    name: "a_memo_keyed_on_the_revision_alone_recomputes_less_and_is_wrong_on_the_\
+                           screen",
+                },
+                Instrument::Unit {
+                    file: ORDER,
+                    name: "every_memo_spells_its_key_and_records_what_it_was_built_at",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/order_numbers.rs",
+                },
+            ],
+        },
+    },
 ];
 
 /// **The compile-outcome pair row 31 names, and its positive twin.**
@@ -2405,7 +2598,7 @@ mod tests {
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn fifty_three_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn sixty_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -2437,8 +2630,8 @@ mod tests {
              found row 5's barrier misread: `Mods` is unnameable here and `Chord::mods` hands over \
              the value anyway, so a chord can be pressed after all"
         );
-        assert_eq!(unsubjected, 12, "and the twelve with nothing to run over");
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 74);
+        assert_eq!(unsubjected, 11, "and the eleven with nothing to run over");
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 80);
     }
 
     /// **The split, not the total.**
@@ -2449,10 +2642,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_forty_two_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_forty_eight_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 42);
+        assert_eq!(REGISTER.len() - on_table, 48);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -2758,6 +2951,7 @@ mod tests {
                 "keys_numbers.rs".to_string(),
                 "listing_numbers.rs".to_string(),
                 "nav_numbers.rs".to_string(),
+                "order_numbers.rs".to_string(),
                 "partition_numbers.rs".to_string(),
                 "press_numbers.rs".to_string(),
                 "primitive_numbers.rs".to_string(),

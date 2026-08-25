@@ -30,9 +30,9 @@
 //! - [`obligations`] — §17's five obligations as queries over the freeze, each returning a count or
 //!   an equality. **Not one of them can be met yet, and every one of them says so out loud** rather
 //!   than returning green over an empty population.
-//! - [`gates`] — §21's register: **seventy-four gates as rows, fifty-three of them evaluated**,
-//!   three pinned red with their failing sets, six unreachable across the crate line with what
-//!   would have to become public, and twelve with nothing yet to run over. An instrument is a value with a
+//! - [`gates`] — §21's register: **eighty gates as rows, sixty of them evaluated**, three pinned
+//!   red with their failing sets, six unreachable across the crate line with what would have to
+//!   become public, and eleven with nothing yet to run over. An instrument is a value with a
 //!   file in it, so a row that has stopped running turns the register red here. **One of those rows
 //!   was not unreachable and had said it was for five tickets** — see that module's header, because
 //!   the shape it names is the one an `Unreachable` invites. **A fourth was red and is now green,
@@ -93,6 +93,17 @@
 //!   at one `partition_point` a frame against one a row; and 3 200 writes / 81 regions / 1 stop /
 //!   0 allocations at 1 000, 100 000 and 1 000 000 rows, at 52.8–53.0 µs.
 //!
+//! - [`order`] — **the order, the index and the memo**: `table`'s sort order, `tree`'s flatten
+//!   index, `textarea`'s wrap index, `collapsible`'s fold index and `table`'s prefix sum are one
+//!   `{ node, depth, flags, h }` record, and [`order::USES`] is the five names against it as a
+//!   value so that *which fields does a wrap index spend* is answerable by the machine. [`order::Rows`]
+//!   is `{ len, rev }`, **one `u64` compared once a frame**, and it is the only thing that makes a
+//!   stale position noticeable — a sort changes no data and no length, so the frame after one draws
+//!   a perfectly correct list with the wrong rows selected. The four reconcile policies are there
+//!   with their settled defaults and **the one that is refused**, and the memo is
+//!   [`order::Keyed`], which takes the whole key and **records the input it was built at** —
+//!   because `recomputes` goes *down* when a key has forgotten one.
+//!
 //! **And all seven of spec §3's helpers now exist**, which is the first code here that a component
 //! will call rather than be measured by: [`text::fit`] and [`frame::block`] are the two partition
 //! primitives; [`state::press`] returns **one role** so that the face a widget draws and the face it
@@ -138,6 +149,7 @@ pub mod inventory;
 pub mod keys;
 pub mod listing;
 pub mod obligations;
+pub mod order;
 pub mod runner;
 pub mod scenes;
 pub mod state;

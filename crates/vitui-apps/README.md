@@ -73,6 +73,10 @@ no other library makes the claim. The status bar is the point — `Ctrl+A` over 
 messages reads **`selected 200000 in 1 span(s), 16 B`**, and every other gesture adds at most one
 span.
 
+Switching the **View** filter is an edit in §10's sense: the message list holds *positions in the
+filtered order*, and the caller stamps a fresh revision so the component compares one `u64` once a
+frame and clears them. Watch `rev` move in the status bar.
+
 Three things it cannot say, each recorded in the file rather than worked around: a **horizontal**
 segmented control shares `Selection` and `apply` and lays itself out, because `collection`
 virtualises rows; a collection cannot be *given* an id, so the focus is seated from the `Response`

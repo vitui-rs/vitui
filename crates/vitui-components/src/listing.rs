@@ -292,7 +292,11 @@ pub fn draw_into<I: Ink>(
     offset: i32,
 ) -> u64 {
     let view = cx.area();
-    let len = usize::try_from(rows).unwrap_or(usize::MAX);
+    // **`Rows::of` and not a stated revision** (components 13): this screen has no order behind it,
+    // so its positions cannot be permuted and it is never told they went stale. `Rows::of` carries
+    // `Revision::UNKNOWN`, which never matches, and the component's comparison is guarded on
+    // `is_known()`.
+    let len = crate::order::Rows::of(usize::try_from(rows).unwrap_or(usize::MAX));
     let opts = CollOpts::default();
     let mut state = CollState::new();
     state.offset = offset;

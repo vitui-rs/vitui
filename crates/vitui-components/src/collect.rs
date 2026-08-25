@@ -108,11 +108,12 @@ use std::ops::Range;
 use std::time::Instant;
 
 use vitui_runtime::keys::{Code, Pressed};
-use vitui_runtime::{Ctx, Id, Interest, Mods, Rect, Response, Role, Scrollable};
+use vitui_runtime::{Ctx, Id, Interest, Mods, Rect, Response, Revision, Role, Scrollable};
 
 use crate::frame::Face;
 use crate::ink::{Direct, Ink};
 use crate::nav::{self, Cursor, TypeAhead};
+use crate::order::Rows;
 
 /// The components homed in this module. See [`crate::Family::members`].
 pub const MEMBERS: &[&str] = &["collection", "table", "tree", "pagination"];
@@ -291,6 +292,17 @@ impl Selection {
         }
         self.spans
             .splice(first..last, std::iter::once(Span { start: lo, end: hi }));
+    }
+
+    /// **Replace the whole span list. The one door [`crate::order`]'s reconcile policies write
+    /// through**, and it is `pub(crate)` for that reason: a caller who could set the spans directly
+    /// could set an unsorted, overlapping or adjacent one, and every `partition_point` in this
+    /// module would then be wrong about a store that still looks like a store.
+    ///
+    /// `crate::order::reconcile_splice` and `reconcile_permutation` both coalesce before they call
+    /// it, which is where the invariant is actually kept.
+    pub(crate) fn set_spans(&mut self, spans: Vec<Span>) {
+        self.spans = spans;
     }
 
     /// **Remove `[start, end)`, splitting the span it lands inside. `O(spans)`.**
@@ -587,7 +599,7 @@ pub fn from_key(k: &Pressed, lead: usize, moved: Option<usize>) -> Option<Gestur
 /// Offset, selection, type-ahead buffer and the editing slot — and nothing keyed by a row index,
 /// which is the rule §5 states and this type is the check of. [`COLL_STATE_BYTES`] is what it costs
 /// and it is the same at every length.
-#[derive(Clone, Default, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct CollState {
     /// **The first visible content row.** The application owns the offset (`CONTEXT.md`), and a
     /// collection is the application for its own rows.
@@ -600,12 +612,51 @@ pub struct CollState {
     /// **The row that holds an inline editor, because only one row can.** ADR 0028's *per-row state
     /// is one slot, never a map*, as a field: there is nowhere here to put a value per row.
     pub editing: Option<usize>,
+    /// **The revision the positions above were last reconciled at** (components 13, ADR 0031).
+    ///
+    /// Private, because the only two ways it may move are [`CollState::reconciled`] — a caller
+    /// saying *I have carried the positions across* — and [`collection`] itself, which stamps it
+    /// after clearing. A public field would make *the revision was left behind* an ordinary
+    /// assignment, and leaving it behind is the whole failure §10 is about.
+    rev: Revision,
+}
+
+impl Default for CollState {
+    fn default() -> CollState {
+        CollState {
+            offset: 0,
+            sel: Selection::new(),
+            ahead: TypeAhead::new(),
+            editing: None,
+            // **`UNKNOWN` and not a fresh one**, which is what makes the first frame *not* an
+            // unexplained edit: `Revision::UNKNOWN` never matches, and the comparison below is
+            // guarded on `is_known()`, so a collection over a caller with no order at all is never
+            // told its positions went stale.
+            rev: Revision::UNKNOWN,
+        }
+    }
 }
 
 impl CollState {
     /// A collection at the top of its content with nothing selected.
     pub fn new() -> CollState {
         CollState::default()
+    }
+
+    /// **The revision the positions are at.**
+    pub const fn revision(&self) -> Revision {
+        self.rev
+    }
+
+    /// **Say the positions have been carried across to `rows`.**
+    ///
+    /// The caller's half of ADR 0031: it has both orders, so it is the only thing that can splice
+    /// the index, reconcile the positions and stamp the revision — and this is the third of the
+    /// three. Without it the next frame sees a revision it does not recognise and applies
+    /// [`Policy::Clear`](crate::order::Policy::Clear), which is the honest default for an edit
+    /// nobody explained.
+    pub const fn reconciled(&mut self, rows: Rows) {
+        self.rev = rows.rev;
     }
 
     /// The largest offset `len` rows admit in a viewport `h` rows tall. *Content minus viewport*,
@@ -622,7 +673,8 @@ impl CollState {
 /// Spec §5 and ADR 0028 both record **208 bytes**. What this type measures is
 /// [`COLL_STATE_BYTES`], and the arithmetic is visible: `offset` 4 (padded to 8), `Selection` 48 —
 /// a `Vec<Span>` at 24, `lead` at 8 and `Option<usize>` at 16 — `TypeAhead` 40 (a `String` at 24 and
-/// an `Option<Instant>` at 16), and `editing` 16.
+/// an `Option<Instant>` at 16), `editing` 16, and `rev` 8. It was 112 until components ticket 13
+/// added the revision, which is §10's *one `u64` compared once a frame* as a field.
 ///
 /// The 208 belongs to **C03's prototype struct**, which is not this one: it carried the three
 /// refused stores beside the shipped one ([`stores::Alt`] here, and a field there), a `Store`
@@ -700,6 +752,7 @@ pub const SEARCH_BUDGET: usize = 4_096;
 /// ```
 /// use vitui_components::collect::{CollOpts, CollState, collection};
 /// use vitui_components::frame::face_paint;
+/// use vitui_components::order::Rows;
 /// use vitui_runtime::ctx::Driver;
 ///
 /// let rows = ["alpha", "beta", "gamma"];
@@ -713,7 +766,7 @@ pub const SEARCH_BUDGET: usize = 4_096;
 ///         area,
 ///         &mut st,
 ///         &opts,
-///         rows.len(),
+///         Rows::of(rows.len()),
 ///         &mut |buf, range: std::ops::Range<usize>| {
 ///             range.into_iter().find(|&i| rows[i].starts_with(buf))
 ///         },
@@ -730,7 +783,7 @@ pub fn collection(
     area: Rect,
     st: &mut CollState,
     opts: &CollOpts,
-    len: usize,
+    rows: Rows,
     find: &mut dyn FnMut(&str, Range<usize>) -> Option<usize>,
     row: &mut dyn FnMut(&mut Ctx<'_, '_>, Rect, usize, Face),
 ) -> Response {
@@ -740,7 +793,7 @@ pub fn collection(
         area,
         st,
         opts,
-        len,
+        rows,
         find,
         |_ink, cx, r, i, f| row(cx, r, i, f),
     )
@@ -768,7 +821,7 @@ pub fn collection_into<I, F, R>(
     area: Rect,
     st: &mut CollState,
     opts: &CollOpts,
-    len: usize,
+    rows: Rows,
     mut find: F,
     mut row: R,
 ) -> Response
@@ -783,7 +836,7 @@ where
         area,
         st,
         opts,
-        len,
+        rows,
         &mut find,
         &mut row,
         Shape::Virtualised,
@@ -842,7 +895,7 @@ fn draw_with<I, F, R>(
     area: Rect,
     st: &mut CollState,
     opts: &CollOpts,
-    len: usize,
+    rows: Rows,
     find: &mut F,
     row: &mut R,
     shape: Shape,
@@ -857,6 +910,36 @@ where
     // function makes it the *caller's* line; taken inside the row body it would be the line below,
     // and every collection in the application would be one collection.
     let id = cx.id();
+    let len = rows.len;
+
+    // **One `u64`, compared once a frame** (components 13, §10, ADR 0031). Everything this
+    // component stores is a *position* in an order the caller can replace between two frames, and a
+    // sort changes no data and no length — so the frame after one draws a perfectly correct list
+    // with the wrong rows selected and the editor open on the wrong row. The revision is the only
+    // thing that makes it noticeable.
+    //
+    // **The answer here is `Clear` and it is the only one available**, which is not a limitation:
+    // `Remap` is the caller's opt-in *because only the caller has both orders*, and `Drop`/`Stash`
+    // need the interval a splice removed, which the component was not told. A caller that has
+    // carried the positions across says so with `CollState::reconciled` and this branch does not
+    // fire. See `crate::order`.
+    // **A state at `UNKNOWN` is *adopting* an order and not noticing an edit**, which is the same
+    // rule `Revision::UNKNOWN never hits` states one crate down: *I have nothing to compare against*
+    // is not *the order changed*. Without it a collection whose state was restored from disk beside
+    // the order it belongs to loses its selection on its first frame, and the caller's only repair
+    // would be a `CollState::reconciled` call asserting something it has not done.
+    if st.rev.is_known() && rows.rev.is_known() && st.rev != rows.rev {
+        // **Every field cleared here is a position**, which is the whole of ADR 0031's sentence:
+        // the spans, the anchor and the editing slot are positions in an order that has been
+        // replaced, and the cursor is one too — it is clamped rather than dropped, because a
+        // collection with no cursor at all has nowhere to put the keyboard.
+        st.sel.clear();
+        st.sel.anchor = None;
+        st.editing = None;
+        st.sel.lead = st.sel.lead.min(len.saturating_sub(1));
+    }
+    st.rev = rows.rev;
+
     let max = (0, CollState::max_offset(len, area.h));
 
     // **The reveal the frame before asked for**, applied by the widget that owns the offset. A
@@ -1100,7 +1183,7 @@ pub fn search_range(lead: usize, len: usize, budget: usize) -> Range<usize> {
 /// line and every one of them **passes at least one gate the correct build passes**.
 pub mod defective {
     use super::{
-        CollOpts, CollState, Ctx, Face, Ink, Range, Rect, Response, Reveal, Shape, draw_with,
+        CollOpts, CollState, Ctx, Face, Ink, Range, Rect, Response, Reveal, Rows, Shape, draw_with,
     };
 
     /// **The listing that iterates its whole content and lets the clip reject the rest.**
@@ -1121,7 +1204,7 @@ pub mod defective {
         area: Rect,
         st: &mut CollState,
         opts: &CollOpts,
-        len: usize,
+        rows: Rows,
         mut find: F,
         mut row: R,
     ) -> Response
@@ -1136,7 +1219,7 @@ pub mod defective {
             area,
             st,
             opts,
-            len,
+            rows,
             &mut find,
             &mut row,
             Shape::WholeContent,
@@ -1162,7 +1245,7 @@ pub mod defective {
         area: Rect,
         st: &mut CollState,
         opts: &CollOpts,
-        len: usize,
+        rows: Rows,
         mut find: F,
         mut row: R,
     ) -> Response
@@ -1177,7 +1260,7 @@ pub mod defective {
             area,
             st,
             opts,
-            len,
+            rows,
             &mut find,
             &mut row,
             Shape::Virtualised,
@@ -1200,7 +1283,7 @@ pub mod defective {
         area: Rect,
         st: &mut CollState,
         opts: &CollOpts,
-        len: usize,
+        rows: Rows,
         mut find: F,
         mut row: R,
     ) -> Response
@@ -1215,7 +1298,7 @@ pub mod defective {
             area,
             st,
             opts,
-            len,
+            rows,
             &mut find,
             &mut row,
             Shape::Virtualised,
@@ -1491,7 +1574,7 @@ pub fn selection_move_repaints(len: usize, from: usize, to: usize) -> (u64, u64)
                 area,
                 &mut st,
                 &CollOpts::default(),
-                len,
+                Rows::of(len),
                 |_: &str, _: Range<usize>| None,
                 |ink: &mut Pen, cx: &mut Ctx<'_, '_>, r: Rect, i: usize, f: Face| {
                     let paint = crate::frame::face_paint(cx.theme(), f);
@@ -1839,8 +1922,24 @@ mod tests {
             };
             let mut find = |_: &str, _: Range<usize>| None;
             if keyed {
-                let _ = collection(cx, bands[0], &mut left, &opts, rows, &mut find, &mut row);
-                let _ = collection(cx, bands[1], &mut right, &opts, rows, &mut find, &mut row);
+                let _ = collection(
+                    cx,
+                    bands[0],
+                    &mut left,
+                    &opts,
+                    Rows::of(rows),
+                    &mut find,
+                    &mut row,
+                );
+                let _ = collection(
+                    cx,
+                    bands[1],
+                    &mut right,
+                    &opts,
+                    Rows::of(rows),
+                    &mut find,
+                    &mut row,
+                );
             } else {
                 defective::unkeyed_rows(&mut Direct, cx, bands[0], &mut left, rows);
                 defective::unkeyed_rows(&mut Direct, cx, bands[1], &mut right, rows);
@@ -1883,7 +1982,7 @@ mod tests {
                     area,
                     &mut st,
                     &CollOpts::default(),
-                    len,
+                    Rows::of(len),
                     &mut |_: &str, _: Range<usize>| None,
                     &mut |_cx: &mut Ctx<'_, '_>, _r: Rect, _i: usize, _f: Face| {},
                 );
@@ -1954,7 +2053,7 @@ mod tests {
                     area,
                     &mut st,
                     &CollOpts::default(),
-                    1_000,
+                    Rows::of(1_000),
                     &mut |_: &str, _: Range<usize>| None,
                     &mut |_cx: &mut Ctx<'_, '_>, _r: Rect, i: usize, f: Face| {
                         seen.push((i, f.hovered));
@@ -2053,7 +2152,7 @@ mod tests {
                         area,
                         &mut st,
                         &CollOpts::default(),
-                        labels.len(),
+                        Rows::of(labels.len()),
                         &mut |buf: &str, range: Range<usize>| {
                             crate::nav::matched(buf, &labels[range.clone()])
                                 .map(|hit| range.start + hit)
@@ -2093,6 +2192,102 @@ mod tests {
         assert!(buffer.is_empty(), "and nothing of it is in the buffer");
     }
 
+    /// **Everything a collection stores is a position, and a revision it does not recognise clears
+    /// them.**
+    ///
+    /// Components ticket 13, §10 and ADR 0031. A sort changes no data and no length, so nothing
+    /// inside the component can notice it — the frame after draws a perfectly correct list with the
+    /// wrong rows selected and the editor open on the wrong row. **One `u64`, compared once a
+    /// frame**, is the only thing that makes it noticeable.
+    ///
+    /// All three directions are here, because the middle one is the whole mechanism:
+    ///
+    /// - a revision the component has not seen **clears** the positions — [`Policy::Clear`], and it
+    ///   is the only policy available here because `Remap` is the caller's function and
+    ///   `Drop`/`Stash` need the interval a splice removed;
+    /// - a caller that has carried the positions across says so with [`CollState::reconciled`], and
+    ///   the branch does not fire;
+    /// - `Rows::of` carries [`Revision::UNKNOWN`], which never matches — so a caller with no order
+    ///   at all is **never** told its positions went stale, which is right, because it has nothing
+    ///   that can permute them.
+    ///
+    /// [`Policy::Clear`]: crate::order::Policy::Clear
+    #[test]
+    fn a_revision_the_component_has_not_seen_clears_every_position_it_holds() {
+        fn draw(driver: &mut vitui_runtime::ctx::Driver, st: &mut CollState, rows: Rows) {
+            driver.frame(|cx| {
+                let area = cx.area();
+                let _ = collection(
+                    cx,
+                    area,
+                    st,
+                    &CollOpts {
+                        mode: Mode::Multi,
+                        ..Default::default()
+                    },
+                    rows,
+                    &mut |_: &str, _: Range<usize>| None,
+                    &mut |_cx: &mut Ctx<'_, '_>, _r: Rect, _i: usize, _f: Face| {},
+                );
+            });
+        }
+
+        let mut driver = crate::runner::driver_at(40, 8, vitui_runtime::Density::default());
+        let mut st = CollState::new();
+        st.sel.select_only(3);
+        st.sel.insert(10, 14);
+        st.editing = Some(11);
+        let first = Rows::new(1_000, Revision::fresh());
+        draw(&mut driver, &mut st, first);
+        assert_eq!(
+            (st.sel.count(), st.editing),
+            (5, Some(11)),
+            "the first frame at a revision is not an edit"
+        );
+        assert_eq!(st.revision(), first.rev);
+
+        // Same revision, same positions: a steady frame notices nothing.
+        draw(&mut driver, &mut st, first);
+        assert_eq!(st.sel.count(), 5);
+
+        // **A sort.** No data moved and no length moved, and the selection goes.
+        let sorted = Rows::new(1_000, Revision::fresh());
+        draw(&mut driver, &mut st, sorted);
+        assert_eq!(
+            st.sel.count(),
+            0,
+            "`Clear` is the honest default for a permutation"
+        );
+        assert_eq!(st.editing, None, "the editing slot is a position too");
+        assert_eq!(st.sel.anchor, None);
+        assert_eq!(st.revision(), sorted.rev);
+
+        // **The caller's half**: it carried the positions across, so the component notices nothing.
+        let mut st = CollState::new();
+        st.sel.select_only(3);
+        draw(&mut driver, &mut st, first);
+        let remapped = Rows::new(1_000, Revision::fresh());
+        st.reconciled(remapped);
+        draw(&mut driver, &mut st, remapped);
+        assert_eq!(
+            st.sel.count(),
+            1,
+            "a caller that says it has reconciled is believed, which is what makes `Remap` and \
+             `Stash` expressible at all"
+        );
+
+        // **A caller with no order is never told its positions went stale**, at any number of
+        // frames, because `Revision::UNKNOWN` never matches and the branch is guarded on
+        // `is_known()`.
+        let mut st = CollState::new();
+        st.sel.select_only(3);
+        for _ in 0..4 {
+            draw(&mut driver, &mut st, Rows::of(1_000));
+        }
+        assert_eq!(st.sel.count(), 1);
+        assert_eq!(st.revision(), Revision::UNKNOWN);
+    }
+
     /// **The keyboard moves the cursor and the reveal fires only when it did.**
     ///
     /// `CONTEXT.md`'s rule, on the component rather than on a harness: a frame where nothing asked
@@ -2119,16 +2314,23 @@ mod tests {
                                     _i: usize,
                                     _f: Face| {};
                     let seated = match arm {
-                        true => {
-                            collection_into(&mut Direct, cx, area, &mut st, &opts, 1_000, find, row)
-                        }
+                        true => collection_into(
+                            &mut Direct,
+                            cx,
+                            area,
+                            &mut st,
+                            &opts,
+                            Rows::of(1_000),
+                            find,
+                            row,
+                        ),
                         false => defective::every_frame(
                             &mut Direct,
                             cx,
                             area,
                             &mut st,
                             &opts,
-                            1_000,
+                            Rows::of(1_000),
                             find,
                             row,
                         ),

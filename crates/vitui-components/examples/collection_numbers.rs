@@ -218,7 +218,7 @@ fn the_frame() {
                 area,
                 st,
                 &opts,
-                VOLUMES[2],
+                vitui_components::order::Rows::of(VOLUMES[2]),
                 &mut |_: &str, _: std::ops::Range<usize>| None,
                 &mut |cx: &mut vitui_runtime::Ctx<'_, '_>,
                       r: vitui_runtime::Rect,
