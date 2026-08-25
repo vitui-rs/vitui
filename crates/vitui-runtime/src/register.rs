@@ -233,13 +233,13 @@ pub const SPEC_ROWS: usize = 15;
 
 /// Spec §20's register, entry for entry, and the backlog's gates beside it.
 ///
-/// **The count is 39 where the ticket's estimate was "roughly twice the register".** That estimate
+/// **The count is 40 where the ticket's estimate was "roughly twice the register".** That estimate
 /// is left in the ticket rather than corrected into it, because it was an estimate: the backlog's
 /// eighteen tickets declare sixty-nine gate bullets between them, many of which are the same gate
 /// stated from two sides, and twenty-four survive deduplication against §20's fifteen. A row is
 /// here when it is a gate somebody can break; a bullet that restates a neighbour is not a second
 /// row.
-pub const REGISTER: [Entry; 39] = [
+pub const REGISTER: [Entry; 40] = [
     // ── spec §20's table, in its order ───────────────────────────────────────────────────────────
     Entry {
         number: 1,
@@ -1117,6 +1117,38 @@ pub const REGISTER: [Entry; 39] = [
             ],
         },
     },
+    // ── written after the backlog closed ─────────────────────────────────────────────────────────
+    Entry {
+        number: 40,
+        on_spec_table: false,
+        property: "The app thread can park, and the \u{a7}17 handoff is reachable from a `Driver`",
+        kind: Kind::Gate,
+        qualifier: "equality \u{2014} between *which wake returned* and *which handle was posted \
+                    through*, and it is a property of the mechanism rather than of the data because \
+                    **nothing varies**: there is no input, no size and no corpus, only whether the \
+                    two ends are the same engine. A handle cloned from a different one parks for \
+                    ever. **The park is the gate and not the take**: a polling loop passes a \
+                    take-shaped version of this with no `WakeHandle` at all, by running frames \
+                    until the slot fills, and pays 60 wakeups against 0 over 60 frames with a job \
+                    in flight",
+        source: "issue 23",
+        state: State::Wired {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-runtime/src/ctx.rs",
+                    name: "a_quit_through_the_drivers_handle_is_the_wake_the_driver_returns",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-runtime/src/ctx.rs",
+                    name: "a_worker_hired_from_the_driver_wakes_it_and_the_answer_is_there",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-runtime/src/ctx.rs",
+                    name: "the_handle_is_send_and_survives_a_frame",
+                },
+            ],
+        },
+    },
 ];
 
 /// How many `compile_fail` fences the crate carries.
@@ -1135,7 +1167,11 @@ pub const NEGATIVE_CASES: usize = 31;
 /// fences alone leaves unguarded: *the twin is precisely the half that catches a rename*. Deleting
 /// one on its own leaves every other test green, at which point a later rename makes the surviving
 /// negative case fail for the wrong error and report `ok`.
-pub const RUNNABLE_EXAMPLES: usize = 58;
+///
+/// Fifty-eight at ticket 19; **fifty-nine since architecture issue 23**, whose one addition is the
+/// `no_run` loop on [`Driver::wait`](crate::ctx::Driver::wait) — the only doc block in the crate
+/// that cannot be `run`, because a loop with nothing pending parks for ever by design.
+pub const RUNNABLE_EXAMPLES: usize = 59;
 
 #[cfg(test)]
 mod tests {
@@ -1420,6 +1456,12 @@ mod tests {
     }
 
     /// **Every entry names somewhere to look, and a red one names an implementation ticket.**
+    ///
+    /// `issue NN` joins `R NN` and `all` at entry 40, and the widening is the honest form rather
+    /// than a loosening: the implementation backlog **closed** on 2026-08-24, so a gate written
+    /// after it has no `R` number to cite, and giving it one would be a citation to a file that
+    /// does not exist. An architecture issue is somewhere to look, which is what this test is
+    /// named for.
     #[test]
     fn every_entry_names_a_destination() {
         for entry in REGISTER {
@@ -1429,8 +1471,11 @@ mod tests {
                 entry.number
             );
             assert!(
-                entry.source.starts_with("R ") || entry.source == "all",
-                "entry #{}'s source `{}` is not an implementation ticket",
+                entry.source.starts_with("R ")
+                    || entry.source.starts_with("issue ")
+                    || entry.source == "all",
+                "entry #{}'s source `{}` is neither an implementation ticket, an architecture \
+                 issue, nor `all`",
                 entry.number,
                 entry.source
             );
@@ -1469,11 +1514,13 @@ mod tests {
     /// **Thirty-nine wired, none red**, and that is R 20 closing the last one.
     ///
     /// This register was thirty-eight and one from ticket 19 until ticket 20 built the gate entry
-    /// 12 was red for the absence of. Saying *how many* is what stops a red row arriving
+    /// 12 was red for the absence of, and forty since architecture issue 23 — the first row here
+    /// whose source is an *architecture* issue rather than an implementation ticket, because the
+    /// backlog was closed when the gap was found. Saying *how many* is what stops a red row arriving
     /// unremarked, and it now has the second job the engine's has: **a register at all-green says
     /// so**, so the next red row is a deliberate edit to this number rather than a quiet one.
     #[test]
-    fn thirty_nine_are_wired_and_none_are_red() {
+    fn forty_are_wired_and_none_are_red() {
         let red: Vec<u8> = REGISTER
             .iter()
             .filter(|e| matches!(e.state, State::Red { .. }))
@@ -1486,7 +1533,7 @@ mod tests {
              documentation, and in the module comment above — the count is the thing that stops it \
              arriving unremarked"
         );
-        assert_eq!(REGISTER.len() - red.len(), 39);
+        assert_eq!(REGISTER.len() - red.len(), 40);
     }
 
     /// **The split, not the total.**
@@ -1501,8 +1548,8 @@ mod tests {
         assert_eq!(on_table, SPEC_ROWS, "spec §20's table is fifteen rows");
         assert_eq!(
             REGISTER.len() - on_table,
-            24,
-            "the backlog's gates, deduplicated against §20's fifteen"
+            25,
+            "the backlog's gates, deduplicated against §20's fifteen, plus issue 23's"
         );
         // And §20's fifteen come first, so the table reads in the spec's order.
         for (index, entry) in REGISTER.iter().enumerate() {

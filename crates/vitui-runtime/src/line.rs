@@ -195,8 +195,8 @@ pub struct EngineName {
 /// `Style` is on the list because `pub struct Paint(pub(crate) Style)` names it in a public
 /// declaration, and it is the one entry nothing is blocked by: the field is restricted, which is the
 /// whole design — a component names a role and can never construct a paint.
-pub const ENGINE_NAMES: [EngineName; 24] = [
-    // The seven with a path. Four of them are one `pub use` in `keys`.
+pub const ENGINE_NAMES: [EngineName; 25] = [
+    // The nine with a path. Four of them are one `pub use` in `keys`, and two are one in `work`.
     EngineName {
         name: "GlyphSet",
         reachable_as: Some("vitui_runtime::theme::GlyphSet"),
@@ -208,6 +208,19 @@ pub const ENGINE_NAMES: [EngineName; 24] = [
     EngineName {
         name: "Slot",
         reachable_as: Some("vitui_runtime::work::Slot"),
+    },
+    // **Both halves of the handoff, and they arrived together.** `Driver::wait` returns a `Wake` and
+    // `Worker::hire` takes a `WakeHandle`, so a crate that cannot name them can write no loop and
+    // hire no worker. `WakeHandle` moved from the seventeen to here rather than being added: it was
+    // already named by a public signature and reachable through nothing, which is what made
+    // `crate::work` a module an application could read and not use.
+    EngineName {
+        name: "Wake",
+        reachable_as: Some("vitui_runtime::work::Wake"),
+    },
+    EngineName {
+        name: "WakeHandle",
+        reachable_as: Some("vitui_runtime::work::WakeHandle"),
     },
     EngineName {
         name: "Key",
@@ -225,7 +238,7 @@ pub const ENGINE_NAMES: [EngineName; 24] = [
         name: "KeyText",
         reachable_as: Some("vitui_runtime::keys::Text"),
     },
-    // The seventeen with none. Each is named by a public signature; the ones that block a whole
+    // The sixteen with none. Each is named by a public signature; the ones that block a whole
     // family of gates are `Rect`, `Mods`, `Event` and `Mouse` — see this module's documentation and
     // `crates/vitui-components/tests/crate_line.rs`'s table.
     EngineName {
@@ -282,10 +295,6 @@ pub const ENGINE_NAMES: [EngineName; 24] = [
     },
     EngineName {
         name: "Presented",
-        reachable_as: None,
-    },
-    EngineName {
-        name: "WakeHandle",
         reachable_as: None,
     },
     EngineName {
@@ -580,7 +589,7 @@ mod tests {
     /// vitui_engine::…` that [`ENGINE_NAMES`] does not carry is the finding closing itself without
     /// anyone saying so; a reachable row the source does not have is the opposite.
     #[test]
-    fn the_engine_names_reachable_through_the_runtime_are_the_documented_seven() {
+    fn the_engine_names_reachable_through_the_runtime_are_the_documented_nine() {
         let mut found = BTreeSet::new();
         for module in modules() {
             for line in read(&src_dir().join(&module)).lines() {
@@ -622,7 +631,7 @@ mod tests {
                 .iter()
                 .filter(|e| e.reachable_as.is_none())
                 .count(),
-            17
+            16
         );
     }
 

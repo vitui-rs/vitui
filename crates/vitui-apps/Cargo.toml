@@ -1,0 +1,47 @@
+# The applications, as examples. Not a library anybody depends on.
+#
+# **A workspace member, and the reason is that `compare/run.sh` was not one.** `.github/compare.yml`
+# invoked a script nobody had committed, and the job had been failing at its Measure step since the
+# day it was written — a scheduled workflow nobody watches. Everything in `examples/` here is built
+# by `cargo clippy --workspace --all-targets` and by the `test` job, so an application that stops
+# compiling against the component surface fails the pipeline instead of rotting quietly. **That is
+# the whole point of the crate**: these are the first consumers the library has, and a consumer
+# nobody builds is a consumer nobody checks.
+#
+# **No `clippy.toml` here, deliberately.** Spec §11's disallowed-method rung belongs to
+# `examples/app-template`, which is outside the workspace precisely so that its list means *the
+# application author's crate* and not *every crate in this repository* — clippy reads its
+# configuration from the crate being linted, and a second copy inside the workspace would apply the
+# rung to `vitui-engine`, which legitimately spawns, joins and locks. `scripts/lint-rung-gate.sh`
+# gates the template; nothing is gained by a second home for the same fragment.
+[package]
+name = "vitui-apps"
+description = "Applications written against the vitui component surface"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+readme = "README.md"
+
+# **Never published.** `vitui-bench` and `vitui-alloc-probe` say the same thing for the same reason:
+# an instrument is not part of the library, and neither is a demonstration. What ships to crates.io
+# is `vitui`.
+publish = false
+
+# **`vitui-runtime` and `vitui-components`, and deliberately not `vitui-engine`.**
+#
+# This is components spec §0's constraint C6 applied one layer up, and here it is a *choice* rather
+# than a rule — an application may name the engine, and `examples/app-template` does. What it buys
+# is that every application in this directory is a standing proof that **the component-facing
+# surface is sufficient**: a program that could only be written by reaching past the runtime would
+# be a program that says the surface is not finished, and it would say so silently.
+#
+# The two names are separate rather than the `vitui` facade for the same reason: depending on the
+# facade would make `vitui-engine` reachable through a re-export, and the proof would evaporate
+# without a single line changing.
+[dependencies]
+vitui-runtime.workspace = true
+vitui-components.workspace = true
+
+[lints]
+workspace = true

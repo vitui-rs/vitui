@@ -206,6 +206,14 @@ name = "vitui-alloc-probe"
 version = "0.0.0"
 
 [[package]]
+name = "vitui-apps"
+version = "0.0.0"
+dependencies = [
+ "vitui-components",
+ "vitui-runtime",
+]
+
+[[package]]
 name = "vitui-bench"
 version = "0.0.0"
 

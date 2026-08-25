@@ -79,7 +79,7 @@ use std::time::{Duration, Instant};
 
 use vitui_engine::{
     AttachError, Capabilities, Clock, Config, Cursor, CursorShape, Engine, LayerId, MouseMode,
-    Output, Presented, Rect, Screen, Surface, View, Written,
+    Output, Presented, Rect, Screen, Surface, View, Wake, WakeHandle, Written,
 };
 
 use crate::focus::{ScopeKind, Stop};
@@ -2391,6 +2391,29 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// **The only focus verb, and it names a widget rather than a direction.** The walk is not
     /// reachable from a component: one that could call it would move the focus during the draw, over
     /// a ring that is half built.
+    ///
+    /// # An application that never calls this is deaf, and the first one written was
+    ///
+    /// `frame.focused` starts as `None` and **nothing sets it for you**: not `interact`, not
+    /// `Interest::FOCUS`, not the ring being built. [`Ctx::next_key`] answers only the focused id —
+    /// *nothing focused, nothing routed*, which is its own doctest — so a program with a perfectly
+    /// good key map, a tab stop and a drain loop receives **nothing at all** until a click awards
+    /// the focus to something. Measured on the two arms of one application, five `Right` presses
+    /// each: **0 against 5.**
+    ///
+    /// The symptom is worse than silence, because the click is a repair the user finds by accident:
+    /// *it starts working after I click on it*. `crates/vitui-apps/examples/counter.rs` is where
+    /// this was found and carries the fix.
+    ///
+    /// **Focus on the first frame, from a flag the application keeps** — not
+    /// `if !cx.is_focused(id) { cx.focus(id) }`, which reads as the same thing and is not: the
+    /// conditional form takes the keyboard **back** every frame the user has tabbed away, so `Tab`
+    /// appears to do nothing. *Which widget starts with the keyboard* is a statement about the first
+    /// frame, and a statement about a sequence of frames needs a value outside the frame.
+    ///
+    /// **Whether the runtime should focus the first stop when nothing holds the focus is not
+    /// decided here** — it is a map question, and this doc is the obligation as it stands rather
+    /// than an argument that it should stand.
     pub fn focus(&mut self, id: Id) {
         self.frame.focused = Some(id);
     }
@@ -2855,12 +2878,20 @@ pub struct Driver {
     /// counted on this side of the seam — *no reallocation* is true of one and false of the other,
     /// and the gate is the pair rather than either number.
     reallocs: u64,
+    /// **The handle that wakes the app thread, kept rather than dropped.**
+    ///
+    /// `attach` used to bind this `_wake` and let it fall, which was correct for exactly as long as
+    /// nothing above the engine could park: with no [`Driver::wait`] there was no thread to wake and
+    /// no worker that could have been hired to wake it. Both halves arrive together, because either
+    /// alone is useless — a loop that parks with no handle out never returns, and a handle with no
+    /// loop to park posts to a spin.
+    wake: WakeHandle,
 }
 
 impl Driver {
     /// Attach to a real terminal.
     pub fn attach(config: Config, theme: Theme) -> Result<Driver, AttachError> {
-        let (mut screen, _wake) = Engine::new(config).attach()?;
+        let (mut screen, wake) = Engine::new(config).attach()?;
         let (w, h) = screen.size();
         let base = screen.layers().add_content(0, Rect::new(0, 0, w, h), true);
         let caps = screen.capabilities().clone();
@@ -2880,6 +2911,7 @@ impl Driver {
             placed: Vec::new(),
             round: Vec::new(),
             reallocs: 0,
+            wake,
         })
     }
 
@@ -2897,6 +2929,66 @@ impl Driver {
             },
             Theme::default().resolve(vitui_engine::ColorDepth::TrueColor),
         )
+    }
+
+    /// **Park until something happens.** The loop's only blocking call, and the first line of spec
+    /// §1's sequence.
+    ///
+    /// It is the engine's `Screen::wait` forwarded unchanged, which is the whole of what it should
+    /// be: the pacing, the coalescing and the indefinite park all belong to the frame clock, and a
+    /// second policy on this side would be a second answer to a question the engine has already
+    /// answered. The first damage after a quiet period returns at once, everything arriving inside
+    /// the gap coalesces into one return at the end of it, and **with nothing pending and no
+    /// deadline registered the wait is indefinite** — so an idle application costs no wakeups and
+    /// no CPU.
+    ///
+    /// # Why this did not exist until now, and what its absence cost
+    ///
+    /// Spec §21 leaves the loop unowned — *whether the runtime ships an application shell or only
+    /// the pieces* — and that is still open; this is not a shell. What was not a decision was that
+    /// **no loop could be written at all**: `wait` lives on `Screen`, `Driver` owns its `Screen`
+    /// privately, and no path led to either. An application on this crate could only spin, and a
+    /// spin turns the one budget that is not a timing — *a genuinely idle application costs zero
+    /// wakeups* — into a claim about a layer nobody could reach. Adding a forward is the smallest
+    /// thing that makes §21's question a real choice rather than a description of a wall.
+    ///
+    /// # It does not drain
+    ///
+    /// A `Wake` says *why*, not *what*. Events are drained by [`Driver::frame`], at `begin`, in
+    /// arrival order and interleaved — the batch split is over the interleaving (ADR 0016), so
+    /// there is nothing here for a caller to take and nothing it could do with it if there were.
+    ///
+    /// ```no_run
+    /// use vitui_runtime::ctx::Driver;
+    /// use vitui_runtime::work::Wake;
+    ///
+    /// let mut driver = Driver::headless(80, 24).expect("a sink attaches");
+    /// loop {
+    ///     match driver.wait() {
+    ///         Wake::Quit => break,
+    ///         Wake::Input | Wake::Posted | Wake::Deadline => {}
+    ///     }
+    ///     driver.frame(|cx| { let _ = cx.area(); });
+    /// }
+    /// ```
+    pub fn wait(&mut self) -> Wake {
+        self.screen.wait()
+    }
+
+    /// **A handle a worker is hired with**, cloned from the one `attach` was given.
+    ///
+    /// [`Worker::hire`](crate::work::Worker::hire) takes one of these and there was no way to
+    /// obtain one: `attach` dropped it. So spec §17's whole module — the resident thread, the
+    /// one-slot inbox, the generation that says which question an answer answers — was reachable
+    /// from a test that built its own engine and from nothing else. **`Worker::queueing` is not the
+    /// answer to that**: it runs jobs inline on demand and exists so a gate can be a straight-line
+    /// program, which is the opposite of the thing an application wants.
+    ///
+    /// Clone it once per worker. The handle is `Send`, and it is the only piece of the app thread's
+    /// half that is — see spec §17's compile-outcome gate, which stands unchanged: what crosses is
+    /// a `Slot` and a post, never a `Ctx` and never a `Frame`.
+    pub fn wake(&self) -> WakeHandle {
+        self.wake.clone()
     }
 
     /// Run one frame: `begin`, the base pass, the overlay pass, `end`, `settle`, `present`.
@@ -6479,4 +6571,76 @@ mod overlay_tests {
     /// `(32, 119)` is: a report that quietly started measuring a smaller screen would otherwise look
     /// good rather than fail.
     const PAD_FIRST_TWICE: u32 = 5_902;
+}
+
+#[cfg(test)]
+mod loop_tests {
+    //! **The loop, as far as this crate owns one.** Spec §21 leaves *who owns the loop* open and
+    //! these do not close it; what they close is that no loop could be written at all, because
+    //! `Screen::wait` and the `WakeHandle` were both behind a private field.
+    //!
+    //! Every case here posts or quits **before** it parks. That is not tidiness: with nothing
+    //! pending and no deadline the wait is indefinite by design, and `cargo test` has no per-test
+    //! timeout — a hang is worse than a failure, which is the rule `Frame::begin` already states
+    //! for `IdTable::claim`.
+
+    use super::*;
+    use crate::work::{Task, Worker};
+
+    /// **`wait` and `wake` are two halves of one engine.** A quit posted through the handle the
+    /// driver hands out is the wake the driver returns, which is the whole claim — a handle cloned
+    /// from a different engine would park here for ever.
+    ///
+    /// `Wake::Quit` and not `Posted`, because a quit is never paced: at a 1 Hz ceiling checking the
+    /// clock first would hang shutdown for a second.
+    #[test]
+    fn a_quit_through_the_drivers_handle_is_the_wake_the_driver_returns() {
+        let mut driver = Driver::headless(80, 24).expect("a sink attaches");
+        driver.wake().quit();
+        assert_eq!(driver.wait(), Wake::Quit);
+    }
+
+    /// **The §17 handoff, reachable from a `Driver` for the first time.**
+    ///
+    /// `Worker::hire` takes a `WakeHandle` and until `Driver::wake` existed there was no way to
+    /// obtain one — so the resident thread, the one-slot inbox and the generation beside the answer
+    /// were reachable from a test that built its own `Engine` and from nothing else. This is that
+    /// module's own arrangement driven end to end: hire, ask, park, take.
+    ///
+    /// **The park is the gate, not the take.** A polling shape passes a version of this test
+    /// without a `WakeHandle` at all, by running frames until the slot is full; sixty frames with a
+    /// job in flight then cost sixty wakeups against zero, and the streak fires the runaway
+    /// detector on a screen doing nothing.
+    #[test]
+    fn a_worker_hired_from_the_driver_wakes_it_and_the_answer_is_there() {
+        let mut driver = Driver::headless(80, 24).expect("a sink attaches");
+        let worker = Worker::hire(driver.wake());
+        let task: Task<u64> = Task::new(&worker);
+
+        task.request(1, |_| (1..=10_000u64).filter(|n| n % 7 == 0).count() as u64);
+
+        // Park. The post is the only thing that can return this, and it arrives from the worker's
+        // thread — a landing with nothing behind it would leave the take below empty.
+        assert_eq!(driver.wait(), Wake::Posted);
+        assert_eq!(task.take(), Some(1_428));
+    }
+
+    /// **A handle outlives the frame it was taken before, and it is `Send`.**
+    ///
+    /// The one piece of the app thread's half that crosses, and spec §17's compile-outcome gate is
+    /// unchanged by this ticket: what goes to a thread is a `Slot` and a post, never a `Ctx` and
+    /// never a `Frame`. Here that is asserted positively — the negative half is `work`'s.
+    #[test]
+    fn the_handle_is_send_and_survives_a_frame() {
+        let mut driver = Driver::headless(80, 24).expect("a sink attaches");
+        let wake = driver.wake();
+        driver.frame(|cx| {
+            let _ = cx.area();
+        });
+        let joined = std::thread::spawn(move || {
+            wake.quit();
+        });
+        joined.join().expect("the worker thread ran");
+        assert_eq!(driver.wait(), Wake::Quit);
+    }
 }

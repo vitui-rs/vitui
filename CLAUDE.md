@@ -181,7 +181,28 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   path with a twin naming `block` and `BlockOpts` by path, and a source scan that catches it coming
   back `pub(crate)` — which is how a deleted helper actually returns. The scan's first run reported
   **itself**, because a scanner looking for a literal contains that literal.
-- Nothing above the engine can draw a screen yet, so no application exists to run.
+- **An application runs.** `crates/vitui-apps` is new (2026-08-24, at the user's request, on no map):
+  the applications as `examples/`, one file each, the first a port of ratatui's counter-app tutorial.
+  It depends on `vitui-runtime` and `vitui-components` and **not** on the `vitui` facade, which is
+  what makes every file in it a standing proof that the component-facing surface is sufficient — the
+  facade re-exports the engine, so depending on it would make `Rect` nameable and evaporate the claim
+  without a line changing. A test reads the source rather than the manifest for the same reason.
+- **Writing it found that no loop could be written at all** — runtime architecture issue 23, now
+  resolved. §1's frame sequence opens with `wait()`; `Screen::wait` is the app thread's only
+  blocking call; `Driver` owned its `Screen` privately and `attach` bound the `WakeHandle` as `_wake`
+  and dropped it. So the only shape available was `while !exit { driver.frame(…) }`, a spin at 100%
+  of a core that **looks correct** because `present` coalesces. Worse: `Worker::hire(WakeHandle)` was
+  **public and uninvokable**, so the whole of spec §17 — resident thread, one-slot inbox, the eight
+  bytes of generation — was reachable from a test that builds its own `Engine` and from nowhere else.
+  `Driver::wait` and `Driver::wake` forward both, unchanged and with no policy on this side; **§21's
+  question of who owns the loop is untouched**, and what is settled is that the first of its three
+  homes is possible rather than described. `line.rs`: 24 engine names → 25, reachable 7 → 9,
+  unreachable 17 → 16. `register.rs`: 39 → 40, and entry 40 is the first row whose source is an
+  *architecture issue* rather than an `R NN`, because the implementation backlog was already closed —
+  the destination gate was widened to accept `issue NN` rather than given a citation to a file that
+  does not exist. The measurement that matters is on the shipped binary, parked five seconds:
+  **0.00 user / 0.00 sys**, which is `scripts/idle-gate.sh`'s budget met by an application rather
+  than by the engine under test.
 
 Read these before working, in this order:
 
@@ -215,6 +236,12 @@ crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers 
                             unnameable across the crate line, so the two partition primitives
                             return one of these instead (runtime architecture issue 22)
 crates/vitui              facade re-export — engine, runtime, components, and deliberately not signals
+crates/vitui-apps         the applications, one file each in `examples/` — 1 so far: `counter`
+                          └ a workspace MEMBER, so CI builds them: a consumer nobody builds is a
+                            consumer nobody checks (`compare/run.sh` is the precedent). Depends on
+                            runtime + components and NOT on the `vitui` facade — the facade
+                            re-exports the engine, which would make `Rect` nameable here and
+                            evaporate the proof that the component surface is sufficient
 crates/vitui-signals      a fine-grained signal graph, 112 lines above the runtime
                           └ a detached workspace, and the only one detached by a `deny.toml` rule:
                             `wrappers = []` bans the crate's presence in the graph, not only its
@@ -260,6 +287,7 @@ cargo deny check                            # needs `cargo install cargo-deny`
 (cd fuzz && cargo deny check)               # detached workspace: its own graph, its own gate
 (cd conform && cargo test)                  # the conformance gate, over committed captures
 (cd crates/vitui-signals && cargo test -- --test-threads=1)   # detached: --workspace misses it
+cargo run -p vitui-apps --example counter   # the first real application; q to quit
 (cd conform && cargo run --example tmux)    # the one conformance soak that is headless
 (cd conform && cargo run --example kitty)   # a window, but no automation grant and no config file
 ```

@@ -62,7 +62,7 @@
 //!
 //! Sixty frames with a job in flight ask for **0** wakeups against **60** for the polling shape,
 //! whose streak of sixty fires the runaway detector on a screen doing nothing. The park is the whole
-//! mechanism: the app thread blocks on the same condvar [`Wake::Posted`](vitui_engine::Wake::Posted)
+//! mechanism: the app thread blocks on the same condvar [`Wake::Posted`]
 //! is, and **a job in flight is not a reason to run a frame**. Twenty posts arriving while the app
 //! thread is busy cost **one** wake.
 //!
@@ -74,14 +74,23 @@ use std::marker::PhantomData;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 
-use vitui_engine::WakeHandle;
-
 /// Where a worker leaves a result for the app thread. **The engine's, re-exported unchanged.**
 ///
 /// Spec §4 lists three names that are the engine's and are not the runtime's; shipping a second type
 /// with this name across the seam is the review finding `GlyphSet` already carries. `work` wraps it
 /// — in [`Task`] — and adds [`Drain`] beside it. It adds nothing *to* it.
 pub use vitui_engine::Slot;
+
+/// Why the app thread woke, and the handle that wakes it. **The engine's, re-exported unchanged**,
+/// for [`Slot`]'s reason and one more.
+///
+/// [`Worker::hire`] takes a `WakeHandle` and [`Driver::wait`](crate::ctx::Driver::wait) returns a
+/// `Wake`, so **both halves of the handoff are already on this crate's public surface** — a caller
+/// who cannot name them can hire no worker and write no loop. Before `Driver::wait` existed neither
+/// was reachable and neither had to be: `Driver::attach` dropped the handle it was given and there
+/// was nothing above the engine that could park. Spec §21 left the loop unowned, and an application
+/// that owns it needs the two nouns the parking is written in.
+pub use vitui_engine::{Wake, WakeHandle};
 
 /// Minted on the app thread, once per question, and never reused.
 ///

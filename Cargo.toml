@@ -5,6 +5,7 @@ members = [
     "crates/vitui-engine",
     "crates/vitui-runtime",
     "crates/vitui-components",
+    "crates/vitui-apps",
     "crates/vitui-alloc-probe",
     "crates/vitui-bench",
 ]
@@ -141,6 +142,9 @@ crossterm = { version = "0.29", default-features = false, features = [
 vitui-engine = { path = "crates/vitui-engine", version = "0.0.0" }
 vitui-runtime = { path = "crates/vitui-runtime", version = "0.0.0" }
 vitui-components = { path = "crates/vitui-components", version = "0.0.0" }
+# `publish = false`, so no `version` key: cargo only needs one for a dependency that will appear in a
+# published manifest, and this one never will.
+vitui-apps = { path = "crates/vitui-apps" }
 vitui-alloc-probe = { path = "crates/vitui-alloc-probe", version = "0.0.0" }
 vitui-bench = { path = "crates/vitui-bench", version = "0.0.0" }
 
