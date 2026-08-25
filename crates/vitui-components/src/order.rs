@@ -96,18 +96,79 @@ use crate::collect::{Selection, Span};
 ///
 /// **No `Id`.** `node` is the *caller's* key — a row id, a byte offset, a line number — which is
 /// what makes the index persistable and keeps ADR 0013's rule satisfied by construction.
+/// # It is eight bytes, and it was sixteen until components ticket 17
+///
+/// Spec §7 states the record with its widths — `struct Row { node: u32, depth: u16, flags: u8, h: u8
+/// } // 8 bytes` — and §10, which is where *one structure, five names* is written, states the four
+/// field **names** and no widths at all. Components ticket 13 built this type from §10 and widened
+/// three of the four; the divergence went unremarked because §7's own criterion, *a gate asserts its
+/// size*, is components ticket 17's and had nothing to run over yet.
+///
+/// **Narrowing it here is not a decision reopened**: the widths were stated by the section that owns
+/// the record, and the number they were widened to was asserted rather than argued. What the
+/// narrowing buys is that §7's own memory figures come back — a million rows is **7.63 MiB** against
+/// 15.26, and the variable-height prefix sum beside it is **11.44 MiB** against 19.07, which is §7's
+/// *7 → 11 MB* to the megabyte. See [`ENTRY_BYTES`] and [`index_bytes`].
+///
+/// The three ceilings it costs are stated rather than discovered: a caller's key is bounded at
+/// `u32::MAX`, a row's flags at eight bits — §10 names four — and a row's screen height at 255.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Hash)]
 pub struct Entry {
     /// The caller's own key for whatever this row shows. Never an [`Id`](vitui_runtime::Id).
-    pub node: u64,
+    pub node: u32,
     /// How deep it sits. **Not for the indent** — it is there so a collapse can find the interval it
     /// removes without touching the forest: 115 µs against 1 187 at 349 524 rows (ADR 0028).
     pub depth: u16,
-    /// Caller-defined bits: expanded, folded, filtered, continuation.
-    pub flags: u16,
+    /// Caller-defined bits: expanded, folded, filtered, continuation. See [`Entry::FOLDED`].
+    pub flags: u8,
     /// How many screen rows it occupies. **The fourth field, and it is why variable row height is a
     /// field rather than a fifth structure** (§7).
-    pub h: u16,
+    pub h: u8,
+}
+
+impl Entry {
+    /// **The one bit this crate spends of [`Entry::flags`]: the row's subtree is not in the order.**
+    ///
+    /// A component may read it and may not set it — the order is the caller's — which is why
+    /// [`Order::fold`] is the only thing here that writes it and why [`crate::collect::tree`] takes
+    /// the index by shared reference.
+    pub const FOLDED: u8 = 1 << 0;
+
+    /// A leaf at depth 0 carrying the caller's key, one screen row tall.
+    pub const fn of(node: u32) -> Entry {
+        Entry {
+            node,
+            depth: 0,
+            flags: 0,
+            h: 1,
+        }
+    }
+
+    /// The same entry `depth` levels down.
+    pub const fn at_depth(self, depth: u16) -> Entry {
+        Entry { depth, ..self }
+    }
+
+    /// Whether its subtree has been taken out of the order.
+    pub const fn is_folded(self) -> bool {
+        self.flags & Entry::FOLDED != 0
+    }
+}
+
+/// **What one row of a materialised display order costs. Eight bytes — spec §7's own figure.**
+///
+/// The gate components ticket 17's criterion 1 asks for, and it is a `size_of` rather than a
+/// hand-added tally so that a fifth field arriving fails here rather than in a comment.
+pub const ENTRY_BYTES: usize = size_of::<Entry>();
+
+/// **What an index of `rows` rows costs, with and without the variable-height prefix sum.**
+///
+/// `(index, index + prefix sum)` in bytes. §7 states *the index grows 57% (7 → 11 MB at a million
+/// rows)*; the prefix sum is a `Vec<u32>`, so the growth is exactly `4 / ENTRY_BYTES` — **50%** — and
+/// the two absolute figures are 7.63 MiB and 11.44 MiB, which is what §7 rounds.
+pub const fn index_bytes(rows: usize) -> (usize, usize) {
+    let index = rows * ENTRY_BYTES;
+    (index, index + rows * size_of::<u32>())
 }
 
 /// One of the five things [`Order`] is, and which of [`Entry`]'s fields it spends.
@@ -323,6 +384,99 @@ impl Order {
         }
         self.entries = out;
         self.rev = Revision::fresh();
+    }
+}
+
+// ── the flatten index: the interval a fold removes, read from `depth` ─────────────────────────────
+
+/// **The flatten index's own three verbs**, which are the ones §7 is about.
+///
+/// They are on [`Order`] rather than on a type of their own because §10's whole ruling is that
+/// `tree`'s flatten index **is** the order — *three names for one mechanism is already one too many*.
+/// What separates them from the two above is only that they read [`Entry::depth`], and reading it is
+/// the entire reason the field exists.
+impl Order {
+    /// **The interval node `i`'s subtree occupies, read from [`Entry::depth`] and nothing else.**
+    ///
+    /// A contiguous scan over eight-byte records, forward from `i` while the depth stays greater.
+    /// The half of §7's sentence that makes the field earn its place: *`depth` is not there for the
+    /// indent — it is there so a collapse can find the interval it removes **without touching the
+    /// forest***. From the data the same answer is one random access per removed row, which is
+    /// 115 µs against 1 187 at 349 524 rows. [`subtree_costs`] is that as a pair of measurements.
+    ///
+    /// Half-open, in the order's own coordinates, and empty for a leaf or past the end.
+    pub fn subtree(&self, i: usize) -> Range<usize> {
+        let Some(mine) = self.entries.get(i).map(|e| e.depth) else {
+            return 0..0;
+        };
+        let mut j = i + 1;
+        while self.entries.get(j).is_some_and(|e| e.depth > mine) {
+            j += 1;
+        }
+        i + 1..j
+    }
+
+    /// How many rows hang under display position `i`. [`Order::subtree`]'s length.
+    pub fn descendants(&self, i: usize) -> usize {
+        self.subtree(i).len()
+    }
+
+    /// **Where the caller's key `node` sits in the display order**, or `None` if it is folded away.
+    ///
+    /// A linear scan, and it is not a defect: [`Ask`] carries the caller's **key** rather than a
+    /// position, because a position is exactly the thing that goes stale (ADR 0031), and the verb a
+    /// caller reaches for next — [`Order::fold`] — moves the tail of the same vector. Both are
+    /// `O(len)` over eight-byte records, so the lookup is free beside the edit it precedes, and
+    /// neither is in a frame.
+    pub fn position_of(&self, node: u32) -> Option<usize> {
+        self.entries.iter().position(|e| e.node == node)
+    }
+
+    /// **Fold the subtree at `i` out of the order, by splice, and stamp the revision.**
+    ///
+    /// # Splice, always — no threshold and no rebuild path
+    ///
+    /// **A collapse by splice is flat in what it removes** (157–342 µs at every subtree size from
+    /// 2 rows to 999 999); **a rebuild is proportional to what remains** (40 393 µs at 52% folded).
+    /// The rebuild walks a shuffled forest at 85 ns a row and the splice moves records at 0.26 ns, so
+    /// the crossover is at about **99.7% of the index removed** — in a tree, only at the root, where
+    /// the rebuild wins by doing nothing. A branch that has to stay correct for ever is not worth
+    /// 340 µs once, so this sentence is a doc comment and not a `match`. That is §7's own
+    /// instruction, followed literally.
+    ///
+    /// The row itself stays and gains [`Entry::FOLDED`], which is what makes the fold visible to a
+    /// component that may only read the index.
+    ///
+    /// **Folding a leaf is a no-op and does not stamp**, which is not tidiness: a revision moved for
+    /// an edit that removed nothing is a [`Policy::Clear`] on the next frame — a collection that
+    /// silently drops its selection because the user pressed `←` on a leaf.
+    pub fn fold(&mut self, i: usize) -> Splice {
+        let range = self.subtree(i);
+        if range.is_empty() {
+            return Splice {
+                removed: range,
+                inserted: 0,
+            };
+        }
+        let splice = self.splice(range, []);
+        if let Some(e) = self.entries.get_mut(i) {
+            e.flags |= Entry::FOLDED;
+        }
+        splice
+    }
+
+    /// **Put `rows` back under `i`, by splice, and stamp the revision.**
+    ///
+    /// Proportional to what it inserts, which beats a rebuild by `total / inserted` — 1.15× at the
+    /// root and **700× at a 340-row subtree**. The rows are the caller's because the index is: what
+    /// was folded away was not kept, and keeping it is what a `Vec<u32>` order does.
+    pub fn unfold(&mut self, i: usize, rows: impl IntoIterator<Item = Entry>) -> Splice {
+        let at = (i + 1).min(self.entries.len());
+        let splice = self.splice(at..at, rows);
+        if let Some(e) = self.entries.get_mut(i) {
+            e.flags &= !Entry::FOLDED;
+        }
+        splice
     }
 }
 
@@ -569,6 +723,153 @@ pub fn reconcile_position(at: Option<usize>, splice: &Splice) -> Option<usize> {
     Some((i as isize + splice.shift()).max(0) as usize)
 }
 
+// ── variable row height, which is a fourth field and not a fifth structure ───────────────────────
+
+/// **The prefix sum over [`Entry::h`], built in the same pass and only when rows can differ.**
+///
+/// §7's *variable row height is a fourth field*. `Row::h` is a byte the record already had; this is
+/// the `Vec<u32>` beside it, and the three things §7 states about it are all measurements here rather
+/// than sentences:
+///
+/// - **the index grows 50%** — a `u32` a row against an eight-byte record ([`index_bytes`]; §7 says
+///   57% over a seven-byte one);
+/// - **a splice costs 2.25×**, because the tail it has already moved must be re-accumulated
+///   ([`Heights::spliced`]);
+/// - **the frame does not move at all** — identical writes and verbs, which is
+///   `crate::forest`'s own equality.
+///
+/// # `row_at` is `O(log n)` per viewport and not per row
+///
+/// The content row at screen `y` is a binary search — 0.019 µs against 0.0006 — and §7's footnote is
+/// that the difference only matters if it is asked once a **row**. [`crate::collect::tree`] asks it
+/// once a frame and steps from there, so the index stays `O(1)` per row.
+///
+/// [`Heights::needed`] is what makes *only when rows can differ* checkable: a uniform index answers
+/// `false` and the component builds nothing at all.
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
+pub struct Heights {
+    /// `sum[i]` is the first screen row of content row `i`; one longer than the order.
+    sum: Vec<u32>,
+}
+
+impl Heights {
+    /// **Whether an order needs one.** False when every row is one screen row tall.
+    pub fn needed(order: &Order) -> bool {
+        order.entries().iter().any(|e| e.h != 1)
+    }
+
+    /// Accumulate `order` in one pass.
+    pub fn built(order: &Order) -> Heights {
+        let mut sum = Vec::with_capacity(order.len() + 1);
+        let mut at = 0u32;
+        sum.push(at);
+        for e in order.entries() {
+            at = at.saturating_add(u32::from(e.h));
+            sum.push(at);
+        }
+        Heights { sum }
+    }
+
+    /// How many screen rows the whole order occupies.
+    pub fn screen_rows(&self) -> u32 {
+        self.sum.last().copied().unwrap_or(0)
+    }
+
+    /// The first screen row of content row `i`.
+    pub fn top_of(&self, i: usize) -> u32 {
+        self.sum
+            .get(i)
+            .copied()
+            .unwrap_or_else(|| self.screen_rows())
+    }
+
+    /// How many rows it was built over.
+    pub fn len(&self) -> usize {
+        self.sum.len().saturating_sub(1)
+    }
+
+    /// Whether it was built over none.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// **The content row at screen row `y`, by binary search.** `O(log n)`, once a frame.
+    ///
+    /// Clamped to the last row past the end, because a viewport may outlast its content by a frame
+    /// and a `None` here would make every caller invent the same clamp.
+    pub fn row_at(&self, y: u32) -> usize {
+        match self.sum.binary_search(&y) {
+            Ok(i) => i.min(self.len().saturating_sub(1)),
+            Err(i) => i.saturating_sub(1).min(self.len().saturating_sub(1)),
+        }
+    }
+
+    /// **Re-accumulate across a [`Splice`].** The 2.25× half of §7's paragraph.
+    ///
+    /// The rows before the interval keep their sums; everything after is walked again, which is what
+    /// the cost is: a splice on the index moves records, and a splice here moves records **and** adds
+    /// them up. There is no cheaper shape that keeps `top_of` `O(1)`.
+    pub fn spliced(&mut self, order: &Order, splice: &Splice) {
+        let at = splice.removed.start.min(self.len());
+        self.sum.truncate(at + 1);
+        let mut acc = self.sum.last().copied().unwrap_or(0);
+        for e in &order.entries()[at.min(order.len())..] {
+            acc = acc.saturating_add(u32::from(e.h));
+            self.sum.push(acc);
+        }
+    }
+}
+
+/// **The content rows a viewport admits, found by one binary search and then by stepping.**
+///
+/// `(rows, searches)` — and the second half is the whole point. §7's footnote is that a
+/// variable-height index makes *the content row at screen `y`* an `O(log n)` question, and that this
+/// is affordable **once a frame** and not once a row: 0.019 µs against 0.0006 is nothing at eighty
+/// rows a frame and is a budget at eighty rows a *row*.
+///
+/// The rows come back identical to [`window_searched`]'s, which is what makes the pair a count over
+/// one answer rather than two answers.
+pub fn window_stepped(heights: &Heights, top: u32, view: u32) -> (Vec<usize>, usize) {
+    let mut out = Vec::new();
+    if heights.is_empty() || view == 0 {
+        return (out, 0);
+    }
+    // **The one search.**
+    let mut row = heights.row_at(top);
+    let bottom = top.saturating_add(view);
+    while row < heights.len() && heights.top_of(row) < bottom {
+        out.push(row);
+        row += 1;
+    }
+    (out, 1)
+}
+
+/// **The same window, asked once a row.** The spelling §7's footnote exists to refuse.
+///
+/// It is correct — the rows are the same rows — and it is `O(h log n)` where the one above is
+/// `O(log n + h)`. A gate on the answer cannot tell them apart; a count of the searches can.
+pub fn window_searched(heights: &Heights, top: u32, view: u32) -> (Vec<usize>, usize) {
+    let mut out = Vec::new();
+    let mut searches = 0usize;
+    if heights.is_empty() || view == 0 {
+        return (out, searches);
+    }
+    let bottom = top.saturating_add(view);
+    let mut y = top;
+    while y < bottom {
+        searches += 1;
+        let row = heights.row_at(y);
+        if row >= heights.len() {
+            break;
+        }
+        if out.last() != Some(&row) {
+            out.push(row);
+        }
+        y += 1;
+    }
+    (out, searches)
+}
+
 // ── the one-slot request ─────────────────────────────────────────────────────────────────────────
 
 /// What a component asked the caller to do to the order.
@@ -775,10 +1076,10 @@ impl WrapIndex {
             let rows = line.len().div_ceil(w).max(1);
             for r in 0..rows {
                 entries.push(Entry {
-                    node: n as u64,
+                    node: u32::try_from(n).expect("a line number fits a caller's key"),
                     depth: 0,
                     // Bit 0: a continuation row. The one field a wrap index spends beyond `node`.
-                    flags: u16::from(r > 0),
+                    flags: u8::from(r > 0),
                     h: 1,
                 });
             }
@@ -805,7 +1106,7 @@ impl WrapIndex {
     }
 
     /// Which source line the `i`-th display row belongs to, or `None` past the end.
-    pub fn line_at(&self, i: usize) -> Option<u64> {
+    pub fn line_at(&self, i: usize) -> Option<u32> {
         self.order.at(i).map(|e| e.node)
     }
 }
@@ -954,6 +1255,195 @@ pub fn policy_costs(len: usize, removed: Range<usize>, rounds: u32) -> (u128, u1
     (clear, drop, stash)
 }
 
+// ── §7's four measurements over the flatten index ────────────────────────────────────────────────
+
+/// **A forest as a pre-order depth array**, which is the data side of the index.
+///
+/// The oracle half of §7's sentence lives here rather than in `crate::forest`, because the sentence
+/// is about *this* index and a measurement whose two arms sit in two files is a measurement nobody
+/// can put side by side. One `u16` a node, and the subtree of node `i` is the following run of nodes
+/// deeper than it.
+pub fn chained_forest(nodes: usize, chain: u16) -> Vec<u16> {
+    let mut depth = Vec::with_capacity(nodes);
+    for level in 0..=u32::from(chain) {
+        if depth.len() == nodes {
+            break;
+        }
+        depth.push(u16::try_from(level).expect("a chain that fits a depth"));
+    }
+    while depth.len() < nodes {
+        depth.push(0);
+    }
+    depth
+}
+
+/// The order a whole forest flattens to, expanded.
+pub fn flattened(forest: &[u16]) -> Order {
+    Order::built(
+        forest
+            .iter()
+            .enumerate()
+            .map(|(i, &d)| Entry::of(u32::try_from(i).expect("a node that fits a key")).at_depth(d))
+            .collect(),
+    )
+}
+
+/// **§7's *115 µs against 1 187*: the interval a collapse removes, from the index and from the data.**
+///
+/// `(from_the_index, from_the_forest)` in nanoseconds, minimum of `rounds`. Both answer the same
+/// number over the same forest; the difference is that the index is a contiguous scan over
+/// eight-byte records and the forest arm is one random access per row, which is what §7 means by
+/// *without touching the forest*.
+///
+/// The forest arm is deliberately given the **shuffled** access pattern a real caller has — a node's
+/// children are not adjacent in whatever the caller stored them in — because a pre-order array walked
+/// forward is the one layout that makes the two arms look alike.
+pub fn subtree_costs(order: &Order, forest: &[u16], at: usize, rounds: u32) -> (u128, u128) {
+    use std::time::Instant;
+
+    // **Where the caller keeps node `i`.** A deterministic shuffle, so the forest arm pays the cache
+    // miss a real caller pays and the number is reproducible on any machine.
+    let scatter = shuffle(forest.len());
+    let mut stored = vec![0u16; forest.len()];
+    for (i, &d) in forest.iter().enumerate() {
+        stored[scatter[i] as usize] = d;
+    }
+
+    let mut index = u128::MAX;
+    let mut data = u128::MAX;
+    for _ in 0..rounds.max(1) {
+        let started = Instant::now();
+        let from_index = order.subtree(at).len();
+        index = index.min(started.elapsed().as_nanos());
+
+        let started = Instant::now();
+        let mine = stored[scatter[at] as usize];
+        let mut n = 0usize;
+        let mut j = at + 1;
+        while j < forest.len() && stored[scatter[j] as usize] > mine {
+            n += 1;
+            j += 1;
+        }
+        data = data.min(started.elapsed().as_nanos());
+        assert_eq!(from_index, n, "the two arms answer the same interval");
+    }
+    (index, data)
+}
+
+/// A deterministic Fisher-Yates over `0..n`, so a scattered access pattern is reproducible.
+fn shuffle(n: usize) -> Vec<u32> {
+    let mut out: Vec<u32> = (0..u32::try_from(n).expect("a forest that fits a key")).collect();
+    let mut state = 0x2545_F491_4F6C_DD1Du64;
+    for i in (1..n).rev() {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        out.swap(i, (state % (i as u64 + 1)) as usize);
+    }
+    out
+}
+
+/// **§7's *splice, always*: what a collapse costs by splice and what the same one costs rebuilt.**
+///
+/// `(splice, rebuild)` in nanoseconds, minimum of `rounds`. The splice is flat in what it removes and
+/// the rebuild is proportional to what **remains**, which is the whole reason there is no threshold:
+/// the crossover is at about 99.7% of the index removed, and in a tree that is only the root.
+pub fn fold_costs(forest: &[u16], at: usize, rounds: u32) -> (u128, u128) {
+    use std::time::Instant;
+
+    let mut spliced = u128::MAX;
+    let mut rebuilt = u128::MAX;
+    for _ in 0..rounds.max(1) {
+        let mut order = flattened(forest);
+        let started = Instant::now();
+        let _ = order.fold(at);
+        spliced = spliced.min(started.elapsed().as_nanos());
+
+        let started = Instant::now();
+        let mut rows = Vec::with_capacity(forest.len());
+        let mut i = 0usize;
+        while i < forest.len() {
+            rows.push(Entry::of(u32::try_from(i).expect("fits")).at_depth(forest[i]));
+            if i == at {
+                let mine = forest[i];
+                i += 1;
+                while i < forest.len() && forest[i] > mine {
+                    i += 1;
+                }
+            } else {
+                i += 1;
+            }
+        }
+        let rebuilt_order = Order::built(rows);
+        rebuilt = rebuilt.min(started.elapsed().as_nanos());
+        assert_eq!(
+            order.len(),
+            rebuilt_order.len(),
+            "splice == rebuild, or the measurement is of two different things"
+        );
+    }
+    (spliced, rebuilt)
+}
+
+/// **§7's *2.25×*: what the same splice costs with the height prefix sum beside the index.**
+///
+/// `(index_only, index_and_heights)` in nanoseconds, minimum of `rounds`. The extra is the tail that
+/// has already been moved being added up again, and there is no shape that avoids it while keeping
+/// [`Heights::top_of`] `O(1)`.
+pub fn heights_splice_cost(forest: &[u16], at: usize, rounds: u32) -> (u128, u128) {
+    use std::time::Instant;
+
+    let mut bare = u128::MAX;
+    let mut with = u128::MAX;
+    for _ in 0..rounds.max(1) {
+        let mut order = flattened(forest);
+        let started = Instant::now();
+        let _ = order.fold(at);
+        bare = bare.min(started.elapsed().as_nanos());
+
+        let mut order = flattened(forest);
+        let mut heights = Heights::built(&order);
+        let started = Instant::now();
+        let splice = order.fold(at);
+        heights.spliced(&order, &splice);
+        with = with.min(started.elapsed().as_nanos());
+    }
+    (bare, with)
+}
+
+/// **§7's *0.019 µs against 0.0006*: a binary search against an array index.**
+///
+/// `(binary_search, direct)` in nanoseconds, minimum of `rounds`. The point of the pair is not that
+/// one is cheaper — it is that thirty times a *frame* is nothing and thirty times a *row* is a
+/// budget, which is why [`crate::collect::tree`] asks [`Heights::row_at`] once and steps.
+pub fn row_at_costs(heights: &Heights, y: u32, rounds: u32) -> (f64, f64) {
+    use std::time::Instant;
+
+    // **A thousand calls inside one bracket, and the *minimum* of `rounds` such brackets.** One
+    // call is under twenty nanoseconds and `Instant::now()` costs about as much, so a bracket
+    // around a single call measures the clock. That is not a nicety here: §7's own pair is 0.019 µs
+    // against 0.0006, and both are below the resolution of the obvious instrument.
+    const CALLS: u32 = 1_000;
+    let mut searched = f64::MAX;
+    let mut direct = f64::MAX;
+    let mut sink = 0usize;
+    for _ in 0..rounds.max(1) {
+        let started = Instant::now();
+        for i in 0..CALLS {
+            sink ^= heights.row_at(y.wrapping_add(i % 7));
+        }
+        searched = searched.min(started.elapsed().as_nanos() as f64 / f64::from(CALLS));
+
+        let started = Instant::now();
+        for i in 0..CALLS {
+            sink ^= heights.top_of((i % 7) as usize) as usize;
+        }
+        direct = direct.min(started.elapsed().as_nanos() as f64 / f64::from(CALLS));
+    }
+    assert!(sink != usize::MAX, "the compiler may not delete the calls");
+    (searched, direct)
+}
+
 /// **The corpus the resize case is measured over.**
 ///
 /// Eighty source lines of a plausible document, stated here rather than generated to a target, so
@@ -1074,8 +1564,14 @@ mod tests {
                  field living in the shared one"
             );
         }
-        // And the record really is four scalars and no `Id`.
-        assert_eq!(size_of::<Entry>(), 16, "`{{ node, depth, flags, h }}`");
+        // And the record really is four scalars and no `Id`. **Eight bytes**, which is spec §7's
+        // own figure and components ticket 17's criterion 1 — see [`ENTRY_BYTES`] for why it was
+        // sixteen until that ticket asked.
+        assert_eq!(ENTRY_BYTES, 8, "spec §7: `{{ node, depth, flags, h }}`");
+        assert_eq!(size_of::<Entry>(), ENTRY_BYTES);
+        // §7's *the index grows 57% (7 → 11 MB at a million rows)*, to the megabyte.
+        let (index, with_heights) = index_bytes(1_000_000);
+        assert_eq!((index, with_heights), (8_000_000, 12_000_000));
     }
 
     /// **Criterion 2: `Rows { len, rev }`, one `u64`, and the revision moves on every edit.**
@@ -1384,10 +1880,7 @@ mod tests {
         let lines = document();
         let source = Order::built(
             (0..lines.len())
-                .map(|n| Entry {
-                    node: n as u64,
-                    ..Entry::default()
-                })
+                .map(|n| Entry::of(u32::try_from(n).expect("a line number fits")))
                 .collect(),
         );
         let rev = source.rows().rev;
@@ -1453,11 +1946,7 @@ mod tests {
         let rows = 100_000usize;
         let mut order = Order::built(
             (0..rows)
-                .map(|n| Entry {
-                    node: n as u64,
-                    depth: (n % 8) as u16,
-                    ..Entry::default()
-                })
+                .map(|n| Entry::of(u32::try_from(n).expect("fits")).at_depth((n % 8) as u16))
                 .collect(),
         );
         let before = order.rows();
@@ -1477,6 +1966,179 @@ mod tests {
             order.rows().rev,
             "a rebuild is a different order even when it holds the same rows, which is why it is \
              the expensive answer and not merely the slower one"
+        );
+    }
+    // ── components ticket 17: the flatten index ──────────────────────────────────────────────────
+
+    /// **§7's *`depth` is not there for the indent*: the interval, from the index and from the
+    /// data.**
+    ///
+    /// An equality first — both arms answer the same interval, which is what makes the pair a
+    /// measurement of one question — and then the shape of the cost. The timing is
+    /// `examples/tree_numbers.rs`'s; what is gated here is that the index arm touches **no forest at
+    /// all**, which is a statement about the signature `Order::subtree` has: it takes `&self` and
+    /// there is nowhere in it to reach the caller's data.
+    #[test]
+    fn depth_finds_the_interval_a_collapse_removes_without_touching_the_forest() {
+        // Row 0 is a leaf, row 1 is the folded node, and four subtrees of 87 380 hang under it —
+        // `crate::forest::Forest::folded`'s own shape, which is §21's 349 524 exactly.
+        let mut forest = vec![0u16, 0];
+        for _ in 0..4 {
+            forest.push(1);
+            forest.extend(std::iter::repeat_n(2u16, 87_380));
+        }
+        let order = flattened(&forest);
+        assert_eq!(order.subtree(1).len(), 349_524, "§21's own interval");
+        assert_eq!(order.subtree(1), 2..349_526);
+        assert_eq!(order.descendants(0), 0, "a leaf hangs nothing");
+
+        // The forest arm answers the same number and is asserted doing so inside the measurement.
+        let (from_index, from_data) = subtree_costs(&order, &forest, 1, 8);
+        assert!(
+            from_index > 0 && from_data > 0,
+            "two arms, {from_index} ns and {from_data} ns"
+        );
+    }
+
+    /// **§7's *splice, always*: `splice == rebuild`, and the fold is a no-op on a leaf.**
+    ///
+    /// The equality is the gate and the crossover is a doc comment, which is §7's own instruction:
+    /// a rebuild path that has to stay correct for ever is not worth 340 µs once. The leaf half is
+    /// here because it is the one way this verb can be wrong without the screen saying so — a
+    /// revision stamped for an edit that removed nothing is a `Clear` on the next frame.
+    #[test]
+    fn a_fold_splices_the_interval_and_a_leaf_is_left_alone() {
+        let forest = chained_forest(4_096, 11);
+        let mut spliced = flattened(&forest);
+        let before = spliced.rows().rev;
+        let edit = spliced.fold(0);
+        assert_eq!(edit.removed, 1..12, "the chain under the root");
+        assert!(spliced.at(0).expect("the root").is_folded());
+        assert_ne!(spliced.rows().rev, before, "a real edit stamps");
+
+        // `splice == rebuild`, over the rows and not over the revision — a rebuilt order is a
+        // different order by construction, which is what makes it the expensive answer.
+        let mut rebuilt: Vec<Entry> = Vec::new();
+        let mut i = 0usize;
+        while i < forest.len() {
+            let mut e = Entry::of(u32::try_from(i).expect("fits")).at_depth(forest[i]);
+            if i == 0 {
+                e.flags |= Entry::FOLDED;
+                let mine = forest[i];
+                i += 1;
+                while i < forest.len() && forest[i] > mine {
+                    i += 1;
+                }
+            } else {
+                i += 1;
+            }
+            rebuilt.push(e);
+        }
+        assert_eq!(spliced.entries(), rebuilt.as_slice(), "splice == rebuild");
+
+        // And the round trip: what came out goes back in, and the order is the one it started as.
+        let restored: Vec<Entry> = (1..12)
+            .map(|n| Entry::of(n).at_depth(forest[n as usize]))
+            .collect();
+        let back = spliced.unfold(0, restored);
+        assert_eq!(back.inserted, 11);
+        assert!(!spliced.at(0).expect("the root").is_folded());
+        assert_eq!(spliced.len(), forest.len(), "the round trip is exact");
+
+        // The leaf. **No splice, no revision, no flag.**
+        let last = spliced.len() - 1;
+        let quiet = spliced.rows().rev;
+        let nothing = spliced.fold(last);
+        assert_eq!(nothing.inserted, 0);
+        assert!(nothing.removed.is_empty());
+        assert_eq!(
+            spliced.rows().rev,
+            quiet,
+            "a fold that removed nothing may not stamp"
+        );
+        assert!(!spliced.at(last).expect("a leaf").is_folded());
+    }
+
+    /// **§7's *variable row height is a fourth field*, in the three things it says about it.**
+    ///
+    /// The growth is arithmetic over [`ENTRY_BYTES`], the splice is a count of what has to be
+    /// re-accumulated, and `row_at` is asserted over a sweep rather than at the interesting index.
+    /// The 2.25× and the 0.019 µs are timings and live in `examples/tree_numbers.rs`.
+    #[test]
+    fn variable_row_height_is_a_prefix_sum_built_only_when_rows_can_differ() {
+        // **Only when rows can differ**, and it is answerable from the index.
+        let uniform = flattened(&chained_forest(64, 7));
+        assert!(
+            !Heights::needed(&uniform),
+            "every row is one screen row tall"
+        );
+
+        let mut entries: Vec<Entry> = (0..64u32).map(Entry::of).collect();
+        for (i, e) in entries.iter_mut().enumerate() {
+            e.h = if i % 4 == 0 { 3 } else { 1 };
+        }
+        let mut order = Order::built(entries);
+        assert!(Heights::needed(&order));
+
+        let mut heights = Heights::built(&order);
+        assert_eq!(heights.len(), 64);
+        assert_eq!(
+            heights.screen_rows(),
+            16 * 3 + 48,
+            "sixteen tall rows and forty-eight short"
+        );
+
+        // `row_at` over the whole screen, and not at one index: every screen row belongs to the
+        // content row whose interval contains it.
+        for y in 0..heights.screen_rows() {
+            let row = heights.row_at(y);
+            let top = heights.top_of(row);
+            let bottom = heights.top_of(row + 1);
+            assert!(
+                top <= y && y < bottom,
+                "screen row {y} is not inside content row {row}"
+            );
+        }
+
+        // **The splice re-accumulates the tail and nothing before it.** Read as a count: the sums
+        // before the edit are the same values they were, and the ones after are new.
+        let kept: Vec<u32> = heights.sum[..17].to_vec();
+        let edit = order.splice(16..32, []);
+        heights.spliced(&order, &edit);
+        assert_eq!(heights.sum[..17], kept[..], "the head is untouched");
+        assert_eq!(heights.len(), order.len());
+        assert_eq!(heights.screen_rows(), Heights::built(&order).screen_rows());
+        assert_eq!(heights, Heights::built(&order), "spliced == rebuilt");
+    }
+
+    /// **§7's footnote: `row_at` is `O(log n)` per viewport and not per row.**
+    ///
+    /// The two spellings answer the **same rows** — which is why no gate on the picture separates
+    /// them — and one of them asks the index eighty times where the other asks once. The count is
+    /// the gate and the 0.019 µs against 0.0006 is `examples/tree_numbers.rs`'s.
+    #[test]
+    fn the_window_is_one_binary_search_and_then_a_step() {
+        let mut entries: Vec<Entry> = (0..10_000u32).map(Entry::of).collect();
+        for (i, e) in entries.iter_mut().enumerate() {
+            e.h = if i % 3 == 0 { 2 } else { 1 };
+        }
+        let order = Order::built(entries);
+        let heights = Heights::built(&order);
+
+        let top = heights.top_of(5_000);
+        let (stepped, searches) = window_stepped(&heights, top, 80);
+        let (searched, per_row) = window_searched(&heights, top, 80);
+        assert_eq!(stepped, searched, "the same window, both ways");
+        assert_eq!(searches, 1, "one search a viewport");
+        assert_eq!(
+            per_row, 80,
+            "and eighty for the spelling that asks a row at a time"
+        );
+        assert!(
+            stepped.len() < 80,
+            "a window of eighty screen rows over rows that are one and two tall holds {} content \
+             rows, which is what makes the question worth asking at all",
+            stepped.len()
         );
     }
 }

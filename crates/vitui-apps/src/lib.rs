@@ -61,7 +61,7 @@ pub struct App {
 /// and the reason is that there is nothing to port: what it demonstrates is *one component and one
 /// `Mode`*, and no other library's tutorial has an equivalent because no other library makes the
 /// claim.
-pub const APPS: [App; 4] = [
+pub const APPS: [App; 5] = [
     App {
         name: "counter",
         what: "A bordered panel, a centred value, and Left/Right/q. The smallest program anybody \
@@ -140,6 +140,34 @@ pub const APPS: [App; 4] = [
             "layout::Col",
             "ctx::Ctx::focused",
             "ctx::Driver::unhandled",
+            "ctx::Driver::wait",
+        ],
+        after: None,
+    },
+    App {
+        name: "explorer",
+        what: "A workspace of 262 145 nodes over a caller-owned flatten index. `←`/`→` fold and \
+               unfold, and what the component does is **ask** — the splice, the reconciliation and \
+               the revision all happen after the draw, in the application, because the index is \
+               the caller's. `d` swaps the clamped indent for §7's unclamped one and the counters \
+               along the bottom show every one of them preferring the defect except the ask",
+        uses: &[
+            "collect::tree_into",
+            "collect::TreeState",
+            "collect::TreeOpts",
+            "collect::Node",
+            "collect::defective::unclamped_indent",
+            "order::Order::fold",
+            "order::Order::unfold",
+            "order::Asked::drain",
+            "order::reconcile_splice",
+            "counters::Tally",
+            "ink::Ink",
+            "frame::face_paint",
+            "structure::panel_with",
+            "text::fit_with",
+            "layout::rect::split_at_v",
+            "ctx::Ctx::focused",
             "ctx::Driver::wait",
         ],
         after: None,

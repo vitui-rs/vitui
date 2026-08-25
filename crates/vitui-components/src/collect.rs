@@ -110,12 +110,12 @@ use std::time::Instant;
 use vitui_runtime::keys::{Code, Edge, Pressed};
 use vitui_runtime::layout::text::{truncate, width};
 use vitui_runtime::layout::{Constraint, solve};
-use vitui_runtime::{Ctx, Id, Interest, Mods, Rect, Response, Revision, Role, Scrollable};
+use vitui_runtime::{Ctx, Glyph, Id, Interest, Mods, Rect, Response, Revision, Role, Scrollable};
 
 use crate::frame::Face;
 use crate::ink::{Direct, Ink};
 use crate::nav::{self, Cursor, TypeAhead};
-use crate::order::Rows;
+use crate::order::{Ask, Asked, Order, Rows};
 
 /// The components homed in this module. See [`crate::Family::members`].
 pub const MEMBERS: &[&str] = &["collection", "table", "tree", "pagination"];
@@ -630,6 +630,14 @@ pub struct CollState {
     /// **Private and not a slot per row**, so ADR 0028's rule is untouched: this is one fact about
     /// the collection, not a fact about a row.
     pressing: bool,
+    /// **Whether this frame was the rising edge of the press.** Published, not duplicated.
+    ///
+    /// A container built on this component that has a gesture of its own on the press —
+    /// [`tree`]'s click on a chevron is the one — needs the same edge, and the two ways to get it
+    /// are to read it here or to keep a second `pressing` bool beside this one. The second is the
+    /// shape ADR 0028 refuses one axis over: two stores of one fact, which disagree the first time
+    /// one of them is updated in a branch the other is not.
+    edge: bool,
 }
 
 impl Default for CollState {
@@ -645,6 +653,7 @@ impl Default for CollState {
             // told its positions went stale.
             rev: Revision::UNKNOWN,
             pressing: false,
+            edge: false,
         }
     }
 }
@@ -669,6 +678,16 @@ impl CollState {
     /// nobody explained.
     pub const fn reconciled(&mut self, rows: Rows) {
         self.rev = rows.rev;
+    }
+
+    /// **Whether the frame just drawn was the rising edge of a press on this collection.**
+    ///
+    /// `Response::pressed` is a *level* — true every frame the button is held — and the runtime does
+    /// not publish the edge (runtime architecture issue 29). [`collection`] reconstructs it to stop
+    /// a ctrl-click re-toggling for as long as the user leans on the button; this is that same one
+    /// fact, read rather than kept twice.
+    pub const fn press_edge(&self) -> bool {
+        self.edge
     }
 
     /// The largest offset `len` rows admit in a viewport `h` rows tall. *Content minus viewport*,
@@ -851,6 +870,78 @@ where
         rows,
         &mut find,
         &mut row,
+        &mut no_refusal,
+        Shape::Virtualised,
+        Reveal::WhenAsked,
+    )
+}
+
+/// **A component built on [`collection`] that owns keys of its own gets first refusal, and it has to
+/// happen inside the one drain loop.**
+///
+/// The hook is called for every key addressed to the collection, before `crate::nav::step` and
+/// before [`from_key`]; `true` means *mine, consumed*. It carries the cursor because every gesture
+/// that has wanted one so far is *about* the cursor's row — [`tree`]'s fold and unfold are, and the
+/// row is a position the caller's index is read at.
+///
+/// # It cannot be a second loop, and that is a fact about the runtime rather than a preference
+///
+/// `Ctx::decline` hands a key back **and ends the level's turn at the queue**: `next_key` answers
+/// `None` afterwards, however many keys are left, until the routing target moves outward. A
+/// container that drained keys before `collection` would have to decline everything that was not
+/// its own, and `collection` would then see nothing at all; one that drained after would find the
+/// queue already closed. So the hook is a parameter of the one loop.
+///
+/// And the collision is real rather than hypothetical: [`crate::nav::step`] reads `←` and `→` as
+/// `↑` and `↓`, which are exactly the two keys a tree folds and unfolds with.
+///
+/// **It is `Refusal` and not `Chord`**, because [`vitui_runtime::Chord`] is a modifier byte and a
+/// key code and this is a *decision about* one. Two meanings of one word, both carrying
+/// measurements, is the collision `CONTEXT.md` exists to prevent — and it is the one
+/// `crate::collect::Span` did not get out of the way of in time.
+type Refusal<'a> = &'a mut dyn FnMut(&Pressed, usize) -> bool;
+
+/// The hook a collection with no container over it passes: **nothing is anybody else's**.
+fn no_refusal(_: &Pressed, _: usize) -> bool {
+    false
+}
+
+/// **[`collection_into`] with a [`Refusal`], which is the entry a container built on it takes.**
+///
+/// Crate-private, because the hook is not part of spec §1's component shape: it is the seam one
+/// component reaches another through, and a public one would invite an application to spell a
+/// keyboard for a collection it did not write.
+#[track_caller]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "`collection_into`'s eight plus the hook. The eight are spec §5's and the ninth is               what makes a container's own keys expressible at all"
+)]
+fn collection_chorded<I, F, R>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    st: &mut CollState,
+    opts: &CollOpts,
+    rows: Rows,
+    mut find: F,
+    mut row: R,
+    first: Refusal<'_>,
+) -> Response
+where
+    I: Ink,
+    F: FnMut(&str, Range<usize>) -> Option<usize>,
+    R: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, usize, Face),
+{
+    draw_with(
+        ink,
+        cx,
+        area,
+        st,
+        opts,
+        rows,
+        &mut find,
+        &mut row,
+        first,
         Shape::Virtualised,
         Reveal::WhenAsked,
     )
@@ -910,6 +1001,7 @@ fn draw_with<I, F, R>(
     rows: Rows,
     find: &mut F,
     row: &mut R,
+    first: Refusal<'_>,
     shape: Shape,
     reveal: Reveal,
 ) -> Response
@@ -994,6 +1086,7 @@ where
     // user leans on the button. See runtime architecture issue 29.
     let press_edge = resp.pressed && !st.pressing;
     st.pressing = resp.pressed;
+    st.edge = press_edge;
     if press_edge && let Some(at) = over {
         apply(opts.mode, &mut st.sel, len, from_click(resp.mods, at));
         resp.changed = true;
@@ -1002,7 +1095,16 @@ where
     // The keyboard half, and the two are one vocabulary. **A page is the viewport's height and
     // only the caller knows that** (`crate::nav::Cursor`), so the rectangle's own height is what
     // goes in rather than a constant.
-    let asked = keyboard(cx, id, st, opts, len, find, usize::from(area.h.max(1)));
+    let asked = keyboard(
+        cx,
+        id,
+        st,
+        opts,
+        len,
+        find,
+        usize::from(area.h.max(1)),
+        first,
+    );
     resp.changed |= asked.changed;
     // **The one call ADR 0027 is about, and it is *outside* the scroll scope rather than around the
     // row loop.** Without it the rows of every collection on the screen derive the same ids and all
@@ -1068,8 +1170,12 @@ where
 }
 
 /// What one frame's keys did: whether the store changed, and whether anything asked for a reveal.
+///
+/// **Not `Asked`**, which is what it was called until [`tree`] arrived: [`crate::order::Asked`] is
+/// the one-slot *request* a component leaves for its caller, and two of that name in one file is
+/// exactly the `expected Asked, found Asked` collision `CONTEXT.md`'s glossary exists to stop.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
-struct Asked {
+struct Handled {
     changed: bool,
     reveal: bool,
 }
@@ -1079,6 +1185,12 @@ struct Asked {
 /// `Ctx::next_key` answers nobody but the routing target, so this is the whole keyboard surface and
 /// a key that is not this component's is declined rather than swallowed — which is what stops a list
 /// eating `Ctrl+S`.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the seven this drain loop already needed plus the one hook that makes a container's \
+              own keys expressible. A second loop is not available — see `Refusal` — so the hook has \
+              to be a parameter of this one"
+)]
 fn keyboard<F>(
     cx: &mut Ctx<'_, '_>,
     id: Id,
@@ -1087,11 +1199,12 @@ fn keyboard<F>(
     len: usize,
     find: &mut F,
     page: usize,
-) -> Asked
+    first: Refusal<'_>,
+) -> Handled
 where
     F: FnMut(&str, Range<usize>) -> Option<usize>,
 {
-    let mut out = Asked::default();
+    let mut out = Handled::default();
     while let Some(k) = cx.next_key(id) {
         // **A release is not a gesture, and it is dropped rather than declined.** The engine pushes
         // kitty flag 31 and bit 2 of that is *report event types*, so on a terminal that speaks the
@@ -1102,6 +1215,16 @@ where
         // **Dropped, not declined**: declining hands it back to the router, and the next component
         // to read it has the same defect for the same reason. Nobody wants a release.
         if k.kind == Edge::Release {
+            continue;
+        }
+        // **First refusal, inside the one drain loop** — see [`Refusal`]. A component built on this
+        // one that owns keys of its own cannot read them before or after this call: `Ctx::decline`
+        // sets a flag on the level, so the moment `collection` hands one key back, `next_key`
+        // answers `None` to everything else at this id for the rest of the frame. `←` and `→` are
+        // also the two keys `crate::nav::step` reads as `↑` and `↓`, so a hook that ran second would
+        // arrive after the cursor had already moved.
+        if first(&k, st.sel.lead) {
+            out.changed = true;
             continue;
         }
         let cur = Cursor {
@@ -1220,8 +1343,9 @@ pub fn search_range(lead: usize, len: usize, budget: usize) -> Range<usize> {
 pub mod defective {
     use super::{
         Band, BandShape, Cell, CellKeys, ColVirt, CollOpts, CollState, Column, Ctx, Face, HSign,
-        Id, Ink, Range, Rect, Response, Reveal, Rows, Scan, Shape, TableOpts, TableShape,
-        TableState, draw_with, table_with,
+        Id, Indent, Ink, Node, Order, Range, Rect, Response, Reveal, Rows, Scan, Shape, TableOpts,
+        TableShape, TableState, TreeOpts, TreeShape, TreeState, draw_with, no_refusal, table_with,
+        tree_with,
     };
 
     /// **The listing that iterates its whole content and lets the clip reject the rest.**
@@ -1260,6 +1384,7 @@ pub mod defective {
             rows,
             &mut find,
             &mut row,
+            &mut no_refusal,
             Shape::WholeContent,
             Reveal::WhenAsked,
         )
@@ -1301,6 +1426,7 @@ pub mod defective {
             rows,
             &mut find,
             &mut row,
+            &mut no_refusal,
             Shape::Virtualised,
             Reveal::EveryFrame,
         )
@@ -1339,6 +1465,7 @@ pub mod defective {
             rows,
             &mut find,
             &mut row,
+            &mut no_refusal,
             Shape::Virtualised,
             Reveal::Never,
         )
@@ -1395,6 +1522,56 @@ pub mod defective {
                 });
             }
         });
+    }
+
+    // ── `tree`'s one ─────────────────────────────────────────────────────────────────────────────
+
+    /// **The tree whose indent is the depth, and the depth is data.**
+    ///
+    /// Spec §7's negative case, and it is [`super::tree`] with one field of `TreeShape` changed.
+    /// **An unclamped indent makes a row's cost proportional to its depth** — and every counter this
+    /// crate can read is either identical or *better* on it: the engine reports the same columns
+    /// written and the same distinct cells, because the clip eats the overrun; it declares the same
+    /// regions and the same stops; it makes **fewer** verbs, because the label rectangle collapses
+    /// and there is nothing left of the row to draw; and it runs *faster* for the same reason.
+    ///
+    /// The one quantity that moves is **cells asked for**, and at depth ten the two builds are one
+    /// frame — which is a statement about the scene list (§21) rather than about the gate.
+    #[track_caller]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "`tree_into`'s eight exactly, because a defective arm that took a different \
+                  signature would be a different function rather than the same one with one value \
+                  changed"
+    )]
+    pub fn unclamped_indent<I, F, R>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Rect,
+        st: &mut TreeState,
+        opts: &TreeOpts,
+        index: &Order,
+        find: F,
+        row: R,
+    ) -> Response
+    where
+        I: Ink,
+        F: FnMut(&str, Range<usize>) -> Option<usize>,
+        R: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, Node, Face),
+    {
+        tree_with(
+            ink,
+            cx,
+            area,
+            st,
+            opts,
+            index,
+            find,
+            row,
+            TreeShape {
+                indent: Indent::Unclamped,
+            },
+        )
     }
 
     // ── `table`'s four, and the one that is refused while being correct ──────────────────────────
@@ -2984,6 +3161,437 @@ fn header_row<I: Ink>(
     in_band(ink, cx, base + right_x, s.right_w, s.right, 0, &mut write);
 }
 
+// ── `tree` = `collection` + a flatten index ──────────────────────────────────────────────────────
+
+/// **Whether the indent is clamped, and this is the whole of §7's negative case.**
+///
+/// One type and not two: `crate::forest` used to declare its own while `tree` did not exist, and two
+/// of these in one crate makes every mismatch read *expected `Indent`, found `Indent`* — which is
+/// the collision [`crate::frame`] refused to mint when it named its rectangle `Cells`.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum Indent {
+    /// **The rule.** `min(depth * 2, w - 2)` — `O(1)` in the depth, which is what lets a row *read*
+    /// a depth without being proportional to one.
+    #[default]
+    Clamped,
+    /// **The defect.** The indent is the depth, and the depth is data.
+    Unclamped,
+}
+
+impl Indent {
+    /// The word a report prints.
+    pub const fn word(self) -> &'static str {
+        match self {
+            Indent::Clamped => "clamped",
+            Indent::Unclamped => "unclamped",
+        }
+    }
+}
+
+/// **How many columns a row at `depth` indents by, in a `w`-column rectangle. The one decision.**
+///
+/// [`tree`] calls it and so does every instrument that wants to know what the component asked for,
+/// which is what keeps the two from being a model and a copy of a model: the number the screen sums
+/// and the number the run is drawn with come out of this function.
+///
+/// **A `usize` and not a `u16`**, which is the arithmetic §7's own prototype got wrong: `depth * 2`
+/// at 59 999 is 119 998, and `as u16` makes that 54 462 — a truncation that reads as a clamp.
+///
+/// The clamp reserves two columns, which is the chevron and one cell of label. A row whose indent
+/// has eaten its rectangle draws the indent and stops, and [`tree`] never calls the row drawer for
+/// it — which is observable and is how the unclamped arm is caught.
+pub fn indent_columns(indent: Indent, depth: u16, w: u16) -> usize {
+    let raw = usize::from(depth) * 2;
+    match indent {
+        Indent::Clamped => raw.min(usize::from(w.saturating_sub(2))),
+        Indent::Unclamped => raw,
+    }
+}
+
+/// **Whether display row `i` has children in the index, in `O(1)`.**
+///
+/// The next row is deeper or it is not. Asking [`Order::descendants`] instead would be correct and
+/// would make a row's cost proportional to its subtree — 349 524 rows walked to decide one chevron
+/// — which is the same class of defect as the unclamped indent, on the other axis. The index is
+/// `O(1)` per row and this is what keeps it so.
+pub fn has_children(index: &Order, i: usize) -> bool {
+    match (index.at(i), index.at(i + 1)) {
+        (Some(a), Some(b)) => b.depth > a.depth,
+        _ => false,
+    }
+}
+
+/// **One row of a tree, as the row drawer sees it.** [`Cell`]'s twin one component over.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+pub struct Node {
+    /// The display position, which is where the index was read.
+    pub row: usize,
+    /// The caller's own key for it. Never an [`Id`].
+    pub node: u32,
+    /// How deep it sits.
+    pub depth: u16,
+    /// Whether its subtree has been taken out of the index ([`Entry::FOLDED`](crate::order::Entry::FOLDED)).
+    pub folded: bool,
+    /// Whether it has no children at all, which is not the same as folded.
+    pub leaf: bool,
+    /// **The id this row may declare a target under**, rooted in the tree's own id.
+    ///
+    /// `Id::keyed(tree, node)` — the **caller's key** and not the display position, because a fold
+    /// above this row moves the position and does not move the row. See [`Cell::id`] for why it is
+    /// minted and handed over rather than pushed with `Ctx::with_key`.
+    pub id: Id,
+}
+
+/// **Everything a tree keeps across frames: [`CollState`] and the one-slot request.**
+///
+/// There is no fold set here, and that is ADR 0031 rather than an omission — *the order is the
+/// caller's and a component may only ask*. What is folded is [`Entry::FOLDED`](crate::order::Entry::FOLDED) in the caller's own
+/// index, and the way it changes is that the caller drains [`TreeState::ask`] after the draw and
+/// calls [`Order::fold`].
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
+pub struct TreeState {
+    /// The row axis, unchanged. §7's `+` is the indent and the chevron.
+    pub coll: CollState,
+    /// **What the last frame asked the caller to do to the index.** Drained after the draw.
+    pub ask: Asked,
+}
+
+impl TreeState {
+    /// A tree at the top of its index with nothing selected and nothing asked.
+    pub fn new() -> TreeState {
+        TreeState::default()
+    }
+}
+
+/// [`tree`]'s options. Spec §1's rule 3: a `Default` struct, never a required builder.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct TreeOpts {
+    /// The row axis's options, unchanged. **No second [`Mode`].**
+    pub coll: CollOpts,
+    /// The role the indent run and the chevron are painted in.
+    pub furniture: Role,
+}
+
+impl Default for TreeOpts {
+    fn default() -> TreeOpts {
+        TreeOpts {
+            coll: CollOpts::default(),
+            furniture: Role::Body,
+        }
+    }
+}
+
+/// **`tree` — [`collection`] plus a flatten index, and the `+` costs two verbs a row.**
+///
+/// Spec §7, ADR 0028, ADR 0031. Spec §1's shape exactly: `fn(&mut Ctx, Rect, …) -> Response`.
+///
+/// # It is `collection`, and the sentence is checkable rather than decorative
+///
+/// `tree_with` calls `collection_chorded`, which is [`collection`] with one parameter. There is
+/// **no second selection store**, **no second scan cursor** — the row's [`Face`] arrives from
+/// `collection`'s own lockstep [`Scan`] — **no second [`Mode`]**, **no second offset** and **no
+/// second press edge** ([`CollState::press_edge`]). The row axis, the wheel, the keyboard, the
+/// type-ahead, the reveal, the tail below the content and the revision check are all `collection`'s,
+/// reached by calling it. What this function adds is two verbs a row and a one-slot request.
+///
+/// # The `+` is two verbs a row: the indent run and the chevron cell
+///
+/// 222 verbs over 111 rows (§7). The indent is **one** [`Ink::run`] whatever its width — a padding
+/// band is exactly the verb a run is — and the chevron is one cell, a space on a leaf so that the
+/// partition is the same partition on every row. What is left of the rectangle goes to the row
+/// drawer, which owes every cell of it (§2, ADR 0026).
+///
+/// # The index is the caller's, and this component may only ask
+///
+/// `index` arrives by **shared** reference and there is no verb here that edits it. `←` collapses
+/// the cursor's subtree and `→` expands it, and both leave an [`Ask`] in [`TreeState::ask`] which
+/// the caller drains **after** the draw and answers with [`Order::fold`] or [`Order::unfold`]. Two
+/// things force the arrangement rather than one: a `Vec::splice` allocates against a frame budget of
+/// zero, and taking `&mut` to the index while the draw holds it shared is `E0502` — see [`Asked`],
+/// which carries that as a compile outcome.
+///
+/// # `←` and `→` have to be read before `collection` sees them
+///
+/// [`crate::nav::step`] reads them as `↑` and `↓`, and `Ctx::decline` ends the level's turn at the
+/// key queue — so neither a loop before this call nor one after it can work. The hook is `Refusal`,
+/// a parameter of `collection`'s own drain loop, and that is a fact about the runtime rather than a
+/// preference.
+///
+/// # Arguments
+///
+/// `row` is handed `(cx, rect, Node, Face)`. The `Face` is `collection`'s five independent bits;
+/// the tree's own two facts — folded, leaf — are on the [`Node`], because they are facts about the
+/// caller's index rather than about the selection.
+///
+/// ```
+/// use vitui_components::collect::{TreeOpts, TreeState, tree};
+/// use vitui_components::frame::face_paint;
+/// use vitui_components::order::{Entry, Order};
+/// use vitui_runtime::ctx::Driver;
+///
+/// // A root with two children, in pre-order display coordinates.
+/// let index = Order::built(vec![
+///     Entry::of(0),
+///     Entry::of(1).at_depth(1),
+///     Entry::of(2).at_depth(1),
+/// ]);
+/// let mut st = TreeState::new();
+/// let mut driver = Driver::headless(20, 3).expect("a sink attaches");
+/// driver.frame(|cx| {
+///     let area = cx.area();
+///     let opts = TreeOpts::default();
+///     let _ = tree(
+///         cx,
+///         area,
+///         &mut st,
+///         &opts,
+///         &index,
+///         &mut |_buf, _range| None,
+///         &mut |cx, r, n, face| {
+///             let paint = face_paint(cx.theme(), face);
+///             cx.text(r.x, r.y, if n.leaf { "leaf" } else { "root" }, paint);
+///         },
+///     );
+/// });
+/// // Nothing was asked, so the caller's index is untouched.
+/// assert!(st.ask.standing().is_none());
+/// ```
+#[track_caller]
+pub fn tree(
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    st: &mut TreeState,
+    opts: &TreeOpts,
+    index: &Order,
+    find: &mut dyn FnMut(&str, Range<usize>) -> Option<usize>,
+    row: &mut dyn FnMut(&mut Ctx<'_, '_>, Rect, Node, Face),
+) -> Response {
+    tree_into(
+        &mut Direct,
+        cx,
+        area,
+        st,
+        opts,
+        index,
+        find,
+        |_ink, cx, r, n, face| row(cx, r, n, face),
+    )
+}
+
+/// **[`tree`], drawing through an [`Ink`] so an instrument can see every cell.**
+///
+/// The entry point a gate takes; [`tree`] is this with [`Direct`]. See [`crate::ink`] for why the
+/// seam exists rather than a second implementation written against a `Tally`.
+#[track_caller]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "`tree`'s own seven plus the `Ink` seam's writer, which is `collection_into`'s shape \
+              one component down"
+)]
+pub fn tree_into<I, F, R>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    st: &mut TreeState,
+    opts: &TreeOpts,
+    index: &Order,
+    find: F,
+    row: R,
+) -> Response
+where
+    I: Ink,
+    F: FnMut(&str, Range<usize>) -> Option<usize>,
+    R: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, Node, Face),
+{
+    tree_with(
+        ink,
+        cx,
+        area,
+        st,
+        opts,
+        index,
+        find,
+        row,
+        TreeShape::default(),
+    )
+}
+
+/// **The one way `tree = collection + a flatten index` can be false**, as one value.
+///
+/// One field and not a boolean in a signature, so a reviewer's diff between the shipped build and
+/// the refused one is a single line — [`TableShape`]'s arrangement one component over.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+struct TreeShape {
+    /// Whether the indent is clamped to the rectangle.
+    indent: Indent,
+}
+
+/// **`#[track_caller]` all the way down**, for [`draw_with`]'s reason: `Ctx::id` mints from
+/// `Location::caller()`, and an attribute that stops one frame short of the call makes every tree in
+/// the application one tree.
+#[track_caller]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "`tree_into`'s eight plus the shape that separates the correct build from the refused \
+              one. Splitting it would put the defect in a second function where a reviewer's diff \
+              could not be one line"
+)]
+fn tree_with<I, F, R>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    st: &mut TreeState,
+    opts: &TreeOpts,
+    index: &Order,
+    find: F,
+    mut row: R,
+    shape: TreeShape,
+) -> Response
+where
+    I: Ink,
+    F: FnMut(&str, Range<usize>) -> Option<usize>,
+    R: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, Node, Face),
+{
+    // **The tree's own id, taken outside every closure** (ADR 0027), and every row's id is minted
+    // from it and handed over — see [`Cell::id`] for why `Ctx::with_key` is not available inside a
+    // scroll scope.
+    let tid = cx.id();
+    let rows = index.rows();
+    // The pointer half's width, which is the *component's* rectangle rather than a row's: `local`
+    // is measured from the hit entry, and the hit entry is `area`.
+    let w = area.w;
+    let paint = cx.theme().paint(opts.furniture);
+    let open = cx.theme().glyph(Glyph::ArrowDown);
+    let shut = cx.theme().glyph(Glyph::ArrowRight);
+
+    // **Two `&mut` borrows of one state, taken apart here**, because the chord writes the request
+    // while `collection` writes the row axis and they are different fields.
+    let TreeState { coll, ask } = st;
+
+    // `←` folds, `→` unfolds, on the cursor's row — and both only leave a request. A chord (`Ctrl`,
+    // `Alt`) is an accelerator and is not this component's, which is `crate::nav::step`'s own rule.
+    let mut refuse = |k: &Pressed, lead: usize| -> bool {
+        if k.mods.ctrl() || k.mods.alt() {
+            return false;
+        }
+        let Some(e) = index.at(lead) else {
+            return false;
+        };
+        match k.code {
+            Code::Left if !e.is_folded() && has_children(index, lead) => {
+                ask.ask(Ask::Collapse(u64::from(e.node)));
+                true
+            }
+            Code::Right if e.is_folded() => {
+                ask.ask(Ask::Expand(u64::from(e.node)));
+                true
+            }
+            _ => false,
+        }
+    };
+
+    let resp = collection_chorded(
+        ink,
+        cx,
+        area,
+        coll,
+        &opts.coll,
+        rows,
+        find,
+        |ink, cx, r, i, face| {
+            let Some(e) = index.at(i) else {
+                return;
+            };
+            // **§7's first verb.** One run whatever its width, and the width is the one decision.
+            //
+            // **`r.w` and `r.x`, never `area`.** `collection` hands over one row of its own
+            // rectangle in its own coordinates, and a component that reached past that for the
+            // width or the origin is `crate::collect::header_row`'s defect: it drew from `x = 0`
+            // rather than from the rectangle it was given, and every gate passed because every one
+            // of them plays at `x == 0`.
+            let ind = indent_columns(shape.indent, e.depth, r.w);
+            if ind > 0 {
+                let _ = ink.run(
+                    cx,
+                    r.x,
+                    r.y,
+                    " ",
+                    u16::try_from(ind).unwrap_or(u16::MAX),
+                    paint,
+                );
+            }
+            // **The label rectangle collapses when the indent has eaten it**, which only the
+            // unclamped arm can do: a clamped indent reserves two columns by construction. The
+            // chevron is then skipped and the row drawer is handed an **empty** rectangle rather
+            // than not called — §2's contract is *the cells it does not write are named in its
+            // return value*, and *none* is an answer. Not calling it would make *rows the body
+            // iterated* a second counter that separates the two arms, and §7's whole claim is that
+            // only the ask does.
+            let collapsed = ind >= usize::from(r.w);
+            let indent = i32::try_from(ind.min(usize::from(r.w)))
+                .expect("an indent inside the rectangle fits an i32");
+            // **§7's second verb**, and a space on a leaf rather than nothing at all, so that every
+            // row of the tree is the same partition of its rectangle.
+            let folded = e.is_folded();
+            let leaf = !folded && !has_children(index, i);
+            let chevron = if leaf {
+                " "
+            } else if folded {
+                shut
+            } else {
+                open
+            };
+            let (label, room) = if collapsed {
+                (r.x + indent, 0)
+            } else {
+                let _ = ink.text(cx, r.x + indent, r.y, chevron, paint);
+                (
+                    r.x + indent + 1,
+                    r.w - u16::try_from(ind + 1).expect("inside the rectangle"),
+                )
+            };
+            row(
+                ink,
+                cx,
+                Rect::new(label, r.y, room, 1),
+                Node {
+                    row: i,
+                    node: e.node,
+                    depth: e.depth,
+                    folded,
+                    leaf,
+                    id: Id::keyed(tid, u64::from(e.node)),
+                },
+                face,
+            );
+        },
+        &mut refuse,
+    );
+
+    // **The pointer half, and it reads `collection`'s edge rather than keeping one.** A press on the
+    // chevron column of a row that has one leaves the same request the keyboard does.
+    //
+    // **It also selects the row, and that is deliberate rather than overlooked.** `collection` owns
+    // the selection and has already applied the press by the time this runs; a component built on
+    // it may add a gesture and may not *un-apply* one, which would need the press to be intercepted
+    // before `collection` sees it — the pointer's version of `Refusal`, and there is no shape for
+    // it: `Response::local` is computed inside `declare`, so there is nothing to refuse until the
+    // hit entry exists.
+    if coll.press_edge()
+        && let Some((lx, ly)) = resp.local
+        && let Ok(i) = usize::try_from(coll.offset + ly)
+        && let Some(e) = index.at(i)
+        && lx == i32::try_from(indent_columns(shape.indent, e.depth, w)).unwrap_or(i32::MAX)
+    {
+        if e.is_folded() {
+            ask.ask(Ask::Expand(u64::from(e.node)));
+        } else if has_children(index, i) {
+            ask.ask(Ask::Collapse(u64::from(e.node)));
+        }
+    }
+    resp
+}
+
 // ── what the table's two stores and its one slot cost ────────────────────────────────────────────
 
 /// **The row count §6 prices the two cell stores at.** One million.
@@ -3064,6 +3672,7 @@ pub fn edit_follow_costs(len: usize, entries: usize) -> (u128, u128) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::order::Entry;
 
     /// **Criterion 1: one component, one `Mode`, thirteen match arms.**
     ///
@@ -3909,6 +4518,675 @@ mod tests {
         // wheel. Components 20 owns the gate; what this asserts is that the arm exists and differs.
         assert!(play(&[], false).0);
     }
+
+    // ── components ticket 17: `tree` ─────────────────────────────────────────────────────────────
+
+    /// **Criterion: `tree` is `collection` plus a flatten index, and nothing else.**
+    ///
+    /// The sentence read out of the file rather than asserted about it, which is components ticket
+    /// 15's arrangement one component over: *no second selection store, no second scan cursor, no
+    /// second `Mode`, no second offset, no second press edge*. The one thing `tree` adds to the
+    /// row axis is a **request**, and the request is not a store — it is one slot the caller
+    /// drains.
+    #[test]
+    fn a_tree_is_a_collection_and_the_sentence_is_read_out_of_the_file() {
+        let source = include_str!("collect.rs");
+        assert!(
+            crate::dense::declares(source, "collection_chorded("),
+            "`tree_with` no longer reaches `collection`, so `tree = collection + a flatten index` \
+             has stopped being a claim about this file"
+        );
+        // Counted by declaration and not by mention, which is `table`'s own scan two tests down:
+        // a doc comment naming `Mode` is not a second `Mode`.
+        for declaration in [
+            "pub enum Mode {",
+            "pub struct Selection {",
+            "pub struct Scan<'a> {",
+            "pub struct CollState {",
+        ] {
+            let n = source
+                .lines()
+                .map(str::trim)
+                .filter(|l| !l.starts_with("//") && l.starts_with(declaration))
+                .count();
+            assert_eq!(
+                n, 1,
+                "`{declaration}` is declared twice, so one of the components has a store of its own"
+            );
+        }
+        // **`TreeState` holds the row axis rather than replacing it**, which is the half a count
+        // cannot state.
+        assert!(
+            source.contains("pub coll: CollState,"),
+            "`TreeState` no longer holds a `CollState`"
+        );
+        assert_eq!(
+            size_of::<TreeState>(),
+            size_of::<CollState>() + size_of::<Asked>(),
+            "a tree is a collection and one slot, to the byte"
+        );
+    }
+
+    /// **Criterion: the `+` costs two verbs a row — the indent run and the chevron cell.**
+    ///
+    /// §7's own sentence, measured against the same rectangle drawn as a plain list. The absolute
+    /// figures are `crate::forest`'s screen; what is asserted here is the *difference*, which is the
+    /// mechanism.
+    ///
+    /// And the second half, which is §2: **the row drawer is handed what the component did not
+    /// write**, so the row is a partition — `writes == distinct` over the whole frame.
+    #[test]
+    fn the_plus_is_two_verbs_a_row_and_the_row_is_a_partition() {
+        fn frame(as_tree: bool, depth: u16) -> (u64, u64, u64) {
+            let index = Order::built(
+                (0..1_000u32)
+                    .map(|n| Entry::of(n).at_depth(depth))
+                    .collect(),
+            );
+            let mut driver = crate::runner::driver_at(60, 8, vitui_runtime::Density::default());
+            let mut st = TreeState::new();
+            let mut coll = CollState::new();
+            let mut out = (0, 0, 0);
+            // A warm frame first: the frame structures take their allocation once, and a cold
+            // frame is not a frame.
+            for _ in 0..2 {
+                let mut tally = crate::counters::Tally::new();
+                driver.frame(|cx| {
+                    let area = cx.area();
+                    let body = cx.theme().paint(Role::Body);
+                    let label =
+                        move |ink: &mut crate::counters::Tally, cx: &mut Ctx<'_, '_>, r: Rect| {
+                            let cut = truncate("a-node-label", r.w);
+                            let used = width(cut);
+                            let _ = ink.text(cx, r.x, r.y, cut, body);
+                            let _ = ink.run(cx, r.x + i32::from(used), r.y, " ", r.w - used, body);
+                        };
+                    if as_tree {
+                        let _ = tree_into(
+                            &mut tally,
+                            cx,
+                            area,
+                            &mut st,
+                            &TreeOpts::default(),
+                            &index,
+                            |_: &str, _: Range<usize>| None,
+                            |ink: &mut crate::counters::Tally,
+                             cx: &mut Ctx<'_, '_>,
+                             r: Rect,
+                             _n: Node,
+                             _f: Face| label(ink, cx, r),
+                        );
+                    } else {
+                        let _ = collection_into(
+                            &mut tally,
+                            cx,
+                            area,
+                            &mut coll,
+                            &CollOpts::default(),
+                            index.rows(),
+                            |_: &str, _: Range<usize>| None,
+                            |ink: &mut crate::counters::Tally,
+                             cx: &mut Ctx<'_, '_>,
+                             r: Rect,
+                             _i: usize,
+                             _f: Face| label(ink, cx, r),
+                        );
+                    }
+                });
+                out = (tally.verbs(), tally.writes(), tally.distinct());
+            }
+            out
+        }
+
+        let (list, list_writes, list_distinct) = frame(false, 0);
+        let (tree, tree_writes, tree_distinct) = frame(true, 3);
+        assert_eq!(
+            tree - list,
+            2 * 8,
+            "§7: the `+` costs two verbs a row — the indent run and the chevron cell — over eight \
+             rows"
+        );
+        // **§2, both ways.** The same cells, each written once, whichever component drew them.
+        assert_eq!((tree_writes, tree_distinct), (60 * 8, 60 * 8));
+        assert_eq!((list_writes, list_distinct), (60 * 8, 60 * 8));
+    }
+
+    /// **Criterion: the indent is clamped, and the label goes where the indent says.**
+    ///
+    /// The equality is what stops [`indent_columns`] and the component from being a model and a
+    /// copy of one: `crate::forest` sums the function and the component draws the run, and the
+    /// rectangle handed to the row drawer is where the two meet.
+    ///
+    /// The other direction is [`defective::unclamped_indent`], whose label rectangle is **empty**
+    /// at a depth the clamped one still fits — which is the only observable that separates them
+    /// this side of `crate::forest`'s ask.
+    #[test]
+    fn the_component_places_the_label_where_the_indent_says() {
+        fn placed(indent: Indent, depth: u16, w: u16) -> Vec<(i32, u16)> {
+            let index = Order::built((0..4u32).map(|n| Entry::of(n).at_depth(depth)).collect());
+            let mut driver = crate::runner::driver_at(w, 4, vitui_runtime::Density::default());
+            let mut st = TreeState::new();
+            let mut out = Vec::new();
+            driver.frame(|cx| {
+                let area = cx.area();
+                let mut find = |_: &str, _: Range<usize>| None;
+                let mut row =
+                    |_ink: &mut Direct, _cx: &mut Ctx<'_, '_>, r: Rect, _n: Node, _f: Face| {
+                        out.push((r.x, r.w))
+                    };
+                let _ = match indent {
+                    Indent::Clamped => tree_into(
+                        &mut Direct,
+                        cx,
+                        area,
+                        &mut st,
+                        &TreeOpts::default(),
+                        &index,
+                        &mut find,
+                        &mut row,
+                    ),
+                    Indent::Unclamped => defective::unclamped_indent(
+                        &mut Direct,
+                        cx,
+                        area,
+                        &mut st,
+                        &TreeOpts::default(),
+                        &index,
+                        &mut find,
+                        &mut row,
+                    ),
+                };
+            });
+            out
+        }
+
+        // At depth three the indent is six columns and both builds agree, which is the statement
+        // about the scene list: **a shallow tree cannot tell them apart.**
+        assert_eq!(placed(Indent::Clamped, 3, 40), vec![(7, 33); 4]);
+        assert_eq!(
+            placed(Indent::Unclamped, 3, 40),
+            placed(Indent::Clamped, 3, 40)
+        );
+        for (x, w) in placed(Indent::Clamped, 3, 40) {
+            assert_eq!(x, indent_columns(Indent::Clamped, 3, 40) as i32 + 1);
+            assert_eq!(w, 40 - 7);
+        }
+
+        // At a depth past the rectangle the clamp reserves two columns and the defect leaves none.
+        assert_eq!(placed(Indent::Clamped, 400, 40), vec![(39, 1); 4]);
+        assert_eq!(
+            placed(Indent::Unclamped, 400, 40),
+            vec![(40, 0); 4],
+            "the label rectangle has collapsed, and the row drawer is still called with it"
+        );
+    }
+
+    /// **A tree handed a rectangle that does not start at column zero draws inside it.**
+    ///
+    /// The lesson components ticket 15 paid for one component over: `table`'s `header_row` drew its
+    /// bands from `x = 0` rather than from the rectangle it was given, a table inside a panel put
+    /// its header one column into the border, and **every gate in the crate passed**, because every
+    /// one of them plays at `x == 0` where the two agree.
+    ///
+    /// So this one does not play there. What it can assert and what it cannot are both worth being
+    /// exact about, because the difference is the whole of why `table` had the defect and `tree`
+    /// cannot:
+    ///
+    /// - **Everything `tree` draws goes through `collection`'s scroll scope**, which childs at the
+    ///   body's rectangle — so there is exactly **one** coordinate space and both recorders union in
+    ///   it. `table`'s header is the thing that did not: it draws in the *caller's* context, beside a
+    ///   body drawn in the scope's, and the two disagreed about where column zero was.
+    /// - So the assertion is not *nothing before the margin* — a recorder that never sees the margin
+    ///   cannot answer that. It is that the component partitions **the width it was handed**, writes
+    ///   nothing past it, and measures every row's indent from `r.x` rather than from zero. Reaching
+    ///   for `area.w` instead of `r.w`, or for `0` instead of `r.x`, moves one of those.
+    #[test]
+    fn a_tree_at_a_non_zero_origin_draws_inside_the_rectangle_it_was_given() {
+        const MARGIN: u16 = 5;
+        const W: u16 = 40;
+        const H: u16 = 4;
+
+        let index = Order::built(vec![
+            Entry::of(0),
+            Entry::of(1).at_depth(1),
+            Entry::of(2).at_depth(2),
+            Entry::of(3),
+        ]);
+        let mut driver = crate::runner::driver_at(W, H, vitui_runtime::Density::default());
+        let mut st = TreeState::new();
+        let mut pen = crate::runner::Pen::new(W, H);
+        let mut handed: Vec<Rect> = Vec::new();
+        driver.frame(|cx| {
+            let area = cx.area();
+            let inside = Rect::new(i32::from(MARGIN), 0, area.w - MARGIN, area.h);
+            let body = cx.theme().paint(Role::Body);
+            let _ = tree_into(
+                &mut pen,
+                cx,
+                inside,
+                &mut st,
+                &TreeOpts::default(),
+                &index,
+                |_: &str, _: Range<usize>| None,
+                |ink: &mut crate::runner::Pen,
+                 cx: &mut Ctx<'_, '_>,
+                 r: Rect,
+                 _n: Node,
+                 _f: Face| {
+                    handed.push(r);
+                    let _ = ink.run(cx, r.x, r.y, "x", r.w, body);
+                },
+            );
+        });
+
+        // **The width it was handed, partitioned.** Not `W`: a component that read the context's
+        // width instead of its rectangle's would write 40 columns a row here and still look right.
+        let cells = u64::from(W - MARGIN) * u64::from(H);
+        assert_eq!(
+            (pen.tally().writes(), pen.tally().distinct()),
+            (cells, cells),
+            "a partition of the rectangle it was handed, and of nothing else"
+        );
+        // And nothing past its own right edge, in the one coordinate space there is.
+        for y in 0..H {
+            for x in (W - MARGIN)..W {
+                assert!(
+                    pen.canvas().get(x, y).is_none(),
+                    "column {x} of row {y} is past the rectangle's width and was written"
+                );
+            }
+        }
+        // The rectangles handed over are measured from `r.x`, two indent columns a level plus the
+        // chevron — and their width is what is left of `r.w`, not of the context.
+        assert_eq!(
+            handed,
+            vec![
+                Rect::new(1, 0, W - MARGIN - 1, 1),
+                Rect::new(3, 1, W - MARGIN - 3, 1),
+                Rect::new(5, 2, W - MARGIN - 5, 1),
+                Rect::new(1, 3, W - MARGIN - 1, 1),
+            ],
+            "the indent is two columns a level and the chevron is one, measured from the row's own \
+             origin"
+        );
+    }
+
+    /// **Criterion: `←` and `→` leave a request, and they do not move the cursor.**
+    ///
+    /// The whole of [`Refusal`] in one measurement. `crate::nav::step` reads `←` as `↑`, so a tree
+    /// whose fold keys arrived after `collection`'s own would find the cursor already moved — and
+    /// a tree that read them *before* by draining the queue itself would leave `collection` with
+    /// nothing, because `Ctx::decline` ends the level's turn.
+    ///
+    /// Both directions: the same key through a plain [`collection`] **does** move the cursor.
+    #[test]
+    fn the_fold_keys_leave_a_request_and_do_not_move_the_cursor() {
+        use vitui_runtime::keys::Code;
+
+        // A root with two children, then a second root: row 0 has children and row 1 does not.
+        let index = Order::built(vec![
+            Entry::of(0),
+            Entry::of(1).at_depth(1),
+            Entry::of(2).at_depth(1),
+            Entry::of(3),
+        ]);
+
+        fn play(index: &Order, code: Code, as_tree: bool) -> (Option<Ask>, usize) {
+            let mut driver = crate::runner::driver_at(20, 4, vitui_runtime::Density::default());
+            let mut st = TreeState::new();
+            let mut coll = CollState::new();
+            st.coll.sel.lead = 0;
+            for frame in 0..2 {
+                if frame == 1 {
+                    driver.post_key(crate::keys::press(vitui_runtime::Chord::new(code)));
+                }
+                driver.frame(|cx| {
+                    let area = cx.area();
+                    let seated = if as_tree {
+                        tree(
+                            cx,
+                            area,
+                            &mut st,
+                            &TreeOpts::default(),
+                            index,
+                            &mut |_: &str, _: Range<usize>| None,
+                            &mut |_cx: &mut Ctx<'_, '_>, _r: Rect, _n: Node, _f: Face| {},
+                        )
+                    } else {
+                        collection(
+                            cx,
+                            area,
+                            &mut coll,
+                            &CollOpts::default(),
+                            index.rows(),
+                            &mut |_: &str, _: Range<usize>| None,
+                            &mut |_cx: &mut Ctx<'_, '_>, _r: Rect, _i: usize, _f: Face| {},
+                        )
+                    };
+                    if cx.focused().is_none() {
+                        cx.focus(seated.id);
+                    }
+                });
+            }
+            match as_tree {
+                true => (st.ask.standing(), st.coll.sel.lead),
+                false => (None, coll.sel.lead),
+            }
+        }
+
+        // `←` on a node with children: a request, and the cursor stayed.
+        assert_eq!(
+            play(&index, Code::Left, true),
+            (Some(Ask::Collapse(0)), 0),
+            "`←` folds the cursor's row and leaves the cursor where it was"
+        );
+        // **The same key through a plain collection moves the cursor**, which is what the hook is
+        // for and what a tree without one would inherit.
+        assert_eq!(play(&index, Code::Left, false).1, 0, "`←` is `↑` at row 0");
+        assert_eq!(
+            play(&index, Code::Down, false).1,
+            1,
+            "and `↓` is `↓`, so the harness really does deliver a key"
+        );
+
+        // `→` on a node that is not folded is **not** the tree's, so `collection` takes it and the
+        // cursor moves. A hook that swallowed every arrow would pass the assertion above and lose
+        // the keyboard.
+        assert_eq!(
+            play(&index, Code::Right, true),
+            (None, 1),
+            "`→` on an expanded node is a cursor move and not a request"
+        );
+
+        // And on a folded one it is a request. One value changed.
+        let mut folded = index.clone();
+        let _ = folded.fold(0);
+        assert_eq!(
+            play(&folded, Code::Right, true),
+            (Some(Ask::Expand(0)), 0),
+            "`→` expands a folded node"
+        );
+    }
+
+    /// **Criterion: a folded node, an expanded one and a leaf wear three different chevrons.**
+    ///
+    /// §16's `ArrowDown`/`ArrowRight` pair is `tree`'s, and the third state is a space rather than
+    /// nothing at all — so every row of a tree is the same partition of its rectangle whatever it
+    /// is. `has_children` is `O(1)`, which is the half that matters: asking `Order::descendants`
+    /// would make one chevron cost a subtree walk.
+    #[test]
+    fn a_chevron_says_folded_expanded_or_leaf_and_the_test_is_one_row_ahead() {
+        let index = Order::built(vec![Entry::of(0), Entry::of(1).at_depth(1), Entry::of(2)]);
+        assert!(has_children(&index, 0), "the next row is deeper");
+        assert!(!has_children(&index, 1), "the next row is not");
+        assert!(!has_children(&index, 2), "there is no next row");
+
+        let mut driver = crate::runner::driver_at(20, 3, vitui_runtime::Density::default());
+        let mut st = TreeState::new();
+        let mut seen: Vec<(bool, bool)> = Vec::new();
+        driver.frame(|cx| {
+            let area = cx.area();
+            let _ = tree(
+                cx,
+                area,
+                &mut st,
+                &TreeOpts::default(),
+                &index,
+                &mut |_: &str, _: Range<usize>| None,
+                &mut |_cx: &mut Ctx<'_, '_>, _r: Rect, n: Node, _f: Face| {
+                    seen.push((n.folded, n.leaf));
+                },
+            );
+        });
+        assert_eq!(seen, vec![(false, false), (false, true), (false, true)]);
+
+        // Folded is not leaf, and the difference is the whole reason there are two bits.
+        let mut folded = index.clone();
+        let _ = folded.fold(0);
+        assert_eq!(folded.len(), 2, "the child went out of the index");
+        assert!(!has_children(&folded, 0), "and so it has none to find");
+        assert!(
+            folded.at(0).expect("the root").is_folded(),
+            "which is exactly why the flag is in the record and not derived"
+        );
+    }
+
+    /// **Criterion: two trees on one screen are two trees, and a row's id survives a fold above it.**
+    ///
+    /// ADR 0027 on the container axis, and the second half is why [`Node::id`] is keyed on the
+    /// caller's **node** rather than on the display position: a fold above a row moves the position
+    /// and does not move the row, so a position-keyed id would hand the row's target to whatever
+    /// slid into its place.
+    #[test]
+    fn identity_is_keyed_on_the_node_and_two_trees_are_two_trees() {
+        fn ids(index: &Order) -> Vec<Id> {
+            let mut driver = crate::runner::driver_at(20, 8, vitui_runtime::Density::default());
+            let mut left = TreeState::new();
+            let mut right = TreeState::new();
+            let mut out = Vec::new();
+            driver.frame(|cx| {
+                let area = cx.area();
+                let mut collect = |_cx: &mut Ctx<'_, '_>, _r: Rect, n: Node, _f: Face| {
+                    out.push(n.id);
+                };
+                let _ = tree(
+                    cx,
+                    area,
+                    &mut left,
+                    &TreeOpts::default(),
+                    index,
+                    &mut |_: &str, _: Range<usize>| None,
+                    &mut collect,
+                );
+                let _ = tree(
+                    cx,
+                    area,
+                    &mut right,
+                    &TreeOpts::default(),
+                    index,
+                    &mut |_: &str, _: Range<usize>| None,
+                    &mut collect,
+                );
+            });
+            out
+        }
+
+        let index = Order::built(vec![
+            Entry::of(10),
+            Entry::of(11).at_depth(1),
+            Entry::of(12),
+        ]);
+        let both = ids(&index);
+        assert_eq!(both.len(), 6, "three rows in each of two trees");
+        let (first, second) = both.split_at(3);
+        assert_ne!(first[0], second[0], "two trees on one screen are two trees");
+        let all: std::collections::HashSet<Id> = both.iter().copied().collect();
+        assert_eq!(all.len(), 6, "and no two rows anywhere share an id");
+
+        // **A fold above a row does not move the row's id.** Row `12` slides from position 2 to
+        // position 1 and keeps the id it had.
+        let mut folded = index.clone();
+        let _ = folded.fold(0);
+        let after = ids(&folded);
+        assert_eq!(folded.len(), 2);
+        assert_eq!(
+            after[1], first[2],
+            "the id followed the node and not the position"
+        );
+
+        // **`merges == 0` with two trees on screen, and the row-keyed spelling is not available
+        // here to fail against** — a tree keys per *node* and there is no coarser key a row could
+        // take. What the pair separates instead is `with_key` from `Id::keyed`: `Ctx::with_key`
+        // inside a scroll scope re-childs at the content's origin, so the arm that uses it draws
+        // nothing past the first screenful (runtime architecture issue 31, register row 112).
+        let (regions, merges) = declared(&index);
+        assert_eq!(merges, 0, "two trees on one screen merge nothing");
+        assert_eq!(
+            regions,
+            2 * (1 + 3),
+            "one hit entry a tree — the component's own, whatever the row count — plus one a \
+             visible row that declared a target of its own"
+        );
+    }
+
+    /// Two trees over `index`, each row declaring a target: `(regions, merges)`.
+    fn declared(index: &Order) -> (usize, u64) {
+        let mut driver = crate::runner::driver_at(40, 3, vitui_runtime::Density::default());
+        let (mut left, mut right) = (TreeState::new(), TreeState::new());
+        driver.frame(|cx| {
+            let area = cx.area();
+            let w = area.w / 2;
+            let mut find = |_: &str, _: Range<usize>| None;
+            let mut row = |_ink: &mut Direct, cx: &mut Ctx<'_, '_>, r: Rect, n: Node, _f: Face| {
+                let _ = cx.interact(n.id, r, Interest::CLICK);
+            };
+            let _ = tree_into(
+                &mut Direct,
+                cx,
+                Rect::new(0, 0, w, area.h),
+                &mut left,
+                &TreeOpts::default(),
+                index,
+                &mut find,
+                &mut row,
+            );
+            let _ = tree_into(
+                &mut Direct,
+                cx,
+                Rect::new(i32::from(w), 0, w, area.h),
+                &mut right,
+                &TreeOpts::default(),
+                index,
+                &mut find,
+                &mut row,
+            );
+        });
+        let frame = driver.inspect();
+        (frame.hits().len(), u64::from(frame.ids().merges()))
+    }
+
+    /// **Criterion: the frame does not move with `Entry::h`.**
+    ///
+    /// §7's *the frame does not move at all* — 48.88 against 48.79, identical writes and verbs — and
+    /// here it is a fact about what the component reads rather than a coincidence: `tree` draws one
+    /// screen row a content row and never touches `h`, because the prefix sum is the caller's
+    /// (`order::Heights`) and so is the stepping that uses it. The gate is the equality; the ~1.00×
+    /// on the clock is `examples/tree_numbers.rs`'s.
+    #[test]
+    fn the_frame_does_not_move_with_the_height_field() {
+        fn frame(varying: bool) -> (u64, u64, u64) {
+            let mut entries: Vec<Entry> = (0..64u32).map(Entry::of).collect();
+            if varying {
+                for (i, e) in entries.iter_mut().enumerate() {
+                    e.h = u8::try_from(1 + i % 4).expect("small");
+                }
+            }
+            let index = Order::built(entries);
+            let mut driver = crate::runner::driver_at(40, 8, vitui_runtime::Density::default());
+            let mut st = TreeState::new();
+            let mut out = (0, 0, 0);
+            for _ in 0..2 {
+                let mut tally = crate::counters::Tally::new();
+                driver.frame(|cx| {
+                    let area = cx.area();
+                    let body = cx.theme().paint(Role::Body);
+                    let _ = tree_into(
+                        &mut tally,
+                        cx,
+                        area,
+                        &mut st,
+                        &TreeOpts::default(),
+                        &index,
+                        |_: &str, _: Range<usize>| None,
+                        |ink: &mut crate::counters::Tally,
+                         cx: &mut Ctx<'_, '_>,
+                         r: Rect,
+                         _n: Node,
+                         _f: Face| {
+                            let _ = ink.run(cx, r.x, r.y, " ", r.w, body);
+                        },
+                    );
+                });
+                out = (tally.writes(), tally.distinct(), tally.verbs());
+            }
+            out
+        }
+        assert_eq!(
+            frame(true),
+            frame(false),
+            "the component reads `h` nowhere, so a frame cannot move with it"
+        );
+        // And the field is not inert: the caller's own index does move with it.
+        let mut entries: Vec<Entry> = (0..64u32).map(Entry::of).collect();
+        for (i, e) in entries.iter_mut().enumerate() {
+            e.h = u8::try_from(1 + i % 4).expect("small");
+        }
+        let varying = Order::built(entries);
+        assert!(crate::order::Heights::needed(&varying));
+        assert_eq!(
+            crate::order::Heights::built(&varying).screen_rows(),
+            16 * (1 + 2 + 3 + 4),
+            "sixty-four rows of heights one to four"
+        );
+    }
+
+    /// **Criterion: a press on the chevron asks, and a press anywhere else selects.**
+    ///
+    /// The tree reads [`CollState::press_edge`] rather than keeping a second `pressing` bool, which
+    /// is the one fact `collection` already reconstructs — `Response::pressed` is a level, so a
+    /// component that read it raw would re-ask for as long as the user leaned on the button.
+    #[test]
+    fn a_press_on_the_chevron_asks_and_a_press_on_the_label_does_not() {
+        use vitui_runtime::{Button, Buttons, Mods, Mouse, MouseKind};
+
+        let index = Order::built(vec![Entry::of(0), Entry::of(1).at_depth(1), Entry::of(2)]);
+
+        fn click(index: &Order, at: (u16, u16), frames: u32) -> (Option<Ask>, usize) {
+            let mut driver = crate::runner::driver_at(20, 4, vitui_runtime::Density::default());
+            let mut st = TreeState::new();
+            for frame in 0..frames {
+                // **A move, then a press.** `Response::local` is this frame's pointer and the hit
+                // index is the previous frame's, so a press over a position nothing has moved to
+                // is a press over nothing — `crate::collect`'s own click harness one test up.
+                if let Some(kind) = match frame {
+                    1 => Some(MouseKind::Move),
+                    2 => Some(MouseKind::Down(Button::Left)),
+                    _ => None,
+                } {
+                    driver.post_mouse(Mouse {
+                        x: at.0,
+                        y: at.1,
+                        kind,
+                        buttons: Buttons::NONE,
+                        mods: Mods::NONE,
+                        at: Instant::now(),
+                    });
+                }
+                driver.frame(|cx| {
+                    let area = cx.area();
+                    let _ = tree(
+                        cx,
+                        area,
+                        &mut st,
+                        &TreeOpts::default(),
+                        index,
+                        &mut |_: &str, _: Range<usize>| None,
+                        &mut |_cx: &mut Ctx<'_, '_>, _r: Rect, _n: Node, _f: Face| {},
+                    );
+                });
+            }
+            (st.ask.standing(), st.coll.sel.lead)
+        }
+
+        // Column 0 of row 0 is the chevron: the root has children, so it is a request.
+        assert_eq!(click(&index, (0, 0), 4), (Some(Ask::Collapse(0)), 0));
+        // Column 5 of row 0 is the label: `collection`'s selection gesture and nothing else.
+        assert_eq!(click(&index, (5, 0), 4), (None, 0));
+        // Row 1's chevron sits two columns in, and row 1 is a leaf — so nothing is asked there
+        // either, which is the half that keeps the chevron column from being a blanket.
+        assert_eq!(click(&index, (2, 1), 4), (None, 1));
+    }
+
     // ── components ticket 15: `table` ────────────────────────────────────────────────────────────
 
     /// **Criterion 1: `table` is `collection` plus a column rect split, and nothing else.**

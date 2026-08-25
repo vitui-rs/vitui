@@ -762,34 +762,23 @@ const PINS_SCENE_6: &[Instrument] = &[
 /// opening the file the freeze homes `tree` in.
 const TREE: &[&str] = &crate::forest::SUBJECTS;
 
-/// **The pair both of components ticket 16's scenes are pinned by**, written once because it is one
-/// fact: `tree` is not declared.
+/// **The pair both of components ticket 16's scenes stand on**, written once because it is one
+/// fact: `tree` is declared and this screen draws through it.
 ///
-/// **There is one pin here and there were two for ticket 11**, and that is not a simplification of
-/// the split. Ticket 11 needed two because scene 6's failing set is *the defect itself* — an
-/// unconditional `scroll_into_view` standing in code — and neither of these two has one. The
-/// unclamped indent is a **negative case**: a spelling stood up so the instrument can be watched
-/// catching it, which is what every `defective::` arm in [`crate::runner`] is, and a negative case
-/// is not a red gate.
-const WAITING_FOR_TREE: &[Instrument] = &[
+/// It read `WAITING_FOR_TREE` until components ticket 17. The second entry is not decoration: the
+/// distinction it keeps — *a scene with no subject fails differently from a scene whose code is
+/// wrong* — is still live now the subject exists, because `crate::forest::owed_message` is fired
+/// over a declaration list rather than over the crate.
+const STANDS_ON_TREE: &[Instrument] = &[
     Instrument::Unit {
         file: FOREST,
-        name: "the_forest_is_red_because_tree_is_not_declared",
+        name: "the_forest_stands_on_the_tree_it_is_a_screen_of",
     },
     Instrument::Unit {
         file: FOREST,
         name: "the_waiting_message_separates_unimplemented_from_wrong",
     },
 ];
-
-/// The failing set both scenes of components ticket 16 are pinned in.
-const OWED_ITS_TREE: &str = "`tree` is not declared in `crates/vitui-components/src/collect.rs`, so the two screens stand \
-     on a stand-in row loop over a stand-in flatten index. Everything the screens themselves can be \
-     asked is measured and green — 24 000 cells and 81 regions unchanged at 1k / 100k / 1M nodes \
-     and at depth 10 and 59 999, 160 / 320 / 1 920 verbs for a list, a tree and a twelve-column \
-     table on one rectangle, 9 599 840 cells asked for against 24 000 with every other counter \
-     preferring the arm that asks, 1 run against 249 940 for the fold, and 349 526 of 500 000 back \
-     from the round trip under the splice the prototype shipped. What is missing is the subject";
 
 /// What pins scene 8, beyond the pair both share.
 const PINS_SCENE_8: &[Instrument] = &[
@@ -809,8 +798,8 @@ const PINS_SCENE_8: &[Instrument] = &[
         file: FOREST,
         name: "the_tally_saturates_where_the_caller_does_not",
     },
-    WAITING_FOR_TREE[0],
-    WAITING_FOR_TREE[1],
+    STANDS_ON_TREE[0],
+    STANDS_ON_TREE[1],
 ];
 
 /// What pins scene 9. See [`PINS_SCENE_8`].
@@ -831,8 +820,8 @@ const PINS_SCENE_9: &[Instrument] = &[
         file: FOREST,
         name: "a_half_tree_fold_parks_one_run_of_sixteen_bytes",
     },
-    WAITING_FOR_TREE[0],
-    WAITING_FOR_TREE[1],
+    STANDS_ON_TREE[0],
+    STANDS_ON_TREE[1],
 ];
 
 /// What stands scene 29 up, the narrow collection. See [`STANDS_SCENE_3`].
@@ -1377,11 +1366,7 @@ pub const SCENES: [Scene; 32] = [
         stands: TREE,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Red {
-            by: PINS_SCENE_8,
-            failing: OWED_ITS_TREE,
-            inverted_by: "components 17",
-        },
+        standing: Standing::Evaluated { by: PINS_SCENE_8 },
         rehearsed_by: &[],
     },
     Scene {
@@ -1405,11 +1390,7 @@ pub const SCENES: [Scene; 32] = [
         stands: TREE,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Red {
-            by: PINS_SCENE_9,
-            failing: OWED_ITS_TREE,
-            inverted_by: "components 17",
-        },
+        standing: Standing::Evaluated { by: PINS_SCENE_9 },
         rehearsed_by: &[],
     },
     Scene {
@@ -2352,7 +2333,7 @@ mod tests {
     /// ticket 20* — and a single `inverted_by` across the five would have made that ticket turn
     /// all five.
     #[test]
-    fn eight_scenes_have_nothing_to_run_over_thirteen_are_red_and_eleven_are_stood_up() {
+    fn eight_scenes_have_nothing_to_run_over_eleven_are_red_and_thirteen_are_stood_up() {
         let red: Vec<u8> = SCENES
             .iter()
             .filter(|s| matches!(s.standing, Standing::Red { .. }))
@@ -2360,12 +2341,13 @@ mod tests {
             .collect();
         assert_eq!(
             red,
-            vec![6, 8, 9, 10, 11, 12, 13, 14, 17, 18, 19, 30, 32],
-            "the wheel gate, and then components ticket 16's two, 18's four, 21's two, 23's \
-             three and 25's overlay family. Components ticket 27's two were here for one ticket \
-             and 28 inverted them; components ticket 14's two — scenes 7 and 31 — were here for \
-             one ticket and **15** inverted them. A fourteenth is a new one, and it owes an exact \
-             failing set and a ticket that inverts it"
+            vec![6, 10, 11, 12, 13, 14, 17, 18, 19, 30, 32],
+            "the wheel gate, and then components ticket 18's four, 21's two, 23's three and 25's \
+             overlay family. Components ticket 27's two were here for one ticket and 28 inverted \
+             them; components ticket 14's two — scenes 7 and 31 — were here for one ticket and \
+             **15** inverted them; components ticket 16's two — scenes 8 and 9 — likewise, and \
+             **17** inverted them. A twelfth is a new one, and it owes an exact failing set and a \
+             ticket that inverts it"
         );
         let evaluated: Vec<u8> = SCENES
             .iter()
@@ -2374,7 +2356,7 @@ mod tests {
             .collect();
         assert_eq!(
             evaluated,
-            vec![1, 2, 3, 4, 5, 7, 15, 16, 28, 29, 31],
+            vec![1, 2, 3, 4, 5, 7, 8, 9, 15, 16, 28, 29, 31],
             "the dense screen and its two twins, the collection's four, the two million-point \
              series with the 175 712 axis pairs, and the table's two — the twelve-column screen \
              and the equality under a horizontal offset, both of which components 15 stood up by \
@@ -2430,8 +2412,6 @@ mod tests {
             pinned_to,
             vec![
                 (6, "components 20"),
-                (8, "components 17"),
-                (9, "components 17"),
                 (10, "components 22"),
                 (11, "components 22"),
                 (12, "components 24"),
@@ -2854,14 +2834,14 @@ mod tests {
             printed
                 .matches("stood up on its own components, by ")
                 .count(),
-            11,
+            13,
             "a stood-up scene says what stands it up, rather than reading as unplayed"
         );
         assert_eq!(
             printed.matches("red, pinned: `components ").count(),
-            13,
-            "the wheel gate, then ticket 14's two, 16's two, 18's four, 21's two, 23's three \
-             and 25's one, and a red line is neither *not played* nor *stood up*"
+            11,
+            "the wheel gate, then ticket 18's four, 21's two, 23's three and 25's one, and a red \
+             line is neither *not played* nor *stood up*"
         );
         assert_eq!(printed.matches("[rehearsed over a fixture").count(), 1);
         assert!(

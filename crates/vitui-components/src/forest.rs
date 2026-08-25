@@ -64,14 +64,16 @@
 //! [`Direct`]: crate::ink::Direct
 //! [`Tally`]: crate::counters::Tally
 
-use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
-use vitui_runtime::{Ctx, Density, Glyph, Id, Interest, Rect, Role, Scrollable};
+use vitui_runtime::{Ctx, Density, Id, Interest, Rect, Role, Scrollable};
 
+use crate::collect::{TreeOpts, TreeState, defective as coll_defective, tree_into};
 use crate::counters::Tally;
+use crate::frame::Face;
 use crate::ink::{Direct, Ink};
 use crate::obligations::Verdict;
+use crate::order::{Entry, Order};
 
 // ── the screen ───────────────────────────────────────────────────────────────────────────────────
 
@@ -205,22 +207,6 @@ pub const REGIONS: usize = 1 + H as usize;
 /// **Tab stops a correct frame declares. One**, for [`crate::listing::STOPS`]'s reason: a
 /// virtualised collection is one tab stop, and a tree is a collection plus a flatten index.
 pub const STOPS: usize = 1;
-
-/// A run of spaces `n` columns long, from a buffer allocated once.
-///
-/// **Not `str::repeat` in the row loop.** A frame allocating once a row is the budget's own
-/// counter-example, and the run this returns is the one thing on the page that can be 119 998
-/// columns long.
-///
-/// # Panics
-///
-/// Panics past [`MAX_INDENT`]. A silent clamp here would be the defect the scene is about, applied
-/// by the instrument.
-fn spaces(n: usize) -> &'static str {
-    static PAD: OnceLock<String> = OnceLock::new();
-    assert!(n <= MAX_INDENT, "{n} columns is past the deepest indent");
-    &PAD.get_or_init(|| " ".repeat(MAX_INDENT))[..n]
-}
 
 // ── the forest, and the flatten index over it ────────────────────────────────────────────────────
 
@@ -822,38 +808,13 @@ pub fn round_trip(forest: &Forest, straddle: Straddle) -> u64 {
 
 // ── the frame ────────────────────────────────────────────────────────────────────────────────────
 
-/// **Whether the indent is clamped, and this is the whole of the negative case.**
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Indent {
-    /// **The rule.** `min(depth * 2, width - 2)` — O(1) in the depth, which is what makes a frame
-    /// allowed to *read* a depth without being proportional to one.
-    Clamped,
-    /// **The defect.** The indent is the depth, and the depth is data.
-    Unclamped,
-}
-
-impl Indent {
-    /// The word a report prints.
-    pub const fn word(self) -> &'static str {
-        match self {
-            Indent::Clamped => "clamped",
-            Indent::Unclamped => "unclamped",
-        }
-    }
-
-    /// How many columns a row at `depth` asks for, in a `w`-column rectangle.
-    ///
-    /// **A `usize` and not a `u16`**, which is the arithmetic the prototype's own `indent()` got
-    /// wrong: `depth * 2` at 59 999 is 119 998, and `as u16` makes that 54 462. See this module's
-    /// header.
-    pub fn columns(self, depth: u16, w: u16) -> usize {
-        let raw = usize::from(depth) * 2;
-        match self {
-            Indent::Clamped => raw.min(usize::from(w.saturating_sub(2))),
-            Indent::Unclamped => raw,
-        }
-    }
-}
+/// **The component's own [`Indent`], re-exported rather than declared a second time.**
+///
+/// This module used to carry its own copy, because components ticket 16 had no component to reach
+/// for. [`crate::collect::indent_columns`] is the one decision now, and it is the function
+/// [`crate::collect::tree`] calls — so the number this screen sums and the number the run is drawn
+/// with come out of the same place rather than out of two that agree today.
+pub use crate::collect::{Indent, indent_columns};
 
 /// **Which of §6's four drawings of one rectangle.**
 ///
@@ -953,52 +914,119 @@ pub struct Shape {
     pub iterated: u64,
 }
 
+/// **The flatten index this screen's rows are read out of, built once and not in a frame.**
+///
+/// Every row sits at [`Plan::depth`], which is what makes the frame at depth 10 and the frame at
+/// depth 59 999 the *same* frame with one number changed. Building it is proportional to the data
+/// by construction — that is what materialising is — and §10 prices doing it in a frame at 211 frame
+/// budgets, so it happens here, once, outside every measurement bracket.
+pub fn index_for(plan: Plan) -> Order {
+    let rows = usize::try_from(plan.rows).unwrap_or(usize::MAX);
+    Order::built(
+        (0..rows)
+            .map(|i| Entry::of(u32::try_from(i).unwrap_or(u32::MAX)).at_depth(plan.depth))
+            .collect(),
+    )
+}
+
 /// **Draw one frame of the forest.** Returns `(rows iterated, cells asked for)`.
 ///
 /// Generic over [`Ink`] so a [`Tally`] and a [`Direct`] measure the same drawing path rather than a
 /// copy of it.
 ///
-/// # The row loop is [`Ctx::visible_rows`] and that is where the trap is measured
+/// # The tree arm draws through the component and the other two do not
+///
+/// [`Drawn::Tree`] is [`crate::collect::tree`]; [`Drawn::List`] and [`Drawn::Table`] are the two
+/// controls §6's verb comparison needs and are drawn by hand, because a *control* drawn through the
+/// thing under test is not a control. That is the split `crate::grid` took one component over.
+///
+/// # The row loop is the component's now, and that is where the trap is measured
 ///
 /// A tree that iterated its content would be [`crate::listing::Volume::WholeContent`]'s defect, one
-/// component over and already caught. What this loop is asked instead is whether **a row's own
-/// cost** is proportional to a number that came out of the data — and the window is what makes the
-/// question answerable at all, because a frame that draws eighty rows either way is a frame two
-/// arms can be compared over.
+/// component over and already caught; `collection` asks [`Ctx::visible_rows`] and this screen
+/// inherits it. What the loop is asked instead is whether **a row's own cost** is proportional to a
+/// number that came out of the data — and the window is what makes the question answerable at all,
+/// because a frame that draws eighty rows either way is a frame two arms can be compared over.
 ///
 /// [`Ctx::visible_rows`]: vitui_runtime::Ctx::visible_rows
-pub fn draw_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, plan: Plan) -> (u64, u64) {
-    let id = Id::named("forest");
+pub fn draw_into<I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    plan: Plan,
+    index: &Order,
+) -> (u64, u64) {
     let view = cx.area();
     let w = view.w;
-    let max = (0, max_offset(plan.rows));
-    let offset = (0, plan.offset.clamp(0, max.1));
     let body = cx.theme().paint(Role::Body);
-    let chevron = cx.theme().glyph(Glyph::ArrowDown);
-
-    let _ = cx.scrollable(
-        id,
-        view,
-        Interest::CLICK.with(Interest::FOCUS),
-        Scrollable::between(offset, max),
-    );
-
     let mut iterated = 0u64;
     let mut asked = 0u64;
-    cx.scroll_scope(id, view, offset, max, |cx| {
-        for y in cx.visible_rows() {
-            iterated += 1;
-            cx.with_key(y as u64, |cx| {
-                let row = cx.id();
-                let _ = cx.interact(row, Rect::new(0, y, w, 1), Interest::CLICK);
-                asked += match plan.drawn {
-                    Drawn::List => list_row(ink, cx, y, w, body),
-                    Drawn::Tree => tree_row(ink, cx, y, w, body, chevron, plan),
-                    Drawn::Table => table_row(ink, cx, y, w, body),
+
+    match plan.drawn {
+        Drawn::Tree => {
+            let mut st = TreeState::new();
+            st.coll.offset = plan.offset;
+            let opts = TreeOpts::default();
+            // **The indent's half of the ask comes from the function the component called**, and
+            // the label's half is measured by the drawer that writes it. The two are joined by the
+            // rectangle the component hands over: `label.x` is the indent plus the chevron, which
+            // `tests::the_component_places_the_label_where_the_indent_says` asserts rather than
+            // assumes.
+            let ind = indent_columns(plan.indent, plan.depth, w);
+            let mut find = |_: &str, _: std::ops::Range<usize>| None;
+            let mut label =
+                |ink: &mut I, cx: &mut Ctx<'_, '_>, r: Rect, n: crate::collect::Node, _f: Face| {
+                    iterated += 1;
+                    // **The row's target, declared by the row and not by the component** (§7's 59
+                    // regions). The rectangle is the row's whole width — a tree row is clickable
+                    // where its label is not — and `Node::id` is what the component minted for it.
+                    let _ = cx.interact(n.id, Rect::new(0, r.y, w, 1), Interest::CLICK);
+                    asked += ind as u64;
+                    if r.w > 0 {
+                        // **The chevron, then the label's own rectangle.** `r.x` is where the
+                        // component put it, so this arm reads the placement rather than modelling
+                        // it — see `tests::the_component_places_the_label_where_the_indent_says`.
+                        asked += 1;
+                        asked += label_and_pad(ink, cx, r.x, r.y, r.w, body);
+                    }
                 };
+            // **One value between the two arms**, which is `crate::grid`'s arrangement one
+            // component over: the defect is a function in `collect::defective` rather than a
+            // branch this screen takes inside a row.
+            let _ = match plan.indent {
+                Indent::Clamped => {
+                    tree_into(ink, cx, view, &mut st, &opts, index, &mut find, &mut label)
+                }
+                Indent::Unclamped => coll_defective::unclamped_indent(
+                    ink, cx, view, &mut st, &opts, index, &mut find, &mut label,
+                ),
+            };
+        }
+        Drawn::List | Drawn::Table => {
+            let id = Id::named("forest");
+            let max = (0, max_offset(plan.rows));
+            let offset = (0, plan.offset.clamp(0, max.1));
+            let _ = cx.scrollable(
+                id,
+                view,
+                Interest::CLICK.with(Interest::FOCUS),
+                Scrollable::between(offset, max),
+            );
+            cx.scroll_scope(id, view, offset, max, |cx| {
+                for y in cx.visible_rows() {
+                    iterated += 1;
+                    cx.with_key(y as u64, |cx| {
+                        let row = cx.id();
+                        let _ = cx.interact(row, Rect::new(0, y, w, 1), Interest::CLICK);
+                        asked += match plan.drawn {
+                            Drawn::List => list_row(ink, cx, y, w, body),
+                            Drawn::Table => table_row(ink, cx, y, w, body),
+                            Drawn::Tree => unreachable!("the tree arm is drawn through `tree`"),
+                        };
+                    });
+                }
             });
         }
-    });
+    }
     (iterated, asked)
 }
 
@@ -1043,39 +1071,6 @@ fn label_and_pad<I: Ink>(
     u64::from(room)
 }
 
-/// A tree's row: §7's pair, then the list's two.
-///
-/// **Every one of the four is skipped when it is empty**, which is what makes the verb count honest
-/// and is also what makes the unclamped arm cost *fewer* verbs: past the right edge the chevron and
-/// the label have no rectangle left, so the row is one clipped run.
-fn tree_row<I: Ink>(
-    ink: &mut I,
-    cx: &mut Ctx<'_, '_>,
-    y: i32,
-    w: u16,
-    body: vitui_runtime::Paint,
-    chevron: &str,
-    plan: Plan,
-) -> u64 {
-    let ind = plan.indent.columns(plan.depth, w);
-    let mut asked = 0u64;
-    if ind > 0 {
-        let _ = ink.text(cx, 0, y, spaces(ind), body);
-        asked += ind as u64;
-    }
-    if ind >= usize::from(w) {
-        // The label rectangle has collapsed. **This is the defect's own economy**: it is not that
-        // the row draws badly, it is that there is nothing left of the row to draw.
-        return asked;
-    }
-    let x = i32::try_from(ind).expect("an indent inside the rectangle fits an i32");
-    let _ = ink.text(cx, x, y, chevron, body);
-    asked += 1;
-    let head = x + 1;
-    let room = w - u16::try_from(head).expect("inside the rectangle");
-    asked + label_and_pad(ink, cx, head, y, room, body)
-}
-
 /// A twelve-column table's row: a label and a pad a column.
 fn table_row<I: Ink>(
     ink: &mut I,
@@ -1104,17 +1099,18 @@ pub fn max_offset(rows: u64) -> i32 {
 /// One warm-up frame and one measured one: the five frame structures take their allocation on the
 /// first frame that needs one and keep it, and a cold frame is not a frame.
 pub fn frame(plan: Plan) -> Shape {
+    let index = index_for(plan);
     let mut driver = crate::runner::driver_at(W, H, Density::default());
     let mut warm = Tally::new();
     driver.frame(|cx| {
-        let _ = draw_into(&mut warm, cx, plan);
+        let _ = draw_into(&mut warm, cx, plan, &index);
     });
 
     let mut tally = Tally::new();
     let mut iterated = 0;
     let mut asked = 0;
     driver.frame(|cx| {
-        let (rows, cells) = draw_into(&mut tally, cx, plan);
+        let (rows, cells) = draw_into(&mut tally, cx, plan, &index);
         iterated = rows;
         asked = cells;
     });
@@ -1145,15 +1141,16 @@ pub fn frame(plan: Plan) -> Shape {
 /// [`Direct`]: crate::ink::Direct
 pub fn frame_cost(plan: Plan, frames: u32) -> Duration {
     assert!(frames > 0, "a per-frame figure needs a frame");
+    let index = index_for(plan);
     let mut driver = crate::runner::driver_at(W, H, Density::default());
     let mut ink = Direct;
     driver.frame(|cx| {
-        let _ = draw_into(&mut ink, cx, plan);
+        let _ = draw_into(&mut ink, cx, plan, &index);
     });
     let started = Instant::now();
     for _ in 0..frames {
         driver.frame(|cx| {
-            let _ = draw_into(&mut ink, cx, plan);
+            let _ = draw_into(&mut ink, cx, plan, &index);
         });
     }
     started.elapsed() / frames
@@ -1171,16 +1168,24 @@ pub fn frame_cost(plan: Plan, frames: u32) -> Duration {
 pub struct Frames {
     driver: vitui_runtime::Driver,
     plan: Plan,
+    /// **The caller's index, built once**, because a frame that materialised its own order would be
+    /// a frame measuring §10's 21 158 µs rather than this screen's.
+    index: Order,
 }
 
 impl Frames {
     /// A driver at [`W`] by [`H`], with one frame already drawn through it.
     pub fn warmed(plan: Plan) -> Frames {
+        let index = index_for(plan);
         let mut driver = crate::runner::driver_at(W, H, Density::default());
         driver.frame(|cx| {
-            let _ = draw_into(&mut Direct, cx, plan);
+            let _ = draw_into(&mut Direct, cx, plan, &index);
         });
-        Frames { driver, plan }
+        Frames {
+            driver,
+            plan,
+            index,
+        }
     }
 
     /// Draw one more, through [`Direct`].
@@ -1188,8 +1193,9 @@ impl Frames {
     /// [`Direct`]: crate::ink::Direct
     pub fn draw(&mut self) {
         let plan = self.plan;
+        let index = &self.index;
         self.driver.frame(|cx| {
-            let _ = draw_into(&mut Direct, cx, plan);
+            let _ = draw_into(&mut Direct, cx, plan, index);
         });
     }
 }
@@ -1659,41 +1665,48 @@ mod tests {
         );
     }
 
-    /// **Criterion 6: the two scenes are red because the subject is missing, and they say so.**
+    /// **Criterion 6, inverted: the two scenes stand on the component they are scenes of.**
     ///
-    /// The inversion of this test is components ticket 17's, and it is a deliberate edit in three
-    /// files — here, in `crate::scenes`'s two standings and in `crate::gates::REGISTER`.
+    /// It read *the forest is red because `tree` is not declared* until components ticket 17, and
+    /// inverting it was a deliberate edit in three files — here, in [`crate::scenes`]'s two
+    /// standings and in [`crate::gates::REGISTER`].
+    ///
+    /// **Two halves, because the subject scan alone is not enough**, which is `crate::grid`'s
+    /// precedent: the scan says `tree` is declared where the freeze homes it, and what it cannot
+    /// say is that *this screen draws through it*. A screen that kept its stand-in row loop beside
+    /// a declared component would pass the first half for ever, so the second is read out of the
+    /// source — *this function calls that one* has no expression a test can write.
     #[test]
-    fn the_forest_is_red_because_tree_is_not_declared() {
+    fn the_forest_stands_on_the_tree_it_is_a_screen_of() {
         assert_eq!(
             subjects_declared(),
-            Vec::<&str>::new(),
-            "`tree` is declared. That inverts two scenes and one register row, and it is a \
-             deliberate edit in all three files"
+            SUBJECTS.to_vec(),
+            "`tree` has stopped being declared where the freeze homes it. That is not a defect in \
+             the screen: `crate::forest::DECLARATIONS` names the file and the signature it is \
+             looked for at"
         );
         let verdict = standing();
-        assert!(!verdict.met());
+        assert!(verdict.met());
         match verdict {
-            Verdict::Unmet {
-                over,
-                failing,
-                inverted_by,
-                ..
-            } => {
-                assert_eq!((over, failing), (1, 1), "one subject, and it is missing");
-                assert_eq!(inverted_by, "components 17");
-            }
-            Verdict::Met { over } => {
-                unreachable!("{over} declared, which the assertion above caught")
+            Verdict::Met { over } => assert_eq!(over, 1, "one subject, and it is here"),
+            Verdict::Unmet { over, failing, .. } => {
+                unreachable!("{failing} of {over} undeclared, which the assertion above caught")
             }
         }
+        // And the scenes do not panic any more, which is the whole ticket in one call.
+        assert_stands_up("a million-node forest at depth 59 999");
+        assert_stands_up("a fold and an unfold over 349 524 rows");
 
-        let panicked =
-            std::panic::catch_unwind(|| assert_stands_up("a million-node forest at depth 59 999"));
-        assert!(
-            panicked.is_err(),
-            "a scene with no subject does not stand up"
-        );
+        // **Both arms of the tree drawing are the component**, which is what makes every number on
+        // this page a claim about `tree` rather than about a row loop this file owns.
+        let source = include_str!("forest.rs");
+        for call in ["tree_into(", "coll_defective::unclamped_indent("] {
+            assert!(
+                crate::dense::declares(source, call),
+                "`draw_into` no longer calls `{call}`, so the scenes have stopped standing on the \
+                 component even though the subject scan still finds it"
+            );
+        }
     }
 
     /// **The waiting message says which failure it is**, fired in both directions over a

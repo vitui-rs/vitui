@@ -5,10 +5,11 @@
 //! Being built one ticket at a time from `.scratch/vitui-components-architecture/spec.md`, whose
 //! map is closed; the backlog is `.scratch/vitui-components-impl/`, forty-three tickets.
 //!
-//! **Eight of the twenty-nine components are written** — [`text::text`], [`text::chip`],
+//! **Nine of the twenty-nine components are written** — [`text::text`], [`text::chip`],
 //! [`input::button`] and [`structure::panel`] (components ticket 10), [`collect::collection`]
-//! (components ticket 12), [`chart::chart`] and [`chart::plot`] (components ticket 28) and
-//! [`collect::table`] (components ticket 15) — and the dense screen, the listing and the grid are
+//! (components ticket 12), [`chart::chart`] and [`chart::plot`] (components ticket 28),
+//! [`collect::table`] (components ticket 15) and [`collect::tree`] (components ticket 17) — and the
+//! dense screen, the listing, the grid and the forest are
 //! now drawn *through* them
 //! rather than through their construction. They are spec §1's four rules with
 //! **two stated substitutions**: [`Rect`] stands in for `Rect`, which cannot be named from a
@@ -32,8 +33,9 @@
 //! - [`obligations`] — §17's five obligations as queries over the freeze, each returning a count or
 //!   an equality. **Not one of them can be met yet, and every one of them says so out loud** rather
 //!   than returning green over an empty population.
-//! - [`gates`] — §21's register: **a hundred and two gates as rows, eighty of them evaluated**,
-//!   eight pinned red with their failing sets, six unreachable across the crate line with what
+//! - [`gates`] — §21's register: **a hundred and twenty-one gates as rows, a hundred and one of
+//!   them evaluated**,
+//!   six pinned red with their failing sets, six unreachable across the crate line with what
 //!   would have to become public, and eight with nothing yet to run over. An instrument is a
 //!   file in it, so a row that has stopped running turns the register red here. **One of those rows
 //!   was not unreachable and had said it was for five tickets** — see that module's header, because
@@ -48,14 +50,15 @@
 //!   on purpose.
 //! - [`counters`] — §20's nine per-frame counters, **eight of which this crate can read**. The
 //!   ninth, `marked`, panics rather than answering `0`, and so does the sentinel probe.
-//! - [`scenes`] — the normative scene list: **twenty-nine screens, twenty-seven of them §21's
-//!   table, ten `Unsubjected`, nineteen `Red` and three `Evaluated`**, each with the size it is
-//!   table, twenty-one `Unsubjected`, one `Red` and seven `Evaluated`**, each with the size it is
+//! - [`scenes`] — the normative scene list: **thirty-two screens, twenty-seven of them §21's
+//!   table, eight `Unsubjected`, eleven `Red` and thirteen `Evaluated`**, each with the size it is
 //!   played at, the content it stands up, the gestures it plays and the property it decided. Three
 //!   of them exist because a defect survived every gate then in force by not being on any screen
-//!   anybody had built. The one still red is the wheel gate, and it is red because the defect is
-//!   real rather than because a subject is missing — components 12 turned the other four of
-//!   components 11's five and deliberately left it.
+//!   anybody had built. **Scenes 8 and 9 — the million-node forest and the fold over 349 524 rows —
+//!   went green together with components ticket 17**, which is one fact and not two: both were
+//!   pinned on `tree` being undeclared. Of the eleven still red, only the wheel gate is red because
+//!   the defect is *real* rather than because a subject is missing — components 12 turned the other
+//!   four of components 11's five and deliberately left it.
 //! - [`runner`] — *render one scene two ways and compare it cell for cell*, reporting **n cells over
 //!   m rows**. Three of the four hostile axes were caught only by this, and every one of them made
 //!   the defective build look **healthier**. The reference arm is this crate's own, and

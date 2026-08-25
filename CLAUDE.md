@@ -112,7 +112,7 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 22 of 43 tickets resolved (the last on 2026-08-25). `INVENTORY` is spec
+- **`vitui-components` has started**: 23 of 45 tickets resolved (the last on 2026-08-25). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
   answerable by the machine from here on. All five obligations are `Unmet` and each is watched
@@ -122,6 +122,51 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   (19/10, not ADR 0033's thirteen-unbuilt), the count of empty families (five, not §17's two), §1's
   layer rule against §6's own composition, and the `layer` column being uncheckable without stated
   edges. All four are asserted as measured rather than bent to fit.
+- **`tree` is the ninth component, and it found that §7's record had been the wrong width since
+  components 13** (components ticket 17, 2026-08-25). It is `collection` plus a flatten index and the
+  sentence is *checkable*: `tree_with` calls `collection_chorded`, and
+  `size_of::<TreeState>() == size_of::<CollState>() + size_of::<Asked>()` — a tree **is** a
+  collection and one slot. The `+` is two verbs a row, the indent run and the chevron cell, measured
+  as `tree - list == 2 × rows` exactly.
+  **The record.** §7 states `Row { node: u32, depth: u16, flags: u8, h: u8 }` **with the widths**;
+  §10 — where *one structure, five names* lives — states the four field *names* and no widths at
+  all. Components 13 built the type from §10 and widened three of them, and nothing caught it
+  because §7's own criterion is *a gate asserts its size* and that criterion is ticket 17's: **a
+  number only one ticket is instructed to assert is unasserted until that ticket runs.** Narrowed,
+  and it is what makes §7's memory table reproduce — **7.63 → 11.44 MiB at a million rows** against
+  15.26 → 19.07, with the growth `4 / 8` exactly (50%, where §7's rounded pair divides to 57). The
+  alternative was `tree` minting a second record, which is the thing ADR 0031 exists to refuse.
+  Three ceilings are documented rather than discovered: a key at `u32::MAX`, eight flag bits, a row
+  255 rows tall. Components architecture issue 21, map decision C21.
+  **`←` and `→` cannot be read before or after `collection` — only inside it.** `Ctx::decline` hands
+  a key back **and ends the level's turn at the queue**, so a container draining first leaves
+  `collection` nothing and one draining after finds the queue closed. And `nav::step` reads `←`/`→`
+  as `↑`/`↓`, which are exactly the fold keys. The hook is `collect::Refusal`, a parameter of the
+  one drain loop — named `Refusal` because `vitui_runtime::Chord` already owns the other word.
+  **The scenes went green together**, because they were pinned on one fact, and every ticket-16
+  figure reproduces *through the shipped component*: 24 000 cells, 81 regions, 1 stop, 2/4/24 verbs a
+  row, 9 599 840 asked against 24 000 with every other counter preferring the defect, and the tally's
+  65 535-a-verb saturation. §7's *115 µs against 1 187* comes back as **116 against 337**, its
+  157–342 µs splice as **152–240 flat across five orders of magnitude of removal**, its 2.25× prefix
+  sum as **2.85×**, and its 40 393 µs rebuild as **~990** — the last because §7's walked a shuffled
+  forest at 85 ns a row and this one reads a contiguous depth array, and it is *still* the losing arm
+  at every size a tree has. Register 113 → **121 rows, 101 evaluated**; scenes **11 red, 13 stood
+  up**.
+  **The frame is 436 µs and the component's own share is inside the noise**: the same rectangle
+  drawn as a plain list through a hand-written row loop is 435.60 and through `tree` is 436.29 —
+  0.16% — while a twelve-column table over the same 24 000 cells is 426.74. Twelve times the verbs
+  is the same frame, which is §6's *verbs are a currency for structure and not for time* from the
+  other side. 24 000 cells is the full-screen class, so it is inside the 1 ms budget.
+  **Two things had to be settled to keep *only the ask moves* true** once a component owned the row
+  loop: the row drawer is called with an **empty** rectangle when the indent has eaten the row rather
+  than not called (not calling it makes *rows iterated* a second counter that separates the arms),
+  and `indent_columns` is the single decision both the component and the screen read, pinned to the
+  component by `label.x == indent + 1`.
+  **The application is `explorer`**, 262 145 nodes over a caller-owned index, and its finding is the
+  glyph column: `INVENTORY` declares `VLine`, `TeeLeft` and `BottomLeft` for `tree` and the component
+  draws none of them, because a guide column at depth *d* is a fact about *d* **ancestors** and the
+  flatten index does not hold that. Filed as components architecture issue 20 with the three
+  available answers rather than faked with a `VLine` repeat.
 - **`table` is the eighth component and the second one that reached down into another crate's
   defect** (components ticket 15, 2026-08-25). It is `collection` plus a column rect split and the
   sentence is *checkable*: `table_with` calls `collection_into`, and *no second selection store, no
@@ -334,14 +379,14 @@ crates/vitui-engine       cells, surfaces, layers, compositing, damage, serializ
                           └ crossterm behind a seam: raw mode, input, capability detection
 crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key maps, theming,
                           overlays, the data contract — no scene tree, no reactivity
-crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (11 of 43)
+crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (9 of 29 built)
                           └ the partition primitives return `vitui_runtime::Rect`. This crate used
                             to name its own rectangle (`Cells`) because `vitui_engine::Rect` was
                             unnameable across the crate line; runtime issue 22 re-exported it and
                             components issue 17 deleted the stand-in
 crates/vitui              facade re-export — engine, runtime, components
-crates/vitui-apps         the applications, one file each in `examples/` — 4: `counter`, `triage`,
-                          `latency`, `ledger`. **A component ticket ships one**: the surface's only
+crates/vitui-apps         the applications, one file each in `examples/` — 5: `counter`, `triage`,
+                          `latency`, `ledger`, `explorer`. **A component ticket ships one**: the surface's only
                           consumer, and twice now the thing that found the defect its gates could not
                           └ a workspace MEMBER, so CI builds them: a consumer nobody builds is a
                             consumer nobody checks (`compare/run.sh` is the precedent). Depends on

@@ -55,7 +55,7 @@
 //!   claiming fifteen green gates over an empty population.
 //!
 //! **Forty-two evaluated, four red, six unreachable, fifteen unsubjected**, and
-//! `tests::ninety_two_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
+//! `tests::a_hundred_and_one_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
 //! deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
 //! and subjected row 27, the cross-family collapse gate; ticket 07 added five, and none of them
@@ -419,10 +419,10 @@ pub const SPEC_ROWS: usize = 32;
 /// row still asserting *the four components do not exist* would now be asserting they are gone.
 /// That is the second inversion here worth being suspicious about: a red row phrased as an absence
 /// cannot be turned green by editing one field.
-pub const EVALUATED: usize = 92;
+pub const EVALUATED: usize = 101;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 113] = [
+pub const REGISTER: [Row; 121] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -2077,7 +2077,7 @@ pub const REGISTER: [Row; 113] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_thirteen_are_red_and_eleven_\
+                    name: "eight_scenes_have_nothing_to_run_over_eleven_are_red_and_thirteen_\
                            are_stood_up",
                 },
             ],
@@ -2284,11 +2284,18 @@ pub const REGISTER: [Row; 113] = [
         // declares an item, read by opening it — the one thing a `compile_fail` fence cannot say,
         // because a fence over a missing item passes today and passes again the day the module is
         // renamed.
-        standing: Standing::Red {
+        //
+        // **Inverted by components ticket 17, and inverting it kept the gate.** The sentence is
+        // about the *distinction* — a scene with no subject and a scene whose code is wrong fail
+        // differently — and that distinction is still live now `tree` exists, because
+        // `owed_message` is fired over a declaration list rather than over the crate. Row 61 is the
+        // precedent for the shape a red row cannot be turned green by editing one field of: this
+        // one could, because it never asserted an absence.
+        standing: Standing::Evaluated {
             by: &[
                 Instrument::Unit {
                     file: FOREST,
-                    name: "the_forest_is_red_because_tree_is_not_declared",
+                    name: "the_forest_stands_on_the_tree_it_is_a_screen_of",
                 },
                 Instrument::Unit {
                     file: FOREST,
@@ -2300,17 +2307,10 @@ pub const REGISTER: [Row; 113] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_thirteen_are_red_and_eleven_\
+                    name: "eight_scenes_have_nothing_to_run_over_eleven_are_red_and_thirteen_\
                            are_stood_up",
                 },
             ],
-            failing: "`tree` is undeclared, so scenes 8 and 9 are pinned red — both of them, and \
-                      both waiting for the subject rather than for a fix. \
-                      `crates/vitui-components/src/collect.rs` carries no `pub fn tree(`, which is \
-                      what `crate::forest::subjects_declared` opens the file to find out, and \
-                      `crate::forest::standing` is `Unmet { over: 1, failing: 1 }` rather than \
-                      `Met` over nothing",
-            inverted_by: "components 17",
         },
     },
     // -- components ticket 14's four, and the third is not about this crate ----------------------
@@ -2721,7 +2721,7 @@ pub const REGISTER: [Row; 113] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_thirteen_are_red_and_eleven_\
+                    name: "eight_scenes_have_nothing_to_run_over_eleven_are_red_and_thirteen_\
                            are_stood_up",
                 },
             ],
@@ -2863,7 +2863,7 @@ pub const REGISTER: [Row; 113] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_thirteen_are_red_and_eleven_\
+                    name: "eight_scenes_have_nothing_to_run_over_eleven_are_red_and_thirteen_\
                            are_stood_up",
                 },
             ],
@@ -3372,7 +3372,7 @@ pub const REGISTER: [Row; 113] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_thirteen_are_red_and_eleven_\
+                    name: "eight_scenes_have_nothing_to_run_over_eleven_are_red_and_thirteen_\
                            are_stood_up",
                 },
             ],
@@ -3590,6 +3590,224 @@ pub const REGISTER: [Row; 113] = [
                 file: COLLECT,
                 name: "the_header_writes_a_partition_of_its_row_in_the_same_columns",
             }],
+        },
+    },
+    // ── components ticket 17's eight ─────────────────────────────────────────────────────────────
+    Row {
+        number: 114,
+        on_spec_table: false,
+        gate: "the flatten index's record is eight bytes, and the five names spend all four of its \
+               fields",
+        kind: Kind::Count,
+        owner: "C05",
+        section: "spec §7, §10",
+        // **It was sixteen for four tickets, and the divergence had nowhere to be caught.** §7
+        // states the record with its widths and §10 — where *one structure, five names* lives —
+        // states the names and no widths at all; components 13 built the type from §10 and widened
+        // three of the four. §7's own criterion is *a gate asserts its size*, and that criterion is
+        // this ticket's, so nothing had run over it. Narrowing it is what makes §7's memory figures
+        // reproduce: 7.63 MiB at a million rows and 11.44 with the prefix sum, against §7's 7 → 11.
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: ORDER,
+                name: "one_structure_has_five_names_and_every_field_is_earned",
+            }],
+        },
+    },
+    Row {
+        number: 115,
+        on_spec_table: false,
+        gate: "the interval a collapse removes is read from `depth`, and the same answer read from \
+               the data is one random access a row",
+        kind: Kind::Equality,
+        owner: "C05",
+        section: "spec §7",
+        // **The whole reason `depth` is in the record**, and it is an equality first: both arms
+        // answer the same interval over the same forest, asserted inside the measurement, so the
+        // pair is two ways of computing one number rather than two numbers. §7's 115 µs against
+        // 1 187 is a timing and is `examples/tree_numbers.rs`'s.
+        //
+        // The index arm's *without touching the forest* is a fact about the signature —
+        // `Order::subtree(&self, usize)` has nowhere in it to reach the caller's data.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: ORDER,
+                    name: "depth_finds_the_interval_a_collapse_removes_without_touching_the_forest",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/tree_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 116,
+        on_spec_table: false,
+        gate: "a fold is a splice with no threshold and no rebuild path, and a fold on a leaf does \
+               not stamp the revision",
+        kind: Kind::Equality,
+        owner: "C05",
+        section: "spec §7, §10",
+        // **`splice == rebuild` over the rows**, which is row 14's equality moved from the scene's
+        // stand-in index onto the caller-owned one. The crossover at 99.7% is a doc comment on
+        // `Order::fold` rather than a branch, which is §7's own instruction followed literally.
+        //
+        // The leaf half is the way this verb can be wrong with the screen saying nothing: a
+        // revision moved for an edit that removed nothing is a `Policy::Clear` on the next frame,
+        // so a user pressing `←` on a leaf would watch the selection disappear.
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: ORDER,
+                name: "a_fold_splices_the_interval_and_a_leaf_is_left_alone",
+            }],
+        },
+    },
+    Row {
+        number: 117,
+        on_spec_table: false,
+        gate: "variable row height is a fourth field and a prefix sum built only when rows can \
+               differ, and the window is one binary search rather than one a row",
+        kind: Kind::Count,
+        owner: "C05",
+        section: "spec §7",
+        // **A count and not a timing**, because the two spellings answer the *same rows*: no gate
+        // on the picture separates `O(log n + h)` from `O(h log n)`, and the number of searches
+        // does — 1 against 80. §7's 0.019 µs against 0.0006 is the report beside it.
+        //
+        // *Only when rows can differ* is answerable from the index (`Heights::needed`), and the
+        // splice's re-accumulation is asserted as *the head is untouched* rather than as a timing.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: ORDER,
+                    name: "variable_row_height_is_a_prefix_sum_built_only_when_rows_can_differ",
+                },
+                Instrument::Unit {
+                    file: ORDER,
+                    name: "the_window_is_one_binary_search_and_then_a_step",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 118,
+        on_spec_table: false,
+        gate: "`tree` is `collection` plus two verbs a row, and the row it hands over is the part \
+               it did not write",
+        kind: Kind::Count,
+        owner: "C05",
+        section: "spec §7, §2",
+        // **§7's own sentence**, measured against the same rectangle drawn as a plain list — the
+        // difference is the mechanism and the absolutes are `crate::forest`'s screen. The second
+        // half is §2 on both components at once: `writes == distinct` over the frame either way,
+        // so the indent, the chevron and the label are a partition.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "a_tree_is_a_collection_and_the_sentence_is_read_out_of_the_file",
+                },
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "the_plus_is_two_verbs_a_row_and_the_row_is_a_partition",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 119,
+        on_spec_table: false,
+        gate: "the indent is clamped, and the label lands where the indent says",
+        kind: Kind::Equality,
+        owner: "C05",
+        section: "spec §7",
+        // **The equality that stops `indent_columns` and the component from being a model and a
+        // copy of one.** `crate::forest` sums the function and `tree` draws the run; the rectangle
+        // handed to the row drawer is where the two meet, so `label.x == indent + 1` is what pins
+        // the screen's ask to the component's behaviour.
+        //
+        // Both directions, and at two depths: at depth three the clamped and unclamped builds place
+        // the label identically — which is §21's statement about the scene list — and past the
+        // rectangle the clamp reserves two columns while the defect leaves none.
+        //
+        // The third instrument is components ticket 15's lesson applied before it could be paid
+        // for again: every other gate on this component plays at `x == 0`, where a rectangle's own
+        // origin and the context's agree. `table`'s header drew from `0` and every gate passed.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "the_component_places_the_label_where_the_indent_says",
+                },
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "a_tree_at_a_non_zero_origin_draws_inside_the_rectangle_it_was_given",
+                },
+                Instrument::Unit {
+                    file: FOREST,
+                    name: "an_unclamped_indent_asks_for_four_hundred_times_the_cells_and_costs_\
+                           fewer_verbs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 120,
+        on_spec_table: false,
+        gate: "a container built on `collection` reads its own keys inside the one drain loop, and \
+               they do not reach the cursor",
+        kind: Kind::Count,
+        owner: "C05",
+        section: "spec §5, §7",
+        // **A fact about the runtime rather than a preference.** `Ctx::decline` hands a key back
+        // *and ends the level's turn at the queue*, so a container that drained before `collection`
+        // would leave it nothing and one that drained after would find the queue closed. And the
+        // collision is real: `crate::nav::step` reads `←` and `→` as `↑` and `↓`, which are exactly
+        // the two keys a tree folds with.
+        //
+        // Fired in both directions on one screen: `←` through `tree` leaves a request and does not
+        // move the cursor, and the same key through a plain `collection` moves it. `→` on a row
+        // that is *not* folded is not the tree's, so a hook that swallowed every arrow would pass
+        // the first assertion and lose the keyboard.
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: COLLECT,
+                name: "the_fold_keys_leave_a_request_and_do_not_move_the_cursor",
+            }],
+        },
+    },
+    Row {
+        number: 121,
+        on_spec_table: false,
+        gate: "a tree row's id is keyed on the caller's node and survives a fold above it, and a \
+               press on the chevron asks where a press on the label selects",
+        kind: Kind::Count,
+        owner: "C05",
+        section: "spec §4, §7",
+        // **Keyed on the node and not on the display position**, which is the half a screen cannot
+        // see: a fold above a row moves the position and does not move the row, so a
+        // position-keyed id would hand the row's target to whatever slid into its place. Watched
+        // over a real fold, with two trees on one screen for ADR 0027's half.
+        //
+        // The pointer half reads `CollState::press_edge` rather than keeping a second `pressing`
+        // bool — `Response::pressed` is a level, so a component reading it raw would re-ask for as
+        // long as the user leaned on the button.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "identity_is_keyed_on_the_node_and_two_trees_are_two_trees",
+                },
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "a_press_on_the_chevron_asks_and_a_press_on_the_label_does_not",
+                },
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "the_frame_does_not_move_with_the_height_field",
+                },
+            ],
         },
     },
 ];
@@ -3871,7 +4089,7 @@ mod tests {
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn ninety_two_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn a_hundred_and_one_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -3887,13 +4105,14 @@ mod tests {
         assert_eq!(evaluated, EVALUATED, "the count §21 asks a test to assert");
         assert_eq!(
             red,
-            vec![7, 8, 29, 74, 85, 89, 112],
+            vec![7, 8, 29, 85, 89, 112],
             "the gates that are red and pinned: the sentinel, the palette after a swap, twenty \
-             wheel clicks and the scenes still waiting for their subject. Three have been \
+             wheel clicks and the scenes still waiting for their subject. Four have been \
              inverted and each says what it took — the glyph-set count by components 05, row 61 \
              by components 10 (which took rewriting the *gate* rather than the standing, because \
-             the row asserted an *absence*), and row 78 by components 15, which took `table` \
-             being declared **and** `crate::grid::draw_into` calling it"
+             the row asserted an *absence*), row 78 by components 15, which took `table` being \
+             declared **and** `crate::grid::draw_into` calling it, and row 74 by components 17 on \
+             the same two conditions for `tree`"
         );
         assert_eq!(
             unreachable,
@@ -3910,7 +4129,7 @@ mod tests {
              over a domain and needs no component to be run against, and whose row had been \
              citing spec §13 and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 113);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 121);
     }
 
     /// **The split, not the total.**
@@ -3921,10 +4140,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_eighty_one_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_eighty_nine_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 81);
+        assert_eq!(REGISTER.len() - on_table, 89);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
