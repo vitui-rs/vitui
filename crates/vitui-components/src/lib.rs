@@ -29,9 +29,9 @@
 //! - [`obligations`] — §17's five obligations as queries over the freeze, each returning a count or
 //!   an equality. **Not one of them can be met yet, and every one of them says so out loud** rather
 //!   than returning green over an empty population.
-//! - [`gates`] — §21's register: **sixty-seven gates as rows, forty-two of them evaluated**, four
+//! - [`gates`] — §21's register: **sixty-nine gates as rows, forty-four of them evaluated**, five
 //!   pinned red with their failing sets, six unreachable across the crate line with what would have
-//!   to become public, and fifteen with nothing yet to run over. An instrument is a value with a
+//!   to become public, and fourteen with nothing yet to run over. An instrument is a value with a
 //!   file in it, so a row that has stopped running turns the register red here. **One of those rows
 //!   was not unreachable and had said it was for five tickets** — see that module's header, because
 //!   the shape it names is the one an `Unreachable` invites. **A fourth was red and is now green,
@@ -46,7 +46,7 @@
 //! - [`counters`] — §20's nine per-frame counters, **eight of which this crate can read**. The
 //!   ninth, `marked`, panics rather than answering `0`, and so does the sentinel probe.
 //! - [`scenes`] — the normative scene list: **twenty-nine screens, twenty-seven of them §21's
-//!   table, twenty-one `Unsubjected`, five `Red` and three `Evaluated`**, each with the size it is
+//!   table, nineteen `Unsubjected`, seven `Red` and three `Evaluated`**, each with the size it is
 //!   played at, the content it stands up, the gestures it plays and the property it decided. Three
 //!   of them exist because a defect survived every gate then in force by not being on any screen
 //!   anybody had built.
@@ -75,6 +75,16 @@
 //!   the fix (components 20). Its own finding is that *writes flat 1k -> 1M* is **green** on a
 //!   listing that declares a million hit entries, which is why the equality it registers is on
 //!   `regions`.
+//!
+//! - [`forest`] — **the tree's screen**: 300×80 at **depth 59 999**, where the one defect on this
+//!   map that only a *scene* can see is stood up. An unclamped indent asks for **9 599 840 cells
+//!   against 24 000** and every other counter this crate can read prefers it — same writes, same
+//!   distinct, same regions, same stops, **fewer verbs** and less time, every run — while at depth
+//!   ten the two builds are one frame field for field. Its own finding is that the instrument
+//!   saturates before the defect does: `Tally::asked` folds a `u16`, so 119 998 a row is reported
+//!   as 65 535. Beside it, the fold: **1 run against 249 940** for a half-tree selection, and
+//!   **349 526 of 500 000** back from the round trip under the splice the prototype shipped. Both
+//!   scenes are **red**, both waiting for `tree` (components 17).
 //!
 //! **And all seven of spec §3's helpers now exist**, which is the first code here that a component
 //! will call rather than be measured by: [`text::fit`] and [`frame::block`] are the two partition
@@ -112,6 +122,7 @@
 pub mod app;
 pub mod counters;
 pub mod dense;
+pub mod forest;
 pub mod form;
 pub mod frame;
 pub mod gates;

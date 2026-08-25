@@ -34,7 +34,7 @@
 //! ([`Scene::owed`] and [`Scene::from_a_survived_defect`]), because the value can hold both and a
 //! count cannot.
 //!
-//! # Twenty-one scenes are `Unsubjected`, five are `Red` and three are `Evaluated`
+//! # Nineteen scenes are `Unsubjected`, seven are `Red` and three are `Evaluated`
 //!
 //! [`crate::gates::Standing::Unsubjected`] means *it could run and there is nothing to run it over*.
 //! Twenty-four of the twenty-nine components do not exist, so most of these screens cannot be stood
@@ -53,9 +53,19 @@
 //! `scroll_into_view` itself, which `CONTEXT.md` forbids and which four *resolved* tickets wrote
 //! anyway. Ticket 12's own criterion says so — *every scene of ticket 11 is green except the wheel
 //! gate, which stays pinned red for ticket 20* — and
-//! `tests::twenty_one_scenes_have_nothing_to_run_over_five_are_red_and_three_are_stood_up` asserts
+//! `tests::nineteen_scenes_have_nothing_to_run_over_seven_are_red_and_three_are_stood_up` asserts
 //! the pairing rather than the count alone, because a single `inverted_by` across the five would
 //! erase the distinction while keeping the number right.
+//!
+//! **Components ticket 16 moved two more, and they are a third subject rather than a third
+//! reason.** Scenes 8 and 9 — the million-node forest at depth 59 999 and the fold over 349 524
+//! rows — are pinned to **components 17**, both waiting for `tree`, which is
+//! [`crate::forest::standing`]'s verdict. Their screens run: the frame is identical at 1k / 100k /
+//! 1M nodes and at depth 10 and 59 999, an unclamped indent asks for 399.99x the cells while every
+//! other counter this crate can read prefers it, and the fold transforms a half-tree selection in
+//! **one run** where a sort shatters it into 249 940. **The unclamped indent is a negative case and
+//! not a second red**: it is a spelling stood up so the instrument can be watched catching it, the
+//! way every `defective::` arm in [`crate::runner`] is.
 //!
 //! **Scenes 1, 2 and 28 are `Evaluated`, and components ticket 10 is what moved them.** They were
 //! `Red` for one ticket, which is the state worth reading this file for: ticket 09 built the dense
@@ -378,6 +388,9 @@ const DENSE: &str = "crates/vitui-components/src/dense.rs";
 /// The listing's own file, which is where components ticket 11's five scenes are played.
 const LISTING: &str = "crates/vitui-components/src/listing.rs";
 
+/// The forest's own file, which is where components ticket 16's two scenes are played.
+const FOREST: &str = "crates/vitui-components/src/forest.rs";
+
 /// **What the dense screen is a screen of, and none of the four is declared yet.**
 ///
 /// [`crate::dense::SUBJECTS`], reached through this alias so the three rows below cannot drift from
@@ -478,6 +491,86 @@ const PINS_SCENE_6: &[Instrument] = &[
     },
     WAITING_FOR_COLLECTION[0],
     WAITING_FOR_COLLECTION[1],
+];
+
+/// **What the tree's two scenes stand on, and it is not declared yet.**
+///
+/// [`crate::forest::SUBJECTS`], reached through this alias for [`COLLECTION`]'s reason: both rows
+/// below claim `tree` stands on their screen, and the failing set they are pinned in is computed by
+/// opening the file the freeze homes `tree` in.
+const TREE: &[&str] = &crate::forest::SUBJECTS;
+
+/// **The pair both of components ticket 16's scenes are pinned by**, written once because it is one
+/// fact: `tree` is not declared.
+///
+/// **There is one pin here and there were two for ticket 11**, and that is not a simplification of
+/// the split. Ticket 11 needed two because scene 6's failing set is *the defect itself* — an
+/// unconditional `scroll_into_view` standing in code — and neither of these two has one. The
+/// unclamped indent is a **negative case**: a spelling stood up so the instrument can be watched
+/// catching it, which is what every `defective::` arm in [`crate::runner`] is, and a negative case
+/// is not a red gate.
+const WAITING_FOR_TREE: &[Instrument] = &[
+    Instrument::Unit {
+        file: FOREST,
+        name: "the_forest_is_red_because_tree_is_not_declared",
+    },
+    Instrument::Unit {
+        file: FOREST,
+        name: "the_waiting_message_separates_unimplemented_from_wrong",
+    },
+];
+
+/// The failing set both scenes of components ticket 16 are pinned in.
+const OWED_ITS_TREE: &str = "`tree` is not declared in `crates/vitui-components/src/collect.rs`, so the two screens stand \
+     on a stand-in row loop over a stand-in flatten index. Everything the screens themselves can be \
+     asked is measured and green — 24 000 cells and 81 regions unchanged at 1k / 100k / 1M nodes \
+     and at depth 10 and 59 999, 160 / 320 / 1 920 verbs for a list, a tree and a twelve-column \
+     table on one rectangle, 9 599 840 cells asked for against 24 000 with every other counter \
+     preferring the arm that asks, 1 run against 249 940 for the fold, and 349 526 of 500 000 back \
+     from the round trip under the splice the prototype shipped. What is missing is the subject";
+
+/// What pins scene 8, beyond the pair both share.
+const PINS_SCENE_8: &[Instrument] = &[
+    Instrument::Unit {
+        file: FOREST,
+        name: "the_forest_draws_the_same_frame_at_every_volume_and_at_every_depth",
+    },
+    Instrument::Unit {
+        file: FOREST,
+        name: "a_tree_costs_two_verbs_a_row_more_than_a_list_and_fewer_than_twelve_columns",
+    },
+    Instrument::Unit {
+        file: FOREST,
+        name: "an_unclamped_indent_asks_for_four_hundred_times_the_cells_and_costs_fewer_verbs",
+    },
+    Instrument::Unit {
+        file: FOREST,
+        name: "the_tally_saturates_where_the_caller_does_not",
+    },
+    WAITING_FOR_TREE[0],
+    WAITING_FOR_TREE[1],
+];
+
+/// What pins scene 9. See [`PINS_SCENE_8`].
+const PINS_SCENE_9: &[Instrument] = &[
+    Instrument::Unit {
+        file: FOREST,
+        name: "a_spliced_index_equals_a_rebuilt_one",
+    },
+    Instrument::Unit {
+        file: FOREST,
+        name: "a_fold_and_an_unfold_restore_the_selection_exactly_and_the_shipped_splice_did_not",
+    },
+    Instrument::Unit {
+        file: FOREST,
+        name: "a_fold_transforms_a_selection_in_one_run_and_a_sort_shatters_it",
+    },
+    Instrument::Unit {
+        file: FOREST,
+        name: "a_half_tree_fold_parks_one_run_of_sixteen_bytes",
+    },
+    WAITING_FOR_TREE[0],
+    WAITING_FOR_TREE[1],
 ];
 
 /// What pins scene 29, the narrow collection. See [`PINS_SCENE_3`].
@@ -800,13 +893,18 @@ pub const SCENES: [Scene; 29] = [
             rows: 59_999,
             cols: 0,
         }],
-        decided: "the flatten index; 640 verbs against 418 and 2 497",
+        decided: "the flatten index; 640 verbs against 418 and 2 497, which is 2 and 4 and 24 a \
+                  row. **And the unclamped indent**, which asks for 399.99x the cells while every \
+                  other counter this crate can read prefers it — the one thing on the map that \
+                  only a scene can distinguish, because at depth 10 the two builds are one frame",
         covers: &[("tree", Axis::Scrolled)],
-        stands: &[],
+        stands: TREE,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Unsubjected {
-            inverted_by: "components 16",
+        standing: Standing::Red {
+            by: PINS_SCENE_8,
+            failing: OWED_ITS_TREE,
+            inverted_by: "components 17",
         },
         rehearsed_by: &[],
     },
@@ -823,13 +921,18 @@ pub const SCENES: [Scene; 29] = [
             Gesture::Fold { rows: 349_524 },
             Gesture::Unfold { rows: 349_524 },
         ],
-        decided: "splice against permutation: 1 run / 0.04 us against 297 180 / 24 338",
+        decided: "splice against permutation: 1 run / 0.04 us against 297 180 / 24 338. And the \
+                  round trip, which is where the prototype's own splice came back with 349 526 \
+                  rows of 500 000 — one run before, one run after, an unmoved timing and a screen \
+                  that is perfectly correct",
         covers: &[("tree", Axis::Shrunk)],
-        stands: &[],
+        stands: TREE,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Unsubjected {
-            inverted_by: "components 16",
+        standing: Standing::Red {
+            by: PINS_SCENE_9,
+            failing: OWED_ITS_TREE,
+            inverted_by: "components 17",
         },
         rehearsed_by: &[],
     },
@@ -1536,7 +1639,7 @@ mod tests {
     /// except the wheel gate, which stays pinned red for ticket 20* — and a single `inverted_by`
     /// across the five would erase it.
     #[test]
-    fn twenty_one_scenes_have_nothing_to_run_over_five_are_red_and_three_are_stood_up() {
+    fn nineteen_scenes_have_nothing_to_run_over_seven_are_red_and_three_are_stood_up() {
         let red: Vec<u8> = SCENES
             .iter()
             .filter(|s| matches!(s.standing, Standing::Red { .. }))
@@ -1544,10 +1647,11 @@ mod tests {
             .collect();
         assert_eq!(
             red,
-            vec![3, 4, 5, 6, 29],
-            "components ticket 11's five: the three volumes, the inverted sign, the stale tail, \
-             the twenty wheel clicks and the narrow collection. A sixth is a new one, and it owes \
-             an exact failing set and a ticket that inverts it"
+            vec![3, 4, 5, 6, 8, 9, 29],
+            "components ticket 11's five — the three volumes, the inverted sign, the stale tail, \
+             the twenty wheel clicks and the narrow collection — and components ticket 16's two, \
+             the forest at depth 59 999 and the fold over 349 524 rows. An eighth is a new one, \
+             and it owes an exact failing set and a ticket that inverts it"
         );
         let evaluated: Vec<u8> = SCENES
             .iter()
@@ -1562,7 +1666,7 @@ mod tests {
              fourth arriving here is a deliberate edit to this module's header and to \
              `crate::gates::REGISTER`"
         );
-        assert_eq!(SCENES.len() - evaluated.len() - red.len(), 21);
+        assert_eq!(SCENES.len() - evaluated.len() - red.len(), 19);
 
         let mut pinned_to = Vec::new();
         for scene in SCENES {
@@ -1612,10 +1716,13 @@ mod tests {
                 (4, "components 12"),
                 (5, "components 12"),
                 (6, "components 20"),
+                (8, "components 17"),
+                (9, "components 17"),
                 (29, "components 12"),
             ],
-            "the wheel gate is not waiting for its subject and the other four are. Merging the two \
-             loses the distinction components 11's criterion 7 is about"
+            "the wheel gate is not waiting for its subject and every other red row is. Merging the \
+             two loses the distinction components 11's criterion 7 is about — and the tree's pair \
+             is a third subject rather than a third reason"
         );
     }
 
@@ -1894,9 +2001,10 @@ mod tests {
     fn a_rehearsal_is_never_what_stands_a_scene_up() {
         // The files where a screen or one of its components is measured. `crate::runner`'s is not
         // one of them, and that is the whole check.
-        const SCREEN_FILES: [&str; 6] = [
+        const SCREEN_FILES: [&str; 7] = [
             DENSE,
             LISTING,
+            FOREST,
             "crates/vitui-components/src/text.rs",
             "crates/vitui-components/src/input.rs",
             "crates/vitui-components/src/structure.rs",
@@ -2004,7 +2112,7 @@ mod tests {
             SCENES.len() + 1,
             "one line a scene, plus the heading"
         );
-        assert_eq!(printed.matches("not played: `components ").count(), 21);
+        assert_eq!(printed.matches("not played: `components ").count(), 19);
         assert_eq!(
             printed
                 .matches("stood up on its own components, by ")
@@ -2014,8 +2122,9 @@ mod tests {
         );
         assert_eq!(
             printed.matches("red, pinned: `components ").count(),
-            5,
-            "components ticket 11's five, and a red line is neither *not played* nor *stood up*"
+            7,
+            "components ticket 11's five and ticket 16's two, and a red line is neither *not \
+             played* nor *stood up*"
         );
         assert_eq!(printed.matches("[rehearsed over a fixture").count(), 1);
         assert!(
