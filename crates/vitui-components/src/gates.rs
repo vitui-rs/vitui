@@ -345,6 +345,9 @@ const DENSE: &str = "crates/vitui-components/src/dense.rs";
 /// The listing's own file, which is where components ticket 11's two rows run.
 const LISTING: &str = "crates/vitui-components/src/listing.rs";
 
+/// The series screen's own file, which is where components ticket 27's three rows run.
+const SERIES: &str = "crates/vitui-components/src/series.rs";
+
 /// How many rows of [`REGISTER`] are spec §21's own table. **Thirty-two, and it is closed** — a
 /// thirty-third would be a spec change.
 pub const SPEC_ROWS: usize = 32;
@@ -387,10 +390,10 @@ pub const SPEC_ROWS: usize = 32;
 /// row still asserting *the four components do not exist* would now be asserting they are gone.
 /// That is the second inversion here worth being suspicious about: a red row phrased as an absence
 /// cannot be turned green by editing one field.
-pub const EVALUATED: usize = 42;
+pub const EVALUATED: usize = 44;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 67] = [
+pub const REGISTER: [Row; 70] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -710,11 +713,26 @@ pub const REGISTER: [Row; 67] = [
         kind: Kind::Relation,
         owner: "C08",
         section: "spec §20",
+        // **Components ticket 27 gave this row the screen it is about.** It had been evaluated over
+        // `crate::counters`' own fixtures, which is the mechanism; the series screen is where the
+        // relation earns its wording — 2 554 / 3 775 / 2 475 verbs at 1 000 / 100 000 / 1 000 000
+        // points on one rectangle, **not monotone in `n`**, so a verb *equality* across sizes would
+        // be a gate on a number that belongs to the picture.
         standing: Standing::Evaluated {
-            by: &[Instrument::Unit {
-                file: "crates/vitui-components/src/counters.rs",
-                name: "verbs_never_exceed_writes_and_the_relation_is_not_an_equality",
-            }],
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/counters.rs",
+                    name: "verbs_never_exceed_writes_and_the_relation_is_not_an_equality",
+                },
+                Instrument::Unit {
+                    file: SERIES,
+                    name: "the_frame_costs_the_rectangle_and_the_verbs_track_the_picture",
+                },
+                Instrument::Unit {
+                    file: SERIES,
+                    name: "the_verb_count_rises_and_falls_with_the_picture_and_not_with_the_volume",
+                },
+            ],
         },
     },
     Row {
@@ -816,7 +834,7 @@ pub const REGISTER: [Row; 67] = [
                 // failing test rather than a drift back to twenty-four occurrences.
                 Instrument::Unit {
                     file: "crates/vitui-components/tests/glyph_matrix.rs",
-                    name: "the_axis_is_named_in_two_files_and_neither_is_a_component",
+                    name: "the_axis_is_named_in_four_files_and_one_of_them_is_a_components",
                 },
             ],
         },
@@ -1900,6 +1918,113 @@ pub const REGISTER: [Row; 67] = [
             inverted_by: "components 12",
         },
     },
+    // ── components ticket 27's three ─────────────────────────────────────────────────────────────
+    Row {
+        number: 68,
+        on_spec_table: false,
+        gate: "the series screen is a partition at 300x80 and at 60x20, and a legend that does not \
+               narrow is green at the first and red at the second",
+        kind: Kind::Equality,
+        owner: "C08",
+        section: "spec §13, §21",
+        // **The two-size axis with the arms one boolean apart**, which is what makes a reviewer's
+        // diff one line. At 300x80 the two arms are *indistinguishable* — identical writes,
+        // identical verbs, 0 cells apart on the rendered surface — and at 60x20 the defective one
+        // writes 2 cells twice, touches exactly the cells the correct one touches, and costs **one
+        // verb fewer**. Every counter but the pair prefers it, which is ADR 0026's signature
+        // arriving on this screen.
+        //
+        // `Evaluated` over the screen rather than over `chart` and `plot`, which is components
+        // ticket 04's standing and its reason: what it gates is that *the instrument separates a
+        // correct build from a defective one*, watched in both directions. The **scenes** stay red.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: SERIES,
+                    name: "the_legend_that_does_not_narrow_is_green_at_three_hundred_and_red_at_\
+                           sixty",
+                },
+                Instrument::Unit {
+                    file: SERIES,
+                    name: "the_frame_costs_the_rectangle_and_the_verbs_track_the_picture",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/series_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 69,
+        on_spec_table: false,
+        gate: "the axis gutter computed from the whole domain oscillates on 0 of 175 712 viewport \
+               x dataset pairs, and the fixpoint form on 464",
+        kind: Kind::Count,
+        owner: "C08",
+        section: "spec §13",
+        // **A count and not a ratio**, and it fires in both directions by construction: the same
+        // sweep reports the naive form oscillating on 464 and the hysteresis form settling on a
+        // gutter that is not a fixed point of its own rule on all 464 of them. A gate that only
+        // asserted *the whole-domain form converges* would be green on a sweep that had stopped
+        // sweeping.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: SERIES,
+                    name: "the_axis_loop_oscillates_on_four_hundred_and_sixty_four_and_the_whole_\
+                           domain_on_none",
+                },
+                Instrument::Unit {
+                    file: SERIES,
+                    name: "a_narrower_plotting_area_can_produce_a_wider_label",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/series_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 70,
+        on_spec_table: false,
+        gate: "the series screen's two scenes fail differently from a screen whose code is wrong",
+        kind: Kind::CompileOutcome,
+        owner: "C08, C11",
+        section: "spec §21",
+        // **Row 67 one ticket family over**, and it is a row rather than a comment for row 67's
+        // reason: §21's whole argument is that an obligation stated as a sentence gets broken by
+        // someone who has read it.
+        //
+        // `CompileOutcome` for row 61's reason: what is asserted is that a *file* declares an item,
+        // read by opening it — the one thing a `compile_fail` fence cannot say, because a fence over
+        // a missing item passes today and passes again the day the module is renamed.
+        standing: Standing::Red {
+            by: &[
+                Instrument::Unit {
+                    file: SERIES,
+                    name: "the_series_screen_is_red_because_chart_and_plot_are_not_declared",
+                },
+                Instrument::Unit {
+                    file: SERIES,
+                    name: "the_waiting_message_separates_unimplemented_from_wrong",
+                },
+                Instrument::Unit {
+                    file: SERIES,
+                    name: "the_screen_is_watched_refusing_to_stand_up",
+                },
+                Instrument::Unit {
+                    file: SERIES,
+                    name: "the_subject_scan_finds_a_declaration_when_there_is_one",
+                },
+            ],
+            failing: "neither `chart` nor `plot` is declared, so scenes 15 and 16 are pinned red. \
+                      `crates/vitui-components/src/chart.rs` carries no `pub fn chart(` and no \
+                      `pub fn plot(`, which is what `crate::series::subjects_declared` opens the \
+                      file to find out, and `crate::series::standing` is \
+                      `Unmet { over: 2, failing: 2 }` rather than `Met` over nothing",
+            inverted_by: "components 28",
+        },
+    },
 ];
 
 /// **The compile-outcome pair row 31 names, and its positive twin.**
@@ -2186,12 +2311,13 @@ mod tests {
         assert_eq!(evaluated, EVALUATED, "the count §21 asks a test to assert");
         assert_eq!(
             red,
-            vec![7, 8, 29, 67],
-            "the four gates that are red and pinned: the sentinel, the palette after a swap, \
-             twenty wheel clicks and the collection's five scenes waiting for their subject. The \
-             glyph-set count was one of them and components ticket 05 inverted it; row 61 was \
-             another and components ticket 10 inverted it, which took rewriting the gate rather \
-             than the standing — the row asserted an *absence*"
+            vec![7, 8, 29, 67, 70],
+            "the five gates that are red and pinned: the sentinel, the palette after a swap, \
+             twenty wheel clicks, the collection's five scenes waiting for their subject and the \
+             series screen's two waiting for theirs. The glyph-set count was one of them and \
+             components ticket 05 inverted it; row 61 was another and components ticket 10 \
+             inverted it, which took rewriting the gate rather than the standing — the row \
+             asserted an *absence*"
         );
         assert_eq!(
             unreachable,
@@ -2202,7 +2328,7 @@ mod tests {
              the value anyway, so a chord can be pressed after all"
         );
         assert_eq!(unsubjected, 15, "and the fifteen with nothing to run over");
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 67);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 70);
     }
 
     /// **The split, not the total.**
@@ -2216,7 +2342,7 @@ mod tests {
     fn thirty_two_rows_are_the_specs_and_thirty_five_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 35);
+        assert_eq!(REGISTER.len() - on_table, 38);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -2431,10 +2557,45 @@ mod tests {
     /// The needles are assembled from fragments so that **this file** does not contain them. A source
     /// scan whose own source matches it is the vacuous shape the engine's register records having
     /// shipped once already.
+    ///
+    /// # One file is excepted, by name and by count — components ticket 27
+    ///
+    /// `CONTEXT.md` says both halves of a collision in two adjacent paragraphs. **Repertoire**: *a
+    /// component branches on it rather than the engine substituting behind its back.* **Glyph**:
+    /// *anything failing either rule is not a glyph, it is a branch — **the sub-cell ladders are the
+    /// case**, because the number of samples asked of the data changes with the rung and no table
+    /// can carry that … a component names no repertoire.* The sub-cell ladder is named in the second
+    /// sentence as the thing that is a branch, and a branch on the repertoire is a component naming
+    /// the repertoire. Spec §13 says the same in as many words: *§16 owns the lookup; the branch is
+    /// two `match`es and a 16-entry array in the component crate.*
+    ///
+    /// Both cannot hold, and §21's own refinement 3 says what to do about it: **name the exception;
+    /// do not loosen the gate.** So `crate::series::geom` is excepted by file name, and the number
+    /// of occurrences in that file is asserted — a second file fails, and a fourth occurrence in
+    /// this one fails. What is *not* excepted is the thing row 26 is actually about: no private
+    /// fallback table, anywhere, including there.
     #[test]
     fn no_component_here_names_a_glyph_set_and_none_has_a_private_missing_table() {
         let glyph_set = concat!("GlyphSet", "::");
         let private_table = concat!("mod ", "missing");
+
+        // **The one exception, and it is a file rather than a rule.** The sub-cell ladder, which
+        // `CONTEXT.md` names as a branch in the same paragraph that forbids naming a repertoire.
+        const LADDER: &str = "series.rs";
+        // **The lines that may spell one, exactly.** A list rather than a count, because a count
+        // says *how many* and this has to say *which*: two arms of one `match`, plus the rung the
+        // correct build is drawn at. Anything else — a second branch, a repertoire test moved out
+        // of the test module, a spelling table — fails here and the failure prints the line.
+        //
+        // **Assembled from `glyph_set` rather than written out**, for the reason the needles above
+        // are: a scanner whose own source matches its needle reports itself, which is the vacuous
+        // shape the engine's register records having shipped once already — and this test watched
+        // it happen on its first run with these three lines written literally.
+        let ladder_lines = [
+            format!("(_, {glyph_set}Ascii) => Geom {{ sx: 1, sy: 1 }},"),
+            format!("(Kind::Marks, {glyph_set}Unicode) => Geom {{ sx: 2, sy: 2 }},"),
+            format!("glyphs: {glyph_set}Extended,"),
+        ];
 
         let mut files = Vec::new();
         rust_files(
@@ -2443,15 +2604,46 @@ mod tests {
         );
         let mut scanned = 0usize;
         let mut offenders = Vec::new();
+        let mut excepted = 0usize;
         for path in &files {
             let source = std::fs::read_to_string(path).unwrap_or_default();
             scanned += 1;
-            if carries(&source, glyph_set) || carries(&source, private_table) {
+            let names_a_set = carries(&source, glyph_set);
+            let is_the_ladder = path.ends_with(LADDER);
+            if names_a_set && is_the_ladder {
+                excepted += 1;
+                // **The shipped half of the file**, which is what the rule is about: a test
+                // that sweeps the three rungs names them by definition, and forbidding that would
+                // forbid *measuring* the ladder rather than forbidding a second one.
+                let shipped = source
+                    .split("#[cfg(test)]")
+                    .next()
+                    .expect("split always yields one");
+                let naming: Vec<&str> = shipped
+                    .lines()
+                    .filter(|line| carries(line, glyph_set))
+                    .map(str::trim)
+                    .collect();
+                assert_eq!(
+                    naming,
+                    ladder_lines.iter().map(String::as_str).collect::<Vec<_>>(),
+                    "the excepted file's repertoire branch has changed. §21: name the exception, \
+                     do not loosen the gate — a line that is not one of these three is a second \
+                     branch and needs its own argument, not this one's"
+                );
+                continue;
+            }
+            if names_a_set || carries(&source, private_table) {
                 offenders.push(path.to_string_lossy().into_owned());
             }
         }
         assert!(scanned > 0, "the walk found no source at all");
         assert_eq!(offenders, Vec::<String>::new());
+        assert_eq!(
+            excepted, 1,
+            "the one named exception is not there. It is `crate::series::geom`, and if it has gone \
+             this test should lose the exception rather than keep counting to one"
+        );
 
         // **The other direction, through the same function**, because a scan that has quietly
         // stopped scanning also reports zero.
@@ -2524,7 +2716,8 @@ mod tests {
                 "partition_numbers.rs".to_string(),
                 "press_numbers.rs".to_string(),
                 "primitive_numbers.rs".to_string(),
-                "scene_numbers.rs".to_string()
+                "scene_numbers.rs".to_string(),
+                "series_numbers.rs".to_string()
             ],
             "the count on this lineage was 0 against the runtime's 19"
         );

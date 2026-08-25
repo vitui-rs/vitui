@@ -1495,8 +1495,25 @@ mod tests {
     /// `src/inventory.rs` as the violator. A source scan that its own documentation satisfies is
     /// the mirror image of `register.rs`'s vacuous scan one crate down — that one was always green,
     /// this one was always red, and neither was looking at the code.
+    ///
+    /// # One file is excepted, and the exception is not decided here — components ticket 27
+    ///
+    /// `CONTEXT.md` says both halves of a collision in two adjacent paragraphs: **Repertoire** — *a
+    /// component branches on it* — and **Glyph** — *the sub-cell ladders are the case … a component
+    /// names no repertoire*. `crate::series::geom` is that ladder, and §21's refinement 3 says what
+    /// to do: **name the exception; do not loosen the gate.**
+    ///
+    /// The exception is named in **one** place, `crate::gates`'s own scan, which asserts the exact
+    /// three lines that may spell a repertoire in that file. This one skips the file by name and
+    /// says where the real check is, because *two* gates each keeping their own idea of the
+    /// exception is how the two come to disagree — which is the failure mode the register's near
+    /// miss records. What is not skipped is the half this test shares with it: no private fallback
+    /// module, in that file or in any other.
     #[test]
     fn no_component_source_names_the_repertoire() {
+        // The one file `crate::gates` excepts, by name. See this test's documentation.
+        const LADDER: &str = "series.rs";
+        let mut excepted = 0usize;
         let src = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/src"));
         for entry in std::fs::read_dir(&src).expect("the crate has a src directory") {
             let path = entry.expect("a readable directory entry").path();
@@ -1511,12 +1528,22 @@ mod tests {
             // other side.
             let repertoire = format!("{}{}", "Glyph", "Set::");
             let private_table = format!("{} {}", "mod", "missing");
-            assert!(
-                !source.contains(&repertoire),
-                "`src/{name}` names the repertoire type by path. A component names a role and a \
-                 glyph and never a repertoire — the theme owns the table because there was nowhere \
-                 else to put one"
-            );
+            if name == LADDER {
+                excepted += 1;
+                assert!(
+                    source.contains(&repertoire),
+                    "`src/{LADDER}` is excepted from the repertoire count and no longer needs to \
+                     be. Drop the exception here and in `crate::gates`, in that order"
+                );
+            } else {
+                assert!(
+                    !source.contains(&repertoire),
+                    "`src/{name}` names the repertoire type by path. A component names a role and \
+                     a glyph and never a repertoire — the theme owns the table because there was \
+                     nowhere else to put one. The one exception is `src/{LADDER}`, and it is \
+                     argued in `crate::gates`"
+                );
+            }
             assert!(
                 !source.contains(&private_table),
                 "`src/{name}` grows a private fallback module, which is the exact shape nine \
@@ -1524,5 +1551,10 @@ mod tests {
                  repertoire"
             );
         }
+        assert_eq!(
+            excepted, 1,
+            "the one named exception was never reached, so this scan agrees with `crate::gates` \
+             about a file neither of them looked at"
+        );
     }
 }

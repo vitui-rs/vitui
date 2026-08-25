@@ -123,6 +123,7 @@ pub mod listing;
 pub mod obligations;
 pub mod runner;
 pub mod scenes;
+pub mod series;
 pub mod state;
 
 // **One module per family, and the family is the module** (spec §19). The tree follows the survey's
