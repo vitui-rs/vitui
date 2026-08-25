@@ -29,7 +29,7 @@
 //! - [`obligations`] — §17's five obligations as queries over the freeze, each returning a count or
 //!   an equality. **Not one of them can be met yet, and every one of them says so out loud** rather
 //!   than returning green over an empty population.
-//! - [`gates`] — §21's register: **eighty gates as rows, fifty-five of them evaluated**, seven
+//! - [`gates`] — §21's register: **eighty-nine gates as rows, sixty-two of them evaluated**, nine
 //!   pinned red with their failing sets, six unreachable across the crate line with what would have
 //!   to become public, and fourteen with nothing yet to run over. An instrument is a value with a
 //!   file in it, so a row that has stopped running turns the register red here. **One of those rows
@@ -46,7 +46,7 @@
 //! - [`counters`] — §20's nine per-frame counters, **eight of which this crate can read**. The
 //!   ninth, `marked`, panics rather than answering `0`, and so does the sentinel probe.
 //! - [`scenes`] — the normative scene list: **twenty-nine screens, twenty-seven of them §21's
-//!   table, nineteen `Unsubjected`, seven `Red` and three `Evaluated`**, each with the size it is
+//!   table, ten `Unsubjected`, nineteen `Red` and three `Evaluated`**, each with the size it is
 //!   played at, the content it stands up, the gestures it plays and the property it decided. Three
 //!   of them exist because a defect survived every gate then in force by not being on any screen
 //!   anybody had built.
@@ -111,6 +111,20 @@
 //!   as 65 535. Beside it, the fold: **1 run against 249 940** for a half-tree selection, and
 //!   **349 526 of 500 000** back from the round trip under the splice the prototype shipped. Both
 //!   scenes are **red**, both waiting for `tree` (components 17).
+//! - [`popup`] — **the overlay family's screen**: 300x80, 312 chips, two `select`s and a menu bar,
+//!   and §12's five configurations standing on it instead of in a table. **Every `regions` and every
+//!   `stops` figure of that table reproduces exactly** — 317/316, 319/317, 323/322, 319/318 — and
+//!   they are arithmetic rather than measurements, the one region that is not a stop being the menu
+//!   bar itself. Beside them: the trap's named exception at **2 stops visited of 318 declared**,
+//!   which is §21's *name the exception; do not loosen the gate* on the first screen that can run
+//!   it; the opening cliff **counted 30 of 30** rather than timed; the scrim in three spellings at
+//!   600 / 0 / 0 re-damaged and 24 600 / 24 000 / 600 written; **99 flips in 100 frames** for an
+//!   overlay that declares and covers its anchor; **3 of 8 frames** for a dialog owned by the menu
+//!   row that opened it; and three different ids for the three answers to *where does the keyboard
+//!   go when a modal closes*. Its scene is **red**, waiting for `select` and `overlay`
+//!   (components 26). **Two of §12's seven columns contradict the shipped runtime and are asserted
+//!   as measured**: `allocations`, whose zero was the bump arena ADR 0034 deleted, and `content
+//!   layers`, whose 2 / 4 / 3 counted a shadow layer `OverlayOpts` has no field for.
 //!
 //! **And all seven of spec §3's helpers now exist**, which is the first code here that a component
 //! will call rather than be measured by: [`text::fit`] and [`frame::block`] are the two partition
@@ -163,6 +177,7 @@ pub mod inventory;
 pub mod keys;
 pub mod listing;
 pub mod obligations;
+pub mod popup;
 pub mod runner;
 pub mod scenes;
 pub mod state;

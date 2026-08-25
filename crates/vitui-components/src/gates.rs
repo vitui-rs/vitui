@@ -55,7 +55,7 @@
 //!   claiming fifteen green gates over an empty population.
 //!
 //! **Forty-two evaluated, four red, six unreachable, fifteen unsubjected**, and
-//! `tests::fifty_nine_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
+//! `tests::sixty_two_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
 //! deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
 //! and subjected row 27, the cross-family collapse gate; ticket 07 added five, and none of them
@@ -360,6 +360,9 @@ const ACCORDION: &str = "crates/vitui-components/src/accordion.rs";
 /// The document's own file, which is where components ticket 23's rows run.
 const DOCUMENT: &str = "crates/vitui-components/src/document.rs";
 const CLUSTERS: &str = "crates/vitui-components/src/clusters.rs";
+
+/// The popup's own file, which is where components ticket 25's rows run.
+const POPUP: &str = "crates/vitui-components/src/popup.rs";
 const FIELD_NUMBERS: &str = "crates/vitui-components/examples/field_numbers.rs";
 
 /// How many rows of [`REGISTER`] are spec §21's own table. **Thirty-two, and it is closed** — a
@@ -404,10 +407,10 @@ pub const SPEC_ROWS: usize = 32;
 /// row still asserting *the four components do not exist* would now be asserting they are gone.
 /// That is the second inversion here worth being suspicious about: a red row phrased as an absence
 /// cannot be turned green by editing one field.
-pub const EVALUATED: usize = 59;
+pub const EVALUATED: usize = 62;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 85] = [
+pub const REGISTER: [Row; 89] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -1993,7 +1996,7 @@ pub const REGISTER: [Row; 85] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eleven_scenes_have_nothing_to_run_over_eighteen_are_red_and_three_are_\
+                    name: "ten_scenes_have_nothing_to_run_over_nineteen_are_red_and_three_are_\
                            stood_up",
                 },
             ],
@@ -2223,7 +2226,7 @@ pub const REGISTER: [Row; 85] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eleven_scenes_have_nothing_to_run_over_eighteen_are_red_and_three_are_\
+                    name: "ten_scenes_have_nothing_to_run_over_nineteen_are_red_and_three_are_\
                            stood_up",
                 },
             ],
@@ -2643,7 +2646,7 @@ pub const REGISTER: [Row; 85] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eleven_scenes_have_nothing_to_run_over_eighteen_are_red_and_three_are_\
+                    name: "ten_scenes_have_nothing_to_run_over_nineteen_are_red_and_three_are_\
                            stood_up",
                 },
             ],
@@ -2654,6 +2657,153 @@ pub const REGISTER: [Row; 85] = [
                       `crate::document::standing` is `Unmet { over: 1, failing: 1 }` rather than \
                       `Met` over nothing",
             inverted_by: "components 24",
+        },
+    },
+    // ── components ticket 25's four ──────────────────────────────────────────────────────────────
+    Row {
+        number: 86,
+        on_spec_table: false,
+        gate: "the regions and the stops of §12's five configurations, exactly",
+        kind: Kind::Equality,
+        owner: "C07",
+        section: "spec §12",
+        // **Two of §12's seven columns reproduce to the unit and two of them cannot.** The two that
+        // do are the two that are properties of the frame rather than of the machine, and they are
+        // arithmetic here rather than a measurement: 312 chips + 2 selects + 1 bar + 2 titles is
+        // 317 against 316, a dropdown adds one collection entry and one blur position, a menu row is
+        // a target and there are three of them twice, and a modal is two buttons inside a scope that
+        // declares nothing. The two that cannot are rows 69 and `content layers` — see
+        // `crate::popup`'s header, and `crate::counters::Counters::content_layers` for the half of
+        // the second that was already written down.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: POPUP,
+                    name: "every_configuration_declares_what_the_specs_table_says",
+                },
+                Instrument::Unit {
+                    file: POPUP,
+                    name: "the_three_deltas_are_the_familys_own_arithmetic",
+                },
+                Instrument::Unit {
+                    file: POPUP,
+                    name: "the_base_screen_is_317_regions_and_316_stops_and_the_bar_is_the_\
+                           difference",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/popup_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 87,
+        on_spec_table: false,
+        gate: "n overlays standing cost n + 1 allocations a frame, as a total over the run",
+        kind: Kind::Equality,
+        owner: "C07",
+        section: "spec §12, §19",
+        // **The row that contradicts a closed map, and it is asserted as measured.** §12's table
+        // reads `allocations = 0` in all five rows; the shipped figure is `n + 1` for `n` overlays
+        // standing and 0 for none, because runtime ticket 21 deleted the bump arena that made the
+        // zero true (ADR 0034). The gate is the **marginal** equality rather than an absolute,
+        // which is the runtime's own form: an absolute is a fact about this screen and the margin is
+        // a fact about the mechanism.
+        //
+        // A second case beside it, because the obvious spelling of this gate goes green while
+        // meaning something else: `Box::new` of a zero-sized value does not allocate, so two bodies
+        // written as bare `fn` items cost **one** allocation a frame and satisfy *at most n + 1*.
+        // `crate::popup`'s menu and submenu were written that way and read 1 against 3.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/tests/popup.rs",
+                    name: "one_more_overlay_standing_is_exactly_one_more_allocation_a_frame",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/tests/popup.rs",
+                    name: "a_body_that_captures_nothing_costs_no_allocation_to_box",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/tests/popup.rs",
+                    name: "the_specs_zero_is_the_arena_that_was_deleted_and_not_the_shipped_number",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 88,
+        on_spec_table: false,
+        gate: "the walk repeats no id, and reaches every stop unless a trap is standing",
+        kind: Kind::Invariant,
+        owner: "C11",
+        section: "spec §21",
+        // **§21's third refinement, and this is the first screen it can run on.** *Name the
+        // exception; do not loosen the gate.* R08's *a walkthrough visits every tab stop exactly
+        // once* fails on exactly one panel of twelve and **correctly**, because a dialog is open and
+        // a `Trap` is what a modal is — so the gate is the conjunction, with `Frame::trap_scopes` as
+        // the only thing that can answer the second half. 2 of 318 with the modal up, 316 of 316
+        // with it down. Driven by posted keys, with the frame's own `tab_walk` beside it as a second
+        // expression rather than as the same one.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: POPUP,
+                    name: "a_standing_trap_pulls_the_focus_in_and_six_tabs_do_not_take_it_out",
+                },
+                Instrument::Unit {
+                    file: POPUP,
+                    name: "the_walk_reaches_every_stop_unless_a_trap_is_standing",
+                },
+                Instrument::Unit {
+                    file: POPUP,
+                    name: "where_the_keyboard_goes_when_a_modal_closes_is_three_different_programs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 89,
+        on_spec_table: false,
+        gate: "the overlay family's scene has no subject, and says so rather than failing",
+        kind: Kind::CompileOutcome,
+        owner: "C07",
+        section: "spec §12, §21",
+        // **The fifth red row, and it is row 67 one ticket later.** Same shape, same reason, a
+        // different pair of components — and the standing count is what makes a scene going quiet a
+        // deliberate edit rather than a silent one.
+        standing: Standing::Red {
+            by: &[
+                Instrument::Unit {
+                    file: POPUP,
+                    name: "the_screen_is_red_because_select_and_overlay_are_not_declared",
+                },
+                Instrument::Unit {
+                    file: POPUP,
+                    name: "the_waiting_message_separates_unimplemented_from_wrong",
+                },
+                Instrument::Unit {
+                    file: POPUP,
+                    name: "the_subject_scan_finds_a_declaration_when_there_is_one",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/scenes.rs",
+                    name: "ten_scenes_have_nothing_to_run_over_nineteen_are_red_and_three_are_\
+                           stood_up",
+                },
+            ],
+            failing: "neither `select` nor `overlay` is declared, so scene 14 is pinned red. \
+                      `crates/vitui-components/src/input.rs` carries no `pub fn select(` and \
+                      `crates/vitui-components/src/overlay.rs` no `pub fn overlay(`, which is what \
+                      `crate::popup::subjects_declared` opens both files to find out, and \
+                      `crate::popup::standing` is `Unmet { over: 2, failing: 2 }` rather than `Met` \
+                      over nothing. Everything the screen itself can be asked is measured: 317 \
+                      regions against 316 stops, every delta of §12's table, 2 visited of 318 \
+                      declared with the trap standing, 30 cliffs over 30 openings, 600 / 0 / 0 \
+                      re-damaged for the scrim's three spellings, 99 flips in 100 frames, 3 of 8 \
+                      frames for a dialog owned by a menu row, and three different ids for the \
+                      three answers to a closing modal",
+            inverted_by: "components 26",
         },
     },
 ];
@@ -2952,7 +3102,7 @@ mod tests {
         assert_eq!(evaluated, EVALUATED, "the count §21 asks a test to assert");
         assert_eq!(
             red,
-            vec![7, 8, 29, 67, 74, 77, 78, 85],
+            vec![7, 8, 29, 67, 74, 77, 78, 85, 89],
             "the four gates that are red and pinned: the sentinel, the palette after a swap, \
              twenty wheel clicks and the collection's five scenes waiting for their subject. The \
              glyph-set count was one of them and components ticket 05 inverted it; row 61 was \
@@ -2974,7 +3124,7 @@ mod tests {
              over a domain and needs no component to be run against, and whose row had been \
              citing spec §13 and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 85);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 89);
     }
 
     /// **The split, not the total.**
@@ -2985,10 +3135,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_fifty_three_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_fifty_seven_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 53);
+        assert_eq!(REGISTER.len() - on_table, 57);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -3110,8 +3260,8 @@ mod tests {
             .collect();
         assert_eq!(
             rows.len(),
-            3,
-            "row 32, row 36 and components ticket 23's row 82"
+            4,
+            "rows 32 and 36, ticket 23's row 82 and ticket 25's row 87"
         );
         assert!(
             rows.iter().any(|r| r.gate.contains("total")),
@@ -3302,6 +3452,7 @@ mod tests {
                 "listing_numbers.rs".to_string(),
                 "nav_numbers.rs".to_string(),
                 "partition_numbers.rs".to_string(),
+                "popup_numbers.rs".to_string(),
                 "press_numbers.rs".to_string(),
                 "primitive_numbers.rs".to_string(),
                 "scene_numbers.rs".to_string(),

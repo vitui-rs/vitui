@@ -48,6 +48,15 @@
 //! identical surfaces and the fold anchor's 4 166 of 4 167 are measured. One of the two carried an
 //! `inverted_by` naming **components 16** while it was `Unsubjected`, and 16's own table is scenes 8
 //! and 9; it names components 22 now.
+//! **Components ticket 25 turned the fourteenth**, and it is the second ticket to make that move for
+//! the same reason: scene 14 runs a great deal — the five configurations of §12's table with every
+//! `regions` and every `stops` figure reproducing exactly, the ring, the trap's named exception at
+//! 2 of 318, the opening cliff counted 30 of 30, the scrim's three spellings, both of the family's
+//! axes and the three answers to *where does the keyboard go when a modal closes* — and what it has
+//! not got is `select` and `overlay`. Pinned to **components 26**. Two of §12's seven columns do not
+//! reproduce and both are recorded rather than bent: `allocations`, whose zero was the bump arena
+//! runtime ticket 21 deleted, and `content layers`, whose 2 / 4 / 3 counted a shadow layer
+//! `OverlayOpts` has no field for.
 //!
 //! **Components ticket 11 moved four rows off `Unsubjected` and added a fifth**, and the direction
 //! is *up*: `Unsubjected` says *nothing runs*, and scenes 3, 4, 5, 6 and 29 now run a great deal —
@@ -69,7 +78,7 @@
 //! `scroll_into_view` itself, which `CONTEXT.md` forbids and which four *resolved* tickets wrote
 //! anyway. Ticket 12's own criterion says so — *every scene of ticket 11 is green except the wheel
 //! gate, which stays pinned red for ticket 20* — and
-//! `tests::eleven_scenes_have_nothing_to_run_over_eighteen_are_red_and_three_are_stood_up`
+//! `tests::ten_scenes_have_nothing_to_run_over_nineteen_are_red_and_three_are_stood_up`
 //! asserts
 //! the pairing rather than the count alone, because a single `inverted_by` across the five would
 //! erase the distinction while keeping the number right.
@@ -123,12 +132,17 @@ use crate::{Axis, INVENTORY};
 
 /// The screen a scene is played on, in §21's own terms.
 ///
-/// **[`Size::Unstated`] is an arm rather than a default.** Eighteen of §21's twenty-seven rows state
+/// **[`Size::Unstated`] is an arm rather than a default.** Seventeen of §21's twenty-seven rows state
 /// no `w x h`, and inventing one would put a number in a normative list that no ticket wrote — which
-/// is the failure mode ADR 0033 records for prose and this file inherits for numbers. The ten rows
-/// that do state one — nine of §21's and components 09's — are two at one size, four at two, two
+/// is the failure mode ADR 0033 records for prose and this file inherits for numbers. The eleven rows
+/// that do state one — ten of §21's and components 09's — are three at one size, five at two, two
 /// over a domain of pairs and two in cells with no dimensions; `examples/scene_numbers.rs` prints
 /// the split.
+///
+/// **Scene 14 moved off `Unstated` in components ticket 25 and it is not an invention**: §21's own
+/// row states no size, and §12's *The frame* states one in the same sentence as the counts the row
+/// is about — *300x80, 312 chips, two `select`s, a menu bar; minimum of 60 steady frames*. A number
+/// the spec wrote is not a number this file made up.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Size {
     /// One terminal, `w x h`.
@@ -1025,6 +1039,64 @@ const STANDS_SCENE_28: &[Instrument] = &[
     },
 ];
 
+/// The overlay family's own file, which is where components ticket 25's scene is played.
+const POPUP: &str = "crates/vitui-components/src/popup.rs";
+
+/// **What the overlay family's screen is a screen of, and neither is declared yet.**
+///
+/// [`crate::popup::SUBJECTS`], reached through this alias for [`COLLECTION`]'s reason: the row below
+/// claims `select` and `overlay` stand on its screen, and the failing set it is pinned in is computed
+/// by opening the files the freeze homes them in.
+const OVERLAY_FAMILY: &[&str] = &crate::popup::SUBJECTS;
+
+/// What pins scene 14, the overlay family. Ticket 09's and 11's arrangement, one ticket later.
+///
+/// **Every count on this screen reproduces §12's table exactly** — 317 / 316, 319 / 317, 323 / 322,
+/// 319 / 318 — so the failing set is the subject and nothing else. Two of §12's seven columns do not
+/// and each says why in [`crate::popup`]'s header: `allocations`, because the arena that made it zero
+/// was deleted by runtime ticket 21, and `content layers`, because every request in the prototype
+/// carried a shadow layer `OverlayOpts` has no field for.
+const PINS_SCENE_14: &[Instrument] = &[
+    Instrument::Unit {
+        file: POPUP,
+        name: "every_configuration_declares_what_the_specs_table_says",
+    },
+    Instrument::Unit {
+        file: POPUP,
+        name: "the_three_deltas_are_the_familys_own_arithmetic",
+    },
+    Instrument::Unit {
+        file: POPUP,
+        name: "a_standing_trap_pulls_the_focus_in_and_six_tabs_do_not_take_it_out",
+    },
+    Instrument::Unit {
+        file: POPUP,
+        name: "where_the_keyboard_goes_when_a_modal_closes_is_three_different_programs",
+    },
+    Instrument::Unit {
+        file: POPUP,
+        name: "the_screen_is_red_because_select_and_overlay_are_not_declared",
+    },
+    Instrument::Unit {
+        file: POPUP,
+        name: "the_waiting_message_separates_unimplemented_from_wrong",
+    },
+    Instrument::Report {
+        file: "crates/vitui-components/examples/popup_numbers.rs",
+    },
+];
+
+/// The failing set scene 14 is pinned in.
+const OWED_THE_OVERLAY_FAMILY: &str = "neither `select` (`crates/vitui-components/src/input.rs`) nor `overlay` \
+     (`crates/vitui-components/src/overlay.rs`) is declared, so the screen stands on a label in a \
+     rectangle and a body written beside the request. Everything the screen itself can be asked is \
+     measured and green — every regions and stops figure of §12's table reproduces exactly \
+     (317/316, 319/317, 323/322, 319/318), the walkthrough's exception is named at 2 of 318, the \
+     opening cliff is counted 30 of 30, the scrim's three spellings are 600 / 0 / 0 re-damaged and \
+     24 600 / 24 000 / 600 written, the two axes are 99 flips in 100 frames and 3 of 8, and the \
+     three answers to *where does the keyboard go when a modal closes* are three different ids. \
+     What is missing is the subject";
+
 /// Spec §21's scene list, row for row, and this backlog's scenes beside it. **Thirty, of which
 /// twenty-seven are §21's table and §21's table is the authority.**
 pub const SCENES: [Scene; 32] = [
@@ -1384,16 +1456,29 @@ pub const SCENES: [Scene; 32] = [
         number: 14,
         on_spec_table: true,
         name: "a select, a menu with a submenu, a modal and a scrim",
-        size: Size::Unstated,
+        // **`Screen` and not `Unstated`, and §12 states it in the same sentence as the counts**:
+        // *300x80, 312 chips, two selects, a menu bar; minimum of 60 steady frames.* Components
+        // ticket 25 plays it at exactly that.
+        size: Size::Screen { w: 300, h: 80 },
         content: Content::Layers { layers: 5 },
         gestures: &[Gesture::Open { bodies: 5 }],
-        decided: "the family, and the 138.04 us opening frame",
+        decided: "the family, and the 138.04 us opening frame. 317 regions against 316 stops, and \
+                  the three deltas — a dropdown +2/+1, a menu with its submenu +6/+6, a modal \
+                  +2/+2 — reproduce exactly. The opening cliff is counted 30 of 30 rather than \
+                  timed; a scrim under the dialog is 600 re-damaged cells and 600 writes against \
+                  the complement's 0 and the operator layer's neither",
         covers: &[],
-        stands: &[],
+        stands: OVERLAY_FAMILY,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Unsubjected {
-            inverted_by: "components 25",
+        // **Red, not `Unsubjected`, and the direction is up.** `Unsubjected` says *nothing runs*, and
+        // a great deal runs: five configurations, the ring, the trap's named exception, the two axes
+        // of the family and the three answers to a closing modal. What it has not got is `select` and
+        // `overlay`, which is `crate::popup::standing`'s verdict and components ticket 26's job.
+        standing: Standing::Red {
+            by: PINS_SCENE_14,
+            failing: OWED_THE_OVERLAY_FAMILY,
+            inverted_by: "components 26",
         },
         rehearsed_by: &[],
     },
@@ -2195,18 +2280,18 @@ mod tests {
     /// `Unsubjected` says *it could run and there is nothing to run it over*, and a great deal now
     /// runs.
     ///
-    /// # Four of the fifteen are pinned to components 12, two each to 15, 17 and 22, four to 19
-    /// # and one to 20
+    /// # Four of the nineteen are pinned to components 12, two each to 15, 17, 22 and 24, four
+    /// # to 19, one to 26 and one to 20
     ///
-    /// That split is the whole of criterion 7 and it is asserted rather than described. Scenes 3, 4,
-    /// 5 and 29 are waiting for `collection` and 10 and 11 for `collapsible` — their screens are
-    /// drawn and their numbers measured, and what is missing is the subject. **Scene 6 is not
-    /// waiting for anything**: it is red because the defect is real, `CONTEXT.md` forbids it and
-    /// four *resolved* tickets wrote it anyway. Components ticket 12's own criterion says so —
-    /// *every scene of ticket 11 is green except the wheel gate, which stays pinned red for ticket
-    /// 20* — and a single `inverted_by` across them would erase it.
+    /// That split is the whole of criterion 7 and it is asserted rather than described. Scenes 3,
+    /// 4, 5 and 29 are waiting for `collection`, 10 and 11 for `collapsible` and 14 for `select`
+    /// and `overlay` — their screens are drawn and their numbers measured, and what is missing is
+    /// the subject. **Scene 6 is not waiting for anything**: it is red because the defect is real,
+    /// `CONTEXT.md` forbids it and four *resolved* tickets wrote it anyway. Components ticket 12's
+    /// own criterion says so — *every scene of ticket 11 is green except the wheel gate, which
+    /// stays pinned red for ticket 20* — and a single `inverted_by` across them would erase it.
     #[test]
-    fn eleven_scenes_have_nothing_to_run_over_eighteen_are_red_and_three_are_stood_up() {
+    fn ten_scenes_have_nothing_to_run_over_nineteen_are_red_and_three_are_stood_up() {
         let red: Vec<u8> = SCENES
             .iter()
             .filter(|s| matches!(s.standing, Standing::Red { .. }))
@@ -2215,11 +2300,11 @@ mod tests {
         assert_eq!(
             red,
             vec![
-                3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 17, 18, 19, 29, 30, 31, 32
+                3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 17, 18, 19, 29, 30, 31, 32
             ],
-            "components ticket 11's five, 14's two, 16's two, 18's four, 21's two and 23's \
-             three — the twenty fields, the resize and the cluster corpus. A nineteenth is a new \
-             one, and it owes an exact failing set and a ticket that inverts it"
+            "components ticket 11's five, 14's two, 16's two, 18's four, 21's two, 23's three \
+             and 25's overlay family. A twentieth is a new one, and it owes an exact failing set \
+             and a ticket that inverts it"
         );
         let evaluated: Vec<u8> = SCENES
             .iter()
@@ -2234,7 +2319,7 @@ mod tests {
              fourth arriving here is a deliberate edit to this module's header and to \
              `crate::gates::REGISTER`"
         );
-        assert_eq!(SCENES.len() - evaluated.len() - red.len(), 11);
+        assert_eq!(SCENES.len() - evaluated.len() - red.len(), 10);
 
         let mut pinned_to = Vec::new();
         for scene in SCENES {
@@ -2291,6 +2376,7 @@ mod tests {
                 (11, "components 22"),
                 (12, "components 24"),
                 (13, "components 24"),
+                (14, "components 26"),
                 (17, "components 19"),
                 (18, "components 19"),
                 (19, "components 19"),
@@ -2299,10 +2385,10 @@ mod tests {
                 (31, "components 15"),
                 (32, "components 24"),
             ],
-            "the wheel gate is not waiting for its subject and the other seventeen are. Merging \
+            "the wheel gate is not waiting for its subject and the other eighteen are. Merging \
              the two loses the distinction components 11's criterion 7 is about: `table`, \
-             `tree`, `collapsible`, `field`, `scroll_area`, `scrollbar` and `sticky` are \
-             undeclared and no defect of theirs is pinned here"
+             `tree`, `collapsible`, `field`, `select`, `overlay`, `scroll_area`, `scrollbar` and \
+             `sticky` are undeclared and no defect of theirs is pinned here"
         );
     }
 
@@ -2583,7 +2669,7 @@ mod tests {
     fn a_rehearsal_is_never_what_stands_a_scene_up() {
         // The files where a screen or one of its components is measured. `crate::runner`'s is not
         // one of them, and that is the whole check.
-        const SCREEN_FILES: [&str; 12] = [
+        const SCREEN_FILES: [&str; 14] = [
             DENSE,
             LISTING,
             AREA,
@@ -2592,10 +2678,12 @@ mod tests {
             ACCORDION,
             DOCUMENT,
             CLUSTERS,
+            POPUP,
             "crates/vitui-components/src/text.rs",
             "crates/vitui-components/src/input.rs",
             "crates/vitui-components/src/structure.rs",
             "crates/vitui-components/tests/gates.rs",
+            "crates/vitui-components/examples/popup_numbers.rs",
         ];
         for scene in SCENES {
             match scene.standing {
@@ -2699,7 +2787,7 @@ mod tests {
             SCENES.len() + 1,
             "one line a scene, plus the heading"
         );
-        assert_eq!(printed.matches("not played: `components ").count(), 11);
+        assert_eq!(printed.matches("not played: `components ").count(), 10);
         assert_eq!(
             printed
                 .matches("stood up on its own components, by ")
@@ -2709,9 +2797,9 @@ mod tests {
         );
         assert_eq!(
             printed.matches("red, pinned: `components ").count(),
-            18,
-            "components ticket 11's five, 14's two, 16's two, 18's four, 21's two and 23's \
-             three, and a red line is neither *not played* nor *stood up*"
+            19,
+            "components ticket 11's five, 14's two, 16's two, 18's four, 21's two, 23's three \
+             and 25's one, and a red line is neither *not played* nor *stood up*"
         );
         assert_eq!(printed.matches("[rehearsed over a fixture").count(), 1);
         assert!(
