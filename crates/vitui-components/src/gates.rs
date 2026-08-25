@@ -2159,7 +2159,17 @@ mod tests {
         std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
     }
 
-    /// Every `.rs` file under `dir`, recursively, skipping build output and git metadata.
+    /// Every `.rs` file under `dir`, recursively, skipping build output, git metadata and
+    /// nested checkouts.
+    ///
+    /// **`.claude` is skipped because a nested checkout is not this workspace.** Agent worktrees
+    /// land at `.claude/worktrees/<name>/`, and a worktree's `.git` is a *file* rather than a
+    /// directory, so the `.git` arm below does not reach them. Without this arm every scan that
+    /// asks *how many places in the workspace do X* answers with one copy per worktree standing:
+    /// the counting-allocator scan read eleven `vitui-alloc-probe/src/lib.rs` against one, and
+    /// failed naming ten paths that are the same file. That is the scan's subject drifting, not a
+    /// defect it caught — so the arm is a correction rather than a loosening, and the gate still
+    /// fails for a second allocator committed anywhere under `crates/`.
     fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
         let Ok(entries) = std::fs::read_dir(dir) else {
             return;
@@ -2168,7 +2178,7 @@ mod tests {
             let path = entry.expect("a readable entry").path();
             let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
             if path.is_dir() {
-                if name == "target" || name == ".git" {
+                if name == "target" || name == ".git" || name == ".claude" {
                     continue;
                 }
                 rust_files(&path, out);
