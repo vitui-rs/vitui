@@ -105,7 +105,7 @@
 //! | | |
 //! |---|---|
 //! | `↑` `↓` `Home` `End` `PgUp` `PgDn` | the row cursor. `collection`'s, unchanged |
-//! | `Alt+←` `Alt+→` | the **column** cursor, scrolling the band to keep it in view |
+//! | `,` `.` | the **column** cursor, scrolling the band to keep it in view (`Alt+←` `Alt+→` too) |
 //! | `[` `]` | scroll the band without moving the cursor |
 //! | `x` | toggle the cell under the cursor |
 //! | `c` / `r` | select the whole column / the whole row |
@@ -122,9 +122,16 @@
 //! because the search this file hands it always answers `None` — a ledger over a million computed
 //! rows has nothing to type-ahead to. Give the table a real search and every letter is claimed by
 //! the type-ahead buffer, and every binding above has to become a chord; `triage` is that
-//! application, which is why `q` is the only plain key it has. The arrows are the exception the
-//! other way: `nav::step` takes `←` and `→` as cursor moves whatever the search does, so the
-//! **column** cursor has no plain spelling.
+//! application, which is why `q` is the only plain key it has.
+//!
+//! **The column cursor is `,` and `.` and not `Alt+←/→`, and that is a fact about macOS.** The
+//! arrows themselves are gone — `nav::step` takes `←` and `→` as row-cursor moves whatever the
+//! search does — so the column axis needs a second spelling, and the obvious one does not arrive:
+//! Ghostty's `macos-option-as-alt` is **unset by default**, so Option composes `é` rather than
+//! reporting Alt and the chord never reaches the application at all. `Alt+←/→` is bound anyway for
+//! anyone who has set it (`macos-option-as-alt = true` in `~/.config/ghostty/config`, or the
+//! equivalent in iTerm2 and Terminal.app), but nothing here needs it. An application that requires
+//! a terminal setting to be usable is an application with a defect.
 //!
 //! # Run it
 //!
@@ -710,13 +717,16 @@ impl App {
             0 => "0.00",
             v => amount(&mut money, v),
         };
+        // **`last` first, because it is the feedback.** At eighty columns everything after the
+        // first sixty characters is cut, and a status line whose most recent news is the part that
+        // gets truncated is a status line nobody reads.
         let line = format!(
-            " cell ({}, {name})  ·  selected {cells} in {spans} span(s), {bytes} B  ·  \
-             Σ {sum}  ·  rev {}  ·  editing {:?}  ·  {} ",
+            " {}  ·  cell ({}, {name})  ·  selected {cells} in {spans} span(s), {bytes} B  ·  \
+             Σ {sum}  ·  rev {}  ·  editing {:?} ",
+            self.last,
             self.table.coll.sel.lead,
             self.rev.raw(),
             self.table.editing(),
-            self.last,
         );
         fit_with(
             cx,
@@ -738,7 +748,7 @@ impl App {
             false => "counters off (Alt+v)".to_owned(),
         };
         let line = format!(
-            " {counted}  ·  cols {}..{} of {}  ·  hoff {}  ·  1/2 shape · Alt+←→ column · \
+            " {counted}  ·  cols {}..{} of {}  ·  hoff {}  ·  1/2 shape · ,/. column · \
              c/r/x/z select · Enter edit · s/S sort · v counters · h header · q quit ",
             self.window.0, self.window.1, self.window.2, self.table.hoff,
         );
@@ -816,13 +826,21 @@ impl App {
                         Some(cell_text(&mut buf, self.cursor_col, self.source(row)).to_owned());
                     self.last = "Enter — editing";
                 }
-                (true, Code::Left) => {
+                // **Four spellings of one gesture, and the plain pair is the one that works.**
+                // `,`/`.` and `<`/`>` need no terminal configuration; `Alt+←/→` is the spelling a
+                // reader expects and is **off by default on macOS** — Ghostty's
+                // `macos-option-as-alt` is unset unless you set it, so Option composes `é` rather
+                // than reporting Alt, and the chord never arrives. Both are bound rather than one:
+                // an application that needs a terminal setting to be usable is an application with
+                // a defect, and an application that will not answer the obvious chord for someone
+                // who *has* set it is the same defect from the other side.
+                (true, Code::Left) | (_, Code::Char(',' | '<')) => {
                     self.move_column(area_w, -1);
-                    self.last = "Alt+← — column";
+                    self.last = ", — column left";
                 }
-                (true, Code::Right) => {
+                (true, Code::Right) | (_, Code::Char('.' | '>')) => {
                     self.move_column(area_w, 1);
-                    self.last = "Alt+→ — column";
+                    self.last = ". — column right";
                 }
                 (_, Code::Char('[')) => {
                     self.table.hoff = self.table.hoff.saturating_sub(8);
