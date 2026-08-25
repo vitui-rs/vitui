@@ -60,6 +60,24 @@ silently.
 | example | what | after |
 |---|---|---|
 | `counter` | A bordered panel, a centred value, `Left`/`Right`/`q` | [ratatui's counter-app tutorial](https://ratatui.rs/tutorials/counter-app/basic-app/) |
+| `triage` | Mail triage over 200 000 messages that do not exist. **Four collections, one component, four values of `Mode`** — a view filter, a folder list, a multi-select and a menu — with the cursor, the anchor and the span list printed along the bottom | — |
+
+```sh
+cargo run -p vitui-apps --example triage
+```
+
+`triage` is the second and it is **not** a port, because there is nothing to port: what it shows is
+ADR 0028's claim that `list`, option list, menu, multi-select, tabs, radio group and segmented
+control are one component and one `Mode`, and no other library's tutorial has an equivalent because
+no other library makes the claim. The status bar is the point — `Ctrl+A` over two hundred thousand
+messages reads **`selected 200000 in 1 span(s), 16 B`**, and every other gesture adds at most one
+span.
+
+Three things it cannot say, each recorded in the file rather than worked around: a **horizontal**
+segmented control shares `Selection` and `apply` and lays itself out, because `collection`
+virtualises rows; a collection cannot be *given* an id, so the focus is seated from the `Response`
+the draw returned; and `Ctx::with_id` cannot be called inside a scroll scope, so ADR 0027's *wrap
+the row loop* is written as *wrap the whole component*.
 
 **Ports rather than inventions, where a port is available.** A tutorial's shape is not ours to argue
 with, so what it cannot express here is a fact about this surface instead of a taste. `counter`

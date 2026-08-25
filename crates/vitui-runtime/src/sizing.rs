@@ -625,16 +625,38 @@ mod tests {
     }
 
     /// A scrolled context offsets the content, so the extent follows the content and not the cells.
+    ///
+    /// # The figure moved, and the reason is a sign this test was pinning against the view
+    ///
+    /// It read **2**, which is content row 4 *minus* the 3 — a scroll-*position* reading of
+    /// `Ctx::scrolled`'s argument. `View::at` is `(x + origin.0, y + origin.1)` and
+    /// `View::scrolled` **adds**, so the cell this verb writes lands at root row 7 and not at root
+    /// row 1; the extent was measuring one of those and the surface the other. Components ticket 12
+    /// made the two origins take the translation with the same sign, and the figure is **8** — the
+    /// row the verb actually reached, plus one.
+    ///
+    /// Both directions are here now, because the whole defect was that only one was ever written
+    /// down: `scrolled(0, 3)` pushes the content **down** and `scrolled(0, -3)` pulls it up, which
+    /// is the sense `Ctx::scroll_scope` negates an offset into.
     #[test]
     fn a_scrolled_context_reaches_where_the_content_is() {
         let mut driver = Driver::headless(4, 4).expect("sink");
         driver.frame(|cx| {
             let body = cx.theme().paint(Role::Body);
-            let measured = cx.measured(20, 8, |inner| {
+            let down = cx.measured(20, 8, |inner| {
                 let mut scrolled = inner.scrolled(0, 3);
                 scrolled.text(0, 4, "one row", body);
             });
-            assert_eq!(measured.extent.h, 2);
+            assert_eq!(
+                down.extent.h, 8,
+                "content row 4 pushed down three lands at root row 7"
+            );
+
+            let up = cx.measured(20, 8, |inner| {
+                let mut scrolled = inner.scrolled(0, -3);
+                scrolled.text(0, 4, "one row", body);
+            });
+            assert_eq!(up.extent.h, 2, "and pulled up three it lands at root row 1");
         });
     }
 

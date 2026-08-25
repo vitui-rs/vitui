@@ -670,12 +670,22 @@ mod tests {
         );
     }
 
-    /// **Every name in [`TEXT_BEARING`] is a row of the freeze, and none of them exists here.**
+    /// **Every name in [`TEXT_BEARING`] is a row of the freeze, and exactly one of them exists
+    /// here.**
     ///
     /// The second half is a scan of `src/` and **not** a reading of [`crate::Component::built`]:
     /// that column is the prototype's and is `true` for six of the seven. What row 5 needs to be
-    /// honest about is that its population is seven sinks, so the thing to check is that this crate
-    /// declares no function by any of those names.
+    /// honest about is what its population *is*, and components ticket 12 changed it: `collection`
+    /// is declared, so the population is **six sinks and one component**.
+    ///
+    /// # The needle had a false negative, and it is the shape this file already warns about
+    ///
+    /// It read `sources.contains("pub fn {name}(cx")`, which is right for a signature that fits on
+    /// one line and blind to one rustfmt has broken — `pub fn collection(` alone, with `cx:` on the
+    /// line beneath. Left as it was, this test would have gone on asserting *`collection` is not
+    /// declared in this crate* about a component sitting in `src/collect.rs`, and passing. The
+    /// `(cx` is still what keeps `gates::table()` out of the answer; the broken form is accepted
+    /// only when the line **ends** at the parenthesis, which `pub fn table()` never does.
     #[test]
     fn every_text_bearing_name_is_in_the_freeze() {
         let src = std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/src"));
@@ -691,21 +701,39 @@ mod tests {
             .collect();
         assert!(sources.len() > 10, "the scan found no sources");
 
+        // **`(cx`, not `(`.** A component's signature is `pub fn button(cx: &mut Ctx, …)`
+        // (spec §1), and the bare form has a false positive already in the crate: `gates::table()`
+        // prints the register and is not the `table` component. The second spelling is the same
+        // signature with the parameters on their own lines, which is the only form a
+        // seven-parameter component has — see this test's own header.
+        let declared_here = |name: &str| {
+            let one_line = format!("pub fn {name}(cx");
+            let broken = format!("pub fn {name}(");
+            sources.iter().any(|s| {
+                s.lines()
+                    .map(str::trim)
+                    .any(|l| !l.starts_with("//") && (l.contains(&one_line) || l == broken))
+            })
+        };
+
+        let mut built: Vec<&str> = Vec::new();
         for name in TEXT_BEARING {
             assert!(
                 crate::INVENTORY.iter().any(|c| c.id == name),
                 "`{name}` is not a row of INVENTORY"
             );
-            // **`(cx`, not `(`.** A component's signature is `pub fn button(cx: &mut Ctx, …)`
-            // (spec §1), and the bare form has a false positive already in the crate:
-            // `gates::table()` prints the register and is not the `table` component.
-            let declared = format!("pub fn {name}(cx");
-            assert!(
-                !sources.iter().any(|s| s.contains(&declared)),
-                "`{name}` is declared in this crate, so row 5 is standing over a component and \
-                 should say so instead of over a sink"
-            );
+            if declared_here(name) {
+                built.push(name);
+            }
         }
+        assert_eq!(
+            built,
+            vec!["collection"],
+            "row 5's population is six sinks and one component since components ticket 12. A name \
+             arriving here or leaving it is a deliberate edit: the row is a claim about what a \
+             chord does to *every* focusable, and which of them are real components is the half \
+             this test keeps honest"
+        );
         // No duplicates, or the count above is not the population.
         let mut sorted = TEXT_BEARING.to_vec();
         sorted.sort_unstable();

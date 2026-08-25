@@ -57,21 +57,46 @@ pub struct App {
 
 /// Every application in `examples/`.
 ///
-/// One row so far, and the first one is a port rather than an invention on purpose — see
-/// [`App::after`].
-pub const APPS: [App; 1] = [App {
-    name: "counter",
-    what: "A bordered panel, a centred value, and Left/Right/q. The smallest program anybody \
-           calls a TUI application",
-    uses: &[
-        "structure::panel_with",
-        "text::text_with",
-        "layout::rect::split_at_v",
-        "keys::KeyMap",
-        "ctx::Driver::wait",
-    ],
-    after: Some("https://ratatui.rs/tutorials/counter-app/basic-app/"),
-}];
+/// The first is a port rather than an invention on purpose — see [`App::after`]. The second is not,
+/// and the reason is that there is nothing to port: what it demonstrates is *one component and one
+/// `Mode`*, and no other library's tutorial has an equivalent because no other library makes the
+/// claim.
+pub const APPS: [App; 2] = [
+    App {
+        name: "counter",
+        what: "A bordered panel, a centred value, and Left/Right/q. The smallest program anybody \
+               calls a TUI application",
+        uses: &[
+            "structure::panel_with",
+            "text::text_with",
+            "layout::rect::split_at_v",
+            "keys::KeyMap",
+            "ctx::Driver::wait",
+        ],
+        after: Some("https://ratatui.rs/tutorials/counter-app/basic-app/"),
+    },
+    App {
+        name: "triage",
+        what: "Mail triage over 200 000 messages that do not exist. Four collections on one \
+               screen, one component and four values of `Mode` — a tab strip, a folder list, a \
+               multi-select and a menu — with the cursor, the anchor and the span list printed \
+               along the bottom, so the store is something you watch rather than something you \
+               are told",
+        uses: &[
+            "collect::collection",
+            "collect::Mode",
+            "collect::CollState",
+            "frame::face_paint",
+            "structure::panel_with",
+            "text::fit_with",
+            "layout::Row",
+            "layout::Col",
+            "ctx::Ctx::focused",
+            "ctx::Driver::wait",
+        ],
+        after: None,
+    },
+];
 
 #[cfg(test)]
 mod tests {

@@ -1672,15 +1672,26 @@ impl<'f, 'v> Ctx<'f, 'v> {
     }
 
     /// Offset the content coordinates, which is how a scrolled list is drawn.
+    ///
+    /// **`(dx, dy)` is a translation and not a scroll position**: scrolling *down* by `n` is
+    /// `scrolled(0, -n)`, which is what `tests::visible_rows_bounds_a_million_rows_to_a_screenful`
+    /// and `tests::local_survives_nesting_and_scrolling` both pin. [`Ctx::scroll_scope`] takes the
+    /// *offset* and negates it here; the two senses are one negation apart and the negation is
+    /// written down at exactly one call site.
     pub fn scrolled(&mut self, dx: i32, dy: i32) -> Ctx<'f, '_> {
         Ctx {
             view: self.view.scrolled(dx, dy),
             frame: self.frame,
             env: self.env,
             rect: self.rect,
-            // The content moves the other way from the offset, which is the same transform the
-            // pointer takes on the line below.
-            origin: (self.origin.0 - dx, self.origin.1 - dy),
+            // **The same sense as `view.origin` and not the opposite one**, which is components
+            // ticket 12's correction: `View::at` is `(x + origin.0, y + origin.1)` and this origin
+            // is read by `hover_style` for exactly the same content-to-root map, so the two cannot
+            // take the translation with different signs. Written `- dy` it agreed with a *scroll
+            // position* reading that `view` and `pointer` on the two lines below do not take, and
+            // the disagreement was invisible because nothing had ever awarded a hover inside a
+            // scrolled scope.
+            origin: (self.origin.0 + dx, self.origin.1 + dy),
             pointer: self.pointer.map(|(x, y)| (x - dx, y - dy)),
             // **The reset**: a scrolled context is a content coordinate system, so its own origin is
             // the content origin. §13's `to_content` resets at the area boundary, and this is it.
@@ -2023,7 +2034,17 @@ impl<'f, 'v> Ctx<'f, 'v> {
         let outer = self.frame.open_area.replace(ix);
         let r = {
             let mut clipped = self.child(view);
-            let mut inner = clipped.scrolled(offset.0, offset.1);
+            // **Negated, and it is the one place the two senses meet.** `offset` is a scroll
+            // *position* — the first visible content cell, which is what `Scrollable::between` and
+            // `Area::into_view` are both written in — and [`Ctx::scrolled`] takes a *translation*.
+            // Passed through unnegated, `visible_rows()` answered `-offset..-offset + h` and every
+            // verb at a content row the offset had reached was clipped away: at offset 5 over an
+            // eight-row view, `-5..3` and **0 cells** written at content row 5. Nothing saw it
+            // because no consumer had drawn a scrolled window yet — `crate::scroll`'s own tests all
+            // play at offset 0, and the wheel harness one crate up measures where the offset ended
+            // up rather than what landed on the screen. Found by components ticket 12, the first
+            // virtualised collection.
+            let mut inner = clipped.scrolled(-offset.0, -offset.1);
             f(&mut inner)
         };
         self.frame.open_area = outer;
@@ -4227,6 +4248,48 @@ mod tests {
             let cols = scrolled.visible_cols();
             assert!(cols.end - cols.start <= 40);
         });
+    }
+
+    /// **A scroll scope's offset is a position and `Ctx::scrolled`'s is a translation**, and the one
+    /// negation between them is inside `scroll_scope`.
+    ///
+    /// Components ticket 12's finding, as a regression test on both halves of the same call: the
+    /// window `visible_rows()` answers, and whether a verb at a content row inside it actually
+    /// lands. Written unnegated, the first read `-5..3` and the second wrote **0 cells** — and the
+    /// `Area` the same call pushes carried the positive offset all along, so the two halves of one
+    /// verb disagreed about which way down is.
+    ///
+    /// The `Area` half is asserted beside it, because a fix that negated the *area* instead would
+    /// pass the first assertion and break the wheel chain and every `into_view` delta.
+    #[test]
+    fn a_scroll_scopes_offset_is_a_position_and_the_window_is_the_rows_it_names() {
+        let mut d = driver();
+        let (mut rows, mut wrote) = (0..0, 0);
+        d.frame(|cx| {
+            let body = cx.theme().paint(Role::Body);
+            let view = Rect::new(0, 0, 40, 8);
+            cx.scroll_scope(Id::named("list"), view, (0, 5), (0, 992), |cx| {
+                rows = cx.visible_rows();
+                wrote = cx.text(0, 5, "X", body).cells;
+            });
+        });
+        assert_eq!(
+            rows,
+            5..13,
+            "the window is the content rows the offset names"
+        );
+        assert_eq!(
+            wrote, 1,
+            "and a verb at the first of them lands on the screen"
+        );
+
+        let area = d.inspect().scroll_areas()[0];
+        assert_eq!(
+            area.offset,
+            (0, 5),
+            "the area keeps the position, which is what `Scrollable::between` and \
+             `Area::into_view` are both written in"
+        );
     }
 
     /// The drawing verbs reach the wire, and `stage` measures before `blit` draws.

@@ -5,9 +5,10 @@
 //! Being built one ticket at a time from `.scratch/vitui-components-architecture/spec.md`, whose
 //! map is closed; the backlog is `.scratch/vitui-components-impl/`, forty-three tickets.
 //!
-//! **Four of the twenty-nine components are written** — [`text::text`], [`text::chip`],
-//! [`input::button`] and [`structure::panel`], components ticket 10 — and the dense screen is now
-//! drawn *through* them rather than through their construction. They are spec §1's four rules with
+//! **Five of the twenty-nine components are written** — [`text::text`], [`text::chip`],
+//! [`input::button`] and [`structure::panel`] (components ticket 10), and [`collect::collection`]
+//! (components ticket 12) — and the dense screen and the listing are now drawn *through* them
+//! rather than through their construction. They are spec §1's four rules with
 //! **two stated substitutions**: [`Rect`] stands in for `Rect`, which cannot be named from a
 //! package whose dependency table is `vitui-runtime` and nothing else; and
 //! [`structure::Panel`] stands in for a bare `Response`, because §2's *the cells it does not write
@@ -29,9 +30,9 @@
 //! - [`obligations`] — §17's five obligations as queries over the freeze, each returning a count or
 //!   an equality. **Not one of them can be met yet, and every one of them says so out loud** rather
 //!   than returning green over an empty population.
-//! - [`gates`] — §21's register: **sixty-seven gates as rows, forty-two of them evaluated**, four
-//!   pinned red with their failing sets, six unreachable across the crate line with what would have
-//!   to become public, and fifteen with nothing yet to run over. An instrument is a value with a
+//! - [`gates`] — §21's register: **seventy-four gates as rows, fifty-three of them evaluated**,
+//!   three pinned red with their failing sets, six unreachable across the crate line with what
+//!   would have to become public, and twelve with nothing yet to run over. An instrument is a value with a
 //!   file in it, so a row that has stopped running turns the register red here. **One of those rows
 //!   was not unreachable and had said it was for five tickets** — see that module's header, because
 //!   the shape it names is the one an `Unreachable` invites. **A fourth was red and is now green,
@@ -46,10 +47,12 @@
 //! - [`counters`] — §20's nine per-frame counters, **eight of which this crate can read**. The
 //!   ninth, `marked`, panics rather than answering `0`, and so does the sentinel probe.
 //! - [`scenes`] — the normative scene list: **twenty-nine screens, twenty-seven of them §21's
-//!   table, twenty-one `Unsubjected`, five `Red` and three `Evaluated`**, each with the size it is
+//!   table, twenty-one `Unsubjected`, one `Red` and seven `Evaluated`**, each with the size it is
 //!   played at, the content it stands up, the gestures it plays and the property it decided. Three
 //!   of them exist because a defect survived every gate then in force by not being on any screen
-//!   anybody had built.
+//!   anybody had built. The one still red is the wheel gate, and it is red because the defect is
+//!   real rather than because a subject is missing — components 12 turned the other four of
+//!   components 11's five and deliberately left it.
 //! - [`runner`] — *render one scene two ways and compare it cell for cell*, reporting **n cells over
 //!   m rows**. Three of the four hostile axes were caught only by this, and every one of them made
 //!   the defective build look **healthier**. The reference arm is this crate's own, and
@@ -70,11 +73,25 @@
 //!   the four hostile axes standing on it instead of in a table — 75 of 80 rows for the inverted
 //!   scroll sign, 71 of 80 (2 840 cells) for the stale tail, one cell a row for the missing
 //!   ellipsis, and **0 against 20** for the unconditional `scroll_into_view` `CONTEXT.md` forbids
-//!   and four *resolved* tickets wrote anyway. Its five scenes are **red**, and two different
-//!   reasons are kept apart: four wait for `collection` (components 12) and the wheel gate waits for
+//!   and four *resolved* tickets wrote anyway. One of its five scenes is still red, and the two
+//!   reasons were kept apart from the start: four waited for `collection` (components 12, done)
+//!   and the wheel gate waits for
 //!   the fix (components 20). Its own finding is that *writes flat 1k -> 1M* is **green** on a
 //!   listing that declares a million hit entries, which is why the equality it registers is on
-//!   `regions`.
+//!   `regions`. **Four of the five are green since components 12**, which declared
+//!   [`collect::collection`] and rewrote both arms of `listing::draw_into` to draw through it —
+//!   `Volume::Windowed` is the component and `Volume::WholeContent` is its `defective` twin, one
+//!   value apart.
+//!
+//! - [`collect`] — **`collection`, the component the rest of this library is mostly made of**:
+//!   one component, one [`collect::Mode`] and **thirteen match arms**, counted by opening the file
+//!   rather than declared. `list`, option list, menu, multi-select, tabs, radio group and segmented
+//!   control are those four modes plus the caller's row drawer, and no row of [`INVENTORY`] carries
+//!   one of the seven names. Select-all is **one span and 16 bytes at any length** against a
+//!   `HashSet`'s 13 381 µs and 18.9 MB at a million rows; one hit entry a collection whatever the
+//!   volume, with per-row hover resolved by arithmetic on **this frame's** pointer; the scan cursor
+//!   at one `partition_point` a frame against one a row; and 3 200 writes / 81 regions / 1 stop /
+//!   0 allocations at 1 000, 100 000 and 1 000 000 rows, at 52.8–53.0 µs.
 //!
 //! **And all seven of spec §3's helpers now exist**, which is the first code here that a component
 //! will call rather than be measured by: [`text::fit`] and [`frame::block`] are the two partition
