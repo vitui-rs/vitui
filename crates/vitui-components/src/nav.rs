@@ -45,7 +45,7 @@ use std::time::{Duration, Instant};
 
 use vitui_runtime::ctx::{Ctx, Driver};
 use vitui_runtime::focus::ScopeKind;
-use vitui_runtime::keys::{Code, Pressed};
+use vitui_runtime::keys::{Code, Edge, Pressed};
 use vitui_runtime::layout::{Col, Constraint::Weight};
 use vitui_runtime::{Id, Interest};
 
@@ -114,6 +114,18 @@ impl Cursor {
 /// **Shift passes**, for [`SIGNIFICANT`](crate::keys::SIGNIFICANT)'s reason: `Shift+Down` is a range
 /// selection, which is the group's business and not the application's.
 ///
+/// # A release is not a cursor key, and the terminal sends one
+///
+/// **The engine pushes kitty flag 31, and bit 2 of that is *report event types*** — so on a terminal
+/// that speaks the protocol every arrow arrives twice, once as a press and once as a release, and a
+/// helper that read only `code` moved the cursor two rows for one keystroke. It is invisible on a
+/// legacy terminal, which reports one edge, and that is why it shipped: the same defect
+/// `vitui_runtime::keys::Chord::matches` refuses in its first three lines, arriving here because
+/// this helper does not go through a `Chord`.
+///
+/// [`crate::keys`] already refuses a release in three places; this is the fourth, and it is the one
+/// a component reaches for when it has no key map at all.
+///
 /// # Both directions clamp and neither wraps
 ///
 /// A cursor that wrapped would put `Down` at the bottom of a list back at the top, which is what the
@@ -121,7 +133,7 @@ impl Cursor {
 /// indistinguishable to a user who cannot see where either one went. The ring wraps because it has
 /// somewhere to wrap to; a group's cursor stops.
 pub fn step(k: &Pressed, cur: Cursor) -> Option<usize> {
-    if cur.len == 0 || is_chord(k) {
+    if cur.len == 0 || k.kind == Edge::Release || is_chord(k) {
         return None;
     }
     let last = cur.last();
@@ -450,6 +462,49 @@ mod tests {
 
     fn key(code: Code) -> Pressed {
         press(Chord::new(code))
+    }
+
+    /// The same key on its release edge, which is the second half of one keystroke at kitty flag 2.
+    fn released(code: Code) -> Pressed {
+        let mut k = press(Chord::new(code));
+        k.kind = Edge::Release;
+        k
+    }
+
+    /// **One keystroke is one step, and the terminal reports two edges.**
+    ///
+    /// The engine pushes kitty flag 31, whose bit 2 is *report event types*, so a real terminal
+    /// sends `Down` twice — once pressed, once released. This helper read only `code`, so a
+    /// `collection` on Ghostty moved its cursor **two rows for one press**, and the same program on
+    /// a legacy terminal moved one. Watched in both directions: the press still steps, and the
+    /// release does not.
+    #[test]
+    fn a_release_is_not_a_cursor_key_and_a_press_still_is() {
+        let cur = Cursor {
+            at: 0,
+            len: LABELS.len(),
+            page: 4,
+        };
+        for code in [
+            Code::Down,
+            Code::Up,
+            Code::Left,
+            Code::Right,
+            Code::Home,
+            Code::End,
+            Code::PageUp,
+            Code::PageDown,
+        ] {
+            assert!(
+                step(&key(code), cur).is_some(),
+                "{code:?} pressed is this group's key",
+            );
+            assert_eq!(
+                step(&released(code), cur),
+                None,
+                "{code:?} released is the other half of the same keystroke and must not step again",
+            );
+        }
     }
 
     // ── criterion 4: arrows, Home/End, PageUp/PageDown ───────────────────────────────────────────

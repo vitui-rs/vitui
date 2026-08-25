@@ -107,7 +107,7 @@
 use std::ops::Range;
 use std::time::Instant;
 
-use vitui_runtime::keys::{Code, Pressed};
+use vitui_runtime::keys::{Code, Edge, Pressed};
 use vitui_runtime::{Ctx, Id, Interest, Mods, Rect, Response, Revision, Role, Scrollable};
 
 use crate::frame::Face;
@@ -619,6 +619,15 @@ pub struct CollState {
     /// after clearing. A public field would make *the revision was left behind* an ordinary
     /// assignment, and leaving it behind is the whole failure §10 is about.
     rev: Revision,
+    /// **Whether the pointer was already down on this collection last frame.**
+    ///
+    /// The rising edge of [`Response::pressed`], which the runtime does not publish: `pressed` is
+    /// `grab == Some(id)` and so is *true every frame the button is held*, while the edge lives in
+    /// the accumulator and is never surfaced. One bool here turns the level back into the edge.
+    ///
+    /// **Private and not a slot per row**, so ADR 0028's rule is untouched: this is one fact about
+    /// the collection, not a fact about a row.
+    pressing: bool,
 }
 
 impl Default for CollState {
@@ -633,6 +642,7 @@ impl Default for CollState {
             // guarded on `is_known()`, so a collection over a caller with no order at all is never
             // told its positions went stale.
             rev: Revision::UNKNOWN,
+            pressing: false,
         }
     }
 }
@@ -967,9 +977,22 @@ where
         .local
         .map(|(_, ly)| usize::try_from(st.offset + ly).unwrap_or(0))
         .filter(|i| *i < len);
-    if resp.clicked
-        && let Some(at) = over
-    {
+    // **A row selects on the press and not on the release**, which is the opposite of a button and
+    // is deliberate. `Response::clicked` is *pressed and released without leaving* — right for a
+    // button, because sliding off before the release is how a user cancels one — and wrong for a
+    // list, where every platform selects under the finger the moment it lands. Driven through a
+    // pty, the release-driven spelling reads as **nothing on the press and the row selected on the
+    // release**, which is what the defect looks like from the outside.
+    //
+    // It also costs a gesture the component is supposed to have: a range cannot be drag-selected
+    // if the selection does not begin until the button comes up.
+    //
+    // The edge is reconstructed here rather than read, because `Response::pressed` is a level —
+    // applied every frame it is held, `from_click` would re-toggle a ctrl-click for as long as the
+    // user leans on the button. See runtime architecture issue 29.
+    let press_edge = resp.pressed && !st.pressing;
+    st.pressing = resp.pressed;
+    if press_edge && let Some(at) = over {
         apply(opts.mode, &mut st.sel, len, from_click(resp.mods, at));
         resp.changed = true;
     }
@@ -1068,6 +1091,17 @@ where
 {
     let mut out = Asked::default();
     while let Some(k) = cx.next_key(id) {
+        // **A release is not a gesture, and it is dropped rather than declined.** The engine pushes
+        // kitty flag 31 and bit 2 of that is *report event types*, so on a terminal that speaks the
+        // protocol every key arrives twice. Unguarded, one `Down` moved the cursor two rows and one
+        // `z` put two `z`s in the type-ahead buffer — `crate::nav::step` refuses the first half now
+        // and `seek` would still have taken the second, because a released character is a character.
+        //
+        // **Dropped, not declined**: declining hands it back to the router, and the next component
+        // to read it has the same defect for the same reason. Nobody wants a release.
+        if k.kind == Edge::Release {
+            continue;
+        }
         let cur = Cursor {
             at: st.sel.lead,
             len,
@@ -2009,6 +2043,111 @@ mod tests {
             rows as u64,
             "one merge a row of the second collection: {rows} of {} targets inert",
             2 * rows
+        );
+    }
+
+    /// **A row selects on the press, and holding the button does not select it again.**
+    ///
+    /// The runtime sets `Response::clicked` on `MouseKind::Up` — *a click is a release over the
+    /// widget that was pressed* — which is right for a button and wrong for a list. Driven through
+    /// a pty against the shipped `triage` application, the release-driven spelling reported
+    /// **nothing on the press and the row selected on the release**, which is what a user reports
+    /// as *it works on key-up*.
+    ///
+    /// The other half is why the edge is reconstructed rather than read: `Response::pressed` is
+    /// `grab == Some(id)`, true for **every frame the button is held**, so applying on the level
+    /// would re-run `from_click` all the way down — and a ctrl-click, which toggles, would flicker
+    /// for as long as the user leaned on the button. Both directions are asserted here.
+    #[test]
+    fn a_row_selects_on_the_press_and_holding_does_not_select_it_twice() {
+        use vitui_runtime::{Button, Buttons, Mods, Mouse, MouseKind};
+
+        /// One frame per entry; `None` draws without posting anything.
+        ///
+        /// The first is the frame that builds the hit index — nothing can be over a region that has
+        /// not been declared yet (ADR 0012) — and the second is a `Move`, because the runtime reads
+        /// the pointer's position once per frame before it walks the batch, so a `Down` arriving at
+        /// a position nothing has moved to is a press over nothing.
+        fn run(kinds: &[Option<MouseKind>], mods: Mods) -> (usize, Vec<usize>) {
+            let mut driver = crate::runner::driver_at(40, 8, vitui_runtime::Density::default());
+            let mut st = CollState::new();
+            let opts = CollOpts {
+                mode: Mode::Multi,
+                ..CollOpts::default()
+            };
+            let mut applied = Vec::new();
+            for kind in kinds {
+                if let Some(kind) = *kind {
+                    driver.post_mouse(Mouse {
+                        x: 5,
+                        y: 3,
+                        kind,
+                        buttons: Buttons::NONE,
+                        mods,
+                        at: Instant::now(),
+                    });
+                }
+                driver.frame(|cx| {
+                    let area = cx.area();
+                    let _ = collection(
+                        cx,
+                        area,
+                        &mut st,
+                        &opts,
+                        Rows::of(1_000),
+                        &mut |_: &str, _: Range<usize>| None,
+                        &mut |_cx: &mut Ctx<'_, '_>, _r: Rect, _i: usize, _f: Face| {},
+                    );
+                });
+                applied.push(st.sel.count());
+            }
+            (st.sel.lead, applied)
+        }
+
+        // The press selects. The award is assembled at the end of the frame that carried the
+        // event, so the frame that *sees* the press is the one after it — which is why there is a
+        // trailing `None` here and why `hovered` is documented as the previous frame's guess.
+        let (lead, applied) = run(
+            &[
+                None,
+                Some(MouseKind::Move),
+                Some(MouseKind::Down(Button::Left)),
+                None,
+            ],
+            Mods::NONE,
+        );
+        assert_eq!(
+            applied,
+            vec![0, 0, 0, 1],
+            "the press selects the row: {applied:?}",
+        );
+        assert_eq!(
+            lead, 3,
+            "and the row is this frame's pointer, by arithmetic"
+        );
+
+        // **Holding it does not apply the gesture again, and the case has to be a ctrl-click to
+        // show it.** A plain click is idempotent — `Gesture::Plain(at)` sets the lead, the anchor
+        // and one selected row, and running it on every frame of a held button leaves exactly the
+        // same three facts, so a plain click cannot tell the level from the edge. A ctrl-click
+        // *toggles*, so on the level it flickers: selected, not selected, selected, once a frame
+        // for as long as the button is down. Watched failing with `press_edge = resp.pressed`.
+        let (_, applied) = run(
+            &[
+                None,
+                Some(MouseKind::Move),
+                Some(MouseKind::Down(Button::Left)),
+                None,
+                None,
+                Some(MouseKind::Up(Button::Left)),
+                None,
+            ],
+            Mods::CTRL,
+        );
+        assert_eq!(
+            applied,
+            vec![0, 0, 0, 1, 1, 1, 1],
+            "one press is one gesture however many frames it is held for: {applied:?}",
         );
     }
 

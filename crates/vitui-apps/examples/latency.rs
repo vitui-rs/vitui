@@ -178,7 +178,30 @@ fn key_map() -> KeyMap {
         .bind(&[Chord::key('c')], DEPTH, "Colour depth")
         .bind(&[Chord::key('t')], RULE, "Threshold axis")
         .bind(&[Chord::new(Code::Char(' '))], PAUSE, "Pause")
-        .bind(&[Chord::key('+'), Chord::key('=')], MORE, "More points")
+        // **Three spellings of one key, and the third is the one a real terminal sends.**
+        //
+        // `Chord::key(c)` carries `Mods::NONE`, and `Chord::matches` compares `SHIFT` because
+        // `keys::INTENT` contains it. So a chord on a character you can only *type* with shift can
+        // never match on a terminal that reports the modifier: pressing `Shift+=` on Ghostty
+        // arrives as the base-layout `=` with `SHIFT` set, and `Chord::key('+')` and
+        // `Chord::key('=')` both miss it. Measured through a pty: unshifted `+` and unshifted `=`
+        // work, and every shifted spelling — `=`+shift, `+`+shift, with or without the text field —
+        // does nothing at all. It is invisible on a legacy terminal, which reports no modifier for
+        // a printable byte.
+        //
+        // This is an application working around a runtime question rather than a fix: for a
+        // *character* chord, shift is how the character was produced and not a modifier the author
+        // meant, while for a *named key* chord (`Shift+Tab`) it is exactly the modifier. Recorded
+        // as a finding rather than decided here.
+        .bind(
+            &[
+                Chord::key('+'),
+                Chord::key('=').shift(),
+                Chord::key('+').shift(),
+            ],
+            MORE,
+            "More points",
+        )
         .bind(&[Chord::key('-')], FEWER, "Fewer points")
 }
 
