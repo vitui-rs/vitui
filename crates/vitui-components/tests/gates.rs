@@ -389,11 +389,14 @@ fn a_zeroed_allocation_is_counted_exactly_once_like_any_other() {
 // ── The wheel gate's reachable half ──────────────────────────────────────────────────────────────
 
 /// **An offset that moves when nothing asked is a failure** — the second direction of the gate
-/// ticket 20 inverts, and the only one of the two this crate can run.
+/// ticket 20 inverts, and for four tickets the only one of the two this crate could run.
 ///
 /// The first direction — *twenty wheel clicks move the offset twenty* — needs a posted `Mouse`,
-/// which is `EngineName { name: "Mouse", reachable_as: None }`; see `crate::gates::REGISTER`'s row
-/// for it. This half needs no pointer at all: `Ctx::request_into_view` is the only door a reveal may
+/// which was `EngineName { name: "Mouse", reachable_as: None }`. **Runtime architecture issue 22
+/// lifted that**, so components 20 can now drive the real channel; this half is unchanged because it
+/// never needed the pointer. See `crate::gates::REGISTER`'s row for the standing.
+///
+/// This half needs no pointer at all: `Ctx::request_into_view` is the only door a reveal may
 /// take (ADR 0015 — no geometry crosses a frame), so a frame that asks for nothing must leave
 /// `Frame::into_view()` empty, and a one-directional gate written the other way round would go green
 /// the moment somebody deleted the call entirely.

@@ -195,8 +195,10 @@ pub struct EngineName {
 /// `Style` is on the list because `pub struct Paint(pub(crate) Style)` names it in a public
 /// declaration, and it is the one entry nothing is blocked by: the field is restricted, which is the
 /// whole design — a component names a role and can never construct a paint.
-pub const ENGINE_NAMES: [EngineName; 25] = [
-    // The nine with a path. Four of them are one `pub use` in `keys`, and two are one in `work`.
+pub const ENGINE_NAMES: [EngineName; 29] = [
+    // **Every row carries a path**, and `the_engine_names_on_the_surface_are_all_reachable` is what
+    // makes that a gate rather than a claim. Nine of them predate issue 22 and sit in the module that
+    // owns the concept; the twenty that arrived with it sit at the crate root, which owns none.
     EngineName {
         name: "GlyphSet",
         reachable_as: Some("vitui_runtime::theme::GlyphSet"),
@@ -210,10 +212,8 @@ pub const ENGINE_NAMES: [EngineName; 25] = [
         reachable_as: Some("vitui_runtime::work::Slot"),
     },
     // **Both halves of the handoff, and they arrived together.** `Driver::wait` returns a `Wake` and
-    // `Worker::hire` takes a `WakeHandle`, so a crate that cannot name them can write no loop and
-    // hire no worker. `WakeHandle` moved from the seventeen to here rather than being added: it was
-    // already named by a public signature and reachable through nothing, which is what made
-    // `crate::work` a module an application could read and not use.
+    // `Worker::hire` takes a `WakeHandle`, so a crate that cannot name them can write no loop and hire no
+    // worker. Architecture issue 23.
     EngineName {
         name: "Wake",
         reachable_as: Some("vitui_runtime::work::Wake"),
@@ -238,72 +238,104 @@ pub const ENGINE_NAMES: [EngineName; 25] = [
         name: "KeyText",
         reachable_as: Some("vitui_runtime::keys::Text"),
     },
-    // The sixteen with none. Each is named by a public signature; the ones that block a whole
-    // family of gates are `Rect`, `Mods`, `Event` and `Mouse` — see this module's documentation and
-    // `crates/vitui-components/tests/crate_line.rs`'s table.
+    // ── issue 22: the twenty that arrived at the crate root ───────────────────────────────────────
+    //
+    // `Rect` first because it is the one that made the issue load-bearing: 27 public declarations name
+    // it and `crates/vitui-components/src/cells.rs` exists because none of them re-exported it.
     EngineName {
         name: "Rect",
-        reachable_as: None,
+        reachable_as: Some("vitui_runtime::Rect"),
     },
+    // **Two the surface does not name, kept anyway.** `Restyle` appears only where `theme`'s
+    // `pub const BOLD: u16` is defined and `Style` only as `Paint`'s `pub(crate)` field, so neither is
+    // reachable-or-not in the sense the rule is about. They are re-exported rather than struck from this
+    // list: deleting a row to make a gate come out even is what `route` is the standing precedent against.
     EngineName {
         name: "Restyle",
-        reachable_as: None,
+        reachable_as: Some("vitui_runtime::Restyle"),
     },
     EngineName {
         name: "Written",
-        reachable_as: None,
+        reachable_as: Some("vitui_runtime::Written"),
     },
     EngineName {
         name: "ColorDepth",
-        reachable_as: None,
+        reachable_as: Some("vitui_runtime::ColorDepth"),
     },
     EngineName {
         name: "Event",
-        reachable_as: None,
+        reachable_as: Some("vitui_runtime::Event"),
     },
     EngineName {
         name: "Mods",
-        reachable_as: None,
+        reachable_as: Some("vitui_runtime::Mods"),
     },
     EngineName {
         name: "Mouse",
-        reachable_as: None,
+        reachable_as: Some("vitui_runtime::Mouse"),
     },
     EngineName {
         name: "MouseMode",
-        reachable_as: None,
+        reachable_as: Some("vitui_runtime::MouseMode"),
     },
+    // **`Capabilities` was already reachable and this list said otherwise**, which is the inventory
+    // defect issue 22 found in its own instrument: `ctx.rs` carries `pub type Caps = Capabilities;` in a
+    // `pub mod`, and the scan below only recognises `pub use vitui_engine::`. A `pub type` alias is
+    // reachability by a second mechanism, and the row is now true by a path the scan can see.
     EngineName {
         name: "Capabilities",
-        reachable_as: None,
+        reachable_as: Some("vitui_runtime::Capabilities"),
     },
     EngineName {
         name: "Cursor",
-        reachable_as: None,
+        reachable_as: Some("vitui_runtime::Cursor"),
     },
     EngineName {
         name: "CursorShape",
-        reachable_as: None,
+        reachable_as: Some("vitui_runtime::CursorShape"),
     },
     EngineName {
         name: "Config",
-        reachable_as: None,
+        reachable_as: Some("vitui_runtime::Config"),
     },
     EngineName {
         name: "AttachError",
-        reachable_as: None,
+        reachable_as: Some("vitui_runtime::AttachError"),
     },
     EngineName {
         name: "Presented",
-        reachable_as: None,
+        reachable_as: Some("vitui_runtime::Presented"),
     },
     EngineName {
         name: "Rgb",
-        reachable_as: None,
+        reachable_as: Some("vitui_runtime::Rgb"),
     },
     EngineName {
         name: "Style",
-        reachable_as: None,
+        reachable_as: Some("vitui_runtime::Style"),
+    },
+    // **The four that make `Mouse` constructible**, and the reason the rule is about construction rather
+    // than about naming. `Driver::post_mouse` takes a `Mouse`; a `Mouse` carries a `MouseKind`, a
+    // `Buttons` and — through `MouseKind::Down`/`Up`/`Wheel` — a `Button` and a notch. None of the four
+    // was in this list at all, reachable or not, which is what `listing.rs` hit going after a wheel click.
+    //
+    // **The notch is aliased**: `vitui_runtime::scroll::Wheel` is a *configuration* — lines and columns
+    // per click — and the engine's is a direction. `scroll`'s own tests wrote `Wheel as Notch` first.
+    EngineName {
+        name: "Button",
+        reachable_as: Some("vitui_runtime::Button"),
+    },
+    EngineName {
+        name: "Buttons",
+        reachable_as: Some("vitui_runtime::Buttons"),
+    },
+    EngineName {
+        name: "MouseKind",
+        reachable_as: Some("vitui_runtime::MouseKind"),
+    },
+    EngineName {
+        name: "Wheel",
+        reachable_as: Some("vitui_runtime::Notch"),
     },
 ];
 
@@ -585,19 +617,49 @@ mod tests {
 
     // ── the engine names on the surface ──────────────────────────────────────────────────────────
 
-    /// **What the runtime re-exports from the engine, in both directions.** A `pub use
-    /// vitui_engine::…` that [`ENGINE_NAMES`] does not carry is the finding closing itself without
-    /// anyone saying so; a reachable row the source does not have is the opposite.
+    /// **The rule of architecture issue 22, in both directions and with no row exempt.**
+    ///
+    /// > Every engine type this crate's public surface names is reachable through this crate, and so
+    /// > is every type needed to **construct** one that the surface accepts.
+    ///
+    /// Three assertions, and the third is the one that is new. A `pub use vitui_engine::…` that
+    /// [`ENGINE_NAMES`] does not carry is the finding closing itself without anyone saying so; a
+    /// reachable row the source does not have is the opposite; and **no row may be `None`**, which is
+    /// what turns the rule from a list into a rule. Before issue 22 this counted sixteen unreachable
+    /// rows and asserted the number, which is a gate that passes while the barrier it measures stands.
+    ///
+    /// The count is deliberately *not* asserted. A new engine type on the surface must be re-exported
+    /// and added here, and a hard-coded 29 would fail on the addition rather than on the omission —
+    /// the two-directional equality already catches both, and it names which name.
     #[test]
-    fn the_engine_names_reachable_through_the_runtime_are_the_documented_nine() {
+    fn the_engine_names_on_the_surface_are_all_reachable() {
         let mut found = BTreeSet::new();
         for module in modules() {
-            for line in read(&src_dir().join(&module)).lines() {
+            // **A `pub use` is a statement and not a line**, which is the correction issue 22's own
+            // block forced: twenty names do not fit on one, and a scanner that reads lines reports
+            // *the engine is unreachable* about a crate that re-exports all of it. `re_exports` above
+            // already held continuations for the same reason; this one had never met one.
+            let source = read(&src_dir().join(&module));
+            let mut held: Option<String> = None;
+            for line in source.lines() {
                 let s = line.trim();
-                let Some(body) = s.strip_prefix("pub use vitui_engine::") else {
-                    continue;
+                let statement = match held.take() {
+                    Some(mut open) => {
+                        open.push(' ');
+                        open.push_str(s);
+                        open
+                    }
+                    None if s.starts_with("pub use vitui_engine::") => s.to_string(),
+                    None => continue,
                 };
-                let body = body.trim_end_matches(';');
+                if !statement.ends_with(';') {
+                    held = Some(statement);
+                    continue;
+                }
+                let body = statement
+                    .strip_prefix("pub use vitui_engine::")
+                    .expect("the statement opened with the prefix")
+                    .trim_end_matches(';');
                 match body.find('{') {
                     Some(open) => {
                         let close = body.rfind('}').expect("a braced re-export closes");
@@ -615,23 +677,48 @@ mod tests {
                         }
                     }
                     None => {
-                        found.insert(body.trim().to_string());
+                        found.insert(
+                            body.split(" as ")
+                                .next()
+                                .expect("a name")
+                                .trim()
+                                .to_string(),
+                        );
                     }
                 }
             }
+            assert!(
+                held.is_none(),
+                "a `pub use vitui_engine::` in {module} never ended"
+            );
         }
         let documented: BTreeSet<String> = ENGINE_NAMES
             .iter()
             .filter(|e| e.reachable_as.is_some())
             .map(|e| e.name.to_string())
             .collect();
-        assert_eq!(found, documented);
         assert_eq!(
-            ENGINE_NAMES
-                .iter()
-                .filter(|e| e.reachable_as.is_none())
-                .count(),
-            16
+            found, documented,
+            "the `pub use vitui_engine::` lines in this crate and `ENGINE_NAMES` disagree"
+        );
+
+        // The rule itself. An unreachable row is a name a component-facing crate can meet in a
+        // signature and never write, which is what `crates/vitui-components/src/cells.rs` was built
+        // around and what `listing.rs` could not get past at all.
+        let unreachable: Vec<&str> = ENGINE_NAMES
+            .iter()
+            .filter(|e| e.reachable_as.is_none())
+            .map(|e| e.name)
+            .collect();
+        assert!(
+            unreachable.is_empty(),
+            "issue 22's rule is that every one of these is reachable through this crate, and \
+             {unreachable:?} {} not. Re-export it at the crate root beside the others rather than \
+             removing the row",
+            match unreachable.len() {
+                1 => "is",
+                _ => "are",
+            }
         );
     }
 

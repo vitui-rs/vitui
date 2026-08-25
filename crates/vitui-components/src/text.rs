@@ -393,10 +393,16 @@ pub fn chip_into<I: Ink>(
 /// **[`chip`]'s drawing half, with the [`Response`] supplied rather than declared.** Returns the
 /// face it drew.
 ///
-/// # This is public because the pointer cannot be driven from this crate at all
+/// # This is public because the pointer could not be driven from this crate at all
 ///
-/// `Driver::post_mouse` takes a `vitui_engine::Mouse`, and `crates/vitui-runtime/src/line.rs` files
-/// it `EngineName { name: "Mouse", reachable_as: None }`; `Ctx::interact` reads `hovered` off
+/// **Runtime architecture issue 22 lifted the barrier this section rests on** — `Mouse` and the
+/// three types needed to build one are reachable now. The reasoning is kept because it is why this
+/// door is public; the door is not withdrawn, because a container that already holds an id still
+/// needs it.
+///
+/// As written: `Driver::post_mouse` takes a `vitui_engine::Mouse`, and
+/// `crates/vitui-runtime/src/line.rs` filed it `EngineName { name: "Mouse", reachable_as: None }`;
+/// `Ctx::interact` reads `hovered` off
 /// `frame.hover_guess`, which nothing here can set. So *the frame one chip is hovered* — spec §2's
 /// **8 cells against 6 662, 833×** — has no gesture to play, and the only way to stand it up is to
 /// hand the component the `Response` the runtime would have handed it.

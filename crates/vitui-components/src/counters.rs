@@ -448,13 +448,15 @@ impl Counters {
 /// overlay wrote; a sentinel *in* the base is the only arrangement where survival means *nobody
 /// wrote here*.
 ///
-/// # Three barriers, and the first two are the runtime's while the third is a decision
+/// # Three barriers, and the first has lifted
 ///
-/// 1. **The stamp's value.** `Theme::custom(&self, fg: Rgb, bg: Rgb) -> Paint` is public and cannot
-///    be called: `Rgb` is `EngineName { name: "Rgb", reachable_as: None }` in
-///    `crates/vitui-runtime/src/line.rs`, so there is no expression of that type to pass. A
-///    `Theme::paint(Role::…)` is not a substitute — the sentinel has to be a paint **no role can
-///    produce**, or a cell legitimately painted in that role counts as unwritten.
+/// 1. **The stamp's value — lifted by runtime architecture issue 22.** This read: *`Theme::custom(&self,
+///    fg: Rgb, bg: Rgb) -> Paint` is public and cannot be called: `Rgb` is
+///    `EngineName { name: "Rgb", reachable_as: None }`, so there is no expression of that type to
+///    pass.* `Rgb` is now `vitui_runtime::Rgb` and the call compiles, so the stamp can be minted
+///    here. The reasoning is kept rather than deleted because it is why the sentinel is shaped as it
+///    is: a `Theme::paint(Role::…)` is still not a substitute — the sentinel has to be a paint **no
+///    role can produce**, or a cell legitimately painted in that role counts as unwritten.
 /// 2. **The stamp's reach.** `Ctx::clear` writes the whole of a context and is the medium, so
 ///    *stamping* is reachable: one frame that clears, one frame that draws. This barrier is only
 ///    the value, not the act.
@@ -463,11 +465,13 @@ impl Counters {
 ///    as well as this crate's: no `Surface`, `View`, `Screen` or `Presented` method returns a cell,
 ///    a handle or a style bit. Counting survivors therefore has no expression to write.
 ///
-/// **What would have to change**, in the order a ticket would do it: `vitui-engine` grows a
-/// survivor count that never hands a cell over — a `fn survivors(&self, paint) -> usize` on the
-/// composited surface, which is a count and not a readback, so ADR 0023 survives it; `vitui-runtime`
-/// re-exports `Rgb` (or `Theme` grows a `custom_rgb24(u32, u32) -> Paint` that needs no engine
-/// name); and `Driver` grows the door, because this crate cannot name `vitui_engine`.
+/// **What would have to change**, in the order a ticket would do it. The middle step is **done**:
+/// `vitui-runtime` re-exports `Rgb` (issue 22), so the alternative it offered — *`Theme` grows a
+/// `custom_rgb24(u32, u32) -> Paint` that needs no engine name* — is not needed and should not be
+/// built. What is left is the engine's half: `vitui-engine` grows a survivor count that never hands
+/// a cell over — a `fn survivors(&self, paint) -> usize` on the composited surface, which is a count
+/// and not a readback, so ADR 0023 survives it; and `Driver` grows the door, because this crate
+/// still cannot name `vitui_engine` and issue 22 did not change that.
 ///
 /// # It fails loudly, and the register's row is red rather than absent
 ///
@@ -477,8 +481,9 @@ impl Counters {
 pub fn sentinel() -> Reading {
     Reading::Unreachable {
         needs: "a survivor count on the engine that hands over no cell (ADR 0023 forbids the \
-                readback and not the count), `Rgb` or an `Rgb`-free `Theme::custom` so the stamp \
-                can be minted, and a `Driver` accessor for both",
+                readback and not the count) and a `Driver` accessor for it. The stamp is no longer \
+                one of these: runtime issue 22 re-exported `Rgb`, so `Theme::custom` is callable \
+                here and the paint can be minted",
         inverted_by: "components 40",
     }
 }

@@ -12,12 +12,16 @@
 
 //! # `button` is spec §1's own example, and the shape is the rule with one substitution
 //!
-//! §1 writes it out: `pub fn button(cx: &mut Ctx, area: Rect, label: &str) -> Response`. **`Rect`
-//! cannot be named from this package** — it is `vitui_engine::Rect`, `reachable_as: None`, and C6
-//! says the dependency table is `vitui-runtime` and nothing else — so what ships takes
-//! [`Cells`], this crate's own rectangle in the `Ctx`'s coordinates, swept operator for operator
-//! against `vitui_runtime::layout::rect`. See [`crate::cells`] for the four candidates and why this
-//! is the one; the rule is obeyed with `Cells` in `Rect`'s place, not set aside.
+//! §1 writes it out: `pub fn button(cx: &mut Ctx, area: Rect, label: &str) -> Response`. When this
+//! module was written **`Rect` could not be named from this package** — it is `vitui_engine::Rect`,
+//! `reachable_as: None`, and C6 says the dependency table is `vitui-runtime` and nothing else — so
+//! what ships takes [`Cells`], this crate's own rectangle in the `Ctx`'s coordinates, swept operator
+//! for operator against `vitui_runtime::layout::rect`. See [`crate::cells`] for the four candidates
+//! and why this was the one; the rule is obeyed with `Cells` in `Rect`'s place, not set aside.
+//!
+//! **Runtime architecture issue 22 has since made `Rect` nameable here** (`vitui_runtime::Rect`),
+//! which removes the reason and not the code. Whether the signature goes back to §1's own spelling
+//! is components architecture issue 17, and it is not decided in this file.
 
 use vitui_runtime::{Ctx, Interest, Response, Role};
 
@@ -124,9 +128,10 @@ pub fn button_into<I: Ink>(
 /// **[`button`]'s drawing half, with the [`Response`] supplied rather than declared.** Returns the
 /// face it drew.
 ///
-/// The same door [`chip_drawn`] is, for the same reason and with the same warning: the pointer
-/// cannot be driven from this crate — `Mouse` is `reachable_as: None` — so a hovered or pressed
-/// button has no gesture to play, and a container that already holds an id has no other way in.
+/// The same door [`chip_drawn`] is, and for the second of its two reasons: a container that already
+/// holds an id has no other way in. The first reason — *the pointer cannot be driven from this
+/// crate* — **lifted with runtime architecture issue 22**, which made `Mouse` and the types needed
+/// to build one reachable.
 pub fn button_drawn<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,

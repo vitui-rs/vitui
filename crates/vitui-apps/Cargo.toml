@@ -37,8 +37,13 @@ publish = false
 # be a program that says the surface is not finished, and it would say so silently.
 #
 # The two names are separate rather than the `vitui` facade for the same reason: depending on the
-# facade would make `vitui-engine` reachable through a re-export, and the proof would evaporate
-# without a single line changing.
+# facade would make `vitui-engine` reachable **entire** through a re-export — `Surface`, `View`,
+# `Screen`, `Engine`, `LayerStack` — and the proof would evaporate without a single line changing.
+#
+# Note what this is not. Runtime architecture issue 22 made the engine's *vocabulary* reachable
+# through `vitui-runtime` (`Rect`, `Mouse`, `Mods` and the rest of its public surface), under a rule
+# gated in both directions. That is the seam working, not a hole in it: the machinery is still only
+# behind the facade, and an application that needs a `View` is an application with a finding.
 [dependencies]
 vitui-runtime.workspace = true
 vitui-components.workspace = true

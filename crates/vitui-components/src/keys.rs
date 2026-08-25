@@ -21,8 +21,8 @@
 //! `vitui_engine::Mods`, which is `reachable_as: None`. So no key can be posted and no chord can be
 //! pressed.*
 //!
-//! **The premise is true and the conclusion does not follow.** `Mods` cannot be *named* from this
-//! crate — there is no path to it, and `crates/vitui-runtime/src/line.rs` is right that there is
+//! **The premise was true and the conclusion did not follow.** `Mods` could not be *named* from this
+//! crate — there was no path to it, and `crates/vitui-runtime/src/line.rs` was right that there was
 //! none. But a struct literal needs a **value** for each field, not a name for its type, and this
 //! crate can obtain `Mods` values:
 //!
@@ -44,11 +44,13 @@
 //!
 //! Two things, and neither is a component's to fix:
 //!
-//! 1. **Five of the eight modifier bits cannot be constructed here.** `Chord` has `ctrl`, `alt` and
-//!    `shift` builders and no others, so `SUPER`, `HYPER`, `META`, `CAPS` and `NUM` have no
-//!    reachable spelling — [`vitui_runtime::keys::INTENT`] is the six-bit union and there is no
-//!    subtraction. The predicate below reads all of them off a key it is *handed*; it is the
-//!    **exhaustive table** that is 8 states of 256 rather than the rule.
+//! 1. **~~Five of the eight modifier bits cannot be constructed here.~~ Lifted by runtime
+//!    architecture issue 22.** It read: `Chord` has `ctrl`, `alt` and `shift` builders and no others,
+//!    so `SUPER`, `HYPER`, `META`, `CAPS` and `NUM` have no reachable spelling — and the
+//!    **exhaustive table** is 8 states of 256 rather than the rule. `Mods` is `vitui_runtime::Mods`
+//!    now and its eight bits are `pub const`, so [`press_with`] builds a key at any of the 256 and
+//!    [`REACHABLE_STATES`] is 256. The `Chord` limit is unchanged and is not a defect: three
+//!    builders are what an application binds through.
 //! 2. **`KeyText` has no public constructor anywhere.** `Text::EMPTY` is the only value, deliberately
 //!    — so that nothing can forge a key whose `code` and `text` disagree — which is the same
 //!    shortfall the runtime writes down for `On::Typed`. Every key pressed from this crate carries
@@ -65,9 +67,11 @@
 
 use std::time::Instant;
 
-use vitui_runtime::Interest;
+// `Mods` arrived at the crate root with runtime architecture issue 22; before it, this
+// module's whole header was about not being able to write this line.
 use vitui_runtime::ctx::Driver;
 use vitui_runtime::keys::{Chord, Code, Edge, Pressed, Text};
+use vitui_runtime::{Interest, Mods};
 
 /// The key [`SIGNIFICANT`] is written on, and it is filler.
 ///
@@ -98,14 +102,19 @@ pub const SIGNIFICANT: Chord = Chord::key(MASK_KEY).ctrl().alt();
 /// two rules that drift.
 pub const BITS: [Chord; 2] = [Chord::key(MASK_KEY).ctrl(), Chord::key(MASK_KEY).alt()];
 
-/// How many of the 256 modifier states a gate in this crate can construct. **Eight.**
+/// How many of the 256 modifier states a gate in this crate can construct. **All of them.**
 ///
-/// `Chord`'s builders are `ctrl`, `alt` and `shift`, so the reachable set is the eight subsets of
-/// those three. `SUPER`, `HYPER`, `META`, `CAPS` and `NUM` have no reachable spelling — see this
-/// module's header — and register row 5 carries the barrier. The rule below reads all eight bits off
-/// a key it is handed; only the exhaustive table is short, and it says so instead of iterating three
-/// bits and calling it complete.
-pub const REACHABLE_STATES: usize = 8;
+/// This was **eight** and said so for a reason that has since gone. `Chord`'s builders are `ctrl`,
+/// `alt` and `shift`, so the set reachable *through a `Chord`* is the eight subsets of those three,
+/// and `SUPER`, `HYPER`, `META`, `CAPS` and `NUM` had no reachable spelling at all: `Mods` was
+/// `reachable_as: None` and its eight `pub const` bits were behind a name this crate could not write.
+///
+/// **Runtime architecture issue 22 re-exported `Mods`**, so `Mods::SUPER` and its four siblings are
+/// writable here and [`press_with`] builds a key at any of the 256. The exhaustive table is now
+/// exhaustive, which is the difference between *the rule reads all eight bits off a key it is handed*
+/// and *the rule is checked against all eight bits* — the module used to be able to state only the
+/// first.
+pub const REACHABLE_STATES: usize = 256;
 
 // ── the predicate ────────────────────────────────────────────────────────────────────────────────
 
@@ -218,7 +227,8 @@ pub mod defective {
 
 // ── the instrument ───────────────────────────────────────────────────────────────────────────────
 
-/// A key press, built from a crate that cannot name `Mods`.
+/// A key press, built through a `Chord` — which is how a crate that could not name `Mods` built one,
+/// and still the path an application's own bindings take.
 ///
 /// **This function is the ticket's finding.** See this module's header: the modifiers travel inside
 /// a [`Chord`], which is the one nameable type that carries them, and the key is a plain struct
@@ -238,6 +248,24 @@ pub fn press_at(c: Chord, at: Instant) -> Pressed {
         kind: Edge::Press,
         text: Text::EMPTY,
         at,
+    }
+}
+
+/// [`press`], at an arbitrary modifier state.
+///
+/// The door [`REACHABLE_STATES`] became 256 through. A `Chord` reaches three of the eight bits, so a
+/// gate that wants `Super` or a lock has to build the key rather than bind it — which needs a `Mods`
+/// **value** whose type this crate can name, and it can since runtime architecture issue 22.
+///
+/// Deliberately beside `press` rather than replacing it: a `Chord` is what an application actually
+/// binds, and a gate that stops going through one stops exercising the path components use.
+pub fn press_with(code: Code, mods: Mods) -> Pressed {
+    Pressed {
+        code,
+        mods,
+        kind: Edge::Press,
+        text: Text::EMPTY,
+        at: Instant::now(),
     }
 }
 
@@ -455,38 +483,55 @@ mod tests {
     /// reachable spelling — see this module's header and register row 5.
     #[test]
     fn the_predicate_agrees_with_the_mask_on_every_reachable_state() {
+        const BIT: [(&str, Mods); 8] = [
+            ("shift", Mods::SHIFT),
+            ("alt", Mods::ALT),
+            ("ctrl", Mods::CTRL),
+            ("super", Mods::SUPER),
+            ("hyper", Mods::HYPER),
+            ("meta", Mods::META),
+            ("caps", Mods::CAPS),
+            ("num", Mods::NUM),
+        ];
+
         let mut seen = 0;
-        for c in [false, true] {
-            for a in [false, true] {
-                for s in [false, true] {
-                    let mut chord = Chord::key('x');
-                    if c {
-                        chord = chord.ctrl();
-                    }
-                    if a {
-                        chord = chord.alt();
-                    }
-                    if s {
-                        chord = chord.shift();
-                    }
-                    let k = press(chord);
-                    assert_eq!(
-                        is_chord(&k),
-                        c || a,
-                        "ctrl={c} alt={a} shift={s} disagrees with the mask"
-                    );
-                    seen += 1;
+        for state in 0u32..256 {
+            let mut mods = Mods::NONE;
+            let mut held = Vec::new();
+            for (i, (name, bit)) in BIT.iter().enumerate() {
+                if state & (1 << i) != 0 {
+                    mods = mods.with(*bit);
+                    held.push(*name);
                 }
             }
+            let k = press_with(Code::Char('x'), mods);
+
+            // The rule, restated from `BITS` and not from the loop: a chord is ctrl or alt, and the
+            // two locks are masked off before anything is read. `super`, `hyper` and `meta` are in
+            // `INTENT` and are **not** in `BITS`, so a `Super+x` is not a chord by this predicate —
+            // which is the existing rule now checked on the 248 states that could not be built.
+            let expect = mods.contains(Mods::CTRL) || mods.contains(Mods::ALT);
+            assert_eq!(
+                is_chord(&k),
+                expect,
+                "state {state} ({}) disagrees with the mask",
+                match held.is_empty() {
+                    true => "none".to_string(),
+                    false => held.join("+"),
+                }
+            );
+            seen += 1;
         }
         assert_eq!(seen, REACHABLE_STATES);
     }
 
     /// **Caps lock does not turn a letter into a chord**, and the reason is `Mods::chord`.
     ///
-    /// A lock cannot be *written* from here — `Chord` has no `caps` builder — so this is asserted
-    /// where it can be: the predicate masks the locks off before it reads anything, which is the
-    /// same projection R12's `INTENT` is.
+    /// A lock cannot be written *through a `Chord`* — it has no `caps` builder — so this asserts the
+    /// projection rather than the state: the predicate masks the locks off before it reads anything,
+    /// which is the same projection R12's `INTENT` is. The locks themselves are reachable since
+    /// runtime issue 22 and `the_predicate_agrees_with_the_mask_on_every_reachable_state` holds
+    /// them, including the 64 states where a lock is down.
     #[test]
     fn the_predicate_masks_the_locks_before_it_reads_anything() {
         let plain = press(Chord::key('s'));
@@ -494,7 +539,7 @@ mod tests {
         assert!(!is_chord(&plain));
         let held = press(Chord::key('s').ctrl());
         assert!(is_chord(&held));
-        assert_eq!(held.mods.chord(), held.mods, "no lock is reachable to hold");
+        assert_eq!(held.mods.chord(), held.mods, "a chord holds no lock");
     }
 
     // ── the three-way measurement ────────────────────────────────────────────────────────────────

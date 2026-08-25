@@ -84,8 +84,10 @@
 //! that says which failure that is is the whole of components 11's criterion 7. **Row 29 kept its
 //! standing and gained its missing half**: the wheel gate's *twenty wheel clicks move the offset
 //! twenty* direction now runs, with the click's delta handed to `Response::scrolled`'s own
-//! arithmetic on both arms — the `Mouse` barrier is untouched and is *still the reason the click
-//! cannot be posted*, which is the distinction row 5 got wrong.
+//! arithmetic on both arms — and at the time the `Mouse` barrier was untouched and *still the reason
+//! the click cannot be posted*, which is the distinction row 5 got wrong. **Runtime architecture
+//! issue 22 has since lifted that barrier too**; the substitution stays until components 20, and the
+//! row stays red because the defect it names is the unconditional reveal.
 //!
 //! # Row 5 was not *not yet*. It was wrong, and an `Unreachable` that is wrong is the worst standing
 //!
@@ -104,11 +106,18 @@
 //! wish* — applied one step further: **the item has to be the thing actually required.** Row 5
 //! needed a `Mods` **value** and filed a barrier against the `Mods` **name**.
 //!
-//! Row 45's barrier survives the same test and rows 7 and 29's do too: those need `Rgb` and `Mouse`,
-//! and neither has any nameable box a value could travel inside — `Mouse` needs a `Buttons` and a
-//! `MouseKind`, and **neither of those is in `ENGINE_NAMES` at all**, reachable or not. The
+//! Row 45's barrier survives the same test and rows 7 and 29's did too: those needed `Rgb` and
+//! `Mouse`, and neither had any nameable box a value could travel inside — `Mouse` needs a `Buttons`
+//! and a `MouseKind`, and **neither of those was in `ENGINE_NAMES` at all**, reachable or not. The
 //! difference between row 5 and row 45 is not the strength of the barrier, it is that one of them
 //! was checked by trying it.
+//!
+//! **That last observation is what runtime architecture issue 22 acted on**, and it is why the rule
+//! it settled is about *construction* rather than about naming: a name a consumer can write but not
+//! build is a barrier wearing a re-export's clothes. `Rgb`, `Mouse`, `Buttons`, `MouseKind`, the
+//! notch, `Rect` and `Mods` are all reachable now, the three `Barrier` citations into
+//! `crates/vitui-runtime/src/line.rs` are struck from this register, and
+//! `tests::the_named_barriers_have_lifted` watches the direction they came from.
 //!
 //! **Row 48 is the one to read beside row 1.** Row 1 wants *cells marked on a steady frame == 0*
 //! and is `Unreachable`: `damage.rs` is `pub(crate)` throughout and nothing above the engine can
@@ -124,9 +133,16 @@
 //! by making an [`Instrument`] a value with a **file** in it, and this register inherits the
 //! arrangement and adds one arm: [`Instrument::Barrier`], a line in **somebody else's** source that
 //! is the reason a row cannot run. `EngineName { name: "Rgb", reachable_as: None }` is not a claim
-//! about the world, it is a line in `crates/vitui-runtime/src/line.rs`, and
-//! `tests::the_named_barriers_are_still_barriers` opens that file and fails the day either barrier
-//! lifts.
+//! about the world, it is a line in `crates/vitui-runtime/src/line.rs`, and a test opens that file
+//! and fails the day the barrier lifts.
+//!
+//! **All four of the named ones have since lifted**, and the arrangement is what made that legible:
+//! the citation is a line, so `reachable_as: Some(..)` appearing under it is a *failing test* and
+//! not a quiet change of meaning. `tests::the_named_barriers_have_lifted` is that test, inverted in
+//! place. **Note the failure mode it was one edit away from**: `name: "Rgb",` is still in
+//! `ENGINE_NAMES` — only the line beneath it changed — so a `Barrier` compared against
+//! `name: "Rgb",` alone would have gone on passing while meaning the opposite. The citations are
+//! struck for that reason and not because the rows went green.
 //!
 //! # Two of §21's rows are corrected here, from the shipped code rather than from the prototypes
 //!
@@ -530,10 +546,13 @@ pub const REGISTER: [Row; 67] = [
                     file: "crates/vitui-components/src/counters.rs",
                     name: "the_sentinel_panics_rather_than_reporting_no_survivors",
                 },
-                Instrument::Barrier {
-                    file: "crates/vitui-runtime/src/line.rs",
-                    line: "name: \"Rgb\",",
-                },
+                // **The `Rgb` barrier lifted with runtime architecture issue 22 and is struck from
+                // this list rather than left pointing at the line.** `name: "Rgb",` is still in
+                // `ENGINE_NAMES` and the row below it now reads `reachable_as: Some(..)`, so the
+                // citation would have gone on passing while meaning the opposite — which is a
+                // `Barrier` decaying into exactly the citation this arm was added to stop being.
+                // `Theme::custom(fg: Rgb, bg: Rgb)` is callable from this crate now, so the stamp
+                // can be minted; two of `sentinel`'s three barriers remain and the row stays red.
                 Instrument::Barrier {
                     file: "docs/adr/0023-the-cell-is-never-visible-in-the-public-api.md",
                     line: "# The cell is never visible in the public API",
@@ -541,8 +560,9 @@ pub const REGISTER: [Row; 67] = [
             ],
             failing: "9 956 cells of 53 280 (18.7%) over six panels of twelve: the chip screen \
                       4 189, the preview pane 2 159, the scroll area 1 799, media 1 286, the chart \
-                      496, the collection pair 27. And the detector itself is unreachable here — \
-                      `crate::counters::sentinel` names the three barriers",
+                      496, the collection pair 27. And the detector itself is still unreachable \
+                      here — `crate::counters::sentinel` named three barriers, issue 22 lifted the \
+                      first (`Rgb`), and the readback ADR 0023 forbids is the one that matters",
             inverted_by: "components 40",
         },
     },
@@ -844,14 +864,19 @@ pub const REGISTER: [Row; 67] = [
         kind: Kind::Count,
         owner: "C07, C10",
         section: "spec §12",
-        // **Components ticket 11 made the other half run, and the barrier did not lift.** The row
-        // said *half cannot: a wheel click is a posted `Mouse`* and that is still true — what
-        // changed is that the click's **delta** is handed to the arithmetic `Response::scrolled`
-        // would have delivered it to, on **both** arms, so what is under test is the reveal and not
-        // the wire. See `crate::listing`'s header, which states the substitution rather than
-        // burying it, and note the difference from row 5: this barrier was checked by trying it,
-        // and a `Mouse` needs a `Buttons` and a `MouseKind`, neither of which is in `ENGINE_NAMES`
-        // at all.
+        // **The barrier has lifted, and the substitution it forced is now the thing to remove.**
+        // Components ticket 11 made the other half run while the wire stayed out of reach: the row
+        // read *half cannot: a wheel click is a posted `Mouse`*, so the click's **delta** was handed
+        // straight to the arithmetic `Response::scrolled` would have delivered it to, on both arms.
+        // That substitution was honest and is now unnecessary. Runtime architecture issue 22
+        // re-exported `Mouse` **and the three types needed to build one** — `Buttons`, `MouseKind`
+        // and the notch — which is precisely what this comment recorded as missing: *"a `Mouse`
+        // needs a `Buttons` and a `MouseKind`, neither of which is in `ENGINE_NAMES` at all."*
+        // `crate::gates::tests::the_four_are_reachable_by_writing_them` posts one.
+        //
+        // **The row stays red and the figure is unchanged**, because the defect was never the wire:
+        // it is the unconditional scroll-into-view in four resolved tickets' code. What components
+        // 20 inherits is a gate that can now drive the real channel instead of its arithmetic.
         standing: Standing::Red {
             by: &[
                 Instrument::Unit {
@@ -863,10 +888,6 @@ pub const REGISTER: [Row; 67] = [
                     file: "crates/vitui-components/tests/gates.rs",
                     name: "a_frame_that_asks_for_no_reveal_moves_no_offset_and_one_that_asks_does",
                 },
-                Instrument::Barrier {
-                    file: "crates/vitui-runtime/src/line.rs",
-                    line: "name: \"Mouse\",",
-                },
                 Instrument::Report {
                     file: "crates/vitui-components/examples/listing_numbers.rs",
                 },
@@ -876,9 +897,10 @@ pub const REGISTER: [Row; 67] = [
                       against 20 here**, and both directions are pinned: `Reveal::EveryFrame` \
                       settles the offset at 0 where the conditional arm settles at 20, and \
                       `Reveal::Never` — deleting the call, which passes that half — moves the \
-                      offset 0 when a keyboard reveal really asks. The click itself is still \
-                      unpostable: a wheel click is a `Mouse` and `Mouse` is `reachable_as: None`, \
-                      so the delta is handed to `Response::scrolled`'s own arithmetic on both arms",
+                      offset 0 when a keyboard reveal really asks. The click is postable as of \
+                      runtime issue 22 and this gate does not yet post one: the delta is still \
+                      handed to `Response::scrolled`'s own arithmetic on both arms, which components \
+                      20 replaces with the wire it can now reach",
             inverted_by: "components 20",
         },
     },
@@ -1409,13 +1431,15 @@ pub const REGISTER: [Row; 67] = [
                     file: "crates/vitui-components/src/keys.rs",
                     name: "the_predicate_agrees_with_the_mask_on_every_reachable_state",
                 },
-                // **The barrier that survived the inversion of row 5.** Eight of the 256 modifier
-                // states are constructible here, because `Chord` has three builders and `Mods` has
-                // eight bits — so the *exhaustive table* is short even though the rule is not.
-                Instrument::Barrier {
-                    file: "crates/vitui-runtime/src/line.rs",
-                    line: "name: \"Mods\",",
-                },
+                // **The barrier that survived the inversion of row 5 has now lifted too.** It read:
+                // eight of the 256 modifier states are constructible here, because `Chord` has three
+                // builders and `Mods` has eight bits — so the *exhaustive table* is short even
+                // though the rule is not. Runtime architecture issue 22 re-exported `Mods`, so all
+                // 256 are constructible and `the_predicate_agrees_with_the_mask_on_every_reachable_\
+                // state` is now a statement about every state rather than about the eight a `Chord`
+                // could spell. The citation is struck rather than kept: `name: "Mods",` is still in
+                // `ENGINE_NAMES` and now reads `reachable_as: Some(..)` beneath, so it would have
+                // gone on passing while meaning the opposite.
             ],
         },
     },
@@ -2506,31 +2530,76 @@ mod tests {
         );
     }
 
-    /// **The named barriers are still barriers.**
+    /// **The named barriers have lifted, and this is the deliberate edit they asked for.**
     ///
-    /// The half that makes [`Instrument::Barrier`] a gate rather than a citation: `Rgb` and `Mouse`
-    /// are unreachable because `crates/vitui-runtime/src/line.rs` says so, and the day either grows
-    /// a `reachable_as: Some(..)` this test fails and rows 7 and 29 change standing.
+    /// This test used to assert the opposite, and its own failure message named the procedure:
+    /// *"`{name}` has become reachable through the runtime. That inverts a row of `REGISTER` and is
+    /// a deliberate edit here."* Runtime architecture issue 22 made all four reachable at once, so
+    /// the edit is here and the assertion is inverted rather than deleted — a barrier that lifts and
+    /// takes its own gate with it leaves nothing watching the direction it came from.
     ///
-    /// Read from the shipped inventory rather than from a `use` that would not compile, which is the
-    /// only way a crate that cannot name the engine can assert anything about it at all.
+    /// **Why it is worth keeping in the new direction.** `Rgb`, `Mouse`, `Rect` and `Mods` are the
+    /// four this crate was built around not having: `crate::cells` exists because of `Rect`,
+    /// `crate::counters::sentinel`'s first barrier was `Rgb`, and `crate::listing` could not post a
+    /// wheel click because of `Mouse`. If any of them goes back to `reachable_as: None` those three
+    /// modules are wrong again, and this is the only place that would say so.
+    ///
+    /// **`Buttons` and `MouseKind` are asserted beside them and were never in the inventory at all**,
+    /// which is what made the `Mouse` barrier survive a check that only ever looked at `Mouse`:
+    /// a name a consumer can write but not **build** is a barrier wearing a re-export's clothes.
+    ///
+    /// Read from the shipped inventory rather than from a `use`, which is what this crate did while
+    /// it could not name the engine and is still the arrangement that reads `ENGINE_NAMES` itself
+    /// rather than a path that happens to compile.
     #[test]
-    fn the_named_barriers_are_still_barriers() {
+    fn the_named_barriers_have_lifted() {
         let source = read("crates/vitui-runtime/src/line.rs");
         let lines: Vec<&str> = source.lines().map(str::trim).collect();
-        for name in ["Rgb", "Mouse", "Rect", "Mods"] {
+        for name in ["Rgb", "Mouse", "Rect", "Mods", "Buttons", "MouseKind"] {
             let needle = format!("name: \"{name}\",");
             let at = lines
                 .iter()
                 .position(|l| *l == needle)
                 .unwrap_or_else(|| panic!("`{name}` is no longer an entry of `ENGINE_NAMES`"));
-            assert_eq!(
-                lines[at + 1],
-                "reachable_as: None,",
-                "`{name}` has become reachable through the runtime. That inverts a row of \
-                 `REGISTER` and is a deliberate edit here"
+            assert!(
+                lines[at + 1].starts_with("reachable_as: Some("),
+                "`{name}` is `{}` and runtime architecture issue 22 says every engine name on the \
+                 runtime's surface is reachable through it. `crate::cells`, \
+                 `crate::counters::sentinel` and `crate::listing` are all written against these \
+                 four being reachable",
+                lines[at + 1]
             );
         }
+    }
+
+    /// **The four are reachable by writing them**, which the test above cannot do.
+    ///
+    /// Reading `ENGINE_NAMES` proves the inventory says so; this proves the compiler agrees, and the
+    /// two together are what `crate::cells`'s header means by *there is no second spelling*. A
+    /// `Mouse` is **built** here rather than named, because construction is the half the old barrier
+    /// survived: `Driver::post_mouse` takes one, and until issue 22 no crate on this side of the
+    /// line could reach `Buttons` or `MouseKind` to make one.
+    #[test]
+    fn the_four_are_reachable_by_writing_them() {
+        use vitui_runtime::{Buttons, Driver, Mods, Mouse, MouseKind, Notch, Rect, Rgb};
+
+        let area: Rect = Rect::new(0, 0, 10, 4);
+        assert_eq!((area.w, area.h), (10, 4));
+
+        let _: Rgb = Rgb { r: 1, g: 2, b: 3 };
+
+        let wheel = Mouse {
+            x: 3,
+            y: 2,
+            kind: MouseKind::Wheel(Notch::Down),
+            buttons: Buttons::NONE,
+            mods: Mods::NONE,
+            at: std::time::Instant::now(),
+        };
+        assert_eq!(wheel.kind, MouseKind::Wheel(Notch::Down));
+
+        let mut driver = Driver::headless(10, 4).expect("a sink cannot fail to attach");
+        driver.post_mouse(wheel);
     }
 
     /// **The app thread's half cannot cross a thread and the worker's half can** — row 31's runnable

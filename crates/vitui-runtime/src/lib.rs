@@ -150,3 +150,32 @@ pub use theme::{Density, Distinction, Glyph, GlyphSet, Paint, Repaint, Role, Rol
 // Ticket 05's two: the shipped palette as data, and the set that holds which one is current. At the
 // root for the same reason as the four above — an application names both on the line that starts it.
 pub use theme::{Scheme, Themes};
+
+// **The engine's vocabulary, re-exported so a crate that may not name `vitui_engine` can name it.**
+//
+// Runtime architecture issue 22. The rule is checkable and is gated in `crate::line` in both
+// directions: *every engine type this crate's public surface names is reachable through this crate*,
+// together with every type needed to **construct** one that the surface accepts. `Driver::post_mouse`
+// takes a `Mouse`, so `Mouse`'s field types are here too — a name a consumer can write but not build
+// is a barrier wearing a re-export's clothes, which is what `crates/vitui-components/src/listing.rs`
+// found when it went looking for a wheel click and got as far as `Buttons`.
+//
+// **At the root and not in the modules**, which is where the five older ones sit (`theme::GlyphSet`,
+// `theme::Link`, `work::Slot`, `work::Wake`, the four `keys` aliases). Those stay. The difference is
+// that each of them is owned by the module it sits in, and none of these is: `Rect` is named by seven
+// modules and no runtime module owns rectangles.
+//
+// **`Wheel` arrives aliased**, for the reason `keys` aliases four and `CONTEXT.md` states once: two
+// types with one name across a seam is the failure being avoided. `vitui_runtime::scroll::Wheel` is a
+// *configuration* — lines and columns per click — and the engine's is a notch direction. The runtime's
+// own `scroll` tests already wrote `Wheel as Notch` before this line existed.
+//
+// `Restyle` and `Style` are here and are **not** named by the public surface: `Restyle` appears only
+// where `theme`'s `pub const BOLD: u16` is defined, and `Style` only as `Paint`'s `pub(crate)` field.
+// They are re-exported rather than struck from `crate::line::ENGINE_NAMES`, because deleting a row to
+// make a gate come out even is the move this repository forbids by name — `route` is the precedent.
+pub use vitui_engine::{
+    AttachError, Button, Buttons, Capabilities, ColorDepth, Config, Cursor, CursorShape, Event,
+    Mods, Mouse, MouseKind, MouseMode, Presented, Rect, Restyle, Rgb, Style, Wheel as Notch,
+    Written,
+};

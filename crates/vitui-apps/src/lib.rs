@@ -11,9 +11,17 @@
 //! only shape available was a spin at 100% of a core.
 //!
 //! The dependency list is `vitui-runtime` and `vitui-components`. Not the `vitui` facade, and the
-//! difference is the whole proof: the facade re-exports the engine, so depending on it would make
-//! `vitui::engine::Rect` nameable here and the claim *the component surface is sufficient* would
-//! evaporate without a line changing.
+//! difference is the whole proof: the facade re-exports the engine **entire**, so depending on it
+//! would put `vitui::engine::Surface`, `View`, `Screen`, `Engine` and `LayerStack` in reach here, and
+//! the claim *the component surface is sufficient* would evaporate without a line changing.
+//!
+//! **`Rect` used to be the example in that sentence and is no longer**, because runtime architecture
+//! issue 22 made it `vitui_runtime::Rect`. That does not weaken the proof and it is worth saying why:
+//! the runtime re-exports the engine's **vocabulary** — the types its own public surface names, plus
+//! what is needed to construct one it accepts — under a rule gated in both directions. The facade
+//! re-exports the engine's **machinery** as well, and an application that reaches a `View` is an
+//! application saying the component surface is not finished. The scanner below is unaffected either
+//! way: it looks for the crate name, and neither re-export puts that in a source file.
 //!
 //! # There is nothing to call in this library
 //!

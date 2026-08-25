@@ -37,13 +37,21 @@
 //!
 //! # The wheel's one substitution, named rather than hidden
 //!
-//! **A wheel click cannot be posted from this crate.** `Driver::post_mouse` takes a
-//! `vitui_engine::Mouse`, which is `EngineName { name: "Mouse", reachable_as: None }` in
-//! `crates/vitui-runtime/src/line.rs`, and unlike `Mods` — the barrier components ticket 08 found
-//! misread — there is no nameable box a value could travel inside: a `Mouse` needs a `Buttons` and a
-//! `MouseKind`, and **neither of those is in `ENGINE_NAMES` at all**. So the click's *delta* is
-//! handed to the arithmetic `Response::scrolled` would have delivered it to, and the barrier stays
-//! on `crate::gates::REGISTER`'s row 29.
+//! **A wheel click could not be posted from this crate, and now it can.** As this module was
+//! written: `Driver::post_mouse` takes a `vitui_engine::Mouse`, which was
+//! `EngineName { name: "Mouse", reachable_as: None }` in `crates/vitui-runtime/src/line.rs`, and
+//! unlike `Mods` — the barrier components ticket 08 found misread — there was no nameable box a
+//! value could travel inside: a `Mouse` needs a `Buttons` and a `MouseKind`, and **neither of those
+//! was in `ENGINE_NAMES` at all**.
+//!
+//! **That last sentence is what runtime architecture issue 22 acted on.** The rule it settled is
+//! about *construction* and not about naming, precisely because this module found the difference:
+//! `Mouse`, `Buttons`, `MouseKind` and the notch are all re-exported now, and
+//! `crate::gates::tests::the_four_are_reachable_by_writing_them` builds one and posts it.
+//!
+//! The substitution below stays until components 20 replaces it: the click's *delta* is handed to
+//! the arithmetic `Response::scrolled` would have delivered it to. Row 29 stays red — the defect it
+//! names is the unconditional reveal, which no re-export touches.
 //!
 //! The substitution is on **both** arms, so it is on the side of neither. What separates them is the
 //! only thing under test: whether the reveal fires unconditionally.

@@ -1,6 +1,24 @@
 //! **The rectangle this crate can name**, and the resolution of runtime architecture issue 22 from
 //! the components side.
 //!
+//! # Issue 22 has since been decided, and it went the other way
+//!
+//! **`Rect` is nameable here now.** `vitui-runtime` re-exports every engine type its public surface
+//! names — `vitui_runtime::Rect` — under a rule gated in both directions by
+//! `vitui_runtime`'s `crate::line`. C6 is untouched: the dependency table is still `vitui-runtime`
+//! and nothing else.
+//!
+//! So candidate 1 below was taken, on the map that owned it, after this module shipped candidate 4.
+//! **This module's only stated reason for existing has gone**, and what to do about that is
+//! `.scratch/vitui-components-architecture/issues/17-cells-after-rect-became-nameable.md` — filed
+//! rather than executed, because deleting 22 KB and reopening a resolved ticket is not a change a
+//! runtime session may make to a components map.
+//!
+//! Nothing below is wrong as a record of why the module is shaped as it is. The one sentence to read
+//! with the new fact in hand is the argument against a second rectangle — *every mismatch reads
+//! `expected `Rect`, found `Rect`*` — which was written while the collision was hypothetical and is
+//! now the live question.
+//!
 //! # The crux, stated exactly
 //!
 //! Spec §2's rule is *the cells a helper does not write are **named in its return value***, and spec

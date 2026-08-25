@@ -44,13 +44,18 @@
 //! second. A focused chip is drawn in a different role **before its cells are written**, never
 //! restyled after — see [`crate::frame::WhyThereIsNoFocusRing`] for what the restyle form costs.
 //!
-//! # The pointer cannot be driven from this crate, and that shapes the measurement
+//! # The pointer could not be driven from this crate, and that shaped the measurement
 //!
-//! `Driver::post_mouse` takes a `vitui_engine::Mouse`, and `crates/vitui-runtime/src/line.rs` files
-//! it `EngineName { name: "Mouse", reachable_as: None }`; `Driver::plant` reaches the grab, the
-//! focus and the click and **not** the pointer. So `Response::hovered` cannot be made true by a
-//! gesture here, and neither can the runtime's award winner. The same barrier is why
-//! [`crate::gates::REGISTER`]'s row 29 is red.
+//! When this module was written: `Driver::post_mouse` takes a `vitui_engine::Mouse`, and
+//! `crates/vitui-runtime/src/line.rs` filed it `EngineName { name: "Mouse", reachable_as: None }`;
+//! `Driver::plant` reaches the grab, the focus and the click and **not** the pointer. So
+//! `Response::hovered` could not be made true by a gesture here, and neither could the runtime's
+//! award winner.
+//!
+//! **Runtime architecture issue 22 lifted that**: `Mouse` is `vitui_runtime::Mouse` and the three
+//! types needed to build one came with it. The substitution below is kept because it is what the
+//! shipped fixture does and because it measures the **state** deliberately; what it is no longer is
+//! forced.
 //!
 //! What [`resting`] therefore stands up is the **state** rather than the gesture: the fixture sets
 //! `Response::hovered` itself — every field of a `Response` is public — and

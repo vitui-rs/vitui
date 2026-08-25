@@ -193,11 +193,14 @@ impl Ink for Pen {
     /// `Frame::hover_to_apply` restyles exactly one rectangle a frame — the one belonging to the id
     /// the award named as hovered — so the model applies it where `Response::hovered` is the fact
     /// the fixture is standing up. That is the one place this instrument stands in for the runtime,
-    /// and it stands in for it because **the pointer cannot be driven from this crate at all**:
-    /// `Driver::post_mouse` takes a `vitui_engine::Mouse`, which is
+    /// and it stood in for it because **the pointer could not be driven from this crate at all**:
+    /// `Driver::post_mouse` takes a `vitui_engine::Mouse`, which was
     /// `EngineName { name: "Mouse", reachable_as: None }` in `crates/vitui-runtime/src/line.rs`,
-    /// and `Driver::plant` reaches the grab, the focus and the click and not the pointer. The same
-    /// barrier keeps `crate::gates::REGISTER`'s row 29 red.
+    /// and `Driver::plant` reaches the grab, the focus and the click and not the pointer.
+    ///
+    /// **Runtime architecture issue 22 lifted it.** The stand-in is kept — this instrument models
+    /// the runtime's restyle and does not need a gesture to do it — but it is a choice now rather
+    /// than the only arrangement available.
     fn award(&mut self, cx: &mut Ctx<'_, '_>, cells: Cells, resp: &Response, role: Role) {
         let painted = cx.theme().paint(role);
         cells.hover_style(cx, resp, role);

@@ -137,8 +137,11 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   `0 / 1 / 2 of 10` reproduces — the shipped palette gives **`0 / 0 / 18`** and **`0 / 1 / 3`** —
   and the palette was deliberately *not* swapped to make them, because the only reason to would have
   been the number.
-- **Ticket 06 is the first component-facing code in the workspace**, and it had to settle **runtime
-  architecture issue 22** to write a signature at all. Spec §3 states both helpers as sentences about
+- **Ticket 06 is the first component-facing code in the workspace**, and it had to work **around**
+  runtime architecture issue 22 to write a signature at all — issue 22 has since been settled the
+  other way, so read the paragraph below as the record of why `Cells` exists rather than as the
+  current state. `vitui_runtime::Rect` is writable in this crate now, and what to do about `Cells` is
+  components architecture issue 17, open. Spec §3 states both helpers as sentences about
   a return value — `text::fit` *returns the remainder*, `frame::block` *returns the rectangle it did
   not write* — and neither is writable here: `vitui_engine::Rect` is `reachable_as: None`, 27 of the
   runtime's public declarations name it, and C6 says this crate's dependency list is `vitui-runtime`
@@ -181,6 +184,32 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   path with a twin naming `block` and `BlockOpts` by path, and a source scan that catches it coming
   back `pub(crate)` — which is how a deleted helper actually returns. The scan's first run reported
   **itself**, because a scanner looking for a literal contains that literal.
+- **The engine's vocabulary crossed the crate line** (runtime architecture issue 22, 2026-08-24).
+  The component-facing surface named **seventeen** engine types no crate above the runtime could
+  spell — `vitui_engine::Rect` in twenty-seven public declarations — and the fix is a rule rather
+  than a list, gated in both directions at `crate::line`: *every engine type this crate's public
+  surface names is reachable through this crate, and so is every type needed to **construct** one
+  that the surface accepts.* **The second clause is the finding, and `listing.rs` wrote it before
+  the rule existed**: a `Mouse` needs a `Buttons` and a `MouseKind`, and *neither of those is in
+  `ENGINE_NAMES` at all* — so a barrier against `Mouse` survived every check that looked at `Mouse`.
+  *A name a consumer can write but not build is a barrier wearing a re-export's clothes.*
+  `ENGINE_NAMES` is 25 → **29 rows, every one with a path**; twenty sit at the crate root because no
+  runtime module owns them, `Wheel` arrives as `Notch` because `scroll::Wheel` is a *configuration*,
+  and `Restyle`/`Style` are re-exported despite not being on the surface — striking a row to make a
+  gate come out even is what `route` is the precedent against. **Amending C6 was refused** and
+  `deny.toml` is unchanged: a re-export keeps *the runtime is replaceable on the same engine* a
+  claim about one crate. Three defects in the instrument itself: `Capabilities` was **already**
+  reachable as `ctx::Caps` and the scan could not see a `pub type`; the scan read lines and a
+  `pub use` is a *statement*, so its first run reported *the engine is unreachable* about a crate
+  re-exporting all of it; and §4's *three names are re-exported* sentence was **a third true**.
+  **The near-miss is the part to remember**: three `Instrument::Barrier` citations point at
+  `name: "Rgb",`-style lines that **still exist** — only the line beneath changed — so all three
+  would have gone on passing while meaning the opposite. What caught it was a *second* gate on the
+  same fact, asserting the line beneath the name, whose failure message named its own procedure.
+  Downstream, `counters::sentinel` loses the first of three barriers and `keys::REACHABLE_STATES`
+  goes **8 → 256**; **no row went green**, because none of the defects they name was a re-export.
+  `Cells` is now a module with no stated reason — components architecture issue 17, open, filed
+  rather than executed.
 - **An application runs.** `crates/vitui-apps` is new (2026-08-24, at the user's request, on no map):
   the applications as `examples/`, one file each, the first a port of ratatui's counter-app tutorial.
   It depends on `vitui-runtime` and `vitui-components` and **not** on the `vitui` facade, which is
@@ -232,9 +261,11 @@ crates/vitui-engine       cells, surfaces, layers, compositing, damage, serializ
 crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key maps, theming,
                           overlays, the data contract — no scene tree, no reactivity
 crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (6 of 43)
-                          └ `Cells` is this crate's own rectangle: `vitui_engine::Rect` is
-                            unnameable across the crate line, so the two partition primitives
-                            return one of these instead (runtime architecture issue 22)
+                          └ `Cells` is this crate's own rectangle, and its reason has expired:
+                            `vitui_engine::Rect` was unnameable across the crate line, so the two
+                            partition primitives return one of these — but runtime issue 22 is
+                            now resolved the other way and `vitui_runtime::Rect` is writable here.
+                            What to do about `Cells` is components architecture issue 17, open
 crates/vitui              facade re-export — engine, runtime, components, and deliberately not signals
 crates/vitui-apps         the applications, one file each in `examples/` — 1 so far: `counter`
                           └ a workspace MEMBER, so CI builds them: a consumer nobody builds is a
