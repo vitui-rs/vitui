@@ -55,7 +55,7 @@
 //!   claiming fifteen green gates over an empty population.
 //!
 //! **Forty-two evaluated, four red, six unreachable, fifteen unsubjected**, and
-//! `tests::forty_eight_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
+//! `tests::fifty_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
 //! deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
 //! and subjected row 27, the cross-family collapse gate; ticket 07 added five, and none of them
@@ -348,6 +348,9 @@ const LISTING: &str = "crates/vitui-components/src/listing.rs";
 /// The scroll area's own file, which is where components ticket 18's six rows run.
 const AREA: &str = "crates/vitui-components/src/area.rs";
 
+/// The forest's own file, which is where components ticket 16's rows run.
+const FOREST: &str = "crates/vitui-components/src/forest.rs";
+
 /// How many rows of [`REGISTER`] are spec §21's own table. **Thirty-two, and it is closed** — a
 /// thirty-third would be a spec change.
 pub const SPEC_ROWS: usize = 32;
@@ -390,10 +393,10 @@ pub const SPEC_ROWS: usize = 32;
 /// row still asserting *the four components do not exist* would now be asserting they are gone.
 /// That is the second inversion here worth being suspicious about: a red row phrased as an absence
 /// cannot be turned green by editing one field.
-pub const EVALUATED: usize = 48;
+pub const EVALUATED: usize = 50;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 72] = [
+pub const REGISTER: [Row; 74] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -658,8 +661,33 @@ pub const REGISTER: [Row; 72] = [
         kind: Kind::Equality,
         owner: "C05",
         section: "spec §7",
-        standing: Standing::Unsubjected {
-            inverted_by: "components 17",
+        // **`Evaluated` over the forest's stand-in index rather than over `tree`**, which is
+        // components ticket 04's standing and its reason: what this row gates is that *the
+        // instrument separates a correct build from a defective one*, and both halves are watched
+        // doing it. `splice == rebuild` is compared against a walk of the forest — the slow
+        // producer §7 keeps only as an oracle — and the round trip is run over **both** spellings
+        // of the splice, the second being the one the prototype shipped, which comes back with
+        // 349 526 rows of 500 000 while the run count, the timing and the screen are all
+        // identical. The **scenes** stay red; `crate::scenes` says why those are not one claim.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: FOREST,
+                    name: "a_spliced_index_equals_a_rebuilt_one",
+                },
+                Instrument::Unit {
+                    file: FOREST,
+                    name: "a_fold_and_an_unfold_restore_the_selection_exactly_and_the_shipped_\
+                           splice_did_not",
+                },
+                Instrument::Unit {
+                    file: FOREST,
+                    name: "a_half_tree_fold_parks_one_run_of_sixteen_bytes",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/tree_numbers.rs",
+                },
+            ],
         },
     },
     Row {
@@ -1913,7 +1941,7 @@ pub const REGISTER: [Row; 72] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eighteen_scenes_have_nothing_to_run_over_nine_are_red_and_three_are_\
+                    name: "sixteen_scenes_have_nothing_to_run_over_eleven_are_red_and_three_are_\
                            stood_up",
                 },
             ],
@@ -2063,6 +2091,97 @@ pub const REGISTER: [Row; 72] = [
                     file: "crates/vitui-components/examples/area_numbers.rs",
                 },
             ],
+        },
+    },
+    // ── components ticket 16's two ───────────────────────────────────────────────────────────────
+    Row {
+        number: 73,
+        on_spec_table: false,
+        gate: "cells asked for is independent of depth, and no other counter is",
+        kind: Kind::Count,
+        owner: "C05",
+        section: "spec §7",
+        // **The counter §7 names and §21's table does not carry.** A row's cost may read a depth
+        // and may not be proportional to one, and the whole of what an unclamped indent does is
+        // invisible to every counter that ships: the engine reports the same columns written, the
+        // same distinct cells, the same regions and the same stops — and **fewer verbs**, because
+        // the label rectangle collapses, and **less time**, because the clip discards the overrun
+        // before the row is built. Eight of §20's nine counters prefer the defect and the ninth is
+        // `Unreachable`.
+        //
+        // `Evaluated` over the forest's two arms rather than over `tree`, for row 66's reason. It
+        // is a `Count` and not a `Ratio` because the ratio is this screen's — 399.99x here against
+        // §7's 165x over a screen with a menu bar on it — while *the ask does not move with the
+        // depth* is the mechanism.
+        //
+        // The instrument's own limit is a row of its own file rather than a footnote:
+        // `Tally::asked` folds a `u16` column count and **saturates at 65 535 a verb**, so the
+        // ask it reports is 45.3% short and still 218x the correct arm's. The gate is taken over
+        // the caller's `u64`, and the second test asserts the gap.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: FOREST,
+                    name: "an_unclamped_indent_asks_for_four_hundred_times_the_cells_and_costs_\
+                           fewer_verbs",
+                },
+                Instrument::Unit {
+                    file: FOREST,
+                    name: "the_tally_saturates_where_the_caller_does_not",
+                },
+                Instrument::Unit {
+                    file: FOREST,
+                    name: "the_forest_draws_the_same_frame_at_every_volume_and_at_every_depth",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/tree_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 74,
+        on_spec_table: false,
+        gate: "a tree scene with no subject fails differently from a scene whose code is wrong",
+        kind: Kind::CompileOutcome,
+        owner: "C05",
+        section: "spec §21",
+        // **The fifth red row, and it is row 67 for a second subject.** The gate is the same
+        // sentence and the *failing set* is what a red row is, which is why this is a row rather
+        // than a citation of row 67: 67's failing set names `collection` and five scenes pinned to
+        // components 12, and nothing in it would go false the day `tree` arrives.
+        //
+        // `CompileOutcome` for row 61's and row 67's reason: what is asserted is that a *file*
+        // declares an item, read by opening it — the one thing a `compile_fail` fence cannot say,
+        // because a fence over a missing item passes today and passes again the day the module is
+        // renamed.
+        standing: Standing::Red {
+            by: &[
+                Instrument::Unit {
+                    file: FOREST,
+                    name: "the_forest_is_red_because_tree_is_not_declared",
+                },
+                Instrument::Unit {
+                    file: FOREST,
+                    name: "the_waiting_message_separates_unimplemented_from_wrong",
+                },
+                Instrument::Unit {
+                    file: FOREST,
+                    name: "the_subject_scan_finds_a_declaration_when_there_is_one",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/scenes.rs",
+                    name: "sixteen_scenes_have_nothing_to_run_over_eleven_are_red_and_three_are_\
+                           stood_up",
+                },
+            ],
+            failing: "`tree` is undeclared, so scenes 8 and 9 are pinned red — both of them, and \
+                      both waiting for the subject rather than for a fix. \
+                      `crates/vitui-components/src/collect.rs` carries no `pub fn tree(`, which is \
+                      what `crate::forest::subjects_declared` opens the file to find out, and \
+                      `crate::forest::standing` is `Unmet { over: 1, failing: 1 }` rather than \
+                      `Met` over nothing",
+            inverted_by: "components 17",
         },
     },
 ];
@@ -2345,7 +2464,7 @@ mod tests {
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn forty_eight_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn fifty_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -2361,7 +2480,7 @@ mod tests {
         assert_eq!(evaluated, EVALUATED, "the count §21 asks a test to assert");
         assert_eq!(
             red,
-            vec![7, 8, 29, 67],
+            vec![7, 8, 29, 67, 74],
             "the four gates that are red and pinned: the sentinel, the palette after a swap, \
              twenty wheel clicks and the collection's five scenes waiting for their subject. The \
              glyph-set count was one of them and components ticket 05 inverted it; row 61 was \
@@ -2377,13 +2496,13 @@ mod tests {
              the value anyway, so a chord can be pressed after all"
         );
         assert_eq!(
-            unsubjected, 14,
+            unsubjected, 13,
             "and the fourteen with nothing to run over. **It was fifteen until components ticket \
              18**, which supplied the subject for row 20 — the bar fixpoint, which is arithmetic \
              over a domain and needs no component to be run against, and whose row had been \
              citing spec §13 and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 72);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 74);
     }
 
     /// **The split, not the total.**
@@ -2394,10 +2513,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_thirty_five_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_forty_two_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 40);
+        assert_eq!(REGISTER.len() - on_table, 42);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -2706,7 +2825,8 @@ mod tests {
                 "partition_numbers.rs".to_string(),
                 "press_numbers.rs".to_string(),
                 "primitive_numbers.rs".to_string(),
-                "scene_numbers.rs".to_string()
+                "scene_numbers.rs".to_string(),
+                "tree_numbers.rs".to_string()
             ],
             "the count on this lineage was 0 against the runtime's 19"
         );
