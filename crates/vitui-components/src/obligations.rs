@@ -184,7 +184,7 @@ pub const KEYBOARD_REGISTERED: &[&str] = &[];
 /// is exactly why it was written over `INVENTORY` rather than over the scene list: building a
 /// component cannot move it, and only a scene can. Each names a component **and** the mechanism of an axis it declares; the join lives on
 /// [`crate::scenes::Scene::covers`] and
-/// `scenes::tests::fourteen_of_the_thirty_four_axis_obligations_have_a_scene_and_twenty_do_not`
+/// `scenes::tests::sixteen_of_the_thirty_four_axis_obligations_have_a_scene_and_eighteen_do_not`
 /// asserts that this constant and [`crate::scenes::axis_scenes`] have not drifted.
 ///
 /// The other twenty are the per-component scenes tickets'. **The first ticket of each component
@@ -216,6 +216,11 @@ pub const AXIS_SCENES: &[(&str, Axis)] = &[
     // §21 scene 15 — 60x20, where C08's overlap is red.
     ("chart", Axis::Narrow),
     ("plot", Axis::Narrow),
+    // §21 scene 17 — the bar fixpoint over 5 475 600 pairs. The freeze cites this scene by number
+    // on `scrollbar`'s own `narrow` row, and `scroll_area`'s cites the other half of it: reserved
+    // auto-hiding bars, whose hysteresis loses a row and a column permanently.
+    ("scroll_area", Axis::Narrow),
+    ("scrollbar", Axis::Narrow),
     // §21 scene 18 — a 1M-row scroll area, row 799 999 of 999 999.
     ("scroll_area", Axis::Scrolled),
     // Scene 28 — components 09's narrow axis over the dense screen, at 300x80 and at 120x40. Not a
@@ -474,7 +479,7 @@ mod tests {
         // thirty-four `(component, axis)` pairs from §21's own rows and ticket 09's narrow axis
         // added `text` and `chip`; the other twenty are the per-component scenes tickets'. A query
         // that moves is a query that is measuring something.
-        assert_eq!(unmet(o5(AXIS_SCENES)), (34, 20), "O5");
+        assert_eq!(unmet(o5(AXIS_SCENES)), (34, 18), "O5");
 
         // The construction sum O3 will be checked against once ticket 37 has screens: 29 rows plus
         // `chart`, `meter` and `sparkline` at 2 and `plot` at 3.
@@ -559,7 +564,7 @@ mod tests {
     /// See [`o1_fails_loudly`]. **The one worth more than the other four together**, and the one
     /// whose population is `(component, axis)` pairs rather than scenes.
     #[test]
-    #[should_panic(expected = "O5 is unmet: 20 of 34")]
+    #[should_panic(expected = "O5 is unmet: 18 of 34")]
     fn o5_fails_loudly() {
         o5(AXIS_SCENES).assert_met("O5");
     }

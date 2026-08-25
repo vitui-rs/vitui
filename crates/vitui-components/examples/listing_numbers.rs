@@ -327,7 +327,8 @@ fn o5() {
         "  The narrow column is answered by a scene that **stands** `collection` up and claims no\n  \
          `(collection, narrow)` pair: the freeze sets `narrow: false` because a row truncates\n  \
          through `text::fit`, which is `text`'s flag, and scene 28 already carries `(text, narrow)`.\n  \
-         O5 is therefore unmoved by this ticket, at fourteen of thirty-four.\n"
+         O5 is therefore unmoved by this ticket, which left it at fourteen of thirty-four;\n  \
+         components 18 has since moved it to sixteen, on `scrollbar` and `scroll_area`.\n"
     );
     assert_eq!(stands, vec![3, 4, 5, 6, 29]);
     assert!(!component.declares(Axis::Narrow));

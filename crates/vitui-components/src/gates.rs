@@ -55,7 +55,7 @@
 //!   claiming fifteen green gates over an empty population.
 //!
 //! **Forty-two evaluated, four red, six unreachable, fifteen unsubjected**, and
-//! `tests::forty_two_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
+//! `tests::forty_eight_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
 //! deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
 //! and subjected row 27, the cross-family collapse gate; ticket 07 added five, and none of them
@@ -345,16 +345,19 @@ const DENSE: &str = "crates/vitui-components/src/dense.rs";
 /// The listing's own file, which is where components ticket 11's two rows run.
 const LISTING: &str = "crates/vitui-components/src/listing.rs";
 
+/// The scroll area's own file, which is where components ticket 18's six rows run.
+const AREA: &str = "crates/vitui-components/src/area.rs";
+
 /// How many rows of [`REGISTER`] are spec §21's own table. **Thirty-two, and it is closed** — a
 /// thirty-third would be a spec change.
 pub const SPEC_ROWS: usize = 32;
 
-/// How many rows anything evaluates today. **Forty-two.**
+/// How many rows anything evaluates today. **Forty-eight.**
 ///
 /// The number is the point of the file. §21 counted **2 of 18** at the branch point and **11 of 18**
 /// after C11's own pass, both over the prototypes; this is the first count taken over shipped code,
-/// and it is forty-two of sixty-seven because twenty-five of the rows are about components that do
-/// not exist or need a name the crate line refuses.
+/// and it is forty-eight of seventy-two because twenty-four of the rows are about components that
+/// do not exist or need a name the crate line refuses.
 ///
 /// **It was fourteen of forty until ticket 04**, which added the reference-render runner and its
 /// four rows. Every one of the four is `Evaluated` over a **fixture** rather than over a component,
@@ -387,10 +390,10 @@ pub const SPEC_ROWS: usize = 32;
 /// row still asserting *the four components do not exist* would now be asserting they are gone.
 /// That is the second inversion here worth being suspicious about: a red row phrased as an absence
 /// cannot be turned green by editing one field.
-pub const EVALUATED: usize = 42;
+pub const EVALUATED: usize = 48;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 67] = [
+pub const REGISTER: [Row; 72] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -723,9 +726,32 @@ pub const REGISTER: [Row; 67] = [
         gate: "the bar fixpoint over 5 475 600 pairs",
         kind: Kind::Count,
         owner: "C13",
-        section: "spec §13",
-        standing: Standing::Unsubjected {
-            inverted_by: "components 28",
+        // **Two misattributions, corrected by components ticket 18 and recorded rather than
+        // quietly fixed.** This row read `spec §13` and `components 28`, and both belong to the
+        // chart: §13 is `chart` and `plot`, ticket 28 builds them, and the rows immediately above
+        // this one are theirs. C13's bar fixpoint is **spec §9** and it is **components 19** that
+        // builds its subject. The shape is worth naming because it is not a typo: a row copied
+        // from its neighbour inherits the neighbour's citation, and every field of it looks
+        // plausible.
+        section: "spec §9",
+        // §21's own table records this as one of the **two** gates that were being run at the
+        // branch point, and it is green here for the reason it was green there: it is arithmetic
+        // over a domain, and the domain is visited exhaustively rather than sampled. The **scene**
+        // stays red — `crate::scenes` says at length why a gate and a screen are not one claim.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: AREA,
+                    name: "the_bar_decision_is_a_fixpoint_over_five_million_pairs",
+                },
+                Instrument::Unit {
+                    file: AREA,
+                    name: "a_bar_that_is_not_needed_is_not_shown",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/area_numbers.rs",
+                },
+            ],
         },
     },
     Row {
@@ -1198,8 +1224,8 @@ pub const REGISTER: [Row; 67] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "fourteen_of_the_thirty_four_axis_obligations_have_a_scene_and_twenty_\
-                           do_not",
+                    name: "sixteen_of_the_thirty_four_axis_obligations_have_a_scene_and_\
+                           eighteen_do_not",
                 },
             ],
         },
@@ -1887,7 +1913,7 @@ pub const REGISTER: [Row; 67] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "twenty_one_scenes_have_nothing_to_run_over_five_are_red_and_three_are_\
+                    name: "eighteen_scenes_have_nothing_to_run_over_nine_are_red_and_three_are_\
                            stood_up",
                 },
             ],
@@ -1898,6 +1924,145 @@ pub const REGISTER: [Row; 67] = [
                       `crate::listing::standing` is `Unmet { over: 1, failing: 1 }` rather than \
                       `Met` over nothing",
             inverted_by: "components 12",
+        },
+    },
+    // ── components ticket 18's rows ──────────────────────────────────────────────────────────────
+    Row {
+        number: 68,
+        on_spec_table: false,
+        gate: "the reserved decision has hysteresis when it is computed from last frame's reduced \
+               rectangle: both bars over content that fits, 19 of 20 rows for ever",
+        kind: Kind::Equality,
+        owner: "C13",
+        section: "spec §9",
+        // ADR 0029's second sentence, as a gate: **reserved auto-hiding bars require a declared
+        // content size.** The row is separate from row 20 because it fires the other way — row 20
+        // asserts the fixpoint *terminates*, this one asserts the spelling that always terminates
+        // is *wrong*, and a build that deleted the loop would pass row 20.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: AREA,
+                    name: "the_incremental_spelling_keeps_both_bars_over_content_that_fits",
+                },
+                Instrument::Unit {
+                    file: AREA,
+                    name: "a_body_that_is_not_antitone_flips_the_decision_every_frame",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/area_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 69,
+        on_spec_table: false,
+        gate: "`sum h` is the extent and the row count is not: row 799 999 of 999 999, with every \
+               counter a frame carries identical",
+        kind: Kind::Equality,
+        owner: "C13",
+        section: "spec §9",
+        // **Two assertions in one row on purpose.** The reachability is the defect and the
+        // equality is what makes it a false green: a row asserting only the first would pass on a
+        // build whose row-measured frame is visibly different, and §9's whole claim is that it is
+        // not.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: AREA,
+                    name: "the_row_measured_extent_cannot_reach_the_last_row",
+                },
+                Instrument::Unit {
+                    file: AREA,
+                    name: "nothing_a_frame_counts_separates_a_cell_extent_from_a_row_extent",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/area_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 70,
+        on_spec_table: false,
+        gate: "the thumb and the extent share a unit: 0 cells of drift against 14 of 69",
+        kind: Kind::Count,
+        owner: "C13",
+        section: "spec §9",
+        // The same unit error one helper down, and it is a separate row because it runs over
+        // shipped code: `crate::scroll::thumb` is components ticket 07's and this row hands it two
+        // extents of the same content.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: AREA,
+                    name: "the_thumb_and_the_extent_share_a_unit",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/scroll.rs",
+                    name: "the_two_thumbs_are_one_cell_and_two_hundred_and_twenty_three",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/area_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 71,
+        on_spec_table: false,
+        gate: "an overlay bar re-damages the cells its body drew under it — 398 against 0 for the \
+               reserved twin on the same screen with the same content",
+        kind: Kind::Count,
+        owner: "C13",
+        section: "spec §9",
+        // **§21's scene-19 row asks for an amplification factor and this row deliberately does not
+        // gate one.** The factor is a property of the damage *structure*, and the engine measured
+        // one span per surface row against a per-row bitset and shipped the bitset, which is
+        // 1.00x by construction. What is gateable is the double write, and it is asserted from the
+        // bars' own footprint as well as measured.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: AREA,
+                    name: "an_overlay_bar_re_damages_what_the_body_draws_under_it",
+                },
+                Instrument::Unit {
+                    file: AREA,
+                    name: "the_amplification_is_one_under_the_structure_that_ships",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/area_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 72,
+        on_spec_table: false,
+        gate: "a `scroll_area` costs its content and a virtualised `collection` costs its window: \
+               100 000 rows iterated against 69, at identical writes",
+        kind: Kind::Count,
+        owner: "C13, C21",
+        section: "spec §9",
+        // **The counter a reader reaches for does not move**, which is why this row is on
+        // `iterated` rather than on `writes` — components ticket 11's finding arriving on the
+        // other half of the pair. The 7 907 us §9 states is a report and lives in the example.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: AREA,
+                    name: "a_scroll_area_costs_its_content_and_a_collection_costs_its_window",
+                },
+                Instrument::Unit {
+                    file: AREA,
+                    name: "the_runtime_still_translates_a_scrolled_scope_the_wrong_way",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/area_numbers.rs",
+                },
+            ],
         },
     },
 ];
@@ -2163,14 +2328,14 @@ mod tests {
         assert_eq!(seen, expected);
     }
 
-    /// **Forty-two evaluated, and the other twenty-five each say why not.**
+    /// **Forty-eight evaluated, and the other twenty-four each say why not.**
     ///
     /// This is the number §21 asks for: *how many gates are actually evaluated is a number a test
     /// asserts rather than a claim in a document*. Saying it out loud is what stops the next change
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn forty_two_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn forty_eight_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -2201,8 +2366,14 @@ mod tests {
              found row 5's barrier misread: `Mods` is unnameable here and `Chord::mods` hands over \
              the value anyway, so a chord can be pressed after all"
         );
-        assert_eq!(unsubjected, 15, "and the fifteen with nothing to run over");
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 67);
+        assert_eq!(
+            unsubjected, 14,
+            "and the fourteen with nothing to run over. **It was fifteen until components ticket \
+             18**, which supplied the subject for row 20 — the bar fixpoint, which is arithmetic \
+             over a domain and needs no component to be run against, and whose row had been \
+             citing spec §13 and components 28 for two tickets"
+        );
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 72);
     }
 
     /// **The split, not the total.**
@@ -2216,7 +2387,7 @@ mod tests {
     fn thirty_two_rows_are_the_specs_and_thirty_five_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 35);
+        assert_eq!(REGISTER.len() - on_table, 40);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -2515,6 +2686,7 @@ mod tests {
         assert_eq!(
             found,
             vec![
+                "area_numbers.rs".to_string(),
                 "dense_numbers.rs".to_string(),
                 "gates_numbers.rs".to_string(),
                 "glyph_numbers.rs".to_string(),

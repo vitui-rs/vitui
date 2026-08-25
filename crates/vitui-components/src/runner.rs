@@ -250,6 +250,35 @@ impl Canvas {
         self.repainted.len() as u64
     }
 
+    /// **The same cells as `(y, lo, hi)`, one span a row, inclusive at both ends.**
+    ///
+    /// The engine's damage is a per-row **bitset** and this is deliberately the other structure:
+    /// `crates/vitui-engine/src/damage.rs` measured *one span per surface row* and rejected it —
+    /// 2.53x on three dialogs standing apart, 37.07x on a sub-cell chart, against 1.00x everywhere
+    /// for the bitset. Spec §2's x8.4 amplification and §21's scene 19 are stated **under the model
+    /// that lost**, so a scene that has to report an amplification factor needs both numbers over
+    /// one frame: [`Canvas::repaints`] is what the shipped structure charges and the sum of these
+    /// spans is what the other one would have.
+    ///
+    /// A row with nothing changed on it contributes no entry, which is what makes the distance
+    /// between two things that changed the whole of the difference between the two models.
+    pub fn repainted_spans(&self) -> Vec<(u16, u16, u16)> {
+        // Keyed by row, because `repainted` is ordered by `(x, y)` and a row's cells are not
+        // adjacent in it. Reading the set in its own order would produce one span per *column*,
+        // which is the same defect this method exists to measure, transposed.
+        let mut rows: std::collections::BTreeMap<u16, (u16, u16)> =
+            std::collections::BTreeMap::new();
+        for &(x, y) in &self.repainted {
+            rows.entry(y)
+                .and_modify(|span| {
+                    span.0 = span.0.min(x);
+                    span.1 = span.1.max(x);
+                })
+                .or_insert((x, x));
+        }
+        rows.into_iter().map(|(y, (lo, hi))| (y, lo, hi)).collect()
+    }
+
     /// Read [`Canvas::repaints`] and start the next frame's count from zero.
     pub fn take_repaints(&mut self) -> u64 {
         let n = self.repaints();
