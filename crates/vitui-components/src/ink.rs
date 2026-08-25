@@ -42,9 +42,9 @@ use std::fmt;
 
 use vitui_runtime::{Ctx, Paint, Response, Role};
 
-use crate::cells::Cells;
 use crate::counters::Tally;
 use crate::runner::{Award, Pen};
+use vitui_runtime::Rect;
 
 /// A cluster written `n` times, as a [`fmt::Display`] so it can go through [`Ctx::stage`].
 ///
@@ -102,7 +102,7 @@ pub trait Ink {
     /// has just drawn. What an instrument does with it is model the restyle on its own surface, so
     /// that *the component's next draw already produces the value the restyle produced* is a number
     /// rather than a sentence.
-    fn award(&mut self, cx: &mut Ctx<'_, '_>, cells: Cells, resp: &Response, role: Role);
+    fn award(&mut self, cx: &mut Ctx<'_, '_>, cells: Rect, resp: &Response, role: Role);
 }
 
 /// **The implementation a component gets: draw, count nothing, allocate nothing.**
@@ -135,8 +135,16 @@ impl Ink for Direct {
         cx.blit(x, y, st).cells
     }
 
-    fn award(&mut self, cx: &mut Ctx<'_, '_>, cells: Cells, resp: &Response, role: Role) {
-        cells.hover_style(cx, resp, role);
+    fn award(&mut self, cx: &mut Ctx<'_, '_>, cells: Rect, resp: &Response, role: Role) {
+        // **The empty guard is `Cells::hover_style`'s, kept when that type was deleted.**
+        // `Ctx::hover_style` pushes unconditionally, so without this an empty rectangle becomes an
+        // entry in `hover_styles` that paints nothing and still counts — which is a difference a
+        // region count can see. Components architecture issue 17 moved the verb and this line with
+        // it rather than losing it in the move.
+        if cells.is_empty() {
+            return;
+        }
+        cx.hover_style(resp, cells, role);
     }
 }
 
@@ -163,8 +171,8 @@ impl Ink for Tally {
     /// **The declaration, and nothing folded in.** A `Tally` counts the columns a *component*
     /// wrote; the restyle is the runtime's write and it carries no per-cell value for the tally to
     /// compare against anyway. What can see it is [`Pen`], which keeps the values.
-    fn award(&mut self, cx: &mut Ctx<'_, '_>, cells: Cells, resp: &Response, role: Role) {
-        cells.hover_style(cx, resp, role);
+    fn award(&mut self, cx: &mut Ctx<'_, '_>, cells: Rect, resp: &Response, role: Role) {
+        cx.hover_style(resp, cells, role);
     }
 }
 
@@ -201,14 +209,14 @@ impl Ink for Pen {
     /// **Runtime architecture issue 22 lifted it.** The stand-in is kept — this instrument models
     /// the runtime's restyle and does not need a gesture to do it — but it is a choice now rather
     /// than the only arrangement available.
-    fn award(&mut self, cx: &mut Ctx<'_, '_>, cells: Cells, resp: &Response, role: Role) {
+    fn award(&mut self, cx: &mut Ctx<'_, '_>, cells: Rect, resp: &Response, role: Role) {
         let painted = cx.theme().paint(role);
-        cells.hover_style(cx, resp, role);
+        cx.hover_style(resp, cells, role);
         self.declare(Award {
-            x: i32::from(cells.x()),
-            y: i32::from(cells.y()),
-            w: cells.w(),
-            h: cells.h(),
+            x: cells.x,
+            y: cells.y,
+            w: cells.w,
+            h: cells.h,
             role,
             painted,
             applied: resp.hovered,

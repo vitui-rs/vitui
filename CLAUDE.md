@@ -144,9 +144,9 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   been the number.
 - **Ticket 06 is the first component-facing code in the workspace**, and it had to work **around**
   runtime architecture issue 22 to write a signature at all — issue 22 has since been settled the
-  other way, so read the paragraph below as the record of why `Cells` exists rather than as the
-  current state. `vitui_runtime::Rect` is writable in this crate now, and what to do about `Cells` is
-  components architecture issue 17, open. Spec §3 states both helpers as sentences about
+  other way, so read the paragraph below as the record of why `Cells` existed rather than as the
+  current state — components architecture issue 17 deleted it, and the helpers return
+  `vitui_runtime::Rect`. Spec §3 states both helpers as sentences about
   a return value — `text::fit` *returns the remainder*, `frame::block` *returns the rectangle it did
   not write* — and neither is writable here: `vitui_engine::Rect` is `reachable_as: None`, 27 of the
   runtime's public declarations name it, and C6 says this crate's dependency list is `vitui-runtime`
@@ -163,7 +163,7 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   ticket asks to be measurable — *a `block` that clears what it hands over* — lands in two ledgers and
   is checked by nothing. Second, `CONTEXT.md`'s identity rule is not negotiable: *a container that
   returns a rectangle preserves its children's identity and one that takes a closure renames them*.
-  `Cells::child` exists so the **caller** can narrow; what a container may not do is narrow on the
+  `Ctx::child` is there so the **caller** can narrow; what a container may not do is narrow on the
   caller's behalf.
   **The gate is watched catching the 15-cell instance.** The correct panel and ADR 0026's defective
   one are **one function with one boolean between them** (`title_split`), so a reviewer's diff is one
@@ -213,14 +213,31 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   same fact, asserting the line beneath the name, whose failure message named its own procedure.
   Downstream, `counters::sentinel` loses the first of three barriers and `keys::REACHABLE_STATES`
   goes **8 → 256**; **no row went green**, because none of the defects they name was a re-export.
-  `Cells` is now a module with no stated reason — components architecture issue 17, open, filed
-  rather than executed.
+  `Cells` was left a module with no stated reason, filed as components architecture issue 17 rather
+  than deleted from a runtime session — and resolved the next day.
 - **An application runs.** `crates/vitui-apps` is new (2026-08-24, at the user's request, on no map):
   the applications as `examples/`, one file each, the first a port of ratatui's counter-app tutorial.
   It depends on `vitui-runtime` and `vitui-components` and **not** on the `vitui` facade, which is
   what makes every file in it a standing proof that the component-facing surface is sufficient — the
   facade re-exports the engine, so depending on it would make `Rect` nameable and evaporate the claim
   without a line changing. A test reads the source rather than the manifest for the same reason.
+- **`Cells` is deleted, and the component surface speaks the runtime's `Rect`** (components
+  architecture issue 17, 2026-08-25). For eleven tickets this crate named its own rectangle because
+  spec §3's *returns the rectangle it did not write* **was not writable as Rust here**:
+  `vitui_engine::Rect` was unnameable across the crate line. Runtime issue 22 fixed the cause, so the
+  stand-in goes — 23.6 KB, the algebra duplicating `layout::rect` operator for operator, and the
+  corpus sweep that existed **only** to hold the duplicate honest. ~250 sites across 21 files; **C6
+  untouched**, the dependency table is still one crate. The distinction was *checked rather than
+  assumed*: `Ctx::area` is `Rect::new(0, 0, w, h)`, so the coordinate systems were identical, and the
+  one real difference — `Cells`'s `u16` origin against `Rect`'s `i32` — argues the same way, because
+  the engine's verbs take i32 and the code already wrote `i32::from(band.y())` before every draw. The
+  migration **removed** conversions. **One structural win**: the hover award used to reach the runtime
+  through *two* hops, the first existing only because a component could not name a `Rect` to pass;
+  `ink.rs` is now the only file that spells it, and the gate that asserted two asserts one — the
+  single failure out of 181, failing for the right reason. **One defect introduced and caught before
+  it shipped**: `Cells::hover_style` guarded on `is_empty` where `Ctx::hover_style` pushes
+  unconditionally, so a mechanical rewrite dropped the guard and an empty rectangle would have become
+  an entry that paints nothing and still counts. Restored at `Ink::award`, named in a comment.
 - **Nothing holds the focus until an application says so** (architecture issue 25, 2026-08-25).
   The first application drew correctly, parked at 0.00/0.00 and **ignored the keyboard**:
   `Frame::focused` starts `None` and nothing sets it — not `interact`, not `Interest::FOCUS`, not the
@@ -280,12 +297,11 @@ crates/vitui-engine       cells, surfaces, layers, compositing, damage, serializ
                           └ crossterm behind a seam: raw mode, input, capability detection
 crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key maps, theming,
                           overlays, the data contract — no scene tree, no reactivity
-crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (6 of 43)
-                          └ `Cells` is this crate's own rectangle, and its reason has expired:
-                            `vitui_engine::Rect` was unnameable across the crate line, so the two
-                            partition primitives return one of these — but runtime issue 22 is
-                            now resolved the other way and `vitui_runtime::Rect` is writable here.
-                            What to do about `Cells` is components architecture issue 17, open
+crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (11 of 43)
+                          └ the partition primitives return `vitui_runtime::Rect`. This crate used
+                            to name its own rectangle (`Cells`) because `vitui_engine::Rect` was
+                            unnameable across the crate line; runtime issue 22 re-exported it and
+                            components issue 17 deleted the stand-in
 crates/vitui              facade re-export — engine, runtime, components
 crates/vitui-apps         the applications, one file each in `examples/` — 1 so far: `counter`
                           └ a workspace MEMBER, so CI builds them: a consumer nobody builds is a

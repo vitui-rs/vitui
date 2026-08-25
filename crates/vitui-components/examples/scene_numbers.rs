@@ -200,7 +200,7 @@ fn main() {
         count(|s| matches!(s.size, Size::Screen { .. })),
         count(|s| matches!(s.size, Size::Two { .. })),
         count(|s| matches!(s.size, Size::Domain { .. })),
-        count(|s| matches!(s.size, Size::Cells { .. })),
+        count(|s| matches!(s.size, Size::Rect { .. })),
         count(|s| matches!(s.size, Size::Unstated)),
     );
     println!("  {:<52}{}", "marked `(owed)` by §21", count(|s| s.owed));

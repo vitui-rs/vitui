@@ -29,7 +29,7 @@
 //!
 //! **Nothing here names `vitui-engine`.** `Config` is unnameable above the runtime
 //! (`vitui_runtime::line::ENGINE_NAMES`), and `Default::default()` names no type — inference reaches
-//! what naming cannot, which is the same loophole `vitui_components::cells`'s `rect_in!` is built
+//! what naming cannot, which is the same loophole `vitui_runtime::layout::rect`'s `rect_in!` is built
 //! on. The cost is real and worth knowing: an application that wants `max_frame_rate` or
 //! `overrun_report` cannot have them from here, because `..Default::default()` in a struct literal
 //! needs the struct's name.
@@ -49,11 +49,11 @@
 //! cargo run -p vitui-apps --example counter
 //! ```
 
-use vitui_components::cells::Cells;
 use vitui_components::structure::{PanelOpts, panel_with};
 use vitui_components::text::{Justify, TextOpts, text_with};
 use vitui_runtime::ctx::Driver;
 use vitui_runtime::keys::{ActionId, Chord, Code, KeyMap};
+use vitui_runtime::layout::rect;
 use vitui_runtime::work::Wake;
 use vitui_runtime::{Ctx, Interest, Role, Themes};
 
@@ -101,7 +101,7 @@ impl App {
         // §2's partition rule, which is why there is no second call to clear the inside.
         let block = panel_with(
             cx,
-            Cells::of(cx),
+            cx.area(),
             " Counter App Tutorial ",
             &PanelOpts {
                 padded: false,
@@ -109,9 +109,8 @@ impl App {
             },
         );
 
-        let (value_row, instructions) = block
-            .interior
-            .split_at_v(block.interior.h().saturating_sub(1));
+        let (value_row, instructions) =
+            rect::split_at_v(block.interior, block.interior.h.saturating_sub(1));
         text_with(
             cx,
             value_row,

@@ -94,12 +94,12 @@ use std::time::{Duration, Instant};
 
 use vitui_runtime::{Ctx, Density, Id, Interest, Role, Scrollable};
 
-use crate::cells::Cells;
 use crate::counters::{Allocations, Counter, Counters, Tally};
 use crate::ink::{Direct, Ink};
 use crate::obligations::Verdict;
 use crate::runner::{Diff, Fixture, Pen, compare, defective, play, reference, rows_at_a_time};
 use crate::text::{FitOpts, fit_into};
+use vitui_runtime::Rect;
 
 // ── the screen ───────────────────────────────────────────────────────────────────────────────────
 
@@ -127,7 +127,7 @@ pub const ROW: &str = "listing row, ready, nothing wrong";
 /// The three volumes §21's scene 3 states.
 pub const VOLUMES: [u64; 3] = [1_000, 100_000, 1_000_000];
 
-/// **Cells a correct frame writes, at every one of [`VOLUMES`].** Every cell of the viewport, once.
+/// **Rect a correct frame writes, at every one of [`VOLUMES`].** Every cell of the viewport, once.
 pub const WRITES: u64 = W as u64 * H as u64;
 
 /// **Interactive regions a correct frame declares, at every one of [`VOLUMES`].**
@@ -307,8 +307,8 @@ pub fn draw_into<I: Ink>(
             // not clip, so an off-screen declaration is a real entry in a real index.
             cx.with_key(i as u64, |cx| {
                 let row = cx.id();
-                let cells = Cells::at(0, 0, W, 1);
-                let _ = cells.interact(cx, row, Interest::CLICK);
+                let cells = Rect::new(0, 0, W, 1);
+                let _ = cx.interact(row, cells, Interest::CLICK);
                 let written = ink.text(cx, 0, i, ROW, body);
                 // The trailing pad, so the row is a **partition** of its width and not a prefix of
                 // it (§2). `Ink::run` and not a `str::repeat`: under `Direct` it stages once and
@@ -636,7 +636,7 @@ pub fn leaves_no_request(reveal: Reveal, offset: i32) -> bool {
 /// Ask the enclosing area to bring content row `row` into view.
 ///
 /// The rectangle is built by inference from `cx.area()` — `Rect` is `vitui_engine::Rect` and cannot
-/// be named here (see [`crate::cells`]), so the shape a runtime verb wants is produced by the
+/// be named here (see [`vitui_runtime::layout::rect`]), so the shape a runtime verb wants is produced by the
 /// runtime's own operators rather than written down.
 ///
 /// # `row` is a row of the **viewport**, and that is a barrier rather than a shortcut
@@ -785,7 +785,13 @@ pub fn narrowed(pen: &mut Pen, cx: &mut Ctx<'_, '_>, fx: &Fixture) {
     let (w, h) = fx.size();
     let opts = FitOpts::default();
     for y in 0..h {
-        fit_into(pen, cx, Cells::at(0, y, w, 1), row_line(fx, y), &opts);
+        fit_into(
+            pen,
+            cx,
+            Rect::new(0, i32::from(y), w, 1),
+            row_line(fx, y),
+            &opts,
+        );
     }
 }
 
@@ -835,7 +841,7 @@ pub const SUBJECTS: [&str; 1] = ["collection"];
 ///
 /// The home is the freeze's, joined through [`crate::Family`]: `collection`'s first family is
 /// `F7Collections`, whose module is `collect.rs`. A component is `fn(&mut Ctx, Rect, …) -> Response`
-/// (spec §1, rule 1) with [`Cells`] in `Rect`'s place, so the thing to look for is a public function
+/// (spec §1, rule 1) with [`Rect`] in `Rect`'s place, so the thing to look for is a public function
 /// of the component's own name in its own family's module.
 pub const DECLARATIONS: [(&str, &str); 1] = [("collect.rs", "pub fn collection(")];
 

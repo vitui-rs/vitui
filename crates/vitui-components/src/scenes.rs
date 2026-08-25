@@ -121,7 +121,7 @@ pub enum Size {
     },
     /// A cell count with no dimensions. §21 states **53 280** for the assembled gallery and no
     /// `w x h` anywhere on the map.
-    Cells {
+    Rect {
         /// How many cells.
         cells: u32,
     },
@@ -1170,7 +1170,7 @@ pub const SCENES: [Scene; 29] = [
         number: 26,
         on_spec_table: true,
         name: "the assembled gallery, twelve panels, 53 280 cells",
-        size: Size::Cells { cells: 53_280 },
+        size: Size::Rect { cells: 53_280 },
         content: Content::Assembled { parts: 12 },
         gestures: &[],
         decided: "9 956 cells nobody writes; the swap excess equal to it on five of six",
@@ -1187,7 +1187,7 @@ pub const SCENES: [Scene; 29] = [
         number: 27,
         on_spec_table: true,
         name: "a theme swap over the gallery",
-        size: Size::Cells { cells: 53_280 },
+        size: Size::Rect { cells: 53_280 },
         content: Content::Assembled { parts: 12 },
         gestures: &[Gesture::Swap { what: Swap::Theme }],
         decided: "R20 §3 has no caller; six panels keep the old palette permanently",

@@ -2539,7 +2539,7 @@ mod tests {
     /// takes its own gate with it leaves nothing watching the direction it came from.
     ///
     /// **Why it is worth keeping in the new direction.** `Rgb`, `Mouse`, `Rect` and `Mods` are the
-    /// four this crate was built around not having: `crate::cells` exists because of `Rect`,
+    /// four this crate was built around not having: `cells.rs` existed because of `Rect`,
     /// `crate::counters::sentinel`'s first barrier was `Rgb`, and `crate::listing` could not post a
     /// wheel click because of `Mouse`. If any of them goes back to `reachable_as: None` those three
     /// modules are wrong again, and this is the only place that would say so.
@@ -2564,7 +2564,7 @@ mod tests {
             assert!(
                 lines[at + 1].starts_with("reachable_as: Some("),
                 "`{name}` is `{}` and runtime architecture issue 22 says every engine name on the \
-                 runtime's surface is reachable through it. `crate::cells`, \
+                 runtime's surface is reachable through it. The partition helpers, \
                  `crate::counters::sentinel` and `crate::listing` are all written against these \
                  four being reachable",
                 lines[at + 1]
@@ -2575,7 +2575,7 @@ mod tests {
     /// **The four are reachable by writing them**, which the test above cannot do.
     ///
     /// Reading `ENGINE_NAMES` proves the inventory says so; this proves the compiler agrees, and the
-    /// two together are what `crate::cells`'s header means by *there is no second spelling*. A
+    /// two together are what `cells.rs`'s header meant by *there is no second spelling*. A
     /// `Mouse` is **built** here rather than named, because construction is the half the old barrier
     /// survived: `Driver::post_mouse` takes one, and until issue 22 no crate on this side of the
     /// line could reach `Buttons` or `MouseKind` to make one.

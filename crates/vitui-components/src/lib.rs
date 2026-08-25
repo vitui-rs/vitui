@@ -8,8 +8,8 @@
 //! **Four of the twenty-nine components are written** — [`text::text`], [`text::chip`],
 //! [`input::button`] and [`structure::panel`], components ticket 10 — and the dense screen is now
 //! drawn *through* them rather than through their construction. They are spec §1's four rules with
-//! **two stated substitutions**: [`Cells`] stands in for `Rect`, which cannot be named from a
-//! package whose dependency table is `vitui-runtime` and nothing else ([`cells`]); and
+//! **two stated substitutions**: [`Rect`] stands in for `Rect`, which cannot be named from a
+//! package whose dependency table is `vitui-runtime` and nothing else; and
 //! [`structure::Panel`] stands in for a bare `Response`, because §2's *the cells it does not write
 //! are named in its return value* is unwritable in one and the closure form that would make it
 //! writable is refused on two measurements ([`frame`]). Neither is the rule being ignored, and each
@@ -110,7 +110,6 @@
 #![warn(missing_docs)]
 
 pub mod app;
-pub mod cells;
 pub mod counters;
 pub mod dense;
 pub mod form;
@@ -153,8 +152,8 @@ pub mod text;
 
 mod family;
 
-pub use cells::Cells;
 pub use family::Family;
+pub use vitui_runtime::Rect;
 // Re-exported at the root because every list, gate and ticket on this backlog names them, and
 // `inventory::` in front of each is noise at the one place they are read. The module stays public:
 // a reader looking for *why the axes are columns* should land on its documentation.

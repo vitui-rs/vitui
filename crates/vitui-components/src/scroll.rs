@@ -32,8 +32,8 @@
 
 use vitui_runtime::{Ctx, Glyph, Role};
 
-use crate::cells::Cells;
 use crate::ink::{Direct, Ink};
+use vitui_runtime::Rect;
 
 /// The components homed in this module. See [`crate::Family::members`].
 pub const MEMBERS: &[&str] = &["scroll_area", "scrollbar", "sticky"];
@@ -128,25 +128,25 @@ pub fn thumb(track: u16, span: Span) -> (u16, u16) {
 /// needs afterwards is the thumb, which is the drag target.
 ///
 /// ```
-/// use vitui_components::cells::Cells;
+/// use vitui_runtime::Rect;
 /// use vitui_components::scroll::{Span, bar};
 /// use vitui_runtime::ctx::Driver;
 ///
 /// let mut driver = Driver::headless(40, 10).expect("a sink attaches");
 /// driver.frame(|cx| {
-///     let track = Cells::at(39, 0, 1, 10);
+///     let track = Rect::new(39, 0, 1, 10);
 ///     let span = Span { viewport: 10, extent: 40, offset: 0 };
 ///     let thumb = bar(cx, track, span);
 ///     // A quarter of the content is visible, so a quarter of the track is thumb.
-///     assert_eq!((thumb.y(), thumb.h()), (0, 2));
+///     assert_eq!((thumb.y, thumb.h), (0, 2));
 /// });
 /// ```
-pub fn bar(cx: &mut Ctx<'_, '_>, area: Cells, span: Span) -> Cells {
+pub fn bar(cx: &mut Ctx<'_, '_>, area: Rect, span: Span) -> Rect {
     bar_with(cx, area, span, &BarOpts::default())
 }
 
 /// [`bar`], with the options spelled out.
-pub fn bar_with(cx: &mut Ctx<'_, '_>, area: Cells, span: Span, opts: &BarOpts) -> Cells {
+pub fn bar_with(cx: &mut Ctx<'_, '_>, area: Rect, span: Span, opts: &BarOpts) -> Rect {
     bar_into(&mut Direct, cx, area, span, opts)
 }
 
@@ -157,10 +157,10 @@ pub fn bar_with(cx: &mut Ctx<'_, '_>, area: Cells, span: Span, opts: &BarOpts) -
 pub fn bar_into<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
-    area: Cells,
+    area: Rect,
     span: Span,
     opts: &BarOpts,
-) -> Cells {
+) -> Rect {
     draw(ink, cx, area, span, opts, true)
 }
 
@@ -172,11 +172,11 @@ pub fn bar_into<I: Ink>(
 fn draw<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
-    area: Cells,
+    area: Rect,
     span: Span,
     opts: &BarOpts,
     thumb_first: bool,
-) -> Cells {
+) -> Rect {
     let theme = cx.theme();
     let track_paint = theme.paint(opts.track);
     let thumb_paint = theme.paint(opts.thumb);
@@ -184,16 +184,16 @@ fn draw<I: Ink>(
     let thumb_glyph = theme.glyph(Glyph::Thumb);
 
     let length = match opts.orient {
-        Orient::Vertical => area.h(),
-        Orient::Horizontal => area.w(),
+        Orient::Vertical => area.h,
+        Orient::Horizontal => area.w,
     };
     if area.is_empty() {
-        return Cells::at(area.x(), area.y(), 0, 0);
+        return Rect::new(area.x, area.y, 0, 0);
     }
     let (start, len) = thumb(length, span);
     let thumb_cells = match opts.orient {
-        Orient::Vertical => Cells::at(area.x(), area.y() + start, area.w(), len),
-        Orient::Horizontal => Cells::at(area.x() + start, area.y(), len, area.h()),
+        Orient::Vertical => Rect::new(area.x, area.y + i32::from(start), area.w, len),
+        Orient::Horizontal => Rect::new(area.x + i32::from(start), area.y, len, area.h),
     };
 
     if thumb_first {
@@ -263,7 +263,7 @@ fn draw<I: Ink>(
 fn stripe<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
-    area: Cells,
+    area: Rect,
     orient: Orient,
     from: u16,
     n: u16,
@@ -278,20 +278,20 @@ fn stripe<I: Ink>(
             for i in 0..n {
                 ink.run(
                     cx,
-                    i32::from(area.x()),
-                    i32::from(area.y() + from + i),
+                    area.x,
+                    area.y + i32::from(from + i),
                     cluster,
-                    area.w(),
+                    area.w,
                     paint,
                 );
             }
         }
         Orient::Horizontal => {
-            for row in 0..area.h() {
+            for row in 0..area.h {
                 ink.run(
                     cx,
-                    i32::from(area.x() + from),
-                    i32::from(area.y() + row),
+                    area.x + i32::from(from),
+                    area.y + i32::from(row),
                     cluster,
                     n,
                     paint,
@@ -307,7 +307,7 @@ fn stripe<I: Ink>(
 /// instrument crate's fixtures are part of the instrument, and a gate validated only against a
 /// correct build reports zero for the same reason a broken one would.
 pub mod defective {
-    use super::{BarOpts, Cells, Ctx, Ink, Span, draw};
+    use super::{BarOpts, Ctx, Ink, Rect, Span, draw};
 
     /// **The groove first, then the thumb over it.**
     ///
@@ -318,10 +318,10 @@ pub mod defective {
     pub fn track_first<I: Ink>(
         ink: &mut I,
         cx: &mut Ctx<'_, '_>,
-        area: Cells,
+        area: Rect,
         span: Span,
         opts: &BarOpts,
-    ) -> Cells {
+    ) -> Rect {
         draw(ink, cx, area, span, opts, false)
     }
 }
@@ -343,11 +343,11 @@ pub const COLS: u32 = 400;
 // ledger rule (`crates/vitui-runtime/src/ledger.rs`), inherited by `crate::form` and
 // `crate::state`. Every figure is a count over a deterministic screen, so none carries a machine.
 
-/// Cells the two bars cover: a column of `H - 1` and a row of `W - 1`.
+/// Rect the two bars cover: a column of `H - 1` and a row of `W - 1`.
 ///
 /// The corner belongs to neither and is the scroll area's, which is why this is not `H + W`.
 pub const BAR_CELLS: u64 = (H - 1) as u64 + (W - 1) as u64;
-/// **Cells a track-first pair of bars writes twice, every frame. This screen's own number.**
+/// **Rect a track-first pair of bars writes twice, every frame. This screen's own number.**
 ///
 /// It is `thumb_v + thumb_h` and nothing else: the excess *is* the thumb, because the thumb is
 /// exactly what the groove was written under. Spec §3 remembers **221** on C02's two-bar screen and
@@ -362,17 +362,17 @@ pub const THUMB_V: u16 = 1;
 pub const THUMB_H: u16 = 223;
 
 /// The vertical bar's rectangle on the two-bar screen. Reserved, never overlaid (ADR 0029).
-pub fn vertical() -> Cells {
-    Cells::at(W - 1, 0, 1, H - 1)
+pub fn vertical() -> Rect {
+    Rect::new(i32::from(W - 1), 0, 1, H - 1)
 }
 
 /// The horizontal bar's rectangle.
-pub fn horizontal() -> Cells {
-    Cells::at(0, H - 1, W - 1, 1)
+pub fn horizontal() -> Rect {
+    Rect::new(0, i32::from(H - 1), W - 1, 1)
 }
 
 /// What the two bars are told about the content.
-pub fn spans() -> [(Cells, Span, BarOpts); 2] {
+pub fn spans() -> [(Rect, Span, BarOpts); 2] {
     [
         (
             vertical(),
@@ -418,6 +418,7 @@ mod tests {
     use crate::counters::Tally;
     use crate::runner::driver_at;
     use vitui_runtime::Density;
+    use vitui_runtime::layout::rect;
 
     fn tallied(w: u16, h: u16, f: impl FnOnce(&mut Tally, &mut Ctx<'_, '_>)) -> Tally {
         let mut driver = driver_at(w, h, Density::Compact);
@@ -444,15 +445,15 @@ mod tests {
                             ..BarOpts::default()
                         };
                         let area = match orient {
-                            Orient::Vertical => Cells::at(0, 0, 1, length),
-                            Orient::Horizontal => Cells::at(0, 0, length, 1),
+                            Orient::Vertical => Rect::new(0, 0, 1, length),
+                            Orient::Horizontal => Rect::new(0, 0, length, 1),
                         };
                         let span = Span {
                             viewport,
                             extent,
                             offset,
                         };
-                        let mut thumb_cells = Cells::default();
+                        let mut thumb_cells = Rect::default();
                         let tally = tallied(length.max(1), length.max(1), |tally, cx| {
                             thumb_cells = bar_into(tally, cx, area, span, &opts);
                         });
@@ -469,11 +470,11 @@ mod tests {
                         );
                         assert_eq!(
                             tally.distinct(),
-                            area.count(),
+                            (u64::from(area.w) * u64::from(area.h)),
                             "{what}: the bar does not cover its rectangle"
                         );
                         assert_eq!(
-                            thumb_cells.intersect(area),
+                            rect::intersect(thumb_cells, area),
                             thumb_cells,
                             "{what}: the thumb is not inside the bar"
                         );
@@ -548,8 +549,8 @@ mod tests {
     #[test]
     fn the_two_thumbs_are_one_cell_and_two_hundred_and_twenty_three() {
         let [(v, vs, _), (h, hs, _)] = spans();
-        assert_eq!(thumb(v.h(), vs).1, THUMB_V);
-        assert_eq!(thumb(h.w(), hs).1, THUMB_H);
+        assert_eq!(thumb(v.h, vs).1, THUMB_V);
+        assert_eq!(thumb(h.w, hs).1, THUMB_H);
         // The clamp is doing the work on the vertical bar: 79 * 79 / 1 000 000 is zero, and a
         // million-row area with no thumb is a bar that says nothing at all.
         assert_eq!(u64::from(H - 1) * u64::from(H - 1) / u64::from(ROWS), 0);

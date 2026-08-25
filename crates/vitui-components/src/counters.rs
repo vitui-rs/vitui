@@ -349,7 +349,7 @@ pub struct Counters {
     pub distinct: Reading,
     /// Drawing calls. See [`Tally::verbs`].
     pub verbs: Reading,
-    /// **Cells marked damaged — the one that is not here.**
+    /// **Rect marked damaged — the one that is not here.**
     ///
     /// `crates/vitui-engine/src/damage.rs` is `pub(crate)` from top to bottom: `RowBits::mark`,
     /// `mark_all`, `clear` and `for_each_run` are all crate-private, and nothing on `Surface`,

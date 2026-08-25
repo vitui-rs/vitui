@@ -15,7 +15,6 @@
 //! 6. **What does not reproduce**, said out loud rather than engineered away.
 
 use vitui_components::app::Clears;
-use vitui_components::cells::Cells;
 use vitui_components::counters::{Allocations, Tally};
 use vitui_components::dense::{self, Arm};
 use vitui_components::input::{ButtonOpts, button_into};
@@ -23,6 +22,7 @@ use vitui_components::runner::{Canvas, Pen, driver_at, metric_heading};
 use vitui_components::structure::{PanelOpts, panel_into};
 use vitui_components::text::{ChipOpts, TextOpts, chip_drawn, chip_into, text_into};
 use vitui_runtime::Density;
+use vitui_runtime::Rect;
 use vitui_runtime::ctx::Ctx;
 
 /// The rectangle every primitive is measured on: wide enough that nothing truncates, one row.
@@ -48,7 +48,7 @@ fn main() {
         "  {:<9}  {:>7}  {:>9}  {:>6}  {:>9}  {:>9}",
         "component", "writes", "distinct", "verbs", "own cells", "returned"
     );
-    let area = Cells::at(0, 0, CELL.0, CELL.1);
+    let area = Rect::new(0, 0, CELL.0, CELL.1);
     let rows: [(&str, Tally, u64); 4] = [
         (
             "text",
@@ -77,18 +77,18 @@ fn main() {
                 let panel = panel_into(
                     tally,
                     cx,
-                    Cells::at(0, 0, CELL.0, CELL.1 + 6),
+                    Rect::new(0, 0, CELL.0, CELL.1 + 6),
                     " panel systems ",
                     &PanelOpts::default(),
                 );
-                handed = panel.interior.count();
+                handed = u64::from(panel.interior.w) * u64::from(panel.interior.h);
             });
             ("panel", tally, handed)
         },
     ];
     for (name, tally, returned) in &rows {
         let owned = if *returned == 0 {
-            u64::from(area.w()) * u64::from(area.h())
+            u64::from(area.w) * u64::from(area.h)
         } else {
             u64::from(CELL.0) * u64::from(CELL.1 + 6) - returned
         };
@@ -212,7 +212,7 @@ fn main() {
         driver.frame(|cx| {
             let opts = ChipOpts::default();
             let id = cx.id();
-            let mut resp = chip.interact(cx, id, opts.interest);
+            let mut resp = cx.interact(id, chip, opts.interest);
             resp.hovered = hovered;
             chip_drawn(
                 &mut pen,
@@ -240,10 +240,10 @@ fn main() {
     println!("report  what does not reproduce, and why:");
     for line in [
         "  §1 / §2                      here          why",
-        "  `fn(&mut Ctx, Rect, …)`      `Cells` for   `Rect` is `vitui_engine::Rect` and C6 says",
+        "  `fn(&mut Ctx, Rect, …)`      `Rect` for   `Rect` is `vitui_engine::Rect` and C6 says",
         "                               `Rect`        the dependency table is the runtime alone. The",
         "                                             rule is obeyed with this crate's own rectangle",
-        "                                             in its place — see `crate::cells`.",
+        "                                             in its place — see `vitui_runtime::layout::rect`.",
         "  rule 4, `-> Response`        `-> Panel`    only for `panel`. §2's *the cells it does not*",
         "                               for `panel`   *write are named in its return value* is not",
         "                                             writable in a bare `Response`, and the closure",

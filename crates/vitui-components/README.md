@@ -23,10 +23,12 @@ Spec §1's rule is `fn(&mut Ctx, Rect, …) -> Response`, with options in a `Def
 `f_with` sibling for every `f`. That is what ships, with two substitutions that are stated rather
 than silent:
 
-- **`Cells` for `Rect`.** `Rect` is `vitui_engine::Rect`, re-exported by none of the runtime's
-  twenty-seven public declarations that name it, and this crate's dependency table is
-  `vitui-runtime` and nothing else. `cells.rs` names the four candidate answers and why this is
-  the one.
+- ~~**`Cells` for `Rect`.**~~ **Withdrawn**, and it is the one deviation that ended. `Rect` was
+  `vitui_engine::Rect`, re-exported by none of the runtime's twenty-seven public declarations that
+  named it, while this crate's dependency table is `vitui-runtime` and nothing else — so the crate
+  named its own rectangle. Runtime architecture issue 22 made the runtime re-export every engine
+  type its public surface names, and components architecture issue 17 deleted `Cells`: the helpers
+  return `vitui_runtime::Rect`, which is what spec §2 and §3 said all along.
 - **`Panel` for `Response`, on `panel` alone.** A container owes both §1's rule 4 and §2's *the
   cells it does not write are named in its return value*, and a bare `Response` cannot state the
   second. The closure form that would collapse the two is refused on two measurements — see

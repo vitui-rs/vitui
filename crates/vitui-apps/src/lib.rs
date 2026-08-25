@@ -66,7 +66,7 @@ pub const APPS: [App; 1] = [App {
     uses: &[
         "structure::panel_with",
         "text::text_with",
-        "cells::Cells",
+        "layout::rect::split_at_v",
         "keys::KeyMap",
         "ctx::Driver::wait",
     ],

@@ -17,7 +17,6 @@
 use std::hint::black_box;
 
 use vitui_alloc_probe::{CountingAllocator, count_allocations};
-use vitui_components::cells::Cells;
 use vitui_components::counters::{Allocations, Counter, Counters, Tally};
 use vitui_components::frame::block;
 use vitui_components::text::{FitOpts, Justify, fit, fit_with};
@@ -518,7 +517,7 @@ fn changed_greater_than_zero_passes_on_the_exact_set_it_had_to_catch() {
 /// component in this library will route its writing through, so a per-frame allocation inside either
 /// of them is a per-frame allocation in every component at once.
 fn steady_helpers(cx: &mut Ctx<'_, '_>) {
-    let mut rest = block(cx, Cells::of(cx), " panel systems ");
+    let mut rest = block(cx, cx.area(), " panel systems ");
     for _ in 0..12 {
         rest = fit(cx, rest, "a row that does not move");
     }

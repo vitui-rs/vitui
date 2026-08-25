@@ -15,9 +15,9 @@
 //! §1 writes it out: `pub fn button(cx: &mut Ctx, area: Rect, label: &str) -> Response`. When this
 //! module was written **`Rect` could not be named from this package** — it is `vitui_engine::Rect`,
 //! `reachable_as: None`, and C6 says the dependency table is `vitui-runtime` and nothing else — so
-//! what ships takes [`Cells`], this crate's own rectangle in the `Ctx`'s coordinates, swept operator
-//! for operator against `vitui_runtime::layout::rect`. See [`crate::cells`] for the four candidates
-//! and why this was the one; the rule is obeyed with `Cells` in `Rect`'s place, not set aside.
+//! what ships takes [`Rect`], this crate's own rectangle in the `Ctx`'s coordinates, swept operator
+//! for operator against `vitui_runtime::layout::rect`. See [`vitui_runtime::layout::rect`] for the four candidates
+//! and why this was the one; the rule is obeyed with `Rect` in `Rect`'s place, not set aside.
 //!
 //! **Runtime architecture issue 22 has since made `Rect` nameable here** (`vitui_runtime::Rect`),
 //! which removes the reason and not the code. Whether the signature goes back to §1's own spelling
@@ -25,10 +25,10 @@
 
 use vitui_runtime::{Ctx, Interest, Response, Role};
 
-use crate::cells::Cells;
 use crate::ink::{Direct, Ink};
 use crate::state::Faces;
 use crate::text::{ChipOpts, Justify, chip_drawn};
+use vitui_runtime::Rect;
 
 /// The components homed in this module. See [`crate::Family::members`].
 pub const MEMBERS: &[&str] = &[
@@ -78,17 +78,17 @@ impl Default for ButtonOpts {
     }
 }
 
-/// **A label on a face that reacts, and a tab stop.** Spec §1's own signature, with `Cells` for
+/// **A label on a face that reacts, and a tab stop.** Spec §1's own signature, with `Rect` for
 /// `Rect`.
 ///
 /// ```
-/// use vitui_components::cells::Cells;
+/// use vitui_runtime::Rect;
 /// use vitui_components::input::button;
 /// use vitui_runtime::ctx::Driver;
 ///
 /// let mut driver = Driver::headless(20, 1).expect("a sink attaches");
 /// driver.frame(|cx| {
-///     let resp = button(cx, Cells::at(0, 0, 10, 1), "reset");
+///     let resp = button(cx, Rect::new(0, 0, 10, 1), "reset");
 ///     // Rule 4: a `Response` back, and nothing has happened to it on a frame with no input.
 ///     assert!(!resp.clicked);
 /// });
@@ -96,13 +96,13 @@ impl Default for ButtonOpts {
 /// assert_eq!(driver.inspect().stop_count(), 1);
 /// ```
 #[track_caller]
-pub fn button(cx: &mut Ctx<'_, '_>, area: Cells, label: &str) -> Response {
+pub fn button(cx: &mut Ctx<'_, '_>, area: Rect, label: &str) -> Response {
     button_with(cx, area, label, &ButtonOpts::default())
 }
 
 /// [`button`], with the options spelled out.
 #[track_caller]
-pub fn button_with(cx: &mut Ctx<'_, '_>, area: Cells, label: &str, opts: &ButtonOpts) -> Response {
+pub fn button_with(cx: &mut Ctx<'_, '_>, area: Rect, label: &str, opts: &ButtonOpts) -> Response {
     button_into(&mut Direct, cx, area, label, opts)
 }
 
@@ -115,12 +115,12 @@ pub fn button_with(cx: &mut Ctx<'_, '_>, area: Cells, label: &str, opts: &Button
 pub fn button_into<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
-    area: Cells,
+    area: Rect,
     label: &str,
     opts: &ButtonOpts,
 ) -> Response {
     let id = cx.id();
-    let resp = area.interact(cx, id, opts.interest);
+    let resp = cx.interact(id, area, opts.interest);
     button_drawn(ink, cx, area, label, &resp, opts);
     resp
 }
@@ -135,7 +135,7 @@ pub fn button_into<I: Ink>(
 pub fn button_drawn<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
-    area: Cells,
+    area: Rect,
     label: &str,
     resp: &Response,
     opts: &ButtonOpts,
@@ -182,7 +182,7 @@ mod tests {
             for label in ["", "reset", "an action with a very long name"] {
                 let opts = ButtonOpts::default();
                 let tally = tallied(w.max(2), h, |tally, cx| {
-                    button_into(tally, cx, Cells::at(0, 0, w, h), label, &opts);
+                    button_into(tally, cx, Rect::new(0, 0, w, h), label, &opts);
                 });
                 assert_eq!(
                     tally.writes(),
@@ -212,7 +212,7 @@ mod tests {
     fn a_button_is_one_region_and_one_tab_stop() {
         let mut driver = Driver::headless(20, 1).expect("a sink attaches");
         driver.frame(|cx| {
-            let resp = button(cx, Cells::at(0, 0, 10, 1), "reset");
+            let resp = button(cx, Rect::new(0, 0, 10, 1), "reset");
             assert_eq!((resp.rect.w, resp.rect.h), (10, 1));
             assert!(!resp.clicked && !resp.focused);
         });
@@ -237,8 +237,8 @@ mod tests {
     fn two_buttons_at_two_call_sites_are_two_widgets() {
         let mut driver = Driver::headless(24, 2).expect("a sink attaches");
         driver.frame(|cx| {
-            button(cx, Cells::at(0, 0, 10, 1), "reset");
-            button(cx, Cells::at(0, 1, 10, 1), "pause");
+            button(cx, Rect::new(0, 0, 10, 1), "reset");
+            button(cx, Rect::new(0, 1, 10, 1), "pause");
         });
         assert_eq!(
             driver.inspect().hits().len(),
@@ -251,8 +251,8 @@ mod tests {
         // the other half of the rule and what `crate::dense`'s loop does.
         let mut driver = Driver::headless(24, 2).expect("a sink attaches");
         driver.frame(|cx| {
-            for row in 0..2u16 {
-                button(cx, Cells::at(0, row, 10, 1), "reset");
+            for row in 0..2i32 {
+                button(cx, Rect::new(0, row, 10, 1), "reset");
             }
         });
         assert_eq!(
@@ -262,9 +262,9 @@ mod tests {
         );
         let mut driver = Driver::headless(24, 2).expect("a sink attaches");
         driver.frame(|cx| {
-            for row in 0..2u16 {
-                cx.with_key(u64::from(row), |cx| {
-                    button(cx, Cells::at(0, row, 10, 1), "reset")
+            for row in 0..2i32 {
+                cx.with_key(row as u64, |cx| {
+                    button(cx, Rect::new(0, row, 10, 1), "reset")
                 });
             }
         });

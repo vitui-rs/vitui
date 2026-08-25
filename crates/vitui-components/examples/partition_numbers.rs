@@ -13,7 +13,6 @@
 //! 4. **The 15-cell instance**, watched firing.
 //! 5. **What does not reproduce**, said out loud rather than engineered away.
 
-use vitui_components::cells::Cells;
 use vitui_components::counters::Tally;
 use vitui_components::form;
 use vitui_components::frame::{BlockOpts, block_into, defective};
@@ -137,11 +136,11 @@ fn main() {
     let mut broken = Tally::new();
     let mut driver = driver_at(60, 12, Density::Compact);
     driver.frame(|cx| {
-        block_into(&mut correct, cx, Cells::of(cx), &opts);
+        block_into(&mut correct, cx, cx.area(), &opts);
     });
     let mut driver = driver_at(60, 12, Density::Compact);
     driver.frame(|cx| {
-        defective::block_over_title(&mut broken, cx, Cells::of(cx), &opts);
+        defective::block_over_title(&mut broken, cx, cx.area(), &opts);
     });
     println!(
         "  {:<10}  {:>8}  {:>9}  {:>8}  {:>7}",

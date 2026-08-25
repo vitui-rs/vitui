@@ -24,10 +24,11 @@
 use vitui_runtime::layout::text as measure;
 use vitui_runtime::{Ctx, Interest, Paint, Response, Role};
 
-use crate::cells::Cells;
 use crate::glyphs::elide;
 use crate::ink::{Direct, Ink};
 use crate::state::{Faces, press_into};
+use vitui_runtime::Rect;
+use vitui_runtime::layout::rect;
 
 /// The components homed in this module. See [`crate::Family::members`].
 pub const MEMBERS: &[&str] = &["text", "chip"];
@@ -85,25 +86,25 @@ impl Default for FitOpts {
 /// The ninety-per-cent spelling: left-justified, [`Role::Body`] for both halves.
 ///
 /// ```
-/// use vitui_components::cells::Cells;
+/// use vitui_runtime::Rect;
 /// use vitui_components::text::fit;
 /// use vitui_runtime::ctx::Driver;
 ///
 /// let mut driver = Driver::headless(20, 3).expect("a sink attaches");
 /// driver.frame(|cx| {
-///     let area = Cells::of(cx);
+///     let area = cx.area();
 ///     let rest = fit(cx, area, "one");
 ///     let rest = fit(cx, rest, "two");
 ///     // Two rows written, one row returned — and the caller owns it.
-///     assert_eq!((rest.y(), rest.h()), (2, 1));
+///     assert_eq!((rest.y, rest.h), (2, 1));
 /// });
 /// ```
-pub fn fit(cx: &mut Ctx<'_, '_>, area: Cells, s: &str) -> Cells {
+pub fn fit(cx: &mut Ctx<'_, '_>, area: Rect, s: &str) -> Rect {
     fit_with(cx, area, s, &FitOpts::default())
 }
 
 /// [`fit`], with the options spelled out.
-pub fn fit_with(cx: &mut Ctx<'_, '_>, area: Cells, s: &str, opts: &FitOpts) -> Cells {
+pub fn fit_with(cx: &mut Ctx<'_, '_>, area: Rect, s: &str, opts: &FitOpts) -> Rect {
     fit_into(&mut Direct, cx, area, s, opts)
 }
 
@@ -130,11 +131,11 @@ pub fn fit_with(cx: &mut Ctx<'_, '_>, area: Cells, s: &str, opts: &FitOpts) -> C
 pub fn fit_into<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
-    area: Cells,
+    area: Rect,
     s: &str,
     opts: &FitOpts,
-) -> Cells {
-    let (band, rest) = area.split_at_v(1);
+) -> Rect {
+    let (band, rest) = rect::split_at_v(area, 1);
     if band.is_empty() {
         return rest;
     }
@@ -143,7 +144,7 @@ pub fn fit_into<I: Ink>(
     let text_paint = theme.paint(opts.role);
     let pad_paint = theme.paint(opts.pad);
 
-    let w = band.w();
+    let w = band.w;
     let (head, marker) = elide(theme, s, w);
     let head_w = measure::width(head);
     let mark_w = measure::width(marker);
@@ -160,8 +161,8 @@ pub fn fit_into<I: Ink>(
     };
     let trail = slack - lead;
 
-    let y = i32::from(band.y());
-    let x = i32::from(band.x());
+    let y = band.y;
+    let x = band.x;
     ink.run(cx, x, y, PAD, lead, pad_paint);
     if head_w > 0 {
         ink.text(cx, x + i32::from(lead), y, head, text_paint);
@@ -180,10 +181,10 @@ pub fn fit_into<I: Ink>(
 // package at all**: it is `vitui_engine::Rect`, named by twenty-seven of the runtime's public
 // declarations and re-exported by none of them, and constraint C6 says this crate's
 // `[dependencies]` table is `vitui-runtime` and nothing else. So every component here takes
-// [`Cells`], which is this crate's own rectangle in the `Ctx`'s own coordinates, swept operator for
-// operator against `vitui_runtime::layout::rect`. See [`crate::cells`]'s header for the four
+// [`Rect`], which is this crate's own rectangle in the `Ctx`'s own coordinates, swept operator for
+// operator against `vitui_runtime::layout::rect`. See [`vitui_runtime::layout::rect`]'s header for the four
 // candidate answers and why this is the one. **The rule is obeyed, not ignored** — a reader coming
-// from spec §1 is looking at `fn(&mut Ctx, Cells, …) -> Response`.
+// from spec §1 is looking at `fn(&mut Ctx, Rect, …) -> Response`.
 //
 // The other three rules are as written: data by shared reference, options a `Default` struct with an
 // `_with` sibling, and a `Response` back even from a pure drawer.
@@ -216,8 +217,8 @@ pub struct TextOpts {
     /// **Whether to declare a region at all**, and what it asks for.
     ///
     /// `None` is the default and means *no hit entry*: a label is a pure drawer, and the `Response`
-    /// it returns is [`Cells::inert`]'s. `Some(interest)` declares a region — a clickable heading, a
-    /// footer that opens a log. See [`Cells::inert`] for why `None` and `Some(Interest::NONE)` are
+    /// it returns is [`Response::inert`]'s. `Some(interest)` declares a region — a clickable heading, a
+    /// footer that opens a log. See [`Response::inert`] for why `None` and `Some(Interest::NONE)` are
     /// two different statements and neither is the other spelled differently.
     pub interest: Option<Interest>,
 }
@@ -236,26 +237,26 @@ impl Default for TextOpts {
 /// **One line of text, filling the rectangle it was handed.** Spec §1's pure drawer.
 ///
 /// ```
-/// use vitui_components::cells::Cells;
+/// use vitui_runtime::Rect;
 /// use vitui_components::text::text;
 /// use vitui_runtime::ctx::Driver;
 ///
 /// let mut driver = Driver::headless(20, 2).expect("a sink attaches");
 /// driver.frame(|cx| {
-///     let resp = text(cx, Cells::of(cx), "a label");
+///     let resp = text(cx, cx.area(), "a label");
 ///     // A pure drawer still answers, which is rule 4 — and it declared nothing, so nothing
 ///     // happened to it.
 ///     assert!(!resp.clicked && !resp.hovered && !resp.focused);
 /// });
 /// ```
 #[track_caller]
-pub fn text(cx: &mut Ctx<'_, '_>, area: Cells, s: &str) -> Response {
+pub fn text(cx: &mut Ctx<'_, '_>, area: Rect, s: &str) -> Response {
     text_with(cx, area, s, &TextOpts::default())
 }
 
 /// [`text`], with the options spelled out.
 #[track_caller]
-pub fn text_with(cx: &mut Ctx<'_, '_>, area: Cells, s: &str, opts: &TextOpts) -> Response {
+pub fn text_with(cx: &mut Ctx<'_, '_>, area: Rect, s: &str, opts: &TextOpts) -> Response {
     text_into(&mut Direct, cx, area, s, opts)
 }
 
@@ -274,14 +275,14 @@ pub fn text_with(cx: &mut Ctx<'_, '_>, area: Cells, s: &str, opts: &TextOpts) ->
 pub fn text_into<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
-    area: Cells,
+    area: Rect,
     s: &str,
     opts: &TextOpts,
 ) -> Response {
     let id = cx.id();
     let resp = match opts.interest {
-        Some(interest) => area.interact(cx, id, interest),
-        None => area.inert(cx, id),
+        Some(interest) => cx.interact(id, area, interest),
+        None => Response::inert(id, area),
     };
     let rest = fit_into(
         ink,
@@ -353,25 +354,25 @@ impl Default for ChipOpts {
 /// every cell written exactly once.
 ///
 /// ```
-/// use vitui_components::cells::Cells;
+/// use vitui_runtime::Rect;
 /// use vitui_components::text::chip;
 /// use vitui_runtime::ctx::Driver;
 ///
 /// let mut driver = Driver::headless(20, 1).expect("a sink attaches");
 /// driver.frame(|cx| {
-///     let resp = chip(cx, Cells::at(2, 0, 12, 1), "degraded, retrying");
+///     let resp = chip(cx, Rect::new(2, 0, 12, 1), "degraded, retrying");
 ///     // It declared a region, and the label was narrowed into it rather than into its neighbour.
 ///     assert_eq!((resp.rect.w, resp.rect.h), (12, 1));
 /// });
 /// ```
 #[track_caller]
-pub fn chip(cx: &mut Ctx<'_, '_>, area: Cells, label: &str) -> Response {
+pub fn chip(cx: &mut Ctx<'_, '_>, area: Rect, label: &str) -> Response {
     chip_with(cx, area, label, &ChipOpts::default())
 }
 
 /// [`chip`], with the options spelled out.
 #[track_caller]
-pub fn chip_with(cx: &mut Ctx<'_, '_>, area: Cells, label: &str, opts: &ChipOpts) -> Response {
+pub fn chip_with(cx: &mut Ctx<'_, '_>, area: Rect, label: &str, opts: &ChipOpts) -> Response {
     chip_into(&mut Direct, cx, area, label, opts)
 }
 
@@ -380,12 +381,12 @@ pub fn chip_with(cx: &mut Ctx<'_, '_>, area: Cells, label: &str, opts: &ChipOpts
 pub fn chip_into<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
-    area: Cells,
+    area: Rect,
     label: &str,
     opts: &ChipOpts,
 ) -> Response {
     let id = cx.id();
-    let resp = area.interact(cx, id, opts.interest);
+    let resp = cx.interact(id, area, opts.interest);
     chip_drawn(ink, cx, area, label, &resp, opts);
     resp
 }
@@ -417,7 +418,7 @@ pub fn chip_into<I: Ink>(
 pub fn chip_drawn<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
-    area: Cells,
+    area: Rect,
     label: &str,
     resp: &Response,
     opts: &ChipOpts,
@@ -436,14 +437,14 @@ pub fn chip_drawn<I: Ink>(
 pub(crate) fn face_and_label<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
-    area: Cells,
+    area: Rect,
     label: &str,
     face: Role,
     justify: Justify,
 ) {
     let paint = cx.theme().paint(face);
     // The label sits on the middle row of a taller rectangle, and the rows either side are face.
-    let (above, rest) = area.split_at_v(area.h().saturating_sub(1) / 2);
+    let (above, rest) = rect::split_at_v(area, area.h.saturating_sub(1) / 2);
     pad_rows(ink, cx, above, paint);
     let below = fit_into(
         ink,
@@ -465,13 +466,13 @@ pub(crate) fn face_and_label<I: Ink>(
 /// Write every row of `cells` as padding. **Runs and never `Ctx::fill`** — see [`crate::ink`]:
 /// `fill` returns `()`, so a filled cell is modelled rather than reported and the pair stops being
 /// a comparison between two sources.
-pub(crate) fn pad_rows<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, cells: Cells, st: Paint) {
+pub(crate) fn pad_rows<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, cells: Rect, st: Paint) {
     if cells.is_empty() {
         return;
     }
-    let x = i32::from(cells.x());
-    for r in 0..cells.h() {
-        ink.run(cx, x, i32::from(cells.y() + r), PAD, cells.w(), st);
+    let x = cells.x;
+    for r in 0..cells.h {
+        ink.run(cx, x, cells.y + i32::from(r), PAD, cells.w, st);
     }
 }
 
@@ -485,8 +486,8 @@ pub(crate) fn pad_rows<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, cells: Cells, 
 /// register can point at.
 pub mod defective {
     use super::{
-        Cells, ChipOpts, Ctx, Ink, PAD, Paint, Response, TextOpts, face_and_label, pad_rows,
-        press_into,
+        ChipOpts, Ctx, Ink, PAD, Paint, Rect, Response, TextOpts, face_and_label, pad_rows,
+        press_into, rect,
     };
 
     /// **A `text` that does not narrow**, whose line runs into its neighbour's rectangle.
@@ -496,14 +497,14 @@ pub mod defective {
     pub fn text_that_does_not_narrow<I: Ink>(
         ink: &mut I,
         cx: &mut Ctx<'_, '_>,
-        area: Cells,
+        area: Rect,
         s: &str,
         opts: &TextOpts,
     ) -> Response {
         let id = cx.id();
         let resp = match opts.interest {
-            Some(interest) => area.interact(cx, id, interest),
-            None => area.inert(cx, id),
+            Some(interest) => cx.interact(id, area, interest),
+            None => Response::inert(id, area),
         };
         let theme = cx.theme();
         let (text, pad) = (theme.paint(opts.role), theme.paint(opts.pad));
@@ -518,12 +519,12 @@ pub mod defective {
     pub fn chip_that_does_not_narrow<I: Ink>(
         ink: &mut I,
         cx: &mut Ctx<'_, '_>,
-        area: Cells,
+        area: Rect,
         label: &str,
         opts: &ChipOpts,
     ) -> Response {
         let id = cx.id();
-        let resp = area.interact(cx, id, opts.interest);
+        let resp = cx.interact(id, area, opts.interest);
         let face = press_into(ink, cx, area, &resp, &opts.faces);
         let theme = cx.theme();
         let (text, pad) = (theme.paint(face), theme.paint(face));
@@ -537,12 +538,12 @@ pub mod defective {
     pub fn chip_that_fills_its_face<I: Ink>(
         ink: &mut I,
         cx: &mut Ctx<'_, '_>,
-        area: Cells,
+        area: Rect,
         label: &str,
         opts: &ChipOpts,
     ) -> Response {
         let id = cx.id();
-        let resp = area.interact(cx, id, opts.interest);
+        let resp = cx.interact(id, area, opts.interest);
         let face = press_into(ink, cx, area, &resp, &opts.faces);
         let paint = cx.theme().paint(face);
         pad_rows(ink, cx, area, paint);
@@ -560,23 +561,23 @@ pub mod defective {
     fn overrunning<I: Ink>(
         ink: &mut I,
         cx: &mut Ctx<'_, '_>,
-        area: Cells,
+        area: Rect,
         s: &str,
         text: Paint,
         pad: Paint,
-    ) -> Cells {
-        let (band, rest) = area.split_at_v(1);
+    ) -> Rect {
+        let (band, rest) = rect::split_at_v(area, 1);
         if band.is_empty() {
             return rest;
         }
-        let (x, y) = (i32::from(band.x()), i32::from(band.y()));
+        let (x, y) = (band.x, band.y);
         let used = ink.text(cx, x, y, s, text);
         ink.run(
             cx,
             x + i32::from(used),
             y,
             PAD,
-            band.w().saturating_sub(used),
+            band.w.saturating_sub(used),
             pad,
         );
         rest
@@ -615,7 +616,7 @@ mod tests {
                         ..FitOpts::default()
                     };
                     let tally = tallied(w.max(1), 3, |tally, cx| {
-                        let area = Cells::at(0, 0, w, 1);
+                        let area = Rect::new(0, 0, w, 1);
                         let rest = fit_into(tally, cx, area, label, &opts);
                         assert!(rest.is_empty(), "a one-row area leaves no remainder");
                     });
@@ -646,13 +647,13 @@ mod tests {
     #[test]
     fn fit_returns_the_rows_it_did_not_write() {
         let tally = tallied(12, 5, |tally, cx| {
-            let area = Cells::of(cx);
+            let area = cx.area();
             let opts = FitOpts::default();
             let mut rest = area;
             for line in ["one", "two"] {
                 rest = fit_into(tally, cx, rest, line, &opts);
             }
-            assert_eq!((rest.x(), rest.y(), rest.w(), rest.h()), (0, 2, 12, 3));
+            assert_eq!((rest.x, rest.y, rest.w, rest.h), (0, 2, 12, 3));
         });
         assert_eq!(tally.writes(), 24, "two rows of twelve");
         assert_eq!(tally.distinct(), 24);
@@ -672,14 +673,13 @@ mod tests {
     fn a_chain_that_runs_out_of_rows_writes_nothing_more() {
         let tally = tallied(8, 2, |tally, cx| {
             let opts = FitOpts::default();
-            let mut rest = Cells::of(cx);
+            let mut rest = cx.area();
             for i in 0..6 {
                 rest = fit_into(tally, cx, rest, &format!("row {i}"), &opts);
                 if i >= 2 {
                     assert!(rest.is_empty());
                     assert_eq!(
-                        rest.y(),
-                        2,
+                        rest.y, 2,
                         "the empty remainder stays where the split left it"
                     );
                 }
@@ -738,7 +738,7 @@ mod tests {
                 justify: Justify::Middle,
                 ..FitOpts::default()
             };
-            fit_into(tally, cx, Cells::at(0, 0, 9, 1), "abcd", &opts);
+            fit_into(tally, cx, Rect::new(0, 0, 9, 1), "abcd", &opts);
         });
         assert_eq!(tally.writes(), 9);
         assert_eq!(tally.verbs(), 3, "lead, text, trail");
@@ -788,7 +788,7 @@ mod tests {
                         ..TextOpts::default()
                     };
                     let tally = tallied(w, h, |tally, cx| {
-                        text_into(tally, cx, Cells::at(0, 0, w, h), label, &opts);
+                        text_into(tally, cx, Rect::new(0, 0, w, h), label, &opts);
                     });
                     let cells = u64::from(w) * u64::from(h);
                     assert_eq!(
@@ -820,14 +820,14 @@ mod tests {
 
     /// **Criterion 1: `text` declares nothing by default, and a region when it is asked for one.**
     ///
-    /// Rule 4 is *return `Response`, even from a pure drawer*, and [`Cells::inert`]'s header is why
+    /// Rule 4 is *return `Response`, even from a pure drawer*, and [`Response::inert`]'s header is why
     /// that is not `Interest::NONE`: `NONE` is a hit entry, and 222 of them is the difference
     /// between [`crate::dense`]'s 338 regions and 560.
     #[test]
     fn text_takes_a_hit_entry_only_when_its_options_ask_for_one() {
         let mut driver = Driver::headless(20, 1).expect("a sink attaches");
         driver.frame(|cx| {
-            let resp = text(cx, Cells::at(0, 0, 20, 1), "a label");
+            let resp = text(cx, Rect::new(0, 0, 20, 1), "a label");
             assert_eq!(
                 (resp.rect.w, resp.rect.h),
                 (20, 1),
@@ -845,7 +845,7 @@ mod tests {
         driver.frame(|cx| {
             text_with(
                 cx,
-                Cells::at(0, 0, 20, 1),
+                Rect::new(0, 0, 20, 1),
                 "a heading",
                 &TextOpts {
                     interest: Some(Interest::CLICK),
@@ -875,7 +875,7 @@ mod tests {
             for label in LABELS {
                 let opts = ChipOpts::default();
                 let tally = tallied(w.max(2), h, |tally, cx| {
-                    chip_into(tally, cx, Cells::at(0, 0, w, h), label, &opts);
+                    chip_into(tally, cx, Rect::new(0, 0, w, h), label, &opts);
                 });
                 let cells = u64::from(w) * u64::from(h);
                 assert_eq!(
@@ -907,7 +907,7 @@ mod tests {
     fn a_chip_that_fills_its_face_and_one_that_does_not_narrow_fail_two_different_gates() {
         let opts = ChipOpts::default();
         let label = "degraded, retrying";
-        let area = Cells::at(0, 0, 12, 1);
+        let area = Rect::new(0, 0, 12, 1);
 
         let filled = tallied(24, 1, |tally, cx| {
             defective::chip_that_fills_its_face(tally, cx, area, label, &opts);
@@ -918,12 +918,12 @@ mod tests {
         );
         assert_eq!(
             filled.distinct(),
-            area.count(),
+            (u64::from(area.w) * u64::from(area.h)),
             "and it covers exactly the chip, which is why *no cell never* cannot see it"
         );
         assert_eq!(
             filled.writes() - filled.distinct(),
-            u64::from(area.w()),
+            u64::from(area.w),
             "the double-written cells are the label's — this one elides to exactly the chip's \
              twelve columns, so the fill buys nothing at all and every cell of it is written twice"
         );
@@ -937,12 +937,12 @@ mod tests {
             "the unnarrowed label writes no cell twice, which is why the pair alone misses it"
         );
         assert!(
-            overrun.distinct() > area.count(),
+            overrun.distinct() > (u64::from(area.w) * u64::from(area.h)),
             "the label stayed inside the chip, so this fixture is no longer the defect it is kept as"
         );
         assert_eq!(
-            overrun.distinct() - area.count(),
-            u64::from(vitui_runtime::layout::text::width(label)) - u64::from(area.w()),
+            overrun.distinct() - (u64::from(area.w) * u64::from(area.h)),
+            u64::from(vitui_runtime::layout::text::width(label)) - u64::from(area.w),
             "and what it overran by is exactly the label's overhang into its neighbour"
         );
     }
@@ -974,7 +974,11 @@ mod tests {
     #[test]
     fn a_hovered_chip_re_damages_its_own_eight_cells_and_not_the_screen() {
         let cells = crate::state::chip();
-        assert_eq!(cells.count(), 8, "the number is the chip's width");
+        assert_eq!(
+            (u64::from(cells.w) * u64::from(cells.h)),
+            8,
+            "the number is the chip's width"
+        );
 
         let mut driver = driver_at(crate::state::W, crate::state::H, Density::Compact);
         let mut canvas = Canvas::new(crate::state::W, crate::state::H);
@@ -985,7 +989,7 @@ mod tests {
             driver.frame(|cx| {
                 let opts = ChipOpts::default();
                 let id = cx.id();
-                let mut resp = cells.interact(cx, id, opts.interest);
+                let mut resp = cx.interact(id, cells, opts.interest);
                 resp.hovered = hovered;
                 chip_drawn(&mut pen, cx, cells, crate::state::LABEL, &resp, &opts);
             });

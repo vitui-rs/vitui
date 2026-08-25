@@ -65,10 +65,10 @@
 
 use vitui_runtime::{Ctx, Interest, Response, Role};
 
-use crate::cells::Cells;
 use crate::ink::{Direct, Ink};
 use crate::runner::{Canvas, Pen, driver_at};
 use crate::text::{FitOpts, Justify, fit_into};
+use vitui_runtime::Rect;
 
 /// The components homed in this module. **None**, and it is not an oversight: [`press`] is a
 /// helper, and spec §17's freeze homes `button`, `chip` and `switch` in F6 and F1.
@@ -113,7 +113,7 @@ impl Default for Faces {
 /// **The face to draw, and the same value has already been declared to the award.**
 ///
 /// ```
-/// use vitui_components::cells::Cells;
+/// use vitui_runtime::Rect;
 /// use vitui_components::state::{Faces, press};
 /// use vitui_components::text::{FitOpts, Justify, fit_with};
 /// use vitui_runtime::ctx::Driver;
@@ -121,16 +121,16 @@ impl Default for Faces {
 ///
 /// let mut driver = Driver::headless(20, 1).expect("a sink attaches");
 /// driver.frame(|cx| {
-///     let chip = Cells::at(2, 0, 8, 1);
+///     let chip = Rect::new(2, 0, 8, 1);
 ///     let id = cx.id();
-///     let resp = chip.interact(cx, id, Interest::CLICK.with(Interest::HOVER));
+///     let resp = cx.interact(id, chip, Interest::CLICK.with(Interest::HOVER));
 ///     let face = press(cx, chip, &resp, &Faces::default());
 ///     // One role, and it is what the chip's cells are written with. Nothing else declared a face.
 ///     assert_eq!(face, Role::Face);
 ///     fit_with(cx, chip, "on", &FitOpts { justify: Justify::Middle, role: face, pad: face });
 /// });
 /// ```
-pub fn press(cx: &mut Ctx<'_, '_>, cells: Cells, resp: &Response, faces: &Faces) -> Role {
+pub fn press(cx: &mut Ctx<'_, '_>, cells: Rect, resp: &Response, faces: &Faces) -> Role {
     press_into(&mut Direct, cx, cells, resp, faces)
 }
 
@@ -148,7 +148,7 @@ pub fn press(cx: &mut Ctx<'_, '_>, cells: Cells, resp: &Response, faces: &Faces)
 pub fn press_into<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
-    cells: Cells,
+    cells: Rect,
     resp: &Response,
     faces: &Faces,
 ) -> Role {
@@ -191,14 +191,14 @@ pub const FRAMES: u32 = 60;
 // ledger rule (`crates/vitui-runtime/src/ledger.rs`), inherited by `crate::form` one ticket ago.
 // Every figure is a count over a deterministic screen, so none carries a machine.
 
-/// **Cells the chip re-damages per steady frame through [`press`]. Zero.**
+/// **Rect the chip re-damages per steady frame through [`press`]. Zero.**
 ///
 /// The award restyles a background the chip's own cells already carry, so it writes nothing; and
 /// the next frame draws the same value into every one of the eight, so that writes nothing either.
 /// Both halves are the same sentence of ADR 0026 — *a restyle is free only when the component's own
 /// next draw already produces the value the restyle produced*.
 pub const PRESS_STEADY: u64 = 0;
-/// **Cells the hand-written chip re-damages per steady frame. Eight**, which is the chip.
+/// **Rect the hand-written chip re-damages per steady frame. Eight**, which is the chip.
 ///
 /// Spec §3 and ADR 0026 both state it as *8 cells for as long as the pointer rests on the chip*,
 /// and it reproduces exactly because the number **is** the chip's width: every cell of the face is
@@ -209,8 +209,8 @@ pub const HAND_STEADY: u64 = 8;
 pub const FIRST_FRAME: u64 = 8;
 
 /// The chip's rectangle.
-pub fn chip() -> Cells {
-    Cells::at(AT.0, AT.1, CHIP, 1)
+pub fn chip() -> Rect {
+    Rect::new(i32::from(AT.0), i32::from(AT.1), CHIP, 1)
 }
 
 /// The chip's `Response`, **with the pointer resting on it**.
@@ -218,9 +218,9 @@ pub fn chip() -> Cells {
 /// `hovered` is assigned rather than gestured, and this module's header says why in full: `Mouse`
 /// is `reachable_as: None`, so no pointer event can be posted from this crate. Every other field is
 /// the runtime's own, from a real `Ctx::interact` against a real hit index.
-fn resting_on(cx: &mut Ctx<'_, '_>, cells: Cells) -> Response {
+fn resting_on(cx: &mut Ctx<'_, '_>, cells: Rect) -> Response {
     let id = cx.id();
-    let mut resp = cells.interact(cx, id, Interest::CLICK.with(Interest::HOVER));
+    let mut resp = cx.interact(id, cells, Interest::CLICK.with(Interest::HOVER));
     resp.hovered = true;
     resp
 }
@@ -298,11 +298,11 @@ pub type Chip = fn(&mut Pen, &mut Ctx<'_, '_>);
 pub struct Resting {
     /// How many frames were drawn.
     pub frames: u32,
-    /// Cells changed on the **first** frame, when the chip appears. Not re-damage.
+    /// Rect changed on the **first** frame, when the chip appears. Not re-damage.
     pub first: u64,
-    /// Cells changed on every frame after the first, summed.
+    /// Rect changed on every frame after the first, summed.
     pub steady: u64,
-    /// Cells changed on each steady frame, which is constant or this is not a steady state.
+    /// Rect changed on each steady frame, which is constant or this is not a steady state.
     pub per_frame: u64,
 }
 
@@ -385,16 +385,16 @@ pub fn resting(paint: Chip, frames: u32) -> Resting {
 /// the wrong reason.
 ///
 /// ```
-/// use vitui_components::cells::Cells;
+/// use vitui_runtime::Rect;
 /// use vitui_components::state::{Faces, press};
 /// use vitui_runtime::ctx::Driver;
 /// use vitui_runtime::{Interest, Role};
 ///
 /// let mut driver = Driver::headless(20, 1).expect("a sink attaches");
 /// driver.frame(|cx| {
-///     let chip = Cells::at(2, 0, 8, 1);
+///     let chip = Rect::new(2, 0, 8, 1);
 ///     let id = cx.id();
-///     let resp = chip.interact(cx, id, Interest::CLICK.with(Interest::HOVER));
+///     let resp = cx.interact(id, chip, Interest::CLICK.with(Interest::HOVER));
 ///     // Six pointer facts on the response and no seventh anywhere: the helper reads them and
 ///     // keeps nothing.
 ///     assert!(!(resp.hovered || resp.pressed || resp.released));
@@ -589,7 +589,7 @@ mod tests {
             driver.frame(|cx| {
                 let cells = chip();
                 let id = cx.id();
-                let mut resp = cells.interact(cx, id, Interest::CLICK.with(Interest::HOVER));
+                let mut resp = cx.interact(id, cells, Interest::CLICK.with(Interest::HOVER));
                 resp.hovered = hovered;
                 resp.pressed = pressed;
                 resp.focused = focused;
@@ -709,16 +709,18 @@ mod tests {
     /// **The hover award is declared in one file, and it is the one that collapses the pair** —
     /// criterion 1's structural half.
     ///
-    /// `Ctx::hover_style` is the only verb that makes the second of the two statements, and
-    /// [`Cells::hover_style`] is the only spelling of it reachable from a component. If a second
+    /// `Ctx::hover_style` is the only verb that makes the second of the two statements. If a second
     /// module could call it, *there is no path on which the two can be given different values*
     /// would be a claim about this file rather than about the crate.
     ///
-    /// Two scans, because the verb reaches the runtime through two hops. `cells.rs` declares
-    /// `Cells::hover_style` and `ink.rs` routes it through the seam so an instrument can see it;
-    /// those are the only two files that may spell it. And the only **helper** that declares an
-    /// award is this one — `state.rs`, [`press_into`] plus the fixture beside it that exists to be
-    /// watched failing.
+    /// **This was two files and is now one**, which is the one place components architecture issue
+    /// 17 made the crate simpler rather than merely different. The verb used to reach the runtime
+    /// through two hops — `cells.rs` declared `Cells::hover_style` and `ink.rs` routed it through
+    /// the seam — because a component could not name `Rect` and needed a method on the crate's own
+    /// rectangle to get one. With `Rect` nameable there is no first hop: `ink.rs` spells
+    /// `Ctx::hover_style` directly and is the only file that may. And the only **helper** that
+    /// declares an award is still this one — `state.rs`, [`press_into`] plus the fixture beside it
+    /// that exists to be watched failing.
     #[test]
     fn the_hover_award_is_declared_in_one_file_and_it_is_the_one_that_collapses_it() {
         let verb = ["hover_", "style("].concat();
@@ -743,9 +745,9 @@ mod tests {
         declares.sort();
         assert_eq!(
             spells,
-            vec!["cells.rs".to_string(), "ink.rs".to_string()],
-            "a third file spells the runtime's hover verb. `Cells::hover_style` is declared once \
-             and routed once, and everything else reaches it through `Ink::award`"
+            vec!["ink.rs".to_string()],
+            "a second file spells the runtime's hover verb. It is routed exactly once, through \
+             `Ink::award`, and everything else in this crate reaches it from there"
         );
         assert_eq!(
             declares,
@@ -754,7 +756,10 @@ mod tests {
              statements, and `state::press` is the only place in this crate where they are one"
         );
         // The other direction, through the same predicate.
-        assert!(carries(&format!("    {verb}cx, &resp, role);"), &verb));
+        assert!(carries(
+            &format!("    cx.{verb}&resp, cells, role);"),
+            &verb
+        ));
         assert!(carries(
             &format!("    {declaration}cx, cells, &resp, role);"),
             &declaration

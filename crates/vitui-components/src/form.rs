@@ -44,11 +44,12 @@
 use vitui_runtime::layout::text as measure;
 use vitui_runtime::{Ctx, Density, Glyph, Id, Interest, Paint, Role};
 
-use crate::cells::Cells;
 use crate::frame::{BlockOpts, block_into};
 use crate::ink::Ink;
 use crate::runner::{Fixture, Pen, Run, play_at};
 use crate::text::{FitOpts, Justify, fit_into};
+use vitui_runtime::Rect;
+use vitui_runtime::layout::rect;
 
 /// The screen's width. §20 prices every dense screen on this map at 300×80.
 pub const W: u16 = 300;
@@ -85,9 +86,9 @@ pub const SCREEN: u64 = W as u64 * H as u64;
 // `crate::scenes`, and components ticket 09 stands it up. What reproduces here is every *direction*
 // and every *structural* number; the magnitudes are a different screen's.
 
-/// Cells the form writes at [`Density::Compact`]. **Spec §3 remembers 20 804 on its own screen.**
+/// Rect the form writes at [`Density::Compact`]. **Spec §3 remembers 20 804 on its own screen.**
 pub const COMPACT_WRITES: u64 = 18_912;
-/// Cells the form writes at [`Density::Cosy`]. **Spec §3 remembers 20 992.**
+/// Rect the form writes at [`Density::Cosy`]. **Spec §3 remembers 20 992.**
 ///
 /// It is *more* than [`COMPACT_WRITES`] and fewer widgets are standing, which is the shape of §3's
 /// own pair and is not a paradox: a `Cosy` ring is two cells thicker on every side of every panel,
@@ -122,7 +123,7 @@ pub const COSY_NAIVE_EXCESS: u64 = 40_191;
 pub const COMPACT_CLEARING_EXCESS: u64 = 16_224;
 /// The same at `Cosy`.
 pub const COSY_CLEARING_EXCESS: u64 = 15_510;
-/// Cells the three `block` calls hand over at `Compact`.
+/// Rect the three `block` calls hand over at `Compact`.
 ///
 /// **ADR 0026's 22 200-cell figure is this quantity**: a `block` that cleared what it hands over
 /// would re-damage exactly this many cells on every frame, moving or not.
@@ -239,7 +240,7 @@ fn draw<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, style: Style) -> Shape {
     let face = theme.paint(Role::Face);
     let dim = theme.paint(Role::Dim);
 
-    let screen = Cells::of(cx);
+    let screen = cx.area();
     let mut shape = Shape::default();
 
     // **The screen clear that is a defect.** ADR 0026's largest instance — 6 662 cells a frame —
@@ -249,8 +250,8 @@ fn draw<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, style: Style) -> Shape {
         wash(ink, cx, screen, body);
     }
 
-    let (header, rest) = screen.split_at_v(1);
-    let (band, footer) = rest.split_at_v(rest.h() - 1);
+    let (header, rest) = rect::split_at_v(screen, 1);
+    let (band, footer) = rect::split_at_v(rest, rest.h - 1);
     let title_row = how(Justify::Start, Role::Title, Role::Title);
     let footer_row = how(Justify::End, Role::Dim, Role::Dim);
     let heading_row = how(Justify::Start, Role::Title, Role::Body);
@@ -261,16 +262,16 @@ fn draw<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, style: Style) -> Shape {
     shape.regions += 2;
     let _ = cx.with_key(u64::MAX, |cx| {
         let id = cx.id();
-        header.interact(cx, id, Interest::CLICK)
+        cx.interact(id, header, Interest::CLICK)
     });
     let _ = cx.with_key(u64::MAX - 1, |cx| {
         let id = cx.id();
-        footer.interact(cx, id, Interest::CLICK)
+        cx.interact(id, footer, Interest::CLICK)
     });
 
     let mut left = band;
     for panel in 0..PANELS {
-        let (slot, next) = left.split_at_h(band.w() / PANELS as u16);
+        let (slot, next) = rect::split_at_h(left, band.w / PANELS as u16);
         left = next;
         let asked = if panel + 1 == PANELS { SHORT } else { LONG };
         shape.requested += asked;
@@ -285,7 +286,7 @@ fn draw<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, style: Style) -> Shape {
             ..BlockOpts::default()
         };
         let interior = block_into(ink, cx, slot, &opts);
-        shape.handed_over += interior.count();
+        shape.handed_over += u64::from(interior.w) * u64::from(interior.h);
 
         // **A panel that clears what `block` handed it.** The 22 200-cell instance, one panel at a
         // time, and it is invisible to everything except the pair.
@@ -295,16 +296,16 @@ fn draw<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, style: Style) -> Shape {
 
         let heading = row(ink, cx, style, interior, "metric", &heading_row);
         let mut rows = heading;
-        let fits = usize::from(rows.h());
+        let fits = usize::from(rows.h);
         let visible = asked.min(fits);
         shape.visible += visible;
         shape.dropped += asked - visible;
 
         cx.with_key(panel as u64, |cx| {
             for i in 0..visible {
-                let (line, below) = rows.split_at_v(1);
+                let (line, below) = rect::split_at_v(rows, 1);
                 rows = below;
-                let (label, chip) = line.split_at_h(line.w().saturating_sub(CHIP));
+                let (label, chip) = rect::split_at_h(line, line.w.saturating_sub(CHIP));
                 row(ink, cx, style, label, LABELS[i % LABELS.len()], &label_row);
                 // **The chip: a face and a label, and the face is never filled first.** `fit`'s two
                 // roles are the whole mechanism — the padding carries the face and the text carries
@@ -312,22 +313,21 @@ fn draw<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, style: Style) -> Shape {
                 if style == Style::Naive {
                     wash(ink, cx, chip, face);
                     let value = VALUES[i % VALUES.len()];
-                    let at = i32::from(chip.x())
-                        + (i32::from(chip.w()) - i32::from(measure::width(value))) / 2;
-                    ink.text(cx, at, i32::from(chip.y()), value, dim);
+                    let at = chip.x + (i32::from(chip.w) - i32::from(measure::width(value))) / 2;
+                    ink.text(cx, at, chip.y, value, dim);
                 } else {
                     row(ink, cx, style, chip, VALUES[i % VALUES.len()], &chip_row);
                 }
                 cx.with_key(i as u64, |cx| {
                     let id: Id = cx.id();
-                    chip.interact(cx, id, Interest::CLICK.with(Interest::FOCUS));
+                    cx.interact(id, chip, Interest::CLICK.with(Interest::FOCUS));
                 });
             }
         });
         shape.regions += visible + 1;
         let _ = cx.with_key(1_000 + panel as u64, |cx| {
             let id = cx.id();
-            slot.interact(cx, id, Interest::HOVER)
+            cx.interact(id, slot, Interest::HOVER)
         });
     }
 
@@ -345,10 +345,10 @@ fn row<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
     style: Style,
-    area: Cells,
+    area: Rect,
     s: &str,
     opts: &FitOpts,
-) -> Cells {
+) -> Rect {
     match style {
         Style::Routed | Style::Naive | Style::Clearing => fit_into(ink, cx, area, s, opts),
         Style::ByHand => hand_written(ink, cx, area, s, opts),
@@ -366,18 +366,18 @@ fn row<I: Ink>(
 fn hand_written<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
-    area: Cells,
+    area: Rect,
     s: &str,
     opts: &FitOpts,
-) -> Cells {
-    let (band, rest) = area.split_at_v(1);
+) -> Rect {
+    let (band, rest) = rect::split_at_v(area, 1);
     if band.is_empty() {
         return rest;
     }
     let theme = cx.theme();
     let text_paint = theme.paint(opts.role);
     let pad_paint = theme.paint(opts.pad);
-    let w = band.w();
+    let w = band.w;
 
     let (head, marker) = if measure::width(s) <= w {
         (s, "")
@@ -397,8 +397,8 @@ fn hand_written<I: Ink>(
     };
     let trail = slack - lead;
 
-    let x = i32::from(band.x());
-    let y = i32::from(band.y());
+    let x = band.x;
+    let y = band.y;
     if lead > 0 {
         ink.run(cx, x, y, " ", lead, pad_paint);
     }
@@ -416,13 +416,13 @@ fn hand_written<I: Ink>(
 
 /// Write every cell of `cells` as a space. **The verb the naive arm is made of**, and the one no
 /// correct arm calls on a rectangle it is about to hand over.
-fn wash<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, cells: Cells, st: Paint) {
+fn wash<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, cells: Rect, st: Paint) {
     if cells.is_empty() {
         return;
     }
-    let x = i32::from(cells.x());
-    for r in 0..cells.h() {
-        ink.run(cx, x, i32::from(cells.y() + r), " ", cells.w(), st);
+    let x = cells.x;
+    for r in 0..cells.h {
+        ink.run(cx, x, cells.y + i32::from(r), " ", cells.w, st);
     }
 }
 

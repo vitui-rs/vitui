@@ -126,7 +126,7 @@ pub struct Canvas {
     w: u16,
     h: u16,
     cells: Vec<Option<Cell>>,
-    /// Cells whose value a verb has changed since the last [`Canvas::take_repaints`]. **Distinct
+    /// Rect whose value a verb has changed since the last [`Canvas::take_repaints`]. **Distinct
     /// cells and not events**: a chip cell that a draw changes and a restyle then changes back is
     /// one cell the frame re-damaged, which is the unit ADR 0026 prices its five instances in.
     repainted: BTreeSet<(u16, u16)>,
@@ -1031,9 +1031,9 @@ pub struct SizePair {
     pub rows_compared: usize,
     /// How many of them carry different content.
     pub rows_differing: usize,
-    /// Cells written at the wide size.
+    /// Rect written at the wide size.
     pub wide_written: usize,
-    /// Cells written at the narrow size.
+    /// Rect written at the narrow size.
     pub narrow_written: usize,
 }
 

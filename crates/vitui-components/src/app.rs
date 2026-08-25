@@ -28,14 +28,13 @@
 //! A terminal resize arrives as `vitui_engine::Event::Resize`, and this crate cannot name
 //! `vitui_engine` at all (constraint C6). `Driver` publishes `post_mouse` and `post_key` and no
 //! resize door, so **there is no way to resize a driver from here**. What [`Clears`] keys on is the
-//! size it is handed, which is [`Cells::of`] — so a resize is stood up by carrying one `Clears`
+//! size it is handed, which is [`Ctx::area`] — so a resize is stood up by carrying one `Clears`
 //! across two drivers of different sizes, and the fact under test is exactly the one that matters:
 //! *the size changed, so the next frame clears.* See
 //! `tests::one_clear_a_size_and_never_a_third`.
 
 use vitui_runtime::{Ctx, Role};
 
-use crate::cells::Cells;
 use crate::ink::{Direct, Ink};
 use crate::text::pad_rows;
 
@@ -96,8 +95,8 @@ impl Clears {
     /// The cost is `h` verbs instead of one, on a frame that happens **twice in an application's
     /// life** — its first, and each resize.
     pub fn frame_into<I: Ink>(&mut self, ink: &mut I, cx: &mut Ctx<'_, '_>) -> bool {
-        let screen = Cells::of(cx);
-        let size = (screen.w(), screen.h());
+        let screen = cx.area();
+        let size = (screen.w, screen.h);
         if self.seen == Some(size) {
             return false;
         }
@@ -127,11 +126,11 @@ impl Clears {
 /// one re-damages 9 024 cells a frame for ever, the other leaves the gaps carrying whatever was
 /// there before.
 pub mod defective {
-    use super::{Cells, Clears, Ctx, Ink, Role, pad_rows};
+    use super::{Clears, Ctx, Ink, Role, pad_rows};
 
     /// **`cx.clear(body)` at the top of every frame.** ADR 0026's largest row.
     pub fn every_frame<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>) -> bool {
-        let screen = Cells::of(cx);
+        let screen = cx.area();
         let body = cx.theme().paint(Role::Body);
         pad_rows(ink, cx, screen, body);
         true

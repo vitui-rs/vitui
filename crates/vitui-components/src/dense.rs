@@ -76,13 +76,14 @@
 use vitui_runtime::{Ctx, Density, Interest, Paint, Role};
 
 use crate::app::Clears;
-use crate::cells::Cells;
 use crate::ink::Ink;
 use crate::input::{ButtonOpts, button_into};
 use crate::obligations::Verdict;
 use crate::runner::{Canvas, Diff, Fixture, MetricRow, Painter, Pen, Run, compare_at, play_at};
 use crate::structure::{PanelOpts, defective::panel_over_title, panel_into};
 use crate::text::{ChipOpts, Justify, TextOpts, chip_into, defective as text_defective, text_into};
+use vitui_runtime::Rect;
+use vitui_runtime::layout::rect;
 
 // ── the screen ───────────────────────────────────────────────────────────────────────────────────
 
@@ -178,10 +179,10 @@ pub const NARROW_REGIONS: usize = 158;
 /// Tab stops at 300×80. Every chip and every button takes [`Interest::FOCUS`]; the header, the
 /// footer and the three panels do not.
 pub const STOPS: usize = 333;
-/// Cells the correct build writes at 300×80. **Every cell of the screen, exactly once.**
+/// Rect the correct build writes at 300×80. **Every cell of the screen, exactly once.**
 pub const WRITES: u64 = SCREEN;
 
-/// **Cells re-damaged every steady frame by `cx.clear(body)` at the top of the frame.**
+/// **Rect re-damaged every steady frame by `cx.clear(body)` at the top of the frame.**
 ///
 /// §2 remembers **6 662** on C01's screen and this one says **9 024**. The quantity is *cells whose
 /// steady value is not a space painted [`Role::Body`]* — the clear writes one into every cell and
@@ -190,7 +191,7 @@ pub const WRITES: u64 = SCREEN;
 /// 27.8%, and the direction, the relation to [`Arm::Correct`]'s 0 and the fact that it is the
 /// largest of the five all reproduce.
 pub const CLEARED_EVERY_FRAME: u64 = 9_024;
-/// **Cells re-damaged every steady frame by a chip that fills its face before drawing its label.**
+/// **Rect re-damaged every steady frame by a chip that fills its face before drawing its label.**
 ///
 /// §2 remembers **2 648**, R07's original. The quantity is the *label* cells of every chip and not
 /// the chip's: the fill writes the face over all twelve, the padding cells it lands on already carry
@@ -213,14 +214,14 @@ pub const CLEARED_EVERY_FRAME: u64 = 9_024;
 /// and the defect is the same defect; what shrank is the part of it that was being counted twice —
 /// once as a fill-then-draw and once as a label wearing a role its face does not.
 pub const CHIP_FILLED_FACE: u64 = 1_095;
-/// **Cells re-damaged every steady frame by a chip that does not narrow.**
+/// **Rect re-damaged every steady frame by a chip that does not narrow.**
 ///
 /// §2 remembers **432**. The quantity is `overrunning chips × overrun width`: one value in four is
 /// eighteen columns in a twelve-column chip, so 54 chips of 222 overrun 6 columns each into the
 /// column beside them, and the neighbour writes them back every frame. `54 × 6 = 324`, and both
 /// factors are the screen's rather than the rule's.
 pub const CHIP_NOT_NARROWED: u64 = 324;
-/// **Cells re-damaged every steady frame by a scrim filled under the dialog.**
+/// **Rect re-damaged every steady frame by a scrim filled under the dialog.**
 ///
 /// §2 remembers **229**, and this screen says **600 — the whole dialog**, which is a stronger
 /// statement and not a looser one. The quantity is *the dialog's cells whose value differs from the
@@ -231,7 +232,7 @@ pub const CHIP_NOT_NARROWED: u64 = 324;
 /// relation** — 600 against [`Arm::ScrimAroundTheDialog`]'s 0 — and the relation is the one §2
 /// states.
 pub const SCRIM_UNDER: u64 = 600;
-/// **Cells re-damaged every steady frame by one panel's border run written over its own title.**
+/// **Rect re-damaged every steady frame by one panel's border run written over its own title.**
 ///
 /// §2 remembers **15**, and **it reproduces exactly**, because the number *is* the title's width.
 /// Ticket 06 measured the same 15 as `writes - distinct` on one panel; this is the same defect
@@ -249,7 +250,7 @@ pub const BORDER_OVER_TITLE_SCREEN: u64 = BORDER_OVER_TITLE * PANELS as u64;
 /// on §2's screen they answered 600 and 229.
 pub const SCRIM_EXCESS_WRITES: u64 = DIALOG.0 as u64 * DIALOG.1 as u64;
 
-/// **Cells the naive twin re-damages every steady frame, and it is not the sum of its three
+/// **Rect the naive twin re-damages every steady frame, and it is not the sum of its three
 /// instances.**
 ///
 /// The twin is a screen clear *and* a fill under every panel interior *and* a face filled under
@@ -362,7 +363,7 @@ pub fn draw_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, arm: Arm, requested:
     let theme = cx.theme();
     let body = theme.paint(Role::Body);
     let scrim = theme.paint(Role::Disabled);
-    let screen = Cells::of(cx);
+    let screen = cx.area();
     let mut shape = Shape {
         requested: requested * PANELS as usize,
         ..Shape::default()
@@ -376,8 +377,8 @@ pub fn draw_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, arm: Arm, requested:
         crate::app::defective::every_frame(ink, cx);
     }
 
-    let (header, rest) = screen.split_at_v(1);
-    let (band, footer) = rest.split_at_v(rest.h().saturating_sub(1));
+    let (header, rest) = rect::split_at_v(screen, 1);
+    let (band, footer) = rect::split_at_v(rest, rest.h.saturating_sub(1));
     // **`text`, twice, and each declares its own region.** The chrome is clickable and the labels
     // below are not, which is [`TextOpts::interest`]'s whole reason: a label that took a hit entry
     // would put 222 more regions on this screen and swallow every click that landed on one.
@@ -403,7 +404,7 @@ pub fn draw_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, arm: Arm, requested:
 
     let mut left = band;
     for panel in 0..PANELS {
-        let (slot, next) = left.split_at_h(band.w() / PANELS);
+        let (slot, next) = rect::split_at_h(left, band.w / PANELS);
         left = next;
 
         let opts = PanelOpts {
@@ -426,7 +427,7 @@ pub fn draw_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, arm: Arm, requested:
         });
         shape.declared += 1;
         let interior = stood.interior;
-        shape.handed_over += interior.count();
+        shape.handed_over += u64::from(interior.w) * u64::from(interior.h);
 
         // **A panel that clears what `block` handed it.** The 22 200-cell instance `crate::form`
         // prices on its own screen; here it is one third of the naive twin.
@@ -434,7 +435,7 @@ pub fn draw_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, arm: Arm, requested:
             wash(ink, cx, interior, body);
         }
 
-        let fits = usize::from(interior.h());
+        let fits = usize::from(interior.h);
         let visible = requested.min(fits);
         shape.visible += visible;
         shape.dropped += requested - visible;
@@ -443,7 +444,7 @@ pub fn draw_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, arm: Arm, requested:
             let mut rows = interior;
             let mut declared = 0usize;
             for i in 0..fits {
-                let (line, below) = rows.split_at_v(1);
+                let (line, below) = rect::split_at_v(rows, 1);
                 rows = below;
                 if i < visible {
                     declared += widget_row(ink, cx, arm, line, i);
@@ -475,10 +476,10 @@ pub fn draw_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, arm: Arm, requested:
 /// One row: a label, a chip, and either a button or a reading. Returns how many regions it declared.
 ///
 /// **Every cell of the row is written exactly once**, by exactly one of the three, and the three
-/// rectangles are a partition of the row because they come out of [`Cells::split_at_h`].
-fn widget_row<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, arm: Arm, line: Cells, i: usize) -> usize {
-    let (label, tail) = line.split_at_h(line.w().saturating_sub(CHIP + ACTION));
-    let (chip, action) = tail.split_at_h(CHIP);
+/// rectangles are a partition of the row because they come out of [`Rect::split_at_h`].
+fn widget_row<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, arm: Arm, line: Rect, i: usize) -> usize {
+    let (label, tail) = rect::split_at_h(line, line.w.saturating_sub(CHIP + ACTION));
+    let (chip, action) = rect::split_at_h(tail, CHIP);
 
     // ── `text`: the row's label ──────────────────────────────────────────────────────────────────
     let label_opts = how(Justify::Start, Role::Body, Role::Body);
@@ -545,7 +546,7 @@ fn widget_row<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, arm: Arm, line: Cells, 
 fn modal<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
-    screen: Cells,
+    screen: Rect,
     under: bool,
     scrim: Paint,
 ) -> usize {
@@ -553,10 +554,10 @@ fn modal<I: Ink>(
     if under {
         wash(ink, cx, screen, scrim);
     } else {
-        let (above, rest) = screen.split_at_v(dialog.y());
-        let (middle, below) = rest.split_at_v(dialog.h());
-        let (left, right) = middle.split_at_h(dialog.x());
-        let (_, right) = right.split_at_h(dialog.w());
+        let (above, rest) = rect::split_at_v(screen, dialog.y as u16);
+        let (middle, below) = rect::split_at_v(rest, dialog.h);
+        let (left, right) = rect::split_at_h(middle, dialog.x as u16);
+        let (_, right) = rect::split_at_h(right, dialog.w);
         wash(ink, cx, above, scrim);
         wash(ink, cx, below, scrim);
         wash(ink, cx, left, scrim);
@@ -580,9 +581,9 @@ fn modal<I: Ink>(
     });
     let interior = stood.interior;
     let mut rows = interior;
-    let last = interior.h().saturating_sub(1);
+    let last = interior.h.saturating_sub(1);
     for r in 0..last {
-        let (line, below) = rows.split_at_v(1);
+        let (line, below) = rect::split_at_v(rows, 1);
         rows = below;
         text_into(
             ink,
@@ -592,8 +593,8 @@ fn modal<I: Ink>(
             &how(Justify::Start, Role::Body, Role::Body),
         );
     }
-    let (buttons, _) = rows.split_at_v(1);
-    let (ok, cancel) = buttons.split_at_h(buttons.w() / 2);
+    let (buttons, _) = rect::split_at_v(rows, 1);
+    let (ok, cancel) = rect::split_at_h(buttons, buttons.w / 2);
     let mut declared = 0usize;
     for (n, (cells, word)) in [(ok, "confirm"), (cancel, "cancel")]
         .into_iter()
@@ -608,10 +609,15 @@ fn modal<I: Ink>(
 }
 
 /// Where the dialog sits: centred, [`DIALOG`] cells.
-pub fn dialog_at(screen: Cells) -> Cells {
-    let w = DIALOG.0.min(screen.w());
-    let h = DIALOG.1.min(screen.h());
-    Cells::at((screen.w() - w) / 2, (screen.h() - h) / 2, w, h)
+pub fn dialog_at(screen: Rect) -> Rect {
+    let w = DIALOG.0.min(screen.w);
+    let h = DIALOG.1.min(screen.h);
+    Rect::new(
+        i32::from((screen.w - w) / 2),
+        i32::from((screen.h - h) / 2),
+        w,
+        h,
+    )
 }
 
 /// The three roles a label is drawn with, as one value. **No region** — see
@@ -640,13 +646,13 @@ const fn clickable(justify: Justify, role: Role, pad: Role) -> TextOpts {
 /// Write every cell of `cells` as a space. **The verb every fill-shaped defect on this screen is
 /// made of**, and never `Ctx::fill` — see [`crate::ink`]: `fill` returns `()`, so a filled cell is
 /// modelled rather than reported and the pair stops being a comparison between two sources.
-fn wash<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, cells: Cells, st: Paint) {
+fn wash<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, cells: Rect, st: Paint) {
     if cells.is_empty() {
         return;
     }
-    let x = i32::from(cells.x());
-    for r in 0..cells.h() {
-        ink.run(cx, x, i32::from(cells.y() + r), " ", cells.w(), st);
+    let x = cells.x;
+    for r in 0..cells.h {
+        ink.run(cx, x, cells.y + i32::from(r), " ", cells.w, st);
     }
 }
 
@@ -790,11 +796,11 @@ pub fn equality(size: (u16, u16)) -> Diff {
 pub struct Redamage {
     /// How many frames were drawn.
     pub frames: u32,
-    /// Cells changed on the **first** frame, when the screen appears. Not re-damage.
+    /// Rect changed on the **first** frame, when the screen appears. Not re-damage.
     pub first: u64,
-    /// Cells changed on every frame after the first, summed.
+    /// Rect changed on every frame after the first, summed.
     pub steady: u64,
-    /// Cells changed on each steady frame, which is constant or this is not a steady state.
+    /// Rect changed on each steady frame, which is constant or this is not a steady state.
     pub per_frame: u64,
 }
 
@@ -851,7 +857,7 @@ pub fn modal_steady(under: bool, frames: u32) -> Redamage {
             let _ = draw_into(pen, cx, Arm::Correct, REQUESTED);
         }
         let scrim = cx.theme().paint(Role::Disabled);
-        let _ = modal(pen, cx, Cells::of(cx), under, scrim);
+        let _ = modal(pen, cx, cx.area(), under, scrim);
     })
 }
 
@@ -901,8 +907,8 @@ pub const SUBJECTS: [&str; 4] = ["text", "chip", "button", "panel"];
 ///
 /// The home is the freeze's, joined through [`crate::Family`]: `text` and `chip` are F1 and are
 /// homed in `text.rs`, `button` is F6 and `panel` is F2. A component is
-/// `fn(&mut Ctx, Rect, …) -> Response` (spec §1, rule 1) — with `Cells` in `Rect`'s place, which is
-/// [`crate::cells`]'s argument — so the thing to look for is a public function of the component's
+/// `fn(&mut Ctx, Rect, …) -> Response` (spec §1, rule 1) — with `Rect` in `Rect`'s place, which is
+/// [`vitui_runtime::layout::rect`]'s argument — so the thing to look for is a public function of the component's
 /// own name in its own family's module.
 ///
 /// **`pub`, because ticket 10's own criterion 2 reads it**: *every one of them routes its writing
@@ -1604,7 +1610,7 @@ mod tests {
     fn the_subject_scan_finds_a_declaration_when_there_is_one() {
         for (_, declaration) in DECLARATIONS {
             assert!(declares(
-                &format!("{declaration}cx: &mut Ctx, area: Cells) -> Response {{"),
+                &format!("{declaration}cx: &mut Ctx, area: Rect) -> Response {{"),
                 declaration
             ));
             assert!(!declares(&format!("/// {declaration}…)"), declaration));
@@ -1680,7 +1686,10 @@ mod tests {
             SCRIM_EXCESS_WRITES
         );
         assert_eq!(
-            dialog_at(Cells::at(0, 0, W, H)).count(),
+            {
+                let d = dialog_at(Rect::new(0, 0, W, H));
+                u64::from(d.w) * u64::from(d.h)
+            },
             SCRIM_EXCESS_WRITES,
             "the figure §2 states *is* the dialog"
         );

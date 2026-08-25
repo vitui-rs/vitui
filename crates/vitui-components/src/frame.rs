@@ -40,8 +40,8 @@
 //!   which case the closure buys nothing the caller cannot already write as `cx.child(…)` and
 //!   `cx.with_id(…)` itself.
 //!
-//! So `block` returns. What it returns is a [`Cells`] and not a `Rect`, because `Rect` cannot be
-//! named from this package at all — [`crate::cells`] is that argument in full, and it is the
+//! So `block` returns. What it returns is a [`Rect`] and not a `Rect`, because `Rect` cannot be
+//! named from this package at all — [`vitui_runtime::layout::rect`] is that argument in full, and it is the
 //! components-side answer to runtime architecture issue 22.
 //!
 //! # The 15-cell instance lives here
@@ -58,9 +58,10 @@
 
 use vitui_runtime::{Ctx, Glyph, Role};
 
-use crate::cells::Cells;
 use crate::glyphs::elide;
 use crate::ink::{Direct, Ink};
+use vitui_runtime::Rect;
+use vitui_runtime::layout::rect;
 
 /// The cluster a padding run is made of.
 const PAD: &str = " ";
@@ -116,19 +117,19 @@ impl Default for BlockOpts<'_> {
 /// **Draw a frame with a title, and return the interior it did not write.**
 ///
 /// ```
-/// use vitui_components::cells::Cells;
+/// use vitui_runtime::Rect;
 /// use vitui_components::frame::block;
 /// use vitui_runtime::ctx::Driver;
 ///
 /// let mut driver = Driver::headless(40, 10).expect("a sink attaches");
 /// driver.frame(|cx| {
-///     let interior = block(cx, Cells::of(cx), " panel ");
+///     let interior = block(cx, cx.area(), " panel ");
 ///     // One cell of frame and the theme's padding ring; the rest is the caller's, and `block`
 ///     // has not touched it.
-///     assert!(interior.w() < 40 && interior.h() < 10);
+///     assert!(interior.w < 40 && interior.h < 10);
 /// });
 /// ```
-pub fn block(cx: &mut Ctx<'_, '_>, area: Cells, title: &str) -> Cells {
+pub fn block(cx: &mut Ctx<'_, '_>, area: Rect, title: &str) -> Rect {
     block_with(
         cx,
         area,
@@ -140,7 +141,7 @@ pub fn block(cx: &mut Ctx<'_, '_>, area: Cells, title: &str) -> Cells {
 }
 
 /// [`block`], with the options spelled out.
-pub fn block_with(cx: &mut Ctx<'_, '_>, area: Cells, opts: &BlockOpts<'_>) -> Cells {
+pub fn block_with(cx: &mut Ctx<'_, '_>, area: Rect, opts: &BlockOpts<'_>) -> Rect {
     block_into(&mut Direct, cx, area, opts)
 }
 
@@ -151,9 +152,9 @@ pub fn block_with(cx: &mut Ctx<'_, '_>, area: Cells, opts: &BlockOpts<'_>) -> Ce
 pub fn block_into<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
-    area: Cells,
+    area: Rect,
     opts: &BlockOpts<'_>,
-) -> Cells {
+) -> Rect {
     draw(ink, cx, area, opts, true)
 }
 
@@ -165,26 +166,26 @@ pub fn block_into<I: Ink>(
 fn draw<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
-    area: Cells,
+    area: Rect,
     opts: &BlockOpts<'_>,
     title_split: bool,
-) -> Cells {
+) -> Rect {
     let theme = cx.theme();
     let border = theme.paint(opts.border);
     let title_paint = theme.paint(opts.title_role);
     let pad_paint = theme.paint(opts.pad);
 
     let mut inner = area;
-    if opts.bordered && area.w() >= 2 && area.h() >= 2 {
+    if opts.bordered && area.w >= 2 && area.h >= 2 {
         let hline = theme.glyph(Glyph::HLine);
         let vline = theme.glyph(Glyph::VLine);
-        let x0 = i32::from(area.x());
-        let y0 = i32::from(area.y());
-        let right = i32::from(area.right() - 1);
-        let bottom = i32::from(area.bottom() - 1);
+        let x0 = area.x;
+        let y0 = area.y;
+        let right = area.right() - 1;
+        let bottom = area.bottom() - 1;
         // The columns strictly between the two corners. Everything on the top and bottom edges is
         // an offset into this, which is what stops a corner and a run disagreeing about one cell.
-        let span = area.w() - 2;
+        let span = area.w - 2;
 
         // ── the top edge: corner, run, title, run, corner ────────────────────────────────────────
         ink.text(cx, x0, y0, theme.glyph(Glyph::TopLeft), border);
@@ -228,13 +229,13 @@ fn draw<I: Ink>(
         ink.text(cx, right, bottom, theme.glyph(Glyph::BottomRight), border);
 
         // ── the two sides, which are the rows the edges did not take ─────────────────────────────
-        for row in 1..area.h() - 1 {
+        for row in 1..area.h - 1 {
             let y = y0 + i32::from(row);
             ink.text(cx, x0, y, vline, border);
             ink.text(cx, right, y, vline, border);
         }
 
-        inner = area.inset(1);
+        inner = rect::inset(area, 1);
     }
 
     if !opts.padded {
@@ -243,42 +244,47 @@ fn draw<I: Ink>(
 
     // ── the padding ring: four bands, and the four are a partition of `inner` minus the body ─────
     //
-    // Computed by clamping rather than by `Cells::shrink`, because the interesting case is the one
+    // Computed by clamping rather than by `Rect::shrink`, because the interesting case is the one
     // where the ring is wider than what it is padding: a 3-row interior at `Cosy` has no body at
     // all, and the ring is then the whole of `inner` rather than three quarters of it.
     let density = theme.density();
     let (px, py) = (density.pad_x(), density.pad_y());
-    let top_h = py.min(inner.h());
-    let body_h = inner.h().saturating_sub(py.saturating_mul(2));
-    let bottom_h = inner.h() - top_h - body_h;
-    let left_w = px.min(inner.w());
-    let body_w = inner.w().saturating_sub(px.saturating_mul(2));
-    let right_w = inner.w() - left_w - body_w;
+    let top_h = py.min(inner.h);
+    let body_h = inner.h.saturating_sub(py.saturating_mul(2));
+    let bottom_h = inner.h - top_h - body_h;
+    let left_w = px.min(inner.w);
+    let body_w = inner.w.saturating_sub(px.saturating_mul(2));
+    let right_w = inner.w - left_w - body_w;
 
-    let body = Cells::at(inner.x() + left_w, inner.y() + top_h, body_w, body_h);
+    let body = Rect::new(
+        inner.x + i32::from(left_w),
+        inner.y + i32::from(top_h),
+        body_w,
+        body_h,
+    );
 
     fill_rows(
         ink,
         cx,
-        Cells::at(inner.x(), inner.y(), inner.w(), top_h),
+        Rect::new(inner.x, inner.y, inner.w, top_h),
         pad_paint,
     );
     fill_rows(
         ink,
         cx,
-        Cells::at(inner.x(), body.bottom(), inner.w(), bottom_h),
+        Rect::new(inner.x, body.bottom(), inner.w, bottom_h),
         pad_paint,
     );
     fill_rows(
         ink,
         cx,
-        Cells::at(inner.x(), body.y(), left_w, body_h),
+        Rect::new(inner.x, body.y, left_w, body_h),
         pad_paint,
     );
     fill_rows(
         ink,
         cx,
-        Cells::at(body.right(), body.y(), right_w, body_h),
+        Rect::new(body.right(), body.y, right_w, body_h),
         pad_paint,
     );
 
@@ -302,13 +308,13 @@ fn plan_title<'a>(cx: &Ctx<'_, '_>, title: &'a str, span: u16) -> (&'a str, &'st
 /// Write every row of `cells` as one run of spaces. **Never `Ctx::fill`** — see [`crate::ink`]:
 /// `fill` returns `()`, so a filled cell is modelled rather than reported and the pair stops being a
 /// comparison between two sources.
-fn fill_rows<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, cells: Cells, st: vitui_runtime::Paint) {
+fn fill_rows<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, cells: Rect, st: vitui_runtime::Paint) {
     if cells.is_empty() {
         return;
     }
-    let x = i32::from(cells.x());
-    for row in 0..cells.h() {
-        ink.run(cx, x, i32::from(cells.y() + row), PAD, cells.w(), st);
+    let x = cells.x;
+    for row in 0..cells.h {
+        ink.run(cx, x, cells.y + i32::from(row), PAD, cells.w, st);
     }
 }
 
@@ -465,7 +471,7 @@ pub fn face_paint(theme: &vitui_runtime::Theme, face: Face) -> vitui_runtime::Pa
 /// part of the instrument, and a gate validated only against a correct build reports zero for the
 /// same reason a broken one would.
 pub mod defective {
-    use super::{BlockOpts, Cells, Ctx, Ink, draw};
+    use super::{BlockOpts, Ctx, Ink, Rect, draw};
 
     /// **A top border drawn as one run, with the title written over it.**
     ///
@@ -477,9 +483,9 @@ pub mod defective {
     pub fn block_over_title<I: Ink>(
         ink: &mut I,
         cx: &mut Ctx<'_, '_>,
-        area: Cells,
+        area: Rect,
         opts: &BlockOpts<'_>,
-    ) -> Cells {
+    ) -> Rect {
         draw(ink, cx, area, opts, false)
     }
 }
@@ -510,7 +516,7 @@ pub mod defective {
 /// **this** half rather than making the half below pass for the wrong reason.
 ///
 /// ```
-/// use vitui_components::cells::Cells;
+/// use vitui_runtime::Rect;
 /// use vitui_components::frame::{BlockOpts, block, block_with};
 /// use vitui_runtime::ctx::Driver;
 /// use vitui_runtime::Role;
@@ -519,8 +525,8 @@ pub mod defective {
 /// driver.frame(|cx| {
 ///     // Focus is this argument. There is nothing else it could be.
 ///     let opts = BlockOpts { title: " f ", border: Role::Focus, ..BlockOpts::default() };
-///     let focused = block_with(cx, Cells::of(cx), &opts);
-///     let resting = block(cx, Cells::of(cx), " f ");
+///     let focused = block_with(cx, cx.area(), &opts);
+///     let resting = block(cx, cx.area(), " f ");
 ///     assert_eq!(focused, resting, "focus changes the paint and never the rectangle");
 /// });
 /// ```
@@ -578,15 +584,15 @@ mod tests {
         for density in [Density::Compact, Density::Cosy] {
             for w in 0u16..14 {
                 for h in 0u16..14 {
-                    let mut interior = Cells::default();
+                    let mut interior = Rect::default();
                     let tally = tallied(w.max(1), h.max(1), density, |tally, cx| {
                         let opts = BlockOpts {
                             title: TITLE,
                             ..BlockOpts::default()
                         };
-                        interior = block_into(tally, cx, Cells::at(0, 0, w, h), &opts);
+                        interior = block_into(tally, cx, Rect::new(0, 0, w, h), &opts);
                     });
-                    let area = Cells::at(0, 0, w, h);
+                    let area = Rect::new(0, 0, w, h);
                     assert_eq!(
                         tally.writes(),
                         tally.distinct(),
@@ -598,14 +604,14 @@ mod tests {
                         "{density:?} {w}x{h}: a write the engine did not report"
                     );
                     assert_eq!(
-                        tally.distinct() + interior.count(),
-                        area.count(),
+                        tally.distinct() + (u64::from(interior.w) * u64::from(interior.h)),
+                        (u64::from(area.w) * u64::from(area.h)),
                         "{density:?} {w}x{h}: the frame plus the interior is not the rectangle"
                     );
-                    for y in interior.y()..interior.bottom() {
-                        for x in interior.x()..interior.right() {
+                    for y in interior.y..interior.bottom() {
+                        for x in interior.x..interior.right() {
                             assert!(
-                                !tally.touched(i32::from(x), i32::from(y)),
+                                !tally.touched(x, y),
                                 "{density:?} {w}x{h}: `block` wrote ({x}, {y}), which it handed over"
                             );
                         }
@@ -628,10 +634,10 @@ mod tests {
             ..BlockOpts::default()
         };
         let correct = tallied(60, 12, Density::Compact, |tally, cx| {
-            block_into(tally, cx, Cells::of(cx), &opts);
+            block_into(tally, cx, cx.area(), &opts);
         });
         let defect = tallied(60, 12, Density::Compact, |tally, cx| {
-            defective::block_over_title(tally, cx, Cells::of(cx), &opts);
+            defective::block_over_title(tally, cx, cx.area(), &opts);
         });
 
         assert_eq!(
@@ -669,37 +675,31 @@ mod tests {
     fn a_child_context_collides_the_border_with_the_interior() {
         let mut driver = driver_at(60, 12, Density::Compact);
         let mut tally = Tally::new();
-        let mut interior = Cells::default();
+        let mut interior = Rect::default();
         let mut frame_only = Tally::new();
         driver.frame(|cx| {
             let opts = BlockOpts {
                 title: TITLE,
                 ..BlockOpts::default()
             };
-            interior = block_into(&mut tally, cx, Cells::of(cx), &opts);
+            interior = block_into(&mut tally, cx, cx.area(), &opts);
             // What the frame and the ring touched, before the body draws a single cell.
             frame_only = tally.clone();
             // The closure form, spelled out: the caller's body draws through a narrowed context.
-            interior.child(cx, |child| {
+            let mut child_cx = cx.child(interior);
+            let child = &mut child_cx;
+            {
                 let paint = child.theme().paint(Role::Body);
-                for row in 0..interior.h() {
-                    Ink::run(
-                        &mut tally,
-                        child,
-                        0,
-                        i32::from(row),
-                        PAD,
-                        interior.w(),
-                        paint,
-                    );
+                for row in 0..interior.h {
+                    Ink::run(&mut tally, child, 0, i32::from(row), PAD, interior.w, paint);
                 }
-            });
+            }
         });
         // A cell of the body lands on a cell the frame wrote whenever its **local** coordinate is
         // also a coordinate the frame wrote at — which is every frame cell inside the child's own
         // rectangle, starting with the top-left corner at `(0, 0)`.
-        let phantom: u64 = (0..interior.h())
-            .flat_map(|y| (0..interior.w()).map(move |x| (x, y)))
+        let phantom: u64 = (0..interior.h)
+            .flat_map(|y| (0..interior.w).map(move |x| (x, y)))
             .filter(|(x, y)| frame_only.touched(i32::from(*x), i32::from(*y)))
             .count() as u64;
         let excess = tally.writes() - tally.distinct();
@@ -713,7 +713,7 @@ mod tests {
             "criterion 4's gate reads {excess} double writes on a panel that has none, because \
              {phantom} of the {} cells the body wrote share a local coordinate with a cell the \
              frame wrote. That is what the closure form costs the counter",
-            interior.count()
+            (u64::from(interior.w) * u64::from(interior.h))
         );
         assert!(
             excess > 100,
@@ -725,17 +725,19 @@ mod tests {
     /// on `block` alone. The screen-level count is `crate::form`'s.
     #[test]
     fn compact_hands_over_a_larger_interior_than_cosy_and_writes_less_ring() {
-        let mut compact = Cells::default();
+        let mut compact = Rect::default();
         let compact_tally = tallied(100, 40, Density::Compact, |tally, cx| {
-            compact = block_into(tally, cx, Cells::of(cx), &BlockOpts::default());
+            compact = block_into(tally, cx, cx.area(), &BlockOpts::default());
         });
-        let mut cosy = Cells::default();
+        let mut cosy = Rect::default();
         let cosy_tally = tallied(100, 40, Density::Cosy, |tally, cx| {
-            cosy = block_into(tally, cx, Cells::of(cx), &BlockOpts::default());
+            cosy = block_into(tally, cx, cx.area(), &BlockOpts::default());
         });
-        assert_eq!((compact.w(), compact.h()), (96, 36));
-        assert_eq!((cosy.w(), cosy.h()), (94, 34));
-        assert!(compact.count() > cosy.count());
+        assert_eq!((compact.w, compact.h), (96, 36));
+        assert_eq!((cosy.w, cosy.h), (94, 34));
+        assert!(
+            (u64::from(compact.w) * u64::from(compact.h)) > (u64::from(cosy.w) * u64::from(cosy.h))
+        );
         assert!(
             compact_tally.writes() < cosy_tally.writes(),
             "a bigger ring is more cells of ring"
@@ -758,12 +760,12 @@ mod tests {
     #[test]
     fn a_rectangle_with_no_room_for_a_frame_hands_back_what_it_could_not_use() {
         for (w, h) in [(1u16, 1u16), (1, 20), (20, 1), (4, 4), (5, 5)] {
-            let mut interior = Cells::default();
+            let mut interior = Rect::default();
             let tally = tallied(w, h, Density::Cosy, |tally, cx| {
-                interior = block_into(tally, cx, Cells::of(cx), &BlockOpts::default());
+                interior = block_into(tally, cx, cx.area(), &BlockOpts::default());
             });
             assert_eq!(
-                tally.distinct() + interior.count(),
+                tally.distinct() + (u64::from(interior.w) * u64::from(interior.h)),
                 u64::from(w) * u64::from(h),
                 "{w}x{h}: the partition does not cover"
             );

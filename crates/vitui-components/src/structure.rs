@@ -18,7 +18,7 @@
 //! [`panel`] returns a [`Panel`] rather than a bare `Response`.
 //!
 //! **That is the second stated substitution on spec §1's shape and it is not a loophole.** The first
-//! is `Cells` for `Rect` ([`crate::cells`]); this one is *rule 4 with the container's rectangle
+//! is `Rect` for `Rect` ([`vitui_runtime::layout::rect`]); this one is *rule 4 with the container's rectangle
 //! beside the `Response`*, because §2's own sentence is unstatable in a bare `Response` and the
 //! alternative that would make it statable — handing the interior to a closure — is **refused on two
 //! measurements** in [`crate::frame`]'s header: it collides the border with the interior in the one
@@ -28,9 +28,9 @@
 
 use vitui_runtime::{Ctx, Interest, Response, Role};
 
-use crate::cells::Cells;
 use crate::frame::{BlockOpts, block_into};
 use crate::ink::{Direct, Ink};
+use vitui_runtime::Rect;
 
 /// The components homed in this module. See [`crate::Family::members`].
 pub const MEMBERS: &[&str] = &["panel", "rule", "status_bar"];
@@ -87,32 +87,32 @@ pub struct Panel {
     /// What happened to the panel's own region. Rule 4.
     pub response: Response,
     /// **The interior it handed over and did not write.** §2's second half.
-    pub interior: Cells,
+    pub interior: Rect,
 }
 
 /// **A frame, a title in its top run, a padding ring, and the interior handed back unwritten.**
 ///
 /// ```
-/// use vitui_components::cells::Cells;
+/// use vitui_runtime::Rect;
 /// use vitui_components::structure::panel;
 /// use vitui_runtime::ctx::Driver;
 ///
 /// let mut driver = Driver::headless(40, 10).expect("a sink attaches");
 /// driver.frame(|cx| {
-///     let p = panel(cx, Cells::of(cx), " panel systems ");
+///     let p = panel(cx, cx.area(), " panel systems ");
 ///     // The interior is smaller than the panel, and `panel` has not touched a cell of it.
-///     assert!(p.interior.w() < 40 && p.interior.h() < 10);
+///     assert!(p.interior.w < 40 && p.interior.h < 10);
 ///     assert!(!p.response.focused);
 /// });
 /// ```
 #[track_caller]
-pub fn panel(cx: &mut Ctx<'_, '_>, area: Cells, title: &str) -> Panel {
+pub fn panel(cx: &mut Ctx<'_, '_>, area: Rect, title: &str) -> Panel {
     panel_with(cx, area, title, &PanelOpts::default())
 }
 
 /// [`panel`], with the options spelled out.
 #[track_caller]
-pub fn panel_with(cx: &mut Ctx<'_, '_>, area: Cells, title: &str, opts: &PanelOpts) -> Panel {
+pub fn panel_with(cx: &mut Ctx<'_, '_>, area: Rect, title: &str, opts: &PanelOpts) -> Panel {
     panel_into(&mut Direct, cx, area, title, opts)
 }
 
@@ -129,12 +129,12 @@ pub fn panel_with(cx: &mut Ctx<'_, '_>, area: Cells, title: &str, opts: &PanelOp
 pub fn panel_into<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
-    area: Cells,
+    area: Rect,
     title: &str,
     opts: &PanelOpts,
 ) -> Panel {
     let id = cx.id();
-    let response = area.interact(cx, id, opts.interest);
+    let response = cx.interact(id, area, opts.interest);
     let interior = block_into(ink, cx, area, &block_opts(title, opts));
     Panel { response, interior }
 }
@@ -159,7 +159,7 @@ fn block_opts<'a>(title: &'a str, opts: &PanelOpts) -> BlockOpts<'a> {
 /// re-writing the panel: the correct arm and this one are **one function with one boolean between
 /// them**, so the diff a reviewer would have to catch is the diff the register can point at.
 pub mod defective {
-    use super::{Cells, Ctx, Ink, Panel, PanelOpts, block_opts};
+    use super::{Ctx, Ink, Panel, PanelOpts, Rect, block_opts};
 
     /// **A panel whose top border is one run with its title written over it.** ADR 0026's 15-cell
     /// instance — the number *is* the title's width — and the only one of the five that is **one
@@ -168,12 +168,12 @@ pub mod defective {
     pub fn panel_over_title<I: Ink>(
         ink: &mut I,
         cx: &mut Ctx<'_, '_>,
-        area: Cells,
+        area: Rect,
         title: &str,
         opts: &PanelOpts,
     ) -> Panel {
         let id = cx.id();
-        let response = area.interact(cx, id, opts.interest);
+        let response = cx.interact(id, area, opts.interest);
         let interior =
             crate::frame::defective::block_over_title(ink, cx, area, &block_opts(title, opts));
         Panel { response, interior }
@@ -191,11 +191,11 @@ mod tests {
     fn tallied(
         w: u16,
         h: u16,
-        f: impl FnOnce(&mut Tally, &mut Ctx<'_, '_>) -> Cells,
-    ) -> (Tally, Cells) {
+        f: impl FnOnce(&mut Tally, &mut Ctx<'_, '_>) -> Rect,
+    ) -> (Tally, Rect) {
         let mut driver = Driver::headless(w, h).expect("a sink cannot fail to attach");
         let mut tally = Tally::new();
-        let mut interior = Cells::at(0, 0, 0, 0);
+        let mut interior = Rect::new(0, 0, 0, 0);
         driver.frame(|cx| interior = f(&mut tally, cx));
         (tally, interior)
     }
@@ -216,7 +216,7 @@ mod tests {
             ] {
                 let opts = PanelOpts::default();
                 let (tally, interior) = tallied(w, h, |tally, cx| {
-                    panel_into(tally, cx, Cells::at(0, 0, w, h), title, &opts).interior
+                    panel_into(tally, cx, Rect::new(0, 0, w, h), title, &opts).interior
                 });
                 let cells = u64::from(w) * u64::from(h);
                 assert_eq!(
@@ -228,14 +228,14 @@ mod tests {
                 );
                 assert_eq!(
                     tally.distinct(),
-                    cells - interior.count(),
+                    cells - (u64::from(interior.w) * u64::from(interior.h)),
                     "{w}x{h} `{title}`: the panel wrote something other than its own frame and ring"
                 );
                 // And not one of those cells is in the interior it handed back.
-                for y in interior.y()..interior.bottom() {
-                    for x in interior.x()..interior.right() {
+                for y in interior.y..interior.bottom() {
+                    for x in interior.x..interior.right() {
                         assert!(
-                            !tally.touched(i32::from(x), i32::from(y)),
+                            !tally.touched(x, y),
                             "{w}x{h} `{title}`: ({x}, {y}) was handed over and then written"
                         );
                     }
@@ -259,10 +259,10 @@ mod tests {
         let opts = PanelOpts::default();
 
         let (correct, _) = tallied(40, 10, |tally, cx| {
-            panel_into(tally, cx, Cells::of(cx), TITLE, &opts).interior
+            panel_into(tally, cx, cx.area(), TITLE, &opts).interior
         });
         let (broken, _) = tallied(40, 10, |tally, cx| {
-            defective::panel_over_title(tally, cx, Cells::of(cx), TITLE, &opts).interior
+            defective::panel_over_title(tally, cx, cx.area(), TITLE, &opts).interior
         });
 
         assert_eq!(correct.writes() - correct.distinct(), 0);
@@ -287,7 +287,7 @@ mod tests {
     fn a_panel_is_one_region_and_never_a_tab_stop() {
         let mut driver = Driver::headless(40, 10).expect("a sink attaches");
         let mut stood = None;
-        driver.frame(|cx| stood = Some(panel(cx, Cells::of(cx), " panel ")));
+        driver.frame(|cx| stood = Some(panel(cx, cx.area(), " panel ")));
         let stood = stood.expect("one frame ran");
         assert_eq!((stood.response.rect.w, stood.response.rect.h), (40, 10));
         assert_eq!(driver.inspect().hits().len(), 1);
@@ -297,6 +297,6 @@ mod tests {
             "a panel is not a tab stop, which is what makes the dense screen 338 regions and 333 \
              stops"
         );
-        assert!(stood.interior.w() < 40 && stood.interior.h() < 10);
+        assert!(stood.interior.w < 40 && stood.interior.h < 10);
     }
 }
