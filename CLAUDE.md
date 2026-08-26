@@ -112,7 +112,7 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 25 of 45 tickets resolved (the last on 2026-08-25). `INVENTORY` is spec
+- **`vitui-components` has started**: 26 of 45 tickets resolved (the last on 2026-08-26). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
   answerable by the machine from here on. All five obligations are `Unmet` and each is watched
@@ -122,6 +122,84 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   (19/10, not ADR 0033's thirteen-unbuilt), the count of empty families (five, not §17's two), §1's
   layer rule against §6's own composition, and the `layer` column being uncheckable without stated
   edges. All four are asserted as measured rather than bent to fit.
+- **`collapsible` is the thirteenth component, and three of §8's figures are replaced by findings
+  rather than reproduced** (components ticket 22, 2026-08-26; ADR 0035). It is **one machine and
+  three configurations** — `disclose::SPLIT` is §8's three-row table as a value and
+  `disclose::Collapses` is the join, three rows and three arms with no fourth on either side — and
+  `crate::accordion` now draws *through* it, so **scenes 10 and 11 went green together**, the same
+  shape 14→15, 16→17 and 18→19 had, because they were pinned on one fact and it was the subject.
+  Every ticket-21 figure reproduces through the component: 13 hit entries closed against 421 at
+  `h = 0`, **408 on the hit index and the ring at once**, two surfaces 0 cells over 0 rows apart, the
+  mid-transition 26, 4 166 of 4 167 folds against 0.
+  **§8's byte pair cannot both be a `size_of` of one type**, and that is the half worth keeping: a
+  `Collapse` is **4** bytes live and **48** with the slot, because an `Option<Tween<u16>>` field costs
+  its forty bytes **empty** — a record that is 5 B without a tween is a record whose tween lives
+  somewhere else, and nothing here has anywhere to put one. Five is what a third `u16` would cost and
+  there is no third: `Tween::to` is the target while a tween runs and the height is it afterwards.
+  *Never per row of content* does hold — 4 167 folds cost 16 668 bytes of line numbers, twelve
+  sections 576.
+  **The watermark latches rather than settling, and that is ADR 0029's second sentence on the height
+  axis.** §8 prices the drawn extent at *83 cells, 8 rows wrong, 3 frames* against *22, 0, 2*; those
+  are a prototype's **body**. What reproduces is *a measured extent is taken inside the rectangle the
+  decision produced* — over a body that fills what it is handed the height sticks at **19 rows where
+  4 are right, permanently**, and over one that draws only its content the two arms are
+  **indistinguishable**, which is what makes the rule unconditional rather than a default. The +11.5%
+  is read as a count: the dry run goes through the caller's ink, so the watermark arm makes the body's
+  verbs twice.
+  **§8's *0 ring probes against 405* is unreachable from any self-close gesture**, and the three
+  reasons are three mechanisms: a click on a focusable header is *awarded* the focus; a click on one
+  that is **not** a tab stop **defocuses**, because a press landing on nothing interested is read as
+  intent and there is then no id to have vanished; and `Enter` needs the header to hold the focus
+  already. The arm that pays is a collapse nobody clicked for — **0 probes against 15** over a
+  collapse-all with and without the caller capturing `Frame::focus` — and what focusing the header
+  buys is **the keyboard**, not the probe count. Beside it, *14 frames to quiet* is a cadence wearing
+  a count's clothes (12 at sixty hertz, 24 at a hundred and twenty), so the gate is the relation and
+  `Driver::pin_clock` is what makes it one.
+  **§8's zero allocations reproduce, and the warming discipline is the finding underneath**: every
+  other allocation window in the workspace warms with two identical frames, and a transition hands
+  the body a **different rectangle** every frame — so warmed that way it reads **1 over 12**, which is
+  amortised zero and the shape `Allocations` refuses to average away; warmed on the *shape* it is
+  **0**. Register row 32's fifth instrument, and the first non-steady frame that row has been asked
+  about.
+  **There is no third state and the scan that keeps it out reported the module it defends** — a
+  scanner looking for a literal contains that literal, which is `crate::frame`'s own first run — so
+  the two needles are assembled from fragments. The surface equality is a **new** register row and not
+  row 21, which is row 41's standing to row 2's: a `Pen` carried *across* frames sees residue in the
+  cells this crate wrote, and the arms are compared with the focus seated and no pointer anywhere,
+  because a click leaves them **one cell of hover paint** apart. Criterion 14 is that instrument with
+  one field flipped: a caller writing its tail from the height it had *before* the collapse leaves
+  **240 cells over 4 rows** of the old body under a correct header.
+  Register 129 → **135 rows, 118 evaluated** (rows 24 and 25 inverted — the last two `Unsubjected`
+  rows of §21's own table); scenes **4 red, 21 stood up**. §22's fog is left alone by construction:
+  `settings` owns its own offset rather than putting a collapsible inside a `scroll_area`, because
+  pressing `w` there would answer *may it learn its content height one frame late* by accident, in an
+  application.
+
+- **Every application in the workspace read the unhandled key window one frame too early, and
+  `reader`'s `q` did not work at all** (found by components ticket 22's application, 2026-08-26; map
+  decision C25). `Driver::unhandled` is *a window onto the same queue, valid until the next frame
+  begins*, and all five loops that read the keyboard read it **before** their own frame — so an
+  application acted on the previous frame's window, one wake late, which for a single keystroke means
+  **never**. Measured on the shipped binaries: `reader` hung past two minutes on `q` with stdin held
+  open, and `explorer` quit at **1 309 ms** rather than 298 because a `collection`'s type-ahead
+  deadline happened to supply the second wake. Five loops fixed, and a **source scan** keeps them
+  fixed — watched rejecting the order it forbids, because a gate over the behaviour would need a pty.
+  **Six defects were caught between the first green run and the commit, five of them in the
+  application**, all at coordinates the gates never use: three instances of one mistake — the child's
+  coordinates are its own, so a cull bound and a rectangle origin in the interior's *root* space culled
+  the first three sections of a three-row-inset panel and indented the rest; `heads` indexed by draw
+  order against an `opened` indexed by section, so exclusive mode focused the wrong header — the one
+  thing that pair exists to show; `content` counted twice a drawn section; `status` zeroing the one
+  counter it prints. **The sixth is the second half of the finding itself**: `reader`'s reveal frame
+  sat *between* the draw and the read, and a frame re-`begin`s the key queue, so `[End, q]` in one
+  batch lost the `q` — the scan compared two positions and could not see it, and it **counts** now.
+  Beside it: **a printable character cannot be an application's quit key while a `collection` holds
+  the focus**, since a focused collection consumes every text-bearing key into its type-ahead buffer
+  (§5). `ledger` and `explorer` bind `Ctrl+Q` beside `q` — `ledger`'s own established arrangement for
+  a binding a terminal or a component can take away — and `triage`'s check already ignored the
+  modifiers, so its own comment's *would have eaten it* is *does*. All five quit in under 300 ms on
+  `Ctrl+Q`.
+
 - **The wheel gate is green, and inverting it found the pair spec §21 had no way to state**
   (components ticket 20, 2026-08-25). It was the sharpest of the four pinned reds and the only one
   whose failing set was the **defect** rather than a missing subject, which is why it stayed red for
@@ -468,8 +546,8 @@ Read these before working, in this order:
    authority. An `architecture.md` beside a spec is the superseded proposal, kept only as the record
    of what was argued.
 2. `CONTEXT.md` — the glossary. Use its terms in code, comments, tickets and commit messages.
-3. `docs/adr/` — 34 decisions that are hard to reverse and surprising without context. 0001–0011 and
-   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 the components.
+3. `docs/adr/` — 35 decisions that are hard to reverse and surprising without context. 0001–0011 and
+   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035 the components.
 4. The impl backlog `README.md` for the layer being worked on — it holds the phase order, the
    blocking edges, and the defects that shaped both.
 
@@ -487,15 +565,15 @@ crates/vitui-engine       cells, surfaces, layers, compositing, damage, serializ
                           └ crossterm behind a seam: raw mode, input, capability detection
 crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key maps, theming,
                           overlays, the data contract — no scene tree, no reactivity
-crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (12 of 29 built)
+crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (13 of 29 built)
                           └ the partition primitives return `vitui_runtime::Rect`. This crate used
                             to name its own rectangle (`Cells`) because `vitui_engine::Rect` was
                             unnameable across the crate line; runtime issue 22 re-exported it and
                             components issue 17 deleted the stand-in
 crates/vitui              facade re-export — engine, runtime, components
-crates/vitui-apps         the applications, one file each in `examples/` — 6: `counter`, `triage`,
-                          `latency`, `ledger`, `explorer`, `reader`. **A component ticket ships one**: the surface's only
-                          consumer, and twice now the thing that found the defect its gates could not
+crates/vitui-apps         the applications, one file each in `examples/` — 7: `counter`, `triage`,
+                          `latency`, `ledger`, `explorer`, `reader`, `settings`. **A component ticket ships one**: the surface's only
+                          consumer, and three times now the thing that found the defect its gates could not
                           └ a workspace MEMBER, so CI builds them: a consumer nobody builds is a
                             consumer nobody checks (`compare/run.sh` is the precedent). Depends on
                             runtime + components and NOT on the `vitui` facade — the facade

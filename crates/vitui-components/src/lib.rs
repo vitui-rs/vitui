@@ -5,11 +5,13 @@
 //! Being built one ticket at a time from `.scratch/vitui-components-architecture/spec.md`, whose
 //! map is closed; the backlog is `.scratch/vitui-components-impl/`, forty-three tickets.
 //!
-//! **Nine of the twenty-nine components are written** — [`text::text`], [`text::chip`],
+//! **Thirteen of the twenty-nine components are written** — [`text::text`], [`text::chip`],
 //! [`input::button`] and [`structure::panel`] (components ticket 10), [`collect::collection`]
 //! (components ticket 12), [`chart::chart`] and [`chart::plot`] (components ticket 28),
-//! [`collect::table`] (components ticket 15) and [`collect::tree`] (components ticket 17) — and the
-//! dense screen, the listing, the grid and the forest are
+//! [`collect::table`] (components ticket 15), [`collect::tree`] (components ticket 17),
+//! [`scroll::scroll_area`], [`scroll::scrollbar`] and [`scroll::sticky`] (components ticket 19) and
+//! [`disclose::collapsible`] (components ticket 22) — and the
+//! dense screen, the listing, the grid, the forest, the two scroll-area screens and the accordion are
 //! now drawn *through* them
 //! rather than through their construction. They are spec §1's four rules with
 //! **two stated substitutions**: [`Rect`] stands in for `Rect`, which cannot be named from a
@@ -77,6 +79,29 @@
 //! - The module tree, one module per family (§19), joined to the freeze by
 //!   [`Component::families`].
 //!
+//! - [`disclose`] — **`collapsible`, and it is one machine for four components** (components
+//!   ticket 22). Accordion, tree node, code folding and inplace edit differ in *what their collapsed
+//!   content is*, which is [`disclose::SPLIT`] as a value and [`disclose::Collapses`] as its one
+//!   configuration — three rows, three arms, no fourth on either side. There is **no transition
+//!   state**: `set` flips `open` at the instant the gesture lands and only the height moves, checked
+//!   at every frame of a 200 ms collapse *and* by a source scan for a stored third one, whose two
+//!   needles are assembled from fragments because a scanner that named them would report the module
+//!   it defends.
+//!
+//!   **Three of §8's figures are replaced by findings rather than reproduced.** Its byte pair
+//!   `5 / 72` is `4` live and `48` with the slot, and the pair **cannot both be a `size_of` of one
+//!   type** — an `Option<Tween<u16>>` field costs its forty bytes empty, so a record that is 5 B
+//!   without a tween is a record whose tween lives somewhere else and nothing here has anywhere to
+//!   put one. Its watermark's *83 cells, 8 rows wrong, 3 frames* is a prototype's **body**; what
+//!   reproduces is §9's own sentence on the height axis — *a measured extent is taken inside the
+//!   rectangle the decision produced* — and over a body that fills what it is handed the watermark
+//!   **latches at 19 rows where 4 are right, permanently**, while over a body that draws only its
+//!   content the two arms are indistinguishable, which is what makes the rule unconditional. And its
+//!   *0 ring probes against 405* is **unreachable from any header gesture**: all three self-close
+//!   gestures leave the focus off the body before the vanish rule looks, each for a different
+//!   reason, so the arm that pays belongs to a collapse nobody clicked for and what `Focus::Header`
+//!   actually buys is the keyboard — on a header that is not a tab stop the click's answer is `None`.
+//!
 //! - [`accordion`] — **the accordion of twelve sections, and the fold set beside it**: 300x80,
 //!   twelve headers over bodies of thirty-four widgets each, and the one hostile axis whose defect
 //!   **no golden-cell gate can see**. A closed body that is drawn into an `h = 0` rectangle instead
@@ -88,8 +113,12 @@
 //!   five to the unit, the mid-transition **273 against 247** included. Beside it, §21's fold row
 //!   reproduces exactly and needs no component at all: ten lines inserted at line 24 of a
 //!   200 000-line document leave **4 166 of 4 167** folds on a line that opens no block, and 0 when
-//!   they are reanchored. Its two scenes are **red**, both waiting for `collapsible`
-//!   (components 22).
+//!   they are reanchored. **Both scenes are green since components 22, and green through the
+//!   subject**: `draw_into` calls [`disclose::collapsible_into`] and the arm that does not cull is
+//!   [`disclose::defective::zero_rect`], so every figure above is a measurement of the component.
+//!   [`accordion::Live`] is what a `Screen` cannot describe — a collapse that takes two hundred
+//!   milliseconds, a click that lands on the frame it lands on, and the one arm where the vanish rule
+//!   answers at all.
 //!
 //! - [`listing`] — **the collection's screen**: 40x80, one collection and eighty rows a window, and
 //!   the four hostile axes standing on it instead of in a table — 75 of 80 rows for the inverted

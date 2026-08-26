@@ -81,11 +81,12 @@ use vitui_runtime::ctx::Driver;
 use vitui_runtime::{Ctx, Density, Id, Interest, Rect, Role, Scrollable};
 
 use crate::counters::{Allocations, Counter, Counters, Tally};
+use crate::disclose::{self, Collapse, DiscloseOpts, Toggle, collapsible_into};
 use crate::ink::{Direct, Ink};
 use crate::input::{ButtonOpts, button_into};
 use crate::obligations::Verdict;
 use crate::runner::{Canvas, Diff, Pen};
-use crate::text::{ChipOpts, TextOpts, chip_into, text_into};
+use crate::text::{ChipOpts, chip_into};
 
 // ── the screen ───────────────────────────────────────────────────────────────────────────────────
 
@@ -467,6 +468,17 @@ pub const fn admitted(h: u16) -> usize {
 /// scroll scope so that a section entirely outside the window is not drawn, stacks the sections, and
 /// **clears the residue itself**: the cells between the last section's last row and the bottom of
 /// the viewport are inside the accordion's rectangle and no section owns them (§2).
+///
+/// # It draws **through** [`collapsible`](crate::disclose::collapsible) since components ticket 22
+///
+/// Every section is one call, and the arm that does not cull is [`disclose::defective::zero_rect`] —
+/// the shipped component and the refused spelling, one function apart. What used to be a stand-in
+/// stack of headers and bodies written beside the gate is now the subject, which is what turns scenes
+/// 10 and 11 from `Red` into `Evaluated`.
+///
+/// **The stacking reads [`Disclosure::used`](crate::disclose::Disclosure::used)** rather than recomputing `1 + body_height`, so §2's
+/// *the cells it does not write are named in its return value* is the thing this screen is built on
+/// rather than a sentence beside it.
 pub fn draw_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, s: Screen) {
     let id = Id::named("accordion");
     let view = cx.area();
@@ -483,9 +495,11 @@ pub fn draw_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, s: Screen) {
             // **The caller's culling, not the engine's.** A section entirely outside the window is
             // not drawn and therefore declares nothing.
             if y + want > window.start && y < window.end {
-                cx.with_key(i as u64, |cx| section(ink, cx, i, y, view.w, s));
+                let used = cx.with_key(i as u64, |cx| section(ink, cx, i, y, view.w, s));
+                y += i32::from(used);
+            } else {
+                y += want;
             }
-            y += want;
         }
         // The residue, and it is the container's. One verb a row, so that `reported == writes`
         // holds and the pair really is two sources compared — `Ctx::fill` returns `()`.
@@ -495,40 +509,46 @@ pub fn draw_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, s: Screen) {
     });
 }
 
-/// One section: a one-row header, and a body that is drawn, or is not.
-fn section<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, i: usize, y: i32, w: u16, s: Screen) {
-    let head = Rect::new(0, y, w, 1);
-    let id = cx.id();
-    let _ = cx.interact(id, head, Interest::CLICK.with(Interest::FOCUS));
-
-    // The header is a partition of its row: one cell of chevron, the title in the rest.
-    let title = cx.theme().paint(Role::Title);
-    let open = i < s.open;
-    let _ = ink.run(cx, 0, y, if open { "v" } else { ">" }, 1, title);
-    let label = Rect::new(1, y, w.saturating_sub(1), 1);
-    let _ = text_into(
-        ink,
-        cx,
-        label,
-        TITLES[i],
-        &TextOpts {
-            role: Role::Title,
-            pad: Role::Title,
-            ..TextOpts::default()
-        },
-    );
-
+/// One section, **through [`collapsible`](crate::disclose::collapsible)**, and it returns the rows
+/// it used.
+///
+/// The state is built from the [`Screen`] rather than kept across frames, which is what makes a
+/// screen a value: *twelve sections, six open, the last of them two rows tall* is a description of a
+/// frame and not of a history. The sizing function answers [`Screen::body_height`] for the same
+/// reason — a section whose sizing function said [`BODY_ROWS`] while the screen asked for two would
+/// be re-tracked to ten by the component, which is the component being right.
+fn section<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, i: usize, y: i32, w: u16, s: Screen) -> u16 {
     let h = s.body_height(i);
-    if h == 0 && s.closed == Closed::Skip {
-        // **The closure is not called.** This is the whole of *closed content is not drawn*.
-        return;
-    }
-    let mut child = cx.child(Rect::new(0, y + 1, w, h));
-    body_into(ink, &mut child, w, h, s.body);
+    let mut st = if i < s.open {
+        Collapse::open_at(h)
+    } else {
+        Collapse::shut()
+    };
+    let rect = Rect::new(0, y, w, 1 + h);
+    let opts = DiscloseOpts {
+        head: Role::Title,
+        pad: Role::Title,
+        ..DiscloseOpts::default()
+    };
+    let body = s.body;
+    let draw = |ink: &mut I, cx: &mut Ctx<'_, '_>| {
+        let _ = body_into(ink, cx, w, h, body);
+    };
+    let disclosure = match s.closed {
+        Closed::Skip => collapsible_into(ink, cx, rect, &mut st, TITLES[i], &opts, |_w| h, draw),
+        Closed::ZeroRect => {
+            disclose::defective::zero_rect(ink, cx, rect, &mut st, TITLES[i], &opts, |_w| h, draw)
+        }
+    };
+    disclosure.used
 }
 
 /// The body: [`CHIP_ROWS`] x [`CHIP_COLS`] chips and [`BUTTONS`] buttons under them.
-fn body_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, w: u16, h: u16, body: Body) {
+///
+/// Returns **the first button's id**, so that [`Live`] can put the focus inside a body — which is the
+/// only way §8's vanish-rule arm is reachable. A screen that had to reach into the runtime's hit
+/// index for it would be guessing which entry was which.
+fn body_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, w: u16, h: u16, body: Body) -> Option<Id> {
     let cw = (w / CHIP_COLS).max(1);
     let chip_opts = ChipOpts::default();
     for row in 0..CHIP_ROWS {
@@ -547,6 +567,7 @@ fn body_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, w: u16, h: u16, body: Bo
         }
     }
     let button_opts = ButtonOpts::default();
+    let mut first = None;
     for row in 0..BUTTONS {
         let at = CHIP_ROWS + row;
         if body == Body::Culls && at >= h {
@@ -557,10 +578,12 @@ fn body_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, w: u16, h: u16, body: Bo
             if body == Body::DeclaresOnly && at >= h {
                 declared_and_not_painted(cx, cells, button_opts.interest);
             } else {
-                let _ = button_into(ink, cx, cells, "apply", &button_opts);
+                let resp = button_into(ink, cx, cells, "apply", &button_opts);
+                first = first.or(Some(resp.id));
             }
         });
     }
+    first
 }
 
 /// **A widget's region without its paint** — [`chip_into`] and [`button_into`] with the drawing
@@ -780,6 +803,326 @@ pub fn counters_that_separate_them(
         })
         .collect()
 }
+
+// ── the accordion with state, for the questions a `Screen` cannot ask ────────────────────────────
+//
+// A `Screen` is a description of one frame, which is what makes it a value — and three of §8's
+// claims are about a **sequence**: a collapse that takes two hundred milliseconds, a click that
+// lands on the frame it lands on, and a focus that vanishes with the body it was inside. Those need
+// state that survives a frame, so they live here rather than in `Screen`.
+
+/// **Twelve sections with real state, drawn through the shipped component.**
+///
+/// The stacking, the residue and the culling are [`draw_into`]'s; what is different is that the
+/// heights come from a `Vec<Collapse>` the caller owns across frames instead of from a [`Screen`].
+pub struct Live {
+    driver: Driver,
+    st: Vec<Collapse>,
+    opts: DiscloseOpts,
+    body: Body,
+    /// The header ids the last frame declared, so the application can put the focus on one.
+    heads: Vec<Id>,
+    /// The body button ids the last frame declared, so a test can put the focus inside a body.
+    buttons: Vec<Option<Id>>,
+    /// The gestures the last frame reported, per section.
+    gestures: Vec<Option<Toggle>>,
+    /// An id to seat the focus on before the sections draw.
+    seat: Option<Id>,
+    /// A collapse the **application** performs before the draw, with no gesture behind it.
+    collapse_all: bool,
+    /// The rows each section used on the last frame.
+    used: Vec<u16>,
+}
+
+impl Live {
+    /// Twelve sections, `open` of them open at [`BODY_ROWS`].
+    pub fn new(open: usize, opts: DiscloseOpts) -> Live {
+        Live {
+            driver: crate::runner::driver_at(W, H, Density::default()),
+            st: (0..SECTIONS)
+                .map(|i| {
+                    if i < open {
+                        Collapse::open_at(BODY_ROWS)
+                    } else {
+                        Collapse::shut()
+                    }
+                })
+                .collect(),
+            opts,
+            body: Body::Culls,
+            heads: Vec::new(),
+            buttons: vec![None; SECTIONS],
+            gestures: vec![None; SECTIONS],
+            seat: None,
+            collapse_all: false,
+            used: vec![0; SECTIONS],
+        }
+    }
+
+    /// How many sections are open.
+    pub fn open(&self) -> usize {
+        self.st.iter().filter(|c| c.open()).count()
+    }
+
+    /// How many are animating.
+    pub fn animating(&self) -> usize {
+        self.st.iter().filter(|c| c.animating()).count()
+    }
+
+    /// The heights the sections are drawn at.
+    pub fn heights(&self) -> Vec<u16> {
+        self.st.iter().map(Collapse::height).collect()
+    }
+
+    /// How many slots the vanish rule touched on the last frame.
+    pub fn probes(&self) -> u64 {
+        self.driver.inspect().vanish_probes()
+    }
+
+    /// Where the focus ended on the last frame.
+    pub fn focused(&self) -> Option<Id> {
+        self.driver.inspect().focused()
+    }
+
+    /// Whether the focus is on one of the twelve headers.
+    pub fn focus_is_a_header(&self) -> bool {
+        self.focused().is_some_and(|id| self.heads.contains(&id))
+    }
+
+    /// Hit entries and tab stops the last frame declared.
+    pub fn declared(&self) -> (usize, usize) {
+        let frame = self.driver.inspect();
+        (frame.hits().len(), frame.stop_count())
+    }
+
+    /// One frame.
+    pub fn frame<I: Ink>(&mut self, ink: &mut I) {
+        let Live {
+            driver,
+            st,
+            opts,
+            body,
+            heads,
+            buttons,
+            gestures,
+            seat,
+            collapse_all,
+            used,
+        } = self;
+        let body = *body;
+        let seat = *seat;
+        let all = std::mem::take(collapse_all);
+        heads.clear();
+        driver.frame(|cx| {
+            if let Some(id) = seat {
+                cx.focus(id);
+            }
+            // **The application's own collapse, with no gesture behind it.** This is where §8's
+            // vanish-rule arm is reachable at all — see `collapse_all`.
+            if all {
+                let now = cx.now();
+                for c in st.iter_mut() {
+                    c.set(now, false, 0, Duration::ZERO);
+                }
+            }
+            let view = cx.area();
+            let content: i32 = st.iter().map(|c| 1 + i32::from(c.height())).sum();
+            let id = Id::named("live accordion");
+            let max = (0, (content - i32::from(view.h)).max(0));
+            let at = (0, 0);
+            let _ = cx.scrollable(id, view, Interest::NONE, Scrollable::between(at, max));
+            let paint = cx.theme().paint(Role::Body);
+            cx.scroll_scope(id, view, at, max, |cx| {
+                let window = cx.visible_rows();
+                let mut y = 0i32;
+                for i in 0..SECTIONS {
+                    let want = 1 + i32::from(st[i].height());
+                    if y + want > window.start && y < window.end {
+                        let h = st[i].height();
+                        let seen = cx.with_key(i as u64, |cx| {
+                            let d = collapsible_into(
+                                ink,
+                                cx,
+                                Rect::new(0, y, view.w, 1 + h),
+                                &mut st[i],
+                                TITLES[i],
+                                opts,
+                                |_w| h.max(BODY_ROWS),
+                                |ink, cx| {
+                                    let handed = cx.area().h;
+                                    buttons[i] = body_into(ink, cx, view.w, handed, body);
+                                },
+                            );
+                            (d.response.id, d.gesture, d.used)
+                        });
+                        heads.push(seen.0);
+                        gestures[i] = seen.1;
+                        used[i] = seen.2;
+                        y += i32::from(seen.2);
+                    } else {
+                        gestures[i] = None;
+                        y += want;
+                    }
+                }
+                for row in y.max(window.start)..window.end {
+                    let _ = ink.run(cx, 0, row, " ", view.w, paint);
+                }
+            });
+        });
+    }
+
+    /// **Step the pinned clock**, so a caller drives the frames of a transition itself.
+    ///
+    /// `Driver::pin_clock` is public API and not a test fixture — every helper in
+    /// `vitui_runtime::anim` is a closed form over `(now, start, duration)`, so an application
+    /// testing an animated component needs exactly one thing: to say what `now` is. Without it a
+    /// nineteen-frame scene is timed by the machine it runs on, which is a stopwatch and not a gate.
+    pub fn advance(&mut self, by: Duration) {
+        self.driver.advance(by);
+    }
+
+    /// **Start a collapse of section `i`**, at the frame clock the last frame ran at.
+    ///
+    /// The caller's own `Collapse::set`, which is what an exclusive accordion or a collapse-all does
+    /// — and the reason it is here rather than inside a gesture is that §8's *0 ring probes* arm is
+    /// reachable only from a collapse nobody clicked for. See [`collapse_all`].
+    pub fn collapse(&mut self, i: usize, dur: Duration) {
+        let now = self.driver.env().now();
+        self.st[i].set(now, false, 0, dur);
+    }
+
+    /// **Open section `i` at `h` with nothing running**, so a caller can warm a transition and then
+    /// measure the next one over the same shape.
+    pub fn reopen(&mut self, i: usize, h: u16) {
+        self.st[i] = Collapse::open_at(h);
+    }
+
+    /// Put the focus on the first section's body button, which takes two frames: one to learn the id
+    /// and one for the runtime to seat it.
+    pub fn focus_inside_the_first_body<I: Ink>(&mut self, ink: &mut I) {
+        self.frame(ink);
+        self.seat = self.buttons[0];
+        assert!(self.seat.is_some(), "the first body drew a focusable");
+        self.frame(ink);
+        self.seat = None;
+    }
+
+    /// **The application collapses everything on the next frame**, keeping the focus or not.
+    ///
+    /// §8: *`Drop` is the component's answer; `Stash` belongs to whoever owns the content's
+    /// identity* — the caller, by capturing `Frame::focus`. `keep` is that capture.
+    pub fn collapse_everything<I: Ink>(&mut self, ink: &mut I, keep: Keep) {
+        self.collapse_all = true;
+        if keep == Keep::TheHeader {
+            self.seat = self.heads.first().copied();
+        }
+        self.frame(ink);
+        self.seat = None;
+    }
+}
+
+/// **Whether the application puts the focus somewhere before it collapses a body out from under
+/// it.**
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Keep {
+    /// The caller captures the focus and moves it to the section's header. §8's *the caller can, and
+    /// does, by capturing `Frame::focus`*.
+    TheHeader,
+    /// Nothing. The focused widget vanishes and R08's vanish rule answers.
+    Nothing,
+}
+
+impl Keep {
+    /// The words a report prints.
+    pub const fn word(self) -> &'static str {
+        match self {
+            Keep::TheHeader => "the caller moves the focus",
+            Keep::Nothing => "left to the vanish rule",
+        }
+    }
+}
+
+/// **What a collapse with no gesture behind it costs the focus.**
+///
+/// The one arm where §8's *0 ring probes against 405* is reachable at all. Every gesture that closes
+/// a section from its own header leaves the focus off the body before the vanish rule looks —
+/// [`crate::disclose`]'s own finding, with all three reasons — so the pair belongs to the collapse
+/// nobody clicked for: a collapse-all, or an exclusive accordion's other section.
+pub fn collapse_all(keep: Keep) -> (u64, bool) {
+    let mut ink = Direct;
+    let mut live = Live::new(SECTIONS, DiscloseOpts::default());
+    live.focus_inside_the_first_body(&mut ink);
+    assert_eq!(live.probes(), 0, "nothing has vanished yet");
+    live.collapse_everything(&mut ink, keep);
+    (live.probes(), live.focus_is_a_header())
+}
+
+/// **A two-hundred-millisecond collapse of one section, frame by frame, through the component.**
+///
+/// §8 states *14 frames to quiet, 46.00 µs worst, 1 789 cells, 0 allocations* and states no cadence.
+/// The frame count is therefore a cadence wearing a count's clothes — see
+/// [`crate::disclose`]'s own note — so what this returns is the whole sequence and the gate is the
+/// relation over it. `allocations` is the caller's, for [`counters`]'s reason.
+pub fn a_collapse(dur: Duration, step: Duration) -> Transition {
+    let mut ink = Tally::new();
+    let mut live = Live::new(
+        1,
+        DiscloseOpts {
+            dur,
+            ..DiscloseOpts::default()
+        },
+    );
+    live.frame(&mut ink);
+    let now = live.driver.env().now();
+    live.st[0].set(now, false, 0, dur);
+
+    let mut heights = Vec::new();
+    let mut worst = Duration::ZERO;
+    let mut cells = 0u64;
+    let mut frames = 0u32;
+    while live.animating() > 0 {
+        live.driver.advance(step);
+        let mut tally = Tally::new();
+        let started = Instant::now();
+        live.frame(&mut tally);
+        worst = worst.max(started.elapsed());
+        cells = cells.max(tally.writes());
+        heights.push(live.st[0].height());
+        frames += 1;
+        assert!(frames < 10_000, "a tween that never finishes is a spin");
+    }
+    Transition {
+        frames,
+        heights,
+        worst,
+        cells,
+    }
+}
+
+/// What [`a_collapse`] measured.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct Transition {
+    /// How many frames it took to reach quiet.
+    pub frames: u32,
+    /// The height the section was drawn at, one entry a frame.
+    pub heights: Vec<u16>,
+    /// The worst per-frame time. A **report**.
+    pub worst: Duration,
+    /// The most cells any one frame of it wrote.
+    pub cells: u64,
+}
+
+/// §8's frames to quiet for a two-hundred-millisecond collapse. A cadence, not a count.
+pub const SPEC_TRANSITION_FRAMES: u32 = 14;
+/// §8's worst per-frame time over that collapse, in microseconds. A report.
+pub const SPEC_TRANSITION_US: f64 = 46.00;
+/// §8's cell count for it. Another screen's furniture; see [`SPEC_CLOSED_CELLS`].
+pub const SPEC_TRANSITION_CELLS: u64 = 1_789;
+/// §8's µs for the click that goes six open to five on the same frame. A report.
+pub const SPEC_REGION_CLICK_US: f64 = 46.79;
+/// §8's µs for the same gesture on a fold index, which is data the draw holds shared. A report, and
+/// the comparison is §8's whole argument for why the rule is the index's and not the region's.
+pub const SPEC_INDEX_CLICK_US: f64 = 130.96;
 
 // ── scene 10: the document, the fold set and the anchor ──────────────────────────────────────────
 
@@ -1010,10 +1353,11 @@ pub fn reanchor_cost(repeats: u32) -> (Duration, Duration) {
 
 // ── the subject, and the scan that says whether it is here ───────────────────────────────────────
 
-/// **The component both scenes are scenes of, and it is not declared yet.**
+/// **The component both scenes are scenes of, and components ticket 22 declared it.**
 ///
 /// One subject and not two, which is [`Verdict::of`]'s vacuity refusal doing its job on a population
-/// of one: *no component exists* is `Unmet` over one rather than `Met` over nothing.
+/// of one: *no component exists* was `Unmet` over one rather than `Met` over nothing, and it is now
+/// `Met` over one rather than `Met` over an empty list.
 pub const SUBJECTS: [&str; 1] = ["collapsible"];
 
 /// Where [`SUBJECTS`] is declared, as `(module file, the declaration)`.
@@ -1022,7 +1366,7 @@ pub const SUBJECTS: [&str; 1] = ["collapsible"];
 /// disclosure, whose module is `disclose.rs`.
 pub const DECLARATIONS: [(&str, &str); 1] = [("disclose.rs", "pub fn collapsible(")];
 
-/// **Which of [`SUBJECTS`] this crate actually declares. Today: none.**
+/// **Which of [`SUBJECTS`] this crate actually declares. Since components 22: all of them.**
 ///
 /// A source scan and not a `use`, for [`crate::dense::subjects_declared`]'s reason: *the item does
 /// not exist* has no expression, and a `compile_fail` fence would pass today and pass again the day
@@ -1043,9 +1387,18 @@ pub fn subjects_declared() -> Vec<&'static str> {
 
 /// **Whether the two scenes stand on their subject, as a verdict rather than as a sentence.**
 ///
-/// `Unmet` over one, inverted by **components 22**. Everything the screens themselves can be asked
-/// is measured and green — the surface equality, the 408 on both columns at once, the
-/// mid-transition 26 and the fold anchor's 4 166 against 0 — and what is missing is the subject.
+/// `Met` over one since components **22**, and green *through the subject*: [`draw_into`] calls
+/// [`collapsible`](crate::disclose::collapsible) and the arm that does not cull is
+/// [`disclose::defective::zero_rect`], so the surface equality, the 408 on both columns at once and
+/// the mid-transition 26 are all measurements of the shipped component rather than of a stand-in
+/// stack of headers written beside the gate.
+///
+/// # The sentence is still live, and that is deliberate
+///
+/// A scene that fails because it is unimplemented and a scene that fails because the code is wrong
+/// are the same failure unless the message separates them. [`owed_message`] takes a declaration list
+/// rather than reading the crate, so the hostile case is one call away for ever — and
+/// `tests::the_waiting_message_still_says_which_failure_it_is` is that call.
 pub fn standing() -> Verdict {
     let declared = subjects_declared();
     Verdict::of(
@@ -1060,11 +1413,13 @@ pub fn standing() -> Verdict {
     )
 }
 
-/// **The sentence a scene waiting for its subject fails with**, or `None` once it is declared.
+/// **The sentence a scene waiting for its subject fails with**, or `None` once it is declared — which
+/// is **now**.
 ///
 /// Separated from [`assert_stands_up`] because the message is the mechanism and the panic is only
-/// how it is delivered, and it takes the declaration list as an argument for the same reason: the
-/// day the crate is on the other side of it, the hostile case is still one call away.
+/// how it is delivered: with the subject declared a `#[should_panic]` test can no longer reach it,
+/// and a message no test can read is a message that rots. The declaration list is an argument for
+/// exactly that reason, and it is why the hostile case is still one call away.
 ///
 /// # This is components 09's criterion 7, and it is what makes a red scene readable
 ///
@@ -1100,7 +1455,10 @@ pub fn owed_message(declared: &[&str], scene: &str) -> Option<String> {
 ///
 /// # Panics
 ///
-/// Panics while [`SUBJECTS`] is undeclared, which is **today**. Components ticket 22 inverts it.
+/// Panics while [`SUBJECTS`] is undeclared. **It no longer does** — components 22 declared
+/// `collapsible` — and the call is kept rather than deleted because it is what a later ticket that
+/// moves the component out of its family module will hit, with a sentence that names the file rather
+/// than a scene that has quietly stopped being about anything.
 pub fn assert_stands_up(scene: &str) {
     if let Some(message) = owed_message(&subjects_declared(), scene) {
         panic!("{message}");
@@ -1120,6 +1478,8 @@ pub fn driver_for(s: Screen) -> Driver {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use vitui_runtime::{Button, MouseKind};
 
     /// **Criterion 2 and 3: the accordion at 0 / 6 / 12 open, and the `h = 0` spelling beside it.**
     ///
@@ -1391,6 +1751,125 @@ mod tests {
         assert_eq!(Screen::correct(12).content_rows(), 132);
     }
 
+    // ── the sequence, which a `Screen` cannot describe ───────────────────────────────────────────
+
+    /// **A two-hundred-millisecond collapse, and what §8's *14 frames* turns out to be.**
+    ///
+    /// Criterion 4. The height is monotone, ends at zero, and the tween goes quiet exactly when the
+    /// clock reaches `start + dur` — the relation, which holds at every cadence. The **count** is a
+    /// cadence: at sixty hertz it is [`FRAMES_AT_SIXTY`] and §8 states [`SPEC_TRANSITION_FRAMES`]
+    /// beside no cadence at all, so the two are printed rather than reconciled.
+    #[test]
+    fn a_two_hundred_millisecond_collapse_is_monotone_and_goes_quiet_at_the_duration() {
+        let run = a_collapse(Duration::from_millis(200), SIXTY_HERTZ);
+        assert_eq!(run.frames, FRAMES_AT_SIXTY);
+        assert_eq!(run.heights.last(), Some(&0), "it lands on nothing");
+        assert!(
+            run.heights.windows(2).all(|w| w[1] <= w[0]),
+            "monotone, and it never overshoots: {:?}",
+            run.heights
+        );
+        assert_eq!(
+            run.heights.iter().copied().max(),
+            Some(BODY_ROWS - 1),
+            "the first moving frame is already one row down"
+        );
+
+        // **The mid-transition height is on the path**, which is what makes `MID_HEIGHT` a frame of
+        // a real collapse rather than a number this screen chose.
+        assert!(
+            run.heights.contains(&MID_HEIGHT),
+            "§8's mid-transition frame is one of these: {:?}",
+            run.heights
+        );
+
+        // Halving the step doubles the frames, which is the relation the count is a point on.
+        let twice = a_collapse(Duration::from_millis(200), SIXTY_HERTZ / 2);
+        assert_eq!(twice.frames, run.frames * 2, "the count is the cadence");
+        assert_eq!(twice.heights.last(), Some(&0));
+    }
+
+    /// The cadence the collapse is reported at. **Sixty hertz**, which is
+    /// `scripts/steady-report.sh`'s own rate and the only cadence on this map that is not a test's
+    /// opinion.
+    const SIXTY_HERTZ: Duration = Duration::from_micros(16_667);
+    /// **How many frames a two-hundred-millisecond collapse takes at sixty hertz. Twelve.**
+    const FRAMES_AT_SIXTY: u32 = 12;
+
+    /// **A click on an open header goes six open to five on the frame it lands**, and the frame's
+    /// declarations drop with it.
+    ///
+    /// Criterion 6's region half at the screen's scale: §8 states *6 open → 5 open on the same frame*
+    /// and the declarations are what makes *the same frame* checkable — a section that closed a frame
+    /// late would still declare its body's [`PER_BODY`] entries on this one.
+    #[test]
+    fn a_click_on_an_open_header_goes_six_open_to_five_on_the_frame_it_lands() {
+        let mut ink = Direct;
+        let mut live = Live::new(MID_OPEN, DiscloseOpts::default());
+        live.frame(&mut ink);
+        let before = live.declared();
+        assert_eq!(live.open(), MID_OPEN);
+
+        // The pointer over the first header, and the runtime's five-frame click cadence.
+        live.driver.post_mouse(pointer(MouseKind::Move));
+        live.frame(&mut ink);
+        live.driver
+            .post_mouse(pointer(MouseKind::Down(Button::Left)));
+        live.frame(&mut ink);
+        live.frame(&mut ink);
+        live.driver.post_mouse(pointer(MouseKind::Up(Button::Left)));
+        live.frame(&mut ink);
+        live.frame(&mut ink);
+
+        assert_eq!(live.open(), MID_OPEN - 1, "six open to five");
+        assert_eq!(live.animating(), 0, "a zero duration steps");
+        let after = live.declared();
+        assert_eq!(
+            (before.0 - after.0, before.1 - after.1),
+            (PER_BODY, PER_BODY),
+            "the body's declarations went with it, on the same frame"
+        );
+    }
+
+    /// A pointer event over the first header's row.
+    fn pointer(kind: MouseKind) -> vitui_runtime::Mouse {
+        vitui_runtime::Mouse {
+            x: 4,
+            y: 0,
+            kind,
+            buttons: vitui_runtime::Buttons::NONE,
+            mods: vitui_runtime::Mods::NONE,
+            at: Instant::now(),
+        }
+    }
+
+    /// **The one arm where §8's *0 ring probes against 405* is reachable, and it is not a gesture.**
+    ///
+    /// Criterion 9's second half, and [`crate::disclose`] is where the first half is established:
+    /// every gesture that closes a section from its own header leaves the focus off the body before
+    /// the vanish rule looks, for three different reasons. So the pair belongs to the collapse nobody
+    /// clicked for — an application's collapse-all — and there the answer is §8's other sentence:
+    /// **`Drop` is the component's answer; `Stash` belongs to whoever owns the content's identity.**
+    ///
+    /// Both directions, because *zero probes* is also what a frame in which nothing vanished pays.
+    #[test]
+    fn a_collapse_with_no_gesture_behind_it_is_where_the_vanish_rule_answers() {
+        let (kept, on_a_header) = collapse_all(Keep::TheHeader);
+        assert_eq!(kept, 0, "the caller moved the focus, so nothing vanished");
+        assert!(on_a_header, "and it is on a header that is still drawn");
+
+        let (dropped, landed) = collapse_all(Keep::Nothing);
+        assert!(
+            dropped > 0,
+            "the focused button vanished with its body: {dropped} probes"
+        );
+        assert!(
+            landed,
+            "and R08 answered with the nearest surviving entry, which is a header — one section \
+             too far, while the section the user acted on is still on screen one row above"
+        );
+    }
+
     // ── scene 10 ─────────────────────────────────────────────────────────────────────────────────
 
     /// **The fold set is built rather than typed**: 4 167 folds out of a 200 000-line document.
@@ -1461,32 +1940,45 @@ mod tests {
 
     // ── the subject ──────────────────────────────────────────────────────────────────────────────
 
-    /// **Both scenes are red, and they are red because `collapsible` is not declared.**
+    /// **Both scenes stand, and they stand on the shipped component.**
     ///
-    /// The loud half. `Verdict::of` refuses vacuity in its constructor, so this is `Unmet` over one
-    /// rather than `Met` over nothing, and the panic names the subject and the ticket.
+    /// The inversion components ticket 22 owed. `Verdict::of` refuses vacuity in its constructor, so
+    /// this is `Met` over one rather than `Met` over nothing, and what makes it a standing rather
+    /// than a rename is that [`draw_into`] reaches [`collapsible`](crate::disclose::collapsible):
+    /// every figure in this module is now a measurement of the component.
     #[test]
-    #[should_panic(expected = "components 22")]
-    fn the_accordion_is_red_because_collapsible_is_not_declared() {
+    fn both_scenes_stand_and_they_stand_on_the_shipped_component() {
         assert_eq!(
             subjects_declared(),
-            Vec::<&str>::new(),
-            "`collapsible` is declared, so this ticket's scenes are standing and the register, \
-             `crate::scenes` and this module all owe a deliberate edit"
+            SUBJECTS.to_vec(),
+            "`collapsible` is declared in `src/disclose.rs`"
         );
         standing().assert_met("the accordion of twelve sections");
+
+        // **Through the subject, and not beside it.** A screen that had kept its stand-in stack
+        // would pass the line above and measure nothing, so the scan reads this file for the call.
+        let source = include_str!("accordion.rs");
+        assert!(
+            crate::dense::declares(source, "collapsible_into("),
+            "the screen draws through the component"
+        );
+        assert!(
+            crate::dense::declares(source, "disclose::defective::zero_rect("),
+            "and the arm that does not cull is the component's own refused spelling"
+        );
     }
 
-    /// **The waiting message says which failure it is**, which is components 09's criterion 7.
+    /// **The failure names the ticket and does not read as a defect** — components 09's criterion 7,
+    /// kept alive after the condition that produced it was inverted.
     ///
-    /// A scene that fails because it is unimplemented and a scene that fails because the code is
-    /// wrong are the same failure unless the message separates them. Read over a declaration list
-    /// rather than over the crate, so the hostile case is one call away on both sides of the day
-    /// `collapsible` lands.
+    /// A `#[should_panic]` over [`assert_stands_up`] cannot reach this any more, because the subject
+    /// is declared and the call returns. A message no test can read is a message that rots, so the
+    /// declaration list is an argument to [`owed_message`] and the hostile case is one call:
+    /// **nothing declared, and the sentence still separates *unimplemented* from *wrong*.**
     #[test]
-    fn the_waiting_message_separates_unimplemented_from_wrong() {
+    fn the_waiting_message_still_says_which_failure_it_is() {
         let message = owed_message(&[], "the accordion of twelve sections")
-            .expect("`collapsible` is undeclared, so the scene is not standing");
+            .expect("no subject declared is a scene that is not standing");
         assert!(message.contains("waiting for its subject rather than failing"));
         assert!(message.contains("not a defect in the screen"));
         assert!(message.contains("collapsible"));
@@ -1496,8 +1988,11 @@ mod tests {
         assert!(message.contains("408"));
         assert!(message.contains("4 166 of 4 167"));
 
-        // And the other direction: once the subject is declared there is no message at all.
+        // And the other direction: with the subject declared there is no message at all, which is
+        // where the crate now is.
         assert!(owed_message(&["collapsible"], "the accordion").is_none());
+        assert_eq!(owed_message(&subjects_declared(), "the accordion"), None);
+        assert_stands_up("a 200 000-line document with 4 167 folds");
     }
 
     /// **The scan finds a declaration when there is one**, so *nothing is declared* is a reading and
@@ -1513,12 +2008,5 @@ mod tests {
             !crate::dense::declares(&format!("// {declaration}…) one day"), declaration),
             "a mention in a comment is not a declaration"
         );
-    }
-
-    /// **`assert_stands_up` is the panic a later gate calls**, and it is watched panicking.
-    #[test]
-    #[should_panic(expected = "waiting for its subject")]
-    fn a_scene_with_no_subject_fails_loudly_rather_than_passing() {
-        assert_stands_up("a 200 000-line document with 4 167 folds");
     }
 }

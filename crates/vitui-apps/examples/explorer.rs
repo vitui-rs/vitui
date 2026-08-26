@@ -28,7 +28,7 @@
 //! | `u` | unfold everything |
 //! | `d` | draw through `collect::defective::unclamped_indent` — §7's negative case, live |
 //! | `v` | the live counters, through a `Tally` |
-//! | `q` | quit |
+//! | `Ctrl+Q` | quit. **`q` alone is racy here** and the pair is the point: a focused `collection` consumes every text-bearing key into its type-ahead buffer (spec §5), so a plain `q` reaches the application only on a frame where nothing is focused. `Ctrl` is not text |
 //!
 //! **The selection is the one to watch.** Select a range with `Space` inside a subtree, fold the
 //! crate above it, and the status bar's `sel` does not change: a subtree is contiguous in pre-order
@@ -312,7 +312,15 @@ impl App {
     /// keys *inside* the one drain loop, and an **application** gets them after the frame.
     fn take_unhandled(&mut self, keys: &[Pressed]) {
         for key in keys {
+            if key.mods.ctrl() && key.code == Code::Char('q') {
+                self.exit = true;
+                continue;
+            }
             match key.code {
+                // **`Ctrl+Q` is bound beside it, in the branch above** — a focused `collection`
+                // consumes every text-bearing key into its type-ahead buffer (spec §5), so a plain
+                // `q` reaches here only on a frame where nothing is focused. `Ctrl` is not text, so
+                // the chord is declined all the way out every time. `ledger` carries the same pair.
                 Code::Char('q') => self.exit = true,
                 Code::Char('f') => self.fold_all(),
                 Code::Char('u') => self.unfold_all(),
@@ -577,17 +585,30 @@ fn main() {
     driver.frame(|cx| app.ui(cx));
     app.answer();
 
-    while !app.exit {
+    loop {
+        driver.frame(|cx| app.ui(cx));
+        // **After the draw, and this is the whole of *a component may only ask*.**
+        app.answer();
+        // **What nothing wanted, read from the frame that has just drawn.**
+        //
+        // `Driver::unhandled` is *a window onto the same queue, valid until the next frame begins*,
+        // so reading it **before** this application's frame read the previous frame's window and
+        // acted one wake late — which for a single keystroke means never, because nothing wakes it
+        // again. Measured on the shipped binary: `q` did not quit. Components ticket 22's
+        // application found it and every loop in this crate had it. A key this application owns
+        // still cannot be read inside the draw — see `App::take_unhandled`; what moved is *which*
+        // frame's window is read.
+        let unhandled: Vec<Pressed> = driver.unhandled().to_vec();
+        app.take_unhandled(&unhandled);
+        if app.exit {
+            break;
+        }
+        if !unhandled.is_empty() {
+            continue;
+        }
         match driver.wait() {
             Wake::Quit => break,
             Wake::Input | Wake::Posted | Wake::Deadline => {}
         }
-        // **What nothing wanted, read before the frame that acts on it.** See
-        // `App::take_unhandled`: a key this application owns cannot be read inside the draw.
-        let unhandled: Vec<Pressed> = driver.unhandled().to_vec();
-        app.take_unhandled(&unhandled);
-        driver.frame(|cx| app.ui(cx));
-        // **After the draw, and this is the whole of *a component may only ask*.**
-        app.answer();
     }
 }

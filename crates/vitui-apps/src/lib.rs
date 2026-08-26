@@ -10,6 +10,21 @@
 //! privately and `attach` dropped the `WakeHandle`, so **no loop could be written at all** and the
 //! only shape available was a spin at 100% of a core.
 //!
+//! **And the shape that replaced it was wrong in every file here for four tickets**, which is the
+//! second thing this crate has found that no gate one crate down could. `Driver::unhandled` is *a
+//! window onto the same queue, valid until the next frame begins*, and every loop read it **before**
+//! its own frame — so an application acted on the previous frame's window, one wake late. For a
+//! single keystroke that means never: measured on the shipped binaries, `reader` did not quit on `q`
+//! at all and `explorer` quit a second late, because a `collection`'s type-ahead deadline happened to
+//! supply the second wake. Components ticket 22's application found it by being run, and
+//! `tests::every_loop_reads_the_unhandled_window_from_the_frame_that_has_just_drawn` is what keeps
+//! it fixed.
+//!
+//! Beside it, the finding that pairs with it: **a printable character cannot be an application's quit
+//! key while a `collection` holds the focus**, because a focused collection consumes every
+//! text-bearing key into its type-ahead buffer (spec §5). `ledger` and `explorer` bind `Ctrl+Q`, and
+//! `Ctrl` is not text.
+//!
 //! The dependency list is `vitui-runtime` and `vitui-components`. Not the `vitui` facade, and the
 //! difference is the whole proof: the facade re-exports the engine **entire**, so depending on it
 //! would put `vitui::engine::Surface`, `View`, `Screen`, `Engine` and `LayerStack` in reach here, and
@@ -61,7 +76,7 @@ pub struct App {
 /// and the reason is that there is nothing to port: what it demonstrates is *one component and one
 /// `Mode`*, and no other library's tutorial has an equivalent because no other library makes the
 /// claim.
-pub const APPS: [App; 6] = [
+pub const APPS: [App; 7] = [
     App {
         name: "counter",
         what: "A bordered panel, a centred value, and Left/Right/q. The smallest program anybody \
@@ -197,6 +212,34 @@ pub const APPS: [App; 6] = [
         ],
         after: None,
     },
+    App {
+        name: "settings",
+        what: "A settings screen of twelve sections, where every claim of §8 is a key. `w` takes \
+               the open height from the drawn extent instead of the sizing function and the \
+               section latches at the whole panel with nothing on the screen wrong; `t` stops \
+               writing the tail and the old body stays under a correct header; `x` with `k` is the \
+               only arm on this screen where the vanish rule answers, because no gesture on a \
+               section's own header can reach it",
+        uses: &[
+            "disclose::collapsible_into",
+            "disclose::Collapse",
+            "disclose::DiscloseOpts",
+            "disclose::Height",
+            "disclose::Focus",
+            "disclose::Disclosure::used",
+            "counters::Tally",
+            "ink::Ink",
+            "frame::face_paint",
+            "input::button_into",
+            "structure::panel_with",
+            "text::chip_into",
+            "text::fit_with",
+            "ctx::Ctx::focus",
+            "ctx::Driver::unhandled",
+            "ctx::Driver::wait",
+        ],
+        after: None,
+    },
 ];
 
 #[cfg(test)]
@@ -207,6 +250,97 @@ mod tests {
 
     fn examples_dir() -> PathBuf {
         PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/examples"))
+    }
+
+    /// **Every loop reads `Driver::unhandled` from the frame that has just drawn, and not before
+    /// it.**
+    ///
+    /// Components ticket 22's application found this and **every loop in this crate had it.**
+    /// `Driver::unhandled` is documented as *a window onto the same queue, valid until the next frame
+    /// begins*, so a loop shaped `wait → unhandled → frame` reads the **previous** frame's window and
+    /// acts one wake late — which for a single keystroke means never, because nothing will wake it
+    /// again. Measured on the shipped binaries: `reader` did not quit on `q` at all, and `explorer`
+    /// quit a second late because a `collection`'s type-ahead deadline happened to supply the second
+    /// wake.
+    ///
+    /// # It is a scan, and the scan counts frames rather than comparing two positions
+    ///
+    /// A gate over the *behaviour* would need a pty and a real terminal; what is checkable here is
+    /// the order, in the source, inside the loop. The slice is from the last `loop {` or `while ` to
+    /// the end of the file, and the assertion is that **exactly one** `driver.frame(` stands before
+    /// the first `driver.unhandled(`.
+    ///
+    /// **One and not *at least* one, because the second half of the same mistake is an extra frame
+    /// rather than a missing one.** `reader` drew a conditional second frame — the reveal's, which
+    /// nothing else asks for — between its frame and this read, and `route::batch_len` folds several
+    /// ordinary keys into one batch: `[End, q]` arrives together, `End` requests an into-view, and the
+    /// extra frame replaces the queue and takes the undrained `q` with it. A comparison of two
+    /// positions cannot see that; a count can.
+    ///
+    /// Both directions, and three of them: no frame before the read, two frames before it, and the
+    /// shape that ships — so a scanner that has quietly stopped finding `driver.frame(` fails instead
+    /// of passing.
+    #[test]
+    fn every_loop_reads_the_unhandled_window_from_the_frame_that_has_just_drawn() {
+        let mut checked = 0usize;
+        for app in APPS {
+            let path = examples_dir().join(format!("{}.rs", app.name));
+            let source = std::fs::read_to_string(&path).expect("a readable example");
+            if !source.contains("driver.unhandled(") {
+                // `counter` and `latency` read their keys through a `KeyMap` and never open this
+                // window at all, which is a different arrangement rather than a missing one.
+                continue;
+            }
+            assert!(
+                reads_the_window_after_the_frame(&source),
+                "`{}` reads `driver.unhandled()` before its own `driver.frame(` inside the loop, \
+                 so it acts on the previous frame's window — one wake late, which for a single \
+                 keystroke means never",
+                app.name
+            );
+            checked += 1;
+        }
+        assert_eq!(
+            checked, 5,
+            "triage, ledger, explorer, reader and settings open the window; counter and latency \
+             read their keys through a `KeyMap` instead"
+        );
+
+        // **The other directions**, or a scanner that has stopped finding `driver.frame(` reports
+        // every loop as correct.
+        let none_before = "fn main() {\n    loop {\n        let k = driver.unhandled();\n        \
+                           driver.frame(|cx| ui(cx));\n    }\n}";
+        assert!(
+            !reads_the_window_after_the_frame(none_before),
+            "the scan accepts the order it exists to forbid"
+        );
+        // `reader`'s own shape before this ticket: the reveal frame between the draw and the read.
+        let two_before = "fn main() {\n    loop {\n        driver.frame(|cx| ui(cx));\n        \
+                           if driver.inspect().into_view().is_some() {\n            \
+                           driver.frame(|cx| ui(cx));\n        }\n        let k = \
+                           driver.unhandled();\n    }\n}";
+        assert!(
+            !reads_the_window_after_the_frame(two_before),
+            "a second frame before the read replaces the queue this window is onto"
+        );
+        let right = "fn main() {\n    loop {\n        driver.frame(|cx| ui(cx));\n        \
+                     let k = driver.unhandled();\n    }\n}";
+        assert!(reads_the_window_after_the_frame(right));
+    }
+
+    /// Whether the last loop in `source` draws **exactly once** before it opens the unhandled
+    /// window.
+    fn reads_the_window_after_the_frame(source: &str) -> bool {
+        let loop_at = source
+            .rfind("\n    loop {")
+            .or_else(|| source.rfind("\n    while "))
+            .unwrap_or(0);
+        let body = &source[loop_at..];
+        let Some(read) = body.find("driver.unhandled(") else {
+            // A loop that never opens the window is not a loop this rule can be about.
+            return false;
+        };
+        body[..read].matches("driver.frame(").count() == 1
     }
 
     /// **The list and the directory are the same set, in both directions.**

@@ -24,7 +24,7 @@
 //! | `b` | auto-hiding bars: `Hide::Never` against `Hide::WhenItFits` |
 //! | `n` | the four bands off and on — and watch `regions` **not move** |
 //! | `v` | the live counters, through a `Tally` |
-//! | `q` | quit |
+//! | `q` `Ctrl+Q` | quit |
 //!
 //! **`u` is the one to watch, and it is the whole of §9's unit rule.** One entry in eight is three
 //! rows tall, so `Σ h` is **150 000 cells over 120 000 entries**. Measured in rows the area's
@@ -485,17 +485,25 @@ fn main() {
         }
     };
 
-    driver.frame(|cx| app.ui(cx));
-    app.regions = driver.inspect().hits().len();
+    loop {
+        driver.frame(|cx| app.ui(cx));
 
-    while !app.exit {
-        match driver.wait() {
-            Wake::Quit => break,
-            Wake::Input | Wake::Posted | Wake::Deadline => {}
-        }
+        // **What nothing wanted, read from the frame that has just drawn — and *before* any other
+        // frame runs.**
+        //
+        // `Driver::unhandled` is *a window onto the same queue, valid until the next frame begins*,
+        // so reading it before this application's frame read the *previous* frame's window and acted
+        // one wake late — which for a single keystroke means never. Measured on the shipped binary:
+        // `q` did not quit. Components ticket 22's application found it and every loop in this crate
+        // had it.
+        //
+        // **And the reveal frame below is *also* a next frame**, which is the second half of the same
+        // mistake: `route::batch_len` folds several ordinary keys into one batch, so `[End, q]`
+        // arrives together — `End` is taken and requests an into-view, and a frame drawn before this
+        // line replaces the queue and takes the undrained `q` with it.
         let unhandled: Vec<Pressed> = driver.unhandled().to_vec();
         app.take_unhandled(&unhandled);
-        driver.frame(|cx| app.ui(cx));
+
         // **A reveal is a two-frame gesture and nothing asks for the second frame.**
         // `Ctx::request_into_view` leaves the request on the frame and the component applies it
         // through `take_into_view` on the *next* one — but `request_into_view` does not call
@@ -509,5 +517,16 @@ fn main() {
             driver.frame(|cx| app.ui(cx));
         }
         app.regions = driver.inspect().hits().len();
+
+        if app.exit {
+            break;
+        }
+        if !unhandled.is_empty() {
+            continue;
+        }
+        match driver.wait() {
+            Wake::Quit => break,
+            Wake::Input | Wake::Posted | Wake::Deadline => {}
+        }
     }
 }

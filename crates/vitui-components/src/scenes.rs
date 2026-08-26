@@ -36,10 +36,10 @@
 //! ([`Scene::owed`] and [`Scene::from_a_survived_defect`]), because the value can hold both and a
 //! count cannot.
 //!
-//! # Eight scenes are `Unsubjected`, six are `Red` and nineteen are `Evaluated`
+//! # Eight scenes are `Unsubjected`, four are `Red` and twenty-one are `Evaluated`
 //!
-//! The count that is a gate is `tests::eight_scenes_have_nothing_to_run_over_six_are_red_and_
-//! nineteen_are_stood_up`, which asserts the **numbers** each scene as well as the total; this
+//! The count that is a gate is `tests::eight_scenes_have_nothing_to_run_over_four_are_red_and_
+//! twenty_one_are_stood_up`, which asserts the **numbers** each scene as well as the total; this
 //! heading is a summary of it and the test is the authority.
 //!
 //! [`crate::gates::Standing::Unsubjected`] means *it could run and there is nothing to run it over*.
@@ -882,16 +882,21 @@ const ACCORDION: &str = "crates/vitui-components/src/accordion.rs";
 /// computed by opening the file the freeze homes `collapsible` in.
 const COLLAPSIBLE: &[&str] = &crate::accordion::SUBJECTS;
 
-/// **The pair both of components ticket 21's scenes are pinned by**, written once because it is one
-/// fact: `collapsible` is not declared, and the accordion says which failure that is.
-const WAITING_FOR_COLLAPSIBLE: &[Instrument] = &[
+/// **What stands both of components ticket 21's scenes up**, written once because it is one fact:
+/// `collapsible` is declared and the accordion draws *through* it.
+///
+/// It was `WAITING_FOR_COLLAPSIBLE` — the pair that pinned them — until components ticket 22, and the
+/// second entry is the same test inverted in place rather than deleted: the sentence that separates
+/// *unimplemented* from *wrong* is still live, read over an empty declaration list, because a message
+/// no test can read is a message that rots.
+const STANDS_ON_COLLAPSIBLE: &[Instrument] = &[
     Instrument::Unit {
         file: ACCORDION,
-        name: "the_accordion_is_red_because_collapsible_is_not_declared",
+        name: "both_scenes_stand_and_they_stand_on_the_shipped_component",
     },
     Instrument::Unit {
         file: ACCORDION,
-        name: "the_waiting_message_separates_unimplemented_from_wrong",
+        name: "the_waiting_message_still_says_which_failure_it_is",
     },
 ];
 
@@ -960,20 +965,7 @@ const PINS_SCENE_30: &[Instrument] = &[
     STANDS_ON_TABLE[1],
 ];
 
-/// The failing set both scenes of components ticket 21 are pinned in.
-///
-/// **One sentence and not two**, because it is one fact — unlike components ticket 11's five, where
-/// the wheel gate's failing set is a *defect* and the other four's is a missing subject. Neither of
-/// these two is pinned on a defect: both screens are measured and green and the component is
-/// missing.
-const OWED_ITS_COLLAPSIBLE: &str = "`collapsible` is not declared in `crates/vitui-components/src/disclose.rs`, so the accordion \
-     is a stand-in stack of headers and bodies and the fold set is the input a component that does \
-     not exist would read. Everything the screens themselves can be asked is measured and green — \
-     13 hit entries closed against 421 at `h = 0`, 408 on the hit index and the ring at once, 0 \
-     cells over 0 rows between the two surfaces, 26 halfway down a collapse, and 4 166 of 4 167 \
-     folds on a line that opens no block against 0 reanchored. What is missing is the subject";
-
-/// What pins scene 10, the fold anchor, beyond the pair both share.
+/// What stands scene 10, the fold anchor, up, beyond the pair both share.
 const PINS_SCENE_10: &[Instrument] = &[
     Instrument::Unit {
         file: ACCORDION,
@@ -984,11 +976,11 @@ const PINS_SCENE_10: &[Instrument] = &[
         file: ACCORDION,
         name: "the_folds_that_survive_are_exactly_the_ones_above_the_edit",
     },
-    WAITING_FOR_COLLAPSIBLE[0],
-    WAITING_FOR_COLLAPSIBLE[1],
+    STANDS_ON_COLLAPSIBLE[0],
+    STANDS_ON_COLLAPSIBLE[1],
 ];
 
-/// What pins scene 11, the accordion. See [`PINS_SCENE_10`].
+/// What stands scene 11, the accordion, up. See [`PINS_SCENE_10`].
 const PINS_SCENE_11: &[Instrument] = &[
     Instrument::Unit {
         file: ACCORDION,
@@ -1007,8 +999,8 @@ const PINS_SCENE_11: &[Instrument] = &[
         file: "crates/vitui-components/tests/gates.rs",
         name: "a_component_drawn_into_a_zero_height_rectangle_declares_no_tab_stops",
     },
-    WAITING_FOR_COLLAPSIBLE[0],
-    WAITING_FOR_COLLAPSIBLE[1],
+    STANDS_ON_COLLAPSIBLE[0],
+    STANDS_ON_COLLAPSIBLE[1],
 ];
 
 /// **What stands scenes 1, 2 and 28 up**, written once because it is one fact: the four components
@@ -1423,15 +1415,11 @@ pub const SCENES: [Scene; 33] = [
         stands: COLLAPSIBLE,
         owed: false,
         from_a_survived_defect: false,
-        // **This row said `components 16` and 16 does not own it.** Components ticket 16's table is
+        // **This row said `components 16` and 16 did not own it.** Components ticket 16's table is
         // scenes 8 and 9 — the forest and the fold over 349 524 rows — and ticket 21's is 10 and 11.
-        // Corrected here rather than left, because `inverted_by` is what a reader follows to find
-        // out who owes a scene its subject.
-        standing: Standing::Red {
-            by: PINS_SCENE_10,
-            failing: OWED_ITS_COLLAPSIBLE,
-            inverted_by: "components 22",
-        },
+        // Corrected while it was red, because `inverted_by` is what a reader follows to find out who
+        // owes a scene its subject; **components 22 is what stood it up.**
+        standing: Standing::Evaluated { by: PINS_SCENE_10 },
         rehearsed_by: &[],
     },
     Scene {
@@ -1453,11 +1441,12 @@ pub const SCENES: [Scene; 33] = [
         stands: COLLAPSIBLE,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Red {
-            by: PINS_SCENE_11,
-            failing: OWED_ITS_COLLAPSIBLE,
-            inverted_by: "components 22",
-        },
+        // **Components ticket 22, and it is green *through* the subject.** `crate::accordion`'s
+        // `draw_into` calls `disclose::collapsible_into` and the arm that does not cull is
+        // `disclose::defective::zero_rect`, so every figure this screen reports — the 408 on both
+        // columns, the two surfaces 0 cells apart, the mid-transition 26 — is a measurement of the
+        // shipped component rather than of a stand-in stack of headers written beside the gate.
+        standing: Standing::Evaluated { by: PINS_SCENE_11 },
         rehearsed_by: &[],
     },
     Scene {
@@ -2439,7 +2428,7 @@ mod tests {
     /// five. It stayed red for eight tickets after 12, which is what the distinction bought, and
     /// **components 20 stood it up by checking the shipped code rather than by writing it**.
     #[test]
-    fn eight_scenes_have_nothing_to_run_over_six_are_red_and_nineteen_are_stood_up() {
+    fn eight_scenes_have_nothing_to_run_over_four_are_red_and_twenty_one_are_stood_up() {
         let red: Vec<u8> = SCENES
             .iter()
             .filter(|s| matches!(s.standing, Standing::Red { .. }))
@@ -2447,8 +2436,8 @@ mod tests {
             .collect();
         assert_eq!(
             red,
-            vec![10, 11, 12, 13, 14, 32],
-            "components ticket 21's two, 23's three and 25's overlay family. Components ticket \
+            vec![12, 13, 14, 32],
+            "components ticket 23's three and 25's overlay family. Components ticket \
              27's two were here for one ticket and 28 inverted them; components ticket 14's two — \
              scenes 7 and 31 — were here for one ticket and **15** inverted them; components \
              ticket 16's two — scenes 8 and 9 — likewise, and **17** inverted them; components \
@@ -2456,8 +2445,11 @@ mod tests {
              together, because they were pinned on one fact and it was the subject. **The wheel \
              gate was here for nine tickets and 20 inverted it**, and it is the one row of the \
              list whose failing set was a defect rather than a missing subject — which is why it \
-             took the shipped code being checked and not a standing being edited. A seventh is a \
-             new one, and it owes an exact failing set and a ticket that inverts it"
+             took the shipped code being checked and not a standing being edited. **Components \
+             ticket 21's two — scenes 10 and 11 — were here for one ticket and 22 inverted them \
+             together**, because they were pinned on one fact and it was the subject, which is the \
+             same shape 16→17, 14→15 and 18→19 had. A fifth arriving here is a new one, and it owes \
+             an exact failing set and a ticket that inverts it"
         );
         let evaluated: Vec<u8> = SCENES
             .iter()
@@ -2467,15 +2459,18 @@ mod tests {
         assert_eq!(
             evaluated,
             vec![
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 18, 19, 28, 29, 30, 31, 33
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 16, 17, 18, 19, 28, 29, 30, 31, 33
             ],
             "the dense screen and its two twins, the collection's **five** — the wheel gate joined \
              the other four when components 20 posted a real notch over the shipped component — \
              the two million-point series with the 175 712 axis pairs, and the table's two: the \
              twelve-column screen and the equality under a horizontal offset, both of which \
              components 15 stood up by declaring `table` and rewriting `crate::grid::draw_into` to \
-             draw through it. Scene 33 is the pair §21 had no way to state, and it is here because \
-             it plays over `scroll_area` rather than over an arithmetic offset. A screen played \
+             draw through it. Scenes 10 and 11 are components 22's, and they are here for the same \
+             reason: `crate::accordion::draw_into` calls `disclose::collapsible_into`, so the fold \
+             anchor and the 408-on-both-columns pair are measurements of the component. Scene 33 is \
+             the pair §21 had no way to state, and it is here because it plays over `scroll_area` \
+             rather than over an arithmetic offset. A screen played \
              over a stand-in for its components is rehearsed and not stood up, so one arriving \
              here is a deliberate edit to this module's header and to `crate::gates::REGISTER`"
         );
@@ -2525,17 +2520,14 @@ mod tests {
         assert_eq!(
             pinned_to,
             vec![
-                (10, "components 22"),
-                (11, "components 22"),
                 (12, "components 24"),
                 (13, "components 24"),
                 (14, "components 26"),
                 (32, "components 24"),
             ],
-            "the wheel gate is not waiting for its subject and the other fourteen are. Merging \
-             the two loses the distinction components 11's criterion 7 is about: `table`, \
-             `tree`, `collapsible`, `field`, `select`, `overlay`, `scroll_area`, `scrollbar` and \
-             `sticky` are undeclared and no defect of theirs is pinned here"
+            "the wheel gate is not waiting for its subject and the rest are. Merging the two loses \
+             the distinction components 11's criterion 7 is about: `field`, `select` and `overlay` \
+             are undeclared and no defect of theirs is pinned here"
         );
     }
 
@@ -2944,14 +2936,17 @@ mod tests {
             rows_at_a_time,
             &[Fixture::lines(40, 10, 100).scrolled_to(3)],
         );
-        // **Scene 11 and not scene 6, since components 20.** The measured line has to sit on a
+        // **Scene 12 and not scene 11, since components 22.** The measured line has to sit on a
         // scene that is still red, or the half of this test that matters — *a measured line over a
         // red scene still says it is red* — has nothing to be about. It was scene 6 from components
-        // 12 until 20 stood the wheel gate up; the accordion is the lowest-numbered red scene left,
-        // and the label is the line's own rather than the scene's, so nothing about the property
-        // moved with it.
-        let rehearsal = run.row("an accordion of twelve sections", Allocations::over(1, 0));
-        let printed = report(&[(11, rehearsal)]);
+        // 12 until 20 stood the wheel gate up, then scene 11 until 22 stood the accordion up; the
+        // field is the lowest-numbered red scene left, and the label is the line's own rather than
+        // the scene's, so nothing about the property moved with it either time.
+        let rehearsal = run.row(
+            "twenty fields and a 1 MB pasted textarea",
+            Allocations::over(1, 0),
+        );
+        let printed = report(&[(12, rehearsal)]);
 
         assert_eq!(
             printed.lines().count(),
@@ -2963,18 +2958,19 @@ mod tests {
             printed
                 .matches("stood up on its own components, by ")
                 .count(),
-            19,
+            21,
             "a stood-up scene says what stands it up, rather than reading as unplayed"
         );
         assert_eq!(
             printed.matches("red, pinned: `components ").count(),
-            6,
-            "ticket 21's two, 23's three and 25's one, and a red line is neither *not played* nor \
-             *stood up*. **The wheel gate was the seventh until components 20**"
+            4,
+            "ticket 23's three and 25's one, and a red line is neither *not played* nor *stood up*. \
+             **The wheel gate was the seventh until components 20 and the accordion's two the fifth \
+             and sixth until 22**"
         );
         assert_eq!(printed.matches("[rehearsed over a fixture").count(), 1);
         assert!(
-            printed.contains("[rehearsed over a fixture; red, pinned: `components 22` inverts it]"),
+            printed.contains("[rehearsed over a fixture; red, pinned: `components 24` inverts it]"),
             "a measured line over a red scene still says it is red, or a report of a red scene \
              would read as a healthy frame: {printed}"
         );

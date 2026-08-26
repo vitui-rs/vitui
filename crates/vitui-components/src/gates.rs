@@ -1,5 +1,5 @@
-//! Spec §21's register: **sixty-seven gates as a value, one row per gate, and a number for how many
-//! of them anything runs.**
+//! Spec §21's register: **a hundred and thirty-five gates as a value, one row per gate, and a number
+//! for how many of them anything runs.**
 //!
 //! > The register is data, not prose — one row per gate with its kind, its owner, where it stood at
 //! > the branch point and where it stands now, so the delta is a number a test asserts. The reason
@@ -50,13 +50,14 @@
 //!   compile error and no amount of component code changes it.
 //! - [`Standing::Unsubjected`] is the vacuity arm, and it exists because [`crate::obligations`]
 //!   already proved it necessary one file over: *a query over an obligation nobody has met yet is
-//!   the exact shape that returns green by accident*. Fifteen gates here could run and have **nothing
-//!   to run over** — no component exists — and a register that filed those as `Evaluated` would be
-//!   claiming fifteen green gates over an empty population.
+//!   the exact shape that returns green by accident*. **Six gates here could run and have nothing to
+//!   run over** — it was fifteen when no component existed — and a register that filed those as
+//!   `Evaluated` would be claiming six green gates over an empty population. The count in the line
+//!   below is the authority; this is a summary of it.
 //!
-//! **Forty-two evaluated, four red, six unreachable, fifteen unsubjected**, and
-//! `tests::a_hundred_and_ten_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
-//! deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
+//! **A hundred and eighteen evaluated, five red, six unreachable, six unsubjected**, and
+//! `tests::a_hundred_and_eighteen_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next
+//! change a deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
 //! and subjected row 27, the cross-family collapse gate; ticket 07 added five, and none of them
 //! moved a standing that was already taken. **Ticket 08 added four and inverted one**, and the
@@ -360,6 +361,9 @@ const GRID: &str = "crates/vitui-components/src/grid.rs";
 
 /// The accordion's own file, which is where components ticket 21's rows run.
 const ACCORDION: &str = "crates/vitui-components/src/accordion.rs";
+/// **`collapsible`'s own file**, which is where components ticket 22's rows run. The component and
+/// its two refused spellings are one file, so a reviewer's diff between them is a field.
+const DISCLOSE: &str = "crates/vitui-components/src/disclose.rs";
 
 /// The document's own file, which is where components ticket 23's rows run.
 const DOCUMENT: &str = "crates/vitui-components/src/document.rs";
@@ -431,10 +435,18 @@ pub const SPEC_ROWS: usize = 32;
 /// path, and row 129 is criterion 6's join between the gate's subject list and the freeze. A red row
 /// inverted by supplying a *subject* is the ordinary case on this register; this one was red on a
 /// **defect**, which is why it needed the shipped code to be checked rather than written.
-pub const EVALUATED: usize = 110;
+///
+/// **Components ticket 22 moved it from a hundred and ten to a hundred and eighteen**, and two of the
+/// eight are the last `Unsubjected` rows on §21's own table: rows 24 and 25, which had nothing to run
+/// over because `collapsible` did not exist. Six are new, and **three of those are findings rather
+/// than criteria** — row 131, where §8's watermark figures are replaced by §9's own sentence on the
+/// height axis; row 132, where §8's *0 against 405* turns out to be unreachable from any header
+/// gesture; and row 135, where §8's byte pair cannot both be a `size_of` of one type. Row 21 stays
+/// `Unreachable` and row 130 is its crate-own form, which is row 41's standing to row 2's.
+pub const EVALUATED: usize = 118;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 129] = [
+pub const REGISTER: [Row; 135] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -974,8 +986,22 @@ pub const REGISTER: [Row; 129] = [
         kind: Kind::Equality,
         owner: "C14",
         section: "spec §8",
-        standing: Standing::Unsubjected {
-            inverted_by: "components 22",
+        // **Components ticket 22 supplied the subject**, and the equality is between two spellings
+        // rather than between one and itself: §8's *one open detail row is two comparisons and a
+        // subtraction* is `Inplace::one`, C05's `ytop` is `Inplace::many`, and both directions of the
+        // map are asserted over the whole length on each — then the two are asserted equal on the
+        // one-open case, which is what makes *needs no prefix sum* a claim about cost rather than a
+        // second answer.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: DISCLOSE,
+                    name: "the_inplace_map_round_trips_and_one_open_row_needs_no_prefix_sum",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/collapsible_numbers.rs",
+                },
+            ],
         },
     },
     Row {
@@ -985,8 +1011,33 @@ pub const REGISTER: [Row; 129] = [
         kind: Kind::Invariant,
         owner: "C14",
         section: "spec §8",
-        standing: Standing::Unsubjected {
-            inverted_by: "components 22",
+        // **An invariant needs both halves of *there is no third state*, and they are two different
+        // kinds of check.** Behaviourally, `Collapse::set` writes `open` at the instant the gesture
+        // lands and only the height moves — asserted at every frame of a two-hundred-millisecond
+        // collapse, which is what an `Invariant` means. Structurally, a **source scan** for a stored
+        // third state, because *the item does not exist* has no expression and a `compile_fail`
+        // naming a variant nobody built passes today and passes again the day somebody adds one.
+        //
+        // The scan is watched finding a declaration when there is one, and the two words it looks
+        // for are assembled from fragments rather than written out — a scanner that named its own
+        // needle would report the module it is defending, which is `crate::frame`'s own first run.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: DISCLOSE,
+                    name: "open_is_never_ambiguous_over_every_frame_of_a_two_hundred_\
+                           millisecond_collapse",
+                },
+                Instrument::Unit {
+                    file: DISCLOSE,
+                    name: "there_is_no_stored_third_state_and_the_scan_finds_one_when_there_is",
+                },
+                Instrument::Unit {
+                    file: ACCORDION,
+                    name: "a_two_hundred_millisecond_collapse_is_monotone_and_goes_quiet_at_the_\
+                           duration",
+                },
+            ],
         },
     },
     Row {
@@ -1190,6 +1241,18 @@ pub const REGISTER: [Row; 129] = [
                 Instrument::Unit {
                     file: "crates/vitui-components/tests/budget.rs",
                     name: "a_steady_frame_of_the_dense_screen_allocates_nothing_as_a_total",
+                },
+                // **Components ticket 22: the same budget over a frame that is not steady**, which
+                // is the one shape this row had never been asked about. Every frame of a transition
+                // hands the body a **different rectangle**, so the warm-two-frames discipline every
+                // other window here uses does not warm it: a height nothing has drawn yet is a first
+                // touch *inside* the window, and the arm warmed that way reads 1 allocation over 12
+                // frames — amortised zero, and exactly the shape `crate::counters::Allocations`
+                // refuses to average away. Warmed on the *shape* it is zero, and the test's own
+                // header says which warming it uses and why.
+                Instrument::Unit {
+                    file: "crates/vitui-components/tests/budget.rs",
+                    name: "a_two_hundred_millisecond_collapse_allocates_nothing_over_its_own_frames",
                 },
             ],
         },
@@ -2107,8 +2170,8 @@ pub const REGISTER: [Row; 129] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_six_are_red_and_\
-                           nineteen_are_stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_four_are_red_and_\
+                           twenty_one_are_stood_up",
                 },
             ],
         },
@@ -2337,8 +2400,8 @@ pub const REGISTER: [Row; 129] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_six_are_red_and_\
-                           nineteen_are_stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_four_are_red_and_\
+                           twenty_one_are_stood_up",
                 },
             ],
         },
@@ -2751,8 +2814,8 @@ pub const REGISTER: [Row; 129] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_six_are_red_and_\
-                           nineteen_are_stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_four_are_red_and_\
+                           twenty_one_are_stood_up",
                 },
             ],
             failing: "`field` is undeclared, so three scenes are pinned red — 12, 13 and 30 — and \
@@ -2893,8 +2956,8 @@ pub const REGISTER: [Row; 129] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_six_are_red_and_\
-                           nineteen_are_stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_four_are_red_and_\
+                           twenty_one_are_stood_up",
                 },
             ],
             failing: "neither `select` nor `overlay` is declared, so scene 14 is pinned red. \
@@ -3402,8 +3465,8 @@ pub const REGISTER: [Row; 129] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_six_are_red_and_\
-                           nineteen_are_stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_four_are_red_and_\
+                           twenty_one_are_stood_up",
                 },
             ],
         },
@@ -4041,6 +4104,203 @@ pub const REGISTER: [Row; 129] = [
             ],
         },
     },
+    // ── components ticket 22's six, and three of them are findings rather than criteria ──────────
+    Row {
+        number: 130,
+        on_spec_table: false,
+        gate: "the surface after a collapse equals a freshly built one, at the verb boundary",
+        kind: Kind::Equality,
+        owner: "C14",
+        section: "spec §8, §21",
+        // **This is not row 21, and the distinction is row 41's to row 2's.** Row 21 asks for the
+        // equality between two *composited* surfaces and ADR 0023 hands over no cell; this is the
+        // crate's own model of what it drew, recorded by a `Pen` carried **across** frames
+        // (`Pen::over`, which is what `crate::area` uses for re-damage) — because residue is a
+        // relation between two frames and a pen built per frame has nothing to relate to.
+        //
+        // **Both arms are compared with the focus seated on the header and no pointer anywhere**,
+        // which is why the gesture is `Enter` and not a click: a click leaves the pointer on the
+        // header, and the two arms would then differ by one cell of hover paint rather than by a
+        // residue. That was measured before it was designed around.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: DISCLOSE,
+                    name: "the_surface_after_a_collapse_equals_a_freshly_built_one",
+                },
+                Instrument::Unit {
+                    file: DISCLOSE,
+                    name: "the_tail_is_the_rectangles_owners_and_the_residue_is_what_it_costs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 131,
+        on_spec_table: false,
+        gate: "a measured extent taken inside the rectangle the last decision produced latches and \
+               never comes down: 19 rows where 4 are right",
+        kind: Kind::Count,
+        owner: "C13, C14",
+        section: "spec §8, §9",
+        // **§9's own sentence on the height axis, and it is the reason `Height::Watermark` is off by
+        // default.** §8 prices the drawn extent at *83 cells, 8 rows wrong, settled in 3 frames*
+        // against a sizing function's *22, 0, 2*, and those three figures are a prototype's **body**
+        // — they do not reproduce and are not made to. What reproduces is stronger and is already on
+        // this map one section over: *a measured extent and a hideable reserved bar are incompatible,
+        // because the measurement is taken inside the rectangle the decision produced.*
+        //
+        // The precondition is on the **body**, exactly as §9 states it: over a body that draws only
+        // its content the two arms are **indistinguishable**, which is what makes the rule
+        // unconditional rather than a preference. Both bodies are in the instrument.
+        //
+        // And the price is a **count** rather than a clock: the dry run goes through the caller's
+        // ink, so the watermark arm makes the body's verbs twice. §8's *+11.5% of the frame* is a
+        // report beside it.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: DISCLOSE,
+                    name: "the_sizing_function_is_right_on_every_frame_and_a_measured_extent_latches",
+                },
+                Instrument::Unit {
+                    file: DISCLOSE,
+                    name: "the_watermark_pays_for_a_second_pass_over_the_body_and_the_sizing_\
+                           function_pays_for_none",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/collapsible_numbers.rs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 132,
+        on_spec_table: false,
+        gate: "no gesture that closes a section from its own header reaches the vanish rule, and \
+               the rule is what keeps the keyboard on a header that is not a tab stop",
+        kind: Kind::Count,
+        owner: "C14",
+        section: "spec §8",
+        // **§8's *0 ring probes against 405*, followed to the end.** §8 says out loud why the left
+        // half is free — *which is what a focusable widget does on a click anyway* — and the
+        // consequence is that all three self-close gestures leave the focus off the body before the
+        // vanish rule looks, each for a different reason: the press award focuses a focusable header;
+        // the press award **defocuses** on one that is not a tab stop, because a press landing on
+        // nothing interested is read as intent; and `Enter` needs the header to hold the focus
+        // already. So the arm that pays is a collapse with **no gesture behind it**, which is where
+        // `crate::accordion` runs it — a collapse-all with and without the caller capturing
+        // `Frame::focus`, which is §8's own answer to *`Stash` belongs to whoever owns the content's
+        // identity*.
+        //
+        // What `Focus::Header` buys is measured rather than argued, and it is not the probe count: on
+        // a header that is not a tab stop the runtime's answer is `None`, so the click **loses the
+        // keyboard entirely** — runtime architecture issue 25's finding one component over.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: DISCLOSE,
+                    name: "no_self_close_gesture_reaches_the_vanish_rule_and_the_rule_is_what_\
+                           keeps_the_keyboard",
+                },
+                Instrument::Unit {
+                    file: ACCORDION,
+                    name: "a_collapse_with_no_gesture_behind_it_is_where_the_vanish_rule_answers",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 133,
+        on_spec_table: false,
+        gate: "a fold steps and a region animates: no tween is started under `Collapses::OnRequest`, \
+               and a region collapse lands on the frame the gesture does",
+        kind: Kind::Count,
+        owner: "C14",
+        section: "spec §8",
+        // **§8's *an animated fold is refused* as a count rather than as a doc comment.** The removed
+        // rows would have to still be in the index while they shrink, and the splice is an edit a
+        // frame may not perform — so the index arm leaves the state untouched, starts nothing, and
+        // asks for no further frame, while the region arm is already collapsed before its frame ends.
+        //
+        // The screen-scale half is the declarations: a section that closed a frame late would still
+        // declare its body's 34 entries on the frame the click landed, so *on the same frame* is
+        // checkable rather than a sentence.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: DISCLOSE,
+                    name: "a_region_collapses_on_the_frame_and_an_index_collapse_is_a_request_the_\
+                           caller_drains",
+                },
+                Instrument::Unit {
+                    file: DISCLOSE,
+                    name: "a_region_with_a_duration_animates_and_asks_for_its_own_frames_until_it_\
+                           lands",
+                },
+                Instrument::Unit {
+                    file: ACCORDION,
+                    name: "a_click_on_an_open_header_goes_six_open_to_five_on_the_frame_it_lands",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 134,
+        on_spec_table: false,
+        gate: "§8's three-row split is three rows and each is exactly one configuration of one \
+               machine",
+        kind: Kind::Equality,
+        owner: "C14",
+        section: "spec §8, §18",
+        // **Criterion 1, and it is a bijection rather than a list.** *Accordion, tree node, code
+        // folding and inplace edit are one machine* is the claim §18's whole F4 family exists to
+        // make, and the shape of claim §17 says gets broken by people who have read it — so the
+        // table is a value and the join is asserted: three rows, three arms of `Collapses`, and no
+        // fourth on either side. `animates()` is `applies()` everywhere, which is *a fold steps; a
+        // region animates* as arithmetic over the same value.
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: DISCLOSE,
+                name: "the_split_is_three_rows_and_each_one_is_one_configuration_of_one_machine",
+            }],
+        },
+    },
+    Row {
+        number: 135,
+        on_spec_table: false,
+        gate: "a `Collapse` is four bytes live and the tween slot costs forty whether or not it \
+               holds one",
+        kind: Kind::Count,
+        owner: "C14",
+        section: "spec §8",
+        // **§8's *5 B of live state, 72 B with a tween slot*, and neither number reproduces** —
+        // asserted as a disagreement, which is components ticket 17's standing one family over where
+        // §7's stated widths were the number that was wrong.
+        //
+        // The live half is `open: bool` and a `u16`; five is what a third `u16` would cost and there
+        // is no third, because `Tween::to` is the target while a tween runs and the height is it
+        // afterwards. **And the pair cannot both be a `size_of` of one type**, which is the part
+        // worth keeping: `Option<Tween<u16>>` is a field, so it costs its forty bytes empty. A record
+        // that is 5 B without a tween and 72 B with one is a record whose tween lives somewhere else,
+        // and nothing on this map has anywhere else to put one.
+        //
+        // The half that does hold is *never per row of content*: the fold set is line numbers beside
+        // the caller's document, four bytes each, and twelve sections of state is cheaper than the
+        // 4 167 folds it is not.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: DISCLOSE,
+                    name: "a_collapse_is_four_bytes_live_and_the_slot_costs_forty_whether_or_not_\
+                           it_holds_one",
+                },
+                Instrument::Report {
+                    file: "crates/vitui-components/examples/collapsible_numbers.rs",
+                },
+            ],
+        },
+    },
 ];
 /// **The compile-outcome pair row 31 names, and its positive twin.**
 ///
@@ -4320,7 +4580,7 @@ mod tests {
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn a_hundred_and_ten_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn a_hundred_and_eighteen_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -4357,13 +4617,15 @@ mod tests {
              the value anyway, so a chord can be pressed after all"
         );
         assert_eq!(
-            unsubjected, 8,
-            "and the fourteen with nothing to run over. **It was fifteen until components ticket \
-             18**, which supplied the subject for row 20 — the bar fixpoint, which is arithmetic \
-             over a domain and needs no component to be run against, and whose row had been \
-             citing spec §13 and components 28 for two tickets"
+            unsubjected, 6,
+            "and the six with nothing to run over. **It was eight until components ticket 22**, \
+             which supplied the subject for rows 24 and 25 — the inplace map and *`open` is never \
+             ambiguous mid-transition*, the last two `Unsubjected` rows on §21's own table. It was \
+             fifteen until ticket 18, which supplied row 20's: the bar fixpoint is arithmetic over a \
+             domain and needs no component to be run against, and its row had been citing spec §13 \
+             and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 129);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 135);
     }
 
     /// **The split, not the total.**
@@ -4374,10 +4636,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_ninety_seven_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_a_hundred_and_three_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 97);
+        assert_eq!(REGISTER.len() - on_table, 103);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,

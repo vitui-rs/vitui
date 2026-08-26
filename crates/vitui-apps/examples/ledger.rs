@@ -115,7 +115,7 @@
 //! | `1` / `2` | draw as one column / as twelve |
 //! | `v` | the live counters, through a `Tally` |
 //! | `h` | the header |
-//! | `q` | quit |
+//! | `Ctrl+Q` | quit. **`q` alone is racy here** and the pair is the point: a focused `collection` consumes every text-bearing key into its type-ahead buffer (spec §5), so a plain `q` reaches the application only on a frame where nothing is focused. `Ctrl` is not text |
 //!
 //! **The plain letters are this application's luck and not the component's gift.** A key reaches
 //! the application only when the component declines it, and `collection` declines a letter only
@@ -817,6 +817,10 @@ impl App {
     fn take_unhandled(&mut self, keys: &[Pressed], area_w: u16) {
         for key in keys {
             let alt = key.mods.alt();
+            if key.mods.ctrl() && key.code == Code::Char('q') {
+                self.exit = true;
+                continue;
+            }
             match (alt, key.code) {
                 (_, Code::Enter) => {
                     let row = self.table.coll.sel.lead;
@@ -894,6 +898,13 @@ impl App {
                     self.header = !self.header;
                     self.last = "h — header";
                 }
+                // **`Ctrl+Q` beside `q`, and both are bound** — the same arrangement as the four
+                // spellings above and for a sharper reason. A focused `collection` consumes every
+                // text-bearing key into its type-ahead buffer (spec §5), so `q` reaches this
+                // function only on a frame where nothing is focused: it is racy, it always was, and
+                // it read as working because the old loop happened to read the window of the frame
+                // *before* the focus was seated. `Ctrl` is not text (`crate::keys::text` excludes
+                // it), so the chord is declined all the way out every time.
                 (_, Code::Char('q')) => self.exit = true,
                 _ => {}
             }
@@ -916,14 +927,29 @@ fn main() {
     // pending is indefinite by design and a screen that appears on the first keystroke is a bug.
     driver.frame(|cx| app.ui(cx));
 
-    while !app.exit {
+    loop {
+        driver.frame(|cx| app.ui(cx));
+        // **What nothing wanted, read from the frame that has just drawn.**
+        //
+        // `Driver::unhandled` is *a window onto the same queue, valid until the next frame begins*,
+        // so reading it **before** this application's frame read the previous frame's window and
+        // acted one wake late — which for a single keystroke means never, because nothing wakes it
+        // again. Measured on the shipped binary: `q` did not quit. Components ticket 22's
+        // application found it and every loop in this crate had it. A key this application owns
+        // still cannot be read inside the draw — see `App::take_unhandled`; what moved is *which*
+        // frame's window is read.
+        let width = driver.size().0;
+        let unhandled: Vec<_> = driver.unhandled().to_vec();
+        app.take_unhandled(&unhandled, width);
+        if app.exit {
+            break;
+        }
+        if !unhandled.is_empty() {
+            continue;
+        }
         match driver.wait() {
             Wake::Quit => break,
             Wake::Input | Wake::Posted | Wake::Deadline => {}
         }
-        let width = driver.size().0;
-        let unhandled: Vec<_> = driver.unhandled().to_vec();
-        app.take_unhandled(&unhandled, width);
-        driver.frame(|cx| app.ui(cx));
     }
 }

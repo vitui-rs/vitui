@@ -54,7 +54,7 @@
 //! | `Esc` | clear the selection |
 //! | a letter | type-ahead over senders, bounded — see the status bar's `search` |
 //! | `Enter` | apply the action the menu's cursor is on to the selection |
-//! | `q` | quit |
+//! | `Ctrl+Q` | quit. **`q` alone is racy here** and the pair is the point: a focused `collection` consumes every text-bearing key into its type-ahead buffer (spec §5), so a plain `q` reaches the application only on a frame where nothing is focused. `Ctrl` is not text, and the check below ignores the modifiers so the chord satisfies it |
 //!
 //! # Switching the view is an edit, and the selection goes with it
 //!
@@ -532,21 +532,36 @@ fn main() {
     // pending is indefinite by design and a screen that appears on the first keystroke is a bug.
     driver.frame(|cx| app.ui(cx));
 
-    while !app.exit {
-        match driver.wait() {
-            Wake::Quit => break,
-            Wake::Input | Wake::Posted | Wake::Deadline => {}
-        }
-        // `q` is the one key no collection owns, so it is declined all the way back out and read
-        // here from what nothing wanted. A collection with a type-ahead buffer standing would have
-        // eaten it, which is why the check is on the *unhandled* queue rather than inside a draw.
-        if driver
-            .unhandled()
+    loop {
+        driver.frame(|cx| app.ui(cx));
+        // `q` is read here from what nothing wanted, because a key an application owns cannot be
+        // read inside a draw. **And a collection with a type-ahead buffer standing eats it** — this
+        // file's own comment said *would have* and it is *does*: a focused collection consumes every
+        // text-bearing key (spec §5), so a plain `q` arrives only on a frame where nothing is
+        // focused. Measured: it quits in 270 ms or not at all, run to run. The check ignores the
+        // modifiers, so `Ctrl+Q` satisfies it and `Ctrl` is not text.
+        //
+        // **And it is read from the frame that has just drawn.** `Driver::unhandled` is *a window
+        // onto the same queue, valid until the next frame begins*, so reading it before the frame
+        // read the previous frame's window and acted one wake late — which for a single keystroke
+        // means never. Measured on the shipped binary; components ticket 22's application found it
+        // and every loop in this crate had it.
+        let unhandled = driver.unhandled();
+        if unhandled
             .iter()
             .any(|k| k.code == vitui_runtime::keys::Code::Char('q'))
         {
             app.exit = true;
         }
-        driver.frame(|cx| app.ui(cx));
+        if app.exit {
+            break;
+        }
+        if !unhandled.is_empty() {
+            continue;
+        }
+        match driver.wait() {
+            Wake::Quit => break,
+            Wake::Input | Wake::Posted | Wake::Deadline => {}
+        }
     }
 }

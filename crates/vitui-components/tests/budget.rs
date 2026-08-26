@@ -317,3 +317,70 @@ fn a_steady_frame_of_the_dense_screen_allocates_nothing_as_a_total() {
     assert_eq!(driver.inspect().hits().len(), dense::REGIONS);
     assert_eq!(driver.inspect().stop_count(), 333);
 }
+
+/// **A two-hundred-millisecond collapse allocates nothing, over the frames of the transition
+/// itself.**
+///
+/// Components ticket 22, and spec §8's own figure: *14 frames to quiet, 46.00 µs worst, 1 789 cells,
+/// 0 allocations*. The frame count is a cadence and the µs and the cells belong to another screen —
+/// `examples/collapsible_numbers.rs` prints all three beside §8's — but the **zero** is a count and a
+/// count is a gate.
+///
+/// # The warm-up has to be a whole collapse and not four frames, and that is the finding
+///
+/// Every other allocation window in this workspace warms with *two identical frames*, because the
+/// five frame structures take their allocation on the first frame that needs one and keep it. A
+/// transition breaks that rule: each frame of it hands the body a **different rectangle**, so a
+/// height nothing has drawn yet is a first touch inside the window. Warmed with four steady frames
+/// this reads **1 allocation over 12 frames** — amortised zero, and exactly the shape
+/// `crate::counters::Allocations` refuses to average away. Warmed on the *shape* — one whole collapse
+/// and then the one that is measured — it is zero.
+#[test]
+fn a_two_hundred_millisecond_collapse_allocates_nothing_over_its_own_frames() {
+    use vitui_alloc_probe::count_allocations;
+    use vitui_components::accordion::{BODY_ROWS, Live};
+    use vitui_components::disclose::DiscloseOpts;
+    use vitui_components::ink::Direct;
+
+    /// Sixty hertz, which is `scripts/steady-report.sh`'s own rate.
+    const STEP: Duration = Duration::from_micros(16_667);
+    /// §8's own collapse.
+    const DUR: Duration = Duration::from_millis(200);
+
+    let mut live = Live::new(1, DiscloseOpts::default());
+    let mut ink = Direct;
+    for _ in 0..2 {
+        live.frame(&mut ink);
+    }
+    // The warm-up collapse: every rectangle the measured one will ask for, asked for once.
+    live.collapse(0, DUR);
+    while live.animating() > 0 {
+        live.advance(STEP);
+        live.frame(&mut ink);
+    }
+    live.reopen(0, BODY_ROWS);
+    live.frame(&mut ink);
+
+    live.collapse(0, DUR);
+    let (frames, total) = count_allocations(|| {
+        let mut n = 0u32;
+        while live.animating() > 0 {
+            live.advance(STEP);
+            live.frame(&mut ink);
+            n += 1;
+        }
+        n
+    });
+
+    assert_eq!(
+        total, 0,
+        "a collapse allocated {total} times over {frames} frames, and §8's figure is zero"
+    );
+    assert_eq!(
+        frames, 12,
+        "two hundred milliseconds at sixty hertz. §8 states fourteen at a cadence it does not state, \
+         so the count is this cadence's and the relation is what `crate::disclose` gates"
+    );
+    assert_eq!(live.open(), 0, "and it arrived");
+    assert_eq!(live.heights()[0], 0);
+}
