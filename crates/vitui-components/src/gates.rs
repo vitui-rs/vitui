@@ -56,7 +56,7 @@
 //!   below is the authority; this is a summary of it.
 //!
 //! **A hundred and eighteen evaluated, five red, six unreachable, six unsubjected**, and
-//! `tests::a_hundred_and_twenty_seven_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next
+//! `tests::a_hundred_and_forty_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next
 //! change a deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
 //! and subjected row 27, the cross-family collapse gate; ticket 07 added five, and none of them
@@ -394,6 +394,14 @@ const FIELD_NUMBERS: &str = "crates/vitui-components/examples/field_numbers.rs";
 /// shipped build and any of them is one value.
 const EDIT: &str = "crates/vitui-components/src/edit.rs";
 
+/// **The overlay family's own file**, which is where components ticket 26's rows run. The three
+/// kinds, the two axes, the sizing function, the gutter and the two halves of a modal are one module,
+/// and the spellings §12 refuses are one `defective` module inside it.
+const OVERLAY: &str = "crates/vitui-components/src/overlay.rs";
+
+/// The overlay family's report.
+const POPUP_NUMBERS: &str = "crates/vitui-components/examples/popup_numbers.rs";
+
 /// **`field`'s own file**, which is where the component's rows run. `input.rs` and not `edit.rs`,
 /// because that is where the freeze homes `field`: F6, and [`crate::document::DECLARATIONS`] opens
 /// it to find out whether the three scenes have a subject.
@@ -467,10 +475,17 @@ pub const SPEC_ROWS: usize = 32;
 ///
 /// Row 21 stays `Unreachable` and row 130 is its crate-own form, which is row 41's standing to row
 /// 2's.
-pub const EVALUATED: usize = 127;
+pub const EVALUATED: usize = 140;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 143] = [
+#[expect(
+    clippy::large_const_arrays,
+    reason = "a `static` is what the lint asks for and it would cost every reader of this table a \
+              `.iter().copied()`: `Row` is `Copy` and forty-odd sites iterate this by value. The \
+              array is read at compile time by nothing and at run time by tests, so the copy the \
+              lint is warning about is one a test makes once"
+)]
+pub const REGISTER: [Row; 155] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -2194,8 +2209,8 @@ pub const REGISTER: [Row; 143] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_four_are_red_and_\
-                           twenty_one_are_stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_none_is_red_and_\
+                           twenty_two_are_stood_up",
                 },
             ],
         },
@@ -2424,8 +2439,8 @@ pub const REGISTER: [Row; 143] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_four_are_red_and_\
-                           twenty_one_are_stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_none_is_red_and_\
+                           twenty_two_are_stood_up",
                 },
             ],
         },
@@ -2838,8 +2853,8 @@ pub const REGISTER: [Row; 143] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_four_are_red_and_\
-                           twenty_one_are_stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_none_is_red_and_\
+                           twenty_two_are_stood_up",
                 },
             ],
         },
@@ -2954,14 +2969,25 @@ pub const REGISTER: [Row; 143] = [
         kind: Kind::CompileOutcome,
         owner: "C07",
         section: "spec §12, §21",
-        // **The fifth red row, and it is row 67 one ticket later.** Same shape, same reason, a
-        // different pair of components — and the standing count is what makes a scene going quiet a
-        // deliberate edit rather than a silent one.
-        standing: Standing::Red {
+        // **Green since components 26, and the direction is what makes the row worth keeping.** It
+        // was `Unmet { over: 2, failing: 2 }` with every number on the screen already reproducing:
+        // what was missing was the subject, and the scan is what could say so. It says the opposite
+        // now, and the *same* scan is the thing that would notice either subject going away.
+        //
+        // The needle for `select` had to change with it, and that is a finding rather than an edit:
+        // it read `pub fn select(`, and spec §1 already says that a component which opens an overlay
+        // costs two lifetime annotations — so a scene that had gone green on the old needle would
+        // have gone green by deleting the `'f`, which is a different component.
+        standing: Standing::Evaluated {
             by: &[
                 Instrument::Unit {
                     file: POPUP,
-                    name: "the_screen_is_red_because_select_and_overlay_are_not_declared",
+                    name: "the_screen_stands_on_its_subjects",
+                },
+                Instrument::Unit {
+                    file: POPUP,
+                    name: "the_needle_the_red_scene_carried_could_not_have_matched_a_component_\
+                           that_opens_an_overlay",
                 },
                 Instrument::Unit {
                     file: POPUP,
@@ -2973,22 +2999,10 @@ pub const REGISTER: [Row; 143] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_four_are_red_and_\
-                           twenty_one_are_stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_none_is_red_and_\
+                           twenty_two_are_stood_up",
                 },
             ],
-            failing: "neither `select` nor `overlay` is declared, so scene 14 is pinned red. \
-                      `crates/vitui-components/src/input.rs` carries no `pub fn select(` and \
-                      `crates/vitui-components/src/overlay.rs` no `pub fn overlay(`, which is what \
-                      `crate::popup::subjects_declared` opens both files to find out, and \
-                      `crate::popup::standing` is `Unmet { over: 2, failing: 2 }` rather than `Met` \
-                      over nothing. Everything the screen itself can be asked is measured: 317 \
-                      regions against 316 stops, every delta of §12's table, 2 visited of 318 \
-                      declared with the trap standing, 30 cliffs over 30 openings, 600 / 0 / 0 \
-                      re-damaged for the scrim's three spellings, 99 flips in 100 frames, 3 of 8 \
-                      frames for a dialog owned by a menu row, and three different ids for the \
-                      three answers to a closing modal",
-            inverted_by: "components 26",
         },
     },
     // ── components ticket 12's rows: the collection ──────────────────────────────────────────────
@@ -3482,8 +3496,8 @@ pub const REGISTER: [Row; 143] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_four_are_red_and_\
-                           twenty_one_are_stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_none_is_red_and_\
+                           twenty_two_are_stood_up",
                 },
             ],
         },
@@ -4656,6 +4670,355 @@ pub const REGISTER: [Row; 143] = [
             ],
         },
     },
+    // ── components ticket 26's rows: `select` and the overlay family ─────────────────────────────
+    Row {
+        number: 144,
+        on_spec_table: false,
+        gate: "the family is three kinds on two axes over eight entries, and modality is a `bool` \
+               on the request",
+        kind: Kind::Count,
+        owner: "C07",
+        section: "spec §12",
+        // **The table is a value a test iterates, not a table in a comment** —
+        // `crate::disclose::SPLIT`'s arrangement one family over, and its reason. What makes it two
+        // axes rather than one is the *diagonal*: Axis A separates exactly `Kind::Transient` and
+        // Axis B exactly `Kind::Dialog`, so neither column is derivable from the other.
+        //
+        // The narrower question the shell actually branches on is `Kind::has_blur_position`, and it
+        // is **not** Axis A: a dialog declares plenty and still has no blur position, because its
+        // barrier already withholds the pointer from everything outside it and a modal cannot be
+        // dismissed by blur.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: OVERLAY,
+                    name: "the_family_is_three_kinds_on_two_axes_and_eight_entries",
+                },
+                Instrument::Unit {
+                    file: OVERLAY,
+                    name: "a_transient_declares_nothing_and_a_popups_blur_position_is_not_a_stop",
+                },
+                Instrument::Unit {
+                    file: POPUP,
+                    name: "an_overlay_that_declares_and_covers_its_anchor_takes_its_own_hover",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 145,
+        on_spec_table: false,
+        gate: "a popup's size comes from a sizing function, and one taken from the drawn extent is \
+               a fixpoint at zero rows",
+        kind: Kind::Equality,
+        owner: "C07",
+        section: "spec §12",
+        // **Two frames and not one**, because the defect is a fixpoint rather than a cold start: the
+        // first frame is granted zero because there is no extent, and the second is granted zero
+        // because the first drew nothing. One frame cannot tell that apart from a warm-up.
+        //
+        // The three arms are one field of `crate::input::Sizing`, so what a gate plays is the shipped
+        // component with one value changed.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: OVERLAY,
+                    name: "the_size_comes_from_a_sizing_function_and_the_drawn_extent_is_a_fixpoint",
+                },
+                Instrument::Report {
+                    file: POPUP_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 146,
+        on_spec_table: false,
+        gate: "a popup's gutter is decided in 0 passes against §9's <= 3, and a screen too short \
+               leaves 0 of 4 rows unreachable",
+        kind: Kind::Relation,
+        owner: "C07",
+        section: "spec §12, §9",
+        // **§9's fixpoint does not arise here and the reason is structural**: a popup's content is as
+        // wide as the viewport it was granted, because its labels truncate to it, so the two booleans
+        // §9 couples have nothing to couple through. The gate runs §9's own `decide` over the same two
+        // numbers so the *0 against <= 3* is a comparison rather than a claim.
+        //
+        // The unreachable-row half is arithmetic over `place`, `popup_size` and
+        // `CollState::max_offset` and says so: no cell of a composited surface is readable from
+        // outside the engine (ADR 0023), so *the row was drawn where the screen is not* has no
+        // observable form at this layer. Its two behavioural halves — the granted height and whether a
+        // bar stands — are asserted beside it and both move.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: OVERLAY,
+                    name: "the_gutter_is_decided_in_no_passes_and_section_nines_fixpoint_takes_three",
+                },
+                Instrument::Unit {
+                    file: OVERLAY,
+                    name: "a_short_screen_leaves_no_row_unreachable_and_the_owner_side_spelling_\
+                           leaves_one",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 147,
+        on_spec_table: false,
+        gate: "one owner is one layer, and a second overlay from one component mints its own id",
+        kind: Kind::Count,
+        owner: "C07",
+        section: "spec §12, §4",
+        // **Three regions and not two**, and the extra one is §12's *an `Id` is a hash* as
+        // arithmetic: a `select`'s own id **is** its overlay's owner, so a component cannot share a
+        // layer without sharing its own identity — the second widget's hit entry is merged away with
+        // the second layer. There is no spelling that shares the one and not the other, which is why
+        // a second overlay has to mint rather than reuse. `crate::popup::SUBMENU_OWNER` is the
+        // shipped instance and `crate::input::CATCHER_KEY` the second.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: OVERLAY,
+                    name: "one_owner_is_one_layer_and_the_second_overlay_mints_its_own_id",
+                },
+                Instrument::Unit {
+                    file: POPUP,
+                    name: "every_configuration_declares_what_the_specs_table_says",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 148,
+        on_spec_table: false,
+        gate: "blur is qualified by a position, and the press and catcher spellings each lose \
+               exactly one thing",
+        kind: Kind::Count,
+        owner: "C07",
+        section: "spec §12",
+        // **Two halves, and each spelling gets one of them wrong** — which is why the gate is not one
+        // boolean. The rule keeps a popup the pointer is standing on *and* lets an outside press
+        // through; a press-qualified blur dismisses the popup, because `begin`'s optimistic focus
+        // arrives a frame before the body can report anything; a catcher keeps the popup and swallows
+        // the press it exists to report.
+        //
+        // The qualification is `Response::local` and not `Response::hovered`, and §12's word is
+        // *position* for exactly that reason: `hovered` is `hover_guess`, resolved from the
+        // **previous** frame's index, and the frame that matters is the one the layer was placed on.
+        // A blur qualified on `hovered` reads false on that frame and dismisses itself.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: OVERLAY,
+                    name: "blur_is_qualified_by_a_position_and_the_other_two_spellings_each_lose_\
+                           one_thing",
+                },
+                Instrument::Unit {
+                    file: OVERLAY,
+                    name: "an_open_popup_holds_the_keyboard_and_gives_it_back",
+                },
+                Instrument::Report {
+                    file: POPUP_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 149,
+        on_spec_table: false,
+        gate: "the barrier stops the pointer and only the pointer, and the trap stops the keyboard \
+               and only the keyboard",
+        kind: Kind::Count,
+        owner: "C07",
+        section: "spec §12",
+        // **Two verbs and two gates, and each arm keeps the other half standing** — which is what
+        // turns *they are not one verb* into a measurement. The pointer half plays a press at a widget
+        // under a modal that still has its trap; the keyboard half presses six `Tab`s at a modal that
+        // still has its barrier. Both refusals are one field of `crate::overlay::defective`.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: OVERLAY,
+                    name: "the_barrier_stops_the_pointer_and_only_the_pointer",
+                },
+                Instrument::Unit {
+                    file: POPUP,
+                    name: "the_walk_reaches_every_stop_unless_a_trap_is_standing",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 150,
+        on_spec_table: false,
+        gate: "`&'f mut` makes requesting the overlay anywhere but last a borrow error, and the \
+               sentence `Ctx::overlay` owed is written where it is owed",
+        kind: Kind::CompileOutcome,
+        owner: "C07",
+        section: "spec §12, §1",
+        // **A pair, and the twin is what holds it to its subject**: rustdoc on stable ignores the
+        // error code beside `compile_fail`, so the positive half names `select` and `PopupState` by
+        // path and does the same thing in the order that works. The hostile half's real diagnostic was
+        // read off the compiler rather than assumed — `E0502: cannot borrow popup as immutable
+        // because it is also borrowed as mutable`, pointing at *the caller's own read* and never
+        // mentioning the overlay, which is spec §1's finding arriving one crate up.
+        //
+        // The second half is the sentence §1 says `Ctx::overlay`'s documentation owes and components
+        // ticket 10 could not write. It is written, on the runtime's own item, and the instrument is a
+        // scan of that file: a doc comment is not an item, so nothing a compiler can be asked about
+        // changes when it is deleted. The phrases are matched against a *flattened* source, because in
+        // the shipped file one of them is broken across a line by the formatter.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Pair {
+                    file: INPUT,
+                    hostile: "let _ = popup.granted();",
+                },
+                Instrument::Unit {
+                    file: OVERLAY,
+                    name: "the_sentence_ctx_overlay_owed_is_written_where_it_is_owed",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 151,
+        on_spec_table: false,
+        gate: "a body holding a `Copy` of the offset moves it 0 in twenty notches, and `&'f mut` \
+               moves it twenty",
+        kind: Kind::Count,
+        owner: "C07",
+        section: "spec §12, §7",
+        // **§7's literal `Copy`-only body, one family over.** The body writes into a value that dies
+        // with the frame and the owner hands it the same number again next frame, so the wheel is
+        // dead and *nothing else about it moves* — the screen is identical, and the only counter that
+        // separates the two arms is the offset itself. Both arms are one field of
+        // `crate::input::Holds`.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: OVERLAY,
+                    name: "a_copy_only_body_moves_the_offset_nothing_in_twenty_notches",
+                },
+                Instrument::Report {
+                    file: POPUP_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 155,
+        on_spec_table: false,
+        gate: "a popup dismissed either way can be opened again",
+        kind: Kind::Count,
+        owner: "C07",
+        section: "spec §12",
+        // **Found by reading the diff and not by running anything**, which is the half of a review a
+        // gate cannot do: every other instrument on this section opens a *fresh* popup, and what the
+        // body reports survives the dismissal. A popup shut **by a blur** comes back with *the focus
+        // is not inside me* still on record, so the blur clause fires on the frame after the
+        // reopening — before the body has had a frame to hand the keyboard over — and the popup is
+        // unreopenable by exactly the gesture that dismissed it.
+        //
+        // The latch is the **owner's** and not the body's, and that is where the fix had to go:
+        // `SelectState::open` is the only thing that knows an opening has begun, and an application
+        // that opens a popup by its own verb rather than by a keystroke gets the same clearing.
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: OVERLAY,
+                name: "a_popup_dismissed_either_way_can_be_opened_again",
+            }],
+        },
+    },
+    Row {
+        number: 154,
+        on_spec_table: false,
+        gate: "a shut `select`'s face is a partition of its rectangle at every width, truncated or \
+               not",
+        kind: Kind::Equality,
+        owner: "C07",
+        section: "spec §2, §12",
+        // **§2 over the component this ticket built, and it is here because the diff had the defect
+        // it catches.** The label was padded to the whole width and the ellipsis written over the
+        // pad's last cell, so one cell of every *truncated* `select` was written twice —
+        // `glyphs::elide` has already reserved the marker's cell, which is exactly what makes the
+        // mistake easy. Nothing on the screen shows it and no counter but the pair moves.
+        //
+        // Swept over widths that straddle the label, because a partition asserted only where nothing
+        // truncates is a partition that has not been asked the question: writes and distinct agree at
+        // every width from 3 to 24, and `verbs` is 4 truncated against 3 whole.
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: OVERLAY,
+                name: "a_shut_selects_face_is_a_partition_of_its_rectangle_at_every_width",
+            }],
+        },
+    },
+    Row {
+        number: 153,
+        on_spec_table: false,
+        gate: "an open popup holds the keyboard and gives it back to its owner on the way out",
+        kind: Kind::Count,
+        owner: "C07",
+        section: "spec §12",
+        // **The row this ticket's application earned, and it is the only one here whose subject the
+        // gates could not have reached.** Every other instrument on this section drives the popup by
+        // posting keys at the *owner*, which works whether or not the popup ever took the keyboard —
+        // so a popup with dead arrows passes all of them. What the application showed is a popup that
+        // opens, draws correctly, and dismisses itself on the next wake with nothing on screen having
+        // gone wrong.
+        //
+        // The finding underneath it: **`Response::focus_left` on the owner stops being the blur
+        // signal the moment the popup takes the keyboard**, because the owner no longer holds the
+        // focus and has none to lose. §12's *`focus_left` is what an outside click already produces*
+        // is true of the **popup's** id and not of its owner's, and what a blur is from the owner's
+        // side is `seated && !inside && !over` — three facts the body reports and none of them a
+        // press. `Blur::PositionAlone` is the arm that forgets the middle one.
+        //
+        // **And the second tab stop in the rig is load-bearing.** §12's *on the way out the owner
+        // refocuses itself* was missing from the first build and this gate passed anyway, because
+        // with one widget on the screen the **vanish rule** picks the owner by itself. The defect
+        // only shows where there is somewhere else to go — which the application has, and where it
+        // sent the keyboard to the *other* `select`.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: OVERLAY,
+                    name: "an_open_popup_holds_the_keyboard_and_gives_it_back",
+                },
+                Instrument::Report {
+                    file: POPUP_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 152,
+        on_spec_table: false,
+        gate: "the shell hands its interior over unwritten, and the interior and the bar tile the \
+               rectangle at every size",
+        kind: Kind::Equality,
+        owner: "C07",
+        section: "spec §12, §2",
+        // **An equality swept over every size a popup can be**, because a partition that holds at one
+        // size is an arithmetic coincidence — components ticket 19's own argument for the reserved
+        // bar, one family over. The `Tally` beside it asserts the second half: the shell writes the
+        // bar's column and **not one cell of the interior**, which is what keeps the fill-first
+        // defect a caller's mistake rather than the component's.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: OVERLAY,
+                    name: "the_interior_and_the_bar_tile_the_rectangle_at_every_size",
+                },
+                Instrument::Unit {
+                    file: POPUP,
+                    name: "the_base_pass_is_a_partition_of_the_screen",
+                },
+            ],
+        },
+    },
 ];
 /// **The compile-outcome pair row 31 names, and its positive twin.**
 ///
@@ -4935,7 +5298,7 @@ mod tests {
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn a_hundred_and_twenty_seven_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn a_hundred_and_forty_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -4951,17 +5314,20 @@ mod tests {
         assert_eq!(evaluated, EVALUATED, "the count §21 asks a test to assert");
         assert_eq!(
             red,
-            vec![7, 8, 89, 112],
-            "the gates that are red and pinned: the sentinel, the palette after a swap and the \
-             scenes still waiting for their subject. **Twenty wheel clicks is not among them since \
+            vec![7, 8, 112],
+            "the gates that are red and pinned: the sentinel, the palette after a swap and one \
+             defect in another crate. **No scene is waiting for its subject any more** — row 89 was \
+             the last, and components 26 inverted it. **Twenty wheel clicks is not among them since \
              components 20** — row 29 was red on a *defect* rather than on a missing subject, which \
              is why it took a gate over the shipped path and two removed substitutions rather than \
-             a standing edit. Five have been \
+             a standing edit. Six have been \
              inverted and each says what it took — the glyph-set count by components 05, row 61 \
              by components 10 (which took rewriting the *gate* rather than the standing, because \
              the row asserted an *absence*), row 78 by components 15, which took `table` being \
-             declared **and** `crate::grid::draw_into` calling it, and row 74 by components 17 on \
-             the same two conditions for `tree`"
+             declared **and** `crate::grid::draw_into` calling it, row 74 by components 17 on \
+             the same two conditions for `tree`, and row 89 by components 26, which took `select` \
+             and `overlay` being declared **and** the scan's own needle being wrong — it read \
+             `pub fn select(` for a component spec §1 already says costs two lifetime annotations"
         );
         assert_eq!(
             unreachable,
@@ -4980,7 +5346,7 @@ mod tests {
              domain and needs no component to be run against, and its row had been citing spec §13 \
              and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 143);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 155);
     }
 
     /// **The split, not the total.**
@@ -4991,10 +5357,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_a_hundred_and_eleven_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_a_hundred_and_twenty_three_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 111);
+        assert_eq!(REGISTER.len() - on_table, 123);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,

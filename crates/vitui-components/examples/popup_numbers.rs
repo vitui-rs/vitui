@@ -1,10 +1,11 @@
-//! components ticket 25 — the overlay family's screen, and §12's table beside what it measured.
+//! components tickets 25 and 26 — the overlay family's screen, its two components, and §12's table
+//! beside what it measured.
 //!
 //! A **report**, not a gate: R15's refinement 2 says a row may cite one and may never rest on one,
 //! and `cargo test` does not run a `fn main`. What gates every count below is `src/popup.rs`'s test
 //! module and `tests/popup.rs`, and each figure has its single home in one of those two files.
 //!
-//! It prints seven things:
+//! It prints nine things:
 //!
 //! 1. **§12's table**, its column beside the measured one, row for row.
 //! 2. **The four steady deltas** — a dropdown, a submenu, a modal, its scrim.
@@ -12,12 +13,18 @@
 //! 4. **The scrim's three spellings**, and the popup's two drawing orders.
 //! 5. **The family's two axes**, as the counts §12 states them in.
 //! 6. **The ring, the trap and the three answers to where a closing modal sends the keyboard.**
-//! 7. **What does not reproduce**, said out loud rather than engineered away.
+//! 7. **The family as three kinds on two axes**, and the four spellings §12 refuses — the size, the
+//!    gutter, the blur and the offset (components 26).
+//! 8. **What does not reproduce**, said out loud rather than engineered away.
+//! 9. **Where scene 14 stands**, which since components 26 is *up*.
 
 use vitui_alloc_probe::{CountingAllocator, count_allocations};
 use vitui_components::counters::{Allocations, Counter, Reading};
+use vitui_components::input::Sizing;
+use vitui_components::overlay::{self, Kind};
 use vitui_components::popup::{self, Config, Dismiss, ScrimSpelling};
 use vitui_components::scenes;
+use vitui_components::scroll::{Hide, MAX_PASSES, decide};
 
 // **The probe, because `allocations` is a total and a total needs something that counts.**
 #[global_allocator]
@@ -78,7 +85,9 @@ fn main() {
         );
     }
     println!();
-    println!("  Every `regions` and every `stops` figure reproduces exactly, and by construction:");
+    println!(
+        "  Four of the five `regions` and `stops` pairs reproduce exactly, and by construction:"
+    );
     println!("  312 chips + 2 selects + 1 bar + 2 titles is 317 regions and 316 stops, the bar");
     println!(
         "  being the one region that is not a stop. `marked` prints **unreachable** and never"
@@ -208,12 +217,12 @@ fn main() {
     println!("report  the family's two axes, in §12's own counts:");
     println!(
         "  A  an overlay that declares and covers its anchor: {} flips in {} frames (§12: 99)",
-        popup::tooltip_flips(true, popup::FLIP_FRAMES),
+        popup::tooltip_flips(Kind::Popup, true, popup::FLIP_FRAMES),
         popup::FLIP_FRAMES
     );
     println!(
         "     the same tooltip beside its anchor:              {} flip",
-        popup::tooltip_flips(false, popup::FLIP_FRAMES)
+        popup::tooltip_flips(Kind::Popup, false, popup::FLIP_FRAMES)
     );
     let (believed, lived) = popup::census(popup::CENSUS_FRAMES, 2..5);
     println!(
@@ -257,8 +266,208 @@ fn main() {
         "  fire, because on that frame the focus is not `None`. A dismissal is not a seating.\n"
     );
 
-    // ── 7. what does not reproduce ───────────────────────────────────────────────────────────────
+    // ── 7. the family, and the four spellings §12 refuses ────────────────────────────────────────
+    println!("report  the family, as three kinds on two axes (components 26):");
+    println!("    kind        declares  owner draws  entries");
+    for row in overlay::FAMILY {
+        println!(
+            "    {:<11} {:>8}  {:>11}  {}",
+            row.kind.word(),
+            if row.declares { "yes" } else { "no" },
+            if row.owner_draws { "yes" } else { "no" },
+            row.members.join(", "),
+        );
+    }
+    println!(
+        "  {} entries over {} kinds, and no entry belongs to two. Axis A separates the transient",
+        overlay::ENTRIES,
+        overlay::FAMILY.len()
+    );
+    println!("  and Axis B the dialog, so neither column is derivable from the other. Modality is");
+    println!("  one `bool` on the request and forces no construction at all.");
+    println!();
+
+    println!("report  where a popup's size comes from, over four options:");
+    println!("                              12-row screen   3-row screen   rows reachable");
+    for sizing in Sizing::ALL {
+        let (rw, rh) = overlay::granted(sizing, overlay::RIG_H);
+        let (sw, sh) = overlay::granted(sizing, overlay::SHORT_H);
+        let (reached, of) = overlay::reachable(sizing);
+        println!(
+            "  {:<24} {rw:>4}x{rh:<9} {sw:>4}x{sh:<9} {reached} of {of}",
+            sizing.word()
+        );
+    }
+    println!("  §12: the size may not come from the drawn extent. A popup has no frame before the");
+    println!(
+        "  one it opens on, so the extent is 0, so it is granted 0 rows, so it draws nothing."
+    );
+    println!(
+        "  Sized to the content instead of to the room, {} of {} rows is unreachable — `place`",
+        overlay::SPEC_UNREACHABLE,
+        overlay::SHORT_OPTIONS
+    );
+    println!("  clamps a position and never a size, so the tail hangs off the bottom edge.");
+    println!();
+
+    println!("report  the gutter, decided in the body:");
+    let mine = overlay::gutter((overlay::RIG_W, overlay::SHORT_H), 4);
+    let theirs = decide(
+        (overlay::RIG_W, overlay::SHORT_H),
+        (u32::from(overlay::RIG_W), 4),
+        Hide::WhenItFits,
+    );
+    println!(
+        "  a popup's own decision   bar {}   passes {}",
+        if mine.bar { "yes" } else { "no " },
+        mine.passes
+    );
+    println!(
+        "  §9's fixpoint            bar {}   passes {} (max {MAX_PASSES})",
+        if theirs.shown.v { "yes" } else { "no " },
+        theirs.passes
+    );
+    println!(
+        "  §9 iterates because the axis a bar reports and the axis it costs are perpendicular."
+    );
+    println!(
+        "  A popup's content is as wide as the viewport it was granted, so there is no second"
+    );
+    println!("  axis to couple through and no loop: 0 passes against <= 3.");
+    println!();
+
+    println!("report  blur, in the three spellings §12 names:");
+    println!("                        popup survives a blur   the outside press lands   cells");
+    for how in overlay::Blur::ALL {
+        let b = overlay::blurs(how);
+        println!(
+            "  {:<20} {:>19}   {:>21}   {:>5}",
+            how.word(),
+            if b.survived { "yes" } else { "no" },
+            if b.press_landed { "yes" } else { "no" },
+            b.cells,
+        );
+    }
+    println!(
+        "  §12 prices the catcher at {} layer bytes against {} — recorded, not reproduced: the",
+        overlay::SPEC_CATCHER_BYTES,
+        overlay::SPEC_BLUR_BYTES
+    );
+    println!("  engine publishes no cell width. What is measurable is the ratio in cells, and the");
+    println!(
+        "  swallowed press. A press-qualified blur is the other failure: it dismisses a popup"
+    );
+    println!("  the pointer is standing on, because the optimistic focus arrives a frame ahead.");
+    println!();
+
+    println!("report  the keyboard, through an open popup (components 26):");
+    println!("                                        survived   cursor   chosen   focus back");
+    for how in overlay::Blur::ALL {
+        let k = overlay::keyboard_with(overlay::Dismissal::Chose, how);
+        println!(
+            "  {:<36} {:>8}   {:>6}   {:>6}   {:>10}",
+            how.word(),
+            if k.survived_the_handover { "yes" } else { "no" },
+            k.cursor,
+            k.chosen,
+            if k.focus_is_the_owners { "yes" } else { "no" },
+        );
+    }
+    let cancelled = overlay::keyboard(overlay::Dismissal::Escape);
+    println!(
+        "  and `Esc` instead of `Enter`:        {:>8}   {:>6}   {:>6}   {:>10}",
+        if cancelled.survived_the_handover {
+            "yes"
+        } else {
+            "no"
+        },
+        cancelled.cursor,
+        cancelled.chosen,
+        if cancelled.focus_is_the_owners {
+            "yes"
+        } else {
+            "no"
+        },
+    );
+    println!(
+        "  **This is the row the application earned.** Every other instrument on this section"
+    );
+    println!("  posts its keys at the *owner*, which works whether or not the popup ever took the");
+    println!(
+        "  keyboard — so a popup with dead arrows passes all of them. What a blur is, from the"
+    );
+    println!(
+        "  owner's side, is `seated && !inside && !over`: `Response::focus_left` on the owner"
+    );
+    println!(
+        "  stops being the signal the moment the popup takes the keyboard, because the owner no"
+    );
+    println!(
+        "  longer holds the focus and has none to lose. The last row forgets the middle clause."
+    );
+    println!();
+
+    println!("report  the two halves of a modal, and they are two verbs:");
+    println!(
+        "  barrier standing   a press reaches the base pass: {}",
+        if overlay::barrier_withholds_the_pointer(true) {
+            "yes"
+        } else {
+            "no"
+        }
+    );
+    println!(
+        "  barrier gone       a press reaches the base pass: {}   (the trap is still standing)",
+        if overlay::barrier_withholds_the_pointer(false) {
+            "yes"
+        } else {
+            "no"
+        }
+    );
+    println!(
+        "  and the keyboard half is above: {} Tabs, {} of them inside with a trap and {} without.",
+        popup::TABS,
+        trapped.inside,
+        loose.inside
+    );
+    println!();
+
+    println!(
+        "report  what a body holds its list position in, over {} notches:",
+        popup::WHEEL_CLICKS
+    );
+    println!(
+        "  `&'f mut PopupState`         the offset moves {}",
+        overlay::wheeled(true)
+    );
+    println!(
+        "  a `Copy` of the offset       the offset moves {}   (§7's literal Copy-only body)",
+        overlay::wheeled(false)
+    );
+    println!("  The screen is identical while it happens, and every other counter agrees.");
+    println!();
+
+    // ── 8. what does not reproduce ───────────────────────────────────────────────────────────────
     println!("report  what does not reproduce, and why:");
+    println!(
+        "  menu delta     §12 says a menu with its submenu adds {}/{}; the shipped one adds {}/{}.",
+        popup::SPEC_MENU_DELTA.0,
+        popup::SPEC_MENU_DELTA.1,
+        popup::MENU_DELTA.0,
+        popup::MENU_DELTA.1
+    );
+    println!(
+        "                 §12's six is three rows twice, each a target of its own. §5 collapses"
+    );
+    println!(
+        "                 a menu into a `Mode` of `collection`, and a collection declares one"
+    );
+    println!("                 hit entry however many rows it has — so each level is a dropdown's");
+    println!("                 delta: one entry for its rows and one for its blur position. It is");
+    println!(
+        "                 the same subtraction `PER_ROW_ENTRIES` prices for a dropdown, on the"
+    );
+    println!("                 construction §12's own prototype spent per row.");
     println!(
         "  allocations    §12 says 0 in all five rows; the shipped figure is n + 1 for n overlays"
     );
@@ -318,16 +527,17 @@ fn main() {
 /// number is a gate.
 fn measure(config: Config) -> (popup::Measured, u64) {
     let mut driver = vitui_components::runner::driver_at(popup::W, popup::H, Default::default());
+    let mut held = popup::Held::new();
     let mut ink = vitui_components::ink::Direct;
     for _ in 0..2 {
         driver.frame(|cx| {
-            popup::draw_into(&mut ink, cx, config);
+            popup::draw_into(&mut ink, cx, &mut held, config);
         });
     }
     let (_, allocated) = count_allocations(|| {
         for _ in 0..FRAMES {
             driver.frame(|cx| {
-                popup::draw_into(&mut ink, cx, config);
+                popup::draw_into(&mut ink, cx, &mut held, config);
             });
         }
     });

@@ -112,7 +112,7 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 27 of 45 tickets resolved (the last on 2026-08-26). `INVENTORY` is spec
+- **`vitui-components` has started**: 28 of 45 tickets resolved (the last on 2026-08-26). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
   answerable by the machine from here on. All five obligations are `Unmet` and each is watched
@@ -186,6 +186,88 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   typing one is the point. Its status bar prints the `(byte, column)` pair, the visual row, the width
   the index was built at and the ring's two bounds, so §11's four gates are visible while a person
   types and the fourth of them moves while the terminal is resized.
+
+- **`select` and `overlay` are the fifteenth and sixteenth components, the scene list has no red row
+  left, and three of §12's seven columns are replaced by findings** (components ticket 26,
+  2026-08-26; ADR 0037). The family is **`overlay::FAMILY`** — §12's table as a value a test
+  iterates, **three kinds on two axes over eight entries** with no fourth on either side — and
+  `overlay` is the **one shell** every one of them draws inside: the blur position, the reserved bar,
+  the barrier, the trap, and **not one cell of the interior**, swept as an exact tiling from 1×1 to
+  17×17 under five extents. **Modality is one `bool` on the request and forces no construction.** The
+  two axes are not one: Axis A separates exactly `Kind::Transient` and Axis B exactly `Kind::Dialog`,
+  so neither column is derivable from the other — and Axis A became a fact about the **kind** rather
+  than a warning about placement, because a declaring overlay flips **99 in 100 frames** over a
+  rectangle covering its anchor and a `Kind::Transient` flips **1** over the same rectangle. *The
+  rectangle is not the fix.*
+  **The size is a sizing function's and the drawn extent is a fixpoint at zero.** `popup_size` takes
+  the data and the room and no draw context; `select` widens it to at least its own rectangle, which
+  is the component's job because a sizing function never sees the anchor. Granted over two frames on
+  a 12-row and a 3-row screen: **(20, 4)/(20, 3)** for the rule, **(20, 4)/(20, 4)** sized to the
+  content, **(20, 0)/(20, 0)** from the drawn extent — two frames and not one, because the last is a
+  *fixpoint* and one cold frame at zero is indistinguishable from a warm-up. **The gutter is decided
+  in the body in 0 passes against §9's 3**, because a popup's content is as wide as the viewport it
+  was granted and there is no second axis to couple through; sized to the content instead, **1 of 4**
+  rows is reachable by nothing, since `place` clamps a position and **never a size**.
+  **Three of §12's seven columns do not reproduce**, and the third is the finding: `allocations` is
+  `n + 1` (ADR 0034 deleted the arena), `content layers` is 1/2/1 against 2/4/3 (a shadow layer
+  `OverlayOpts` has no field for), and **the menu delta is +4/+2 where §12 says +6/+6** — §12's six is
+  three rows twice, *each a target of its own*, and §5 collapses a menu into a `Mode` of `collection`
+  where a collection declares **one** hit entry however many rows it has. The other four rows
+  reproduce exactly.
+  **Four findings at seams, every one found by writing it.** The blur's position is `Response::local`
+  and **not** `Response::hovered` — `hovered` is a *previous*-frame guess and reads false on the frame
+  the layer is placed, which is the frame the optimistic focus arrives on, so a popup dismisses itself
+  out from under a pointer standing on it. **A dialog has no blur position at all**, which is narrower
+  than Axis A: its barrier already withholds the pointer. **A nested overlay's state has to arrive as
+  an `Option` the body takes**, because an overlay body is `FnMut` and cannot move a capture while a
+  reborrow is shorter than `'f`. And **a component cannot share an overlay owner without sharing its
+  own identity** — two `select`s under one id are **3 regions against 6**, the second request inert
+  *and* the second widget merged away, so a second overlay mints.
+  **The scan the red scene carried could never have matched**: `DECLARATIONS` read `pub fn select(`
+  and spec §1 already says *the fifth component opens an overlay, and `'f` costs it two annotations*.
+  A scene green on the old needle would have been green by deleting the lifetime. `&'f mut` is the
+  mechanism rather than an annotation, and the pair's diagnostic was **read off the compiler**:
+  `E0502 … argument requires that popup is borrowed for '1`, with **no mention of the overlay
+  anywhere**. The sentence §1 says `Ctx::overlay` owes is written on the runtime's own item, and the
+  instrument is a **scan of that file** against a flattened source — a doc comment is not an item, and
+  in the shipped file one phrase is broken across a line by the formatter.
+  Register 143 → **155 rows, 140 evaluated**; scenes **0 red, 25 stood up** — row 89 and scene 14 were
+  the last pinned pair, and `scenes::line` is where the shape of a red row's own report stayed
+  reachable from a test after the list ran out of red rows.
+  **The application is `console`, and it earned most of this ticket's findings.** It met two of the
+  diagnostics §12 predicts in itself plus a third: the palette's answer as a local is `E0503` at the
+  app's own read, `sort_popup.granted()` after the handover is `E0502` at the call site, and
+  `self.status(cx, …)` after a `select` is `E0502` on a method call three lines from a popup nobody was
+  thinking about. **And it found four defects in code that was already green, none of them reachable
+  from any gate here, because every other instrument posts its keys at the *owner*.** The popup never
+  took the keyboard, so the **arrows were dead** and a shut widget eating them looks exactly like a
+  popup that works; **`Response::focus_left` on the owner stops being the blur signal** the moment the
+  popup takes the keyboard, because the owner no longer holds the focus and has none to lose, so a
+  blur is `seated && !inside && !over` and `Blur::PositionAlone` is the arm that forgets the middle
+  clause (**cursor 0 of 4**); **a body that answers through the inbox owes the frame that delivers
+  it**, or the choice lands on whatever wake happens next, which for the keystroke that made it means
+  never — `Driver::unhandled`'s own finding (C25) one layer over; and **a shut `select` consumed
+  `Esc`**, leaving an application whose quit key is `Esc` with none. Two more are the app's own: its
+  loop needed the crate's `if !unhandled.is_empty() { continue; }` or `Ctrl+P` was invisible until the
+  next keystroke, and the palette's **header is a row of the popup** while `popup_size` sizes a *list*,
+  so the last command was off the bottom. **One is a question, filed as components architecture issue
+  22**: `Esc` cannot close a modal whose body is a plain `collection`, because §5 claims it as
+  `Gesture::Nothing` and `collection_chorded`'s first refusal is crate-private *on purpose* — so a
+  component here can own `Esc` over a collection and an application cannot. `console` owns `Ctrl+P`
+  instead. Its status line prints what the popup was granted against what it wants and what the screen
+  has room for, so §12's short-screen case moves while a person resizes the terminal: at 100×12,
+  fourteen options are granted **24×12** and the bar stands.
+  **A review then found three more, none reachable from a gate that existed**, and the sharpest is
+  §12's own sentence: *on the way out the owner refocuses itself* was **missing**, and the gate that
+  asserts it **passed** — with one widget on the screen the vanish rule picks the owner by itself, so
+  the defect only shows where there is somewhere else to go. The application has two selects, and `Esc`
+  sent the keyboard to the other one. The label was padded to
+  the whole width and the ellipsis written **over the pad's last cell**, so one cell of every
+  *truncated* `select` was written twice — `glyphs::elide` has already reserved the marker's cell, which
+  is what makes the mistake easy, and §2 had no partition gate over `select` at all. And **a popup
+  dismissed by a blur could not be reopened**: what the body reports survives the dismissal, so the
+  clause fired on the frame after the reopening — the latch had to move to the **owner**, because
+  `SelectState::open` is the only thing that knows an opening has begun.
 
 - **`collapsible` is the thirteenth component, and three of §8's figures are replaced by findings
   rather than reproduced** (components ticket 22, 2026-08-26; ADR 0035). It is **one machine and
@@ -611,8 +693,8 @@ Read these before working, in this order:
    authority. An `architecture.md` beside a spec is the superseded proposal, kept only as the record
    of what was argued.
 2. `CONTEXT.md` — the glossary. Use its terms in code, comments, tickets and commit messages.
-3. `docs/adr/` — 36 decisions that are hard to reverse and surprising without context. 0001–0011 and
-   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033, 0035 and 0036 the components.
+3. `docs/adr/` — 37 decisions that are hard to reverse and surprising without context. 0001–0011 and
+   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0037 the components.
 4. The impl backlog `README.md` for the layer being worked on — it holds the phase order, the
    blocking edges, and the defects that shaped both.
 
@@ -630,14 +712,14 @@ crates/vitui-engine       cells, surfaces, layers, compositing, damage, serializ
                           └ crossterm behind a seam: raw mode, input, capability detection
 crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key maps, theming,
                           overlays, the data contract — no scene tree, no reactivity
-crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (14 of 29 built)
+crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (16 of 29 built)
                           └ the partition primitives return `vitui_runtime::Rect`. This crate used
                             to name its own rectangle (`Cells`) because `vitui_engine::Rect` was
                             unnameable across the crate line; runtime issue 22 re-exported it and
                             components issue 17 deleted the stand-in
 crates/vitui              facade re-export — engine, runtime, components
-crates/vitui-apps         the applications, one file each in `examples/` — 8: `counter`, `triage`,
-                          `latency`, `ledger`, `explorer`, `reader`, `settings`, `compose`. **A component ticket ships one**: the surface's only
+crates/vitui-apps         the applications, one file each in `examples/` — 9: `counter`, `triage`,
+                          `latency`, `ledger`, `explorer`, `reader`, `settings`, `compose`, `console`. **A component ticket ships one**: the surface's only
                           consumer, and three times now the thing that found the defect its gates could not
                           └ a workspace MEMBER, so CI builds them: a consumer nobody builds is a
                             consumer nobody checks (`compare/run.sh` is the precedent). Depends on
@@ -685,6 +767,7 @@ cargo deny check                            # needs `cargo install cargo-deny`
 (cd fuzz && cargo deny check)               # detached workspace: its own graph, its own gate
 (cd conform && cargo test)                  # the conformance gate, over committed captures
 cargo run -p vitui-apps --example counter   # the first real application; q to quit
+cargo run -p vitui-apps --example console   # the overlay family; Ctrl+P palette, Ctrl+Q quit
 (cd conform && cargo run --example tmux)    # the one conformance soak that is headless
 (cd conform && cargo run --example kitty)   # a window, but no automation grant and no config file
 ```

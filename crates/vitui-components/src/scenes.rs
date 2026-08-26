@@ -38,8 +38,8 @@
 //!
 //! # Eight scenes are `Unsubjected`, one is `Red` and twenty-four are `Evaluated`
 //!
-//! The count that is a gate is `tests::eight_scenes_have_nothing_to_run_over_four_are_red_and_
-//! twenty_one_are_stood_up`, which asserts the **numbers** each scene as well as the total; this
+//! The count that is a gate is `tests::eight_scenes_have_nothing_to_run_over_none_is_red_and_
+//! twenty_two_are_stood_up`, which asserts the **numbers** each scene as well as the total; this
 //! heading is a summary of it and the test is the authority.
 //!
 //! [`crate::gates::Standing::Unsubjected`] means *it could run and there is nothing to run it over*.
@@ -1115,20 +1115,21 @@ const STANDS_SCENE_28: &[Instrument] = &[
 /// The overlay family's own file, which is where components ticket 25's scene is played.
 const POPUP: &str = "crates/vitui-components/src/popup.rs";
 
-/// **What the overlay family's screen is a screen of, and neither is declared yet.**
+/// **What the overlay family's screen is a screen of, and both are declared since components 26.**
 ///
 /// [`crate::popup::SUBJECTS`], reached through this alias for [`COLLECTION`]'s reason: the row below
 /// claims `select` and `overlay` stand on its screen, and the failing set it is pinned in is computed
 /// by opening the files the freeze homes them in.
 const OVERLAY_FAMILY: &[&str] = &crate::popup::SUBJECTS;
 
-/// What pins scene 14, the overlay family. Ticket 09's and 11's arrangement, one ticket later.
+/// What stands scene 14 up, the overlay family. **Green since components 26**, and what changed is
+/// only the subject: every count on this screen already reproduced §12's table.
 ///
-/// **Every count on this screen reproduces §12's table exactly** — 317 / 316, 319 / 317, 323 / 322,
-/// 319 / 318 — so the failing set is the subject and nothing else. Two of §12's seven columns do not
-/// and each says why in [`crate::popup`]'s header: `allocations`, because the arena that made it zero
-/// was deleted by runtime ticket 21, and `content layers`, because every request in the prototype
-/// carried a shadow layer `OverlayOpts` has no field for.
+/// Three of §12's seven columns do not reproduce and each says why where it belongs: `allocations`,
+/// because the arena that made it zero was deleted by runtime ticket 21; `content layers`, because
+/// every request in the prototype carried a shadow layer `OverlayOpts` has no field for; and the
+/// **menu delta**, because §5 collapses a menu into a `Mode` of `collection` and a collection
+/// declares one hit entry however many rows it has — see [`crate::popup::MENU_DELTA`].
 const PINS_SCENE_14: &[Instrument] = &[
     Instrument::Unit {
         file: POPUP,
@@ -1148,7 +1149,12 @@ const PINS_SCENE_14: &[Instrument] = &[
     },
     Instrument::Unit {
         file: POPUP,
-        name: "the_screen_is_red_because_select_and_overlay_are_not_declared",
+        name: "the_screen_stands_on_its_subjects",
+    },
+    Instrument::Unit {
+        file: POPUP,
+        name: "the_needle_the_red_scene_carried_could_not_have_matched_a_component_that_opens_an_\
+               overlay",
     },
     Instrument::Unit {
         file: POPUP,
@@ -1158,17 +1164,6 @@ const PINS_SCENE_14: &[Instrument] = &[
         file: "crates/vitui-components/examples/popup_numbers.rs",
     },
 ];
-
-/// The failing set scene 14 is pinned in.
-const OWED_THE_OVERLAY_FAMILY: &str = "neither `select` (`crates/vitui-components/src/input.rs`) nor `overlay` \
-     (`crates/vitui-components/src/overlay.rs`) is declared, so the screen stands on a label in a \
-     rectangle and a body written beside the request. Everything the screen itself can be asked is \
-     measured and green — every regions and stops figure of §12's table reproduces exactly \
-     (317/316, 319/317, 323/322, 319/318), the walkthrough's exception is named at 2 of 318, the \
-     opening cliff is counted 30 of 30, the scrim's three spellings are 600 / 0 / 0 re-damaged and \
-     24 600 / 24 000 / 600 written, the two axes are 99 flips in 100 frames and 3 of 8, and the \
-     three answers to *where does the keyboard go when a modal closes* are three different ids. \
-     What is missing is the subject";
 
 /// Spec §21's scene list, row for row, and this backlog's scenes beside it. **Thirty, of which
 /// twenty-seven are §21's table and §21's table is the authority.**
@@ -1497,11 +1492,13 @@ pub const SCENES: [Scene; 33] = [
         size: Size::Screen { w: 300, h: 80 },
         content: Content::Layers { layers: 5 },
         gestures: &[Gesture::Open { bodies: 5 }],
-        decided: "the family, and the 138.04 us opening frame. 317 regions against 316 stops, and \
-                  the three deltas — a dropdown +2/+1, a menu with its submenu +6/+6, a modal \
-                  +2/+2 — reproduce exactly. The opening cliff is counted 30 of 30 rather than \
-                  timed; a scrim under the dialog is 600 re-damaged cells and 600 writes against \
-                  the complement's 0 and the operator layer's neither",
+        decided: "the family, and the 138.04 us opening frame. 317 regions against 316 stops, a \
+                  dropdown +2/+1 and a modal +2/+2 exactly, and a menu with its submenu +4/+2 \
+                  where §12 remembers +6/+6 — because §5 collapses a menu into a `Mode` of \
+                  `collection` and a collection declares one hit entry however many rows it has. \
+                  The opening cliff is counted 30 of 30 rather than timed; a scrim under the dialog \
+                  is 600 re-damaged cells and 600 writes against the complement's 0 and the \
+                  operator layer's neither",
         covers: &[],
         stands: OVERLAY_FAMILY,
         owed: false,
@@ -1510,11 +1507,7 @@ pub const SCENES: [Scene; 33] = [
         // a great deal runs: five configurations, the ring, the trap's named exception, the two axes
         // of the family and the three answers to a closing modal. What it has not got is `select` and
         // `overlay`, which is `crate::popup::standing`'s verdict and components ticket 26's job.
-        standing: Standing::Red {
-            by: PINS_SCENE_14,
-            failing: OWED_THE_OVERLAY_FAMILY,
-            inverted_by: "components 26",
-        },
+        standing: Standing::Evaluated { by: PINS_SCENE_14 },
         rehearsed_by: &[],
     },
     Scene {
@@ -2234,67 +2227,80 @@ pub fn coverage() -> Vec<(&'static str, Axis, Vec<u8>)> {
 /// [`Scene::rehearsed_by`]: a rehearsal is not a standing, and a report that dropped the word would
 /// be claiming twenty-seven screens exist.
 pub fn report(rehearsals: &[(u8, crate::runner::MetricRow)]) -> String {
-    use std::fmt::Write as _;
     let mut out = crate::runner::metric_heading();
     out.push('\n');
     for scene in SCENES {
-        let label = format!("{:>3}  {}", scene.number, scene.name);
-        match rehearsals.iter().find(|(n, _)| *n == scene.number) {
-            // **A measured line still says where the scene stands.** A rehearsal replacing the
-            // standing outright would print components ticket 11's wheel gate as a healthy frame,
-            // which is the defective build's own self-portrait one column further left: three of
-            // the four axes were *faster*.
-            Some((_, row)) => {
-                let pin = match scene.standing {
-                    Standing::Red { inverted_by, .. } => {
-                        format!("; red, pinned: `{inverted_by}` inverts it")
-                    }
-                    _ => String::new(),
-                };
+        let rehearsal = rehearsals.iter().find(|(n, _)| *n == scene.number);
+        out.push_str(&line(&scene, rehearsal.map(|(_, row)| row)));
+    }
+    out
+}
+
+/// **One line of [`report`], for one scene.**
+///
+/// Extracted so that the two `Standing::Red` spellings below stay *reachable from a test*. **No
+/// scene of [`SCENES`] is red since components 26**, and a check written against the list would have
+/// had to be deleted on the day the last red row went — which is the day it is most worth keeping.
+/// A synthesised [`Scene`] is what a test hands this instead.
+pub fn line(scene: &Scene, rehearsal: Option<&crate::runner::MetricRow>) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let label = format!("{:>3}  {}", scene.number, scene.name);
+    match rehearsal {
+        // **A measured line still says where the scene stands.** A rehearsal replacing the standing
+        // outright would print components ticket 11's wheel gate as a healthy frame, which is the
+        // defective build's own self-portrait one column further left: three of the four axes were
+        // *faster*.
+        Some(row) => {
+            let pin = match scene.standing {
+                Standing::Red { inverted_by, .. } => {
+                    format!("; red, pinned: `{inverted_by}` inverts it")
+                }
+                _ => String::new(),
+            };
+            let _ = writeln!(
+                out,
+                "{label:<52}  {}  [rehearsed over a fixture{pin}]",
+                row.columns()
+            );
+        }
+        None => match scene.standing {
+            Standing::Unsubjected { inverted_by } => {
                 let _ = writeln!(
                     out,
-                    "{label:<52}  {}  [rehearsed over a fixture{pin}]",
-                    row.columns()
+                    "{label:<52}  not played: `{inverted_by}` builds the subject"
                 );
             }
-            None => match scene.standing {
-                Standing::Unsubjected { inverted_by } => {
-                    let _ = writeln!(
-                        out,
-                        "{label:<52}  not played: `{inverted_by}` builds the subject"
-                    );
-                }
-                // **A stood-up scene says what stands it up.** Not *not played*: the screen is
-                // drawn, its components exist and its numbers are asserted — this line is where a
-                // reader sees which of the twenty-eight are screens rather than intentions. It was
-                // `red, pinned: waiting for its components` for exactly one ticket, which is
-                // criterion 7's distinction on the line a reader actually looks at.
-                Standing::Evaluated { by } => {
-                    let _ = writeln!(
-                        out,
-                        "{label:<52}  stood up on its own components, by {} instruments",
-                        by.len()
-                    );
-                }
-                // **A red scene is not an unplayed one, and the line has to say which.** Components
-                // ticket 11's five screens are drawn and measured; four are waiting for
-                // `collection` and one is pinned on the defect itself. Printing them as *not
-                // played* would lose the distinction criterion 7 exists for, and printing them as
-                // *stood up* would claim a component that does not exist.
-                Standing::Red {
-                    by, inverted_by, ..
-                } => {
-                    let _ = writeln!(
-                        out,
-                        "{label:<52}  red, pinned: `{inverted_by}` inverts it, by {} instruments",
-                        by.len()
-                    );
-                }
-                other => {
-                    let _ = writeln!(out, "{label:<52}  {}", other.word());
-                }
-            },
-        }
+            // **A stood-up scene says what stands it up.** Not *not played*: the screen is drawn,
+            // its components exist and its numbers are asserted — this line is where a reader sees
+            // which of the scenes are screens rather than intentions. It was `red, pinned: waiting
+            // for its components` for exactly one ticket apiece, which is criterion 7's distinction
+            // on the line a reader actually looks at.
+            Standing::Evaluated { by } => {
+                let _ = writeln!(
+                    out,
+                    "{label:<52}  stood up on its own components, by {} instruments",
+                    by.len()
+                );
+            }
+            // **A red scene is not an unplayed one, and the line has to say which.** Components
+            // ticket 11's five screens were drawn and measured; four were waiting for `collection`
+            // and one was pinned on the defect itself. Printing them as *not played* would lose the
+            // distinction criterion 7 exists for, and printing them as *stood up* would claim a
+            // component that does not exist.
+            Standing::Red {
+                by, inverted_by, ..
+            } => {
+                let _ = writeln!(
+                    out,
+                    "{label:<52}  red, pinned: `{inverted_by}` inverts it, by {} instruments",
+                    by.len()
+                );
+            }
+            other => {
+                let _ = writeln!(out, "{label:<52}  {}", other.word());
+            }
+        },
     }
     out
 }
@@ -2399,17 +2405,18 @@ mod tests {
     /// red rows to `Evaluated` — 11 red and 13 stood up became 7 and 17. Components ticket 20 stood
     /// scene 6 up and minted scene 33, which makes it 6 and 19.
     ///
-    /// # Every red scene left is waiting for a subject, and for eight tickets one was not
+    /// # No red scene is left, and for eight tickets one of them was not waiting for a subject
     ///
-    /// That split is the whole of criterion 7 and it is asserted rather than described. **Scene 6
-    /// was never waiting for anything**: it was red because the defect is real, `CONTEXT.md` forbids
-    /// it and four *resolved* tickets wrote it anyway. Components ticket 12's own criterion said
-    /// so — *every scene of ticket 11 is green except the wheel gate, which stays pinned red for
-    /// ticket 20* — and a single `inverted_by` across the five would have made that ticket turn all
-    /// five. It stayed red for eight tickets after 12, which is what the distinction bought, and
-    /// **components 20 stood it up by checking the shipped code rather than by writing it**.
+    /// That split was the whole of criterion 7 and it is still asserted rather than described.
+    /// **Scene 6 was never waiting for anything**: it was red because the defect is real,
+    /// `CONTEXT.md` forbids it and four *resolved* tickets wrote it anyway. Components ticket 12's
+    /// own criterion said so — *every scene of ticket 11 is green except the wheel gate, which stays
+    /// pinned red for ticket 20* — and a single `inverted_by` across the five would have made that
+    /// ticket turn all five. It stayed red for eight tickets after 12, which is what the distinction
+    /// bought, and **components 20 stood it up by checking the shipped code rather than by writing
+    /// it**.
     #[test]
-    fn eight_scenes_have_nothing_to_run_over_four_are_red_and_twenty_one_are_stood_up() {
+    fn eight_scenes_have_nothing_to_run_over_none_is_red_and_twenty_two_are_stood_up() {
         let red: Vec<u8> = SCENES
             .iter()
             .filter(|s| matches!(s.standing, Standing::Red { .. }))
@@ -2417,22 +2424,20 @@ mod tests {
             .collect();
         assert_eq!(
             red,
-            vec![14],
-            "components ticket 25's overlay family, alone. Components ticket \
-             27's two were here for one ticket and 28 inverted them; components ticket 14's two — \
-             scenes 7 and 31 — were here for one ticket and **15** inverted them; components \
-             ticket 16's two — scenes 8 and 9 — likewise, and **17** inverted them; components \
-             ticket 18's **four** — 17, 18, 19 and 30 — likewise, and **19** inverted all four \
-             together, because they were pinned on one fact and it was the subject. **The wheel \
-             gate was here for nine tickets and 20 inverted it**, and it is the one row of the \
-             list whose failing set was a defect rather than a missing subject — which is why it \
-             took the shipped code being checked and not a standing being edited. **Components \
-             ticket 21's two — scenes 10 and 11 — were here for one ticket and 22 inverted them \
-             together**, because they were pinned on one fact and it was the subject, which is the \
-             same shape 16→17, 14→15 and 18→19 had. **Components ticket 23's three — scenes 12, 13 \
-             and 32 — were here for one ticket and 24 inverted all three together**, for the same \
-             reason and with the same shape. A second arriving here is a new one, and it owes an \
-             exact failing set and a ticket that inverts it"
+            Vec::<u8>::new(),
+            "**the list is out of red rows**, and components 26 took the last one — scene 14, the \
+             overlay family, which had been waiting for `select` and `overlay` since components 25. \
+             The history the empty vector replaces: components ticket 27's two were inverted by 28; \
+             components ticket 14's two — scenes 7 and 31 — by **15**; components ticket 16's two — \
+             scenes 8 and 9 — by **17**; components ticket 18's **four** — 17, 18, 19 and 30 — by \
+             **19**, all four together, because they were pinned on one fact and it was the \
+             subject. **The wheel gate was red for nine tickets and 20 inverted it**, and it is the \
+             one row of the list whose failing set was a defect rather than a missing subject — \
+             which is why it took the shipped code being checked and not a standing being edited. \
+             Components ticket 21's two — scenes 10 and 11 — were inverted together by 22, and \
+             ticket 23's three — 12, 13 and 32 — together by 24, both for the same reason and with \
+             the same shape. **A row arriving here now is a new one**, and it owes an exact failing \
+             set and a ticket that inverts it"
         );
         let evaluated: Vec<u8> = SCENES
             .iter()
@@ -2442,8 +2447,8 @@ mod tests {
         assert_eq!(
             evaluated,
             vec![
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 17, 18, 19, 28, 29, 30, 31, 32,
-                33
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 28, 29, 30, 31,
+                32, 33
             ],
             "the dense screen and its two twins, the collection's **five** — the wheel gate joined \
              the other four when components 20 posted a real notch over the shipped component — \
@@ -2454,7 +2459,9 @@ mod tests {
              reason: `crate::accordion::draw_into` calls `disclose::collapsible_into`, so the fold \
              anchor and the 408-on-both-columns pair are measurements of the component. Scene 33 is \
              the pair §21 had no way to state, and it is here because it plays over `scroll_area` \
-             rather than over an arithmetic offset. A screen played \
+             rather than over an arithmetic offset. **Scene 14 is components 26's and it is the \
+             last row of the list to arrive**: the whole overlay family draws through \
+             `crate::input::select` and `crate::overlay::overlay`. A screen played \
              over a stand-in for its components is rehearsed and not stood up, so one arriving \
              here is a deliberate edit to this module's header and to `crate::gates::REGISTER`. Scenes 12, \
              13 and 32 are components 24's, and the third of them is the one worth naming: the \
@@ -2506,12 +2513,14 @@ mod tests {
         }
         assert_eq!(
             pinned_to,
-            vec![(14, "components 26")],
-            "the wheel gate is not waiting for its subject and the rest are. Merging the two loses \
-             the distinction components 11's criterion 7 is about: `select` and `overlay` are \
-             undeclared and no defect of theirs is pinned here. **`field` left this list with \
-             components 24** and its three scenes left together, which is what the ticket predicted \
-             — they were pinned on one fact and it was the subject"
+            Vec::<(u8, &str)>::new(),
+            "**nothing is pinned any more**, and components 26 took the last one. The distinction \
+             components 11's criterion 7 is about is what this vector was for — the wheel gate was \
+             pinned on a *defect* and every other red row was waiting for a subject — and it is \
+             kept empty rather than deleted, because a scene arriving here again owes both halves: \
+             an exact failing set and the ticket that inverts it. `field` left with components 24, \
+             three scenes together; the overlay family left with 26, and `line` is where the shape \
+             of a red row's own report stayed reachable"
         );
     }
 
@@ -2942,32 +2951,50 @@ mod tests {
             printed
                 .matches("stood up on its own components, by ")
                 .count(),
-            23,
+            24,
             "a stood-up scene says what stands it up, rather than reading as unplayed. \
-             Twenty-four are stood up and twenty-three say so here, because scene 12 is the one \
+             Twenty-five are stood up and twenty-four say so here, because scene 12 is the one \
              this report **plays** — a played line carries its own numbers instead"
         );
         assert_eq!(
             printed.matches("red, pinned: `components ").count(),
-            1,
-            "ticket 25's one, alone, and a red line is neither *not played* nor *stood up*. **The \
-             wheel gate was the seventh until components 20, the accordion's two the fifth and \
-             sixth until 22, and the field's three the second, third and fourth until 24**"
+            0,
+            "**none, since components 26**, and a red line is neither *not played* nor *stood up*. \
+             The wheel gate was the seventh until components 20, the accordion's two the fifth and \
+             sixth until 22, the field's three the second, third and fourth until 24, and the \
+             overlay family the last one until 26"
         );
         assert_eq!(printed.matches("[rehearsed over a fixture").count(), 1);
         assert!(
             printed.contains("[rehearsed over a fixture]"),
             "a measured line names how it was measured: {printed}"
         );
-        // **The red suffix is still produced**, and it is asserted over the scene that is still
-        // red rather than over one that has stopped being. Scene 12 carried it for exactly one
-        // ticket; asserting the suffix on a scene that is now green would mean deleting the check
-        // the day the last red row goes, which is when it is most worth keeping.
+        // **The red suffix is still produced, and it is asserted over a scene this list does not
+        // have.** No row of `SCENES` is red since components 26, and the check this replaces was
+        // written against scene 14 — so keeping it pointed at the list would have meant deleting it
+        // on the day the last red row went, which is the day it is most worth keeping. `line` takes
+        // a `Scene` for exactly this reason.
+        let hypothetical = Scene {
+            standing: Standing::Red {
+                by: PINS_SCENE_14,
+                failing: "a scene this list does not have, so that the line a red scene prints \
+                          stays reachable from a test",
+                inverted_by: "components 99",
+            },
+            ..SCENES[13]
+        };
         assert!(
-            report(&[(14, run.row(SCENES[13].name, Allocations::over(1, 0)))])
-                .contains("red, pinned: `components 26` inverts it"),
+            line(
+                &hypothetical,
+                Some(&run.row(hypothetical.name, Allocations::over(1, 0)))
+            )
+            .contains("red, pinned: `components 99` inverts it"),
             "a measured line over a red scene still says it is red, or a report of a red scene \
              would read as a healthy frame"
+        );
+        assert!(
+            line(&hypothetical, None).contains("red, pinned: `components 99` inverts it, by "),
+            "and an unmeasured red line says how many instruments it is pinned by"
         );
         assert!(
             printed.contains("marked=unreachable"),

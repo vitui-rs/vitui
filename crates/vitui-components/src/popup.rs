@@ -80,14 +80,17 @@
 
 use std::time::{Duration, Instant};
 
-use vitui_runtime::focus::ScopeKind;
 use vitui_runtime::keys::{Chord, Code};
 use vitui_runtime::overlay::{OverlayOpts, Placement, Z};
 use vitui_runtime::{Buttons, Ctx, Density, Id, Interest, Mods, Mouse, MouseKind, Role};
 
+use crate::collect::{CollOpts, collection};
 use crate::counters::{Allocations, Counters, Tally};
 use crate::ink::{Direct, Ink};
+use crate::input::{SelectOpts, SelectState, Sizing, select_into};
 use crate::obligations::Verdict;
+use crate::order::Rows;
+use crate::overlay::{Kind, MARK, PopupState, ShellOpts, overlay, overlay_into, overlay_with};
 use crate::runner::{Canvas, Pen};
 use crate::text::{ChipOpts, chip_drawn};
 use vitui_runtime::Rect;
@@ -143,9 +146,21 @@ pub const BUTTONS: usize = 2;
 /// **What a dropdown adds: two regions and one stop.** One hit entry for the option list (§5) and one
 /// over the whole rectangle for the blur position (§12), which asks for the pointer and not the ring.
 pub const DROPDOWN_DELTA: (usize, usize) = (2, 1);
-/// **What a menu with its submenu adds: six regions and six stops.** [`MENU_ROWS`] twice, each a
-/// target of its own.
-pub const MENU_DELTA: (usize, usize) = (MENU_ROWS * 2, MENU_ROWS * 2);
+/// **What a menu with its submenu adds: four regions and two stops — and §12 says six and six.**
+///
+/// The subtraction is §5's rule and it is a finding rather than a discrepancy. §12's six is
+/// [`MENU_ROWS`] twice, *each row a target of its own*; §5 collapses a menu into a
+/// [`Mode`](crate::collect::Mode) of `collection`, and **a collection declares one hit entry however
+/// many rows it has**. So each level of the shipped menu is [`DROPDOWN_DELTA`] — one entry for its
+/// rows and one for the blur position — and two levels are twice that.
+///
+/// It is the same subtraction [`PER_ROW_ENTRIES`] prices for a dropdown, arriving on the construction
+/// §12's own prototype spent per row. Reproducing the six would mean declaring per row on purpose,
+/// which is the defect [`Config::PerRow`] exists to be.
+pub const MENU_DELTA: (usize, usize) = (2 * DROPDOWN_DELTA.0, 2 * DROPDOWN_DELTA.1);
+
+/// **§12's remembered menu delta.** Recorded, not reproduced — see [`MENU_DELTA`].
+pub const SPEC_MENU_DELTA: (usize, usize) = (MENU_ROWS * 2, MENU_ROWS * 2);
 /// **What a modal adds: two regions and two stops.** Its buttons; the `Trap` scope declares neither,
 /// which is `Ctx::scope`'s own sentence — *a scope renames nothing and declares no region*.
 pub const MODAL_DELTA: (usize, usize) = (BUTTONS, BUTTONS);
@@ -222,8 +237,14 @@ pub const LAYERS: [(&str, usize, usize); 4] = [
 pub const CLOSED_DECLARES: (usize, usize) =
     (REGIONS + 2 * DROPDOWN_DELTA.0, STOPS + 2 * DROPDOWN_DELTA.1);
 
-/// **What one open dropdown declaring one hit entry per row costs**: eight entries where §5's rule
-/// spends one, and eight stops where it spends one.
+/// **What one open dropdown declaring one hit entry per row costs**: eight entries and eight stops
+/// **on top of** the one and the one §5's rule spends for the whole collection.
+///
+/// *On top of* and not *instead of*, and the reason is that the rows are still drawn by the
+/// collection: the defect a caller who wants a per-row hover actually writes is a loop of
+/// `cx.interact` beside the component, not a component with its entry removed. So the arm's cells are
+/// identical to the shipped arm's and only the counts move —
+/// [`Config::expected`] is where the arithmetic is spelled.
 pub const PER_ROW_ENTRIES: usize = POPUP.1 as usize;
 
 /// **Flips an overlay that declares *and* covers its anchor takes: 99 in 100 frames.**
@@ -244,6 +265,13 @@ pub const FLIP_FRAMES: u32 = 100;
 pub const DIALOG_LIVES: u32 = 3;
 /// The frames [`DIALOG_LIVES`] is measured over.
 pub const CENSUS_FRAMES: u32 = 8;
+
+/// **Wheel notches every instrument that prices a dead wheel posts: twenty.**
+///
+/// [`crate::wheel::CLICKS`] and not a second constant, because it is the same twenty and this crate
+/// keeps one home for a number. §12 states it inside its own section — *§7's literal `Copy`-only body
+/// moves the offset 0 in 20 wheel clicks*.
+pub const WHEEL_CLICKS: u32 = crate::wheel::CLICKS;
 
 /// **`Tab`s pressed against a modal, which is §12's own six.** With a trap none of them leaves; with
 /// no trap every one of them does.
@@ -397,19 +425,38 @@ impl Config {
                 (REGIONS + MODAL_DELTA.0, STOPS + MODAL_DELTA.1)
             }
             Config::ClosedDeclares => CLOSED_DECLARES,
-            // The blur entry, plus one entry and one stop a row.
-            Config::PerRow => (REGIONS + 1 + PER_ROW_ENTRIES, STOPS + PER_ROW_ENTRIES),
+            // The shipped dropdown, plus one entry and one stop a row on top of it.
+            Config::PerRow => (
+                REGIONS + DROPDOWN_DELTA.0 + PER_ROW_ENTRIES,
+                STOPS + DROPDOWN_DELTA.1 + PER_ROW_ENTRIES,
+            ),
         }
     }
 
-    /// Whether the popup fills its rectangle before it writes its rows.
-    const fn fill_first(self) -> bool {
-        matches!(self, Config::FillFirst)
-    }
-
-    /// Whether the popup declares one entry a row rather than one for the collection.
-    const fn per_row(self) -> bool {
-        matches!(self, Config::PerRow)
+    /// **Which `select`s this configuration stands open**, written onto the owners' own state.
+    ///
+    /// The configuration is the scene's, and `open` is the *component's* — so a `Config` cannot
+    /// request anything itself. It seats a bool and the component does the rest, which is what makes
+    /// the screen a screen of `select` rather than a screen of `cx.overlay`.
+    pub const fn seat(self, first: &mut SelectState, second: &mut SelectState) {
+        let (a, b) = match self {
+            Config::OneSelect | Config::FillFirst | Config::PerRow => (true, false),
+            Config::ClosedDeclares | Config::ClosedSilent => (true, true),
+            Config::Nothing
+            | Config::MenuAndSubmenu
+            | Config::ModalAndScrim
+            | Config::ModalWithoutTrap => (false, false),
+        };
+        if a {
+            first.open();
+        } else {
+            first.close();
+        }
+        if b {
+            second.open();
+        } else {
+            second.close();
+        }
     }
 }
 
@@ -445,8 +492,17 @@ pub const MENU_ROOT: Id = Id::named("popup.menurow");
 pub const SUBMENU_OWNER: Id = Id::named("popup.submenu");
 /// The submenu's own rows.
 pub const SUBMENU_ROOT: Id = Id::named("popup.subrow");
-/// The dialog's trap scope.
-pub const TRAP: Id = Id::named("popup.trap");
+/// **The key the dialog's shell is minted under, off its own owner.**
+///
+/// The shell claims the blur position it does not have, the trap scope and nothing else, and its id
+/// has to be spelled rather than minted from a call site: `Ctx::id` inside an overlay body mints from
+/// the body's own source line, which is one line for every dialog on the screen.
+pub const TRAP_KEY: u64 = 1;
+/// The dialog's trap scope, which is [`TRAP_KEY`] off [`dialog_owner`].
+#[must_use]
+pub fn trap_scope() -> Id {
+    Id::keyed(dialog_owner(), TRAP_KEY)
+}
 /// The dialog's buttons.
 pub const BUTTON_ROOT: Id = Id::named("popup.button");
 
@@ -515,12 +571,51 @@ pub struct Shape {
     pub focused: Option<Id>,
 }
 
+/// **Everything §12's screen holds across frames, which is what a popup being the owner's costs a
+/// caller.**
+///
+/// One [`SelectState`] and one [`PopupState`] per widget, and there is nowhere else for either to
+/// live: the owner's crosses the base pass by value and the body's crosses the **frame** by
+/// `&'f mut`, so both have to be outside the frame call. That is §12's *two structs, one writer
+/// each* arriving as a fact about the caller's own storage.
+#[derive(Clone, Debug, Default)]
+pub struct Held {
+    /// The two `select`s' owner state. Written only by [`crate::input::select`].
+    pub owners: [SelectState; SELECTS],
+    /// Their bodies'. Written only by the body.
+    pub bodies: [PopupState; SELECTS],
+    /// The menu bar's popup, one per title. Only the first is ever opened by [`Config`].
+    pub menus: [PopupState; MENUS],
+    /// **The submenu's**, handed to the menu's body wrapped in an `Option` the body takes.
+    ///
+    /// The wrapper is this ticket's seam finding and it is not decoration: an overlay body is
+    /// `FnMut`, so it **cannot move a capture**, and a nested request has to move a `&'f mut` into
+    /// the inner closure. A reborrow is no help — it is shorter than `'f` and fails the `+ 'f`
+    /// bound. `Option::take` *mutates* the capture instead of moving out of it, which is the one
+    /// spelling that compiles, and the state itself stays here across frames.
+    pub submenu: PopupState,
+}
+
+impl Held {
+    /// Nothing open and nothing chosen.
+    #[must_use]
+    pub fn new() -> Held {
+        Held::default()
+    }
+}
+
 /// **The screen, one frame, in the configuration `config` asks for.**
 ///
 /// Generic over [`Ink`] so a [`Tally`] and a [`Pen`] measure the shipped drawing path rather than a
 /// copy of it — [`crate::ink`]'s whole argument. Returns what the **base pass** declared; the frame's
 /// own counts are read off `Driver::inspect` afterwards, because an overlay body runs after every
 /// context in the base pass has been dropped.
+///
+/// # The two lifetime annotations spec §1 measured
+///
+/// `cx: &mut Ctx<'f, '_>` and `held: &'f mut Held`. §1 records that four of its five components carry
+/// no lifetime at all and *the fifth opens an overlay*; this is the screen that fifth is on, and the
+/// annotation count is two here for the same reason it was two there.
 ///
 /// # The overlay bodies draw through [`Direct`] and not through `ink`
 ///
@@ -529,7 +624,12 @@ pub struct Shape {
 /// in a different coordinate system from the base pass's and a `Tally` that saw both would union two
 /// grids — the same collision [`crate::frame`] measures at 124 false double writes. The counters an
 /// overlay actually moves are the frame's, and those are read from the frame.
-pub fn draw_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, config: Config) -> usize {
+pub fn draw_into<'f, I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'f, '_>,
+    held: &'f mut Held,
+    config: Config,
+) -> usize {
     let theme = cx.theme();
     let body = theme.paint(Role::Body);
     let title = theme.paint(Role::Title);
@@ -551,56 +651,157 @@ pub fn draw_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, config: Config) -> u
         );
         declared += 1;
         let _ = resp;
-        let written = ink.text(cx, x, 0, label, title);
-        let _ = ink.run(
-            cx,
-            x + i32::from(written),
-            0,
-            " ",
-            MENU_TITLE.saturating_sub(written),
-            title,
-        );
+        let _ = ink.pad_to(cx, x, 0, label, MENU_TITLE, title);
         x += i32::from(MENU_TITLE);
     }
     let _ = ink.run(cx, x, 0, " ", W - MENU_TITLE * MENUS as u16, title);
 
-    // The two `select`s, drawn shut. **They are stand-ins and that is the whole of what makes this
-    // screen red**: a `select` is components 26's, and what is here is a label in a rectangle that
-    // declares what a `select` declares.
-    let mut x = 0i32;
-    for i in 0..SELECTS {
-        let r = Rect::new(x, 1, SELECT, 1);
-        let _ = cx.interact(
-            Id::keyed(SELECT_ROOT, i as u64),
-            r,
-            Interest::CLICK.with(Interest::HOVER).with(Interest::FOCUS),
-        );
-        declared += 1;
-        let written = ink.text(cx, x, 1, SELECT_LABEL, body);
-        let _ = ink.run(
-            cx,
-            x + i32::from(written),
-            1,
-            " ",
-            SELECT.saturating_sub(written),
-            body,
-        );
-        x += i32::from(SELECT) + 2;
-        let _ = ink.run(cx, x - 2, 1, " ", 2, body);
+    // **The subjects.** `held` is destructured with a slice pattern rather than iterated, because
+    // `iter_mut` yields items borrowed for the *reborrow* and `select` needs `&'f mut` — the same
+    // `'f` the frame call has. Two calls and not a loop for the same reason `Id::keyed` is spelled
+    // out below: `Ctx::id` mints from the call site, so a loop would mint one id for both widgets and
+    // `Ctx::interact` would make the second inert.
+    let Held {
+        owners,
+        bodies,
+        menus,
+        submenu,
+    } = held;
+    let [first_owner, second_owner] = owners;
+    let [first_body, second_body] = bodies;
+    let [menu_body_state, _second_menu] = menus;
+
+    config.seat(first_owner, second_owner);
+    let opts = SelectOpts {
+        placement: Placement::BELOW,
+        ..SelectOpts::default()
+    };
+    let first = Rect::new(0, 1, SELECT, 1);
+    let second = Rect::new(i32::from(SELECT) + 2, 1, SELECT, 1);
+    // **One function, four spellings, one call each.** The shipped arm and the three §12 refuses are
+    // one value apart inside `select`, so what a gate plays is the shipped drawing path.
+    match config {
+        Config::FillFirst => {
+            let _ = crate::input::defective::fill_first(
+                ink,
+                cx,
+                Id::keyed(SELECT_ROOT, 0),
+                first,
+                first_owner,
+                first_body,
+                &OPTIONS,
+                &opts,
+            );
+        }
+        Config::PerRow => {
+            let _ = crate::input::defective::per_row(
+                ink,
+                cx,
+                Id::keyed(SELECT_ROOT, 0),
+                first,
+                first_owner,
+                first_body,
+                &OPTIONS,
+                &opts,
+            );
+        }
+        Config::ClosedDeclares => {
+            let _ = crate::input::defective::declares_at_zero(
+                ink,
+                cx,
+                Id::keyed(SELECT_ROOT, 0),
+                first,
+                first_owner,
+                first_body,
+                &OPTIONS,
+                &opts,
+                Sizing::FromTheDrawnExtent,
+            );
+        }
+        Config::ClosedSilent => {
+            let _ = crate::input::defective::sized(
+                ink,
+                cx,
+                Id::keyed(SELECT_ROOT, 0),
+                first,
+                first_owner,
+                first_body,
+                &OPTIONS,
+                &opts,
+                Sizing::FromTheDrawnExtent,
+            );
+        }
+        _ => {
+            let _ = select_into(
+                ink,
+                cx,
+                Id::keyed(SELECT_ROOT, 0),
+                first,
+                first_owner,
+                first_body,
+                &OPTIONS,
+                &opts,
+            );
+        }
     }
-    let _ = ink.run(cx, x, 1, " ", W - x as u16, body);
+    match config {
+        Config::ClosedDeclares => {
+            let _ = crate::input::defective::declares_at_zero(
+                ink,
+                cx,
+                Id::keyed(SELECT_ROOT, 1),
+                second,
+                second_owner,
+                second_body,
+                &OPTIONS,
+                &opts,
+                Sizing::FromTheDrawnExtent,
+            );
+        }
+        Config::ClosedSilent => {
+            let _ = crate::input::defective::sized(
+                ink,
+                cx,
+                Id::keyed(SELECT_ROOT, 1),
+                second,
+                second_owner,
+                second_body,
+                &OPTIONS,
+                &opts,
+                Sizing::FromTheDrawnExtent,
+            );
+        }
+        _ => {
+            let _ = select_into(
+                ink,
+                cx,
+                Id::keyed(SELECT_ROOT, 1),
+                second,
+                second_owner,
+                second_body,
+                &OPTIONS,
+                &opts,
+            );
+        }
+    }
+    declared += SELECTS;
+    // **The two gaps and the tail, which is what makes row 1 a partition.** A screen where two cells
+    // between the widgets belong to nobody is 23 998 of 24 000, and nothing about it looks wrong.
+    let _ = ink.run(cx, i32::from(SELECT), 1, " ", 2, body);
+    let filled = 2 * SELECT + 2;
+    let _ = ink.run(cx, i32::from(filled), 1, " ", W - filled, body);
 
     // The chip band. `chip_drawn` and not `chip`, because a gate later in this file has to *name*
     // the last chip — `Ctx::id` mints from the call site and nothing outside the loop can spell one.
-    let opts = ChipOpts::default();
+    let chip = ChipOpts::default();
     for i in 0..CHIPS {
         let row = BAND_TOP + (i / PER_ROW) as u16;
         let col = (i % PER_ROW) as i32 * i32::from(CHIP);
         let area = Rect::new(col, i32::from(row), CHIP, 1);
         let id = Id::keyed(CHIP_ROOT, i as u64);
-        let resp = cx.interact(id, area, opts.interest);
+        let resp = cx.interact(id, area, chip.interest);
         declared += 1;
-        let _ = chip_drawn(ink, cx, area, CHIP_LABEL, &resp, &opts);
+        let _ = chip_drawn(ink, cx, area, CHIP_LABEL, &resp, &chip);
         if i % PER_ROW == PER_ROW - 1 {
             let filled = PER_ROW as u16 * CHIP;
             let _ = ink.run(cx, i32::from(filled), i32::from(row), " ", W - filled, body);
@@ -618,114 +819,165 @@ pub fn draw_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, config: Config) -> u
         cx.focus(first_chip());
     }
 
-    request(cx, config);
+    match config {
+        Config::MenuAndSubmenu => request_menu(cx, menu_body_state, Some(submenu)),
+        Config::ModalAndScrim => request_dialog(cx, true),
+        Config::ModalWithoutTrap => request_dialog(cx, false),
+        _ => {}
+    }
     declared
 }
 
-/// The overlay requests, which are the only thing [`Config`] changes about the base pass.
-fn request(cx: &mut Ctx<'_, '_>, config: Config) {
-    let anchor = Rect::new(0, 1, SELECT, 1);
-    match config {
-        Config::Nothing => {}
-        Config::OneSelect | Config::FillFirst | Config::PerRow => {
-            let fill_first = config.fill_first();
-            let per_row = config.per_row();
-            cx.overlay(
-                Id::keyed(SELECT_ROOT, 0),
-                anchor,
-                OverlayOpts {
-                    placement: Placement::BELOW,
-                    ..OverlayOpts::sized(POPUP.0, POPUP.1)
-                },
-                move |cx| dropdown_body(cx, 0, fill_first, per_row, true),
-            );
-        }
-        Config::ClosedDeclares | Config::ClosedSilent => {
-            let declares = config == Config::ClosedDeclares;
-            for i in 0..SELECTS as u64 {
-                let a = Rect::new(i as i32 * (i32::from(SELECT) + 2), 1, SELECT, 1);
-                cx.overlay(
-                    Id::keyed(SELECT_ROOT, i),
-                    a,
-                    OverlayOpts {
-                        placement: Placement::BELOW,
-                        ..OverlayOpts::sized(POPUP.0, 0)
+/// **The menu, and the submenu nested inside it.**
+///
+/// Two levels of one mechanism: each is [`crate::overlay::overlay`]'s shell over §5's collection, so
+/// each declares **one** blur position and **one** entry for its rows, whatever the row count. That
+/// is [`MENU_DELTA`], and it is not §12's — see that constant for the subtraction.
+///
+/// `sub` is an `Option` and this function's own reason for existing: an overlay body is `FnMut`, so
+/// it cannot move a capture, and the inner request needs to move a `&'f mut PopupState` into the
+/// inner closure. `Option::take` mutates the capture rather than moving it.
+fn request_menu<'f>(
+    cx: &mut Ctx<'f, '_>,
+    menu: &'f mut PopupState,
+    sub: Option<&'f mut PopupState>,
+) {
+    let anchor = Rect::new(0, 0, MENU_TITLE, 1);
+    let mut sub = sub;
+    cx.overlay(
+        Id::keyed(TITLE_ROOT, 0),
+        anchor,
+        OverlayOpts {
+            placement: Placement::BELOW,
+            ..OverlayOpts::sized(MENU.0, MENU.1)
+        },
+        move |cx| {
+            let area = cx.area();
+            let rows = u32::try_from(MENU_ROWS).unwrap_or(0);
+            let mut opens_at = 0usize;
+            let _ = overlay(cx, area, rows, &mut |cx, interior| {
+                let opts = CollOpts::default();
+                let _ = collection(
+                    cx,
+                    interior,
+                    &mut menu.list,
+                    &opts,
+                    Rows::of(MENU_ROWS),
+                    &mut |buf, range: std::ops::Range<usize>| {
+                        range.into_iter().find(|&i| ROWS[i].starts_with(buf))
                     },
-                    move |cx| dropdown_body(cx, i, false, false, declares),
+                    &mut |cx, r, i, face| {
+                        let paint = crate::frame::face_paint(cx.theme(), face);
+                        let mut ink = Direct;
+                        let _ = ink.pad_to(cx, r.x, r.y, ROWS[i], r.w, paint);
+                    },
+                );
+                opens_at = menu.list.sel.lead;
+            });
+            // **A second overlay from one component mints a second id** (§12, §4). Shared, the two
+            // get one slot resized and `Shape::merged` is what would say so.
+            //
+            // `sub.take()` and not `sub`: this closure is `FnMut`, so moving a capture out of it
+            // does not compile at all — see [`Held::submenu`].
+            if let Some(state) = sub.take() {
+                let row = Rect::new(area.x, area.y + opens_at as i32, area.w, 1);
+                cx.overlay(
+                    SUBMENU_OWNER,
+                    row,
+                    OverlayOpts {
+                        placement: Placement::RIGHT,
+                        ..OverlayOpts::sized(MENU.0, MENU.1)
+                    },
+                    move |cx| {
+                        let a = cx.area();
+                        let rows = u32::try_from(MENU_ROWS).unwrap_or(0);
+                        let _ = overlay(cx, a, rows, &mut |cx, interior| {
+                            let opts = CollOpts::default();
+                            let _ = collection(
+                                cx,
+                                interior,
+                                &mut state.list,
+                                &opts,
+                                Rows::of(MENU_ROWS),
+                                &mut |buf, range: std::ops::Range<usize>| {
+                                    range.into_iter().find(|&i| ROWS[i].starts_with(buf))
+                                },
+                                &mut |cx, r, i, face| {
+                                    let paint = crate::frame::face_paint(cx.theme(), face);
+                                    let mut ink = Direct;
+                                    let _ = ink.pad_to(cx, r.x, r.y, ROWS[i], r.w, paint);
+                                },
+                            );
+                        });
+                    },
                 );
             }
-        }
-        Config::MenuAndSubmenu => {
-            // **The row the submenu hangs off is the owner's data, and the body captures it.** Not
-            // decoration: a body that captures nothing is a zero-sized closure, and `Box::new` of a
-            // ZST allocates nothing — so a menu written with a bare `fn` item costs one allocation a
-            // frame for two overlays and passes a gate written as `n + 1` while meaning something
-            // else. `tests/popup.rs` carries that as its own case.
-            let opens_at = 1u64;
-            cx.overlay(
-                Id::keyed(TITLE_ROOT, 0),
-                Rect::new(0, 0, MENU_TITLE, 1),
-                OverlayOpts {
-                    placement: Placement::BELOW,
-                    ..OverlayOpts::sized(MENU.0, MENU.1)
-                },
-                move |cx| menu_body(cx, opens_at),
-            );
-        }
-        Config::ModalAndScrim | Config::ModalWithoutTrap => {
-            let trapped = config == Config::ModalAndScrim;
-            let theme = *cx.theme();
-            cx.overlay(
-                dialog_owner(),
-                Rect::new(i32::from(W) / 2, i32::from(H) / 2, 1, 1),
-                OverlayOpts {
-                    z: Z::MODAL,
-                    ..OverlayOpts::modal(DIALOG.0, DIALOG.1, &theme)
-                },
-                move |cx| dialog_body(cx, trapped),
-            );
-        }
-    }
+        },
+    );
 }
 
-/// **The dropdown's body: a blur position, an option list and eight rows.**
+/// **The modal dialog: [`crate::overlay::overlay`] at [`Kind::Dialog`], with the trap withheld on
+/// one arm.**
 ///
-/// `declare` is what a popup granted `(20, 0)` does before it looks at what it was granted — §12's
-/// *the size may not come from the drawn extent*, and [`CLOSED_DECLARES`] is what it costs.
-fn dropdown_body(cx: &mut Ctx<'_, '_>, which: u64, fill_first: bool, per_row: bool, declare: bool) {
-    let area = cx.area();
-    if !declare {
-        return;
-    }
-    // **The blur position** (§12): one hit entry over the whole rectangle, `Interest::HOVER` only,
-    // and never a press. A catcher layer costs 386 912 layer bytes and swallows a click.
-    let _ = cx.interact(Id::keyed(BLUR, which), area, Interest::HOVER);
-    if per_row {
-        for i in 0..PER_ROW_ENTRIES {
-            let r = Rect::new(area.x, area.y + i as i32, area.w, 1);
-            let _ = cx.interact(
-                Id::keyed(Id::keyed(ROW_ROOT, which), i as u64),
-                r,
-                Interest::CLICK.with(Interest::FOCUS),
-            );
-        }
-    } else {
-        // **One hit entry per collection** (§5), which is why the closed case is 321 and not 333.
-        let _ = cx.interact(
-            Id::keyed(LIST, which),
-            area,
-            Interest::CLICK.with(Interest::FOCUS),
+/// The barrier and the trap are two verbs and the shell puts down both; `trapped` is
+/// [`crate::overlay::defective::no_trap`], which is the arm §12's six `Tab`s are measured on.
+fn request_dialog(cx: &mut Ctx<'_, '_>, trapped: bool) {
+    let theme = *cx.theme();
+    cx.overlay(
+        dialog_owner(),
+        Rect::new(i32::from(W) / 2, i32::from(H) / 2, 1, 1),
+        OverlayOpts {
+            z: Z::MODAL,
+            ..OverlayOpts::modal(DIALOG.0, DIALOG.1, &theme)
+        },
+        move |cx| {
+            let area = cx.area();
+            let opts = ShellOpts {
+                kind: Kind::Dialog,
+                ..ShellOpts::default()
+            };
+            let id = trap_scope();
+            if trapped {
+                let _ = overlay_into(&mut Direct, cx, id, area, 0, &opts, |ink, cx, r| {
+                    dialog_contents(ink, cx, r);
+                });
+            } else {
+                let _ = crate::overlay::defective::no_trap(
+                    &mut Direct,
+                    cx,
+                    id,
+                    area,
+                    0,
+                    &opts,
+                    dialog_contents,
+                );
+            }
+        },
+    );
+}
+
+/// The dialog's cells and its two buttons, with the trap decided one level up.
+fn dialog_contents<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, area: Rect) {
+    let title = cx.theme().paint(Role::Title);
+    let _ = ink.text(cx, area.x, area.y, DIALOG_TITLE, title);
+    let opts = ChipOpts::default();
+    for (i, label) in BUTTON_LABELS.iter().enumerate() {
+        let r = Rect::new(
+            area.x + i as i32 * 12,
+            area.y + i32::from(area.h) - 1,
+            11,
+            1,
         );
+        let resp = cx.interact(Id::keyed(BUTTON_ROOT, i as u64), r, opts.interest);
+        let _ = chip_drawn(ink, cx, r, label, &resp, &opts);
     }
-    let mut ink = Direct;
-    popup_cells_into(&mut ink, cx, area, 0, fill_first);
 }
 
-/// **The popup's cells, drawn once for the overlay body and once for the [`Pen`] that prices the
-/// fill.**
+/// **The popup's cells, drawn for the [`Pen`] that prices the fill.**
 ///
-/// One function and two call sites, which is what makes the re-damage figure a measurement of the
-/// shipped drawing order rather than of a copy of it.
+/// The shipped drawing order lives inside `select`'s own body; this is the same two orders written
+/// where a [`Pen`] can see them, and [`popup_steady`] is what compares them. One function and two
+/// call sites, so the re-damage figure is a measurement of an order rather than of a copy.
 ///
 /// [`Pen`]: crate::runner::Pen
 pub fn popup_cells_into<I: Ink>(
@@ -738,8 +990,8 @@ pub fn popup_cells_into<I: Ink>(
     if area.h == 0 || area.w == 0 {
         return;
     }
-    let theme = cx.theme();
-    let body = theme.paint(Role::Body);
+    let body = cx.theme().paint(Role::Body);
+    let tick = cx.theme().glyph(vitui_runtime::Glyph::Tick);
     // **The defect.** A fill over the whole rectangle before a single row is written, so every cell
     // the rows then write is written twice and re-damaged for as long as the popup stands.
     if fill_first {
@@ -752,122 +1004,22 @@ pub fn popup_cells_into<I: Ink>(
             break;
         }
         let y = area.y + i as i32;
-        let mark = if i == chosen { "> " } else { "  " };
+        let mark = if i == chosen { tick } else { " " };
         let m = ink.text(cx, area.x, y, mark, body);
-        let written = ink.text(cx, area.x + i32::from(m), y, label, body);
-        let used = m + written;
-        if !fill_first {
-            let _ = ink.run(
+        let _ = ink.text(cx, area.x + i32::from(m), y, " ", body);
+        if fill_first {
+            let _ = ink.text(cx, area.x + i32::from(MARK), y, label, body);
+        } else {
+            let _ = ink.pad_to(
                 cx,
-                area.x + i32::from(used),
+                area.x + i32::from(MARK),
                 y,
-                " ",
-                area.w.saturating_sub(used),
+                label,
+                area.w.saturating_sub(MARK),
                 body,
             );
         }
     }
-}
-
-/// **The menu's body: three rows, each a target, and a submenu under an id it minted.**
-///
-/// `opens_at` is which row the submenu hangs off — the owner's data, carried into the body, which is
-/// what makes this closure a real capture rather than a `fn` item. See [`request`].
-fn menu_body(cx: &mut Ctx<'_, '_>, opens_at: u64) {
-    let area = cx.area();
-    let theme = cx.theme();
-    let body = theme.paint(Role::Body);
-    let mut ink = Direct;
-    for (i, label) in ROWS.iter().enumerate() {
-        let r = Rect::new(area.x, area.y + i as i32, area.w, 1);
-        let _ = cx.interact(
-            Id::keyed(MENU_ROOT, i as u64),
-            r,
-            Interest::CLICK.with(Interest::FOCUS),
-        );
-        let written = ink.text(&mut *cx, r.x, r.y, label, body);
-        let _ = ink.run(
-            &mut *cx,
-            r.x + i32::from(written),
-            r.y,
-            " ",
-            area.w.saturating_sub(written),
-            body,
-        );
-    }
-    // **A second overlay from one component mints a second id** (§12, §4). Shared, the two get one
-    // slot resized, 8 allocations and 564 cells a frame — and `Shape::merged` is what would say so.
-    let anchor = Rect::new(area.x, area.y + opens_at as i32, area.w, 1);
-    cx.overlay(
-        SUBMENU_OWNER,
-        anchor,
-        OverlayOpts {
-            placement: Placement::RIGHT,
-            ..OverlayOpts::sized(MENU.0, MENU.1)
-        },
-        move |cx| submenu_body(cx, opens_at),
-    );
-}
-
-/// The submenu, which is the same mechanism one level down. Its `z` counts from its parent's layer.
-fn submenu_body(cx: &mut Ctx<'_, '_>, opens_at: u64) {
-    let _ = opens_at;
-    let area = cx.area();
-    let theme = cx.theme();
-    let body = theme.paint(Role::Body);
-    let mut ink = Direct;
-    for (i, label) in ROWS.iter().enumerate() {
-        let r = Rect::new(area.x, area.y + i as i32, area.w, 1);
-        let _ = cx.interact(
-            Id::keyed(SUBMENU_ROOT, i as u64),
-            r,
-            Interest::CLICK.with(Interest::FOCUS),
-        );
-        let written = ink.text(&mut *cx, r.x, r.y, label, body);
-        let _ = ink.run(
-            &mut *cx,
-            r.x + i32::from(written),
-            r.y,
-            " ",
-            area.w.saturating_sub(written),
-            body,
-        );
-    }
-}
-
-/// **The dialog's body: a barrier, a trap and two buttons.**
-///
-/// The barrier stops the pointer and only the pointer; the trap is the keyboard's half, and the two
-/// are not one verb. Without the trap, six `Tab`s leave — which is [`Config::ModalWithoutTrap`].
-fn dialog_body(cx: &mut Ctx<'_, '_>, trapped: bool) {
-    cx.modal_barrier_here();
-    if trapped {
-        cx.scope(TRAP, ScopeKind::Trap, dialog_contents);
-    } else {
-        dialog_contents(cx);
-    }
-}
-
-/// The dialog's cells and its two buttons, with the trap decided one level up.
-fn dialog_contents(cx: &mut Ctx<'_, '_>) {
-    let area = cx.area();
-    let theme = cx.theme();
-    let body = theme.paint(Role::Body);
-    let title = theme.paint(Role::Title);
-    let mut ink = Direct;
-    let _ = ink.text(&mut *cx, area.x, area.y, DIALOG_TITLE, title);
-    let opts = ChipOpts::default();
-    for (i, label) in BUTTON_LABELS.iter().enumerate() {
-        let r = Rect::new(
-            area.x + i as i32 * 12,
-            area.y + i32::from(area.h) - 1,
-            11,
-            1,
-        );
-        let resp = cx.interact(Id::keyed(BUTTON_ROOT, i as u64), r, opts.interest);
-        let _ = chip_drawn(&mut ink, cx, r, label, &resp, &opts);
-    }
-    let _ = body;
 }
 
 // ── the frame structures, measured over a real overlay pass ──────────────────────────────────────
@@ -899,10 +1051,11 @@ pub struct Measured {
 pub fn steady(config: Config, frames: u32, allocations: Allocations) -> Measured {
     assert!(frames > 0, "a per-frame figure needs a frame");
     let mut driver = crate::runner::driver_at(W, H, Density::Compact);
+    let mut held = Held::new();
     let mut warm = Tally::new();
     for _ in 0..2 {
         driver.frame(|cx| {
-            draw_into(&mut warm, cx, config);
+            draw_into(&mut warm, cx, &mut held, config);
         });
     }
 
@@ -913,7 +1066,7 @@ pub fn steady(config: Config, frames: u32, allocations: Allocations) -> Measured
         let mut frame_tally = Tally::new();
         let mut declared = 0usize;
         let started = Instant::now();
-        driver.frame(|cx| declared = draw_into(&mut frame_tally, cx, config));
+        driver.frame(|cx| declared = draw_into(&mut frame_tally, cx, &mut held, config));
         elapsed += started.elapsed();
         {
             let frame = driver.inspect();
@@ -968,17 +1121,18 @@ pub fn shape(config: Config) -> Shape {
 pub fn cost(config: Config, frames: u32) -> Duration {
     assert!(frames > 0, "a per-frame figure needs a frame");
     let mut driver = crate::runner::driver_at(W, H, Density::Compact);
+    let mut held = Held::new();
     let mut ink = Direct;
     for _ in 0..2 {
         driver.frame(|cx| {
-            draw_into(&mut ink, cx, config);
+            draw_into(&mut ink, cx, &mut held, config);
         });
     }
     let mut best = Duration::MAX;
     for _ in 0..frames {
         let started = Instant::now();
         driver.frame(|cx| {
-            draw_into(&mut ink, cx, config);
+            draw_into(&mut ink, cx, &mut held, config);
         });
         best = best.min(started.elapsed());
     }
@@ -1010,22 +1164,27 @@ pub fn costs(configs: &[Config], frames: u32) -> Vec<Duration> {
     );
     let mut drivers: Vec<_> = configs
         .iter()
-        .map(|_| crate::runner::driver_at(W, H, Density::Compact))
+        .map(|_| {
+            (
+                crate::runner::driver_at(W, H, Density::Compact),
+                Held::new(),
+            )
+        })
         .collect();
     let mut ink = Direct;
-    for (driver, config) in drivers.iter_mut().zip(configs) {
+    for ((driver, held), config) in drivers.iter_mut().zip(configs) {
         for _ in 0..2 {
             driver.frame(|cx| {
-                draw_into(&mut ink, cx, *config);
+                draw_into(&mut ink, cx, held, *config);
             });
         }
     }
     let mut best = vec![Duration::MAX; configs.len()];
     for _ in 0..frames {
-        for (i, (driver, config)) in drivers.iter_mut().zip(configs).enumerate() {
+        for (i, ((driver, held), config)) in drivers.iter_mut().zip(configs).enumerate() {
             let started = Instant::now();
             driver.frame(|cx| {
-                draw_into(&mut ink, cx, *config);
+                draw_into(&mut ink, cx, held, *config);
             });
             best[i] = best[i].min(started.elapsed());
         }
@@ -1081,10 +1240,11 @@ pub fn opening(cycles: u32) -> Opening {
         "an opening cliff over no openings is not a measurement"
     );
     let mut driver = crate::runner::driver_at(W, H, Density::Compact);
+    let mut held = Held::new();
     let mut ink = Direct;
     for _ in 0..2 {
         driver.frame(|cx| {
-            draw_into(&mut ink, cx, Config::Nothing);
+            draw_into(&mut ink, cx, &mut held, Config::Nothing);
         });
     }
 
@@ -1095,7 +1255,7 @@ pub fn opening(cycles: u32) -> Opening {
     for _ in 0..cycles {
         let started = Instant::now();
         driver.frame(|cx| {
-            draw_into(&mut ink, cx, Config::ModalAndScrim);
+            draw_into(&mut ink, cx, &mut held, Config::ModalAndScrim);
         });
         let took = started.elapsed();
         let now = driver.layers_live();
@@ -1109,7 +1269,7 @@ pub fn opening(cycles: u32) -> Opening {
         for _ in 0..2 {
             let started = Instant::now();
             driver.frame(|cx| {
-                draw_into(&mut ink, cx, Config::Nothing);
+                draw_into(&mut ink, cx, &mut held, Config::Nothing);
             });
             steady = steady.min(started.elapsed());
             alive = driver.layers_live();
@@ -1223,9 +1383,9 @@ pub fn scrim_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, spelling: ScrimSpel
 ///
 /// [`Pen`]: crate::runner::Pen
 pub fn scrim_steady(spelling: ScrimSpelling, frames: u32) -> crate::dense::Redamage {
-    run_frames(frames, move |n, pen, cx| {
+    run_frames(frames, move |n, pen, cx, held| {
         if n == 0 {
-            draw_into(pen, cx, Config::Nothing);
+            draw_into(pen, cx, held, Config::Nothing);
         }
         scrim_into(pen, cx, spelling);
     })
@@ -1250,9 +1410,9 @@ pub fn scrim_writes(spelling: ScrimSpelling) -> u64 {
 /// [`scrim_steady`]'s, unchanged.
 pub fn popup_steady(fill_first: bool, frames: u32) -> crate::dense::Redamage {
     let area = popup_rect();
-    run_frames(frames, move |n, pen, cx| {
+    run_frames(frames, move |n, pen, cx, held| {
         if n == 0 {
-            draw_into(pen, cx, Config::Nothing);
+            draw_into(pen, cx, held, Config::Nothing);
         }
         popup_cells_into(pen, cx, area, 0, fill_first);
     })
@@ -1261,19 +1421,20 @@ pub fn popup_steady(fill_first: bool, frames: u32) -> crate::dense::Redamage {
 /// The loop both re-damage measurements share. [`crate::dense`]'s `run_frames`, and the two are
 /// deliberately not merged: that one is `pub(self)` in a module whose screen is a different screen,
 /// and a shared helper across two screens would make a change to one a change to both.
-fn run_frames(
-    frames: u32,
-    mut paint: impl FnMut(u32, &mut Pen, &mut Ctx<'_, '_>),
-) -> crate::dense::Redamage {
+fn run_frames<F>(frames: u32, mut paint: F) -> crate::dense::Redamage
+where
+    F: for<'f> FnMut(u32, &mut Pen, &mut Ctx<'f, '_>, &'f mut Held),
+{
     assert!(frames >= 2, "re-damage is a relation between two frames");
     let mut driver = crate::runner::driver_at(W, H, Density::Compact);
+    let mut held = Held::new();
     let mut canvas = Canvas::new(W, H);
     let mut first = 0u64;
     let mut steady = 0u64;
     let mut per_frame: Option<u64> = None;
     for n in 0..frames {
         let mut pen = Pen::over(canvas);
-        driver.frame(|cx| paint(n, &mut pen, cx));
+        driver.frame(|cx| paint(n, &mut pen, cx, &mut held));
         pen.end_frame();
         canvas = pen.into_canvas();
         let changed = canvas.take_repaints();
@@ -1302,28 +1463,29 @@ fn run_frames(
 
 /// The anchor the tooltip hangs off, in the small screen [`tooltip_flips`] plays on.
 const TIP_ANCHOR: Id = Id::named("popup.tip.anchor");
-/// The tooltip's own hit entry.
-const TIP: Id = Id::named("popup.tip");
 /// The small screen's width.
 const TIP_W: u16 = 40;
 /// The small screen's height.
 const TIP_H: u16 = 8;
 
-/// **§12's Axis A, as a count: an overlay that declares *and* covers its anchor takes its own hover.**
+/// **§12's Axis A, as a count: an overlay that declares *and* covers its anchor takes its own
+/// hover — and [`Kind::Transient`] cannot, at any rectangle.**
 ///
-/// The pointer is parked once and never moves. When the tooltip's rectangle covers the anchor its own
-/// hit entry wins — overlay entries append after the base pass and win by draw order — so the anchor
-/// stops being hovered, the tooltip stops being requested, the anchor is hovered again, and the layer
-/// flips on and off for ever. Placed so that it does **not** cover the anchor, the same tooltip is
-/// stable.
+/// The pointer is parked once and never moves. When a *declaring* tooltip's rectangle covers the
+/// anchor its own hit entry wins — overlay entries append after the base pass and win by draw order —
+/// so the anchor stops being hovered, the tooltip stops being requested, the anchor is hovered again,
+/// and the layer flips on and off for ever.
 ///
-/// `covers` is spelled as *the anchor the placement is measured from*, so that the two arms differ in
-/// one rectangle and nothing else.
+/// `covers` is spelled as *the anchor the placement is measured from*, so the two rectangles differ
+/// in one number and nothing else. **`kind` is the third arm and it is the component's**: at
+/// [`Kind::Transient`] the shell declares nothing at all, so the flip is not available to it — which
+/// is what makes Axis A a fact about the kind rather than a warning about placement. *The rectangle
+/// is not the fix.*
 ///
 /// # Panics
 ///
 /// Panics under two frames: a flip is a relation between two.
-pub fn tooltip_flips(covers: bool, frames: u32) -> u32 {
+pub fn tooltip_flips(kind: Kind, covers: bool, frames: u32) -> u32 {
     assert!(frames >= 2, "a flip is a relation between two frames");
     let mut driver = crate::runner::driver_at(TIP_W, TIP_H, Density::Compact);
     driver.post_mouse(Mouse {
@@ -1342,8 +1504,9 @@ pub fn tooltip_flips(covers: bool, frames: u32) -> u32 {
             let anchor = Rect::new(4, 4, 8, 1);
             let resp = cx.interact(TIP_ANCHOR, anchor, Interest::HOVER);
             if resp.hovered {
-                // **The one rectangle the two arms differ in.** Placed below a band one row higher,
-                // the tooltip lands *on* its anchor; placed below the anchor itself it lands under it.
+                // **The one rectangle the two placements differ in.** Placed below a band one row
+                // higher, the tooltip lands *on* its anchor; placed below the anchor itself it lands
+                // under it.
                 let from = if covers {
                     Rect::new(4, 3, 8, 1)
                 } else {
@@ -1357,12 +1520,20 @@ pub fn tooltip_flips(covers: bool, frames: u32) -> u32 {
                         placement: Placement::BELOW,
                         ..OverlayOpts::sized(8, 1)
                     },
-                    |cx| {
+                    move |cx| {
                         let a = cx.area();
-                        let _ = cx.interact(TIP, a, Interest::HOVER);
-                        let p = cx.theme().paint(Role::Body);
-                        let mut ink = Direct;
-                        let _ = ink.run(cx, a.x, a.y, " ", a.w, p);
+                        let opts = ShellOpts {
+                            kind,
+                            ..ShellOpts::default()
+                        };
+                        // **The subject.** `overlay` at `Kind::Transient` declares nothing; at
+                        // `Kind::Popup` it declares the blur position, which over a rectangle
+                        // covering its own anchor is the flip.
+                        let _ = overlay_with(cx, a, 1, &opts, &mut |cx, r| {
+                            let p = cx.theme().paint(Role::Body);
+                            let mut ink = Direct;
+                            let _ = ink.run(cx, r.x, r.y, " ", r.w, p);
+                        });
                     },
                 );
             }
@@ -1470,10 +1641,11 @@ pub struct Walk {
 pub fn walkthrough(config: Config, presses: u32) -> Walk {
     assert!(presses > 0, "a walkthrough of no presses visits nothing");
     let mut driver = crate::runner::driver_at(W, H, Density::Compact);
+    let mut held = Held::new();
     let mut ink = Direct;
     for _ in 0..2 {
         driver.frame(|cx| {
-            draw_into(&mut ink, cx, config);
+            draw_into(&mut ink, cx, &mut held, config);
         });
     }
 
@@ -1483,7 +1655,7 @@ pub fn walkthrough(config: Config, presses: u32) -> Walk {
         driver.post_key(crate::keys::press(Chord::new(Code::Tab)));
         loop {
             driver.frame(|cx| {
-                draw_into(&mut ink, cx, config);
+                draw_into(&mut ink, cx, &mut held, config);
             });
             if driver.queued() == 0 {
                 break;
@@ -1563,14 +1735,15 @@ impl Dismiss {
 /// neither is a substitute for the other.
 pub fn closing_focus(how: Dismiss) -> (Option<Id>, u64) {
     let mut driver = crate::runner::driver_at(W, H, Density::Compact);
+    let mut held = Held::new();
     let mut ink = Direct;
     for _ in 0..3 {
         driver.frame(|cx| {
-            draw_into(&mut ink, cx, Config::ModalAndScrim);
+            draw_into(&mut ink, cx, &mut held, Config::ModalAndScrim);
         });
     }
     driver.frame(|cx| {
-        draw_into(&mut ink, cx, Config::Nothing);
+        draw_into(&mut ink, cx, &mut held, Config::Nothing);
         match how {
             Dismiss::OwnerRefocusesItself => cx.focus(dialog_owner()),
             Dismiss::LetItVanish => {}
@@ -1584,10 +1757,11 @@ pub fn closing_focus(how: Dismiss) -> (Option<Id>, u64) {
 /// **Who the focus is on while the modal is up.** The standing trap's pull, as a value.
 pub fn trapped_focus(config: Config) -> Option<Id> {
     let mut driver = crate::runner::driver_at(W, H, Density::Compact);
+    let mut held = Held::new();
     let mut ink = Direct;
     for _ in 0..3 {
         driver.frame(|cx| {
-            draw_into(&mut ink, cx, config);
+            draw_into(&mut ink, cx, &mut held, config);
         });
     }
     driver.inspect().focused()
@@ -1595,7 +1769,7 @@ pub fn trapped_focus(config: Config) -> Option<Id> {
 
 // ── the subjects, and the scan that says whether they are here ───────────────────────────────────
 
-/// **The two components this scene is a scene of, and neither is declared yet.**
+/// **The two components this scene is a scene of, and both are declared.**
 pub const SUBJECTS: [&str; 2] = ["select", "overlay"];
 
 /// Where [`SUBJECTS`] are declared, as `(module file, the declaration)`.
@@ -1605,11 +1779,25 @@ pub const SUBJECTS: [&str; 2] = ["select", "overlay"];
 /// A component is `fn(&mut Ctx, Rect, …) -> Response` (spec §1, rule 1), so the thing to look for is
 /// a public function of the component's own name in its own family's module.
 pub const DECLARATIONS: [(&str, &str); 2] = [
-    ("input.rs", "pub fn select("),
+    ("input.rs", "pub fn select<'f>("),
     ("overlay.rs", "pub fn overlay("),
 ];
 
-/// **Which of [`SUBJECTS`] this crate actually declares. Today: neither.**
+/// **The needle this list carried while the scene was red, and why it could never have matched.**
+///
+/// It read `pub fn select(`, and spec §1 already said it could not: *the fifth component opens an
+/// overlay, and `'f` costs it two annotations*. A `select` cannot be written without them — its body
+/// captures the caller's [`PopupState`] and its option list, and a body is `+ 'f` — so the lifetime
+/// parameter sits between the name and the parenthesis and the scan reads *undeclared* about a
+/// component that is right there.
+///
+/// It is recorded rather than quietly corrected because it is the same trap `crate::collect`'s own
+/// note describes one family over — *a generic spelling puts `<F, R>` between the name and the
+/// parenthesis* — and because a scene that had gone green with the old needle would have been a scene
+/// that went green by deleting the lifetime, which is a different component.
+pub const NEEDLE_WHILE_RED: &str = "pub fn select(";
+
+/// **Which of [`SUBJECTS`] this crate actually declares. Today: both.**
 ///
 /// A source scan and not a `use`, for [`crate::dense::subjects_declared`]'s reason: *the item does not
 /// exist* has no expression, and a `compile_fail` fence would pass today and pass again the day
@@ -1630,18 +1818,18 @@ pub fn subjects_declared() -> Vec<&'static str> {
 /// **Whether the overlay family's screen stands on its subjects, as a verdict rather than a
 /// sentence.**
 ///
-/// `Unmet` over two, inverted by **components 26**.
+/// `Met` over two since **components 26**. Everything below this line is drawn *through*
+/// [`crate::input::select`] and [`crate::overlay::overlay`]: the two shut widgets, the open
+/// dropdown's shell and list, the menu and its submenu, the modal's barrier and trap, and all four
+/// spellings §12 refuses.
 pub fn standing() -> Verdict {
     let declared = subjects_declared();
     Verdict::of(
         SUBJECTS.len(),
         SUBJECTS.len() - declared.len(),
-        "neither `select` nor `overlay` is declared in this crate, so what stands on this screen is \
-         a stand-in label in a rectangle and a body written beside the request. The screen, its 317 \
-         regions against 316 stops, the four deltas of §12's table, the trap's named exception at 2 \
-         of 318, the opening cliff counted once per opening, the three scrim spellings, the two axes \
-         of the family and the three answers to *where does the keyboard go when a modal closes* are \
-         measured and green; what is missing is the subject",
+        "`select` or `overlay` has stopped being declared where the freeze homes it, so this screen \
+         is back to a stand-in label in a rectangle and a body written beside the request. Every \
+         other number on it would go on reproducing, which is what makes the scan the gate",
         "components 26",
     )
 }
@@ -1649,7 +1837,7 @@ pub fn standing() -> Verdict {
 /// **The sentence a scene waiting for its subject fails with**, or `None` once both are declared.
 ///
 /// [`crate::listing::owed_message`]'s arrangement, and it takes the declaration list as an argument
-/// for the same reason: the day the crate is on the other side of it, the hostile case is still one
+/// for the same reason: the crate is on the other side of it now, and the hostile case is still one
 /// call away.
 pub fn owed_message(declared: &[&str], scene: &str) -> Option<String> {
     if declared.len() == SUBJECTS.len() {
@@ -1678,7 +1866,8 @@ pub fn owed_message(declared: &[&str], scene: &str) -> Option<String> {
 ///
 /// # Panics
 ///
-/// Panics while [`SUBJECTS`] are undeclared, which is **today**. Components ticket 26 inverts it.
+/// Panics if either subject stops being declared where the freeze homes it. Components ticket 26
+/// inverted it; it stays inverted only while both files still carry their declaration.
 pub fn assert_stands_up(scene: &str) {
     if let Some(message) = owed_message(&subjects_declared(), scene) {
         panic!("{message}");
@@ -1709,9 +1898,10 @@ mod tests {
         );
 
         let mut driver = crate::runner::driver_at(W, H, Density::Compact);
+        let mut held = Held::new();
         let mut ink = Direct;
         driver.frame(|cx| {
-            draw_into(&mut ink, cx, Config::Nothing);
+            draw_into(&mut ink, cx, &mut held, Config::Nothing);
         });
         let frame = driver.inspect();
         assert!(
@@ -1809,12 +1999,14 @@ mod tests {
     fn one_hit_entry_per_collection_is_what_keeps_the_open_case_small() {
         let one = shape(Config::OneSelect);
         let per_row = shape(Config::PerRow);
-        assert_eq!(per_row.regions - one.regions, PER_ROW_ENTRIES - 1);
-        assert_eq!(per_row.stops - one.stops, PER_ROW_ENTRIES - 1);
+        // **On top of, not instead of**: the rows are drawn by the collection either way, so what a
+        // per-row hover costs is exactly the loop beside it.
+        assert_eq!(per_row.regions - one.regions, PER_ROW_ENTRIES);
+        assert_eq!(per_row.stops - one.stops, PER_ROW_ENTRIES);
         assert_eq!(
             (per_row.regions, per_row.stops),
-            (326, 324),
-            "eight entries and eight stops where the rule spends one and one"
+            (327, 325),
+            "eight entries and eight stops on top of the one and the one the rule spends"
         );
     }
 
@@ -1973,18 +2165,28 @@ mod tests {
     }
 
     /// **§12's Axis A: an overlay that declares *and* covers its anchor flips 99 times in 100
-    /// frames.**
+    /// frames, and a [`Kind::Transient`] cannot flip at either rectangle.**
     ///
-    /// The same tooltip placed so that it does not cover its anchor turns on once and stays on.
+    /// Four readings over one function, which is what makes Axis A a fact about the kind rather than
+    /// a warning about placement: the declaring arm flips where it covers and settles where it does
+    /// not, and the transient settles either way. **The rectangle is not the fix.**
     #[test]
     fn an_overlay_that_declares_and_covers_its_anchor_takes_its_own_hover() {
-        assert_eq!(tooltip_flips(true, FLIP_FRAMES), FLIPS);
-        assert_eq!(tooltip_flips(true, FLIP_FRAMES), 99);
+        assert_eq!(tooltip_flips(Kind::Popup, true, FLIP_FRAMES), FLIPS);
+        assert_eq!(tooltip_flips(Kind::Popup, true, FLIP_FRAMES), 99);
         assert_eq!(
-            tooltip_flips(false, FLIP_FRAMES),
+            tooltip_flips(Kind::Popup, false, FLIP_FRAMES),
             1,
             "beside its anchor it turns on once and stays on"
         );
+        for covers in [true, false] {
+            assert_eq!(
+                tooltip_flips(Kind::Transient, covers, FLIP_FRAMES),
+                1,
+                "a transient declares nothing, so it cannot take its own anchor's hover — \
+                 covers = {covers}"
+            );
+        }
     }
 
     /// **§12's Axis B: a dialog owned by the menu row that opened it lives 3 of 8 frames.**
@@ -2044,10 +2246,11 @@ mod tests {
     fn the_walk_reaches_every_stop_unless_a_trap_is_standing() {
         let reach = |config: Config| {
             let mut driver = crate::runner::driver_at(W, H, Density::Compact);
+            let mut held = Held::new();
             let mut ink = Direct;
             for _ in 0..3 {
                 driver.frame(|cx| {
-                    draw_into(&mut ink, cx, config);
+                    draw_into(&mut ink, cx, &mut held, config);
                 });
             }
             let frame = driver.inspect();
@@ -2107,41 +2310,56 @@ mod tests {
         );
     }
 
-    /// **The screen is red, and it is red for one reason.**
+    /// **The screen stands on its subjects, and the scan is what says so.**
+    ///
+    /// The inversion of components 25's `the_screen_is_red_because_select_and_overlay_are_not_
+    /// declared`, and the direction is the whole point: it was `Unmet { over: 2, failing: 2 }` and
+    /// nothing on the screen was wrong. What changed is that every cell of it now comes out of
+    /// [`crate::input::select`] and [`crate::overlay::overlay`].
     #[test]
-    fn the_screen_is_red_because_select_and_overlay_are_not_declared() {
+    fn the_screen_stands_on_its_subjects() {
         assert_eq!(
             subjects_declared(),
-            Vec::<&str>::new(),
-            "`select` or `overlay` is declared. That inverts scene 14 and two register rows, and it \
-             is a deliberate edit in three files"
+            SUBJECTS.to_vec(),
+            "a subject has stopped being declared where the freeze homes it. That re-reds scene 14 \
+             and a register row, and it is a deliberate edit in three files"
         );
         let verdict = standing();
-        assert!(!verdict.met());
+        assert!(verdict.met());
         match verdict {
-            Verdict::Unmet {
-                over,
-                failing,
-                inverted_by,
-                ..
-            } => {
-                assert_eq!(
-                    (over, failing),
-                    (2, 2),
-                    "two subjects, and both are missing"
-                );
-                assert_eq!(inverted_by, "components 26");
-            }
-            Verdict::Met { over } => {
-                unreachable!("{over} declared, which the assertion above caught")
+            Verdict::Met { over } => assert_eq!(over, 2, "two subjects, both declared"),
+            Verdict::Unmet { failing, .. } => {
+                unreachable!("{failing} undeclared, which the assertion above caught")
             }
         }
+        assert_stands_up("a select, a menu, a modal and a scrim");
+    }
 
-        let panicked =
-            std::panic::catch_unwind(|| assert_stands_up("a select, a menu, a modal and a scrim"));
+    /// **The needle the red scene carried could not have matched, and spec §1 said so first.**
+    ///
+    /// [`NEEDLE_WHILE_RED`] is `pub fn select(`; the component is `pub fn select<'f>(`, because its
+    /// body captures the caller's `PopupState` and its option list and a body is `+ 'f`. §1 records
+    /// the cost in as many words — *the fifth opens an overlay, and `'f` costs it two annotations* —
+    /// so the scan was written against a spelling the spec had already ruled out.
+    ///
+    /// The gate is both directions: the shipped source does **not** carry the old needle, and it does
+    /// carry the new one. A scene that had gone green on the old needle would have gone green by
+    /// deleting the lifetime, which is a different component.
+    #[test]
+    fn the_needle_the_red_scene_carried_could_not_have_matched_a_component_that_opens_an_overlay() {
+        let path = std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/src/input.rs"));
+        let source = std::fs::read_to_string(&path).expect("the crate can read its own source");
         assert!(
-            panicked.is_err(),
-            "a scene with no subject does not stand up"
+            !crate::dense::declares(&source, NEEDLE_WHILE_RED),
+            "`select` is declared without a lifetime parameter, so its popup cannot be capturing \
+             the caller's state and §12's `&'f mut` is gone"
+        );
+        assert!(crate::dense::declares(&source, DECLARATIONS[0].1));
+        // And the two needles are one character apart, so the difference really is the annotation.
+        assert!(
+            DECLARATIONS[0]
+                .1
+                .starts_with(&NEEDLE_WHILE_RED[..NEEDLE_WHILE_RED.len() - 1])
         );
     }
 
@@ -2160,7 +2378,7 @@ mod tests {
         assert!(message.contains("components 26"), "{message}");
         assert!(message.contains("src/input.rs"), "{message}");
         assert!(message.contains("src/overlay.rs"), "{message}");
-        assert!(message.contains("pub fn select("), "{message}");
+        assert!(message.contains("pub fn select<'f>("), "{message}");
         assert!(message.contains("2 of 318"), "{message}");
 
         // The other direction: with both declared there is no message at all.
@@ -2212,8 +2430,11 @@ mod tests {
             );
         }
 
-        // `select` declares two of the four axes and `overlay` none, which is why scene 14 claims
-        // `(select, scrolled)` and `(select, wheeled)` and no pair for `overlay` — see `crate::scenes`.
+        // **`select` declares two of the four axes and `overlay` none, and scene 14 claims neither**
+        // — its `covers` is empty, so O5 is unmoved by this ticket. That is O5's own distinction and
+        // not an omission: this screen plays no wheel and no scroll, and what does play a real notch
+        // over the shipped component is a *gate* (`crate::overlay::wheeled`). **Building a component
+        // cannot move O5; only a scene can.**
         let select = crate::INVENTORY
             .iter()
             .find(|c| c.id == "select")

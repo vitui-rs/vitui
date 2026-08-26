@@ -23,13 +23,18 @@
 //! which removes the reason and not the code. Whether the signature goes back to §1's own spelling
 //! is components architecture issue 17, and it is not decided in this file.
 
-use vitui_runtime::keys::{Code, Edge};
+use vitui_runtime::keys::{Code, Edge, Pressed};
 use vitui_runtime::layout::text::{truncate, width};
-use vitui_runtime::{Ctx, CursorShape, Interest, Response, Role};
+use vitui_runtime::overlay::{OverlayOpts, Placement, Z};
+use vitui_runtime::{Ctx, CursorShape, Glyph, Id, Interest, Response, Role};
 
+use crate::collect::{CollOpts, CollState, Mode, collection_chorded};
 use crate::edit::{Text, WrapKind};
+use crate::frame::{Face, face_paint};
 use crate::ink::{Direct, Ink};
 use crate::keys;
+use crate::order::Rows;
+use crate::overlay::{Blur, MARK, PopupState, ShellOpts, overlay_with, popup_size};
 use crate::state::Faces;
 use crate::text::{ChipOpts, Justify, chip_drawn};
 use vitui_runtime::Rect;
@@ -808,7 +813,856 @@ fn declare_per_cluster(cx: &mut Ctx<'_, '_>, st: &Text, area: Rect, opts: &Field
     }
 }
 
-/// **The two spellings of `field` that are refused, kept runnable.**
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+// `select` — the owner of a popup, and the second half of §12's two structs
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+
+/// **What the owner owns and the body never writes.**
+///
+/// §12's first half of *two structs, one writer each*: this is written only by `select`, from its own
+/// input and from the inbox, and [`PopupState`] is written only by the body. Nothing has two writers,
+/// which is §7's goal reached one family over.
+///
+/// **It is `Copy` and [`PopupState`] is not**, and the asymmetry is the mechanism: this crosses the
+/// base pass by value, and the body's state crosses the *frame* by `&'f mut`. See
+/// [`WhyThePopupIsRequestedLast`].
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct SelectState {
+    /// Whether the popup is standing. **The owner's, and the only thing that requests a layer** —
+    /// the census is over the request, so this going false is
+    /// [`Dismissal::OwnerStopped`](crate::overlay::Dismissal::OwnerStopped).
+    open: bool,
+    /// Which option is chosen, as an index into the caller's list.
+    chosen: usize,
+    /// **Whether the popup has held the keyboard during *this* opening.** The latch a blur clause
+    /// needs, and it lives here rather than on [`PopupState`] because **the owner is the only thing
+    /// that knows an opening has begun**: [`SelectState::open`] clears it, and an application calling
+    /// that verb directly gets the same clearing as a keystroke does.
+    ///
+    /// Derived from what the body reports and written only here, so §12's one-writer rule is
+    /// untouched: the body says *the focus is inside me* and the owner remembers that it once did.
+    seated: bool,
+}
+
+impl SelectState {
+    /// Shut, on the first option.
+    #[must_use]
+    pub const fn new() -> SelectState {
+        SelectState {
+            open: false,
+            chosen: 0,
+            seated: false,
+        }
+    }
+
+    /// Shut, on `chosen`.
+    #[must_use]
+    pub const fn at(chosen: usize) -> SelectState {
+        SelectState {
+            open: false,
+            chosen,
+            seated: false,
+        }
+    }
+
+    /// Which option is chosen.
+    #[must_use]
+    pub const fn chosen(&self) -> usize {
+        self.chosen
+    }
+
+    /// Whether the popup is standing.
+    #[must_use]
+    pub const fn is_open(&self) -> bool {
+        self.open
+    }
+
+    /// **Whether the popup has held the keyboard during this opening.**
+    #[must_use]
+    pub const fn seated(&self) -> bool {
+        self.seated
+    }
+
+    /// **Open it.** An application's own gesture — a `Ctrl+Space`, a toolbar button — reaches the
+    /// popup this way rather than by faking a click.
+    ///
+    /// It clears the keyboard latch, and that is what makes a popup **reopenable after a blur**: the
+    /// body's last report is still *the focus is not inside me*, and without the clearing the blur
+    /// clause fires on the frame after the reopening, before the body has had a frame to hand the
+    /// keyboard over.
+    pub const fn open(&mut self) {
+        self.open = true;
+        self.seated = false;
+    }
+
+    /// **Shut it**, which stops the request, which is what dismisses the layer.
+    pub const fn close(&mut self) {
+        self.open = false;
+        self.seated = false;
+    }
+}
+
+/// **Where a popup's size comes from. Three spellings, and two of them are §12's.**
+///
+/// One field rather than a boolean in a signature, so a reviewer's diff between the shipped build
+/// and either refused one is a single line — [`crate::disclose`]'s arrangement one family over.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum Sizing {
+    /// **The rule.** [`popup_size`] over the options and the room the screen has, so the height is
+    /// capped and the body's [`gutter`](crate::overlay::gutter) turns *off the bottom* into *scrollable*.
+    #[default]
+    ToTheRoom,
+    /// **The defect §12 prices at one unreachable row of four.** Sized to the content, uncapped.
+    /// [`place`](vitui_runtime::overlay::place) clamps a position and never a size, so a popup taller
+    /// than the screen hangs off the bottom edge at its stated size, [`gutter`](crate::overlay::gutter) sees as many rows as
+    /// it has content and says *no bar*, and the rows past the edge are drawn, clipped, and reachable
+    /// by nothing.
+    ToTheContent,
+    /// **The defect §12 leads with.** Sized from the drawn extent the body reported last time it
+    /// ran. A popup has no frame before the one it opens on, so the extent is zero, so it is granted
+    /// zero rows, so it draws nothing, so the extent is zero: granted
+    /// [`SPEC_GRANTED_FROM_EXTENT`](crate::overlay::SPEC_GRANTED_FROM_EXTENT) against
+    /// [`SPEC_GRANTED`](crate::overlay::SPEC_GRANTED), for ever.
+    FromTheDrawnExtent,
+}
+
+impl Sizing {
+    /// All three, in the order the enum argues them.
+    pub const ALL: [Sizing; 3] = [
+        Sizing::ToTheRoom,
+        Sizing::ToTheContent,
+        Sizing::FromTheDrawnExtent,
+    ];
+
+    /// The word a report prints it under.
+    pub const fn word(self) -> &'static str {
+        match self {
+            Sizing::ToTheRoom => "to the room",
+            Sizing::ToTheContent => "to the content",
+            Sizing::FromTheDrawnExtent => "from the drawn extent",
+        }
+    }
+}
+
+/// [`select`]'s options. Spec §1's rule 3: a `Default` struct, never a required builder.
+///
+/// **`Copy`, and that is load-bearing**: the popup body captures the options *by value*, so a
+/// `&'f Self` would be a second `'f` borrow at every call site for no reason.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct SelectOpts {
+    /// What the shut widget is interested in.
+    pub interest: Interest,
+    /// The faces the shut widget wears. [`crate::state::press`] reads `hover` once.
+    pub faces: Faces,
+    /// Where the popup lands against the widget.
+    pub placement: Placement,
+    /// The band the popup's layer sorts into. [`Z::MENU`] by default; a `select` inside a modal is
+    /// nested and takes its parent's band plus [`Z::NESTED`] whatever this says.
+    pub z: i32,
+    /// How many rows one type-ahead keystroke inside the popup may look at.
+    pub search: usize,
+}
+
+impl Default for SelectOpts {
+    fn default() -> SelectOpts {
+        SelectOpts {
+            interest: Interest::CLICK.with(Interest::HOVER).with(Interest::FOCUS),
+            faces: Faces::default(),
+            placement: Placement::BELOW,
+            z: Z::MENU,
+            search: crate::collect::SEARCH_BUDGET,
+        }
+    }
+}
+
+/// **The key the refused catcher layer is minted under, off the `select`'s own id.**
+///
+/// Spelled rather than minted from a call site because a `select` requests two layers on that arm and
+/// one owner is one layer: shared, the second is inert and `Frame::overlays_merged` counts it.
+pub(crate) const CATCHER_KEY: u64 = 2;
+
+/// **Why the popup is requested last, and why that is a borrow error rather than a comment.**
+///
+/// The body holds `&'f mut PopupState`, and `'f` is the frame call's: the queue holds the body until
+/// the satisfy pass, so the borrow lives exactly that long. A caller that reads its own popup state
+/// after handing it to [`select`] therefore fails — and **the diagnostic never mentions the
+/// overlay**. It arrives at the caller, one level away, on the next ordinary read.
+///
+/// # The hostile half
+///
+/// **Protects:** [`select`] and [`PopupState`], written
+/// `vitui_components::input::select` and `vitui_components::overlay::PopupState` at the paths the
+/// twin uses. The failure is the caller's read, not the call.
+///
+/// ```compile_fail,E0502
+/// use vitui_components::input::{SelectState, select};
+/// use vitui_components::overlay::PopupState;
+/// use vitui_runtime::ctx::Driver;
+///
+/// static OPTIONS: [&str; 2] = ["name", "size"];
+///
+/// fn main() {
+///     let mut driver = Driver::headless(40, 12).expect("a sink attaches");
+///     let mut st = SelectState::new();
+///     let mut popup = PopupState::new();
+///     driver.frame(|cx| {
+///         let area = cx.area();
+///         let _ = select(cx, area, &mut st, &mut popup, &OPTIONS);
+///         // The body still holds it, so this is `E0502` — and nothing in the message says
+///         // "overlay".
+///         let _ = popup.granted();
+///     });
+/// }
+/// ```
+///
+/// and the twin that names both items by path and does the same thing in the order that works:
+/// **read it before the request, never after.**
+///
+/// ```
+/// use vitui_components::input::{SelectState, select};
+/// use vitui_components::overlay::PopupState;
+/// use vitui_runtime::ctx::Driver;
+///
+/// static OPTIONS: [&str; 2] = ["name", "size"];
+///
+/// let mut driver = Driver::headless(40, 12).expect("a sink attaches");
+/// let mut st: SelectState = SelectState::new();
+/// let mut popup: PopupState = PopupState::new();
+/// driver.frame(|cx| {
+///     let area = cx.area();
+///     // Read first. The granted size is last frame's, which is what it is for.
+///     let _ = popup.granted();
+///     let _ = select(cx, area, &mut st, &mut popup, &OPTIONS);
+/// });
+/// ```
+#[cfg(doc)]
+pub struct WhyThePopupIsRequestedLast;
+
+/// **`select` — a shut face, and a popup that is the owner's.**
+///
+/// Spec §1's shape, with the one cost §1 records: **an overlay costs two lifetime annotations**, and
+/// this is the component §1 measured them on. `popup` and `options` are `'f` because the body
+/// captures them and a body is `+ 'f`.
+///
+/// # The three parties of the rectangle
+///
+/// The **anchor** is `area`, this component's own, in its own coordinates, during its own call. The
+/// **size** comes from [`popup_size`] — a sizing function beside the component, no draw context. The
+/// **placement** is the runtime's. The component never hears what it was granted; the *body* does,
+/// through `cx.area()`, and that is the only place it is knowable.
+///
+/// # The choice comes home through the inbox
+///
+/// The body cannot assign to [`SelectState`]: it does not have one, and it could not be given one,
+/// because the owner is still holding it when the body runs. It writes [`PopupState`]'s answer slot
+/// and this function takes it **at the top of the frame after**. That is the whole reason there are
+/// two structs.
+///
+/// # Dismissal, and the one that needs a position
+///
+/// `Esc` and a choice are the body's, and arrive through the inbox. Shutting `open` is
+/// [`Dismissal::OwnerStopped`](crate::overlay::Dismissal::OwnerStopped) — the census is over the request, so a layer nobody asked for is
+/// gone. And blur is qualified by a **position**: `begin` hands out an optimistic focus a frame
+/// before the body can speak, so `focus_left` alone dismisses a popup the pointer is standing on.
+/// [`PopupState::over`] is the qualification, and it is a hover and never a press.
+///
+/// ```
+/// use vitui_components::input::{SelectState, select};
+/// use vitui_components::overlay::PopupState;
+/// use vitui_runtime::ctx::Driver;
+/// use vitui_runtime::Rect;
+///
+/// static OPTIONS: [&str; 3] = ["name", "date modified", "size"];
+///
+/// let mut driver = Driver::headless(40, 12).expect("a sink attaches");
+/// let mut st = SelectState::at(2);
+/// let mut popup = PopupState::new();
+///
+/// // Shut: one hit entry, one tab stop, and no layer at all.
+/// driver.frame(|cx| {
+///     let _ = select(cx, Rect::new(0, 0, 20, 1), &mut st, &mut popup, &OPTIONS);
+/// });
+/// assert_eq!(driver.inspect().hits().len(), 1);
+/// assert_eq!(driver.inspect().overlays_placed(), 0);
+///
+/// // Open: the owner's entry, the popup's blur position, and the collection's — three, one layer.
+/// st.open();
+/// driver.frame(|cx| {
+///     let _ = select(cx, Rect::new(0, 0, 20, 1), &mut st, &mut popup, &OPTIONS);
+/// });
+/// assert_eq!(driver.inspect().overlays_placed(), 1);
+/// assert_eq!(driver.inspect().overlays_merged(), 0);
+/// // The body reported what it was granted: as wide as the widget, three options tall — never zero.
+/// assert_eq!(popup.granted(), (20, 3));
+/// ```
+#[track_caller]
+pub fn select<'f>(
+    cx: &mut Ctx<'f, '_>,
+    area: Rect,
+    st: &mut SelectState,
+    popup: &'f mut PopupState,
+    options: &'f [&'f str],
+) -> Response {
+    select_with(cx, area, st, popup, options, &SelectOpts::default())
+}
+
+/// [`select`], with the options spelled out.
+#[track_caller]
+pub fn select_with<'f>(
+    cx: &mut Ctx<'f, '_>,
+    area: Rect,
+    st: &mut SelectState,
+    popup: &'f mut PopupState,
+    options: &'f [&'f str],
+    opts: &SelectOpts,
+) -> Response {
+    let id = cx.id();
+    select_into(&mut Direct, cx, id, area, st, popup, options, opts)
+}
+
+/// **[`select`], drawing its shut face through an [`Ink`] and under an id its caller minted.**
+///
+/// The entry point a gate takes; [`select`] is this with [`Direct`].
+///
+/// # The popup's body draws through [`Direct`] and not through `ink`
+///
+/// A body is `FnMut(&mut Ctx<'f, '_>) + 'f`, so a `&mut I` borrowed for this call cannot travel into
+/// one. That is not a hole in the seam: a body's `Ctx` is rooted at its own layer, so its writes are
+/// in a different coordinate system from the base pass's and a [`Tally`](crate::counters::Tally) that
+/// saw both would union two grids — the collision [`crate::frame`] measures at 124 false double
+/// writes. The counters an overlay actually moves are the frame's, and those are read from the frame.
+#[track_caller]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the component's own six — a context, an id, a rectangle, the owner's state, the \
+              body's state and the option list — plus the options and the `Ink` seam's writer. \
+              Folding the first six into a parameter struct would invent a type that exists only \
+              to satisfy a lint, and the two states cannot be folded together at all: that is \
+              §12's finding"
+)]
+pub fn select_into<'f, I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'f, '_>,
+    id: Id,
+    area: Rect,
+    st: &mut SelectState,
+    popup: &'f mut PopupState,
+    options: &'f [&'f str],
+    opts: &SelectOpts,
+) -> Response {
+    select_shaped(
+        ink,
+        cx,
+        id,
+        area,
+        st,
+        popup,
+        options,
+        opts,
+        SelectShape::default(),
+    )
+}
+
+/// **The four axes `select` and its body can be false on that are not on [`SelectOpts`]**, as one
+/// value.
+///
+/// One struct rather than four booleans in a signature, so a reviewer's diff between the shipped
+/// build and any refused one is a single line — [`crate::disclose`]'s arrangement one family over,
+/// and its reason: the diff a reviewer would have to catch is the diff the register can point at.
+///
+/// **`Copy`, because the body captures it.** Every arm below has to reach the popup, and the popup is
+/// a closure that outlives the base pass.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub(crate) struct SelectShape {
+    /// Where the popup's size comes from.
+    pub(crate) sizing: Sizing,
+    /// Whether the popup fills its rectangle before it writes its rows.
+    pub(crate) fill: Fill,
+    /// Whether the popup declares one entry for its collection or one a row.
+    pub(crate) regions: PopupRegions,
+    /// What a popup with no height does.
+    pub(crate) closed: Closed,
+    /// What the body holds its list position in.
+    pub(crate) holds: Holds,
+    /// How the owner qualifies a blur.
+    pub(crate) blur: Blur,
+}
+
+/// **What an overlay body holds its list position in.**
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum Holds {
+    /// **The rule.** `&'f mut PopupState` — the caller's own storage, borrowed for the frame.
+    #[default]
+    ByMutRef,
+    /// **The defect.** A `Copy` of the offset, captured by value at request time. The body writes
+    /// into a value that dies with the frame, so the owner hands it the same number again next frame:
+    /// [`crate::popup::WHEEL_CLICKS`] notches move the offset **0**, and the screen is identical
+    /// while it happens.
+    CopyOfTheOffset,
+}
+
+/// **In what order a popup writes its rectangle.**
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum Fill {
+    /// **The rule.** Each row is a partition of its own width, written once, through
+    /// [`Ink::pad_to`].
+    #[default]
+    TextFirst,
+    /// **The defect.** A fill over the whole rectangle before a single row is written, so every
+    /// non-blank cell the rows then write is written twice and re-damaged for as long as the popup
+    /// stands: [`crate::popup::FILL_FIRST`] cells a frame.
+    FillFirst,
+}
+
+/// **How many hit entries a popup's list declares.**
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum PopupRegions {
+    /// **The rule**, and it is §5's: one entry for the collection, however many rows it has.
+    #[default]
+    Collection,
+    /// **The defect.** One entry and one tab stop a row —
+    /// [`crate::popup::PER_ROW_ENTRIES`] of each where the rule spends one.
+    PerRow,
+}
+
+/// **What a popup granted no height does.**
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum Closed {
+    /// **The rule.** [`overlay`](crate::overlay::overlay) returns inert on an empty rectangle and the
+    /// body is never reached, so nothing is declared: §8's *closed content is not drawn*, one family
+    /// over.
+    #[default]
+    Skip,
+    /// **The defect.** The body declares before it looks at what it was granted, so a popup at
+    /// `h = 0` still spends its entries and its stops — [`crate::popup::CLOSED_DECLARES`].
+    Declare,
+}
+
+/// The component, with the four refused spellings threaded in.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the shipped signature plus the one value that carries every refused spelling, so the \
+              arms are one call apart"
+)]
+fn select_shaped<'f, I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'f, '_>,
+    id: Id,
+    area: Rect,
+    st: &mut SelectState,
+    popup: &'f mut PopupState,
+    options: &'f [&'f str],
+    opts: &SelectOpts,
+    shape: SelectShape,
+) -> Response {
+    if area.is_empty() {
+        return Response::inert(id, area);
+    }
+
+    // **The inbox, taken first.** The body wrote it on the frame before and this is the only place
+    // it is read, which is what makes `SelectState` single-writer. Taking it is the dismissal:
+    // `Dismissal::Chose` and `Dismissal::Escape` both arrive here, and the difference between them
+    // is whether there is an index in the slot.
+    if let Some(chosen) = popup.take() {
+        st.chosen = chosen.min(options.len().saturating_sub(1));
+        st.close();
+        // **On the way out the owner refocuses itself** (§12) — one id it already has, so no id
+        // belonging to anybody else is named. It has to: the keyboard is on a list id minted inside a
+        // body that will not run again, so left alone the **vanish rule** picks a ring neighbour. On a
+        // screen with one widget that is invisible; on a screen with two it is the *other* `select`,
+        // which is how this line came to be missing and then found.
+        cx.focus(id);
+    }
+
+    let resp = cx.interact(id, area, opts.interest);
+
+    // **The shut face**, one role read once. `press` declares the hover award from the same local it
+    // returns, so the face drawn and the face awarded are one expression evaluated once.
+    let role = crate::state::press_into(ink, cx, area, &resp, &opts.faces);
+    let paint = cx.theme().paint(role);
+    // **The chevron pair is `ArrowDown`/`ArrowRight`**, which is the same family as the popup's
+    // steppers — §16's reason for four arrow ends and not eight.
+    let chevron = cx.theme().glyph(if st.is_open() {
+        Glyph::ArrowDown
+    } else {
+        Glyph::ArrowRight
+    });
+    let label = options.get(st.chosen).copied().unwrap_or("");
+    // **The row is a partition of its width**: the chevron and its space, then the label padded out
+    // to the end. `pad_to` and not `text` then `run`, so `verbs` cannot separate a full row from a
+    // short one — `crate::ink`'s fourth verb and its reason.
+    //
+    // **And the pad stops where the ellipsis starts.** `glyphs::elide` has already reserved the
+    // marker's cell, so padding to the whole width and then writing the marker over the pad's last
+    // cell writes that cell **twice** — one cell of every truncated `select`, invisible on the screen
+    // and invisible to every counter but the pair. That was in the first draft of this file, and
+    // `overlay::tests::a_shut_selects_face_is_a_partition_of_its_rectangle_at_every_width` is what
+    // caught it.
+    let room = area.w.saturating_sub(MARK);
+    let (shown, tail) = crate::glyphs::elide(cx.theme(), label, room);
+    let ell = width(tail);
+    let _ = ink.text(cx, area.x, area.y, chevron, paint);
+    let _ = ink.text(cx, area.x + 1, area.y, " ", paint);
+    let _ = ink.pad_to(
+        cx,
+        area.x + i32::from(MARK),
+        area.y,
+        shown,
+        room.saturating_sub(ell),
+        paint,
+    );
+    if ell > 0 {
+        let _ = ink.text(
+            cx,
+            area.x + i32::from(MARK) + i32::from(room.saturating_sub(ell)),
+            area.y,
+            tail,
+            paint,
+        );
+    }
+
+    // **A click on the shut face opens it and takes the focus**; a click on the open face shuts it,
+    // which is the same gesture and the same one bool.
+    if resp.clicked {
+        cx.focus(id);
+        if st.is_open() {
+            st.close();
+        } else {
+            st.open();
+        }
+    }
+
+    // **The owner's keys, in one drain loop, and only while it is shut.** Open, the focus is inside
+    // the popup — the trap-less equivalent of a modal — and `next_key` answers nobody else.
+    while let Some(k) = cx.next_key(id) {
+        if k.kind == Edge::Release {
+            continue;
+        }
+        match k.code {
+            Code::Enter | Code::Char(' ') | Code::Down => st.open(),
+            // **`Esc` only while it is open**, and the guard is not tidiness: a shut widget that
+            // consumes `Esc` takes it away from the application, and an application whose quit key
+            // is `Esc` then has none — with nothing on screen to say so. Found by running the
+            // application: `Esc` did not quit `console` and no popup was up. Declined instead, it
+            // reaches `Driver::unhandled` like any key nobody wanted.
+            Code::Escape if st.is_open() => st.close(),
+            _ => {
+                cx.decline(k);
+                break;
+            }
+        }
+    }
+
+    // **The latch, moved forward by what the body reported.** The owner remembers that its popup once
+    // held the keyboard; `SelectState::open` clears it, which is what makes a popup reopenable after a
+    // blur — the body's last report is still *the focus is not inside me*, and without the clearing
+    // the clause below fires on the frame after the reopening, before the body has had a frame to hand
+    // the keyboard over. `open` is the owner's own verb, so an application that opens the popup
+    // directly gets the same clearing a keystroke does.
+    if st.is_open() && popup.inside() {
+        st.seated = true;
+    }
+
+    // **What a blur is, from the owner's side, is `seated && !inside && !over`** — and
+    // `Response::focus_left` is not in it. That is this ticket's application talking: the moment the
+    // popup takes the keyboard the owner no longer holds the focus, so it has none to *lose*, and a
+    // clause built on the owner's `focus_left` either never fires or fires on the handover itself.
+    // §12's *`focus_left` is what an outside click already produces* is true of the **popup's** id
+    // and not of its owner's.
+    //
+    // `seated` is the latch that makes it safe on the frame the popup opens: before the body has run,
+    // `inside` is false for the same reason `granted` is `(0, 0)` — nothing has happened yet — and a
+    // rule reading `!inside` alone would dismiss every popup on the frame it opened.
+    if st.is_open() && st.seated() {
+        // **A focus that is still inside the popup is not a blur**, and the arm that forgets this
+        // clause is the defect the application found: handing the keyboard to the list reads as the
+        // user tabbing away, so the popup dismisses itself on the very next frame with the arrows
+        // dead and nothing on screen having gone wrong.
+        let handover = match shape.blur {
+            Blur::Position | Blur::Press | Blur::Catcher => popup.inside(),
+            Blur::PositionAlone => false,
+        };
+        let qualified = !handover
+            && match shape.blur {
+                // **The rule**: the position the body reported on the frame it last ran. The catcher
+                // qualifies the same way — it exists to make the outside press *explicit*, not to
+                // change what a blur means, and what it costs is the press it swallows.
+                Blur::Position | Blur::Catcher | Blur::PositionAlone => !popup.over(),
+                // **The defect**: a press. `begin`'s optimistic focus arrives a frame ahead of the
+                // body, so on the frame that matters there is no press to read and the popup
+                // dismisses itself out from under a pointer that is standing on it.
+                Blur::Press => !resp.clicked,
+            };
+        if qualified {
+            st.close();
+        }
+    }
+
+    // **The request is last, and it has to be**: `popup` moves into the body here, and every read
+    // above it is a read the borrow checker has already allowed. Written anywhere but last this is
+    // `E0502` at the caller — see `WhyThePopupIsRequestedLast`.
+    if st.is_open() {
+        let room = cx.size();
+        let size = match shape.sizing {
+            Sizing::ToTheRoom => popup_size(options, room),
+            Sizing::ToTheContent => (
+                popup_size(options, (room.0, u16::MAX)).0,
+                u16::try_from(options.len()).unwrap_or(u16::MAX),
+            ),
+            Sizing::FromTheDrawnExtent => {
+                (popup_size(options, (room.0, u16::MAX)).0, popup.granted().1)
+            }
+        };
+        // **At least as wide as the widget it drops from**, which is the component's and not the
+        // sizing function's: a sizing function sees the data and the room and never the anchor, and a
+        // popup narrower than the thing it dropped out of reads as a different widget. Capped by the
+        // room for `popup_size`'s reason.
+        let size = (size.0.max(area.w).min(room.0), size.1);
+        let chosen = st.chosen;
+        let search = opts.search;
+        // **The refused catcher**, and it is a whole second layer: the screen's worth of cells, one
+        // entry over all of them, and the press it reports is a press the widget beneath does not
+        // get. `Ctx::area` inside a popup's own body is the popup, so this cannot live in the shell
+        // — a catcher is the *owner's* second request or it is nothing.
+        if shape.blur == Blur::Catcher {
+            let screen = cx.area();
+            cx.overlay(
+                Id::keyed(id, CATCHER_KEY),
+                screen,
+                OverlayOpts {
+                    z: opts.z - 1,
+                    placement: Placement::UNDER,
+                    ..OverlayOpts::sized(room.0, room.1)
+                },
+                |cx| {
+                    let a = cx.area();
+                    let catcher = cx.id();
+                    let _ = cx.interact(catcher, a, Interest::CLICK.with(Interest::HOVER));
+                },
+            );
+        }
+        let carried = popup.list.offset;
+        cx.overlay(
+            id,
+            area,
+            OverlayOpts {
+                z: opts.z,
+                placement: opts.placement,
+                ..OverlayOpts::sized(size.0, size.1)
+            },
+            move |cx| popup_body(cx, popup, options, chosen, search, shape, carried, id),
+        );
+    }
+
+    resp
+}
+
+/// **The popup's body: the shell, then §5's collection over the option list.**
+///
+/// The one function every arm of the family goes through, so a gate playing a refused spelling is
+/// playing the shipped drawing path with one field of [`SelectShape`] changed.
+///
+/// It writes [`PopupState`] and nothing else writes it. Two things are reported rather than asked for
+/// — what it was granted, and whether the pointer was over it — because both are facts only the body
+/// can know and the owner needs one frame later.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the body's own five, the shape, the offset the refused `Holds` arm carries by value, \
+              and the owner's id — which it needs in order to hand the keyboard over exactly once. \
+              The extras exist so the refused arms are one field apart rather than two bodies"
+)]
+fn popup_body(
+    cx: &mut Ctx<'_, '_>,
+    popup: &mut PopupState,
+    options: &[&str],
+    chosen: usize,
+    search: usize,
+    shape: SelectShape,
+    carried: i32,
+    owner: Id,
+) {
+    let area = cx.area();
+    let rows = u32::try_from(options.len()).unwrap_or(u32::MAX);
+    let mut answer = None;
+    let mut inside = false;
+
+    // **The defect that declares before it looks.** `overlay` returns inert on an empty rectangle,
+    // so the shipped arm below is never reached at `h = 0` and nothing is spent; this one spends the
+    // entries first and looks afterwards. Both arms then fall through to the shell, which is what
+    // makes the difference one branch rather than two bodies.
+    if shape.closed == Closed::Declare {
+        // **`cx.id()` and not a named root**, and the difference is §12's own sentence arriving
+        // inside a body: two `select`s standing at once are two overlays whose bodies are one
+        // function, so a named root gives both popups the same ids, `Ctx::interact` makes the
+        // second claim **inert**, and the frame reports one popup's worth of entries where two
+        // declared. Here the id stack is rooted at the *owner*, so one source line mints two ids.
+        let blur = cx.id();
+        let _ = cx.interact(blur, area, Interest::HOVER);
+        let list = cx.id();
+        let _ = cx.interact(list, area, Interest::CLICK.with(Interest::FOCUS));
+    }
+
+    let shell = overlay_with(
+        cx,
+        area,
+        rows,
+        &ShellOpts::default(),
+        &mut |cx, interior| {
+            // **The refused fill**, before a single row is written. Every non-blank cell the rows then
+            // write is written twice and re-damaged for as long as the popup stands.
+            if shape.fill == Fill::FillFirst {
+                let paint = cx.theme().paint(Role::Body);
+                let mut ink = Direct;
+                for row in 0..interior.h {
+                    let _ = ink.run(
+                        cx,
+                        interior.x,
+                        interior.y + i32::from(row),
+                        " ",
+                        interior.w,
+                        paint,
+                    );
+                }
+            }
+            // **The refused region spelling**: one entry and one stop a row, where §5 spends one for the
+            // whole collection. The rows are still drawn by the collection below, so the two arms draw
+            // exactly the same cells and only the counts differ.
+            if shape.regions == PopupRegions::PerRow {
+                // Rooted at `cx.id()` for the reason above, then keyed per row: one entry and one stop
+                // a row, **on top of** the entry the collection below declares for all of them.
+                let root = cx.id();
+                for i in 0..interior.h {
+                    let r = Rect::new(interior.x, interior.y + i32::from(i), interior.w, 1);
+                    let _ = cx.interact(
+                        Id::keyed(root, u64::from(i)),
+                        r,
+                        Interest::CLICK.with(Interest::FOCUS),
+                    );
+                }
+            }
+            let opts = CollOpts {
+                mode: Mode::Single,
+                search,
+                tail: Role::Body,
+            };
+            // **First refusal, inside the one drain loop.** `Ctx::decline` hands a key back *and ends the
+            // level's turn at the queue*, so a popup that read `Enter` before the collection would leave
+            // it nothing and one that read it after would find the queue closed. `Esc` and `Enter` are
+            // the popup's two, and `crate::nav::step` owns the rest.
+            let mut mine = |k: &Pressed, cursor: usize| match k.code {
+                Code::Enter => {
+                    answer = Some(cursor);
+                    true
+                }
+                Code::Escape => {
+                    answer = Some(chosen);
+                    true
+                }
+                _ => false,
+            };
+            let filled = shape.fill == Fill::FillFirst;
+            // **What the list position lives in.** The shipped arm hands the collection the caller's own
+            // store; the refused one hands it a scratch seeded from a `Copy` of the offset, which the
+            // wheel then moves and the frame then drops.
+            let mut scratch = CollState::new();
+            scratch.offset = carried;
+            let list = if shape.holds == Holds::ByMutRef {
+                &mut popup.list
+            } else {
+                &mut scratch
+            };
+            let list_resp = collection_chorded(
+                &mut Direct,
+                cx,
+                interior,
+                list,
+                &opts,
+                Rows::of(options.len()),
+                |buf, range: core::ops::Range<usize>| {
+                    range.into_iter().find(|&i| options[i].starts_with(buf))
+                },
+                |ink: &mut Direct, cx: &mut Ctx<'_, '_>, r: Rect, i: usize, face: Face| {
+                    let paint = face_paint(cx.theme(), face);
+                    let mark = if i == chosen {
+                        cx.theme().glyph(Glyph::Tick)
+                    } else {
+                        " "
+                    };
+                    let room = r.w.saturating_sub(MARK);
+                    let (shown, tail) = crate::glyphs::elide(cx.theme(), options[i], room);
+                    let ell = width(tail);
+                    let head = ink.text(cx, r.x, r.y, mark, paint);
+                    let _ = ink.text(cx, r.x + i32::from(head), r.y, " ", paint);
+                    // **`pad_to` and not `text` then `run`.** A row is a partition of its width, and
+                    // written as two verbs the counter separates a full row from a short one — which
+                    // on the fill-first arm reports the *defect* as cheaper. Under a fill the pad has
+                    // already been written, so the row writes its glyphs and nothing else.
+                    //
+                    // **And the pad stops where the ellipsis starts**, or the last cell of a
+                    // truncated row is written twice — §2, on the one cell nobody looks at.
+                    let body = room.saturating_sub(ell);
+                    if filled {
+                        let _ = ink.text(cx, r.x + i32::from(MARK), r.y, shown, paint);
+                    } else {
+                        let _ = ink.pad_to(cx, r.x + i32::from(MARK), r.y, shown, body, paint);
+                    }
+                    if ell > 0 {
+                        let _ = ink.text(
+                            cx,
+                            r.x + i32::from(MARK) + i32::from(body),
+                            r.y,
+                            tail,
+                            paint,
+                        );
+                    }
+                },
+                &mut mine,
+            );
+            // **A click on a row is a choice**, and it is the collection's own press edge rather than a
+            // second hit entry per row: §5's *one hit entry per collection* is what keeps the closed
+            // popup at `crate::popup::CLOSED_DECLARES` and not thirteen entries more.
+            //
+            // The **edge** and not `Response::clicked`: a row selects on the press, so by the time a
+            // click has completed the collection has already moved its cursor and a release-driven
+            // choice arrives a frame late.
+            if list.press_edge() {
+                answer = Some(list.sel.lead);
+            }
+            // **The popup takes the keyboard from its owner, exactly once.** `if cx.is_focused(owner)`
+            // and never `if !cx.is_focused(list)`: the second drags the keyboard back every frame the
+            // user has tabbed away, which is architecture issue 25's refused spelling one family over.
+            // The list is what the arrows, the type-ahead and `Esc` are addressed to, and it is seated
+            // a frame before the key it enables — `next_key` answers the *previous* frame's focus.
+            if cx.is_focused(owner) {
+                cx.focus(list_resp.id);
+            }
+            inside = cx.is_focused(list_resp.id);
+        },
+    );
+    // **Reported, never asked for.** A popup sized from this is `(20, 0)` for ever.
+    //
+    // **`local` and not `hovered`**, and §12 says *a position* for exactly this reason:
+    // `Response::hovered` is `hover_guess`, resolved from the **previous** frame's hit index, and the
+    // frame that matters is the one the layer was placed on — the frame the optimistic focus arrives.
+    // `local` is this frame's containment in this widget's own coordinates, computed from the pointer
+    // that travelled down the `Ctx`, and it is exact on the first frame the popup exists.
+    popup.saw((area.w, area.h), shell.response.local.is_some(), inside);
+    if let Some(at) = answer {
+        popup.answer(at);
+        // **A body that answers through the inbox owes the frame that delivers it**, and this line is
+        // the application's second finding. The owner reads the slot at the top of the *next* frame,
+        // and an application parks on `Driver::wait` — so without a wake the choice lands on
+        // whatever input happens next, which for the keystroke that made it means **never**. It is
+        // `Driver::unhandled`'s own finding (C25) one layer over: the two-phase protocol puts the
+        // answer a frame away, and a frame away is only a frame if somebody asks for it.
+        //
+        // Conditional, and that is the whole of why it is not a wake loop: a frame with nothing in
+        // the slot asks for nothing, and the frame that delivers empties it.
+        cx.request_frame();
+    }
+}
+
+/// **Every spelling of `field` and of `select` that is refused, kept runnable.**
 pub mod defective {
     /// **How many regions the widget declares.**
     ///
@@ -838,6 +1692,222 @@ pub mod defective {
         /// **The other defect.** Never, which costs the keyboard: type past the bottom of the
         /// window and the caret is somewhere off screen.
         Never,
+    }
+
+    /// **A `select` whose popup is sized from something other than the room the screen has.**
+    ///
+    /// One argument, three arms, and the two that are not [`Sizing::ToTheRoom`](super::Sizing::ToTheRoom) are §12's:
+    /// [`Sizing::ToTheContent`](super::Sizing::ToTheContent) leaves
+    /// [`SPEC_UNREACHABLE`](crate::overlay::SPEC_UNREACHABLE) of
+    /// [`SHORT_OPTIONS`](crate::overlay::SHORT_OPTIONS) rows reachable by nothing, and
+    /// [`Sizing::FromTheDrawnExtent`](super::Sizing::FromTheDrawnExtent) is granted
+    /// [`SPEC_GRANTED_FROM_EXTENT`](crate::overlay::SPEC_GRANTED_FROM_EXTENT) for ever.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the shipped signature plus the one arm, so the two are one call apart"
+    )]
+    pub fn sized<'f, I: crate::ink::Ink>(
+        ink: &mut I,
+        cx: &mut vitui_runtime::Ctx<'f, '_>,
+        id: vitui_runtime::Id,
+        area: vitui_runtime::Rect,
+        st: &mut super::SelectState,
+        popup: &'f mut crate::overlay::PopupState,
+        options: &'f [&'f str],
+        opts: &super::SelectOpts,
+        sizing: super::Sizing,
+    ) -> vitui_runtime::Response {
+        super::select_shaped(
+            ink,
+            cx,
+            id,
+            area,
+            st,
+            popup,
+            options,
+            opts,
+            super::SelectShape {
+                sizing,
+                ..Default::default()
+            },
+        )
+    }
+
+    /// **A `select` whose body holds its list position in a `Copy` of the offset.**
+    ///
+    /// §7's literal `Copy`-only body, one family over: [`crate::popup::WHEEL_CLICKS`] notches move
+    /// the offset **0**, the screen is identical while it happens, and every counter agrees.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the shipped signature plus the one arm, so the two are one call apart"
+    )]
+    pub fn a_copy_of_the_offset<'f, I: crate::ink::Ink>(
+        ink: &mut I,
+        cx: &mut vitui_runtime::Ctx<'f, '_>,
+        id: vitui_runtime::Id,
+        area: vitui_runtime::Rect,
+        st: &mut super::SelectState,
+        popup: &'f mut crate::overlay::PopupState,
+        options: &'f [&'f str],
+        opts: &super::SelectOpts,
+    ) -> vitui_runtime::Response {
+        super::select_shaped(
+            ink,
+            cx,
+            id,
+            area,
+            st,
+            popup,
+            options,
+            opts,
+            super::SelectShape {
+                holds: super::Holds::CopyOfTheOffset,
+                ..Default::default()
+            },
+        )
+    }
+
+    /// **A `select` that qualifies a blur by something other than a position.**
+    ///
+    /// [`Blur::Position`](crate::overlay::Blur::Position) is the rule;
+    /// [`Blur::Press`](crate::overlay::Blur::Press) asks for an edge that has not happened yet on the
+    /// frame that matters, and [`Blur::Catcher`](crate::overlay::Blur::Catcher) reports it from a
+    /// second layer that swallows it.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the shipped signature plus the one arm, so the two are one call apart"
+    )]
+    pub fn blurred<'f, I: crate::ink::Ink>(
+        ink: &mut I,
+        cx: &mut vitui_runtime::Ctx<'f, '_>,
+        id: vitui_runtime::Id,
+        area: vitui_runtime::Rect,
+        st: &mut super::SelectState,
+        popup: &'f mut crate::overlay::PopupState,
+        options: &'f [&'f str],
+        opts: &super::SelectOpts,
+        blur: crate::overlay::Blur,
+    ) -> vitui_runtime::Response {
+        super::select_shaped(
+            ink,
+            cx,
+            id,
+            area,
+            st,
+            popup,
+            options,
+            opts,
+            super::SelectShape {
+                blur,
+                ..Default::default()
+            },
+        )
+    }
+
+    /// **A `select` whose popup fills its rectangle before it writes a row.**
+    ///
+    /// The cells are identical and one verb a row cheaper; what moves is the re-damage —
+    /// [`crate::popup::FILL_FIRST`] cells on every steady frame the popup stands.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the shipped signature plus the one arm, so the two are one call apart"
+    )]
+    pub fn fill_first<'f, I: crate::ink::Ink>(
+        ink: &mut I,
+        cx: &mut vitui_runtime::Ctx<'f, '_>,
+        id: vitui_runtime::Id,
+        area: vitui_runtime::Rect,
+        st: &mut super::SelectState,
+        popup: &'f mut crate::overlay::PopupState,
+        options: &'f [&'f str],
+        opts: &super::SelectOpts,
+    ) -> vitui_runtime::Response {
+        super::select_shaped(
+            ink,
+            cx,
+            id,
+            area,
+            st,
+            popup,
+            options,
+            opts,
+            super::SelectShape {
+                fill: super::Fill::FillFirst,
+                ..Default::default()
+            },
+        )
+    }
+
+    /// **A `select` whose popup declares one hit entry and one tab stop a row.**
+    ///
+    /// §5's *one hit entry per collection* from the other side:
+    /// [`crate::popup::PER_ROW_ENTRIES`] of each where the rule spends one, over cells that are
+    /// identical.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the shipped signature plus the one arm, so the two are one call apart"
+    )]
+    pub fn per_row<'f, I: crate::ink::Ink>(
+        ink: &mut I,
+        cx: &mut vitui_runtime::Ctx<'f, '_>,
+        id: vitui_runtime::Id,
+        area: vitui_runtime::Rect,
+        st: &mut super::SelectState,
+        popup: &'f mut crate::overlay::PopupState,
+        options: &'f [&'f str],
+        opts: &super::SelectOpts,
+    ) -> vitui_runtime::Response {
+        super::select_shaped(
+            ink,
+            cx,
+            id,
+            area,
+            st,
+            popup,
+            options,
+            opts,
+            super::SelectShape {
+                regions: super::PopupRegions::PerRow,
+                ..Default::default()
+            },
+        )
+    }
+
+    /// **A `select` whose popup declares before it looks at what it was granted.**
+    ///
+    /// Paired with [`Sizing::FromTheDrawnExtent`](super::Sizing::FromTheDrawnExtent) this is §12's
+    /// closed-popup case: `h = 0`, eighty rows of screen identical either way, and
+    /// [`crate::popup::CLOSED_DECLARES`] spent on entries nobody can reach.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the shipped signature plus the one arm, so the two are one call apart"
+    )]
+    pub fn declares_at_zero<'f, I: crate::ink::Ink>(
+        ink: &mut I,
+        cx: &mut vitui_runtime::Ctx<'f, '_>,
+        id: vitui_runtime::Id,
+        area: vitui_runtime::Rect,
+        st: &mut super::SelectState,
+        popup: &'f mut crate::overlay::PopupState,
+        options: &'f [&'f str],
+        opts: &super::SelectOpts,
+        sizing: super::Sizing,
+    ) -> vitui_runtime::Response {
+        super::select_shaped(
+            ink,
+            cx,
+            id,
+            area,
+            st,
+            popup,
+            options,
+            opts,
+            super::SelectShape {
+                sizing,
+                closed: super::Closed::Declare,
+                ..Default::default()
+            },
+        )
     }
 
     /// [`crate::input::field_into`] with the region spelling stated, which is the entry a gate

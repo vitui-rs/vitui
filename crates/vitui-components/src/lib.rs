@@ -214,19 +214,34 @@
 //!   **349 526 of 500 000** back from the round trip under the splice the prototype shipped. Both
 //!   scenes are **red**, both waiting for `tree` (components 17).
 //! - [`popup`] — **the overlay family's screen**: 300x80, 312 chips, two `select`s and a menu bar,
-//!   and §12's five configurations standing on it instead of in a table. **Every `regions` and every
-//!   `stops` figure of that table reproduces exactly** — 317/316, 319/317, 323/322, 319/318 — and
-//!   they are arithmetic rather than measurements, the one region that is not a stop being the menu
-//!   bar itself. Beside them: the trap's named exception at **2 stops visited of 318 declared**,
-//!   which is §21's *name the exception; do not loosen the gate* on the first screen that can run
-//!   it; the opening cliff **counted 30 of 30** rather than timed; the scrim in three spellings at
-//!   600 / 0 / 0 re-damaged and 24 600 / 24 000 / 600 written; **99 flips in 100 frames** for an
-//!   overlay that declares and covers its anchor; **3 of 8 frames** for a dialog owned by the menu
-//!   row that opened it; and three different ids for the three answers to *where does the keyboard
-//!   go when a modal closes*. Its scene is **red**, waiting for `select` and `overlay`
-//!   (components 26). **Two of §12's seven columns contradict the shipped runtime and are asserted
-//!   as measured**: `allocations`, whose zero was the bump arena ADR 0034 deleted, and `content
-//!   layers`, whose 2 / 4 / 3 counted a shadow layer `OverlayOpts` has no field for.
+//!   and §12's five configurations standing on it instead of in a table. It draws through
+//!   [`input::select`] and [`overlay::overlay`] since components 26, so **its scene is up and the
+//!   list has no red row left**. Four of the five `regions`/`stops` pairs reproduce exactly —
+//!   317/316, 319/317, 319/318 — and they are arithmetic rather than measurements, the one region
+//!   that is not a stop being the menu bar itself. Beside them: the trap's named exception at
+//!   **2 stops visited of 318 declared**, which is §21's *name the exception; do not loosen the
+//!   gate* on the first screen that can run it; the opening cliff **counted 30 of 30** rather than
+//!   timed; the scrim in three spellings at 600 / 0 / 0 re-damaged and 24 600 / 24 000 / 600
+//!   written; **99 flips in 100 frames** for an overlay that declares and covers its anchor, and
+//!   **1** for the same rectangle at [`overlay::Kind::Transient`], which is what makes Axis A a
+//!   fact about the kind rather than a warning about placement; **3 of 8 frames** for a dialog
+//!   owned by the menu row that opened it; and three different ids for the three answers to *where
+//!   does the keyboard go when a modal closes*. **Three of §12's seven columns contradict the
+//!   shipped code and are asserted as measured**: `allocations`, whose zero was the bump arena
+//!   ADR 0034 deleted; `content layers`, whose 2 / 4 / 3 counted a shadow layer `OverlayOpts` has
+//!   no field for; and the **menu delta**, 4/2 against §12's 6/6, because §5 collapses a menu into a
+//!   `Mode` of `collection` and a collection declares one hit entry however many rows it has.
+//! - [`overlay`] — **the family, as three kinds on two axes over eight entries** (components 26),
+//!   and the shell every one of them draws inside: the blur position, the reserved bar, the barrier
+//!   and the trap, and **not one cell of the interior**. Modality is one `bool` on the request and
+//!   forces no construction. [`overlay::popup_size`] is the sizing function §12 requires and
+//!   [`overlay::gutter`] the bar decision that moves into the body, in **0 passes against §9's
+//!   `<= 3`** — a popup has no second axis to couple through. Its refusals are priced: a size taken
+//!   from the drawn extent is granted `(20, 0)` **for ever**, one taken from the content leaves
+//!   **1 of 4** rows reachable by nothing, a press-qualified blur dismisses a popup the pointer is
+//!   standing on, a catcher layer **swallows** the press it exists to report, a body holding a
+//!   `Copy` of the offset moves it **0 in 20 notches**, and a modal missing either half of its two
+//!   verbs loses the pointer or the keyboard but never both.
 //!
 //! **And all seven of spec §3's helpers now exist**, which is the first code here that a component
 //! will call rather than be measured by: [`text::fit`] and [`frame::block`] are the two partition

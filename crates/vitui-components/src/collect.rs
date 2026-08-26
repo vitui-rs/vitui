@@ -899,7 +899,7 @@ where
 /// key code and this is a *decision about* one. Two meanings of one word, both carrying
 /// measurements, is the collision `CONTEXT.md` exists to prevent — and it is the one
 /// `crate::collect::Span` did not get out of the way of in time.
-type Refusal<'a> = &'a mut dyn FnMut(&Pressed, usize) -> bool;
+pub(crate) type Refusal<'a> = &'a mut dyn FnMut(&Pressed, usize) -> bool;
 
 /// The hook a collection with no container over it passes: **nothing is anybody else's**.
 fn no_refusal(_: &Pressed, _: usize) -> bool {
@@ -910,13 +910,16 @@ fn no_refusal(_: &Pressed, _: usize) -> bool {
 ///
 /// Crate-private, because the hook is not part of spec §1's component shape: it is the seam one
 /// component reaches another through, and a public one would invite an application to spell a
-/// keyboard for a collection it did not write.
+/// keyboard for a collection it did not write. `pub(crate)` and not module-private since components
+/// ticket 26: [`crate::input::select`]'s popup body is the second container to need the hook and the
+/// first one that is not in this file, and a copy of the drain loop beside it would be a second place
+/// §5's lockstep scan cursor is advanced.
 #[track_caller]
 #[expect(
     clippy::too_many_arguments,
     reason = "`collection_into`'s eight plus the hook. The eight are spec §5's and the ninth is               what makes a container's own keys expressible at all"
 )]
-fn collection_chorded<I, F, R>(
+pub(crate) fn collection_chorded<I, F, R>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
     area: Rect,

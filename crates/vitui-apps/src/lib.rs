@@ -76,7 +76,7 @@ pub struct App {
 /// and the reason is that there is nothing to port: what it demonstrates is *one component and one
 /// `Mode`*, and no other library's tutorial has an equivalent because no other library makes the
 /// claim.
-pub const APPS: [App; 8] = [
+pub const APPS: [App; 9] = [
     App {
         name: "counter",
         what: "A bordered panel, a centred value, and Left/Right/q. The smallest program anybody \
@@ -263,6 +263,35 @@ pub const APPS: [App; 8] = [
         ],
         after: None,
     },
+    App {
+        name: "console",
+        what: "A menu bar, two `select`s and a command palette — one shell and one collection, \
+               differing in a `Kind` and a `Placement`. The status bar prints how many layers the \
+               census keeps alive, what the open popup was granted against what it wants and what \
+               the screen has room for, whether its gutter needs a bar and whether its blur \
+               position can see the pointer, so §12's short-screen case is visible while the \
+               terminal is resized. Four ways out of a popup, and the third — clicking the widget \
+               again — is the one nothing dismissed",
+        uses: &[
+            "input::select_with",
+            "input::SelectState",
+            "overlay::PopupState",
+            "overlay::overlay_with",
+            "overlay::popup_size",
+            "overlay::gutter",
+            "overlay::Kind",
+            "collect::collection",
+            "frame::face_paint",
+            "structure::panel_with",
+            "text::text_with",
+            "layout::rect::split_at_v",
+            "ctx::Ctx::focus",
+            "ctx::Driver::layers_live",
+            "ctx::Driver::unhandled",
+            "ctx::Driver::wait",
+        ],
+        after: None,
+    },
 ];
 
 #[cfg(test)]
@@ -324,9 +353,9 @@ mod tests {
             checked += 1;
         }
         assert_eq!(
-            checked, 6,
-            "triage, ledger, explorer, reader, settings and compose open the window; counter and \
-             latency read their keys through a `KeyMap` instead"
+            checked, 7,
+            "triage, ledger, explorer, reader, settings, compose and console open the window; \
+             counter and latency read their keys through a `KeyMap` instead"
         );
 
         // **The other directions**, or a scanner that has stopped finding `driver.frame(` reports

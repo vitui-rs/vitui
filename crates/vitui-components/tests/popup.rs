@@ -49,16 +49,17 @@ const FRAMES: u32 = 60;
 /// [`popup::opening`]'s subject and not this one.
 fn total(config: Config) -> Allocations {
     let mut driver = vitui_components::runner::driver_at(popup::W, popup::H, Default::default());
+    let mut held = popup::Held::new();
     let mut ink = vitui_components::ink::Direct;
     for _ in 0..2 {
         driver.frame(|cx| {
-            popup::draw_into(&mut ink, cx, config);
+            popup::draw_into(&mut ink, cx, &mut held, config);
         });
     }
     let (_, allocated) = count_allocations(|| {
         for _ in 0..FRAMES {
             driver.frame(|cx| {
-                popup::draw_into(&mut ink, cx, config);
+                popup::draw_into(&mut ink, cx, &mut held, config);
             });
         }
     });
