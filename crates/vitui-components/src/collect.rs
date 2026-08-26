@@ -967,7 +967,7 @@ enum Shape {
 ///
 /// Three arms and not two, because a one-directional gate goes green the moment somebody deletes the
 /// call entirely — which loses the keyboard behaviour instead of fixing the pointer one. See
-/// [`crate::listing::Reveal`], whose three arms these are.
+/// [`crate::wheel::Reveal`], whose three arms these are.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Reveal {
     WhenAsked,
@@ -1151,15 +1151,7 @@ where
                 for y in tail..visible.end {
                     let _ = ink.run(cx, 0, y, " ", area.w, paint);
                 }
-                // **Only when something asked** (`CONTEXT.md`). A press already proves the row was on
-                // screen, so a reveal on a click fights the wheel; `Reveal::EveryFrame` is that build
-                // and it lives in `defective`.
-                let ask = match reveal {
-                    Reveal::WhenAsked => asked.reveal,
-                    Reveal::EveryFrame => true,
-                    Reveal::Never => false,
-                };
-                if ask {
+                if asks_for_a_reveal(reveal, asked.reveal) {
                     let at = i32::try_from(st.sel.lead).unwrap_or(i32::MAX);
                     cx.request_into_view(Rect::new(0, at, area.w, 1));
                 }
@@ -1167,6 +1159,47 @@ where
         });
     });
     resp
+}
+
+/// **Whether this frame asks the enclosing area to bring the cursor's row into view.**
+///
+/// # The rule, and the four resolved tickets that broke it
+///
+/// > It fires only for a keyboard-driven focus move. A press already proves the widget was on
+/// > screen, and an unconditional pull is the list's old bug: it fights the wheel, dragging the
+/// > viewport back to the selection every time the user scrolls away from it.
+/// > (`crates/vitui-runtime/src/scroll.rs`, and `CONTEXT.md` forbids the unconditional form by name)
+///
+/// **Four *resolved* prototype tickets called it on every frame anyway** — four builds, each written
+/// by someone who had read that rule. The pointer then cannot scroll the list at all: twenty wheel
+/// clicks moved the offset **0 against 16**, and nothing else moved, so every counting gate passed
+/// and the defective build looked healthier than the correct one. That is why the reason is here and
+/// not only in the glossary:
+///
+/// > Every obligation this map has stated as a sentence has been broken by someone who had read it.
+///
+/// # The condition, and why it is not `resp.focused` or `resp.clicked`
+///
+/// The one input is [`Handled::reveal`], which the drain loop sets when — and only when — a key moved
+/// the cursor: [`crate::nav::step`], [`ctrl_step`] or a type-ahead [`seek`] that landed. A press is
+/// deliberately not on that list; it already proves the row was on screen, and a reveal on a click
+/// fights the wheel for the rest of the session.
+///
+/// # Three arms, because deleting the call passes half a gate
+///
+/// [`Reveal::EveryFrame`] and [`Reveal::Never`] are [`defective`]'s two arms and neither is
+/// reachable from a caller. They are here rather than in a copy of this function because a gate
+/// written against a copy tests the copy — see [`crate::ink`] — and because they must differ from
+/// the shipped build by **one value**, so that a reviewer's diff is one line. `crate::wheel` fires
+/// all three: `WhenAsked` settles twenty clicks at twenty, `EveryFrame` at zero, and `Never` also at
+/// twenty — which is why the gate cannot be written on the wheel alone. Deleting this call is not a
+/// fix; it loses the keyboard instead of fixing the pointer.
+const fn asks_for_a_reveal(reveal: Reveal, cursor_moved: bool) -> bool {
+    match reveal {
+        Reveal::WhenAsked => cursor_moved,
+        Reveal::EveryFrame => true,
+        Reveal::Never => false,
+    }
 }
 
 /// What one frame's keys did: whether the store changed, and whether anything asked for a reveal.

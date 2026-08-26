@@ -995,6 +995,28 @@ pub struct WhyAnAutoHidingBarNeedsADeclaredExtent;
 /// body that means to virtualise reads [`Ctx::visible_rows`](vitui_runtime::Ctx::visible_rows) and
 /// iterates that and nothing else.
 ///
+/// # The reveal is the body's, and the body may not ask on every frame
+///
+/// This component **applies** a reveal and never asks for one: `Ctx::take_into_view` is read here,
+/// once, before anything is drawn, and the delta lands on the offset this component owns. What asks
+/// is the body, through `Ctx::request_into_view`, and there is exactly one rule about when:
+///
+/// > It fires only for a keyboard-driven focus move. A press already proves the widget was on
+/// > screen, and an unconditional pull is the list's old bug: it fights the wheel, dragging the
+/// > viewport back to the selection every time the user scrolls away from it.
+/// > (`crates/vitui-runtime/src/scroll.rs`; `CONTEXT.md` forbids the unconditional form by name)
+///
+/// **Four *resolved* prototype tickets broke that rule**, each written by someone who had read it —
+/// which is why it is repeated at the one call site a caller of this function reaches it from. A
+/// body that asks on every frame is dead to the wheel and *nothing else about it moves*: the screen
+/// is identical, every counter agrees, and twenty clicks move the offset zero.
+///
+/// **And the blindness is per axis**, which is the finding a single offset hides: a body asking for
+/// content row 0 every frame is dead downward and **entirely healthy sideways**, because
+/// `Area::into_view` answers per axis and returns `0` for an axis the rectangle already sits inside.
+/// `crate::wheel` runs both directions over this component and over `collection` separately, and
+/// `examples/wheel_numbers.rs` prints the pair.
+///
 /// # The unit is content cells, everywhere
 ///
 /// `extent` is `Σ h` and never a row count. Spec §9 prices the substitution at **row 799 999 of

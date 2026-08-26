@@ -189,5 +189,12 @@ fn main() {
         (TEXTAREA_TEXT_BYTES, TEXTAREA_TEXT_REACHED)
     );
     assert_eq!(TEXT_BEARING.len(), 7);
-    assert_eq!(REACHABLE_STATES, 8);
+    // **256 and not 8, and this line had been 8 since runtime architecture issue 22 lifted the
+    // barrier.** A `Chord` reaches three of the eight modifier bits; `keys::press_with` takes a
+    // `Mods` **value**, which this crate could not name until that issue, and the population went
+    // 8 → 256 in `src/keys.rs` with this copy left behind. Nothing noticed because **`cargo test`
+    // does not run an example**: it is compiled by `cargo clippy --all-targets` and evaluated by
+    // nothing. Found by components 20 running every `*_numbers.rs` after finding the same class in
+    // `listing_numbers.rs`.
+    assert_eq!(REACHABLE_STATES, 256);
 }

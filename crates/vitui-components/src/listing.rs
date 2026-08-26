@@ -10,11 +10,11 @@
 //! |---|---|
 //! | a scrolled collection | the inverted scroll sign: it draws nothing, at a fifth of the cost, and **every counter approves** |
 //! | a collection shorter than its viewport | the stale tail: **71 of 80 rows**, the defective build 2.3x faster marking 226x less |
-//! | twenty wheel clicks | the unconditional `scroll_into_view`: **0 against 20**, in four *resolved* tickets' code |
+//! | twenty wheel clicks | the unconditional `scroll_into_view`, and it lives in [`crate::wheel`] now |
 //! | a narrow collection | truncation, and §16's one-cell ellipsis inside a row |
 //! | 1k / 100k / 1M rows | one store, one window: **identical writes and identical regions** |
 //!
-//! # Three instruments, because one instrument cannot ask all three questions
+//! # Two instruments, because one instrument cannot ask both questions
 //!
 //! The module is deliberately not one `draw_into` the way [`crate::dense`] is, and the reason is a
 //! coordinate system rather than a preference.
@@ -31,44 +31,30 @@
 //!    `y = 1 000` and a [`Canvas`] eighty rows tall discards it. That is the same collision
 //!    [`crate::dense::modal_steady`] names for `Ctx::child`, arriving on the one gesture that makes
 //!    a collection a collection.
-//! 3. **The wheel scene goes through [`Ctx::request_into_view`] and [`Ctx::take_into_view`]**,
-//!    which runtime ticket 14 made *the only path a reveal may take*. It is a gate and it is pinned
-//!    red; see below.
+//! # The wheel scene has moved, and the two substitutions that made it move are gone
 //!
-//! # The wheel's one substitution, named rather than hidden
+//! Components ticket 11 kept the wheel gate here, and it kept it with **two stand-ins**. A wheel
+//! click could not be posted from this crate — `Driver::post_mouse` takes a `vitui_engine::Mouse`,
+//! which was `EngineName { name: "Mouse", reachable_as: None }`, and a `Mouse` needs a `Buttons` and
+//! a `MouseKind`, and *neither of those was in `ENGINE_NAMES` at all* — so the click's **delta** was
+//! handed to the arithmetic `Response::scrolled` would have delivered it to. And the body it played
+//! over was a row loop written beside the gate, because `collection` did not exist yet.
 //!
-//! **A wheel click could not be posted from this crate, and now it can.** As this module was
-//! written: `Driver::post_mouse` takes a `vitui_engine::Mouse`, which was
-//! `EngineName { name: "Mouse", reachable_as: None }` in `crates/vitui-runtime/src/line.rs`, and
-//! unlike `Mods` — the barrier components ticket 08 found misread — there was no nameable box a
-//! value could travel inside: a `Mouse` needs a `Buttons` and a `MouseKind`, and **neither of those
-//! was in `ENGINE_NAMES` at all**.
+//! **That first sentence is what runtime architecture issue 22 acted on**, and the rule it settled
+//! is about *construction* rather than about naming precisely because this module found the
+//! difference. Components **20** spent it: the gate is [`crate::wheel`], it posts a real notch, it
+//! plays over the shipped [`crate::collect::collection`] and over [`crate::scroll::scroll_area`],
+//! and it runs the two subjects separately because the blindness is per axis. Row 29 and scene 6
+//! went green there.
 //!
-//! **That last sentence is what runtime architecture issue 22 acted on.** The rule it settled is
-//! about *construction* and not about naming, precisely because this module found the difference:
-//! `Mouse`, `Buttons`, `MouseKind` and the notch are all re-exported now, and
-//! `crate::gates::tests::the_four_are_reachable_by_writing_them` builds one and posts it.
+//! # The gate that stayed here is red for one reason, and it was never the wheel's
 //!
-//! The substitution below stays until components 20 replaces it: the click's *delta* is handed to
-//! the arithmetic `Response::scrolled` would have delivered it to. Row 29 stays red — the defect it
-//! names is the unconditional reveal, which no re-export touches.
-//!
-//! The substitution is on **both** arms, so it is on the side of neither. What separates them is the
-//! only thing under test: whether the reveal fires unconditionally.
-//!
-//! # The gate is red, and it is red for two different reasons that must not be merged
-//!
-//! - The four **equality** scenes and the volume scene are red because `collection` does not exist.
-//!   [`standing`] is a [`Verdict`] over one subject, [`subjects_declared`] opens the file the freeze
-//!   homes it in, and [`owed_message`] is the sentence that separates *waiting for its subject* from
-//!   *the code is wrong* — ticket 09's criterion 7, inherited whole. Inverted by **components 12**.
-//! - The **wheel** scene is red because of the defect itself. `CONTEXT.md` forbids the unconditional
-//!   `scroll_into_view` and **four resolved tickets did it anyway**, each written by someone who had
-//!   read the rule. Inverted by **components 20**, which is what takes the call out.
-//!
-//! Ticket 12's own criterion says so in as many words: *every scene of ticket 11 is green except the
-//! wheel gate, which stays pinned red for ticket 20.* A single `inverted_by` on all five would erase
-//! that.
+//! The four **equality** scenes and the volume scene were red because `collection` did not exist.
+//! [`standing`] is a [`Verdict`] over one subject, [`subjects_declared`] opens the file the freeze
+//! homes it in, and [`owed_message`] is the sentence that separates *waiting for its subject* from
+//! *the code is wrong* — ticket 09's criterion 7, inherited whole. Components **12** inverted them,
+//! and the wheel scene stayed red for eight more tickets, which is exactly why a single
+//! `inverted_by` on all five would have erased something.
 //!
 //! # What the volume scene found, and why criterion 6 asks for **regions**
 //!
@@ -82,9 +68,7 @@
 //! restatement of it.
 //!
 //! [`Canvas`]: crate::runner::Canvas
-//! [`Ctx::request_into_view`]: vitui_runtime::Ctx::request_into_view
 //! [`Ctx::scroll_scope`]: vitui_runtime::Ctx::scroll_scope
-//! [`Ctx::take_into_view`]: vitui_runtime::Ctx::take_into_view
 //! [`Ctx::visible_rows`]: vitui_runtime::Ctx::visible_rows
 //! [`Fixture`]: crate::runner::Fixture
 //! [`Pen`]: crate::runner::Pen
@@ -92,7 +76,7 @@
 
 use std::time::{Duration, Instant};
 
-use vitui_runtime::{Ctx, Density, Id, Interest, Role, Scrollable};
+use vitui_runtime::{Ctx, Density, Interest, Role};
 
 use crate::collect::{CollOpts, CollState, collection_into, defective as coll_defective};
 use crate::counters::{Allocations, Counter, Counters, Tally};
@@ -185,29 +169,6 @@ pub const STALE_ROWS: usize = 71;
 
 /// [`STALE_ROWS`] as cells — `71 x 40`, which is what components ticket 04 measured.
 pub const STALE_CELLS: usize = STALE_ROWS * W as usize;
-
-/// **How many wheel clicks the gate plays. Twenty**, which is §21's own gesture.
-pub const CLICKS: u32 = 20;
-
-/// **How far twenty clicks move the offset when the reveal is conditional. Twenty.**
-///
-/// One row a click is `vitui_runtime::scroll::Wheel`'s default and the runtime's whole motion model:
-/// a notch is intent (ADR 0008) and the runtime has no standing to multiply somebody's intent by
-/// three.
-pub const MOVED: i32 = CLICKS as i32;
-
-/// **How far twenty clicks move the offset when the reveal fires every frame. Zero.**
-///
-/// The pinned failing set of the wheel gate. See [`wheeled`] for why the number one frame earlier is
-/// `1` and not `0`, and why that one is ADR 0015's documented residue rather than a softened defect.
-pub const DRAGGED_BACK: i32 = 0;
-
-/// **How far the user has scrolled away from the selection**, for the gate's second direction.
-///
-/// Two hundred rows: the selection sits at the top of the content and the viewport is nowhere near
-/// it, which is the state the defect's own sentence describes — *it drags the viewport back to the
-/// selection every time the user scrolls away from it*.
-pub const SCROLLED_AWAY: i32 = 200;
 
 // ── the volume scene: one store, one window ──────────────────────────────────────────────────────
 
@@ -432,248 +393,6 @@ pub fn volume_cost(kind: Volume, rows: u64, frames: u32) -> Duration {
 /// **The shape at every one of [`VOLUMES`]**, which is what the equality is asserted over.
 pub fn across_volumes(kind: Volume) -> Vec<(u64, Shape)> {
     VOLUMES.into_iter().map(|n| (n, volume(kind, n))).collect()
-}
-
-// ── the wheel gate ───────────────────────────────────────────────────────────────────────────────
-
-/// **When the reveal fires**, and the whole of what the wheel gate is about.
-///
-/// > It fires only for a keyboard-driven focus move. A press already proves the widget was on
-/// > screen, and an unconditional pull is the list's old bug: it fights the wheel, dragging the
-/// > viewport back to the selection every time the user scrolls away from it.
-/// > (`crates/vitui-runtime/src/scroll.rs`)
-///
-/// Three arms and not two, because a **one-directional** gate goes green the moment somebody deletes
-/// the call entirely — which loses the keyboard behaviour instead of fixing the pointer one. That is
-/// ticket 20's third criterion, and [`Reveal::Never`] is the arm it is written against.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Reveal {
-    /// **The rule.** The reveal is requested only when something asked for it.
-    WhenAsked,
-    /// **The defect.** `scroll_into_view` on every frame, which is what four *resolved* tickets
-    /// wrote after reading the rule in `CONTEXT.md` forbidding it.
-    EveryFrame,
-    /// **The way to pass a gate written in one direction**, and it is not a fix: the keyboard cursor
-    /// can no longer bring anything into view.
-    Never,
-}
-
-impl Reveal {
-    /// The word a report prints.
-    pub const fn word(self) -> &'static str {
-        match self {
-            Reveal::WhenAsked => "only when asked",
-            Reveal::EveryFrame => "every frame",
-            Reveal::Never => "never",
-        }
-    }
-}
-
-/// **What twenty wheel clicks did**, in three numbers rather than one.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct Wheeled {
-    /// The offset after the last click's own frame.
-    pub after_last_click: i32,
-    /// **The offset one frame later**, when the reveal that frame asked for has been applied.
-    ///
-    /// This is the number the gate is written on. See [`wheeled`].
-    pub settled: i32,
-    /// How many of the frames asked for a reveal at all.
-    pub reveals: u32,
-}
-
-/// **Play [`CLICKS`] wheel clicks over the listing and report where the offset ended up.**
-///
-/// Criterion 4's instrument, and `crate::gates::REGISTER`'s row 29.
-///
-/// # The sequence, which is the application's and not the runtime's
-///
-/// Each frame: take the reveal the frame before asked for and apply it; apply this frame's wheel
-/// delta; draw. **The application owns the offset** — `Ctx::take_into_view` answers a *delta* for
-/// exactly that reason — so this order is the one a component has to be written in, and both arms
-/// take it.
-///
-/// # Why `settled` and not `after_last_click`
-///
-/// A reveal crosses the frame boundary as sixteen bytes and is read on the frame after (ADR 0015),
-/// so the defective arm is always one click ahead of its own correction: [`Wheeled::after_last_click`]
-/// is **1** and not 0. That one click is the runtime's own documented price —
-///
-/// > The residue is one click, at each end stop and on an area's first frame. It is a documented
-/// > property, not a bug to be fixed later.
-///
-/// — arriving from the other side, and it is reported rather than hidden. The gate is written on
-/// [`Wheeled::settled`], which plays one more frame with no click on it, because *twenty wheel
-/// clicks move the offset twenty* is a statement about where the screen came to rest.
-pub fn wheeled(reveal: Reveal, clicks: u32) -> Wheeled {
-    let rows = VOLUMES[2];
-    let max = max_offset(rows);
-    let mut driver = crate::runner::driver_at(W, H, Density::default());
-    let mut tally = Tally::new();
-    let id = Id::named("listing");
-    let mut offset = 0i32;
-    let mut reveals = 0u32;
-    let mut after_last_click = 0i32;
-
-    // `clicks` frames with a click on each, then one with none: the last frame's reveal has to have
-    // somewhere to land or the arm is being measured a frame before its own defect happens.
-    for frame in 0..=clicks {
-        let clicked = frame < clicks;
-        driver.frame(|cx| {
-            if let Some((_, dy)) = cx.take_into_view(id) {
-                offset = (offset + dy).clamp(0, max);
-            }
-            if clicked {
-                // **The substitution.** `Response::scrolled` delivers this from a posted `Mouse`,
-                // and a `Mouse` cannot be named from a crate whose dependency table is
-                // `vitui-runtime` and nothing else. What is under test is the reveal, not the wire.
-                offset = (offset + 1).clamp(0, max);
-            }
-            let view = cx.area();
-            let bounds = (0, max);
-            let at = (0, offset);
-            let _ = cx.scrollable(
-                id,
-                view,
-                Interest::CLICK.with(Interest::FOCUS),
-                Scrollable::between(at, bounds),
-            );
-            cx.scroll_scope(id, view, at, bounds, |cx| {
-                let body = cx.theme().paint(Role::Body);
-                for i in cx.visible_rows() {
-                    let _ = tally.text(cx, 0, i, ROW, body);
-                }
-                if reveal == Reveal::EveryFrame {
-                    // The cursor has not moved. **That is the whole defect**: the component pulls
-                    // the viewport back to a selection nobody touched, on every frame, for ever.
-                    request_row(cx, 0);
-                }
-            });
-        });
-        if driver.inspect().into_view().is_some() {
-            reveals += 1;
-        }
-        if clicked {
-            after_last_click = offset;
-        }
-    }
-    Wheeled {
-        after_last_click,
-        settled: offset,
-        reveals,
-    }
-}
-
-/// **How far a reveal moves the offset when something really asks for one. The gate's second
-/// direction.**
-///
-/// The listing starts at `from` — the user has scrolled `from` rows away from the selection at the
-/// top of the content — and the component asks for the selection back, which is the *legitimate*
-/// case: a keyboard cursor move, a search result, a caret walking off the edge.
-///
-/// A collection whose reveal was **deleted** rather than made conditional answers `0` here, and that
-/// is why the gate has two halves. *An offset that moves when nothing asked is a failure* on its own
-/// is satisfied by a build that can no longer follow the keyboard at all, and
-/// `.scratch/vitui-components-impl/issues/20` says so in as many words: *a one-directional spelling
-/// would go green the moment somebody deleted the call entirely, which loses the keyboard behaviour
-/// instead of fixing the pointer one.*
-pub fn revealed(reveal: Reveal, from: i32) -> i32 {
-    let rows = VOLUMES[2];
-    let max = max_offset(rows);
-    let mut driver = crate::runner::driver_at(W, H, Density::default());
-    let id = Id::named("listing");
-    let start = from.clamp(0, max);
-    let mut offset = start;
-
-    // Frame one: the component asks for the selection, which is above the fold.
-    driver.frame(|cx| {
-        let view = cx.area();
-        let _ = cx.scrollable(
-            id,
-            view,
-            Interest::CLICK.with(Interest::FOCUS),
-            Scrollable::between((0, offset), (0, max)),
-        );
-        cx.scroll_scope(id, view, (0, offset), (0, max), |cx| {
-            if reveal != Reveal::Never {
-                request_row(cx, 0);
-            }
-        });
-    });
-    // Frame two: the application applies the delta it was handed. **The application owns the
-    // offset** — `take_into_view` answers a delta for exactly that reason.
-    driver.frame(|cx| {
-        if let Some((_, dy)) = cx.take_into_view(id) {
-            offset = (offset + dy).clamp(0, max);
-        }
-    });
-    offset - start
-}
-
-/// **Whether one frame at `offset`, with nobody's cursor having moved, leaves a request behind.**
-///
-/// The gate's other direction, as a count of the one structure that crosses the frame boundary
-/// (ADR 0015 — sixteen bytes, an area and a delta, no `Rect`).
-///
-/// # The offset is a parameter and it is the whole test
-///
-/// At offset **0** every arm leaves nothing, because the selection is on screen and
-/// `Area::into_view` answers `(0, 0)` for a rectangle that is already visible. **That is the frame
-/// the defect is invisible on**, and a gate written only there would be green on the code four
-/// resolved tickets shipped. At any offset the user has actually scrolled to, the unconditional arm
-/// asks — every frame, for ever — and the conditional one does not.
-pub fn leaves_no_request(reveal: Reveal, offset: i32) -> bool {
-    let rows = VOLUMES[2];
-    let max = max_offset(rows);
-    let mut driver = crate::runner::driver_at(W, H, Density::default());
-    let id = Id::named("listing");
-    let at = (0, offset.clamp(0, max));
-    driver.frame(|cx| {
-        let view = cx.area();
-        let _ = cx.scrollable(
-            id,
-            view,
-            Interest::CLICK.with(Interest::FOCUS),
-            Scrollable::between(at, (0, max)),
-        );
-        cx.scroll_scope(id, view, at, (0, max), |cx| {
-            if reveal == Reveal::EveryFrame {
-                request_row(cx, 0);
-            }
-        });
-    });
-    driver.inspect().into_view().is_none()
-}
-
-/// Ask the enclosing area to bring content row `row` into view.
-///
-/// The rectangle is built by inference from `cx.area()` — `Rect` is `vitui_engine::Rect` and cannot
-/// be named here (see [`vitui_runtime::layout::rect`]), so the shape a runtime verb wants is produced by the
-/// runtime's own operators rather than written down.
-///
-/// # `row` is a row of the **viewport**, and that is a barrier rather than a shortcut
-///
-/// `Ctx::area` is `Rect::new(0, 0, w, h)` and `rect::shrink` can only narrow, so nothing here can
-/// name a rectangle at a content row the window does not reach. That is the runtime's own sentence
-/// arriving as a missing expression:
-///
-/// > A virtualised collection is one tab stop. The ring is built from what drew, so a row outside
-/// > the window has no entry and **no rectangle**: mapping a selection index to an offset is the
-/// > container's job and a different mechanism. (`crates/vitui-runtime/src/scroll.rs`)
-///
-/// So both callers ask for row **0**, and the gesture that makes the request meaningful is the
-/// *offset* rather than the row: a selection at the top of the content is off screen exactly when
-/// the user has scrolled away from it, which is the defect's own story.
-fn request_row(cx: &mut Ctx<'_, '_>, row: u16) {
-    let area = cx.area();
-    let r = vitui_runtime::layout::rect::shrink(
-        area,
-        0,
-        row,
-        0,
-        area.h.saturating_sub(row.saturating_add(1)),
-    );
-    cx.request_into_view(r);
 }
 
 // ── the equality scenes, over components ticket 04's runner ──────────────────────────────────────
@@ -1155,75 +874,6 @@ mod tests {
         );
     }
 
-    /// **Criterion 4: twenty wheel clicks move the offset twenty, and the gate fires both ways.**
-    ///
-    /// The pinned failing set, in both directions:
-    ///
-    /// - [`Reveal::EveryFrame`] settles at **0 against 20**, which is the defect four *resolved*
-    ///   tickets wrote. This is the direction the pointer is dead in.
-    /// - [`Reveal::Never`] passes *that* direction and fails the other: with the viewport two
-    ///   hundred rows away from the selection, a reveal that really asks moves the offset **0**, so
-    ///   deleting the call is not a way to go green.
-    ///
-    /// It stays red until **components 20**, and the register's row 29 says so.
-    #[test]
-    fn twenty_wheel_clicks_move_the_offset_twenty_and_an_unconditional_reveal_takes_it_back() {
-        let free = wheeled(Reveal::WhenAsked, CLICKS);
-        assert_eq!(free.settled, MOVED, "twenty clicks, twenty rows");
-        assert_eq!(free.after_last_click, MOVED);
-        assert_eq!(free.reveals, 0, "nothing asked, so nothing was requested");
-
-        let dragged = wheeled(Reveal::EveryFrame, CLICKS);
-        assert_eq!(
-            dragged.settled, DRAGGED_BACK,
-            "the pinned failing set: an unconditional `scroll_into_view` and the pointer is dead"
-        );
-        assert_eq!(
-            dragged.after_last_click, 1,
-            "one click ahead of its own correction, which is ADR 0015's documented residue seen \
-             from the other side rather than a softened defect"
-        );
-        assert_eq!(
-            dragged.reveals, CLICKS,
-            "twenty frames asked and the twenty-first did not need to: by then the viewport was \
-             already back where the selection is, which is what the defect converges to"
-        );
-
-        // **The second direction.** An offset that moves when nothing asked is a failure, and a
-        // build that can no longer follow the keyboard is not a fix.
-        assert!(leaves_no_request(Reveal::WhenAsked, MOVED));
-        assert!(
-            !leaves_no_request(Reveal::EveryFrame, MOVED),
-            "twenty rows down, the unconditional arm asks to be dragged back on this very frame"
-        );
-        assert!(
-            leaves_no_request(Reveal::EveryFrame, 0),
-            "and at offset 0 it asks for nothing, which is the frame this defect is invisible on \
-             and the reason the offset is a parameter"
-        );
-        assert_eq!(
-            revealed(Reveal::WhenAsked, SCROLLED_AWAY),
-            -SCROLLED_AWAY,
-            "the keyboard behaviour survives: a selection two hundred rows above the fold is \
-             brought back when something asks for it"
-        );
-        assert_eq!(
-            revealed(Reveal::Never, SCROLLED_AWAY),
-            0,
-            "and deleting the call loses it, which is why a one-directional gate is not a gate"
-        );
-        assert_eq!(
-            revealed(Reveal::EveryFrame, SCROLLED_AWAY),
-            -SCROLLED_AWAY,
-            "the defective arm reveals too, which is the point: what separates it from the rule is \
-             *when*, and no single frame can tell them apart"
-        );
-
-        // Deleting the call also passes the wheel half, which is the whole argument for pinning
-        // both directions rather than the loud one.
-        assert_eq!(wheeled(Reveal::Never, CLICKS).settled, MOVED);
-    }
-
     /// **Components ticket 12: the listing stands on `collection`, and the verdict says so.**
     ///
     /// The exact set, in both directions: one subject, declared, and the verdict is `Met` over one
@@ -1233,8 +883,9 @@ mod tests {
     /// **This test is the inversion of `the_listing_is_red_because_collection_is_not_declared`**,
     /// which ticket 11 pinned red and which `crate::gates::REGISTER`'s row 67 and four of
     /// `crate::scenes`' five standings named. Changing it back is a deliberate edit in all three
-    /// places — and the fifth standing, the wheel gate's, is **not** one of them: it is red because
-    /// of the defect and components 20 inverts it.
+    /// places — and the fifth standing, the wheel gate's, was **never** one of them: it was red
+    /// because of the *defect*, it stayed red for eight tickets after this one went green, and
+    /// components 20 stood it up in [`crate::wheel`].
     #[test]
     fn the_listing_stands_on_the_collection_it_is_a_screen_of() {
         assert_eq!(

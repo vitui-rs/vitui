@@ -55,7 +55,7 @@
 //!   claiming fifteen green gates over an empty population.
 //!
 //! **Forty-two evaluated, four red, six unreachable, fifteen unsubjected**, and
-//! `tests::a_hundred_and_one_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
+//! `tests::a_hundred_and_ten_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next change a
 //! deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
 //! and subjected row 27, the cross-family collapse gate; ticket 07 added five, and none of them
@@ -345,6 +345,10 @@ const DENSE: &str = "crates/vitui-components/src/dense.rs";
 /// The listing's own file, which is where components ticket 11's two rows run.
 const LISTING: &str = "crates/vitui-components/src/listing.rs";
 
+/// The wheel gate's file. Components ticket 20, and the one row on this register whose instrument
+/// posts a pointer event.
+const WHEEL: &str = "crates/vitui-components/src/wheel.rs";
+
 /// The scroll area's own file, which is where components ticket 18's six rows run.
 const AREA: &str = "crates/vitui-components/src/area.rs";
 
@@ -422,10 +426,15 @@ pub const SPEC_ROWS: usize = 32;
 /// row still asserting *the four components do not exist* would now be asserting they are gone.
 /// That is the second inversion here worth being suspicious about: a red row phrased as an absence
 /// cannot be turned green by editing one field.
-pub const EVALUATED: usize = 108;
+/// **Components ticket 20 moved it from a hundred and eight to a hundred and ten**, and one of the
+/// two is a new row: row 29 was **pinned red for nine tickets** and went green over the shipped
+/// path, and row 129 is criterion 6's join between the gate's subject list and the freeze. A red row
+/// inverted by supplying a *subject* is the ordinary case on this register; this one was red on a
+/// **defect**, which is why it needed the shipped code to be checked rather than written.
+pub const EVALUATED: usize = 110;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 128] = [
+pub const REGISTER: [Row; 129] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -1052,44 +1061,62 @@ pub const REGISTER: [Row; 128] = [
         kind: Kind::Count,
         owner: "C07, C10",
         section: "spec §12",
-        // **The barrier has lifted, and the substitution it forced is now the thing to remove.**
-        // Components ticket 11 made the other half run while the wire stayed out of reach: the row
-        // read *half cannot: a wheel click is a posted `Mouse`*, so the click's **delta** was handed
-        // straight to the arithmetic `Response::scrolled` would have delivered it to, on both arms.
-        // That substitution was honest and is now unnecessary. Runtime architecture issue 22
-        // re-exported `Mouse` **and the three types needed to build one** — `Buttons`, `MouseKind`
-        // and the notch — which is precisely what this comment recorded as missing: *"a `Mouse`
-        // needs a `Buttons` and a `MouseKind`, neither of which is in `ENGINE_NAMES` at all."*
-        // `crate::gates::tests::the_four_are_reachable_by_writing_them` posts one.
+        // **Components ticket 20 took both substitutions out, and the row went green.**
         //
-        // **The row stays red and the figure is unchanged**, because the defect was never the wire:
-        // it is the unconditional scroll-into-view in four resolved tickets' code. What components
-        // 20 inherits is a gate that can now drive the real channel instead of its arithmetic.
-        standing: Standing::Red {
+        // It was red for nine tickets, and the failing set it was red on was the defect rather than
+        // a missing subject: `CONTEXT.md` forbids the unconditional scroll-into-view and **four
+        // *resolved* tickets wrote it anyway**, each by someone who had read the rule. What kept the
+        // row from being written over the shipped path was two stand-ins, and each was honest at the
+        // time it was written:
+        //
+        // - **the click.** `Driver::post_mouse` takes a `vitui_engine::Mouse`, and *"a `Mouse` needs
+        //   a `Buttons` and a `MouseKind`, neither of which is in `ENGINE_NAMES` at all"* — this
+        //   row's own recorded sentence, and the one runtime architecture issue 22 acted on. The
+        //   delta was handed straight to the arithmetic `Response::scrolled` would have delivered it
+        //   to, on both arms. It is a posted notch now, routed through the previous frame's index.
+        // - **the subject.** A row loop written beside the gate, because `collection` did not exist.
+        //   It is `collection_into` and `crate::scroll::scroll_area` now, against
+        //   `collect::defective::every_frame` and `never_reveals` — the shipped build with one value
+        //   changed, so a reviewer's diff is one line.
+        //
+        // **Neither stand-in was on the side of either arm, and the pinned figure did not move**:
+        // `0 against 20` is what components 11 reported and what the posted click reports. What they
+        // cost was the *second subject and the second axis*, which is where the finding is — a body
+        // dead downward is alive sideways, and `scroll_area` at `Along::Rows` settles a vertical
+        // click at 0 and a horizontal one at 20 while the transpose does the opposite. One number
+        // for *the offset* cannot say either, which is why criterion 4 asks for the two subjects
+        // separately.
+        //
+        // **The rule's second clause is asserted here for the first time**, over the shipped
+        // component: *a press already proves the widget was on screen*, so a press selects a row at
+        // a scrolled offset and pulls nothing. It could only ever be asserted at a **non-zero**
+        // offset, and the unconditional arm cannot be watched failing it — by the frame the press
+        // edge lands on it has already converged, so the loudest arm is silent for the quietest
+        // reason. That is the defect and not an escape from it, and the comparison is made on a
+        // frame with no gesture on it at all.
+        standing: Standing::Evaluated {
             by: &[
                 Instrument::Unit {
-                    file: LISTING,
-                    name: "twenty_wheel_clicks_move_the_offset_twenty_and_an_unconditional_reveal_\
-                           takes_it_back",
+                    file: WHEEL,
+                    name: "twenty_posted_clicks_move_a_collections_offset_twenty_and_an_unconditional_\
+                           reveal_takes_it_back",
+                },
+                Instrument::Unit {
+                    file: WHEEL,
+                    name: "a_body_dead_downward_is_alive_sideways_and_one_offset_cannot_say_so",
+                },
+                Instrument::Unit {
+                    file: WHEEL,
+                    name: "a_press_selects_a_row_and_does_not_pull_the_viewport_to_it",
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/tests/gates.rs",
                     name: "a_frame_that_asks_for_no_reveal_moves_no_offset_and_one_that_asks_does",
                 },
                 Instrument::Report {
-                    file: "crates/vitui-components/examples/listing_numbers.rs",
+                    file: "crates/vitui-components/examples/wheel_numbers.rs",
                 },
             ],
-            failing: "0 against 16 over twenty clicks, in four *resolved* tickets' code, each \
-                      written by someone who had read the rule in `CONTEXT.md` forbidding it. **0 \
-                      against 20 here**, and both directions are pinned: `Reveal::EveryFrame` \
-                      settles the offset at 0 where the conditional arm settles at 20, and \
-                      `Reveal::Never` — deleting the call, which passes that half — moves the \
-                      offset 0 when a keyboard reveal really asks. The click is postable as of \
-                      runtime issue 22 and this gate does not yet post one: the delta is still \
-                      handed to `Response::scrolled`'s own arithmetic on both arms, which components \
-                      20 replaces with the wire it can now reach",
-            inverted_by: "components 20",
         },
     },
     Row {
@@ -1386,8 +1413,8 @@ pub const REGISTER: [Row; 128] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "sixteen_of_the_thirty_four_axis_obligations_have_a_scene_and_\
-                           eighteen_do_not",
+                    name: "seventeen_of_the_thirty_four_axis_obligations_have_a_scene_and_\
+                           seventeen_do_not",
                 },
             ],
         },
@@ -2080,8 +2107,8 @@ pub const REGISTER: [Row; 128] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_seven_are_red_and_\
-                           seventeen_are_stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_six_are_red_and_\
+                           nineteen_are_stood_up",
                 },
             ],
         },
@@ -2310,8 +2337,8 @@ pub const REGISTER: [Row; 128] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_seven_are_red_and_\
-                           seventeen_are_stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_six_are_red_and_\
+                           nineteen_are_stood_up",
                 },
             ],
         },
@@ -2724,8 +2751,8 @@ pub const REGISTER: [Row; 128] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_seven_are_red_and_\
-                           seventeen_are_stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_six_are_red_and_\
+                           nineteen_are_stood_up",
                 },
             ],
             failing: "`field` is undeclared, so three scenes are pinned red — 12, 13 and 30 — and \
@@ -2866,8 +2893,8 @@ pub const REGISTER: [Row; 128] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_seven_are_red_and_\
-                           seventeen_are_stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_six_are_red_and_\
+                           nineteen_are_stood_up",
                 },
             ],
             failing: "neither `select` nor `overlay` is declared, so scene 14 is pinned red. \
@@ -3375,8 +3402,8 @@ pub const REGISTER: [Row; 128] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_seven_are_red_and_\
-                           seventeen_are_stood_up",
+                    name: "eight_scenes_have_nothing_to_run_over_six_are_red_and_\
+                           nineteen_are_stood_up",
                 },
             ],
         },
@@ -3986,6 +4013,34 @@ pub const REGISTER: [Row; 128] = [
             ],
         },
     },
+    Row {
+        number: 129,
+        on_spec_table: false,
+        gate: "every subject the wheel gate runs against declares `Axis::Wheeled` and is built",
+        kind: Kind::Count,
+        owner: "C10",
+        section: "spec §17",
+        // **Ticket 20's criterion 6, and it is a join rather than a claim.**
+        //
+        // The gate above runs over two subjects, and *which* two is a decision this crate makes in
+        // one file. `INVENTORY`'s `owns_offset` column is exactly `Axis::Wheeled`, so asking whether
+        // the freeze agrees is one question — and the failure it catches is a gate run over a
+        // component the freeze says owns no offset, which reports a number while measuring nothing.
+        // It is the same shape as O5 and for the same reason: **O5 is a query about axes and not
+        // about components**, so a pair claimed here and unclaimed there is evidence for nothing.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: WHEEL,
+                    name: "every_subject_of_this_gate_declares_the_wheeled_axis",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/obligations.rs",
+                    name: "o5_counts_a_pair_for_every_axis_the_wheel_gates_subjects_declare",
+                },
+            ],
+        },
+    },
 ];
 /// **The compile-outcome pair row 31 names, and its positive twin.**
 ///
@@ -4265,7 +4320,7 @@ mod tests {
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn a_hundred_and_one_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn a_hundred_and_ten_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -4281,9 +4336,12 @@ mod tests {
         assert_eq!(evaluated, EVALUATED, "the count §21 asks a test to assert");
         assert_eq!(
             red,
-            vec![7, 8, 29, 85, 89, 112],
-            "the gates that are red and pinned: the sentinel, the palette after a swap, twenty \
-             wheel clicks and the scenes still waiting for their subject. Four have been \
+            vec![7, 8, 85, 89, 112],
+            "the gates that are red and pinned: the sentinel, the palette after a swap and the \
+             scenes still waiting for their subject. **Twenty wheel clicks is not among them since \
+             components 20** — row 29 was red on a *defect* rather than on a missing subject, which \
+             is why it took a gate over the shipped path and two removed substitutions rather than \
+             a standing edit. Five have been \
              inverted and each says what it took — the glyph-set count by components 05, row 61 \
              by components 10 (which took rewriting the *gate* rather than the standing, because \
              the row asserted an *absence*), row 78 by components 15, which took `table` being \
@@ -4305,7 +4363,7 @@ mod tests {
              over a domain and needs no component to be run against, and whose row had been \
              citing spec §13 and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 128);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 129);
     }
 
     /// **The split, not the total.**
@@ -4316,10 +4374,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_ninety_six_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_ninety_seven_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 96);
+        assert_eq!(REGISTER.len() - on_table, 97);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -4712,7 +4770,8 @@ mod tests {
                 "scene_numbers.rs".to_string(),
                 "series_numbers.rs".to_string(),
                 "table_numbers.rs".to_string(),
-                "tree_numbers.rs".to_string()
+                "tree_numbers.rs".to_string(),
+                "wheel_numbers.rs".to_string()
             ],
             "the count on this lineage was 0 against the runtime's 19"
         );

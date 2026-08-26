@@ -50,15 +50,17 @@
 //!   on purpose.
 //! - [`counters`] — §20's nine per-frame counters, **eight of which this crate can read**. The
 //!   ninth, `marked`, panics rather than answering `0`, and so does the sentinel probe.
-//! - [`scenes`] — the normative scene list: **thirty-two screens, twenty-seven of them §21's
-//!   table, eight `Unsubjected`, eleven `Red` and thirteen `Evaluated`**, each with the size it is
+//! - [`scenes`] — the normative scene list: **thirty-three screens, twenty-seven of them §21's
+//!   table, eight `Unsubjected`, six `Red` and nineteen `Evaluated`**, each with the size it is
 //!   played at, the content it stands up, the gestures it plays and the property it decided. Three
 //!   of them exist because a defect survived every gate then in force by not being on any screen
 //!   anybody had built. **Scenes 8 and 9 — the million-node forest and the fold over 349 524 rows —
 //!   went green together with components ticket 17**, which is one fact and not two: both were
-//!   pinned on `tree` being undeclared. Of the eleven still red, only the wheel gate is red because
-//!   the defect is *real* rather than because a subject is missing — components 12 turned the other
-//!   four of components 11's five and deliberately left it.
+//!   pinned on `tree` being undeclared. **Scene 6, the wheel gate, was the one row of the red list
+//!   whose failing set was the defect itself** rather than a missing subject — components 12 turned
+//!   the other four of components 11's five and deliberately left it, and components **20** turned
+//!   it nine tickets later by checking the shipped code. Every scene still red is waiting for a
+//!   subject.
 //! - [`runner`] — *render one scene two ways and compare it cell for cell*, reporting **n cells over
 //!   m rows**. Three of the four hostile axes were caught only by this, and every one of them made
 //!   the defective build look **healthier**. The reference arm is this crate's own, and
@@ -91,17 +93,26 @@
 //!
 //! - [`listing`] — **the collection's screen**: 40x80, one collection and eighty rows a window, and
 //!   the four hostile axes standing on it instead of in a table — 75 of 80 rows for the inverted
-//!   scroll sign, 71 of 80 (2 840 cells) for the stale tail, one cell a row for the missing
-//!   ellipsis, and **0 against 20** for the unconditional `scroll_into_view` `CONTEXT.md` forbids
-//!   and four *resolved* tickets wrote anyway. One of its five scenes is still red, and the two
-//!   reasons were kept apart from the start: four waited for `collection` (components 12, done)
-//!   and the wheel gate waits for
-//!   the fix (components 20). Its own finding is that *writes flat 1k -> 1M* is **green** on a
+//!   scroll sign, 71 of 80 (2 840 cells) for the stale tail, and one cell a row for the missing
+//!   ellipsis. **All five of its scenes are green**, and the two reasons they went green were kept
+//!   apart from the start: four waited for `collection` (components 12) and the wheel gate waited
+//!   for the *fix* (components 20), which is [`wheel`] and no longer lives here. Its own finding is
+//!   that *writes flat 1k -> 1M* is **green** on a
 //!   listing that declares a million hit entries, which is why the equality it registers is on
-//!   `regions`. **Four of the five are green since components 12**, which declared
+//!   `regions`. **Four of the five went green with components 12**, which declared
 //!   [`collect::collection`] and rewrote both arms of `listing::draw_into` to draw through it —
 //!   `Volume::Windowed` is the component and `Volume::WholeContent` is its `defective` twin, one
 //!   value apart.
+//!
+//! - [`wheel`] — **the wheel gate**, over two shipped components and both axes: twenty *posted*
+//!   clicks move the offset twenty, and a reveal fires only when a keyboard gesture asked for one.
+//!   It is the sharpest instance of the argument this whole map rests on — `CONTEXT.md` forbids the
+//!   unconditional `scroll_into_view` and **four *resolved* tickets wrote it anyway**, so the fix is
+//!   a gate with two subjects behind it rather than a line in a checklist. Its own finding is the
+//!   pair spec §21 had no way to state, because the click used to be arithmetic and a delta added
+//!   to an offset has no second axis to be wrong on: **a body dead downward is alive sideways** —
+//!   asking for content row 0 every frame settles a vertical click at 0 against 20 and a horizontal
+//!   one at 20, and the transpose does the opposite.
 //!
 //! - [`collect`] — **`collection`, the component the rest of this library is mostly made of**:
 //!   one component, one [`collect::Mode`] and **thirteen match arms**, counted by opening the file
@@ -245,6 +256,7 @@ pub mod runner;
 pub mod scenes;
 pub mod series;
 pub mod state;
+pub mod wheel;
 
 // **One module per family, and the family is the module** (spec §19). The tree follows the survey's
 // fifteen families so that a reader who knows what they want finds it without a search, and

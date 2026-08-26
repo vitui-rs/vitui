@@ -388,12 +388,14 @@ fn a_zeroed_allocation_is_counted_exactly_once_like_any_other() {
 // ── The wheel gate's reachable half ──────────────────────────────────────────────────────────────
 
 /// **An offset that moves when nothing asked is a failure** — the second direction of the gate
-/// ticket 20 inverts, and for four tickets the only one of the two this crate could run.
+/// components 20 inverted, and for nine tickets the only one of the two this crate could run.
 ///
 /// The first direction — *twenty wheel clicks move the offset twenty* — needs a posted `Mouse`,
 /// which was `EngineName { name: "Mouse", reachable_as: None }`. **Runtime architecture issue 22
-/// lifted that**, so components 20 can now drive the real channel; this half is unchanged because it
-/// never needed the pointer. See `crate::gates::REGISTER`'s row for the standing.
+/// lifted that**, and `vitui_components::wheel` spends it: the click is posted now, and it is played
+/// over the shipped `collection` and the shipped `scroll_area` rather than over a closure. **This
+/// half is unchanged and it is deliberately not folded in** — it needs no pointer at all, so it is
+/// the one spelling of the property that stays runnable if the pointer door ever closes again.
 ///
 /// This half needs no pointer at all: `Ctx::request_into_view` is the only door a reveal may
 /// take (ADR 0015 — no geometry crosses a frame), so a frame that asks for nothing must leave

@@ -162,8 +162,16 @@ pub const KEYBOARD_REGISTERED: &[&str] = &[];
 
 /// The scenes that exist, as `(component, axis)` pairs. O5's evidence.
 ///
-/// **Fourteen of thirty-four, and neither components ticket 10 nor components ticket 11 moved it.**
-/// Ticket 04 put twelve here off spec §21's own rows and ticket 09 added two.
+/// **Seventeen of thirty-four.** Ticket 04 put twelve here off spec §21's own rows, ticket 09 added
+/// two, ticket 20 added one, and neither components ticket 10 nor components ticket 11 moved it at
+/// all.
+///
+/// **Ticket 20's is the pair §21 could not state**, and it is worth separating from the two below it
+/// for the same reason they are separated from each other. §21 carries the wheel as one row over one
+/// component, which is exactly what was writable while the click was an arithmetic substitution — a
+/// delta added to an offset has no second axis to be wrong on. `scroll_area` has declared
+/// `owns_offset` since ticket 01 and had no scene claiming the axis; scene 33 is that scene, and
+/// what it decided is a pair rather than a number: a body dead downward is alive sideways.
 ///
 /// **Ticket 11 built five scenes for `collection` and added no pair either, for a reason worth
 /// separating from ticket 10's.** Ticket 10's was *a component is not a scene*; this one is *a
@@ -184,7 +192,7 @@ pub const KEYBOARD_REGISTERED: &[&str] = &[];
 /// is exactly why it was written over `INVENTORY` rather than over the scene list: building a
 /// component cannot move it, and only a scene can. Each names a component **and** the mechanism of an axis it declares; the join lives on
 /// [`crate::scenes::Scene::covers`] and
-/// `scenes::tests::sixteen_of_the_thirty_four_axis_obligations_have_a_scene_and_eighteen_do_not`
+/// `scenes::tests::seventeen_of_the_thirty_four_axis_obligations_have_a_scene_and_seventeen_do_not`
 /// asserts that this constant and [`crate::scenes::axis_scenes`] have not drifted.
 ///
 /// The other twenty are the per-component scenes tickets'. **The first ticket of each component
@@ -229,6 +237,15 @@ pub const AXIS_SCENES: &[(&str, Axis)] = &[
     // rectangle* — is §2's third re-damage instance rather than §21's.
     ("text", Axis::Narrow),
     ("chip", Axis::Narrow),
+    // Scene 33 — components 20's, and the pair §21 had no way to state. Its wheel row is one
+    // component and one axis, which is exactly what an arithmetic click could express: a delta
+    // added to an offset has no second axis to be wrong on. The posted notch found the pair.
+    //
+    // **Its position is scene order and not importance.** `crate::scenes::axis_scenes` derives this
+    // list from the scene list, and the test that compares the two is an equality over ordered
+    // vectors — so a pair written in the place a reader would put it is a failing test rather than a
+    // tidy constant.
+    ("scroll_area", Axis::Wheeled),
 ];
 
 /// **O1 — a rustdoc page with a compiled example, for every component.**
@@ -393,6 +410,48 @@ pub fn o5(scenes: &[(&str, Axis)]) -> Verdict {
 mod tests {
     use super::*;
 
+    /// **The wheel gate's subjects are counted here and nowhere else.** Register row 129, and the
+    /// second half of components ticket 20's criterion 6.
+    ///
+    /// `crate::wheel` asserts the freeze *declares* the axis for both subjects it plays over; this
+    /// asserts the other direction, which is the one that can go quietly wrong: **O5 holds a pair
+    /// for each of them**. The two are not the same question and neither implies the other — a
+    /// subject the freeze declares and no scene claims is an axis with no evidence, and a pair
+    /// claimed for a component the gate never runs against is evidence for nothing.
+    ///
+    /// It is written over [`AXIS_SCENES`] rather than over the scene list because that is the list
+    /// [`o5`] actually reads. `crate::scenes` already gates the two against each other, so a pair
+    /// present here and absent from a scene fails there instead of silently passing both.
+    #[test]
+    fn o5_counts_a_pair_for_every_axis_the_wheel_gates_subjects_declare() {
+        use crate::wheel::Subject;
+
+        for subject in Subject::ALL {
+            assert!(
+                AXIS_SCENES
+                    .iter()
+                    .any(|(id, axis)| *id == subject.id() && *axis == Axis::Wheeled),
+                "the wheel gate runs over `{}` and O5 holds no `(component, wheeled)` pair for it, \
+                 so the axis has a gate and no evidence",
+                subject.id()
+            );
+        }
+        // And the join is exactly the gate's subject list: a third pair here would be an axis
+        // claimed for a component nothing plays a wheel over.
+        let wheeled: Vec<&str> = AXIS_SCENES
+            .iter()
+            .filter(|(_, axis)| *axis == Axis::Wheeled)
+            .map(|(id, _)| *id)
+            .collect();
+        assert_eq!(
+            wheeled,
+            Subject::ALL.map(|s| s.id()).to_vec(),
+            "the pairs and the gate's subject list are the same population, derived from the same \
+             value — written out by hand on each side, a third subject escapes both halves while \
+             both stay green"
+        );
+    }
+
     /// **Not one of the five is met, and the number is written down.**
     ///
     /// The runtime `register.rs`'s arrangement, one crate up: a list that says how many are green makes
@@ -475,11 +534,14 @@ mod tests {
             (0, 0),
             "O4"
         );
-        // **O5 moved twice, and it is still red.** Ticket 04's scene list covered twelve of the
-        // thirty-four `(component, axis)` pairs from §21's own rows and ticket 09's narrow axis
-        // added `text` and `chip`; the other twenty are the per-component scenes tickets'. A query
-        // that moves is a query that is measuring something.
-        assert_eq!(unmet(o5(AXIS_SCENES)), (34, 18), "O5");
+        // **O5 has moved three times and it is still red.** Ticket 04's scene list covered twelve
+        // of the thirty-four `(component, axis)` pairs from §21's own rows, ticket 09's narrow axis
+        // added `text` and `chip`, and ticket 20 added `(scroll_area, wheeled)` — the pair §21 had
+        // no way to state, because its single wheel row was written while a click was an arithmetic
+        // substitution and a delta added to an offset has no second axis to be wrong on. The other
+        // seventeen are the per-component scenes tickets'. A query that moves is a query that is
+        // measuring something.
+        assert_eq!(unmet(o5(AXIS_SCENES)), (34, 17), "O5");
 
         // The construction sum O3 will be checked against once ticket 37 has screens: 29 rows plus
         // `chart`, `meter` and `sparkline` at 2 and `plot` at 3.
@@ -564,7 +626,7 @@ mod tests {
     /// See [`o1_fails_loudly`]. **The one worth more than the other four together**, and the one
     /// whose population is `(component, axis)` pairs rather than scenes.
     #[test]
-    #[should_panic(expected = "O5 is unmet: 18 of 34")]
+    #[should_panic(expected = "O5 is unmet: 17 of 34")]
     fn o5_fails_loudly() {
         o5(AXIS_SCENES).assert_met("O5");
     }

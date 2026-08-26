@@ -112,7 +112,7 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 24 of 45 tickets resolved (the last on 2026-08-25). `INVENTORY` is spec
+- **`vitui-components` has started**: 25 of 45 tickets resolved (the last on 2026-08-25). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
   answerable by the machine from here on. All five obligations are `Unmet` and each is watched
@@ -122,6 +122,54 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   (19/10, not ADR 0033's thirteen-unbuilt), the count of empty families (five, not §17's two), §1's
   layer rule against §6's own composition, and the `layer` column being uncheckable without stated
   edges. All four are asserted as measured rather than bent to fit.
+- **The wheel gate is green, and inverting it found the pair spec §21 had no way to state**
+  (components ticket 20, 2026-08-25). It was the sharpest of the four pinned reds and the only one
+  whose failing set was the **defect** rather than a missing subject, which is why it stayed red for
+  nine tickets. **Criterion 1 was already met** — the shipped `collection` has asked for a reveal only
+  from `Handled::reveal` since ticket 12, and every `request_into_view` in the workspace is behind a
+  condition. What kept the row red was that **the gate could not be written over the code**: two
+  stand-ins, each honest when written. The click was a *delta* handed to the arithmetic
+  `Response::scrolled` would have delivered it to, because *a `Mouse` needs a `Buttons` and a
+  `MouseKind` and neither was in `ENGINE_NAMES` at all* (runtime issue 22 lifted it); the subject was
+  a row loop written beside the gate, because `collection` did not exist yet.
+  `crates/vitui-components/src/wheel.rs` is that instrument with both removed — a posted `Notch`
+  routed through the previous frame's hit index, played over `collection_into` and `scroll_area`
+  against `collect::defective::every_frame` and `never_reveals`.
+  **Neither stand-in was on the side of either arm, so the pinned figure did not move** — `0 against
+  20` either way. **What they had cost was the second subject and the second axis**: §21 carries the
+  wheel as one row over one component, which is exactly what is writable while a click is a delta
+  added to an offset, because *a delta added to an offset has no second axis to be wrong on*. With a
+  real notch, **a body dead downward is alive sideways** — asking for content row 0 every frame
+  settles a vertical click at **0** and a horizontal one at **20**, and the transpose does the
+  opposite, because `Area::into_view` answers per axis and returns 0 for an axis the rectangle already
+  sits inside. **A gate reading one number calls the first of those healthy.** `scroll_area` had
+  declared `owns_offset` since ticket 01 with no scene claiming the axis; **scene 33** is that scene
+  and O5 goes 18 → **17** unmet of 34.
+  **The rule's second clause is asserted for the first time** — *a press already proves the widget was
+  on screen* — and the unconditional arm **cannot be watched failing it**: by the frame the press edge
+  lands on it has already dragged the viewport back, so `Area::into_view` answers `(0, 0)` and the
+  loudest arm is silent for the quietest reason. It is watched asking on the frame *before* any
+  gesture instead. Register 128 → **129 rows, 110 evaluated**; scenes 32 → **33**, **6 red, 19 stood
+  up**. Three runtime cadences the instrument had to be written around, each found by the gate being
+  wrong first: the focus is seated from `Response::id` a frame before the key it enables, a press is
+  two frames because the grab is awarded at `end`, and **`WhenAsked` for an area is state across
+  frames** — a *once* flag inside the body closure is `false` again next frame, so the correct arm
+  asked every frame and measured the defect under the correct arm's name.
+  **A review then found the gate blind in the one place the three-arm design exists for**, and it is
+  the ticket's own subject arriving in the ticket's own instrument. The chord was posted behind
+  `if reveal != Reveal::Never`, so `revealed(Collection, Never, …) == (0, 0)` — the whole evidence
+  that deleting the call loses the keyboard — was produced by the **absent gesture** and not by the
+  absent reveal. Measured: with the guard in, repairing `never_reveals` to behave exactly like the
+  shipped component left all five tests green.
+  **And running every report found three that had been panicking, one for eight tickets.**
+  `listing_numbers` asserted `red == 5` and ticket 12 turned four of those green without touching it;
+  `keys_numbers` asserted `REACHABLE_STATES == 8` where runtime issue 22 made it 256; `scene_numbers`
+  carried two standing counts from before ticket 12. **`cargo test` does not run an example** — it is
+  compiled by `cargo clippy --all-targets` and evaluated by nothing, which is runtime ticket 20's
+  *a number measured in a file nothing evaluates* one crate over and the reason `examples/frame.rs`
+  needed a CI line. All twenty-one `*_numbers.rs` run to completion now, and **none of them is a
+  gate** — the convention that no register row rests on one is untouched.
+
 - **`scroll_area`, `scrollbar` and `sticky` are the tenth, eleventh and twelfth components, and the
   ticket found that both of this crate's recorders were in the wrong coordinate system** (components
   ticket 19, 2026-08-25). **Bars are reserved and there is no overlay option** (ADR 0029), checked as

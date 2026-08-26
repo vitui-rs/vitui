@@ -29,7 +29,6 @@
 
 use vitui_alloc_probe::{CountingAllocator, count_allocations};
 use vitui_components::counters::Allocations;
-use vitui_components::gates::Standing;
 use vitui_components::runner::{
     Fixture, at_two_sizes, compare, defective, play, reference, rows_at_a_time,
 };
@@ -182,7 +181,10 @@ fn main() {
             println!("    {id:<20} {}", axis.name());
         }
     }
-    assert_eq!(covered, 16);
+    // Seventeen since components 20, which claimed `(scroll_area, wheeled)` — the pair §21 had no
+    // way to state, because its single wheel row was written while a click was an arithmetic
+    // substitution and a delta added to an offset has no second axis to be wrong on.
+    assert_eq!(covered, 17);
     assert_eq!(coverage.len(), 34);
     assert_eq!(
         INVENTORY
@@ -231,14 +233,15 @@ fn main() {
     // own green-wide-red-narrow fixture rehearses it. See
     // `scenes::tests::a_rehearsal_is_never_what_stands_a_scene_up`.
     assert_eq!(count(|s| !s.rehearsed_by.is_empty()), 8);
-    assert_eq!(count(|s| s.standing.evaluated()), 3);
-    assert_eq!(
-        count(|s| matches!(s.standing, Standing::Red { .. })),
-        15,
-        "components ticket 11's five — four pinned to components 12 and one to components 20 — \
-         ticket 14's two pinned to components 15, ticket 16's two to 17, ticket 18's four to 19 \
-         and ticket 21's two to 22"
-    );
+    // **The two standing counts are gone, and the comment above is why.** They read `evaluated == 3`
+    // and `red == 15` — figures from before components 12 — and had been wrong through every ticket
+    // since, which is the second copy doing exactly what the note above predicts. **Nothing caught
+    // it because `cargo test` does not run an example**: it is compiled by `cargo clippy
+    // --all-targets` and evaluated by nothing. Resyncing them would put the same trap back one
+    // number later, so they are deleted rather than corrected, and
+    // `scenes::tests::eight_scenes_have_nothing_to_run_over_six_are_red_and_nineteen_are_stood_up`
+    // owns those figures — it asserts the scene *numbers* and not only their count, which is
+    // strictly more than these two lines said. Found by components 20.
 }
 
 fn count(f: impl Fn(&Scene) -> bool) -> usize {

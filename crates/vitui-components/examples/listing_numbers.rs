@@ -3,8 +3,8 @@
 //! Components ticket 11. The convention is the runtime's — a file in `examples/` named
 //! `<subject>_numbers.rs` that prints the numbers a human reads — and so is the rule about what an
 //! example may be: **`cargo test` does not run this file**, and no row of
-//! [`vitui_components::gates::REGISTER`] rests on it. Rows 29 and 66 *cite* it and each names a
-//! `#[test]` in `src/listing.rs` beside the citation.
+//! [`vitui_components::gates::REGISTER`] rests on it. Row 66 *cites* it and names a `#[test]` in
+//! `src/listing.rs` beside the citation.
 //!
 //! # What it prints
 //!
@@ -15,9 +15,14 @@
 //! 3. **The size invariance**, at 1 000, 100 000 and 1 000 000 rows, against a listing that iterates
 //!    its whole content. Writes are **identical on both arms**, which is why criterion 6's equality
 //!    is on `regions`.
-//! 4. **The wheel gate**, in both directions, over three arms.
-//! 5. **O5's collection column**, and what `scenes_for("collection")` answers.
-//! 6. **What does not reproduce**, said out loud rather than engineered away.
+//! 4. **O5's collection column**, and what `scenes_for("collection")` answers.
+//! 5. **What does not reproduce**, said out loud rather than engineered away.
+//!
+//! **The wheel gate is not here and it used to be.** Components ticket 11 kept it beside the other
+//! four axes, over a hand-written body and with the click's delta substituted for a posted one;
+//! components 20 spent runtime issue 22 and moved it to `examples/wheel_numbers.rs`, where it plays
+//! over the shipped component and over `scroll_area` beside it. The axis table below still carries
+//! the row, and it points there for the numbers.
 //!
 //! # It asserts the shape and not the timings
 //!
@@ -29,8 +34,9 @@
 use vitui_alloc_probe::{CountingAllocator, count_allocations};
 use vitui_components::counters::Allocations;
 use vitui_components::gates::Standing;
-use vitui_components::listing::{self, Reveal, Volume};
+use vitui_components::listing::{self, Volume};
 use vitui_components::scenes::{SCENES, scenes_for};
+use vitui_components::wheel;
 use vitui_components::{Axis, INVENTORY};
 
 // **The probe, because `allocations` is a total and a total needs something that counts.** Installed
@@ -56,7 +62,6 @@ fn main() {
     scene_list();
     the_four_axes();
     size_invariance();
-    the_wheel_gate();
     o5();
     what_does_not_reproduce();
 }
@@ -84,10 +89,20 @@ fn scene_list() {
             scene.number, scene.name, word
         );
     }
-    assert_eq!(red, 5, "all five are pinned red");
+    // **Zero, and this line has been wrong since components 12.** It read `red == 5` — ticket 11's
+    // number, written when all five were — and 12 turned four of them green without touching it, so
+    // this example has been panicking on its second `report` block ever since. Nothing noticed
+    // because **`cargo test` does not run an example**: it is compiled by `cargo clippy
+    // --all-targets` and evaluated by nothing, which is runtime ticket 20's finding one crate over —
+    // *a number measured in a file nothing evaluates*. Components 20 found it by running the file.
+    assert_eq!(
+        red, 0,
+        "all five are stood up: four by components 12 and the wheel gate by 20"
+    );
     println!(
-        "\n  Four are waiting for `collection` and one is not: the wheel gate's failing set is the\n  \
-         defect itself, which is why it stays red through components 12 and goes green at 20.\n"
+        "\n  Four waited for `collection` and one did not: the wheel gate's failing set was the\n  \
+         defect itself, so it stayed red through components 12 and went green at **20**, nine\n  \
+         tickets later, in `crate::wheel`.\n"
     );
 }
 
@@ -128,12 +143,15 @@ fn the_four_axes() {
         "3 200 writes against 360 — the defective arm is the cheap one",
     );
 
+    // **The two figures are interpolated and not typed.** The gate that produces them moved to
+    // `crate::wheel` and this row is a pointer at it — but a pointer carrying a *copy* of the number
+    // it points at is the one thing worse than no pointer, so the constants are read.
     axis(
         "wheeled (20 clicks)",
         &format!(
-            "offset {} against {}",
-            listing::wheeled(Reveal::EveryFrame, listing::CLICKS).settled,
-            listing::wheeled(Reveal::WhenAsked, listing::CLICKS).settled
+            "offset {} against {} — `examples/wheel_numbers.rs`",
+            wheel::DRAGGED_BACK,
+            wheel::MOVED
         ),
         "no counter moves at all; the screen is identical every frame",
     );
@@ -244,59 +262,7 @@ fn size_invariance() {
     }
 }
 
-/// 4. The wheel gate, in both directions.
-fn the_wheel_gate() {
-    println!(
-        "report  twenty wheel clicks, and the reveal that decides whether they move anything:"
-    );
-    println!(
-        "  {:<18}  {:>10}  {:>12}  {:>9}  {:>16}",
-        "reveal", "settled", "after click 20", "requests", "keyboard reveal"
-    );
-    for reveal in [Reveal::WhenAsked, Reveal::EveryFrame, Reveal::Never] {
-        let played = listing::wheeled(reveal, listing::CLICKS);
-        println!(
-            "  {:<18}  {:>10}  {:>12}  {:>9}  {:>16}",
-            reveal.word(),
-            played.settled,
-            played.after_last_click,
-            played.reveals,
-            listing::revealed(reveal, listing::SCROLLED_AWAY),
-        );
-    }
-    println!("\n  Both directions, and neither alone is the gate:");
-    println!("    the wheel half   `every frame` settles at 0 where the rule settles at 20.");
-    println!("    the reveal half  `never` passes the wheel half and moves the offset 0 when a");
-    println!(
-        "                     keyboard reveal really asks — so deleting the call is not a fix."
-    );
-    println!(
-        "  The `after click 20` column is 1 and not 0 for the defective arm: a request crosses the\n  \
-         frame boundary and is read on the frame after (ADR 0015), so the defect is always one\n  \
-         click ahead of its own correction. That one click is the runtime's own documented residue."
-    );
-    println!(
-        "  A frame at offset 0 leaves no request on **any** arm ({}), which is the frame this\n  \
-         defect is invisible on and the reason `leaves_no_request` takes an offset.\n",
-        listing::leaves_no_request(Reveal::EveryFrame, 0)
-    );
-
-    assert_eq!(
-        listing::wheeled(Reveal::WhenAsked, listing::CLICKS).settled,
-        listing::MOVED
-    );
-    assert_eq!(
-        listing::wheeled(Reveal::EveryFrame, listing::CLICKS).settled,
-        listing::DRAGGED_BACK
-    );
-    assert_eq!(listing::revealed(Reveal::Never, listing::SCROLLED_AWAY), 0);
-    assert!(listing::leaves_no_request(
-        Reveal::WhenAsked,
-        listing::MOVED
-    ));
-}
-
-/// 5. O5's collection column.
+/// 4. O5's collection column.
 fn o5() {
     println!("report  O5, from the collection's side:");
     let component = INVENTORY
@@ -334,7 +300,7 @@ fn o5() {
     assert!(!component.declares(Axis::Narrow));
 }
 
-/// 6. What does not reproduce, and why.
+/// 5. What does not reproduce, and why.
 fn what_does_not_reproduce() {
     println!("report  what does not reproduce, and why:");
     for line in [
@@ -358,11 +324,14 @@ fn what_does_not_reproduce() {
         "                                           226x has no expression. The direction reproduces",
         "                                           in the counter that is readable: 3 200 against 360.",
         "  0 against 16               0 against 20  §21's 16 carries four clicks of wheel-chain",
-        "                                           residue. There is none here: a `Mouse` cannot be",
-        "                                           posted from this crate, so the click's delta is",
-        "                                           handed straight to the arithmetic — on both arms.",
-        "                                           The zero is the number that matters and it is the",
-        "                                           same zero.",
+        "                                           residue and there is none here. The zero is the",
+        "                                           number that matters and it is the same zero — and",
+        "                                           it stayed the same when components 20 replaced",
+        "                                           the arithmetic click with a posted `Mouse` and the",
+        "                                           row loop with the shipped component. Neither",
+        "                                           stand-in had been on the side of either arm; what",
+        "                                           they cost was the second subject and the second",
+        "                                           axis. `examples/wheel_numbers.rs`.",
         "  63.87 / 63.87 / 64.08 us   52-104 us     a report and gated by nothing (R15), on another",
         "                             per frame,    machine. The absolute figure moves by 2x between an",
         "                             all three     idle run and a busy one, which is exactly why R15",
