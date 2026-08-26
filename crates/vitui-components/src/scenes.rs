@@ -36,7 +36,7 @@
 //! ([`Scene::owed`] and [`Scene::from_a_survived_defect`]), because the value can hold both and a
 //! count cannot.
 //!
-//! # Eight scenes are `Unsubjected`, four are `Red` and twenty-one are `Evaluated`
+//! # Eight scenes are `Unsubjected`, one is `Red` and twenty-four are `Evaluated`
 //!
 //! The count that is a gate is `tests::eight_scenes_have_nothing_to_run_over_four_are_red_and_
 //! twenty_one_are_stood_up`, which asserts the **numbers** each scene as well as the total; this
@@ -509,16 +509,20 @@ const TABLE: &[&str] = &crate::grid::SUBJECTS;
 /// [`crate::document::SUBJECTS`], reached through this alias for [`COLLECTION`]'s reason.
 const FIELD: &[&str] = &crate::document::SUBJECTS;
 
-/// **The pair every one of components ticket 23's three scenes is pinned by.**
+/// **The pair every one of components ticket 23's three scenes rests on.**
 ///
-/// One fact — `field` is not declared — stated once, and the two halves are the two directions
-/// criterion 8 asks for: [`crate::document::standing`] is the verdict over the one subject, and
-/// [`crate::document::owed_message`] is the sentence that separates *waiting for its subject* from
-/// *the code is wrong*.
-const WAITING_FOR_FIELD: &[Instrument] = &[
+/// One fact — `field` is declared where the freeze homes it — stated once, and the two halves are
+/// the two directions criterion 8 asks for: [`crate::document::standing`] is the verdict over the
+/// one subject, and [`crate::document::owed_message`] is the sentence that separates *waiting for
+/// its subject* from *the code is wrong*, still watched being produced for the day it is needed
+/// again.
+///
+/// It was `WAITING_FOR_FIELD` for exactly one ticket and components 24 inverted it, the same way
+/// `STANDS_ON_CHART_AND_PLOT` was one ticket over.
+const STANDS_ON_FIELD: &[Instrument] = &[
     Instrument::Unit {
         file: DOCUMENT,
-        name: "the_document_is_red_because_field_is_not_declared",
+        name: "the_document_stands_on_its_declared_subject",
     },
     Instrument::Unit {
         file: DOCUMENT,
@@ -554,18 +558,7 @@ const STANDS_ON_CHART_AND_PLOT: &[Instrument] = &[
     },
 ];
 
-/// The failing set all three of components ticket 23's scenes are pinned in.
-const OWED_ITS_FIELD: &str = "`field` is not declared in `crates/vitui-components/src/input.rs`, \
-                              so the three screens stand on a caret and a wrap index written in \
-                              `crate::document`. Everything the screens themselves can be asked \
-                              is measured and green — 167 clusters over the seven kinds §11 \
-                              names, 625 visual rows at 300 columns against 875 at 120, 69 of 80 \
-                              rows differing under a memo keyed on the revision alone, 500 \
-                              splices separating the two restart points, and all four of §11's \
-                              gates watched firing while none of §20's nine counters can see any \
-                              of them. What is missing is the subject";
-
-/// What pins scene 12, beyond the pair all three share.
+/// What stands scene 12 up, beyond the pair all three share.
 const PINS_SCENE_12: &[Instrument] = &[
     Instrument::Unit {
         file: DOCUMENT,
@@ -588,11 +581,11 @@ const PINS_SCENE_12: &[Instrument] = &[
         file: DOCUMENT,
         name: "the_caret_is_where_the_two_caret_defects_are_visible_and_it_is_not_a_cell",
     },
-    WAITING_FOR_FIELD[0],
-    WAITING_FOR_FIELD[1],
+    STANDS_ON_FIELD[0],
+    STANDS_ON_FIELD[1],
 ];
 
-/// What pins scene 13. See [`PINS_SCENE_12`].
+/// What stands scene 13 up. See [`PINS_SCENE_12`].
 const PINS_SCENE_13: &[Instrument] = &[
     Instrument::Unit {
         file: DOCUMENT,
@@ -611,11 +604,11 @@ const PINS_SCENE_13: &[Instrument] = &[
         file: DOCUMENT,
         name: "five_hundred_splices_separate_the_two_restart_points",
     },
-    WAITING_FOR_FIELD[0],
-    WAITING_FOR_FIELD[1],
+    STANDS_ON_FIELD[0],
+    STANDS_ON_FIELD[1],
 ];
 
-/// What pins scene 30, the cluster corpus. See [`PINS_SCENE_12`].
+/// What stands scene 32 up, the cluster corpus. See [`PINS_SCENE_12`].
 const PINS_SCENE_32: &[Instrument] = &[
     Instrument::Unit {
         file: CLUSTERS,
@@ -637,8 +630,8 @@ const PINS_SCENE_32: &[Instrument] = &[
         file: "crates/vitui-runtime/src/layout/text.rs",
         line: "use vitui_engine::{graphemes, width_of};",
     },
-    WAITING_FOR_FIELD[0],
-    WAITING_FOR_FIELD[1],
+    STANDS_ON_FIELD[0],
+    STANDS_ON_FIELD[1],
 ];
 
 /// What stands scene 15 up: the screen's own measurements, plus the pair that says the subjects
@@ -1469,11 +1462,7 @@ pub const SCENES: [Scene; 33] = [
         stands: FIELD,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Red {
-            by: PINS_SCENE_12,
-            failing: OWED_ITS_FIELD,
-            inverted_by: "components 24",
-        },
+        standing: Standing::Evaluated { by: PINS_SCENE_12 },
         rehearsed_by: &[],
     },
     Scene {
@@ -1495,11 +1484,7 @@ pub const SCENES: [Scene; 33] = [
         stands: FIELD,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Red {
-            by: PINS_SCENE_13,
-            failing: OWED_ITS_FIELD,
-            inverted_by: "components 24",
-        },
+        standing: Standing::Evaluated { by: PINS_SCENE_13 },
         rehearsed_by: &[],
     },
     Scene {
@@ -2094,11 +2079,7 @@ pub const SCENES: [Scene; 33] = [
         // find two: `truncate` cannot segment across a line break, and `layout::text::wrap` cut a
         // line that exactly filled its band at the *first* space.
         from_a_survived_defect: false,
-        standing: Standing::Red {
-            by: PINS_SCENE_32,
-            failing: OWED_ITS_FIELD,
-            inverted_by: "components 24",
-        },
+        standing: Standing::Evaluated { by: PINS_SCENE_32 },
         rehearsed_by: &[],
     },
     // ── components ticket 20's scene, and the pair §21 had no way to state ───────────────────────
@@ -2436,8 +2417,8 @@ mod tests {
             .collect();
         assert_eq!(
             red,
-            vec![12, 13, 14, 32],
-            "components ticket 23's three and 25's overlay family. Components ticket \
+            vec![14],
+            "components ticket 25's overlay family, alone. Components ticket \
              27's two were here for one ticket and 28 inverted them; components ticket 14's two — \
              scenes 7 and 31 — were here for one ticket and **15** inverted them; components \
              ticket 16's two — scenes 8 and 9 — likewise, and **17** inverted them; components \
@@ -2448,8 +2429,10 @@ mod tests {
              took the shipped code being checked and not a standing being edited. **Components \
              ticket 21's two — scenes 10 and 11 — were here for one ticket and 22 inverted them \
              together**, because they were pinned on one fact and it was the subject, which is the \
-             same shape 16→17, 14→15 and 18→19 had. A fifth arriving here is a new one, and it owes \
-             an exact failing set and a ticket that inverts it"
+             same shape 16→17, 14→15 and 18→19 had. **Components ticket 23's three — scenes 12, 13 \
+             and 32 — were here for one ticket and 24 inverted all three together**, for the same \
+             reason and with the same shape. A second arriving here is a new one, and it owes an \
+             exact failing set and a ticket that inverts it"
         );
         let evaluated: Vec<u8> = SCENES
             .iter()
@@ -2459,7 +2442,8 @@ mod tests {
         assert_eq!(
             evaluated,
             vec![
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 16, 17, 18, 19, 28, 29, 30, 31, 33
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 17, 18, 19, 28, 29, 30, 31, 32,
+                33
             ],
             "the dense screen and its two twins, the collection's **five** — the wheel gate joined \
              the other four when components 20 posted a real notch over the shipped component — \
@@ -2472,7 +2456,10 @@ mod tests {
              the pair §21 had no way to state, and it is here because it plays over `scroll_area` \
              rather than over an arithmetic offset. A screen played \
              over a stand-in for its components is rehearsed and not stood up, so one arriving \
-             here is a deliberate edit to this module's header and to `crate::gates::REGISTER`"
+             here is a deliberate edit to this module's header and to `crate::gates::REGISTER`. Scenes 12, \
+             13 and 32 are components 24's, and the third of them is the one worth naming: the \
+             cluster corpus stands no component and covers no axis, and what makes it a scene is \
+             that a fixture can be sampled away by a later ticket with nothing saying so"
         );
         assert_eq!(SCENES.len() - evaluated.len() - red.len(), 8);
 
@@ -2519,15 +2506,12 @@ mod tests {
         }
         assert_eq!(
             pinned_to,
-            vec![
-                (12, "components 24"),
-                (13, "components 24"),
-                (14, "components 26"),
-                (32, "components 24"),
-            ],
+            vec![(14, "components 26")],
             "the wheel gate is not waiting for its subject and the rest are. Merging the two loses \
-             the distinction components 11's criterion 7 is about: `field`, `select` and `overlay` \
-             are undeclared and no defect of theirs is pinned here"
+             the distinction components 11's criterion 7 is about: `select` and `overlay` are \
+             undeclared and no defect of theirs is pinned here. **`field` left this list with \
+             components 24** and its three scenes left together, which is what the ticket predicted \
+             — they were pinned on one fact and it was the subject"
         );
     }
 
@@ -2940,7 +2924,7 @@ mod tests {
         // scene that is still red, or the half of this test that matters — *a measured line over a
         // red scene still says it is red* — has nothing to be about. It was scene 6 from components
         // 12 until 20 stood the wheel gate up, then scene 11 until 22 stood the accordion up; the
-        // field is the lowest-numbered red scene left, and the label is the line's own rather than
+        // Scene 12 is stood up since components 24, and the label is the line's own rather than
         // the scene's, so nothing about the property moved with it either time.
         let rehearsal = run.row(
             "twenty fields and a 1 MB pasted textarea",
@@ -2958,21 +2942,32 @@ mod tests {
             printed
                 .matches("stood up on its own components, by ")
                 .count(),
-            21,
-            "a stood-up scene says what stands it up, rather than reading as unplayed"
+            23,
+            "a stood-up scene says what stands it up, rather than reading as unplayed. \
+             Twenty-four are stood up and twenty-three say so here, because scene 12 is the one \
+             this report **plays** — a played line carries its own numbers instead"
         );
         assert_eq!(
             printed.matches("red, pinned: `components ").count(),
-            4,
-            "ticket 23's three and 25's one, and a red line is neither *not played* nor *stood up*. \
-             **The wheel gate was the seventh until components 20 and the accordion's two the fifth \
-             and sixth until 22**"
+            1,
+            "ticket 25's one, alone, and a red line is neither *not played* nor *stood up*. **The \
+             wheel gate was the seventh until components 20, the accordion's two the fifth and \
+             sixth until 22, and the field's three the second, third and fourth until 24**"
         );
         assert_eq!(printed.matches("[rehearsed over a fixture").count(), 1);
         assert!(
-            printed.contains("[rehearsed over a fixture; red, pinned: `components 24` inverts it]"),
+            printed.contains("[rehearsed over a fixture]"),
+            "a measured line names how it was measured: {printed}"
+        );
+        // **The red suffix is still produced**, and it is asserted over the scene that is still
+        // red rather than over one that has stopped being. Scene 12 carried it for exactly one
+        // ticket; asserting the suffix on a scene that is now green would mean deleting the check
+        // the day the last red row goes, which is when it is most worth keeping.
+        assert!(
+            report(&[(14, run.row(SCENES[13].name, Allocations::over(1, 0)))])
+                .contains("red, pinned: `components 26` inverts it"),
             "a measured line over a red scene still says it is red, or a report of a red scene \
-             would read as a healthy frame: {printed}"
+             would read as a healthy frame"
         );
         assert!(
             printed.contains("marked=unreachable"),

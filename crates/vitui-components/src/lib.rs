@@ -268,6 +268,7 @@ pub mod clusters;
 pub mod counters;
 pub mod dense;
 pub mod document;
+pub mod edit;
 pub mod forest;
 pub mod form;
 pub mod frame;

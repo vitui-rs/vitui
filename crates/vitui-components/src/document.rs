@@ -54,16 +54,19 @@
 //! whether the runtime grows a cluster step is components architecture's question and
 //! `.scratch/vitui-components-impl/issues/24` is the ticket that will have to ask it.
 //!
-//! # The gate is red, and it is red for one reason
+//! # The gate was red for one reason and components 24 inverted it
 //!
-//! `field` does not exist. [`standing`] is a [`crate::obligations::Verdict`] over one subject,
+//! `field` did not exist. [`standing`] is a [`crate::obligations::Verdict`] over one subject,
 //! [`subjects_declared`] opens the file the freeze homes it in — `input.rs`, F6 — and
 //! [`owed_message`] is the sentence that separates *waiting for its subject* from *the code is
-//! wrong*. Ticket 09's criterion 7, inherited whole. Inverted by **components 24**.
+//! wrong*. Ticket 09's criterion 7, inherited whole.
 //!
-//! Unlike [`crate::listing`], **all of this ticket's rows turn together**: there is no second reason
-//! here the way the wheel gate is a second reason there. What stands in for `field` is a caret and
-//! a wrap index written in this file, and every figure below is measured over them.
+//! **All three rows turned together**, which is what the ticket predicted: there was no second
+//! reason here the way the wheel gate is a second reason in [`crate::listing`]. What stood in for
+//! `field` was a caret and a wrap index written in this file; both are now
+//! [`crate::edit`]'s, this file re-exports them under the names it already used, and
+//! [`draw_screen`] draws through [`crate::input::field_into`] — so every figure below is a
+//! measurement of the shipped component.
 //!
 //! [`Barrier`]: crate::gates::Instrument::Barrier
 
@@ -71,11 +74,12 @@ use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 
 use vitui_runtime::layout::text::{truncate, width, wrap};
-use vitui_runtime::{Ctx, Cursor, Density, Id, Interest, Role};
+use vitui_runtime::{Ctx, Cursor, Density};
 
-use crate::clusters::{self, Corpus, next_cluster};
+use crate::clusters::{self, Corpus};
 use crate::counters::{Allocations, Counter, Counters};
 use crate::ink::Ink;
+use crate::input::{FieldOpts, field_into};
 use crate::obligations::Verdict;
 use crate::runner::{Canvas, Diff, Pen, driver_at};
 use vitui_runtime::Rect;
@@ -250,269 +254,18 @@ pub fn pasted() -> String {
     out
 }
 
-// ── the wrap index ───────────────────────────────────────────────────────────────────────────────
+// ── the wrap index and the caret, which are the component's ──────────────────────────────────────
 
-/// **The wrap index: visual-row starts, the revision it was built at, and the width it was built
-/// at.**
+/// **The machine these screens are screens of.** Components ticket 24.
 ///
-/// §11 describes it as a `Vec<u32>` of visual-row starts plus a sentinel, keyed on
-/// `(revision, width)`. Two departures, both stated rather than slipped in:
-///
-/// 1. **A row carries its end as well as its start.** A greedy break consumes the space it broke
-///    at, so a row's content ends before the next row's start and a sentinel cannot say where. A
-///    stand-in that guessed would be measuring the guess.
-/// 2. **The width is a field and not only a key.** That is the *point*: §11's fourth gate is *the
-///    index's recorded width equals the width being drawn*, and an index that does not record its
-///    width has no gate to fail. [`Index::built_at`] is the recording, and
-///    [`Defect::MemoKeyedOnRevision`] is what happens when the key drops it.
-#[derive(Clone, Debug)]
-pub struct Index {
-    rows: Vec<(u32, u32)>,
-    revision: u64,
-    width: u16,
-}
-
-impl Index {
-    /// **Build the index over `text` at `w` columns.**
-    ///
-    /// The wrapping is `vitui_runtime::layout::text::wrap` and **not a second greedy wrap written
-    /// here**: a stand-in that reimplemented the break rule would make every equality below a
-    /// comparison between two copies of one bug. The offsets are recovered from the subslices the
-    /// iterator yields, which are slices of `text` itself.
-    pub fn build(text: &str, w: u16, revision: u64) -> Index {
-        let mut rows = Vec::new();
-        let base = text.as_ptr() as usize;
-        for hard in text.split('\n') {
-            let at = hard.as_ptr() as usize - base;
-            let mut any = false;
-            for piece in wrap(hard, w) {
-                let off = piece.as_ptr() as usize - base;
-                rows.push((off as u32, (off + piece.len()) as u32));
-                any = true;
-            }
-            // An empty hard line is one visual row and `wrap` yields nothing for it. A textarea
-            // that skipped it would renumber every row below a blank line.
-            if !any {
-                rows.push((at as u32, at as u32));
-            }
-        }
-        Index {
-            rows,
-            revision,
-            width: w,
-        }
-    }
-
-    /// How many visual rows. **625 at [`WIDE`] and 875 at [`NARROW`]**, which is §21's pair.
-    pub fn rows(&self) -> usize {
-        self.rows.len()
-    }
-
-    /// Whether it holds no rows. It never does over a non-empty document.
-    pub fn is_empty(&self) -> bool {
-        self.rows.is_empty()
-    }
-
-    /// §11's own shape: the visual-row starts, plus the last row's end as the sentinel.
-    pub fn starts(&self) -> Vec<u32> {
-        let mut out: Vec<u32> = self.rows.iter().map(|(s, _)| *s).collect();
-        if let Some((_, end)) = self.rows.last() {
-            out.push(*end);
-        }
-        out
-    }
-
-    /// The revision it was built at.
-    pub fn revision(&self) -> u64 {
-        self.revision
-    }
-
-    /// **The width it was built at**, which §11's fourth gate compares against the width being
-    /// drawn.
-    pub fn built_at(&self) -> u16 {
-        self.width
-    }
-
-    /// The row `byte` falls in. `O(log rows)`.
-    pub fn row_of(&self, byte: usize) -> usize {
-        match self
-            .rows
-            .binary_search_by(|(s, _)| (*s as usize).cmp(&byte))
-        {
-            Ok(i) => i,
-            Err(0) => 0,
-            Err(i) => i - 1,
-        }
-    }
-
-    /// Where row `r` starts, in bytes.
-    pub fn row_start(&self, r: usize) -> usize {
-        self.rows.get(r).map(|(s, _)| *s as usize).unwrap_or(0)
-    }
-
-    /// Row `r`'s content.
-    pub fn row_text<'a>(&self, text: &'a str, r: usize) -> &'a str {
-        match self.rows.get(r) {
-            Some((s, e)) => &text[*s as usize..*e as usize],
-            None => "",
-        }
-    }
-
-    /// **Rebuild the tail from row `restart`, keeping the rows before it.** §10's splice.
-    ///
-    /// The restart point is the whole question — see [`splice_sweep`] — so it is an argument rather
-    /// than a policy, and the two spellings the scene compares are `row_of(at)` and one row earlier.
-    ///
-    /// It rewraps to the end of the document rather than stopping when it resynchronises. That is an
-    /// upper bound on the work and **exact on the answer**, which is the half this scene is about: a
-    /// splice and a rebuild can only disagree about the rows the splice kept.
-    pub fn spliced(&self, edited: &str, restart: usize, revision: u64) -> Index {
-        let from = self.row_start(restart.min(self.rows.len()));
-        let head: Vec<(u32, u32)> = self.rows[..restart.min(self.rows.len())].to_vec();
-        let tail = Index::build(&edited[from..], self.width, revision);
-        let mut rows = head;
-        rows.extend(
-            tail.rows
-                .iter()
-                .map(|(s, e)| (*s + from as u32, *e + from as u32)),
-        );
-        Index {
-            rows,
-            revision,
-            width: self.width,
-        }
-    }
-
-    /// Whether two indices describe the same rows.
-    pub fn same_rows(&self, other: &Index) -> bool {
-        self.rows == other.rows
-    }
-
-    /// The first row two indices disagree about, if any.
-    pub fn first_disagreement(&self, other: &Index) -> Option<usize> {
-        self.rows
-            .iter()
-            .zip(other.rows.iter())
-            .position(|(a, b)| a != b)
-            .or_else(|| {
-                (self.rows.len() != other.rows.len())
-                    .then_some(self.rows.len().min(other.rows.len()))
-            })
-    }
-}
-
-// ── the caret ────────────────────────────────────────────────────────────────────────────────────
-
-/// **The caret: a `(byte, column)` pair.** §11's first sentence, as a type.
-///
-/// Not a byte offset whose column is computed where it is needed. `display_width(&s[..caret])` is
-/// correct on every cluster and is **2 988 µs a frame at 1 MB against 80.12** — thirty budgets, on a
-/// screen where nothing happened.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
-pub struct Caret {
-    /// Where it is, in bytes.
-    pub byte: usize,
-    /// What column it is at, carried alongside and moved by the width of the cluster crossed.
-    pub col: u16,
-}
-
-/// How far [`step`] looks for a line break before handing the rest to
-/// [`crate::clusters::next_cluster`]. Sixty-four bytes.
-///
-/// Every cluster in [`crate::clusters::ROTA`] is at most twenty-five bytes, and the bound is what
-/// keeps a step `O(1)`: a `find` for the next break over the remainder of a pasted megabyte would
-/// make crossing the buffer `O(bytes^2)`, which is a fixture that cannot run rather than a slow one.
-const LOOKAHEAD: usize = 64;
-
-/// **The forward cluster step a *document* needs**, which is not quite the one a line needs.
-///
-/// [`crate::clusters::next_cluster`] probes with `truncate`, and `truncate` is greedy over
-/// zero-width clusters — **a line break is zero columns wide**, so a probe for one column at
-/// `"a\nb"` answers `"a\n"`, which is two clusters in one answer. That is the same precondition the
-/// corpus asserts for itself, arriving on the one string a `textarea` actually holds.
-///
-/// So the break is handled here and the rest is delegated: CRLF is one cluster (UAX #29), a lone
-/// line feed or carriage return is one, and everything else is probed inside a window that stops at
-/// the next break. **This is the second half of the `graphemes()` finding** — see this module's
-/// header — and it is the half a component ticket would have discovered by shipping a caret that
-/// walked off the end of a line.
-pub fn step(text: &str) -> Option<&str> {
-    let bytes = text.as_bytes();
-    match bytes.first() {
-        None => return None,
-        Some(b'\r') => {
-            return Some(if bytes.get(1) == Some(&b'\n') {
-                &text[..2]
-            } else {
-                &text[..1]
-            });
-        }
-        Some(b'\n') => return Some(&text[..1]),
-        Some(_) => {}
-    }
-    let mut bound = text.len().min(LOOKAHEAD);
-    while !text.is_char_boundary(bound) {
-        bound -= 1;
-    }
-    let head = &text[..bound];
-    let stop = head
-        .as_bytes()
-        .iter()
-        .position(|b| *b == b'\n' || *b == b'\r')
-        .unwrap_or(bound);
-    next_cluster(&text[..stop])
-}
-
-/// **Every cluster boundary of a document**, walked with [`step`].
-pub fn boundaries(text: &str) -> Vec<usize> {
-    let mut out = vec![0usize];
-    let mut at = 0usize;
-    while let Some(cluster) = step(&text[at..]) {
-        at += cluster.len();
-        out.push(at);
-    }
-    out
-}
-
-/// **`Left`, from a boundary already known.**
-///
-/// `from` must be a cluster boundary at column `from_col` and no further right than `caret`. That
-/// precondition is §11's whole complexity argument: `Graphemes` is a forward iterator, so the
-/// boundary *before* an offset can only be found by segmenting forward from one already known, **and
-/// which one you have decides the complexity.** With no index the only one you have is byte 0.
-pub fn left_from(text: &str, caret: Caret, from: usize, from_col: u16) -> Caret {
-    let mut at = Caret {
-        byte: from,
-        col: from_col,
-    };
-    let mut prev = at;
-    while at.byte < caret.byte {
-        let Some(cluster) = step(&text[at.byte..]) else {
-            break;
-        };
-        prev = at;
-        at = Caret {
-            byte: at.byte + cluster.len(),
-            // **Saturating, and the saturation is the argument.** A caret's column is a *screen*
-            // column, reset at every row start; an arm that segments from byte 0 of a megabyte is
-            // accumulating something that is not a column at all, which is §11's own point about
-            // `display_width(&s[..caret])`. What the blind arm is compared on is the byte.
-            col: at.col.saturating_add(width(cluster)),
-        };
-    }
-    prev
-}
-
-/// **`Right`, one cluster.** Cheap from anywhere, which is why §11 is about `Left`.
-pub fn right(text: &str, caret: Caret) -> Caret {
-    match step(&text[caret.byte..]) {
-        Some(cluster) => Caret {
-            byte: caret.byte + cluster.len(),
-            col: caret.col.saturating_add(width(cluster)),
-        },
-        None => caret,
-    }
-}
+/// Ticket 23 wrote the wrap index and the caret pair *here*, beside the gate, because `field` did
+/// not exist — and said so in as many words: *what stands in for `field` is a caret and a wrap
+/// index written in this file*. Ticket 24 built the component, so they moved into
+/// [`crate::edit`] and this module re-exports them under the names its own tests, its scenes and
+/// `examples/field_numbers.rs` already used. **Every figure on this page is now a measurement of
+/// the shipped machine**, which is the difference between a scene that is stood up and one that is
+/// merely green.
+pub use crate::edit::{Caret, Index, boundaries, step, step_left, step_right};
 
 /// **What one `Left` at the end of a pasted megabyte costs, both ways.**
 ///
@@ -524,13 +277,12 @@ pub fn right(text: &str, caret: Caret) -> Caret {
 /// A **report**, and gated nowhere: R15's rule, and the caution is earned on this page, because the
 /// defective arm of every other scene here is *faster*.
 pub fn left_at_the_end(text: &str, index: &Index) -> (Duration, Duration, Caret) {
-    let end = Caret {
-        byte: text.len(),
-        col: 0,
-    };
+    // The end of a buffer is a boundary in every document, which is why the pair can be written
+    // here at all — `Caret::of` is crate-private and this is the one offset that needs no gesture.
+    let end = Caret::of(text.len(), 0);
 
     let started = Instant::now();
-    let without = left_from(text, end, 0, 0);
+    let without = crate::edit::defective::blind_left(text, end);
     let blind = started.elapsed();
 
     // **A `Left` at a row start is answered from the row before**, and the index is what makes
@@ -538,19 +290,20 @@ pub fn left_at_the_end(text: &str, index: &Index) -> (Duration, Duration, Caret)
     // caret's own row starts exactly where the caret is and segmenting forward from there crosses
     // nothing at all — an arm that took `row_of(caret)` unconditionally would answer *the caret did
     // not move*, which looks like a correct `Left` at the end of a document and is not one.
-    let row = index.row_of(end.byte);
-    let row = if index.row_start(row) >= end.byte && row > 0 {
+    let row = index.row_of(end.byte());
+    let row = if index.row_start(row) >= end.byte() && row > 0 {
         row - 1
     } else {
         row
     };
     let start = index.row_start(row);
     let started = Instant::now();
-    let with = left_from(text, end, start, 0);
+    let with = step_left(text, end, Caret::of(start, 0));
     let indexed = started.elapsed();
 
     assert_eq!(
-        without.byte, with.byte,
+        without.byte(),
+        with.byte(),
         "the two arms disagree about where `Left` lands, which is a defect in the instrument"
     );
     (blind, indexed, with)
@@ -622,13 +375,13 @@ pub struct Splices {
 ///
 /// Sixty-four lines of the same rota at forty columns, which is where a greedy break has somewhere
 /// to move to: at [`WIDE`] a line is one row and there is no break to invalidate.
-fn splice_document() -> String {
+pub(crate) fn splice_document() -> String {
     let all = lines();
     all[..64].join("\n")
 }
 
 /// The width the splice sweep wraps at. Forty, for [`splice_document`]'s reason.
-const SPLICE_W: u16 = 40;
+pub(crate) const SPLICE_W: u16 = 40;
 
 /// A deterministic step, so that the five hundred are the same five hundred every run.
 ///
@@ -885,15 +638,15 @@ pub struct Screen {
     /// scenes are two screens and the difference is not decoration: nineteen inputs leave the
     /// textarea sixty-one rows, and §21's *69 of 80* is counted over eighty.
     pub inputs: u16,
-    /// The first visual row drawn. Zero for both scenes; see [`screens`] for the one arm that is
-    /// not.
-    pub offset: usize,
-    /// What the textarea holds.
-    pub text: String,
-    /// The wrap index it draws from.
-    pub index: Index,
-    /// The column the caret is placed at, on row 0.
-    pub caret_col: u16,
+    /// **The textarea's state, which is [`crate::edit::Text`] and therefore the component's.**
+    ///
+    /// Ticket 23 carried a `String`, an `Index` and a caret column here, because there was nothing
+    /// to hold them; the four defects were three separate substitutions in this struct. They are
+    /// now three settings on one shipped state — [`crate::edit::defective::at_byte`] and
+    /// `column_by_chars` for the caret pair, `keyed_on_revision` for the memo key,
+    /// `restarted_at_row_of` for the splice — and the screen is drawn by
+    /// [`crate::input::field_into`] either way.
+    pub st: crate::edit::Text,
 }
 
 /// **The two arms of one gate: correct, then defective.**
@@ -910,93 +663,88 @@ pub struct Screen {
 /// that needs relaxing — it is the population failing to contain the defect, which is
 /// [`crate::obligations::Verdict::of`]'s vacuity refusal arriving on a screen.
 pub fn screens(defect: Defect) -> (Screen, Screen) {
+    use crate::edit::{Text, WrapKind, defective as bad};
+
     match defect {
         Defect::CaretOffBoundary | Defect::CaretColumnByChars => {
-            let text = text();
-            let index = Index::build(&text, WIDE, 0);
             let corpus = clusters::corpus();
             let seat = caret_seat(&corpus);
-            let correct = width(&corpus.text()[..seat]);
-            let broken = match defect {
-                Defect::CaretOffBoundary => width(&corpus.text()[..seat + 1]),
-                _ => u16::try_from(corpus.text()[..seat].chars().count()).unwrap_or(u16::MAX),
+            // **The caret is seated in the corpus and the buffer is the corpus**, so the boundary
+            // the seat names is a boundary of the text being drawn. Ticket 23 seated it in the
+            // corpus and drew the document, which was honest while the caret was a column handed
+            // to `Ctx::caret` and is not once the caret is a **pair inside a buffer**.
+            let text = corpus.text().to_string();
+            let build = |caret| {
+                let mut st = Text::of(text.clone(), WrapKind::Words);
+                let _ = st.index(WIDE);
+                st.set_pos(caret);
+                Screen {
+                    w: WIDE,
+                    inputs: FIELDS - 1,
+                    st,
+                }
             };
-            (
-                Screen {
-                    w: WIDE,
-                    inputs: FIELDS - 1,
-                    offset: 0,
-                    text: text.clone(),
-                    index: index.clone(),
-                    caret_col: correct,
-                },
-                Screen {
-                    w: WIDE,
-                    inputs: FIELDS - 1,
-                    offset: 0,
-                    text,
-                    index,
-                    caret_col: broken,
-                },
-            )
+            let correct = build(bad::at_byte(corpus.text(), seat));
+            let broken = build(match defect {
+                Defect::CaretOffBoundary => bad::at_byte(corpus.text(), seat + 1),
+                _ => bad::column_by_chars(corpus.text(), seat),
+            });
+            (correct, broken)
         }
         Defect::MemoKeyedOnRevision => {
             let text = text();
-            (
+            let build = |stale: bool| {
+                let mut st = Text::of(text.clone(), WrapKind::Words);
+                if stale {
+                    bad::keyed_on_revision(&mut st);
+                }
+                // **The index is built at [`WIDE`] and the screen is drawn at [`NARROW`]**, which
+                // is the resize: the correct key misses and rebuilds, and the defective one hits.
+                let _ = st.index(WIDE);
                 Screen {
                     w: NARROW,
                     // **One field**, which is §21's own content for this scene, and it is what
                     // makes *69 of 80* a count over eighty rows rather than over sixty-one.
                     inputs: 0,
-                    offset: 0,
-                    text: text.clone(),
-                    // Keyed on `(revision, width)`: an index at the width about to be drawn at.
-                    index: Index::build(&text, NARROW, 0),
-                    caret_col: 0,
-                },
-                Screen {
-                    w: NARROW,
-                    inputs: 0,
-                    offset: 0,
-                    // Keyed on the revision alone: the revision did not move, so the resize is a
-                    // cache hit and what comes back was built at `WIDE`.
-                    index: Index::build(&text, WIDE, 0),
-                    text,
-                    caret_col: 0,
-                },
-            )
+                    st,
+                }
+            };
+            (build(false), build(true))
         }
         Defect::SpliceRestartedAtRowOf => {
             let base = splice_document();
-            let index = Index::build(&base, SPLICE_W, 0);
             let (edited, at) = first_naive_failure().expect(
                 "five hundred edits reached no naive-splice failure, so this population cannot see \
                  the defect at all",
             );
-            let row = index.row_of(at);
-            // **The screen is scrolled to the witness, and that is not a convenience.** Sixty-four
-            // lines at forty columns is three hundred-odd visual rows and the defect is one of
-            // them; a screen that always started at row 0 would score this defect clean **by not
-            // looking at it**, which is `Verdict::of`'s vacuity refusal wearing a viewport.
-            let offset = (row - 1).saturating_sub(4);
-            (
+            let inserted = &edited[at..at + 1];
+            let build = |naive: bool| {
+                let mut st = crate::edit::Text::of(base.clone(), WrapKind::Words);
+                if naive {
+                    bad::restarted_at_row_of(&mut st);
+                }
+                let _ = st.index(SPLICE_W);
+                // **The edit is played through the component's own `edit`**, so the two arms differ
+                // by the restart point and by nothing else — the buffer they end at is identical.
+                let row = st.index(SPLICE_W).row_of(at);
+                st.click(SPLICE_W, row, 0, false);
+                while st.caret().byte() < at {
+                    st.right(SPLICE_W, false);
+                }
+                st.insert(SPLICE_W, inserted);
+                // **The screen is scrolled to the witness, and that is not a convenience.**
+                // Sixty-four lines at forty columns is three hundred-odd visual rows and the defect
+                // is one of them; a screen that always started at row 0 would score this defect
+                // clean **by not looking at it**, which is `Verdict::of`'s vacuity refusal wearing
+                // a viewport.
+                st.scroll_to((row - 1).saturating_sub(4));
                 Screen {
                     w: SPLICE_W,
                     inputs: 0,
-                    offset,
-                    index: Index::build(&edited, SPLICE_W, 1),
-                    text: edited.clone(),
-                    caret_col: 0,
-                },
-                Screen {
-                    w: SPLICE_W,
-                    inputs: 0,
-                    offset,
-                    index: index.spliced(&edited, row, 1),
-                    text: edited,
-                    caret_col: 0,
-                },
-            )
+                    st,
+                }
+            };
+            (build(false), build(true))
         }
     }
 }
@@ -1025,75 +773,71 @@ pub fn screens(defect: Defect) -> (Screen, Screen) {
 /// arriving on `field`'s own screen: the seating is the component's, written as
 /// `if cx.focused().is_none()` rather than as `if !cx.is_focused(id)`, because the second drags the
 /// keyboard back the moment the user tabs away.
-pub fn draw_screen<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, screen: &Screen) -> usize {
+pub fn draw_screen<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, screen: &mut Screen) -> usize {
     let area = cx.area();
     let w = area.w;
-    let body = cx.theme().paint(Role::Body);
     let corpus = clusters::corpus();
-    let head = padded(truncate(corpus.text(), w), w);
+    let head = truncate(corpus.text(), w).to_string();
 
-    // The one-row inputs across the top. Each is a field and each declares one hit entry.
+    // **The one-row inputs across the top, each a shipped `field`.** One call site and a key a row,
+    // which is §4's rule: `Ctx::id` mints from `Location::caller()`, so a loop with no key is one
+    // widget and the nineteen would merge into one hit entry on a screen that looks correct.
+    //
+    // **Rectangles and not `Ctx::child`**, which is `CONTEXT.md`'s identity rule read the other
+    // way: a container that returns a rectangle preserves its children's identity and one that
+    // takes a closure renames them. Nothing here needs a narrower clip, so nothing here narrows.
     let inputs = screen.inputs;
+    let opts = FieldOpts::default();
     for y in 0..inputs {
         cx.with_key(u64::from(y), |cx| {
-            let id = cx.id();
-            let _ = cx.interact(id, Rect::new(0, i32::from(y), w, 1), Interest::CLICK);
-            let _ = ink.text(cx, 0, i32::from(y), &head, body);
+            let mut one = crate::edit::Text::of(head.clone(), crate::edit::WrapKind::Ruler);
+            field_into(ink, cx, Rect::new(0, i32::from(y), w, 1), &mut one, &opts);
         });
     }
 
-    // The textarea below them, drawn from its wrap index.
-    let id = Id::named("textarea");
+    // **The textarea below them, drawn by the component from its own state.**
     let rows = area.h - inputs;
-    let _ = cx.interact(
-        id,
+    let id = field_into(
+        ink,
+        cx,
         Rect::new(0, i32::from(inputs), w, rows),
-        Interest::CLICK.with(Interest::FOCUS),
-    );
+        &mut screen.st,
+        &opts,
+    )
+    .id;
+    // **A textarea that does not seat the focus places no caret at all.** `Ctx::caret_with` is
+    // refused where nothing holds the keyboard, so the two caret gates are unaskable until
+    // something is focused — architecture issue 25's finding arriving on `field`'s own screen. The
+    // seating is written `if cx.focused().is_none()` rather than `if !cx.is_focused(id)`, because
+    // the second drags the keyboard back the moment the user tabs away.
     if cx.focused().is_none() {
         cx.focus(id);
     }
 
-    for r in 0..rows {
-        let y = i32::from(inputs) + i32::from(r);
-        // The stale arm's rows are up to `WIDE` columns long and the rectangle is `w`, so what
-        // reaches the surface is the truncation — which is why the first differing row is the row
-        // *after* the first long line and not that line itself.
-        let line = padded(
-            truncate(
-                screen
-                    .index
-                    .row_text(&screen.text, screen.offset + r as usize),
-                w,
-            ),
-            w,
-        );
-        let _ = ink.text(cx, 0, y, &line, body);
-    }
-
-    // **The caret, which is not a cell.** Gates 1 and 2 differ here and nowhere else.
-    cx.caret(i32::from(screen.caret_col), 0);
-
-    screen.index.rows()
-}
-
-/// `s`, padded with spaces to `w` columns. A row is a **partition** of its width, never a prefix.
-fn padded(s: &str, w: u16) -> String {
-    let mut out = String::from(s);
-    for _ in width(s)..w {
-        out.push(' ');
-    }
-    out
+    screen.st.index(w).rows()
 }
 
 /// **Play one frame of a screen.**
 ///
 /// The allocation total is the caller's, for [`crate::runner::Run::counters`]'s reason: a figure
 /// defaulted to zero is a counter that prints `0` when it means *nobody counted*.
-pub fn play_field(screen: &Screen, allocations: Allocations) -> Played {
+pub fn play_field(screen: &mut Screen, allocations: Allocations) -> Played {
     let mut driver = driver_at(screen.w, H, Density::default());
-    let mut pen = Pen::new(screen.w, H);
     let mut rows_drawn = 0usize;
+    // **Two frames, and the second is the one that is read.**
+    //
+    // Nothing holds the keyboard on the first frame of any program (architecture issue 25), and
+    // `Ctx::caret_with` refuses a caret then — so a screen played once has no caret at all and the
+    // two caret gates are unaskable. [`draw_screen`] seats the focus at the end of its own draw,
+    // which is where an application seats it; the frame after is the first one where the textarea
+    // holds the keyboard. That is the same cadence the rest of this crate already runs on — the
+    // focus is seated from `Response::id` a frame before the key it enables (components 20) — and
+    // it is a property of the runtime rather than of this screen.
+    let mut pen = Pen::new(screen.w, H);
+    driver.frame(|cx| {
+        let _ = draw_screen(&mut pen, cx, screen);
+    });
+    let mut pen = Pen::new(screen.w, H);
     driver.frame(|cx| rows_drawn = draw_screen(&mut pen, cx, screen));
     let caret = driver.inspect().caret();
     let counters = Counters::of(&driver, pen.tally(), allocations);
@@ -1111,10 +855,10 @@ pub fn play_field(screen: &Screen, allocations: Allocations) -> Played {
 /// gates 3 and 4.
 pub fn surface_diff(defect: Defect) -> Diff {
     let inert = Allocations::over(1, 0);
-    let (correct, broken) = screens(defect);
-    play_field(&correct, inert)
+    let (mut correct, mut broken) = screens(defect);
+    play_field(&mut correct, inert)
         .canvas()
-        .diff(play_field(&broken, inert).canvas())
+        .diff(play_field(&mut broken, inert).canvas())
 }
 
 /// **Which of §20's nine counters tell a defective build from a correct one. None of them, for all
@@ -1132,9 +876,9 @@ pub fn counters_that_separate(
     correct_allocations: Allocations,
     defective_allocations: Allocations,
 ) -> Vec<Counter> {
-    let (correct, broken) = screens(defect);
-    let a = play_field(&correct, correct_allocations);
-    let b = play_field(&broken, defective_allocations);
+    let (mut correct, mut broken) = screens(defect);
+    let a = play_field(&mut correct, correct_allocations);
+    let b = play_field(&mut broken, defective_allocations);
     Counter::ALL
         .into_iter()
         .filter(|c| {
@@ -1412,15 +1156,15 @@ mod tests {
 
         // Every caret a cluster step can reach is a boundary, over the whole corpus.
         let mut at = Caret::default();
-        while at.byte < corpus.text().len() {
+        while at.byte() < corpus.text().len() {
             assert!(
-                corpus.is_boundary(at.byte),
+                corpus.is_boundary(at.byte()),
                 "byte {} is inside a cluster",
-                at.byte
+                at.byte()
             );
-            at = right(corpus.text(), at);
+            at = step_right(corpus.text(), at);
         }
-        assert_eq!(at.byte, corpus.text().len());
+        assert_eq!(at.byte(), corpus.text().len());
     }
 
     /// **Gate 2: the caret's column equals the engine's tables over the same prefix**, and the
@@ -1429,16 +1173,16 @@ mod tests {
     fn the_carets_column_is_the_engines_tables_and_counting_code_points_is_not() {
         let corpus = clusters::corpus();
         let mut at = Caret::default();
-        while at.byte < corpus.text().len() {
+        while at.byte() < corpus.text().len() {
             assert_eq!(
-                at.col,
-                width(&corpus.text()[..at.byte]),
+                at.col(),
+                width(&corpus.text()[..at.byte()]),
                 "the carried column and the tables disagree at byte {}",
-                at.byte
+                at.byte()
             );
-            at = right(corpus.text(), at);
+            at = step_right(corpus.text(), at);
         }
-        assert_eq!(at.col, corpus.width());
+        assert_eq!(at.col(), corpus.width());
 
         // The defective spelling, watched being wrong: one column a code point.
         let end = corpus.text().len();
@@ -1606,9 +1350,9 @@ mod tests {
     #[test]
     fn the_caret_is_where_the_two_caret_defects_are_visible_and_it_is_not_a_cell() {
         for defect in [Defect::CaretOffBoundary, Defect::CaretColumnByChars] {
-            let (good, bad) = screens(defect);
-            let correct = play_field(&good, inert());
-            let broken = play_field(&bad, inert());
+            let (mut good, mut bad) = screens(defect);
+            let correct = play_field(&mut good, inert());
+            let broken = play_field(&mut bad, inert());
             assert_eq!(
                 correct.canvas().diff(broken.canvas()).cells,
                 SURFACE_BLIND,
@@ -1631,11 +1375,11 @@ mod tests {
     /// **The screen is a screen: twenty fields, a hit entry each, and every cell of it written.**
     #[test]
     fn the_document_screen_stands_twenty_fields_and_writes_every_cell_once() {
-        let (correct, _) = screens(Defect::CaretOffBoundary);
+        let (mut correct, _) = screens(Defect::CaretOffBoundary);
         let mut driver = driver_at(WIDE, H, Density::default());
         let mut tally = Tally::new();
         driver.frame(|cx| {
-            let _ = draw_screen(&mut tally, cx, &correct);
+            let _ = draw_screen(&mut tally, cx, &mut correct);
         });
         let frame = driver.inspect();
         assert_eq!(frame.hits().len(), usize::from(FIELDS));
@@ -1668,22 +1412,26 @@ mod tests {
             "the last row is {from_the_row} bytes of {}, which is not a row",
             document.len()
         );
-        assert!(caret.byte < document.len());
+        assert!(caret.byte() < document.len());
         assert!(
             indexed <= blind,
             "the indexed arm took {indexed:?} against the blind arm's {blind:?}"
         );
     }
 
-    /// **The document is red because `field` is not declared.**
+    /// **The document stands on its declared subject**, which is what components ticket 24
+    /// inverted.
     ///
-    /// # Panics
-    ///
-    /// Panics today, on purpose, and components ticket 24 inverts it.
+    /// It was `the_document_is_red_because_field_is_not_declared` and it panicked on purpose for
+    /// one ticket. What changed is not the screen: every figure below was measured before `field`
+    /// existed and reproduces through it. What changed is that the three scenes are now
+    /// measurements of the **component** rather than of a caret and a wrap index written beside
+    /// the gate — which is the difference between a scene that is stood up and one that is green.
     #[test]
-    #[should_panic(expected = "waiting for its subject")]
-    fn the_document_is_red_because_field_is_not_declared() {
+    fn the_document_stands_on_its_declared_subject() {
         assert_stands_up("twenty fields and a 1 MB pasted textarea");
+        assert_eq!(subjects_declared(), vec!["field"]);
+        standing().assert_met("the document");
     }
 
     /// **The waiting message separates *unimplemented* from *wrong*.** Criterion 8, both ways.
@@ -1722,22 +1470,14 @@ mod tests {
             &format!("// {declaration} is what ticket 24 will write"),
             &declaration
         ));
-        assert_eq!(subjects_declared(), Vec::<&str>::new());
+        assert_eq!(subjects_declared(), vec![SUBJECTS[0]]);
 
-        // `Unmet` over **one** and not `Met` over nothing, which is `Verdict::of`'s vacuity refusal
-        // on a population of one.
+        // `Met` over **one** and never over nothing, which is `Verdict::of`'s vacuity refusal on a
+        // population of one: an equality between two things that do not exist holds, and the
+        // population here is `SUBJECTS` and is not empty.
         match standing() {
-            Verdict::Unmet {
-                over,
-                failing,
-                why,
-                inverted_by,
-            } => {
-                assert_eq!((over, failing), (1, 1));
-                assert!(why.contains("`field` is not declared"));
-                assert_eq!(inverted_by, "components 24");
-            }
-            Verdict::Met { .. } => panic!("`field` is not declared and the verdict says it is"),
+            Verdict::Met { over } => assert_eq!(over, 1),
+            Verdict::Unmet { why, .. } => panic!("`field` is declared and the verdict says: {why}"),
         }
     }
 }

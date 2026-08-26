@@ -56,7 +56,7 @@
 //!   below is the authority; this is a summary of it.
 //!
 //! **A hundred and eighteen evaluated, five red, six unreachable, six unsubjected**, and
-//! `tests::a_hundred_and_eighteen_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next
+//! `tests::a_hundred_and_twenty_seven_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next
 //! change a deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
 //! and subjected row 27, the cross-family collapse gate; ticket 07 added five, and none of them
@@ -388,6 +388,17 @@ const SERIES: &str = "crates/vitui-components/src/series.rs";
 const CHART: &str = "crates/vitui-components/src/chart.rs";
 const FIELD_NUMBERS: &str = "crates/vitui-components/examples/field_numbers.rs";
 
+/// **The text machine's own file**, which is where components ticket 24's rows run. The buffer, the
+/// caret pair, the anchored selection, the undo ring and the wrap index are one module, and the
+/// spellings §11 refuses are one `defective` module inside it — so a reviewer's diff between the
+/// shipped build and any of them is one value.
+const EDIT: &str = "crates/vitui-components/src/edit.rs";
+
+/// **`field`'s own file**, which is where the component's rows run. `input.rs` and not `edit.rs`,
+/// because that is where the freeze homes `field`: F6, and [`crate::document::DECLARATIONS`] opens
+/// it to find out whether the three scenes have a subject.
+const INPUT: &str = "crates/vitui-components/src/input.rs";
+
 /// How many rows of [`REGISTER`] are spec §21's own table. **Thirty-two, and it is closed** — a
 /// thirty-third would be a spec change.
 pub const SPEC_ROWS: usize = 32;
@@ -436,17 +447,30 @@ pub const SPEC_ROWS: usize = 32;
 /// inverted by supplying a *subject* is the ordinary case on this register; this one was red on a
 /// **defect**, which is why it needed the shipped code to be checked rather than written.
 ///
-/// **Components ticket 22 moved it from a hundred and ten to a hundred and eighteen**, and two of the
-/// eight are the last `Unsubjected` rows on §21's own table: rows 24 and 25, which had nothing to run
-/// over because `collapsible` did not exist. Six are new, and **three of those are findings rather
-/// than criteria** — row 131, where §8's watermark figures are replaced by §9's own sentence on the
-/// height axis; row 132, where §8's *0 against 405* turns out to be unreachable from any header
-/// gesture; and row 135, where §8's byte pair cannot both be a `size_of` of one type. Row 21 stays
-/// `Unreachable` and row 130 is its crate-own form, which is row 41's standing to row 2's.
-pub const EVALUATED: usize = 118;
+/// **Components ticket 24 moved it from a hundred and eighteen to a hundred and twenty-seven**, and
+/// the seven are one inversion and six new rows. The inversion is row 85 — `field`'s three scenes
+/// had nothing to run over, and all three turned together, which is what the ticket predicted
+/// because they were pinned on one fact and it was the subject.
+///
+/// **Two of the six are absences.** Row 137 is §11's own deletion — *there is no such thing as "put
+/// the caret at byte N"* — as three `compile_fail` pairs, and it is two deletions rather than one
+/// because `Caret`'s public fields would be `set_caret` three keystrokes shorter. Row 139 is the
+/// per-cluster region count, which is ADR 0027's defect from the other side: there, widgets merged
+/// into one id and the screen still rendered correctly; here, one widget declares hundreds of
+/// entries and the screen still renders correctly.
+///
+/// **Two of the nine are a review's and not the ticket's** — rows 142 and 143, and both are gaps
+/// the ticket's own gates did not cover. 142 is that the rows do not *tile* the buffer, so a caret
+/// placed by asking which drawn row contains its byte is lost by one trailing space; 143 is a
+/// declared `Interest::SCROLL` the component never consumed, which is components ticket 20's defect
+/// class arriving on a component that gate has no subject for.
+///
+/// Row 21 stays `Unreachable` and row 130 is its crate-own form, which is row 41's standing to row
+/// 2's.
+pub const EVALUATED: usize = 127;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
-pub const REGISTER: [Row; 135] = [
+pub const REGISTER: [Row; 143] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -2798,11 +2822,11 @@ pub const REGISTER: [Row; 135] = [
         // `CompileOutcome` for row 61's reason: what is asserted is that a *file* declares an item,
         // read by opening it — the one thing a `compile_fail` fence cannot say, because a fence
         // over a missing item passes today and passes again the day the module is renamed.
-        standing: Standing::Red {
+        standing: Standing::Evaluated {
             by: &[
                 Instrument::Unit {
                     file: DOCUMENT,
-                    name: "the_document_is_red_because_field_is_not_declared",
+                    name: "the_document_stands_on_its_declared_subject",
                 },
                 Instrument::Unit {
                     file: DOCUMENT,
@@ -2818,13 +2842,6 @@ pub const REGISTER: [Row; 135] = [
                            twenty_one_are_stood_up",
                 },
             ],
-            failing: "`field` is undeclared, so three scenes are pinned red — 12, 13 and 30 — and \
-                      all three are waiting for it. `crates/vitui-components/src/input.rs` carries \
-                      no `pub fn field` declaration, which is what \
-                      `crate::document::subjects_declared` opens the file to find out, and \
-                      `crate::document::standing` is `Unmet { over: 1, failing: 1 }` rather than \
-                      `Met` over nothing",
-            inverted_by: "components 24",
         },
     },
     // ── components ticket 25's four ──────────────────────────────────────────────────────────────
@@ -4301,6 +4318,344 @@ pub const REGISTER: [Row; 135] = [
             ],
         },
     },
+    // ── components ticket 24's six ───────────────────────────────────────────────────────────────
+    Row {
+        number: 136,
+        on_spec_table: false,
+        gate: "`input` and `textarea` are one type and one flag, and the reduction that looks like \
+               the flag has one boundary and it is byte 0",
+        kind: Kind::Equality,
+        owner: "C06",
+        section: "spec §11, §18",
+        // §11's headline is *one component and one flag* and §18 counts it as R1's largest single
+        // collapse — sixteen named input variants including `textarea`. What makes it checkable
+        // rather than a claim is that the two spellings are the **same type**: there is nothing a
+        // textarea carries that an input does not, and `WrapKind` is the whole difference.
+        //
+        // **The near-miss is the row worth having.** *A ruler is a words index at a very large
+        // width* reads as the same reduction and is not one: at `u16::MAX` a megabyte is one row,
+        // so the caret's row start is byte 0 and `Left` is back to O(prefix) — which is the one
+        // thing the flag exists to prevent. Measured, 1 row against 500 and byte 0 against one
+        // window back.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: EDIT,
+                    name: "an_input_and_a_textarea_are_one_type_and_one_flag",
+                },
+                Instrument::Unit {
+                    file: EDIT,
+                    name: "an_input_spelled_as_a_wide_words_index_has_one_boundary_and_it_is_\
+                           byte_zero",
+                },
+                Instrument::Report {
+                    file: FIELD_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 137,
+        on_spec_table: false,
+        gate: "there is no public way to place a caret at a byte offset, and no way to spell a \
+               block selection",
+        kind: Kind::CompileOutcome,
+        owner: "C06",
+        section: "spec §11",
+        // **§11's API consequence is a deletion and a deletion has to be gated as one.** A caret is
+        // placed by a gesture — a click's column, a cluster step, `Home`, or a pair some earlier
+        // state stored — and each of those lands on a boundary by construction. An arbitrary offset
+        // does not, and everything downstream preserves the bad caret faithfully: the column is
+        // computed from it, the row is looked up from it, and **the screen looks entirely correct**.
+        //
+        // Two pairs and not one, because `Caret`'s fields are the same deletion three keystrokes
+        // shorter: a `pub byte` is `set_caret` with a different spelling. Each pair carries a twin
+        // naming the protected item by path, for the reason the runtime measured — rustdoc on
+        // stable ignores the error code beside `compile_fail`, so `E0599` for *the method you must
+        // not have was never built* and `E0599` for *the method you meant moved* are the same
+        // diagnostic.
+        //
+        // The third deletion is block selection, and it is refused on a shape rather than on scope:
+        // it is a rectangle over **visual** rows, which neither the run list nor the anchored range
+        // expresses.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Pair {
+                    file: INPUT,
+                    hostile: "st.set_caret(7);",
+                },
+                Instrument::Pair {
+                    file: INPUT,
+                    hostile: "let _ = c.byte;",
+                },
+                Instrument::Pair {
+                    file: INPUT,
+                    hostile: "let _ = st.block_selection();",
+                },
+                Instrument::Unit {
+                    file: EDIT,
+                    name: "undo_restores_the_pair_and_the_byte_spelling_has_to_segment_the_prefix",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 138,
+        on_spec_table: false,
+        gate: "the undo ring is bounded on entries and on bytes, and sixteen undos that each \
+               answered yes leave the document unrestored",
+        kind: Kind::Count,
+        owner: "C06",
+        section: "spec §11",
+        // **The bound is where the silent defect lives**, and §11 says so in as many words: a ring
+        // of sixteen entries after sixty-four edits runs sixteen steps, returns `true` every time,
+        // and the document is not back to the original. That is indistinguishable from success
+        // unless the ring says so — an undo that ran out of history and an undo that finished both
+        // answer *yes, I undid something*.
+        //
+        // **Two bounds and not one, because one large paste is one entry.** A ring bounded only on
+        // entries holds a megabyte per paste and 256 of them; one bounded only on bytes drops a
+        // hundred keystrokes to make room for one. Both are watched evicting.
+        //
+        // **Coalescing is an entry count and never a time win**, and the rule is the word break
+        // rather than the line break: §11 gives the reason in the same sentence as the ratio —
+        // *undoing a sentence is 414 presses instead of 1 012* — and a run that closed only at a
+        // line would make undoing a sentence **one** press, which is a checkpoint and not a
+        // history. §11's 2.4x is a ratio over a corpus and is printed rather than pinned.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: EDIT,
+                    name: "sixty_four_edits_through_a_sixteen_entry_ring",
+                },
+                Instrument::Unit {
+                    file: EDIT,
+                    name: "coalescing_is_an_entry_count_and_a_word_break_opens_the_next_entry",
+                },
+                Instrument::Unit {
+                    file: EDIT,
+                    name: "a_ring_at_cap_and_a_ring_emptied_index_the_same_document",
+                },
+                Instrument::Unit {
+                    file: EDIT,
+                    name: "backspace_at_the_start_and_delete_at_the_end_change_nothing_at_all",
+                },
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "the_ring_at_cap_and_the_ring_emptied_are_the_same_frame",
+                },
+                Instrument::Report {
+                    file: FIELD_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 139,
+        on_spec_table: false,
+        gate: "a text widget declares one region and the per-cluster spelling declares hundreds, \
+               and the two draw the same screen",
+        kind: Kind::Count,
+        owner: "C06",
+        section: "spec §11, §20",
+        // §11: *a text widget declares 79 regions against 621 for one per visible cluster*. The two
+        // magnitudes are a prototype's screen — this crate's is measured in
+        // `examples/field_numbers.rs` — and what is a gate is the **structure**: one entry for the
+        // widget, and a surface no reader can tell apart.
+        //
+        // It is the same shape as ADR 0027's 110-of-338 defect from the other side. There, widgets
+        // merged into one id and the screen still rendered correctly; here, one widget declares
+        // hundreds of entries and the screen still renders correctly. Both are invisible to every
+        // counter that reads a cell, which is why the region count is the gate.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "a_field_is_one_region_and_the_per_cluster_spelling_is_hundreds",
+                },
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "two_fields_at_two_call_sites_are_two_widgets",
+                },
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "a_field_with_no_room_declares_nothing",
+                },
+                Instrument::Report {
+                    file: FIELD_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 140,
+        on_spec_table: false,
+        gate: "a hundred kilobytes and a megabyte are the same frame, and the frame's verbs are the \
+               window's rows",
+        kind: Kind::Equality,
+        owner: "C06",
+        section: "spec §11, §20",
+        // §11 prices the frame at *82.4 us / 0 marked / 19 634 writes / 631 verbs / 79 regions /
+        // 0 merges / 0 allocations, **flat at 100 kB and 1 MB**.* The magnitudes are a screen this
+        // ticket does not own; **flat** is the claim that is a gate, and it is the engine's own
+        // invariant one layer up — *frame cost is proportional to visible cells, never to data
+        // volume* — arriving on the component that holds the most data of any in the freeze.
+        //
+        // **`verbs` is a bound and not an equality, and that is a finding rather than a weakening.**
+        // A row that exactly fills its width costs one verb and a row that does not costs two, so
+        // twelve bytes of content and six hundred kilobytes of it differ by the **pads** rather
+        // than by the buffer. `Ink::pad_to` exists for the sharper form of the same fact: written
+        // as a text and a run, `verbs` separates the memo-key arms in the direction that approves
+        // the defect, because a stale row is the whole line truncated and fills exactly.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "a_hundred_kilobytes_and_a_megabyte_are_the_same_frame",
+                },
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "the_verbs_are_the_window_and_not_the_buffer",
+                },
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "a_field_writes_each_cell_of_its_rectangle_exactly_once",
+                },
+                Instrument::Report {
+                    file: FIELD_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 141,
+        on_spec_table: false,
+        gate: "the caret's shape is the one the widget asked for, and a chord types nothing",
+        kind: Kind::Equality,
+        owner: "C06",
+        section: "spec §3, §11",
+        // Two claims about what reaches the terminal, and neither is visible on a rendered surface.
+        //
+        // **The shape.** `Screen::set_cursor` applies all three of `{ x, y, shape }`, so a widget
+        // that placed a caret and left the shape alone renders as a block on most terminals and a
+        // bar on some — the same program looking different on two machines, which is the thing a
+        // component library exists to stop. Both spellings ask for a bar, and the option is
+        // watched changing it.
+        //
+        // **The keyboard.** `keys::text` is spec §3's helper and it is the whole rule: a release, a
+        // chord and a control character never type. `keys::defective::on_code_alone` is watched
+        // putting the accelerator's letter in the buffer, which is the code the runtime found in a
+        // shipped field six tickets old.
+        //
+        // **And the caret is gated on `Ctx::is_focused` rather than on `Response::focused`**, which
+        // is one frame apart: a `Response` carries the focus as it stood when the widget declared,
+        // so a field just clicked would place no caret until the frame after.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "both_spellings_ask_for_the_shape_that_reaches_the_sink",
+                },
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "a_chord_types_nothing_and_a_capital_types_a_capital",
+                },
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "the_three_reveal_arms_are_three_different_programs",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 142,
+        on_spec_table: false,
+        gate: "the rows do not tile the buffer, and every byte of it is still on a drawn row with a \
+               caret on it",
+        kind: Kind::Equality,
+        owner: "C06",
+        section: "spec §11",
+        // **The row a review found and the gates did not**, and it is one fact with two failures.
+        // `vitui_runtime::layout::text::wrap` trims each piece, so the whitespace a greedy break
+        // consumed and any trailing whitespace belong to no row's *content* — the rows are not a
+        // partition of the buffer, only of what is drawn.
+        //
+        // A component that placed its caret by asking which drawn row *contains* the byte therefore
+        // loses it outright for an ordinary typing state: **one trailing space is enough**, and
+        // `Frame::caret` is then `None`, so the terminal cursor disappears on a screen that is
+        // otherwise correct. On a contiguous `Ruler` index it fails the other way — a byte on a
+        // shared boundary satisfies the row *before* it first, and the caret jumps to the start of
+        // the row it has just left. `Index::row_of` answers both, once.
+        //
+        // The same fact reaches the walkers: `End` on `"hi "` landed at byte 2 and `Ctrl+A`
+        // selected `"hi"`, because both stopped at the trimmed content's end. `Index::row_bound` is
+        // the row's *caret* extent and it makes two subtractions the click sweep found — a hard
+        // break is stripped, and a row followed by another stops one cluster short of that row's
+        // start, because that byte is the next row's own column 0.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: EDIT,
+                    name: "end_reaches_a_trailing_space_and_every_byte_of_the_buffer_is_on_a_row",
+                },
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "the_caret_survives_a_trailing_space_and_a_soft_wrap_boundary",
+                },
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "a_selected_row_is_still_a_partition_of_its_width",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 143,
+        on_spec_table: false,
+        gate: "a field consumes the notch it declared, and a window past the last row is pulled \
+               back",
+        kind: Kind::Count,
+        owner: "C06",
+        section: "spec §11, §17",
+        // **Components ticket 20's defect class, and `field` is not a subject of that gate.**
+        // `INVENTORY` gives `field` `owns_offset: true` and `scrolled: true` and the options fold in
+        // `Interest::SCROLL`, and for one review the component read `Response::scrolled` nowhere at
+        // all. A widget that declares the pointer and does nothing with it is **worse** than one
+        // that declares nothing: it is the topmost region over its rectangle, so the wheel does
+        // nothing there *and* an enclosing `scroll_area` never sees the notch either.
+        //
+        // **The gate is watched catching the sign**, which is the mistake the repair itself made
+        // first: `crate::collect` establishes the convention as `offset + resp.scrolled.1`, and
+        // `-resp.scrolled.1` leaves the offset at 0 through four notches. And **there is no
+        // horizontal axis to be wrong on**, which is a fact about the component rather than a hole —
+        // both break rules wrap to the rectangle's width, so a row never overflows it. That is
+        // ticket 20's *a body dead downward is alive sideways* answered by construction.
+        //
+        // Beside it, two out-of-range answers that read as data: `Index::row_start` answers 0 out of
+        // range, so a window past the last row paints the caret on a blank filler row whose start is
+        // row 0's, and `Index::spliced` at `rows()` keeps every row as the head and rebuilds the tail
+        // from byte 0 — a **doubled** index rather than a panic.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "a_notch_over_a_field_moves_its_window",
+                },
+                Instrument::Unit {
+                    file: EDIT,
+                    name: "the_wheel_moves_the_window_and_stops_at_both_ends",
+                },
+                Instrument::Unit {
+                    file: EDIT,
+                    name: "a_window_past_the_last_row_is_pulled_back_by_the_reveal",
+                },
+                Instrument::Unit {
+                    file: EDIT,
+                    name: "a_splice_restarted_past_the_last_row_is_clamped",
+                },
+            ],
+        },
+    },
 ];
 /// **The compile-outcome pair row 31 names, and its positive twin.**
 ///
@@ -4580,7 +4935,7 @@ mod tests {
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn a_hundred_and_eighteen_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn a_hundred_and_twenty_seven_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -4596,7 +4951,7 @@ mod tests {
         assert_eq!(evaluated, EVALUATED, "the count §21 asks a test to assert");
         assert_eq!(
             red,
-            vec![7, 8, 85, 89, 112],
+            vec![7, 8, 89, 112],
             "the gates that are red and pinned: the sentinel, the palette after a swap and the \
              scenes still waiting for their subject. **Twenty wheel clicks is not among them since \
              components 20** — row 29 was red on a *defect* rather than on a missing subject, which \
@@ -4625,7 +4980,7 @@ mod tests {
              domain and needs no component to be run against, and its row had been citing spec §13 \
              and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 135);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 143);
     }
 
     /// **The split, not the total.**
@@ -4636,10 +4991,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_a_hundred_and_three_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_a_hundred_and_eleven_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 103);
+        assert_eq!(REGISTER.len() - on_table, 111);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,

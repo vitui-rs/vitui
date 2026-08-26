@@ -384,3 +384,57 @@ fn a_two_hundred_millisecond_collapse_allocates_nothing_over_its_own_frames() {
     assert_eq!(live.open(), 0, "and it arrived");
     assert_eq!(live.heights()[0], 0);
 }
+
+/// **A `field` over a megabyte allocates nothing in a steady frame**, which is components ticket
+/// 24's own zero and §11's last frame column.
+///
+/// # It is warmed on the *shape* and not on two identical frames
+///
+/// Every other allocation window in this workspace warms with two identical frames, and that is
+/// enough where the widget is handed the same rectangle every time. A field is: the caret does not
+/// move on a steady frame, the index is keyed on `(revision, width)` and neither moved, and the row
+/// loop reads the same rows. So the ordinary warming is the right one here — what it must **not**
+/// do is build the index inside the window, because a `textarea` has that index already (§11) and
+/// timing its construction would price the wrapping against the frame.
+///
+/// # The buffer is a megabyte and the window is twenty-four rows
+///
+/// Which is the whole claim: the frame costs the visible window and never the content, so the same
+/// zero holds at twelve bytes and at a million. `crate::input::field_tests` asserts the counters
+/// are equal at 100 kB and 1 MB; this asserts the ninth counter, which a library cannot read.
+#[test]
+fn a_steady_field_over_a_megabyte_allocates_nothing() {
+    use vitui_components::edit::{Text, WrapKind};
+    use vitui_components::input::field;
+    use vitui_runtime::Rect;
+
+    let mut st = Text::of(
+        "the quick brown fox jumps over the lazy dog\n".repeat(24_000),
+        WrapKind::Words,
+    );
+    assert!(st.text().len() > 1_000_000, "the buffer is not a megabyte");
+    // The index the wrapping already needs, built before the window opens.
+    let _ = st.index(W);
+
+    let mut driver = Driver::headless(W, H).expect("a sink cannot fail to attach");
+    let area = Rect::new(0, 0, W, H);
+    let one_frame = |driver: &mut Driver, st: &mut Text| {
+        driver.frame(|cx| {
+            field(cx, area, st);
+        });
+    };
+    one_frame(&mut driver, &mut st);
+    one_frame(&mut driver, &mut st);
+
+    steady(|| {
+        for _ in 0..50 {
+            one_frame(&mut driver, &mut st);
+        }
+    });
+
+    assert_eq!(
+        driver.inspect().hits().len(),
+        1,
+        "one hit entry for the widget, on the last of those fifty frames"
+    );
+}

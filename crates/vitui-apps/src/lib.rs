@@ -76,7 +76,7 @@ pub struct App {
 /// and the reason is that there is nothing to port: what it demonstrates is *one component and one
 /// `Mode`*, and no other library's tutorial has an equivalent because no other library makes the
 /// claim.
-pub const APPS: [App; 7] = [
+pub const APPS: [App; 8] = [
     App {
         name: "counter",
         what: "A bordered panel, a centred value, and Left/Right/q. The smallest program anybody \
@@ -240,6 +240,29 @@ pub const APPS: [App; 7] = [
         ],
         after: None,
     },
+    App {
+        name: "compose",
+        what: "A title and a body that are one component and one flag. The status bar prints the \
+               caret's (byte, column) pair, the visual row it is on, the width the wrap index was \
+               built at and the undo ring's two bounds — so §11's four gates are visible while a \
+               person types, and the fourth of them moves while the terminal is resized. `--mega` \
+               pastes 24 000 lines and nothing about the frame changes",
+        uses: &[
+            "input::field",
+            "edit::Text",
+            "edit::WrapKind",
+            "edit::Caret",
+            "edit::Ring",
+            "structure::panel_with",
+            "text::text_with",
+            "layout::rect::split_at_v",
+            "ctx::Ctx::focus",
+            "ctx::Ctx::is_focused",
+            "ctx::Driver::unhandled",
+            "ctx::Driver::wait",
+        ],
+        after: None,
+    },
 ];
 
 #[cfg(test)]
@@ -301,9 +324,9 @@ mod tests {
             checked += 1;
         }
         assert_eq!(
-            checked, 5,
-            "triage, ledger, explorer, reader and settings open the window; counter and latency \
-             read their keys through a `KeyMap` instead"
+            checked, 6,
+            "triage, ledger, explorer, reader, settings and compose open the window; counter and \
+             latency read their keys through a `KeyMap` instead"
         );
 
         // **The other directions**, or a scanner that has stopped finding `driver.frame(` reports

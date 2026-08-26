@@ -124,9 +124,9 @@ impl Verdict {
 
 /// The ids that carry a rustdoc page with a **compiled** example. O1's evidence.
 ///
-/// Empty, and ticket 36 fills it. **Four of the twenty-nine now have one** — `text`, `chip`,
-/// `button` and `panel` each carry a doctest that calls them from outside, which is C01's actual
-/// question — and this list stays empty anyway, because filling it is ticket 36's job and a list
+/// Empty, and ticket 36 fills it. **Five of the twenty-nine now have one** — `text`, `chip`,
+/// `button`, `panel` and `field` each carry a doctest that calls them from outside, which is C01's
+/// actual question — and this list stays empty anyway, because filling it is ticket 36's job and a list
 /// filled by whichever ticket happened to write a doctest is a list nobody audits. What ticket 10
 /// changed is that O1 has a population it can be asked about at all. `deny(missing_docs)` plus `cargo test --doc` is the compile
 /// outcome; the count beside it is *components with 0 doc-tests == 0*, because a page that carries

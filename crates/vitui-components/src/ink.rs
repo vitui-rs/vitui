@@ -95,6 +95,27 @@ pub trait Ink {
         st: Paint,
     ) -> u16;
 
+    /// **Write `s` and then spaces out to `w` columns, as one verb.**
+    ///
+    /// A row of text is a **partition** of its width and never a prefix, so every row-drawing
+    /// component ends up writing two things: what the row says and the space after it. Written as
+    /// two verbs — [`Ink::text`] then [`Ink::run`] — that is one allocation cheaper than a padded
+    /// string and it makes **`verbs` a counter that separates two builds by how full their rows
+    /// happen to be**: `run` returns without a verb at a count of zero, so a row that exactly fills
+    /// its width costs one verb and a row that does not costs two.
+    ///
+    /// Components ticket 23 found that with a number, on the memo-key defect: a stale index's rows
+    /// are *the whole line truncated*, so they fill exactly, and `verbs` reports the defective
+    /// build as **cheaper** — a counter separating two arms in the direction that approves the
+    /// defect. Its own screen fixed it by writing one padded verb a row, and this is that verb, so
+    /// that the component can do the same **without allocating**: [`Direct`] stages the row and the
+    /// pad into the frame's own buffer and blits once.
+    ///
+    /// It is the fourth method on a trait whose own note says a third would be a place to write
+    /// something the gate cannot see. It is not: it goes through the seam like the other two, and
+    /// what it removes is a counter that could see something a gate must not be able to.
+    fn pad_to(&mut self, cx: &mut Ctx<'_, '_>, x: i32, y: i32, s: &str, w: u16, st: Paint) -> u16;
+
     /// **Declare the face `cells` is to be awarded if it wins the hover**, and let the instrument
     /// see it.
     ///
@@ -133,9 +154,23 @@ impl<T: Ink + ?Sized> Ink for &mut T {
         (**self).run(cx, x, y, cluster, n, st)
     }
 
+    fn pad_to(&mut self, cx: &mut Ctx<'_, '_>, x: i32, y: i32, s: &str, w: u16, st: Paint) -> u16 {
+        (**self).pad_to(cx, x, y, s, w, st)
+    }
+
     fn award(&mut self, cx: &mut Ctx<'_, '_>, cells: Rect, resp: &Response, role: Role) {
         (**self).award(cx, cells, resp, role);
     }
+}
+
+/// `s`, padded with spaces to `w` columns. The instruments' half of [`Ink::pad_to`]; an instrument
+/// allocating is not a defect, and [`Pen`] already allocates a `String` per cell it records.
+fn padded(s: &str, w: u16) -> String {
+    let mut out = String::from(s);
+    for _ in vitui_runtime::layout::text::width(s)..w {
+        out.push(' ');
+    }
+    out
 }
 
 /// **The implementation a component gets: draw, count nothing, allocate nothing.**
@@ -165,6 +200,12 @@ impl Ink for Direct {
         // `stage` measures into the frame's buffer and `blit` draws what was staged: one
         // `View::text`, no allocation, and the same bytes `str::repeat` would have produced.
         let _ = cx.stage(format_args!("{}", Repeat(cluster, n)));
+        cx.blit(x, y, st).cells
+    }
+
+    fn pad_to(&mut self, cx: &mut Ctx<'_, '_>, x: i32, y: i32, s: &str, w: u16, st: Paint) -> u16 {
+        let pad = w.saturating_sub(vitui_runtime::layout::text::width(s));
+        let _ = cx.stage(format_args!("{s}{}", Repeat(" ", pad)));
         cx.blit(x, y, st).cells
     }
 
@@ -201,6 +242,13 @@ impl Ink for Tally {
         Tally::text(self, cx, x, y, &cluster.repeat(usize::from(n)), st)
     }
 
+    /// **The instrument materialises the padded row and the shipped path stages it**, which is the
+    /// same arrangement [`Ink::run`] already has: both end at one `View::text` with the same bytes,
+    /// so every counter agrees and only the bookkeeping beside it differs.
+    fn pad_to(&mut self, cx: &mut Ctx<'_, '_>, x: i32, y: i32, s: &str, w: u16, st: Paint) -> u16 {
+        Tally::text(self, cx, x, y, &padded(s, w), st)
+    }
+
     /// **The declaration, and nothing folded in.** A `Tally` counts the columns a *component*
     /// wrote; the restyle is the runtime's write and it carries no per-cell value for the tally to
     /// compare against anyway. What can see it is [`Pen`], which keeps the values.
@@ -227,6 +275,12 @@ impl Ink for Pen {
             return 0;
         }
         Pen::text(self, cx, x, y, &cluster.repeat(usize::from(n)), st)
+    }
+
+    /// See [`Tally::pad_to`](Ink::pad_to): the instrument materialises what the shipped path
+    /// stages.
+    fn pad_to(&mut self, cx: &mut Ctx<'_, '_>, x: i32, y: i32, s: &str, w: u16, st: Paint) -> u16 {
+        Pen::text(self, cx, x, y, &padded(s, w), st)
     }
 
     /// **Declare it, and apply it to the recorded surface the way the runtime applies it.**

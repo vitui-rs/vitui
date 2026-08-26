@@ -728,21 +728,23 @@ mod tests {
         }
         assert_eq!(
             built,
-            vec!["collection", "table", "tree"],
-            "row 5's population is **seven names, three of which are built** — `tree` since \
-             components ticket 17, beside the `table` ticket 15 declared and the `collection` \
-             ticket 12 declared. The message said *six sinks and two components* and then *five \
-             and three*, and both add to eight over a seven-row table: the count is stated as the \
-             split of `TEXT_BEARING` now rather than as two numbers nothing multiplies. A name \
-             arriving here or leaving it is a deliberate edit — the row is a claim about what a \
-             chord does to *every* focusable, and which of them are real components is the half \
-             this test keeps honest"
+            vec!["field", "collection", "table", "tree"],
+            "row 5's population is **seven names, four of which are built** — `field` since \
+             components ticket 24, `tree` since components ticket 17, beside the `table` ticket 15 \
+             declared and the `collection` ticket 12 declared. The message said *six sinks and two \
+             components* and then *five and three*, and both add to eight over a seven-row table: \
+             the count is stated as the split of `TEXT_BEARING` now rather than as two numbers \
+             nothing multiplies. A name arriving here or leaving it is a deliberate edit — the row \
+             is a claim about what a chord does to *every* focusable, and which of them are real \
+             components is the half this test keeps honest. **`field` is the one that makes the \
+             row a claim rather than a prediction**: every other name on it consumes a text-bearing \
+             key into a type-ahead buffer, and this one consumes it into a document"
         );
         assert_eq!(
             TEXT_BEARING.len() - built.len(),
-            4,
-            "and four of the seven are names no component declares yet: `field`, `form`, `select` \
-             and `file_picker`"
+            3,
+            "and three of the seven are names no component declares yet: `form`, `select` and \
+             `file_picker`"
         );
         // No duplicates, or the count above is not the population.
         let mut sorted = TEXT_BEARING.to_vec();

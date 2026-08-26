@@ -112,7 +112,7 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 26 of 45 tickets resolved (the last on 2026-08-26). `INVENTORY` is spec
+- **`vitui-components` has started**: 27 of 45 tickets resolved (the last on 2026-08-26). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
   answerable by the machine from here on. All five obligations are `Unmet` and each is watched
@@ -122,6 +122,71 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   (19/10, not ADR 0033's thirteen-unbuilt), the count of empty families (five, not §17's two), §1's
   layer rule against §6's own composition, and the `layer` column being uncheckable without stated
   edges. All four are asserted as measured rather than bent to fit.
+- **`field` is the fourteenth component, and §11's API consequence is a deletion three `compile_fail`
+  pairs keep deleted** (components ticket 24, 2026-08-26; ADR 0036). `input` and `textarea` are **one
+  type and one flag** — `edit::WrapKind`, a break rule — and the near-miss is refused on a
+  measurement: a ruler spelled as a `Words` index at `u16::MAX` is **1 row against 500** over a
+  megabyte, so the caret's row start is byte 0 and `Left` is back to O(prefix), which is the one thing
+  the flag exists to prevent. **`Caret`'s fields are private and there is no `set_caret(byte)`**,
+  because an arbitrary offset is not a cluster boundary and everything downstream preserves the bad
+  caret faithfully while the screen renders exactly as it should. One `Left` at the end of a pasted
+  megabyte is **6.5–7.6 µs against 31 300–38 400 — 4 800–5 000×**, where §11 remembers 9 655.
+  **The gate found a real defect in the machine, and it is §11's headline arriving on the *cheap*
+  direction**: a forward cluster step that crossed a row boundary and kept accumulating reported
+  column **39 on a row whose start was 0**, because a greedy break consumes the space it broke at. A
+  caret's column is a *screen* column, so `Right` and every edit now re-read it from the caret's own
+  row start — one row rather than one prefix, which is what the index is for.
+  **`Ink` gained a fourth verb and the reason is a counter on the wrong side of the question.** A row
+  is a partition of its width, and written as `text` then `run` the pad makes `verbs` separate two
+  builds by how full their rows happen to be — `run` returns without a verb at zero, so a row that
+  fills exactly costs one verb and a row that does not costs two. On the memo-key defect a stale
+  index's rows are the whole line truncated, so **`verbs` reports the defective build as cheaper**.
+  `Ink::pad_to` stages the row and its pad and blits once: one verb a row, no allocation, and the
+  counter is blind again — which is what register row 82 asserts of all four gates.
+  **Three of §11's figures do not reproduce and are asserted as measured.** The regions are **1
+  against 372** where §11 says 79 against 621 (both magnitudes are a prototype's screen; the shape is
+  one entry for the widget). Coalescing is **4.69×** where §11 says 2.44× — and the rule underneath
+  it is the **word** break rather than the line break, because §11 gives the reason in the same
+  sentence as the ratio and a run closing only at a line makes undoing a sentence *one* press, which
+  is a checkpoint and not a history. And the frame at 300×80 is **1 033–1 056 µs of clusters against
+  428–450 of ASCII** — `tree`'s 436 inside the noise — so §11's 82.4 µs is a prototype's screen and what this
+  one costs is text measurement over the engine's tables. The ASCII row is printed beside it rather
+  than engineered away.
+  **What is flat is what was claimed**: 24 000 writes / 80 verbs / 1 region / 0 merges / 0
+  allocations at 100 kB and at 1 MB, with the allocation zero held over fifty steady frames with the
+  probe installed. The undo ring is bounded on **entries and bytes** — one large paste is one entry —
+  and sixteen undos that each answered `true` leave the document unrestored, which is
+  indistinguishable from success unless `truncated` says so.
+  **The scenes went green together**, the same shape 14→15, 16→17, 18→19 and 21→22 had, because they
+  were pinned on one fact and it was the subject: `crate::document`'s two screens and the cluster
+  corpus now draw *through* `input::field_into`, and the caret and the wrap index moved out of the
+  scene file into `crate::edit`. Register 135 → **143 rows, 127 evaluated**; scenes **1 red, 24 stood
+  up**, and the one still red is the overlay family's.
+  **Two runtime cadences the gates had to be written around, and both were found by a gate being
+  wrong first.** The caret is gated on `Ctx::is_focused` and not on `Response::focused`, which is one
+  frame apart — a `Response` carries the focus as it stood when the widget *declared*. And a screen
+  that seats the focus at the end of its own draw has **no caret on its first frame at all**, so
+  `document::play_field` plays two. Beside them: **a test that calls a `#[track_caller]` component
+  from two call sites is two widgets**, and the caret is the instrument that notices — the second
+  frame minted a different id, the id the first frame focused had not drawn, the vanish rule cleared
+  the focus, and the caret was simply *absent* on a screen that looked right. ADR 0027's defect
+  arriving inside the gate for it.
+  **A review then found two gaps the gates did not cover, and both are register rows.** The wrap
+  index partitions what is **drawn** and not what is held — `layout::text::wrap` trims each piece —
+  so a caret placed by asking which drawn row *contains* its byte is lost by **one trailing space**,
+  with the terminal cursor gone and the screen otherwise perfect; on a contiguous `Ruler` index the
+  same fact fails the other way and the caret jumps to the start of the row it just left. `End` on
+  `"hi "` landed at byte 2 and `Ctrl+A` selected `"hi"` for the same reason. And **`field` declared
+  `Interest::SCROLL` and consumed nothing** — ticket 20's defect class on a component that gate has
+  no subject for, and worse than declaring nothing at all, because the field is the topmost region
+  over its rectangle. The new gate then caught the repair's **own sign error**.
+  **The application is `compose`**, and its own finding is that **`q` cannot be a quit key here at
+  all** — a focused `field` consumes every text-bearing key into its buffer, which is what it is for.
+  `ledger` and `explorer` bind `Ctrl+Q` beside `q`; there is no `q` to bind beside here, because
+  typing one is the point. Its status bar prints the `(byte, column)` pair, the visual row, the width
+  the index was built at and the ring's two bounds, so §11's four gates are visible while a person
+  types and the fourth of them moves while the terminal is resized.
+
 - **`collapsible` is the thirteenth component, and three of §8's figures are replaced by findings
   rather than reproduced** (components ticket 22, 2026-08-26; ADR 0035). It is **one machine and
   three configurations** — `disclose::SPLIT` is §8's three-row table as a value and
@@ -546,8 +611,8 @@ Read these before working, in this order:
    authority. An `architecture.md` beside a spec is the superseded proposal, kept only as the record
    of what was argued.
 2. `CONTEXT.md` — the glossary. Use its terms in code, comments, tickets and commit messages.
-3. `docs/adr/` — 35 decisions that are hard to reverse and surprising without context. 0001–0011 and
-   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035 the components.
+3. `docs/adr/` — 36 decisions that are hard to reverse and surprising without context. 0001–0011 and
+   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033, 0035 and 0036 the components.
 4. The impl backlog `README.md` for the layer being worked on — it holds the phase order, the
    blocking edges, and the defects that shaped both.
 
@@ -565,14 +630,14 @@ crates/vitui-engine       cells, surfaces, layers, compositing, damage, serializ
                           └ crossterm behind a seam: raw mode, input, capability detection
 crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key maps, theming,
                           overlays, the data contract — no scene tree, no reactivity
-crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (13 of 29 built)
+crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (14 of 29 built)
                           └ the partition primitives return `vitui_runtime::Rect`. This crate used
                             to name its own rectangle (`Cells`) because `vitui_engine::Rect` was
                             unnameable across the crate line; runtime issue 22 re-exported it and
                             components issue 17 deleted the stand-in
 crates/vitui              facade re-export — engine, runtime, components
-crates/vitui-apps         the applications, one file each in `examples/` — 7: `counter`, `triage`,
-                          `latency`, `ledger`, `explorer`, `reader`, `settings`. **A component ticket ships one**: the surface's only
+crates/vitui-apps         the applications, one file each in `examples/` — 8: `counter`, `triage`,
+                          `latency`, `ledger`, `explorer`, `reader`, `settings`, `compose`. **A component ticket ships one**: the surface's only
                           consumer, and three times now the thing that found the defect its gates could not
                           └ a workspace MEMBER, so CI builds them: a consumer nobody builds is a
                             consumer nobody checks (`compare/run.sh` is the precedent). Depends on

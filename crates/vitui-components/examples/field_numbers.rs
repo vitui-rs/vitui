@@ -25,7 +25,7 @@
 //! `src/` as well — an example is compiled and never evaluated, which is the defect components
 //! ticket 08 found inside the register's own report.
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use vitui_alloc_probe::{CountingAllocator, count_allocations};
 use vitui_components::clusters::{self, Kind};
@@ -55,12 +55,233 @@ fn main() {
     left_at_a_megabyte();
     the_wrap_index();
     the_four_gates();
+    the_component();
+    the_ring();
+    the_frame();
     what_does_not_reproduce();
 }
 
-/// 1. The two scenes, and the one ticket that inverts both.
+/// 8. **The component, and the two counts §11 states about it.**
+///
+/// Components ticket 24. `field` exists now, so the two figures §11 gives for the widget itself can
+/// be measured rather than argued: the regions it declares against the per-cluster spelling, and
+/// the `Left` at the end of a pasted megabyte with the index the wrapping already needs.
+fn the_component() {
+    use vitui_components::counters::Tally;
+    use vitui_components::edit::{Text, WrapKind, defective as bad};
+    use vitui_components::input::{FieldOpts, defective::Regions, defective::field_regions};
+    use vitui_runtime::Rect;
+    use vitui_runtime::ctx::Driver;
+
+    println!("report  the component — §11's *79 regions against 621*, over this crate's screen:");
+    let text = clusters::corpus().text().repeat(4);
+    let (w, h) = (60u16, 8u16);
+    let area = Rect::new(0, 0, w, h);
+    let opts = FieldOpts::default();
+    let declared = |regions: Regions| {
+        let mut st = Text::of(text.clone(), WrapKind::Words);
+        let mut tally = Tally::new();
+        let mut driver = Driver::headless(w, h).expect("a sink attaches");
+        driver.frame(|cx| {
+            field_regions(&mut tally, cx, area, &mut st, &opts, regions);
+        });
+        (driver.inspect().hits().len(), tally.writes(), tally.verbs())
+    };
+    let (one, one_writes, one_verbs) = declared(Regions::Widget);
+    let (many, many_writes, many_verbs) = declared(Regions::PerCluster);
+    println!(
+        "  {one} region against {many} for one per visible cluster, on a {w}x{h} field — and the \
+         two draw the same screen:"
+    );
+    println!(
+        "    writes {one_writes} against {many_writes}, verbs {one_verbs} against {many_verbs}"
+    );
+    println!(
+        "  §11 states 79 against 621. Both are a prototype's screen; what reproduces is the shape — \
+         one entry for the widget,"
+    );
+    println!("  and hundreds for the spelling that gives each cluster its own.\n");
+
+    println!("report  one `Left` at the end of a pasted megabyte, through the component:");
+    let mega = document::pasted();
+    let mut with = Text::of(mega.clone(), WrapKind::Words);
+    let _ = with.index(document::WIDE);
+    let last = with.index(document::WIDE).rows() - 1;
+    with.click(document::WIDE, last, u16::MAX, false);
+    let end = with.caret();
+    let started = Instant::now();
+    with.left(document::WIDE, false);
+    let indexed = started.elapsed();
+
+    let started = Instant::now();
+    let blind = bad::blind_left(&mega, end);
+    let without = started.elapsed();
+    println!(
+        "  {:>12.3} us with an index against {:>12.3} us without one — {:.0}x, and §11 remembers \
+         {:.0}x",
+        indexed.as_secs_f64() * 1e6,
+        without.as_secs_f64() * 1e6,
+        without.as_secs_f64() / indexed.as_secs_f64().max(f64::MIN_POSITIVE),
+        document::REMEMBERED_LEFT_RATIO
+    );
+    println!(
+        "  and the two agree about where it lands: byte {} either way.\n",
+        blind.byte()
+    );
+}
+
+/// 9. **The undo ring: two bounds, the coalescing ratio, and the entry that is one paste.**
+fn the_ring() {
+    use vitui_components::edit::{RING_BYTES, RING_ENTRIES, Ring, Text, WrapKind};
+
+    println!("report  the undo ring — bounded twice, and coalescing is an entry count:");
+    let sentence = "the quick brown fox jumps over the lazy dog and it keeps going for a while ";
+    let mut coalesced =
+        Text::of(String::new(), WrapKind::Ruler).with_ring(Ring::bounded(usize::MAX, usize::MAX));
+    let mut flat = Text::of(String::new(), WrapKind::Ruler)
+        .with_ring(Ring::bounded(usize::MAX, usize::MAX).uncoalesced());
+    let mut keystrokes = 0u32;
+    for c in sentence.repeat(14).chars() {
+        let s = c.to_string();
+        coalesced.insert(200, &s);
+        flat.insert(200, &s);
+        keystrokes += 1;
+    }
+    println!(
+        "  {keystrokes} keystrokes is {} entries coalesced against {} flat — {:.2}x, and §11 \
+         remembers 1 012 -> 414, which is 2.44x",
+        coalesced.ring().len(),
+        flat.ring().len(),
+        flat.ring().len() as f64 / coalesced.ring().len().max(1) as f64
+    );
+    println!(
+        "  {} B against {} B. The rule is the **word** break and not the line break: §11 gives the \
+         reason in the same sentence as",
+        coalesced.ring().bytes(),
+        flat.ring().bytes()
+    );
+    println!(
+        "  the ratio — *undoing a sentence is 414 presses instead of 1 012* — and a run closing \
+         only at a line makes it one press, which is a"
+    );
+    println!("  checkpoint and not a history.");
+
+    let mut bounded = Text::of(String::from("start"), WrapKind::Ruler)
+        .with_ring(Ring::bounded(16, usize::MAX).uncoalesced());
+    bounded.end(40, false);
+    for i in 0..64u32 {
+        bounded.insert(40, &format!(" {i}"));
+    }
+    let mut steps = 0;
+    while bounded.undo() {
+        steps += 1;
+    }
+    println!(
+        "  sixty-four edits through a sixteen-entry ring: {steps} undos each answering yes, and the \
+         document is {} — `truncated` is {}",
+        if bounded.text() == "start" {
+            "back"
+        } else {
+            "**not** back"
+        },
+        bounded.ring().truncated()
+    );
+    println!("  the shipped bounds are {RING_ENTRIES} entries and {RING_BYTES} B.\n");
+}
+
+/// 10. **The frame, at a hundred kilobytes and at a megabyte.**
+fn the_frame() {
+    use vitui_components::counters::{Counter, Counters, Tally};
+    use vitui_components::edit::{Text, WrapKind};
+    use vitui_components::input::{FieldOpts, field_into};
+    use vitui_runtime::{Density, Rect};
+
+    println!("report  the frame — §11's *82.4 us / 19 634 writes / 631 verbs / 79 regions, flat*:");
+    println!(
+        "  {:<16}  {:>10}  {:>8}  {:>7}  {:>8}  {:>7}",
+        "document", "us/frame", "writes", "verbs", "regions", "merges"
+    );
+    let mega = document::pasted();
+    let (w, h) = (document::WIDE, document::H);
+    for (name, content) in [
+        ("100 kB clusters", mega[..100_000].to_string()),
+        ("1 MB clusters", mega.clone()),
+        (
+            "1 MB ASCII",
+            "the quick brown fox jumps over the lazy dog\n".repeat(24_000),
+        ),
+    ] {
+        let mut st = Text::of(content, WrapKind::Words);
+        let _ = st.index(w);
+        let mut driver = vitui_components::runner::driver_at(w, h, Density::default());
+        // **The timing is the shipped path and the counters are the instrument's.** A `Tally`
+        // unions a span per verb into a cell set, which is thirty times the frame it is measuring
+        // — so a minimum taken over it would be a report about `crate::counters`. `Direct` is what
+        // a component gets (`crate::ink`), and it is what is timed.
+        let mut best = f64::MAX;
+        for _ in 0..8 {
+            let started = Instant::now();
+            driver.frame(|cx| {
+                field_into(
+                    &mut vitui_components::ink::Direct,
+                    cx,
+                    Rect::new(0, 0, w, h),
+                    &mut st,
+                    &FieldOpts::default(),
+                );
+            });
+            best = best.min(started.elapsed().as_secs_f64() * 1e6);
+        }
+        let worst = best;
+        let mut tally = Tally::new();
+        driver.frame(|cx| {
+            field_into(
+                &mut tally,
+                cx,
+                Rect::new(0, 0, w, h),
+                &mut st,
+                &FieldOpts::default(),
+            );
+        });
+        let counters = Counters::of(&driver, &tally, Allocations::over(1, 0));
+        println!(
+            "  {:<16}  {:>10.2}  {:>8}  {:>7}  {:>8}  {:>7}",
+            name,
+            worst,
+            tally.writes(),
+            tally.verbs(),
+            counters
+                .get(Counter::Regions)
+                .measured()
+                .map_or_else(|| "-".into(), |v| v.to_string()),
+            counters
+                .get(Counter::Merges)
+                .measured()
+                .map_or_else(|| "-".into(), |v| v.to_string()),
+        );
+    }
+    println!(
+        "  a minimum of eight, and a **report**: R15. What is gated is that the first two rows are \
+         the same frame — the field costs its"
+    );
+    println!(
+        "  visible window and never its content, which is the engine's own invariant arriving \
+         on the component that holds the most data"
+    );
+    println!(
+        "  in the freeze. **The third row is why the first two are what they are**: the same \
+         rectangle over ASCII is a different frame, because"
+    );
+    println!(
+        "  every cell of the first two is a grapheme cluster and the cost is text measurement over \
+         the engine's tables. §11's 82.4 us is a"
+    );
+    println!("  prototype's screen and this one writes 24 000 cells of the cluster corpus.\n");
+}
+
+/// 1. The two scenes, and the one ticket that inverted both.
 fn scene_list() {
-    println!("report  the two scenes, and the one reason they are red:");
+    println!("report  the two scenes, and the one fact they stand on:");
     println!(
         "  {:>3}  {:<44}  {:<28}  inverted by",
         "#", "scene", "standing"
@@ -81,7 +302,11 @@ fn scene_list() {
             scene.number, scene.name
         );
     }
-    assert_eq!(red, 2, "both scenes are pinned red");
+    assert_eq!(
+        red, 0,
+        "both scenes were pinned red for one ticket and components 24 stood them up, together with \
+         the corpus scene they run over"
+    );
     assert_eq!(scenes_for("field").count(), 2);
     println!(
         "  `scenes_for(\"field\")` answers {} scenes, and `crate::document::standing()` is {:?}\n",
@@ -210,7 +435,7 @@ fn left_at_a_megabyte() {
         text.len(),
         text.len() - index.row_start(row.saturating_sub(1)),
     );
-    assert!(caret.byte < text.len());
+    assert!(caret.byte() < text.len());
     let _ = Caret::default();
 }
 
@@ -270,9 +495,9 @@ fn the_four_gates() {
         "gate", "cells", "rows", "counters that separate them"
     );
     for defect in Defect::ALL {
-        let (good, bad) = document::screens(defect);
-        let a = steady_allocations(&good);
-        let b = steady_allocations(&bad);
+        let (mut good, mut bad) = document::screens(defect);
+        let a = steady_allocations(&mut good);
+        let b = steady_allocations(&mut bad);
         let inert = Allocations::over(1, 0);
         let separating = document::counters_that_separate(defect, inert, inert);
         let with_probe = document::counters_that_separate(defect, a, b);
@@ -328,7 +553,7 @@ fn the_four_gates() {
 /// The allocation total for one screen over two hundred steady frames, measured on **both** arms.
 ///
 /// A figure handed to one arm and defaulted on the other is a separation the instrument invented.
-fn steady_allocations(screen: &document::Screen) -> Allocations {
+fn steady_allocations(screen: &mut document::Screen) -> Allocations {
     const FRAMES: u32 = 8;
     let (_, total) = count_allocations(|| {
         for _ in 0..FRAMES {
