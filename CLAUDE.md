@@ -113,7 +113,7 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 32 of 45 tickets resolved (the last on 2026-08-27). `INVENTORY` is spec
+- **`vitui-components` has started**: 33 of 45 tickets resolved (the last on 2026-08-27). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
   answerable by the machine from here on. All five obligations are `Unmet` and each is watched
@@ -931,6 +931,65 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   **0.00 user / 0.00 sys**, which is `scripts/idle-gate.sh`'s budget met by an application rather
   than by the engine under test.
 
+- **`slider` is the nineteenth component, and the ticket found that the `built` column had claimed it
+  for two tickets with nothing able to see that** (components ticket 33, 2026-08-27; ADR 0040).
+  `INVENTORY`'s row read `built: true` and `input::MEMBERS` listed the name from ticket 30 onwards, on
+  the strength of §14's *`slider` leaves Tier 3* — and **no `slider` existed anywhere in the crate**.
+  Neither join that looks as though it should have caught it could: the module-tree join compares a
+  module's `MEMBERS` against the `families` **column** and never against the source, so a name in both
+  places agrees with itself, and the tier/built gate accepts any row appearing in `MOVED` — which for
+  `slider` recorded something true, because the *mechanism* had been built. **A mechanism being built
+  is not the component being built.** Register row 187 is the join, 19 of 19 with the reverse direction
+  counted too, and **the needle problem arrives a fifth time and is answered as a rule**: a join over
+  twenty-nine rows cannot dictate nineteen signatures, so the needle is the *name* and the boundary is
+  **either delimiter** — `pub fn <id>(` or `pub fn <id><`.
+  **Everything §14 measured reproduces through the component.** `grab` is `Response::local` over
+  `Response::rect` and nothing else, swept against `media::player::scrub` rather than transcribed;
+  played from a posted pointer it is **20/299**, **60/299** and unchanged on release. The vertical arm
+  is **inverted and not transposed** — up is more — and the transpose agrees at one row of eleven.
+  **The step is an integer index and the `f32` step is wrong twice with each half hiding the other**
+  (ADR 0040). On a 300-cell track from zero: fifty `Right`s land on **0.5 / cell 150** against
+  **0.4999998 / cell 149**, and a hundred on **1.0** against **0.99999934 / cell 299** — the *right*
+  cell, and a value that never reaches its own maximum, so `if v == 1.0` is a branch a keyboard-driven
+  slider can never take and nothing on the screen says so. A drag is deliberately **not** quantised,
+  because snapping it would make §14's own two fractions unreachable: the grid is the keyboard's unit
+  and not the value's.
+  **There is no range slider, and the refusal is a measurement.** Two thumbs need *which* thumb, which
+  is the fifth cross-frame fact §14's headline is that drag capture does not need; the spelling that
+  stores nothing derives the boundary from the two values it separates, so a pointer crossing it
+  mid-gesture **abandons the thumb it was dragging and yanks the other one** — `0.8 → 0.6` on a thumb
+  nobody touched, in a drag that never released. Two thumbs as two *widgets* is not a third answer: a
+  one-cell thumb's own `local` says nothing about the track.
+  **`scroll::stripe` is reached and `scroll::bar` is refused on two counts** — a bar has two parts and
+  a slider has three, so `BarOpts`'s one `track` role cannot express it, and a `Span` is content cells
+  which a slider has none of — so the *answer* is shared instead, swept against `scroll::thumb` over
+  every track length from 1 to 200. **`nav::step` is not reached and the disagreement is 4 of 8 cursor
+  codes**: it pairs `Up` with `Left` because a list's index grows downward, and a slider's value grows
+  upward. Components 17's finding from the other side.
+  **Three findings in the instruments, each the gate being wrong first.** The steady figure is a
+  **sequence** and not a total — `[40, 1, 0, …]`, because `Response::hovered` is resolved from the
+  previous frame's index, so read as one total over 59 frames it is `1` and looks like a defect. The
+  allocation window read **1 over 60 frames** until it warmed the path it prices, the run driving the
+  keyboard and the warm-up not. And **a test calling the component from two call sites is two
+  widgets**, with the *focus* as the instrument that notices: the press focuses the first id, the next
+  frame draws the second, and the vanish rule clears it — failing three mechanisms from its cause.
+  **A self-review then found a fourth, in the shipped code**: `Response::changed` was compared against
+  the value as *sanitised* rather than as it arrived, so a caller handing in `1.5` got
+  `changed == false` for ever while the component rewrote the value under it — and `NaN` is what makes
+  it load-bearing, because `NAN.clamp(0.0, 1.0)` is `NaN` and `NaN != NaN`, so a kept non-finite value
+  reports a change on every frame for ever.
+  Register 181 → **190 rows, 174 evaluated**; `glyphs` gained `VLine`, because a vertical groove is a
+  column.
+  **The application is `mixer`**, and `x` is the key to press — fifty steps in one keystroke, with `f`
+  swapping the arithmetic underneath. It found two defects of its own in coordinates no gate here
+  uses: a three-cell track in a seven-cell column left **four columns a channel nobody writes**, and
+  the tail was computed from `CHANNELS.len()` rather than from the channels that fitted, so below 61
+  columns the skipped columns were written by nobody. Threading an `Ink` through the draw turned the
+  argument into a number — `--probe` prints **3 000 writes over 3 000 distinct of 3 000 cells**, 12
+  regions and 11 tab stops. **`q` is a quit key here and it is the first application on this map where
+  that is true**: a focused `slider` takes cursor keys and nothing else, where a `field` consumes every
+  text-bearing key and a `collection` eats it into a type-ahead buffer.
+
 Read these before working, in this order:
 
 1. The spec for the layer being worked on — `.scratch/vitui-engine-architecture/spec.md`,
@@ -939,8 +998,8 @@ Read these before working, in this order:
    authority. An `architecture.md` beside a spec is the superseded proposal, kept only as the record
    of what was argued.
 2. `CONTEXT.md` — the glossary. Use its terms in code, comments, tickets and commit messages.
-3. `docs/adr/` — 39 decisions that are hard to reverse and surprising without context. 0001–0011 and
-   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0039 the components.
+3. `docs/adr/` — 40 decisions that are hard to reverse and surprising without context. 0001–0011 and
+   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0040 the components.
 4. The impl backlog `README.md` for the layer being worked on — it holds the phase order, the
    blocking edges, and the defects that shaped both.
 
@@ -958,7 +1017,7 @@ crates/vitui-engine       cells, surfaces, layers, compositing, damage, serializ
                           └ crossterm behind a seam: raw mode, input, capability detection
 crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key maps, theming,
                           overlays, the data contract — no scene tree, no reactivity
-crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (18 of 29 built)
+crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (19 of 29 built)
                           └ plus `media`, which is **no row of the freeze at all** — §14's own *no
                             v1 component*, so the family ships and `MEMBERS` is empty
                           └ the partition primitives return `vitui_runtime::Rect`. This crate used
@@ -966,10 +1025,11 @@ crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers 
                             unnameable across the crate line; runtime issue 22 re-exported it and
                             components issue 17 deleted the stand-in
 crates/vitui              facade re-export — engine, runtime, components
-crates/vitui-apps         the applications, one file each in `examples/` — 11: `counter`, `triage`,
+crates/vitui-apps         the applications, one file each in `examples/` — 12: `counter`, `triage`,
                           `latency`, `ledger`, `explorer`, `reader`, `settings`, `compose`, `console`,
-                          `theatre`, `browse`. **A component ticket ships one**: the surface's only
-                          consumer, and three times now the thing that found the defect its gates could not
+                          `theatre`, `browse`, `mixer`. **A component ticket ships one**: the surface's
+                          only consumer, and four times now the thing that found the defect its gates
+                          could not
                           └ a workspace MEMBER, so CI builds them: a consumer nobody builds is a
                             consumer nobody checks (`compare/run.sh` is the precedent). Depends on
                             runtime + components and NOT on the `vitui` facade — the facade
@@ -1021,6 +1081,8 @@ cargo run -p vitui-apps --example theatre   # the media family; 4 is the floor o
 cargo run -p vitui-apps --example theatre -- --probe   # one headless frame, and what it cost
 cargo run -p vitui-apps --example browse    # the preview pane; k then s is the memo-key rule
 cargo run -p vitui-apps --example browse -- --probe
+cargo run -p vitui-apps --example mixer     # the slider; x fifty steps, f swaps the arithmetic
+cargo run -p vitui-apps --example mixer -- --probe
 (cd conform && cargo run --example tmux)    # the one conformance soak that is headless
 (cd conform && cargo run --example kitty)   # a window, but no automation grant and no config file
 ```

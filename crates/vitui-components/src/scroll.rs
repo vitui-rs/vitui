@@ -190,10 +190,7 @@ fn draw<I: Ink>(
         return Rect::new(area.x, area.y, 0, 0);
     }
     let (start, len) = thumb(length, span);
-    let thumb_cells = match opts.orient {
-        Orient::Vertical => Rect::new(area.x, area.y + i32::from(start), area.w, len),
-        Orient::Horizontal => Rect::new(area.x + i32::from(start), area.y, len, area.h),
-    };
+    let thumb_cells = band(area, opts.orient, start, len);
 
     if thumb_first {
         stripe(
@@ -253,13 +250,35 @@ fn draw<I: Ink>(
     thumb_cells
 }
 
+/// **Where `n` cells of a track starting `from` cells in actually are.**
+///
+/// `pub(crate)` for [`stripe`]'s reason: [`crate::input::slider`] needs the thumb's rectangle to hand
+/// to [`crate::state::press_into`], and a component computing it again is a second place the
+/// orientation is decided.
+pub(crate) fn band(area: Rect, orient: Orient, from: u16, n: u16) -> Rect {
+    match orient {
+        Orient::Horizontal => Rect::new(area.x + i32::from(from), area.y, n, area.h),
+        Orient::Vertical => Rect::new(area.x, area.y + i32::from(from), area.w, n),
+    }
+}
+
 /// Write `n` cells of `cluster` along `orient`, starting `from` cells into `area`.
 ///
 /// A vertical bar is one verb a row, because [`Ink::run`] writes one row: the bar is a column and a
 /// column is not a run. That is why `verbs` is the counter this helper is *worst* on and the pair is
 /// the one it is judged by — §21's *`verbs <= writes`* is a relation for exactly this reason.
+///
+/// # It is `pub(crate)` because a slider draws through it, and that is the point rather than a leak
+///
+/// Spec §3 gives [`bar`] one job — *the bar every scrollable draws* — and one shape: **thumb, then
+/// the track above and below**. [`crate::input::slider`] is the same shape with **three** stretches
+/// rather than two, because a slider's groove carries two roles and [`BarOpts`] has one `track`
+/// field. So `bar` itself cannot draw it and this is what the two share: one definition of *write
+/// `n` cells along an axis*, one place the orientation branch lives, and therefore one construction
+/// to get the order wrong in. Writing the loop out again in `input.rs` is how one of the two comes to
+/// draw its groove first.
 #[allow(clippy::too_many_arguments)]
-fn stripe<I: Ink>(
+pub(crate) fn stripe<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
     area: Rect,

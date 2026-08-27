@@ -903,7 +903,10 @@ pub const INVENTORY: &[Component] = &[
         built: true,
         layer: Layer::L1,
         families: &[Family::F6Input],
-        glyphs: &[Glyph::HLine, Glyph::Thumb],
+        // **`VLine` joined the demand set when the component was written** (components ticket 33): a
+        // vertical slider's groove is a column, and `HLine` stacked down one is a picture of a
+        // dashed line. `scroll_area` already demands both, so the pair collapses at no rung.
+        glyphs: &[Glyph::HLine, Glyph::VLine, Glyph::Thumb],
         constructions: 1,
         can_shrink: false,
         // A slider's value is not an offset and no wheel event moves it.
@@ -1117,6 +1120,102 @@ mod tests {
         // `file_preview_pane`. Recorded here rather than resolved by bending a column: the number
         // that reproduces from the freeze is nineteen.
         assert_eq!(INVENTORY.iter().filter(|c| c.built).count(), 19);
+    }
+
+    /// **Every `built` row is declared in the module that homes it — and this is the gate components
+    /// ticket 33 shipped because its own row had been lying for two tickets.**
+    ///
+    /// §14 measured drag capture and concluded *`slider` leaves Tier 3*, so components ticket 30 set
+    /// `built: true` on the row and listed the name in [`crate::input::MEMBERS`]. **No `slider`
+    /// existed.** Nothing here could see it, and the two joins that look as though they should are
+    /// each blind for a stated reason:
+    ///
+    /// - `the_module_tree_and_the_families_column_agree` compares a module's `MEMBERS` list against
+    ///   the `families` **column** and never against the module's source, so a name in both places
+    ///   agrees with itself;
+    /// - `nothing_is_built_at_a_tier_that_says_otherwise_without_the_row_saying_so` accepts any row
+    ///   that appears in [`MOVED`], and `MOVED` records *what argument moved it* — which for `slider`
+    ///   was true: the mechanism really was measured. **A mechanism being built is not the component
+    ///   being built**, and that is the distinction the column had no gate for.
+    ///
+    /// Obligation O2 would have caught it eventually — *everything `built` must have a panel* — and
+    /// it is [`crate::obligations`]'s and still `Unmet`, which is exactly the shape ADR 0033 exists
+    /// to refuse: *every obligation this map has stated as a sentence has been broken by someone who
+    /// had read it.*
+    ///
+    /// # The needle is the name and the boundary is either delimiter
+    ///
+    /// A join over twenty-nine rows cannot dictate nineteen signatures. `pub fn picture(` could
+    /// never have matched the shipped `pub fn picture<P: Pixels>(` — components ticket 30's finding,
+    /// met for the fourth time by ticket 32 — so what this looks for is `pub fn <id>` followed by
+    /// **`(` or `<`**, and both spellings are watched being accepted. Anything narrower is a gate
+    /// that a type parameter deletes.
+    #[test]
+    fn every_built_row_is_declared_in_the_module_that_homes_it() {
+        let mut checked = 0;
+        for c in INVENTORY {
+            if !c.built {
+                continue;
+            }
+            let module = c.module().unwrap_or_else(|| {
+                panic!(
+                    "`{}` is built and its first family has no module here",
+                    c.id
+                )
+            });
+            let source = read(&format!("crates/vitui-components/src/{module}.rs"));
+            let plain = format!("pub fn {}(", c.id);
+            let generic = format!("pub fn {}<", c.id);
+            assert!(
+                crate::dense::declares(&source, &plain)
+                    || crate::dense::declares(&source, &generic),
+                "`{}` is `built` and `src/{module}.rs` declares neither `{plain}` nor `{generic}`.                  Either the component does not exist — which is what this gate was written for — or                  it is homed in a module the `families` column does not name",
+                c.id
+            );
+            checked += 1;
+        }
+        assert_eq!(
+            checked, 19,
+            "nineteen built rows, and every one of them checked"
+        );
+
+        // **Both spellings are accepted, watched.** A join that took only the parenthesis is a join
+        // a type parameter deletes, and this crate has already shipped that needle twice.
+        assert!(crate::dense::declares(
+            "pub fn slider(cx: &mut Ctx) {}",
+            "pub fn slider("
+        ));
+        assert!(crate::dense::declares(
+            "pub fn picture<P: Pixels>(cx: &mut Ctx) {}",
+            "pub fn picture<"
+        ));
+        // And a mention is not a declaration, which is `dense::declares`'s own rule.
+        assert!(!crate::dense::declares(
+            "// pub fn slider(cx: &mut Ctx)",
+            "pub fn slider("
+        ));
+        // **And the column agrees in the other direction too, which is what gives the gate teeth.**
+        // Ten rows are not built; if any of them were declared, `built` would be understating the
+        // crate rather than overstating it — the same drift with the sign flipped, and a gate that
+        // only looked at the `true` rows could not see it. Zero of ten, counted rather than assumed.
+        let declared_but_not_built: Vec<&str> = INVENTORY
+            .iter()
+            .filter(|c| !c.built)
+            .filter(|c| {
+                let Some(module) = c.module() else {
+                    return false;
+                };
+                let source = read(&format!("crates/vitui-components/src/{module}.rs"));
+                crate::dense::declares(&source, &format!("pub fn {}(", c.id))
+                    || crate::dense::declares(&source, &format!("pub fn {}<", c.id))
+            })
+            .map(|c| c.id)
+            .collect();
+        assert!(
+            declared_but_not_built.is_empty(),
+            "{declared_but_not_built:?} are declared and the `built` column says they are not"
+        );
+        assert_eq!(INVENTORY.iter().filter(|c| !c.built).count(), 10);
     }
 
     /// **The DAG: an edge from a lower layer to a higher one is refused.**

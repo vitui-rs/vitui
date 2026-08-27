@@ -76,7 +76,7 @@ pub struct App {
 /// and the reason is that there is nothing to port: what it demonstrates is *one component and one
 /// `Mode`*, and no other library's tutorial has an equivalent because no other library makes the
 /// claim.
-pub const APPS: [App; 11] = [
+pub const APPS: [App; 12] = [
     App {
         name: "counter",
         what: "A bordered panel, a centred value, and Left/Right/q. The smallest program anybody \
@@ -361,6 +361,34 @@ pub const APPS: [App; 11] = [
         ],
         after: None,
     },
+    App {
+        name: "mixer",
+        what: "Eight vertical faders, a horizontal master, and a band whose two thumbs share one \
+               track. `x` is the one to press: it steps the focused fader fifty times, and `f` swaps \
+               the arithmetic underneath it — the integer grid lands on exactly 0.5 with the thumb \
+               on the middle cell, and the `f32` step lands on 0.4999998 with the thumb one cell \
+               short, then on 0.99999934 where the thumb is right and the value has never reached \
+               its own maximum. Drag the band's low thumb rightwards past the midpoint and the high \
+               thumb jumps back to meet the pointer, which is why no range slider ships",
+        uses: &[
+            "input::slider_into",
+            "input::stepped",
+            "input::SliderOpts",
+            "input::defective::float_stepped",
+            "input::defective::Range",
+            "structure::panel_into",
+            "text::text_into",
+            "scroll::Orient",
+            "counters::Tally",
+            "ink::Ink",
+            "keys::press_with",
+            "ctx::Ctx::with_key",
+            "ctx::Ctx::focused",
+            "ctx::Driver::unhandled",
+            "ctx::Driver::wait",
+        ],
+        after: None,
+    },
 ];
 
 #[cfg(test)]
@@ -422,9 +450,9 @@ mod tests {
             checked += 1;
         }
         assert_eq!(
-            checked, 9,
-            "triage, ledger, explorer, reader, settings, compose, console, theatre and browse \
-             open the window; counter and latency read their keys through a `KeyMap` instead"
+            checked, 10,
+            "triage, ledger, explorer, reader, settings, compose, console, theatre, browse and \
+             mixer open the window; counter and latency read their keys through a `KeyMap` instead"
         );
 
         // **The other directions**, or a scanner that has stopped finding `driver.frame(` reports

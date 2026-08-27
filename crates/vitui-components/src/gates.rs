@@ -502,7 +502,7 @@ pub const SPEC_ROWS: usize = 32;
 ///
 /// Row 21 stays `Unreachable` and row 130 is its crate-own form, which is row 41's standing to row
 /// 2's.
-pub const EVALUATED: usize = 165;
+pub const EVALUATED: usize = 174;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
 #[expect(
@@ -512,7 +512,7 @@ pub const EVALUATED: usize = 165;
               array is read at compile time by nothing and at run time by tests, so the copy the \
               lint is warning about is one a test makes once"
 )]
-pub const REGISTER: [Row; 181] = [
+pub const REGISTER: [Row; 190] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -5868,6 +5868,292 @@ pub const REGISTER: [Row; 181] = [
             }],
         },
     },
+    Row {
+        number: 182,
+        on_spec_table: false,
+        gate: "`slider` reads `Response::local` over `Response::rect` and nothing else: press \
+               20/299, move 60/299, release unchanged, and the component mints no fifth \
+               cross-frame fact",
+        kind: Kind::Equality,
+        owner: "C15",
+        section: "spec §14, §17",
+        // **Row 164's mechanism wrapped in the component it was measured for**, and the two halves
+        // are two kinds of evidence: the three fractions played through the shipped `slider` from a
+        // posted pointer, and a **source scan** over its own half of the file for the four things it
+        // may not mint — a press origin, a stored anchor, a *was I dragging last frame* and a
+        // `SliderState`. The scan is the load-bearing half, because the fractions are also what a
+        // component with a stored anchor would produce on the frames it happened to be right on.
+        //
+        // The needles are assembled from fragments: `crate::frame`'s own first run reported the
+        // module it defends, and this scan's first run reported `press` + `_origin` on its own line.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "a_posted_press_jumps_a_posted_move_carries_and_the_release_moves_nothing",
+                },
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "the_slider_mints_no_press_origin_and_no_drag_phase_field",
+                },
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "the_grab_is_the_chromes_own_on_the_axis_it_has",
+                },
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "the_vertical_arm_is_inverted_and_not_transposed",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 183,
+        on_spec_table: false,
+        gate: "a slider's step is an integer index: fifty `Right`s land on 0.5 and cell 150 of 300, \
+               where a `f32` step lands on 0.4999998 and cell 149",
+        kind: Kind::Equality,
+        owner: "C15",
+        section: "spec §14, §17",
+        // **The arithmetic finding, and its interest is that the two defects hide each other.** A
+        // step added to a `f32` accumulates: at fifty `Right`s the *value* looks right to every
+        // digit a status row prints and the thumb is **one cell short of the middle**; at a hundred
+        // the thumb is in exactly the right place and the value is **0.99999934**, so a slider
+        // driven from the keyboard never reaches its own maximum and a caller testing `v == 1.0` has
+        // a branch that cannot be taken. The round trip is 1.4901161e-8 rather than 0.
+        //
+        // `defective::float_stepped` is a component and not only a function, so a reviewer's diff
+        // between the two spellings is one field on one call.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "fifty_rights_land_on_the_middle_and_the_float_step_lands_one_cell_short",
+                },
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "the_two_stepping_arms_are_one_component_with_one_value_between_them",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 184,
+        on_spec_table: false,
+        gate: "a slider's cursor pairing is not a list's, and the disagreement with `nav::step` is \
+               exactly 4 of the 8 cursor codes",
+        kind: Kind::Count,
+        owner: "C15",
+        section: "spec §3, §14",
+        // ***A list's index grows downward and a slider's value grows upward.*** `nav::step` pairs
+        // `Up` with `Left` because it moves an index; a slider pairs `Up` with `Right`. So the two
+        // agree at `Left`, `Right`, `Home` and `End` and disagree at `Up`, `Down`, `PageUp` and
+        // `PageDown` — components ticket 17's finding from the other side, where a container could
+        // not read `←` and `→` through that helper because it reads them *as* `↑` and `↓`.
+        //
+        // **The count is the assertion.** A slider that called `nav::step` would be right for four
+        // keys and silently backwards for four, on a screen where the thumb visibly moves either
+        // way. Beside it, §21's *a chord types nothing* on a component with no key map: all eight
+        // codes at three modifier states and both edges.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "the_sliders_pairing_is_not_a_lists_and_the_disagreement_is_four_codes",
+                },
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "a_chord_moves_a_slider_nothing_and_a_release_is_not_a_step",
+                },
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "an_arrow_reaches_a_focused_slider_and_the_press_is_what_focused_it",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 185,
+        on_spec_table: false,
+        gate: "a slider partitions its whole rectangle at both orientations, a settled one \
+               changes 0 cells a frame — the sequence is 40, 1, 0 — and a value from outside the \
+               range is reported changed once",
+        kind: Kind::Count,
+        owner: "C02",
+        section: "spec §2, §20",
+        // **§2's two equalities, swept where the arithmetic runs out** — a one-cell track, a
+        // two-cell one, the thumb against both ends, and a value that is `NaN` or outside `0..=1`.
+        //
+        // **The steady half is a sequence and not a total, and that is the finding.** `marked` is
+        // the engine's own counter and unreachable here, so the reachable form is row 48's: carry
+        // the surface across frames and count the cells whose value changed. `Response::hovered` is
+        // resolved from the *previous* frame's index, so the frame the pointer arrives on draws the
+        // thumb at rest and the frame after it draws the thumb hovered — **one cell, once**. Read as
+        // a single total over 59 frames that is `1` and looks like a defect; it is components ticket
+        // 22's warming discipline arriving on a counter rather than on an allocator.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "a_slider_writes_a_partition_of_its_whole_rectangle",
+                },
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "a_slider_nobody_touches_changes_nothing_after_its_first_two_frames",
+                },
+                // **And a value from outside the range is reported changed exactly once**, which is
+                // the same claim from the caller's side and was wrong first: compared against the
+                // *sanitised* value a caller handing in `1.5` sees `changed == false` for ever while
+                // the component rewrites the value under it. `NaN` is what makes it load-bearing —
+                // `NAN.clamp(0.0, 1.0)` is `NaN` and `NaN != NaN`, so a component that kept a
+                // non-finite value would report a change on every frame for ever. Watched firing at
+                // `[false, false, false]` against `[true, false, false]`.
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "a_value_from_outside_the_range_is_reported_changed_once_and_then_never",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 186,
+        on_spec_table: false,
+        gate: "a slider's thumb is on the cell `scroll::thumb` would put it on, at every track \
+               length from 1 to 200, and the bar is drawn thumb-first through `scroll::stripe`",
+        kind: Kind::Equality,
+        owner: "C02",
+        section: "spec §3, §9",
+        // **Criterion 6, answered with evidence rather than with prose.** The verbs are the
+        // scrollbar's own `stripe` — one definition of *write `n` cells along an axis*, one place the
+        // orientation branch lives — and the order is `bar`'s: thumb, then the stretches either
+        // side. What is *not* reached is `bar` itself, for two reasons that are both counts: a bar
+        // has two parts and a slider has three, so `BarOpts`'s single `track` role cannot express
+        // the picture; and a `Span` is three counts of **content cells**, which a slider has none
+        // of. So the *answer* is shared instead, swept at
+        // `Span { viewport: 1, extent: length, offset: at }` over every track a terminal can hold.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "the_thumb_sits_where_scroll_thumb_would_put_it",
+                },
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "the_three_spellings_are_one_component_and_each_answers_with_a_response",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 187,
+        on_spec_table: false,
+        gate: "every `built` row of the freeze is declared in the module that homes it: 19 of 19, \
+               and 0 of the 10 unbuilt rows are declared",
+        kind: Kind::Equality,
+        owner: "C11",
+        section: "spec §17, ADR 0033",
+        // **The row this ticket exists to add, because its own row had been lying for two tickets.**
+        // §14 measured drag capture and concluded *`slider` leaves Tier 3*, so components ticket 30
+        // set `built: true` and listed the name in `input::MEMBERS`. **No `slider` existed**, and
+        // neither join that looks as though it should have seen it could:
+        // `the_module_tree_and_the_families_column_agree` compares a module's `MEMBERS` against the
+        // `families` **column** and never against the source, and the tier/built gate accepts any
+        // row in `MOVED` — which for `slider` recorded something true, because the *mechanism* had
+        // been built. **A mechanism being built is not the component being built.**
+        //
+        // O2 would have caught it eventually — *everything `built` must have a panel* — and it is
+        // `Unmet`, which is exactly the shape ADR 0033 exists to refuse: *every obligation this map
+        // has stated as a sentence has been broken by someone who had read it.*
+        //
+        // **The needle is the name and the boundary is either delimiter**, because a join over
+        // twenty-nine rows cannot dictate nineteen signatures: `pub fn picture(` could never have
+        // matched `pub fn picture<P: Pixels>(`, which is components ticket 30's finding met for the
+        // fourth time by ticket 32. Both spellings are watched being accepted, and the reverse
+        // direction is counted too — a declared row marked unbuilt is the same drift with the sign
+        // flipped, and a gate over the `true` rows alone cannot see it.
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: "crates/vitui-components/src/inventory.rs",
+                name: "every_built_row_is_declared_in_the_module_that_homes_it",
+            }],
+        },
+    },
+    Row {
+        number: 188,
+        on_spec_table: false,
+        gate: "there is no range slider, and the spelling that avoids storing which thumb moves \
+               two values in one drag: 0.8 to 0.6 on a thumb nobody touched",
+        kind: Kind::Count,
+        owner: "C15",
+        section: "spec §14, §17",
+        // **Criterion 4 answered as a measurement rather than as a preference.** Two thumbs need a
+        // third answer neither `Response::local` nor `Response::rect` carries — *which* thumb — and
+        // there are two ways to get it. Remembering where the press landed is exactly the **fifth
+        // cross-frame fact** §14's headline is that drag capture does not need. Deriving the
+        // boundary from the two values stores nothing and does not work: the boundary moves with the
+        // values it separates, so a pointer crossing it mid-gesture **abandons the thumb it was
+        // dragging and yanks the other one** — from `(0.2, 0.8)` with the pointer going `0.3 → 0.6`,
+        // the high thumb jumps `0.8 → 0.6` in a drag that never released.
+        //
+        // Both arms are in the same test, because *the stored answer works* is what makes this a
+        // cost rather than an impossibility. Two thumbs as two **widgets** is not a third answer:
+        // `Response::local` is in the coordinates of the rectangle it was declared with, so a
+        // one-cell thumb's own `local` says nothing about the track, and two overlapping regions
+        // resolve the pointer to the topmost one.
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: INPUT,
+                name: "one_drag_of_a_derived_boundary_range_moves_two_values",
+            }],
+        },
+    },
+    Row {
+        number: 189,
+        on_spec_table: false,
+        gate: "a slider declares no `Interest::SCROLL`, and two notches over one move its value 0",
+        kind: Kind::Count,
+        owner: "C15",
+        section: "spec §17, §21",
+        // **Components ticket 20's rule on a new subject**, and the reason the absence has to be
+        // checked rather than assumed: a widget that declares the wheel and consumes nothing is
+        // **worse** than one that declares nothing at all, because it is the topmost region over its
+        // rectangle and an enclosing `scroll_area` never sees the notch either. That is the defect
+        // ticket 20 found on `field`, which had declared `SCROLL` and consumed it nowhere.
+        //
+        // §17's row states the other half — *a slider's value is not an offset and no wheel event
+        // moves it* — so `owns_offset` is `false` and there is nothing for a notch to move. Both are
+        // read: the declaration off `SliderOpts::default()` and the value off a posted notch.
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: INPUT,
+                name: "a_slider_declares_no_wheel_and_a_notch_over_it_moves_nothing",
+            }],
+        },
+    },
+    Row {
+        number: 190,
+        on_spec_table: false,
+        gate: "three sliders with the keyboard driven cost 0 allocations as a total over 60 frames",
+        kind: Kind::Count,
+        owner: "C15",
+        section: "spec §20, §21",
+        // **A total and not an integer mean** — §21's refinement 2, and `crate::media::player`'s
+        // defect is why: a chrome that collected a `Vec` on the frames tall enough to draw a chapter
+        // list allocated 40 times over 200 frames and reported `allocs / n == 0`.
+        //
+        // The window **drives the keyboard**, because the arrow is the path a value that formatted
+        // itself would allocate on — and that is where this gate found the third instance of one
+        // rule: *the window must warm the path it prices*. Warmed by drawing alone it read **1 over
+        // 60 frames**, the frame's key queue taking its own first allocation, attributed to the
+        // slider. Components ticket 22 met the same discipline on a rectangle that changes every
+        // frame and ticket 33's steady-cell sequence meets it on the hover.
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: "crates/vitui-components/tests/budget.rs",
+                name: "a_steady_frame_of_a_slider_allocates_nothing_as_a_total",
+            }],
+        },
+    },
 ];
 /// **The compile-outcome pair row 31 names, and its positive twin.**
 ///
@@ -6210,7 +6496,7 @@ mod tests {
              domain and needs no component to be run against, and its row had been citing spec §13 \
              and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 181);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 190);
     }
 
     /// **The split, not the total.**
@@ -6221,10 +6507,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_a_hundred_and_forty_nine_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_a_hundred_and_fifty_eight_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 149);
+        assert_eq!(REGISTER.len() - on_table, 158);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -6354,9 +6640,10 @@ mod tests {
             .collect();
         assert_eq!(
             rows.len(),
-            6,
-            "rows 32 and 36, ticket 23's row 82, ticket 25's row 87 and ticket 30's two — 163 and \
-             165"
+            7,
+            "rows 32 and 36, ticket 23's row 82, ticket 25's row 87, ticket 30's two — 163 and \
+             165 — and ticket 33's row 190, which the needle caught on the first run because it \
+             was spelled to be caught"
         );
         assert!(
             rows.iter().any(|r| r.gate.contains("total")),

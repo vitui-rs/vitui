@@ -711,3 +711,98 @@ fn a_steady_preview_frame_allocates_nothing_as_a_total() {
         measured.frames()
     );
 }
+
+/// **A slider allocates nothing, at either orientation and through both of its stepping arms.**
+///
+/// Components ticket 33. Spec §20's *zero allocations during frame composition*, and the figure is a
+/// **total** rather than an integer mean — §21's own refinement 2, and the reason it is stated that
+/// way is `crate::media::player`'s defect: a chrome that collected a `Vec` on the frames tall enough
+/// to draw a chapter list allocated 40 times over 200 frames and reported `allocs / n == 0`.
+///
+/// A slider has no such conditional path — it is three runs and a face — so the interesting half is
+/// that **the run drives the keyboard**, which is where a component that built a `String` for a
+/// value, or collected its steps, would pay. Both arms are in one window, because *zero* is the claim
+/// for the component and running each alone lets one hide behind the warm-up of the next.
+#[test]
+fn a_steady_frame_of_a_slider_allocates_nothing_as_a_total() {
+    use vitui_alloc_probe::count_allocations;
+    use vitui_components::ink::Direct;
+    use vitui_components::input::{SliderOpts, defective, slider_into, slider_with};
+    use vitui_components::scroll::Orient;
+    use vitui_runtime::Mods;
+    use vitui_runtime::keys::Code;
+
+    /// How many frames the run is.
+    const FRAMES: usize = 60;
+
+    let horizontal = SliderOpts::default();
+    let vertical = SliderOpts {
+        orient: Orient::Vertical,
+        ..SliderOpts::default()
+    };
+    let mut driver = Driver::headless(W, H).expect("a sink attaches");
+    let mut a = 0.25f32;
+    let mut b = 0.75f32;
+    let mut c = 0.5f32;
+
+    // One frame of each shape, to warm every structure the frame takes its own allocation for. Two
+    // orientations and two stepping arms are four shapes and one call site each, which is what keeps
+    // them four widgets rather than one.
+    let warm_or_measure = |driver: &mut Driver, a: &mut f32, b: &mut f32, c: &mut f32| {
+        driver.frame(|cx| {
+            let area = cx.area();
+            let (left, right) = split_h(area, area.w / 2);
+            slider_with(cx, top_row(left), a, &horizontal);
+            slider_into(&mut Direct, cx, right, b, &vertical);
+            defective::float_stepped_into(&mut Direct, cx, bottom_row(left), c, &horizontal);
+        });
+    };
+    // **And the warm-up posts a key**, because the frame's key queue takes its own first allocation
+    // on the first key that reaches it. Warmed by drawing alone, this window read **1 over 60
+    // frames** — a queue's `Vec` growing once, attributed to the slider. It is components ticket 22's
+    // warming discipline stated as a rule: *the window must warm the path it prices*, and a warm-up
+    // that draws but never presses is not warming the drain loop at all.
+    for _ in 0..2 {
+        driver.post_key(vitui_components::keys::press_with(Code::Right, Mods::NONE));
+        warm_or_measure(&mut driver, &mut a, &mut b, &mut c);
+    }
+
+    let total = count_allocations(|| {
+        for frame in 0..FRAMES {
+            // **The keyboard is driven inside the window**, because the arrow is the path a value
+            // that formatted itself would allocate on. Nothing holds the focus, so the keys reach no
+            // widget — which is the honest arrangement: what is being priced is the drain loop and
+            // the draw, and seating a focus would price the runtime's award as well.
+            driver.post_key(vitui_components::keys::press_with(
+                if frame % 2 == 0 {
+                    Code::Right
+                } else {
+                    Code::Left
+                },
+                Mods::NONE,
+            ));
+            warm_or_measure(&mut driver, &mut a, &mut b, &mut c);
+        }
+    })
+    .1;
+    assert_eq!(
+        total, 0,
+        "three sliders allocated {total} times over {FRAMES} frames"
+    );
+}
+
+/// The top row of `area`, which is the shape a horizontal slider is drawn in.
+fn top_row(area: vitui_runtime::Rect) -> vitui_runtime::Rect {
+    vitui_runtime::layout::rect::split_at_v(area, 1).0
+}
+
+/// The row under it, so the two horizontal sliders are two rectangles rather than one.
+fn bottom_row(area: vitui_runtime::Rect) -> vitui_runtime::Rect {
+    let (_, rest) = vitui_runtime::layout::rect::split_at_v(area, 1);
+    vitui_runtime::layout::rect::split_at_v(rest, 1).0
+}
+
+/// `area` cut in two at `at` columns.
+fn split_h(area: vitui_runtime::Rect, at: u16) -> (vitui_runtime::Rect, vitui_runtime::Rect) {
+    vitui_runtime::layout::rect::split_at_h(area, at)
+}
