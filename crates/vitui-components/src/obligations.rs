@@ -522,7 +522,7 @@ mod tests {
         assert_eq!(unmet(o1(DOC_TESTED)), (29, 29), "O1");
         // The two halves of O2 differ in population, which is exactly ADR 0033's point that they do
         // not substitute for each other. The first is over the gallery and is **empty**, so it is
-        // the vacuity refusal firing; the second is over the nineteen built rows.
+        // the vacuity refusal firing; the second is over the twenty-five built rows.
         assert_eq!(
             unmet(o2_nothing_shown_is_absent_from_the_freeze(PANELS)),
             (0, 0),
@@ -530,7 +530,7 @@ mod tests {
         );
         assert_eq!(
             unmet(o2_everything_built_has_a_panel(PANELS)),
-            (19, 19),
+            (25, 25),
             "O2b"
         );
         assert_eq!(unmet(o3(GOLDENS)), (29, 29), "O3");
@@ -615,7 +615,7 @@ mod tests {
 
     /// See [`o1_fails_loudly`].
     #[test]
-    #[should_panic(expected = "O2 (everything built has a panel) is unmet: 19 of 19")]
+    #[should_panic(expected = "O2 (everything built has a panel) is unmet: 25 of 25")]
     fn o2_everything_built_fails_loudly() {
         o2_everything_built_has_a_panel(PANELS).assert_met("O2 (everything built has a panel)");
     }

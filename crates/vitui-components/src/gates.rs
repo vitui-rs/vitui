@@ -429,6 +429,23 @@ const PREVIEW_NUMBERS: &str = "crates/vitui-components/examples/preview_numbers.
 /// because it was wrong.
 const PLAYER: &str = "crates/vitui-components/src/media/player.rs";
 
+/// **The F5 module's file**, which is where components ticket 34's two indicator rows run. `meter`
+/// and `sparkline` are one module because §19 homes them there, and their two claims are two calls
+/// into `chart`.
+const INDICATE: &str = "crates/vitui-components/src/indicate.rs";
+
+/// **The F2 module's file**, where `panel` and `rule` live.
+const STRUCTURE: &str = "crates/vitui-components/src/structure.rs";
+
+/// **Components ticket 34's report**, which prints the two things its rows compress into a sentence:
+/// the two eighth-block runs side by side, and the sparkline's three verb counts over one write
+/// count.
+const TIER_TWO_NUMBERS: &str = "crates/vitui-components/examples/tier_two_numbers.rs";
+
+/// **The Tier 2 composition claim's own file.** Six rows, each naming what its component reaches and
+/// what it may not mint, and the scan that opens the file and answers both halves.
+const COMPOSED: &str = "crates/vitui-components/src/composed.rs";
+
 /// **`field`'s own file**, which is where the component's rows run. `input.rs` and not `edit.rs`,
 /// because that is where the freeze homes `field`: F6, and [`crate::document::DECLARATIONS`] opens
 /// it to find out whether the three scenes have a subject.
@@ -502,7 +519,7 @@ pub const SPEC_ROWS: usize = 32;
 ///
 /// Row 21 stays `Unreachable` and row 130 is its crate-own form, which is row 41's standing to row
 /// 2's.
-pub const EVALUATED: usize = 174;
+pub const EVALUATED: usize = 184;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
 #[expect(
@@ -512,7 +529,7 @@ pub const EVALUATED: usize = 174;
               array is read at compile time by nothing and at run time by tests, so the copy the \
               lint is warning about is one a test makes once"
 )]
-pub const REGISTER: [Row; 190] = [
+pub const REGISTER: [Row; 200] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -6154,6 +6171,326 @@ pub const REGISTER: [Row; 190] = [
             }],
         },
     },
+    Row {
+        number: 191,
+        on_spec_table: false,
+        gate: "each of the six Tier 2 components reaches the mechanisms it names and mints none \
+               beyond them: 6 of 6, watched failing in three directions",
+        kind: Kind::Equality,
+        owner: "C11",
+        section: "spec §17, §18 R3",
+        // **Tier 2's own claim, and it is the claim that turns out to be false when it is false.**
+        // *Composed of proved mechanisms* is not a quality judgement and a gate over it cannot be
+        // one either, so what is checked is the shape: `crate::composed::TIER_TWO` names each
+        // component's reaches and its refusals and the scan opens the file.
+        //
+        // **A scan for absences alone goes green when the section is deleted**, which is why every
+        // row carries `uses` beside `mints` and why the negative case has three arms rather than
+        // two: a section that is gone has to fail separately from one that is present and wrong.
+        // The third terminator — a `defective` module — is load-bearing for the same reason: every
+        // one of them in this crate is a deliberate collection of the spellings its component
+        // refuses, so a scan that ran into one would report the refusals as the component's own.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: COMPOSED,
+                    name: "each_tier_two_component_composes_what_it_says_and_mints_nothing",
+                },
+                Instrument::Unit {
+                    file: COMPOSED,
+                    name: "the_survey_is_watched_failing_in_both_directions",
+                },
+                Instrument::Unit {
+                    file: COMPOSED,
+                    name: "a_section_stops_before_the_next_banner_and_before_the_refused_spellings",
+                },
+                Instrument::Unit {
+                    file: COMPOSED,
+                    name: "every_built_tier_two_row_is_surveyed",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 192,
+        on_spec_table: false,
+        gate: "`meter` is 2 constructions and the ladder is `chart`'s: 1 / 8 / 8 over three rungs, \
+               two values, and the third rung is 0 cells",
+        kind: Kind::Count,
+        owner: "C11",
+        section: "spec §17, ADR 0009",
+        // **§17's own derivation, checked rather than transcribed.** Block elements are the
+        // *Unicode* rung by `CONTEXT.md`'s definition of it — *Unicode with box drawing and block
+        // elements* — so an operator who has promised block elements has promised all of them and
+        // there is no third thing for a prefix to build. The count comes off `geom(Kind::Bars, ..)`
+        // and not off a table here, which is what *shares `chart`'s prefix ladder rather than
+        // reimplementing it* means as a line of code.
+        //
+        // The two constructions are also drawn: the bottom rung differs and the top two are 0 cells
+        // apart, which is `chart`'s own finding arriving on a second component.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: INDICATE,
+                    name: "a_meter_is_two_constructions_and_the_ladder_is_charts",
+                },
+                Instrument::Report {
+                    file: TIER_TWO_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 193,
+        on_spec_table: false,
+        gate: "the prefix ladder is shared and the prefix spelling is not: the two eighth-block \
+               runs agree at 0 of the 7 partial eighths and at both ends",
+        kind: Kind::Count,
+        owner: "C11",
+        section: "spec §13, §17",
+        // **The finding under ticket 34's `meter`, and it is a fact about Unicode rather than about
+        // this crate.** `chart`'s bars grow upward, so its partial cell is one of U+2581…U+2588; a
+        // horizontal meter's grows rightward, and the left eighth blocks are a *different*
+        // contiguous run — U+258F…U+2588, running the other way. So the vertical arm **reaches**
+        // `chart::raster::cluster` and the horizontal arm cannot.
+        //
+        // **The disagreement is the assertion**, because the failure it protects against is silent:
+        // a meter that had transcribed `chart`'s table onto the wrong axis would draw a bar growing
+        // upward inside a row, and every counter in this crate would report it correct.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: INDICATE,
+                    name: "the_two_prefix_runs_are_one_ladder_and_two_spellings",
+                },
+                Instrument::Report {
+                    file: TIER_TWO_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 194,
+        on_spec_table: false,
+        gate: "every one of the six Tier 2 components writes a partition of its whole rectangle, \
+               at both orientations, at every size the arithmetic runs out at, and at an origin \
+               that is not the screen's",
+        kind: Kind::Equality,
+        owner: "C02",
+        section: "spec §2, §20",
+        // §2's two equalities on six new subjects, swept where the arithmetic runs out — a one-cell
+        // rectangle, a rectangle narrower than a toggle's mark field, a caption wider than the line
+        // it sits on, a value that is `NaN` or outside `0..=1`, and a rectangle tall enough that the
+        // rows either side of the drawn one are somebody's.
+        //
+        // **And at `(5, 2)` as well as at the origin**, which is the arm this crate has now had to
+        // add three times. `crate::collect`'s `table` drew its header from `x = 0` rather than from
+        // the band it was handed and **every gate in the crate passed**, because every one of them
+        // played at the origin, where the two agree. `distinct` alone cannot see it either — the
+        // same count lands on the same number one column over — so each sweep also asks
+        // `Tally::touched` about every cell of the rectangle it named.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "a_toggle_writes_a_partition_of_its_whole_rectangle",
+                },
+                Instrument::Unit {
+                    file: INDICATE,
+                    name: "a_meter_writes_a_partition_of_its_whole_rectangle",
+                },
+                Instrument::Unit {
+                    file: INDICATE,
+                    name: "a_sparkline_writes_a_partition_and_folds_once_however_much_data_there_is",
+                },
+                Instrument::Unit {
+                    file: STRUCTURE,
+                    name: "a_rule_writes_a_partition_of_its_whole_rectangle",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 195,
+        on_spec_table: false,
+        gate: "a sparkline's raster is its whole rectangle where a chart's is 4 rows of 5, it folds \
+               1 time over 20 frames, and its 120 writes are flat at 1k, 100k and 1M points",
+        kind: Kind::Relation,
+        owner: "C08",
+        section: "spec §13, §17",
+        // **The measurable half of *no axes, no gutter, no axis loop*.** `chart` at 20x5 reserves a
+        // gutter whose width comes from the domain and an axis row underneath, so its raster is
+        // smaller than its rectangle on both axes; a sparkline's is the rectangle.
+        // `crate::composed` is the other half — a component that had the machinery and did not
+        // happen to use it would pass this and fail that.
+        //
+        // **A relation and not a count, because the verbs are the data's.** `writes` is flat at 120
+        // over three orders of magnitude and `verbs` is **16 / 13 / 11**: a verb here is a *run*,
+        // and a run ends where a cell's owner changes, which is a property of where the fixture's
+        // empty cells fall. §21 says it in as many words — *`verbs <= writes`, never verb equality
+        // across sizes* — so the three figures are the report and the relation is the gate.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: INDICATE,
+                    name: "a_sparkline_is_the_whole_rectangle_and_a_chart_is_not",
+                },
+                Instrument::Unit {
+                    file: INDICATE,
+                    name: "a_sparkline_writes_a_partition_and_folds_once_however_much_data_there_is",
+                },
+                Instrument::Report {
+                    file: TIER_TWO_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 196,
+        on_spec_table: false,
+        gate: "the three toggles demand exactly the freeze's glyphs, and 1 of the 3 states itself \
+               with no glyph at any rung",
+        kind: Kind::Count,
+        owner: "C11",
+        section: "spec §16, §17",
+        // **§16 on three components at once.** A checkbox and a radio carry their state on the
+        // **glyph** axis — `✓` becomes `x` and `•` becomes `*`, both still one cell and both still
+        // present, which is what *no spelling blank* buys — and they differ in exactly **one** cell
+        // between on and off, at every rung. A switch carries its state on **three** axes and only
+        // one of them is the palette: two words, the side its knob sits on, and the face.
+        //
+        // So the freeze's empty `glyphs` column for `switch` is a fact rather than a hole, and this
+        // is the number underneath it. The join runs in both directions: a mark that grew a second
+        // glyph without the freeze moving and a freeze that grew a glyph nothing draws are the same
+        // drift with the sign flipped.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "the_three_toggles_demand_exactly_what_the_freeze_says_they_do",
+                },
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "a_switch_states_itself_at_every_rung_and_a_checkbox_needs_its_glyph",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 197,
+        on_spec_table: false,
+        gate: "a radio set is `collection` at `Mode::Options` — exactly 1 selected at every one of \
+               5 gestures — and the standalone row holds no selection store",
+        kind: Kind::Count,
+        owner: "C11",
+        section: "spec §5, §17",
+        // **Criterion 6, and the mode's name is a finding rather than a change.** The backlog spells
+        // it `Mode::Radio` and §5 shipped it as `Mode::Options` — *exactly one, and it can never
+        // become zero*, which is the whole difference from `Mode::Single`. A mode called `Radio`
+        // would be §5's thirteen match arms wearing one component's name, so the disagreement is
+        // recorded here and the code is left alone.
+        //
+        // Two halves, because either alone is satisfiable by the wrong thing: the **set** holds
+        // exactly one at every gesture a set can be given, and the **standalone** row's whole
+        // cross-frame fact is the caller's `&mut bool` — a source scan over its own section for a
+        // `CollState` is what says so, since *there is no selection store here* has no expression.
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: INPUT,
+                name: "a_radio_set_is_a_collection_and_not_a_second_store",
+            }],
+        },
+    },
+    Row {
+        number: 198,
+        on_spec_table: false,
+        gate: "no role variant is a component row: 0 of 18 appear among the freeze's 29",
+        kind: Kind::Count,
+        owner: "C11",
+        section: "spec §18 R2, ADR 0018",
+        // **R2's larger half as a gate.** *`primary / secondary / ghost / danger`, link buttons,
+        // status LEDs, health pills, dot indicators, badge variants, inline messages, banners,
+        // alerts and callouts are an argument, not a component* — and a collapse recorded only in
+        // prose is a collapse a later ticket undoes by adding a row.
+        //
+        // **Spelled as component ids would be spelled**, because that is the form the drift takes:
+        // nobody adds a row called *ghost*, they add one called `ghost_button`. Both directions are
+        // asserted — the eighteen are absent and the freeze is twenty-nine rather than empty.
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: INDICATE,
+                name: "no_role_variant_is_a_component_row",
+            }],
+        },
+    },
+    Row {
+        number: 199,
+        on_spec_table: false,
+        gate: "a `rule` is `fit`'s four skippable parts with a `Glyph` where the padding was: \
+               1 / 2 / 3 / 2 verbs for an empty, a leading, a centred and a trailing caption",
+        kind: Kind::Count,
+        owner: "C02",
+        section: "spec §3, §17",
+        // `fit`'s own note is the rule being obeyed: *a label that exactly fills its row is one verb
+        // and not three*, because each of the four parts is skipped when it is empty. A rule is that
+        // shape with a glyph run in place of each padding run, so the four counts are what say the
+        // parts are still four and still skippable.
+        //
+        // **The spaces around a caption are the caller's**, exactly as `panel`'s title's are, and
+        // that is priced rather than preferred: the spelling that spaced them here needed a `String`
+        // and allocated **2 a frame, 120 over 60**, which row 200's window caught on its first run.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: STRUCTURE,
+                    name: "a_rule_is_fits_four_skippable_parts_and_an_empty_caption_is_one_verb",
+                },
+                Instrument::Unit {
+                    file: STRUCTURE,
+                    name: "a_vertical_rule_is_one_column_and_has_no_caption",
+                },
+                Instrument::Unit {
+                    file: STRUCTURE,
+                    name: "a_rule_is_a_pure_drawer_and_the_three_spellings_are_one",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 200,
+        on_spec_table: false,
+        gate: "the six Tier 2 components together allocate 0 as a total over 60 frames, and a \
+               settled toggle changes 0 cells after its first frame",
+        kind: Kind::Count,
+        owner: "C02",
+        section: "spec §20, §21",
+        // **A total and not an integer mean** — §21's refinement 2, and `crate::media::player`'s
+        // defect is why: a chrome that collected a `Vec` on the frames tall enough to draw a chapter
+        // list allocated 40 times over 200 frames and reported `allocs / n == 0`.
+        //
+        // **All six in one window**, because *zero* is the claim for the tier and running each alone
+        // lets one hide behind the next one's warm-up — and the window **warms the path it prices**,
+        // posting a key on each warm frame because a toggle reads the keyboard and the frame's key
+        // queue takes its own first allocation on the first key that reaches it. That is components
+        // ticket 22's discipline met for the fourth time on this map.
+        //
+        // **It found a real defect on its first run**: `rule` spaced its caption with a `format!`,
+        // which is 2 allocations a frame and 120 over 60 — invisible to every other gate here,
+        // because the picture is identical either way.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/tests/budget.rs",
+                    name: "a_steady_frame_of_the_six_tier_two_components_allocates_nothing_as_a_\
+                           total",
+                },
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "a_toggle_nobody_touches_changes_nothing_after_its_first_frame",
+                },
+            ],
+        },
+    },
 ];
 /// **The compile-outcome pair row 31 names, and its positive twin.**
 ///
@@ -6433,7 +6770,7 @@ mod tests {
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn a_hundred_and_sixty_five_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn a_hundred_and_eighty_four_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -6496,7 +6833,7 @@ mod tests {
              domain and needs no component to be run against, and its row had been citing spec §13 \
              and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 190);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 200);
     }
 
     /// **The split, not the total.**
@@ -6507,10 +6844,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_a_hundred_and_fifty_eight_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_a_hundred_and_sixty_eight_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 158);
+        assert_eq!(REGISTER.len() - on_table, 168);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -6920,6 +7257,7 @@ mod tests {
                 "scene_numbers.rs".to_string(),
                 "series_numbers.rs".to_string(),
                 "table_numbers.rs".to_string(),
+                "tier_two_numbers.rs".to_string(),
                 "tree_numbers.rs".to_string(),
                 "wheel_numbers.rs".to_string()
             ],

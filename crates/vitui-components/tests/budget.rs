@@ -791,6 +791,124 @@ fn a_steady_frame_of_a_slider_allocates_nothing_as_a_total() {
     );
 }
 
+/// **The six Tier 2 components allocate nothing, as a total over sixty frames.**
+///
+/// Components ticket 34, criterion 7. Spec §20's *zero allocations during frame composition*, and
+/// the figure is a **total** rather than an integer mean — §21's refinement 2, and the reason it is
+/// stated that way is `crate::media::player`'s defect: a chrome that collected a `Vec` on the frames
+/// tall enough to draw a chapter list allocated 40 times over 200 frames and reported
+/// `allocs / n == 0`.
+///
+/// **All six in one window**, because *zero* is the claim for the tier and running each alone lets
+/// one hide behind the next one's warm-up. The two that could plausibly pay are the two that are
+/// `chart`: a sparkline's raster is the caller's `PlotState` and its row buffer is the same field
+/// `chart` reuses, so a frame that re-folded or re-allocated the row would show here and nowhere
+/// else.
+///
+/// **The window warms the path it prices** — components ticket 22's discipline, met for the fourth
+/// time on this map: the warm-up posts a key, because the frame's key queue takes its own first
+/// allocation on the first key that reaches it, and a toggle reads the keyboard.
+#[test]
+fn a_steady_frame_of_the_six_tier_two_components_allocates_nothing_as_a_total() {
+    use vitui_alloc_probe::count_allocations;
+    use vitui_components::chart::{Series, raster::PlotState};
+    use vitui_components::counters::Allocations;
+    use vitui_components::indicate::{MeterOpts, SparkOpts, meter_with, sparkline_with};
+    use vitui_components::input::{Toggle, ToggleOpts, toggle_with};
+    use vitui_components::scroll::Orient;
+    use vitui_components::structure::{RuleOpts, rule_with};
+    use vitui_components::text::Justify;
+    use vitui_runtime::Mods;
+    use vitui_runtime::keys::Code;
+
+    /// How many frames the run is.
+    const FRAMES: usize = 60;
+
+    let data = Series::build(10_000, 1);
+    let mut spark = PlotState::new();
+    let mut driver = Driver::headless(W, H).expect("a sink attaches");
+    let (mut check, mut radio, mut switch) = (true, false, true);
+    let horizontal = MeterOpts::default();
+    let vertical = MeterOpts {
+        orient: Orient::Vertical,
+        ..MeterOpts::default()
+    };
+
+    let once = |driver: &mut Driver,
+                check: &mut bool,
+                radio: &mut bool,
+                switch: &mut bool,
+                spark: &mut PlotState| {
+        driver.frame(|cx| {
+            let area = cx.area();
+            let (left, right) = split_h(area, area.w / 2);
+            toggle_with(cx, top_row(left), "wrap", check, &ToggleOpts::default());
+            toggle_with(
+                cx,
+                bottom_row(left),
+                "one",
+                radio,
+                &ToggleOpts {
+                    kind: Toggle::Radio,
+                    ..ToggleOpts::default()
+                },
+            );
+            toggle_with(
+                cx,
+                top_row(right),
+                "dark",
+                switch,
+                &ToggleOpts {
+                    kind: Toggle::Switch,
+                    ..ToggleOpts::default()
+                },
+            );
+            meter_with(cx, bottom_row(right), 0.4375, &horizontal);
+            let (_, rest) = vitui_runtime::layout::rect::split_at_v(area, 4);
+            let (bar, body) = vitui_runtime::layout::rect::split_at_h(rest, 4);
+            meter_with(cx, bar, 0.62, &vertical);
+            let (line, chart) = vitui_runtime::layout::rect::split_at_v(body, 1);
+            rule_with(
+                cx,
+                line,
+                " load ",
+                &RuleOpts {
+                    justify: Justify::Middle,
+                    ..RuleOpts::default()
+                },
+            );
+            sparkline_with(cx, chart, &data, spark, &SparkOpts::default());
+        });
+    };
+
+    // Two warm frames, and each of them posts a key: a warm-up that draws but never presses is not
+    // warming the drain loop a toggle reads its `Space` out of.
+    for _ in 0..2 {
+        driver.post_key(vitui_components::keys::press_with(Code::Tab, Mods::NONE));
+        once(&mut driver, &mut check, &mut radio, &mut switch, &mut spark);
+    }
+
+    let total = count_allocations(|| {
+        for _ in 0..FRAMES {
+            driver.post_key(vitui_components::keys::press_with(Code::Tab, Mods::NONE));
+            once(&mut driver, &mut check, &mut radio, &mut switch, &mut spark);
+        }
+    })
+    .1;
+    let measured = Allocations::over(FRAMES as u32, total as u64);
+    assert_eq!(
+        measured.total(),
+        0,
+        "the six Tier 2 components allocated {} times over {} frames. A mean would have reported 0 \
+         for any total below {}",
+        measured.total(),
+        measured.frames(),
+        measured.frames()
+    );
+    // And the memo really did run: one fold, however many frames.
+    assert_eq!(spark.misses(), 1);
+}
+
 /// The top row of `area`, which is the shape a horizontal slider is drawn in.
 fn top_row(area: vitui_runtime::Rect) -> vitui_runtime::Rect {
     vitui_runtime::layout::rect::split_at_v(area, 1).0

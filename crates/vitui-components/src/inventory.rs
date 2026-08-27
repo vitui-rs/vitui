@@ -249,12 +249,26 @@ pub struct Moved {
     pub why: &'static str,
 }
 
-/// The three rows §17 records as built at a tier that says otherwise.
+/// The rows §17 records as built at a tier that says otherwise.
 ///
-/// **Three rows and two mechanisms**, which is why §17's sentence reads *two of the four have since
-/// moved*: drag capture is one mechanism and C16's pair is the other. What remains genuinely at
-/// risk is `spinner`, whose mechanism is *a component that owns a clock* — prototyped nowhere on
-/// the map, still §22's, and ticket 42's to build.
+/// **Three of them are Tier 3's and two mechanisms**, which is why §17's sentence reads *two of the
+/// four have since moved*: drag capture is one mechanism and C16's pair is the other. What remains
+/// genuinely at risk is `spinner`, whose mechanism is *a component that owns a clock* — prototyped
+/// nowhere on the map, still §22's, and ticket 42's to build.
+///
+/// # The other six are Tier 2's, and they are here because the gate's vocabulary has no other word
+///
+/// **A tier is a claim about the mechanism and `built` is a claim about the code**, and §17 makes
+/// them two columns precisely so that they can move independently. `nothing_is_built_at_a_tier_that_says_otherwise_without_the_row_saying_so`
+/// reads any row that is not Tier 1 as claiming *not built* — which is right for Tier 3, whose
+/// definition is *at risk, naming an unmeasured mechanism*, and is **not** right for Tier 2, whose
+/// definition is *composed of proved mechanisms* and says nothing about whether anybody has written
+/// it yet.
+///
+/// So building a Tier 2 row is an ordinary event in §17's vocabulary and an exception in the gate's,
+/// and ticket 35 will make it nine of nine — at which point this list is *every row that is not
+/// Tier 1 and is built*, which is what the column already says. **Recorded rather than bent**: the
+/// alternative is promoting six rows into Tier 1, and §17's freeze table is a value a test counts.
 pub const MOVED: &[Moved] = &[
     Moved {
         id: "slider",
@@ -271,6 +285,39 @@ pub const MOVED: &[Moved] = &[
         id: "file_preview_pane",
         why: "C16 is its named owner and §15 built it with 23 gates; every defect it found was at \
               a seam between two of the five pieces rather than inside one",
+    },
+    Moved {
+        id: "checkbox",
+        why: "ticket 34 built it. Tier 2 is *composed of proved mechanisms* and names no mechanism \
+              this did not already have: `state::press` for the face and the deferred award, the \
+              theme's own `Glyph::Tick`, and `fit` for the label",
+    },
+    Moved {
+        id: "radio",
+        why: "ticket 34 built it, as the same machine `checkbox` is with one glyph changed. A radio \
+              *set* is `collection` at `Mode::Options`, which is §5's collapse and not this row",
+    },
+    Moved {
+        id: "switch",
+        why: "ticket 34 built it. The one of the three with an empty `glyphs` column, because its \
+              state is carried by two words, the side its knob sits on and the face — three axes, \
+              one of them the palette",
+    },
+    Moved {
+        id: "meter",
+        why: "ticket 34 built it as `chart`'s prefix construction at two rungs: the ladder is \
+              `geom(Kind::Bars, ..)` and the only thing this row adds is the horizontal spelling of \
+              a partial cell, which is a different contiguous run of block elements",
+    },
+    Moved {
+        id: "sparkline",
+        why: "ticket 34 built it as `chart` at a small rectangle with no axes, no gutter and no \
+              axis loop — the same raster memo and the same body loop, reached rather than copied",
+    },
+    Moved {
+        id: "rule",
+        why: "ticket 34 built it as `fit`'s four skippable parts with a `Glyph` where the padding \
+              was, over one row or one column, plus `elide`'s one-cell marker",
     },
 ];
 
@@ -756,11 +803,11 @@ pub const INVENTORY: &[Component] = &[
         // where C08's overlap is red**.
         narrow: true,
     },
-    // ---- Tier 2: composed of proved mechanisms. Nine rows, none built. ----
+    // ---- Tier 2: composed of proved mechanisms. Nine rows, six of them built. ----
     Component {
         id: "checkbox",
         tier: Tier::Two,
-        built: false,
+        built: true,
         // `state::press` plus a `Glyph` pair plus a `Role` (ticket 34).
         layer: Layer::L1,
         families: &[Family::F6Input],
@@ -774,7 +821,7 @@ pub const INVENTORY: &[Component] = &[
     Component {
         id: "radio",
         tier: Tier::Two,
-        built: false,
+        built: true,
         // Standalone it is a `press`. **A radio *set* is `collection` at `Mode::Radio`** (ticket
         // 34) — which is §5's R1 collapse rather than an edge out of this row, so no
         // `COMPOSITIONS` entry: the row is the widget, and the set is a different call.
@@ -790,7 +837,7 @@ pub const INVENTORY: &[Component] = &[
     Component {
         id: "switch",
         tier: Tier::Two,
-        built: false,
+        built: true,
         layer: Layer::L1,
         families: &[Family::F6Input],
         glyphs: &[],
@@ -803,7 +850,7 @@ pub const INVENTORY: &[Component] = &[
     Component {
         id: "meter",
         tier: Tier::Two,
-        built: false,
+        built: true,
         // `chart`'s prefix construction at two rungs (ticket 34), so it sits at `chart`'s rung.
         layer: Layer::L1,
         families: &[Family::F5Indicators, Family::F13System],
@@ -821,7 +868,7 @@ pub const INVENTORY: &[Component] = &[
     Component {
         id: "sparkline",
         tier: Tier::Two,
-        built: false,
+        built: true,
         layer: Layer::L1,
         families: &[Family::F5Indicators, Family::F10Charts],
         glyphs: &[],
@@ -838,7 +885,7 @@ pub const INVENTORY: &[Component] = &[
     Component {
         id: "rule",
         tier: Tier::Two,
-        built: false,
+        built: true,
         // `fit`'s remainder over one row or one column, plus a `Glyph` (ticket 34).
         layer: Layer::L0,
         families: &[Family::F2Structure],
@@ -1105,7 +1152,17 @@ mod tests {
         // The three §17 records, by name, so that losing one is a diff that deletes an assertion.
         assert_eq!(
             moved,
-            BTreeSet::from(["slider", "file_picker", "file_preview_pane"])
+            BTreeSet::from([
+                "slider",
+                "file_picker",
+                "file_preview_pane",
+                "checkbox",
+                "radio",
+                "switch",
+                "meter",
+                "sparkline",
+                "rule",
+            ])
         );
         for m in MOVED {
             assert!(
@@ -1114,12 +1171,13 @@ mod tests {
                 m.id
             );
         }
-        // Nineteen built, ten not. **ADR 0033 says thirteen entries have nothing to show**, which
-        // would put the built count at sixteen — the Tier 1 count exactly, and it cannot be reached
-        // without contradicting §17's own three sentences about `slider`, `file_picker` and
-        // `file_preview_pane`. Recorded here rather than resolved by bending a column: the number
-        // that reproduces from the freeze is nineteen.
-        assert_eq!(INVENTORY.iter().filter(|c| c.built).count(), 19);
+        // Twenty-five built, four not. **ADR 0033 says thirteen entries have nothing to show**,
+        // which would put the built count at sixteen — the Tier 1 count exactly, and it could not
+        // be reached even at nineteen without contradicting §17's own three sentences about
+        // `slider`, `file_picker` and `file_preview_pane`. Recorded here rather than resolved by
+        // bending a column: ticket 34 built six of Tier 2's nine, so the number that reproduces
+        // from the freeze is twenty-five.
+        assert_eq!(INVENTORY.iter().filter(|c| c.built).count(), 25);
     }
 
     /// **Every `built` row is declared in the module that homes it — and this is the gate components
@@ -1175,8 +1233,8 @@ mod tests {
             checked += 1;
         }
         assert_eq!(
-            checked, 19,
-            "nineteen built rows, and every one of them checked"
+            checked, 25,
+            "twenty-five built rows, and every one of them checked"
         );
 
         // **Both spellings are accepted, watched.** A join that took only the parenthesis is a join
@@ -1195,7 +1253,7 @@ mod tests {
             "pub fn slider("
         ));
         // **And the column agrees in the other direction too, which is what gives the gate teeth.**
-        // Ten rows are not built; if any of them were declared, `built` would be understating the
+        // Four rows are not built; if any of them were declared, `built` would be understating the
         // crate rather than overstating it — the same drift with the sign flipped, and a gate that
         // only looked at the `true` rows could not see it. Zero of ten, counted rather than assumed.
         let declared_but_not_built: Vec<&str> = INVENTORY
@@ -1215,7 +1273,7 @@ mod tests {
             declared_but_not_built.is_empty(),
             "{declared_but_not_built:?} are declared and the `built` column says they are not"
         );
-        assert_eq!(INVENTORY.iter().filter(|c| !c.built).count(), 10);
+        assert_eq!(INVENTORY.iter().filter(|c| !c.built).count(), 4);
     }
 
     /// **The DAG: an edge from a lower layer to a higher one is refused.**

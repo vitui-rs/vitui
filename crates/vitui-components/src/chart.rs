@@ -503,58 +503,26 @@ fn draw<I: Ink>(
     // **The memo's value and the row buffer at once**, which is why the two are separate fields
     // rather than one struct behind one borrow: `Memo::get` has just filled the first, and the
     // second is the thing the body spells into.
-    let (raster, row) = st.raster_and_row();
-    for y in 0..plot_h {
-        let mut run_owner = 0u8;
-        let mut run_x = 0u16;
-        row.clear();
-        for x in 0..plot_w {
-            let (bits, owner) = raster.at(x, y);
-            let (ch, own) = if bits != 0 {
-                (cluster(o.kind, g, bits), owner)
-            } else if Some(y) == threshold_row {
-                // **The threshold's second axis.** A rule the terminal can draw whatever the palette
-                // did, which is what §16's *carried on both axes* asks for.
-                (
-                    if o.threshold_glyph {
-                        hline.chars().next().unwrap_or('-')
-                    } else {
-                        ' '
-                    },
-                    OWNER_THRESHOLD,
-                )
-            } else {
-                (' ', 0u8)
-            };
-            if own != run_owner && !row.is_empty() {
-                let paint = paint_of(run_owner, &series_paints, dim, threshold_paint);
-                let _ = ink.text(
-                    cx,
-                    area.x + i32::from(gut + run_x),
-                    area.y + i32::from(y),
-                    row,
-                    paint,
-                );
-                row.clear();
-                run_x = x;
-            }
-            if row.is_empty() {
-                run_x = x;
-                run_owner = own;
-            }
-            row.push(ch);
-        }
-        if !row.is_empty() {
-            let paint = paint_of(run_owner, &series_paints, dim, threshold_paint);
-            let _ = ink.text(
-                cx,
-                area.x + i32::from(gut + run_x),
-                area.y + i32::from(y),
+    let body = Body {
+        kind: o.kind,
+        geom: g,
+        series: series_paints,
+        dim,
+        threshold: threshold_row.map(|row| {
+            (
                 row,
-                paint,
-            );
-        }
-    }
+                if o.threshold_glyph {
+                    hline.chars().next().unwrap_or('-')
+                } else {
+                    ' '
+                },
+                threshold_paint,
+            )
+        }),
+    };
+    let at = Rect::new(area.x + i32::from(gut), area.y, plot_w, plot_h);
+    let (raster, row) = st.raster_and_row();
+    body_into(ink, cx, at, raster, row, &body);
 
     // ── the axis row: the blank gutter, the corner, then the rule ────────────────────────────────
     let y = area.y + i32::from(plot_h);
@@ -569,6 +537,83 @@ fn draw<I: Ink>(
 /// **A shared cell can carry only one colour**, which is the third rung's price: a braille cell has
 /// one `Paint` for all eight dots where a quadrant carries a foreground *and* a background. The
 /// per-cell quadrant fallback that would recover it is named in spec §22 and not built.
+/// **What the body loop needs that is not the raster**: the construction, the paints and the
+/// threshold's row.
+///
+/// A struct rather than eight parameters, and it exists because [`crate::indicate::sparkline`] is
+/// this loop with the chrome deleted. Ticket 34's claim about that component is *`chart` at a small
+/// rectangle, no axes, no gutter, no axis loop* — and a sparkline that had its own copy of the loop
+/// would make the claim untestable, which is `crate::ink`'s argument one file over: a gate written
+/// against a copy of the code tests the copy.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Body {
+    /// Bars or marks.
+    pub kind: Kind,
+    /// The sub-cell ladder the raster was built at.
+    pub geom: raster::Geom,
+    /// The six series paints, by owner.
+    pub series: [Paint; SERIES_RGB.len()],
+    /// What an empty cell is painted in.
+    pub dim: Paint,
+    /// The threshold's row, the cluster it is drawn with and its paint — `None` when there is none.
+    pub threshold: Option<(u16, char, Paint)>,
+}
+
+/// **The body: one row at a time, split into runs by who owns the cell.**
+///
+/// `at` is where the body's own top-left is, in the caller's coordinates; the raster's `w` and `h`
+/// are the extent. Nothing here knows about a gutter, an axis row or a tick — which is exactly what
+/// makes it shareable with a component that has none of the three.
+pub(crate) fn body_into<I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    at: Rect,
+    raster: &raster::Raster,
+    row: &mut String,
+    b: &Body,
+) {
+    for y in 0..at.h {
+        let mut run_owner = 0u8;
+        let mut run_x = 0u16;
+        row.clear();
+        for x in 0..at.w {
+            let (bits, owner) = raster.at(x, y);
+            let (ch, own) = if bits != 0 {
+                (cluster(b.kind, b.geom, bits), owner)
+            } else if let Some((_, ch, _)) = b.threshold.filter(|&(t, _, _)| t == y) {
+                // **The threshold's second axis.** A rule the terminal can draw whatever the palette
+                // did, which is what §16's *carried on both axes* asks for.
+                (ch, OWNER_THRESHOLD)
+            } else {
+                (' ', 0u8)
+            };
+            if own != run_owner && !row.is_empty() {
+                let paint = paint_of(run_owner, &b.series, b.dim, b.threshold_paint());
+                let _ = ink.text(cx, at.x + i32::from(run_x), at.y + i32::from(y), row, paint);
+                row.clear();
+                run_x = x;
+            }
+            if row.is_empty() {
+                run_x = x;
+                run_owner = own;
+            }
+            row.push(ch);
+        }
+        if !row.is_empty() {
+            let paint = paint_of(run_owner, &b.series, b.dim, b.threshold_paint());
+            let _ = ink.text(cx, at.x + i32::from(run_x), at.y + i32::from(y), row, paint);
+        }
+    }
+}
+
+impl Body {
+    /// The threshold's paint, or the dim one when there is no threshold — which is unreachable,
+    /// because no cell is owned by `OWNER_THRESHOLD` unless the threshold put it there.
+    fn threshold_paint(&self) -> Paint {
+        self.threshold.map_or(self.dim, |(_, _, p)| p)
+    }
+}
+
 fn paint_of(owner: u8, series: &[Paint; 6], dim: Paint, threshold: Paint) -> Paint {
     match owner {
         0 => dim,

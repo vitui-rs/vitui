@@ -113,7 +113,7 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 33 of 45 tickets resolved (the last on 2026-08-27). `INVENTORY` is spec
+- **`vitui-components` has started**: 34 of 45 tickets resolved (the last on 2026-08-27). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
   answerable by the machine from here on. All five obligations are `Unmet` and each is watched
@@ -990,6 +990,56 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   that is true**: a focused `slider` takes cursor keys and nothing else, where a `field` consumes every
   text-bearing key and a `collection` eats it into a type-ahead buffer.
 
+- **The six Tier 2 rows ship, Tier 2's claim is a value a scan runs over, and `switch`'s empty glyph
+  column is the finding rather than the hole** (components ticket 34, 2026-08-27; ADR 0041).
+  `crates/vitui-components/src/composed.rs` is the claim — six rows, each naming what its component
+  **reaches** and what it may not **mint** — and `crate::indicate` went from a nine-line stub to the
+  F5 module homing `meter` and `sparkline`. The freeze is **25 built of 29**, and `MOVED` goes three
+  → nine.
+  **A scan for absences alone goes green when the section is deleted**, so every row carries `uses`
+  beside `mints` and the negative case has **three** arms: a section that is *gone* fails separately
+  from one that is present and wrong. The third section terminator is a `defective` module and it is
+  load-bearing — every one of them in this crate is a *deliberate* collection of the spellings its
+  component refuses, so a scan that ran into one would report the refusals as the component's own.
+  **The mark is one glyph and one absence.** The backlog says *a `Glyph` pair*; the freeze's column
+  says `Tick`, `Bullet` and **nothing**, and the *off* half cannot be a glyph at all because
+  `CONTEXT.md` defines one as a lookup with **no spelling blank**. So `switch`'s empty column is a
+  fact: measured at all three rungs, a checkbox and a radio differ in exactly **1** cell between on
+  and off and that cell came out of the theme's table, while a switch differs in **3** and none of
+  them did — its state is two words, the side its knob sits on and the face. **Three axes, one of
+  them the palette**, and the one row of twenty-nine whose state survives ASCII *and* no colour.
+  **`meter` shares `chart`'s ladder and cannot share its spelling, and that is a fact about
+  Unicode.** `geom(Kind::Bars, set).sy` is `1 / 8 / 8` — where `constructions: 2` comes from, and the
+  only thing `indicate` asks `chart` for. `chart`'s bars grow **upward**, so its partial cell is
+  U+2581…U+2588; a horizontal meter grows **rightward**, which is U+258F…U+2588, a *different*
+  contiguous run going the other way. They agree at both ends and at **0 of the 7 partial eighths**,
+  so the **vertical** arm reaches `chart::raster::cluster` and the horizontal one reads the module's
+  own run. **The disagreement is the assertion**: a meter that transcribed the table onto the wrong
+  axis would draw a bar growing upward inside a row and every counter here would call it correct.
+  **`sparkline` is `chart`'s body with the chrome deleted rather than copied** — `chart::body_into`
+  was extracted so that *no axes, no gutter, no axis loop* is a shared call rather than a claim. Its
+  raster is **20 x 5 of 20 x 5** where a chart's is 4 rows and a gutter; it folds **1** time over 20
+  frames; and its **120 writes are flat** at 1k, 100k and 1M points while its **verbs are 16 / 13 /
+  11** — a run ends where a cell's owner changes, which is the *data's* property, so §21's
+  *`verbs <= writes`, never verb equality across sizes* is the gate and the three figures are the
+  report.
+  **The allocation window found the one defect no other gate here could**: `rule` spaced its caption
+  with a `format!` — **2 a frame, 120 over 60** — and the picture is identical either way. The spaces
+  are the caller's now, exactly as `panel`'s title's are, and the four skippable parts come out at
+  **1 / 2 / 3 / 2** verbs.
+  **`Mode::Radio` does not exist**: §5 shipped it as `Mode::Options`, and a mode called `Radio` would
+  be §5's thirteen match arms wearing one component's name. Recorded, not renamed. And **`MOVED`
+  growing to nine is a finding about the gate rather than about the rows** — it reads any non-Tier-1
+  row as claiming *not built*, which is right for Tier 3 and wrong for Tier 2, whose definition says
+  nothing about whether anybody has written it.
+  Register 190 → **200 rows, 184 evaluated**.
+  **The application is `vitals`**, and `g` is the key to press: it steps the glyph rung and the
+  meter, the checkbox and the switch each answer §16 differently on one screen. `--probe` prints
+  **3 000 writes over 3 000 distinct** at 100x30, **4 regions** — the panel and the three toggles,
+  with two meters, a sparkline and four rules declaring nothing between them — and **1 fold** over a
+  hundred thousand points. `q` is a quit key here, the second application on this map where that is
+  true.
+
 Read these before working, in this order:
 
 1. The spec for the layer being worked on — `.scratch/vitui-engine-architecture/spec.md`,
@@ -998,8 +1048,8 @@ Read these before working, in this order:
    authority. An `architecture.md` beside a spec is the superseded proposal, kept only as the record
    of what was argued.
 2. `CONTEXT.md` — the glossary. Use its terms in code, comments, tickets and commit messages.
-3. `docs/adr/` — 40 decisions that are hard to reverse and surprising without context. 0001–0011 and
-   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0040 the components.
+3. `docs/adr/` — 41 decisions that are hard to reverse and surprising without context. 0001–0011 and
+   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0041 the components.
 4. The impl backlog `README.md` for the layer being worked on — it holds the phase order, the
    blocking edges, and the defects that shaped both.
 
@@ -1017,7 +1067,7 @@ crates/vitui-engine       cells, surfaces, layers, compositing, damage, serializ
                           └ crossterm behind a seam: raw mode, input, capability detection
 crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key maps, theming,
                           overlays, the data contract — no scene tree, no reactivity
-crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (19 of 29 built)
+crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (25 of 29 built)
                           └ plus `media`, which is **no row of the freeze at all** — §14's own *no
                             v1 component*, so the family ships and `MEMBERS` is empty
                           └ the partition primitives return `vitui_runtime::Rect`. This crate used
@@ -1025,9 +1075,9 @@ crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers 
                             unnameable across the crate line; runtime issue 22 re-exported it and
                             components issue 17 deleted the stand-in
 crates/vitui              facade re-export — engine, runtime, components
-crates/vitui-apps         the applications, one file each in `examples/` — 12: `counter`, `triage`,
+crates/vitui-apps         the applications, one file each in `examples/` — 13: `counter`, `triage`,
                           `latency`, `ledger`, `explorer`, `reader`, `settings`, `compose`, `console`,
-                          `theatre`, `browse`, `mixer`. **A component ticket ships one**: the surface's
+                          `theatre`, `browse`, `mixer`, `vitals`. **A component ticket ships one**: the surface's
                           only consumer, and four times now the thing that found the defect its gates
                           could not
                           └ a workspace MEMBER, so CI builds them: a consumer nobody builds is a
@@ -1083,6 +1133,8 @@ cargo run -p vitui-apps --example browse    # the preview pane; k then s is the 
 cargo run -p vitui-apps --example browse -- --probe
 cargo run -p vitui-apps --example mixer     # the slider; x fifty steps, f swaps the arithmetic
 cargo run -p vitui-apps --example mixer -- --probe
+cargo run -p vitui-apps --example vitals    # the six Tier 2 rows; g steps the glyph rung
+cargo run -p vitui-apps --example vitals -- --probe
 (cd conform && cargo run --example tmux)    # the one conformance soak that is headless
 (cd conform && cargo run --example kitty)   # a window, but no automation grant and no config file
 ```

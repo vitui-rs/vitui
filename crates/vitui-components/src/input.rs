@@ -34,6 +34,7 @@
 //! is components architecture issue 17, and it is not decided in this file.
 
 use vitui_runtime::keys::{Code, Edge, Pressed};
+use vitui_runtime::layout::rect;
 use vitui_runtime::layout::text::{truncate, width};
 use vitui_runtime::overlay::{OverlayOpts, Placement, Z};
 use vitui_runtime::{Ctx, CursorShape, Glyph, Id, Interest, Response, Role};
@@ -1663,6 +1664,364 @@ fn popup_body(
         // Conditional, and that is the whole of why it is not a wake loop: a frame with nothing in
         // the slot asks for nothing, and the frame that delivers empties it.
         cx.request_frame();
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+// `checkbox`, `radio` and `switch` — §17's three Tier 2 toggles, and one machine between them
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+
+/// **Which of the three toggles a call is**, and the whole difference between them.
+///
+/// §17 freezes three rows and the impl backlog gives all three one sentence — *[`crate::state::press`]
+/// plus a [`Glyph`] pair plus a [`Role`]* — so this is [`crate::disclose::Collapses`]'s arrangement
+/// and [`crate::overlay::FAMILY`]'s: **one machine and three configurations**, with a table beside it
+/// that a test iterates rather than a paragraph a reader is trusted with. Three arms and three rows,
+/// and no fourth on either side.
+///
+/// # The mark is not a pair, and the freeze is what says so
+///
+/// The backlog's sentence reads *a `Glyph` pair*, and the freeze's `glyphs` column — which is a
+/// value and therefore the authority — gives `checkbox` exactly [`Glyph::Tick`], `radio` exactly
+/// [`Glyph::Bullet`] and `switch` **nothing at all**. There is no pair to draw, because the *off*
+/// half of a toggle cannot be a glyph: `CONTEXT.md` defines a glyph as a lookup with **no spelling
+/// blank**, and off is blank. So each mark is one glyph and one absence, and the absence is painted
+/// in the face like every other cell of the widget.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum Toggle {
+    /// **A checkbox.** [`Glyph::Tick`] when on, a blank cell when off. The default.
+    #[default]
+    Check,
+    /// **A standalone radio button.** [`Glyph::Bullet`] when on, a blank cell when off.
+    ///
+    /// **A radio *set* is not this**, and §5 is where that is decided: a set is
+    /// [`crate::collect::collection`] at [`Mode::Options`] — *exactly one, and it can never become
+    /// zero* — which is why `crate::INVENTORY`'s `radio` row carries no composition edge. The row is
+    /// the widget and the set is a different call, and `tests::a_radio_set_is_a_collection_and_not_a_second_store`
+    /// is the gate that keeps the two apart.
+    Radio,
+    /// **A switch.** No glyph at all: the knob is a blank cell inside the face and the state is
+    /// carried by [`ToggleOpts::words`] and by where the knob sits.
+    ///
+    /// See [`ToggleOpts::words`] for why the one row of the three with an empty `glyphs` column is
+    /// also the one whose state survives a terminal with no colour *and* no repertoire.
+    Switch,
+}
+
+impl Toggle {
+    /// All three, which is what the tables and the sweeps iterate.
+    pub const ALL: [Toggle; 3] = [Toggle::Check, Toggle::Radio, Toggle::Switch];
+
+    /// The freeze's id for this configuration.
+    pub const fn id(self) -> &'static str {
+        match self {
+            Toggle::Check => "checkbox",
+            Toggle::Radio => "radio",
+            Toggle::Switch => "switch",
+        }
+    }
+
+    /// **The glyph its mark is spelled with, or `None` when it has none.**
+    ///
+    /// The join `tests::the_three_toggles_demand_exactly_what_the_freeze_says_they_do` runs this
+    /// against `crate::INVENTORY`'s `glyphs` column in both directions, so a mark that grew a second
+    /// glyph without the freeze moving fails here rather than on a screen.
+    pub const fn mark(self) -> Option<Glyph> {
+        match self {
+            Toggle::Check => Some(Glyph::Tick),
+            Toggle::Radio => Some(Glyph::Bullet),
+            Toggle::Switch => None,
+        }
+    }
+}
+
+/// The three toggles' options.
+///
+/// Spec §1's rule 3: a `Default` struct, never a required builder.
+///
+/// # There is no `label` role here, and that is ADR 0026 rather than a simplification
+///
+/// [`ChipOpts`] carries the finding: *a label wearing a role its face does not is repainted by the
+/// hover award every frame the pointer rests, for ever.* The label, the mark and the padding are one
+/// paint — the face [`crate::state::press`] returned — which is why [`crate::text::FitOpts`] carries
+/// two roles and why both of them are given the same value here.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ToggleOpts {
+    /// Which of the three this is.
+    pub kind: Toggle,
+    /// The four faces, handed to [`crate::state::press`] whole.
+    pub faces: Faces,
+    /// Where the label sits in the row beside the mark.
+    pub justify: Justify,
+    /// **What a [`Toggle::Switch`] writes in its knob field, on and off.**
+    ///
+    /// Ignored by the other two, which spell their state with [`Toggle::mark`].
+    ///
+    /// # The one row of the three with no glyph is the one whose state always survives
+    ///
+    /// §16's whole subject is what a distinction costs at a lower rung: a checkbox and a radio carry
+    /// theirs on the **glyph** axis, which is exactly what `GlyphSet::Ascii` narrows — `✓` becomes
+    /// `x` and `•` becomes `*`, both still present, both still one cell. A switch carries its state
+    /// on **three** axes and only one of them is the palette: the two words, the side the knob sits
+    /// on, and the face. `tests::a_switch_states_itself_at_every_rung_and_a_checkbox_needs_its_glyph`
+    /// is the count, and it is the reason the empty `glyphs` column in the freeze is not a hole.
+    pub words: (&'static str, &'static str),
+    /// What it declares.
+    ///
+    /// `Interest::SCROLL` is not in it, for components ticket 20's reason: a widget that declares the
+    /// wheel and consumes nothing is worse than one that declares nothing at all, because it is the
+    /// topmost region over its rectangle and an enclosing `crate::scroll::scroll_area` never sees the
+    /// notch either.
+    pub interest: Interest,
+}
+
+impl ToggleOpts {
+    /// **How many cells the mark field is**, the label excluded.
+    ///
+    /// Two for a mark and the gap after it. For a switch it is the wider of the two words plus that
+    /// same gap, which is what makes the knob's travel a property of [`ToggleOpts::words`] rather
+    /// than a number written twice.
+    pub fn field(&self) -> u16 {
+        match self.kind {
+            Toggle::Check | Toggle::Radio => 2,
+            Toggle::Switch => width(self.words.0)
+                .max(width(self.words.1))
+                .saturating_add(1),
+        }
+    }
+}
+
+impl Default for ToggleOpts {
+    fn default() -> ToggleOpts {
+        ToggleOpts {
+            kind: Toggle::Check,
+            faces: Faces::default(),
+            justify: Justify::Start,
+            words: ("on", "off"),
+            interest: Interest::CLICK.with(Interest::HOVER).with(Interest::FOCUS),
+        }
+    }
+}
+
+/// **A box with a tick in it, a label beside it, and the caller's own `bool`.**
+///
+/// Spec §1 writes this signature out by name — `fn(&mut Ctx, Rect, &str, &mut bool) -> Response` —
+/// and rule 2 is what the `&mut bool` is: *the widget's own value, never application data*.
+///
+/// ```
+/// use vitui_components::input::checkbox;
+/// use vitui_runtime::Rect;
+/// use vitui_runtime::ctx::Driver;
+///
+/// let mut driver = Driver::headless(20, 1).expect("a sink attaches");
+/// let mut wrap = false;
+/// driver.frame(|cx| {
+///     let resp = checkbox(cx, Rect::new(0, 0, 20, 1), "wrap", &mut wrap);
+///     // Rule 4: a `Response`, and nothing has happened on a frame with no input.
+///     assert!(!resp.changed);
+/// });
+/// assert!(!wrap);
+/// ```
+#[track_caller]
+pub fn checkbox(cx: &mut Ctx<'_, '_>, area: Rect, label: &str, on: &mut bool) -> Response {
+    toggle_with(cx, area, label, on, &ToggleOpts::default())
+}
+
+/// **A standalone radio button.** [`checkbox`] with [`Toggle::Radio`]'s mark.
+///
+/// A radio *set* is [`crate::collect::collection`] at [`Mode::Options`] and is a different call
+/// entirely — see [`Toggle::Radio`].
+#[track_caller]
+pub fn radio(cx: &mut Ctx<'_, '_>, area: Rect, label: &str, on: &mut bool) -> Response {
+    toggle_with(
+        cx,
+        area,
+        label,
+        on,
+        &ToggleOpts {
+            kind: Toggle::Radio,
+            ..ToggleOpts::default()
+        },
+    )
+}
+
+/// **A switch.** [`checkbox`] with a knob that travels and two words instead of a glyph.
+#[track_caller]
+pub fn switch(cx: &mut Ctx<'_, '_>, area: Rect, label: &str, on: &mut bool) -> Response {
+    toggle_with(
+        cx,
+        area,
+        label,
+        on,
+        &ToggleOpts {
+            kind: Toggle::Switch,
+            ..ToggleOpts::default()
+        },
+    )
+}
+
+/// The three, with the options spelled out. Spec §1's rule 3 sibling for all of them at once.
+#[track_caller]
+pub fn toggle_with(
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    label: &str,
+    on: &mut bool,
+    opts: &ToggleOpts,
+) -> Response {
+    toggle_into(&mut Direct, cx, area, label, on, opts)
+}
+
+/// **The three, drawing through an [`Ink`] so a counter can see every cell.**
+///
+/// The entry point a gate takes; [`checkbox`], [`radio`] and [`switch`] are this with [`Direct`] and
+/// one field of [`ToggleOpts`] between them.
+///
+/// # What it composes, and it introduces nothing else
+///
+/// [`crate::state::press`] for the face and the deferred hover award, `Theme::glyph` for the mark,
+/// [`crate::text::fit_into`] for the label's row and `text`'s own `pad_rows` for the rows it does
+/// not take. There is no state here at all: a toggle's whole cross-frame fact is the caller's
+/// `&mut bool`, and `crate::composed`'s scan is what keeps it that way.
+#[track_caller]
+pub fn toggle_into<I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    label: &str,
+    on: &mut bool,
+    opts: &ToggleOpts,
+) -> Response {
+    // **The id, taken outside every closure** (ADR 0027), and `#[track_caller]` all the way up so
+    // that two toggles at two call sites are two widgets — `crate::media::player` shipped both
+    // halves of that wrong once, on a screen that rendered perfectly.
+    let id = cx.id();
+    if area.is_empty() {
+        return Response::inert(id, area);
+    }
+    let mut resp = cx.interact(id, area, opts.interest);
+    let before = *on;
+
+    // A click flips it, and so does `Space` or `Enter` while it holds the focus. **One drain loop**:
+    // `Ctx::decline` hands a key back *and ends the level's turn at the queue*
+    // (`crate::collect`'s finding, components 17), so a widget that read some keys here and the rest
+    // afterwards would get nothing after the first refusal.
+    if resp.clicked {
+        *on = !*on;
+    }
+    while let Some(k) = cx.next_key(id) {
+        if k.kind == Edge::Release {
+            continue;
+        }
+        if !keys::is_chord(&k) && matches!(k.code, Code::Char(' ') | Code::Enter) {
+            *on = !*on;
+            continue;
+        }
+        cx.decline(k);
+        break;
+    }
+
+    // **The runtime never sets this** — `Response::changed` is a component's own convention.
+    resp.changed = *on != before;
+    toggle_drawn(ink, cx, area, label, *on, &resp, opts);
+    resp
+}
+
+/// **The drawing half, with the [`Response`] supplied rather than declared.** Returns the face.
+///
+/// Public for [`chip_drawn`]'s reason: a container that already holds an id draws the widget inside
+/// a region it declared itself, and a gate that cannot hand a component a `Response` cannot play the
+/// hovered frame at all.
+pub fn toggle_drawn<I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    label: &str,
+    on: bool,
+    resp: &Response,
+    opts: &ToggleOpts,
+) -> Role {
+    // **The face and the award are one expression evaluated once** — `crate::state::press_into`'s
+    // own criterion 1, and the cells are the whole widget's because the whole widget is one face.
+    let face = crate::state::press_into(ink, cx, area, resp, &opts.faces);
+    let paint = cx.theme().paint(face);
+
+    // The mark and the label sit on the middle row, and the rows either side are face. Exactly
+    // `crate::text::face_and_label`'s split, which is what makes a toggle read as a chip with a
+    // mark in front of it.
+    let (above, rest) = rect::split_at_v(area, area.h.saturating_sub(1) / 2);
+    crate::text::pad_rows(ink, cx, above, paint);
+    let (row, below) = rect::split_at_v(rest, 1);
+    let field = opts.field().min(row.w);
+    let (mark_cells, label_cells) = rect::split_at_h(row, field);
+    mark_into(ink, cx, mark_cells, on, face, opts);
+    crate::text::fit_into(
+        ink,
+        cx,
+        label_cells,
+        label,
+        &crate::text::FitOpts {
+            justify: opts.justify,
+            // **Both roles are the face.** See [`ToggleOpts`]'s own note.
+            role: face,
+            pad: face,
+        },
+    );
+    crate::text::pad_rows(ink, cx, below, paint);
+    face
+}
+
+/// **The mark field: one glyph and a blank, or a word that has travelled.**
+///
+/// The one place the three configurations differ in what they *write*, and it is two verbs — which
+/// is why they are one component and not three.
+fn mark_into<I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    cells: Rect,
+    on: bool,
+    face: Role,
+    opts: &ToggleOpts,
+) {
+    if cells.is_empty() {
+        return;
+    }
+    match opts.kind.mark() {
+        // A mark and the gap after it, and the *off* half is the same blank the gap is — see
+        // [`Toggle`]: a glyph has no blank spelling, so off cannot be one.
+        Some(glyph) => {
+            let paint = cx.theme().paint(face);
+            let mark = if on { cx.theme().glyph(glyph) } else { " " };
+            ink.run(cx, cells.x, cells.y, mark, 1, paint);
+            ink.run(cx, cells.x + 1, cells.y, " ", cells.w - 1, paint);
+        }
+        // **The word, on the side its state puts it**, which is the knob travelling and the state
+        // being spelled at the same time and in the same two verbs. `fit` is the helper that writes
+        // a line into a row and pads the remainder, so there is no second justification arithmetic
+        // here either.
+        None => {
+            let (word, justify) = if on {
+                (opts.words.0, Justify::End)
+            } else {
+                (opts.words.1, Justify::Start)
+            };
+            // **The gap is split off first and is never the knob's travel.** Justified inside the
+            // whole field, the *on* word slides right until it touches the label, and a switch whose
+            // knob has arrived reads as one word with the label glued to it.
+            let (word_cells, gap) = rect::split_at_h(cells, cells.w.saturating_sub(1));
+            crate::text::fit_into(
+                ink,
+                cx,
+                word_cells,
+                word,
+                &crate::text::FitOpts {
+                    justify,
+                    role: face,
+                    pad: face,
+                },
+            );
+            crate::text::pad_rows(ink, cx, gap, cx.theme().paint(face));
+        }
     }
 }
 
@@ -3949,5 +4308,383 @@ mod slider_tests {
         };
         assert_eq!(run(Stepping::Grid), 0.5);
         assert_eq!(run(Stepping::Float), 0.4999998);
+    }
+}
+
+#[cfg(test)]
+mod toggle_tests {
+    use super::*;
+    use crate::INVENTORY;
+    use crate::chart::raster::RUNGS;
+    use crate::counters::Tally;
+    use crate::runner::{Canvas, Pen};
+    use vitui_runtime::ctx::Driver;
+    use vitui_runtime::theme::{CATPPUCCIN_MOCHA, Density, Theme};
+    use vitui_runtime::{Button, Buttons, ColorDepth, Mods, Mouse, MouseKind};
+
+    /// A pointer event at `(x, y)`.
+    fn at(x: u16, y: u16, kind: MouseKind) -> Mouse {
+        Mouse {
+            x,
+            y,
+            kind,
+            buttons: Buttons::NONE,
+            mods: Mods::NONE,
+            at: std::time::Instant::now(),
+        }
+    }
+
+    /// A tally over one frame of `f`, on a `w` by `h` sink.
+    fn tallied(w: u16, h: u16, f: impl FnOnce(&mut Tally, &mut Ctx<'_, '_>)) -> Tally {
+        let mut driver = Driver::headless(w, h).expect("a sink cannot fail to attach");
+        let mut tally = Tally::new();
+        driver.frame(|cx| f(&mut tally, cx));
+        tally
+    }
+
+    /// The options a `Toggle` gets when nothing else is said.
+    fn opts(kind: Toggle) -> ToggleOpts {
+        ToggleOpts {
+            kind,
+            ..ToggleOpts::default()
+        }
+    }
+
+    /// **Criterion 1: three spellings, one machine, and rule 4 comes back from all of them.**
+    ///
+    /// Spec §1 writes `checkbox`'s signature out by name, so the half a test can reach is that the
+    /// named spelling, the `_with` sibling and the `_into` seam are the *same* draw — or every gate
+    /// below is measuring a second implementation.
+    #[test]
+    fn the_three_toggles_are_one_machine_and_each_answers_with_a_response() {
+        for kind in Toggle::ALL {
+            let mut painted: Vec<Canvas> = Vec::new();
+            for arm in 0..3u8 {
+                let mut driver = Driver::headless(24, 1).expect("a sink attaches");
+                let mut pen = Pen::over(Canvas::new(24, 1));
+                let mut on = true;
+                let mut changed = true;
+                driver.frame(|cx| {
+                    let area = cx.area();
+                    let resp = match (arm, kind) {
+                        // Rule 3: the ninety-per-cent spelling names no options at all.
+                        (0, Toggle::Check) => checkbox(cx, area, "wrap", &mut on),
+                        (0, Toggle::Radio) => radio(cx, area, "wrap", &mut on),
+                        (0, Toggle::Switch) => switch(cx, area, "wrap", &mut on),
+                        (1, _) => toggle_with(cx, area, "wrap", &mut on, &opts(kind)),
+                        _ => toggle_into(&mut pen, cx, area, "wrap", &mut on, &opts(kind)),
+                    };
+                    assert_eq!(resp.rect.w, 24);
+                    changed = resp.changed;
+                });
+                assert!(!changed, "{kind:?} arm {arm} reported a change nobody made");
+                // Rule 2: the state is the caller's `&mut bool` and nothing moved it.
+                assert!(on, "{kind:?} arm {arm} flipped the caller's value");
+                if arm == 2 {
+                    painted.push(pen.into_canvas());
+                }
+            }
+
+            // And the shipped path draws what the seam draws, compared cell for cell.
+            let mut driver = Driver::headless(24, 1).expect("a sink attaches");
+            let mut pen = Pen::over(Canvas::new(24, 1));
+            let mut on = true;
+            driver.frame(|cx| {
+                let area = cx.area();
+                toggle_into(&mut pen, cx, area, "wrap", &mut on, &opts(kind));
+            });
+            assert_eq!(
+                pen.into_canvas().diff(&painted.remove(0)).cells,
+                0,
+                "{kind:?}: the `_into` seam is not the shipped draw"
+            );
+        }
+    }
+
+    /// **Criterion 7: every one of the three writes a partition of its whole rectangle.**
+    ///
+    /// §2's two equalities, swept where the arithmetic runs out — a one-cell rectangle, a rectangle
+    /// narrower than the mark field, a label wider than the room it has, and a rectangle three rows
+    /// tall so that the rows either side of the label's are somebody's too.
+    #[test]
+    fn a_toggle_writes_a_partition_of_its_whole_rectangle() {
+        for kind in Toggle::ALL {
+            for (w, h) in [
+                (1u16, 1u16),
+                (2, 1),
+                (3, 1),
+                (4, 2),
+                (12, 1),
+                (24, 3),
+                (1, 5),
+            ] {
+                // **And at an origin that is not the screen's.** This is the arm this crate has now
+                // had to add three times: `crate::collect`'s table drew its header from `x = 0`
+                // rather than from the band it was handed, and every gate passed, because every
+                // gate played at the origin — where the two agree.
+                for (ox, oy) in [(0i32, 0i32), (5, 2)] {
+                    for on in [false, true] {
+                        for label in ["", "wrap", "a label far wider than this toggle is"] {
+                            let mut value = on;
+                            let at = Rect::new(ox, oy, w, h);
+                            let (sw, sh) = (w + ox as u16, h + oy as u16);
+                            let tally = tallied(sw, sh, |tally, cx| {
+                                toggle_into(tally, cx, at, label, &mut value, &opts(kind));
+                            });
+                            assert_eq!(
+                                tally.writes(),
+                                tally.distinct(),
+                                "{kind:?} {w}x{h}@{ox},{oy} on={on} `{label}`: a cell twice"
+                            );
+                            assert_eq!(
+                                tally.distinct(),
+                                u64::from(w) * u64::from(h),
+                                "{kind:?} {w}x{h}@{ox},{oy} on={on} `{label}`: not a partition"
+                            );
+                            assert_eq!(
+                                tally.asked(),
+                                tally.reported(),
+                                "{kind:?} {w}x{h}@{ox},{oy} on={on} `{label}`: a verb left"
+                            );
+                            // And the cells it wrote are **its own**, which `distinct` alone cannot
+                            // say: the same count lands on the same number one column over.
+                            for y in oy..oy + i32::from(h) {
+                                for x in ox..ox + i32::from(w) {
+                                    assert!(
+                                        tally.touched(x, y),
+                                        "{kind:?} {w}x{h}@{ox},{oy}: ({x}, {y}) unwritten"
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// **Criterion 10, the glyph half: what the three demand is what the freeze says they demand.**
+    ///
+    /// Both directions, because a mark that grew a second glyph without the freeze moving and a
+    /// freeze that grew a glyph the mark never draws are the same drift with the sign flipped.
+    #[test]
+    fn the_three_toggles_demand_exactly_what_the_freeze_says_they_do() {
+        for kind in Toggle::ALL {
+            let row = INVENTORY
+                .iter()
+                .find(|c| c.id == kind.id())
+                .expect("the freeze has a row for each");
+            let demanded: Vec<Glyph> = kind.mark().into_iter().collect();
+            assert_eq!(
+                row.glyphs,
+                &demanded[..],
+                "`{}`'s demand set and its mark disagree",
+                kind.id()
+            );
+            assert_eq!(row.constructions, 1, "`{}` is one construction", kind.id());
+        }
+        // **`switch` is the row with the empty column**, and that is the claim the next test is
+        // about rather than an omission.
+        assert!(Toggle::Switch.mark().is_none());
+    }
+
+    /// **§16 on three components at once: which of them still states itself with no glyph and no
+    /// colour.**
+    ///
+    /// A checkbox and a radio carry their state on the **glyph** axis — `✓` becomes `x`, `•` becomes
+    /// `*`, both still one cell and both still present, which is what §16's *no spelling blank*
+    /// buys. A switch carries its on three axes and only one of them is the palette: the two words,
+    /// the side the knob sits on, and the face.
+    ///
+    /// So the count is **1 of 3**: at `GlyphSet::Ascii` the switch's two states differ in cells that
+    /// carry no glyph at all, and the other two differ in exactly one cell whose content came out of
+    /// the theme's table. The freeze's empty `glyphs` column for `switch` is that fact, and this is
+    /// the number underneath it.
+    #[test]
+    fn a_switch_states_itself_at_every_rung_and_a_checkbox_needs_its_glyph() {
+        let mut glyphless = 0usize;
+        for kind in Toggle::ALL {
+            // **The rungs come from `chart::raster::RUNGS` rather than being named here**, which is
+            // that constant's own purpose: §16's exception for naming a repertoire is worth exactly
+            // one file, and this is not it.
+            for set in RUNGS {
+                let painted = |on: bool| {
+                    let mut driver = Driver::headless(12, 1).expect("a sink attaches");
+                    driver.set_theme(
+                        Theme::authored(&CATPPUCCIN_MOCHA, set, Density::default())
+                            .resolve(ColorDepth::TrueColor),
+                    );
+                    let mut pen = Pen::over(Canvas::new(12, 1));
+                    let mut value = on;
+                    driver.frame(|cx| {
+                        let area = cx.area();
+                        toggle_into(&mut pen, cx, area, "x", &mut value, &opts(kind));
+                    });
+                    pen.into_canvas()
+                };
+                let off = painted(false);
+                let on = painted(true);
+                let differ = off.diff(&on).cells;
+                assert!(
+                    differ > 0,
+                    "{kind:?} at {set:?}: the two states are the same picture"
+                );
+                if kind == Toggle::Switch {
+                    // Two words of different widths and a knob that moved: more than the one cell a
+                    // mark costs, and not one of them out of the glyph table.
+                    assert!(
+                        differ >= 2,
+                        "{kind:?} at {set:?}: a switch differs in {differ} cells"
+                    );
+                } else {
+                    assert_eq!(
+                        differ, 1,
+                        "{kind:?} at {set:?}: a mark is one cell and this is {differ}"
+                    );
+                }
+            }
+            if kind.mark().is_none() {
+                glyphless += 1;
+            }
+        }
+        assert_eq!(glyphless, 1, "one of the three states itself with no glyph");
+    }
+
+    /// **A click flips it, `Space` flips it, and a chord flips nothing.**
+    ///
+    /// The click is two frames, because the runtime sets `Response::clicked` on the release and the
+    /// award is resolved from the index that has just drawn — `crate::media::player`'s cadence, met
+    /// again. The chord is §21's *a chord types nothing* on a component whose key map is two codes.
+    #[test]
+    fn a_click_flips_it_and_space_flips_it_and_a_chord_flips_nothing() {
+        let mut driver = Driver::headless(12, 1).expect("a sink attaches");
+        let mut on = false;
+        let frame = |driver: &mut Driver, on: &mut bool| {
+            driver.frame(|cx| {
+                let area = cx.area();
+                checkbox(cx, area, "x", on);
+            });
+        };
+
+        // **A warm frame builds the index the pointer is resolved against** — nothing can be over a
+        // region that has not been declared yet (ADR 0012) — and the `Move` is what puts the pointer
+        // there, because the runtime reads its position once a frame before it walks the batch. A
+        // `Down` at a position nothing has moved to is a press over nothing, which is
+        // `crate::collect`'s own finding.
+        frame(&mut driver, &mut on);
+        driver.post_mouse(at(0, 0, MouseKind::Move));
+        frame(&mut driver, &mut on);
+        driver.post_mouse(at(0, 0, MouseKind::Down(Button::Left)));
+        frame(&mut driver, &mut on);
+        frame(&mut driver, &mut on);
+        assert!(!on, "a press alone flipped it");
+        // **And the release is a frame late in exactly the same way.** The frame that carries the
+        // `Up` still reads `pressed`; `clicked` arrives on the one after it. A gate playing one
+        // frame a phase would have measured the cadence and called it the mechanism —
+        // `crate::media::player`'s finding, and `crate::input`'s slider met it one component ago.
+        driver.post_mouse(at(0, 0, MouseKind::Up(Button::Left)));
+        frame(&mut driver, &mut on);
+        assert!(
+            !on,
+            "the frame carrying the release is not the frame of the click"
+        );
+        frame(&mut driver, &mut on);
+        assert!(on, "a click did not flip it");
+
+        // The press seated the focus, so the keyboard reaches it.
+        driver.post_key(crate::keys::press_with(Code::Char(' '), Mods::NONE));
+        frame(&mut driver, &mut on);
+        assert!(!on, "`Space` did not flip it");
+
+        driver.post_key(crate::keys::press_with(Code::Char(' '), Mods::CTRL));
+        frame(&mut driver, &mut on);
+        assert!(
+            !on,
+            "a chord flipped it, and a chord is not this widget's key"
+        );
+
+        driver.post_key(crate::keys::press_with(Code::Enter, Mods::NONE));
+        frame(&mut driver, &mut on);
+        assert!(on, "`Enter` did not flip it");
+    }
+
+    /// **Criterion 6: a radio *set* is `collection` at `Mode::Options`, not a second selection
+    /// store.**
+    ///
+    /// The backlog spells the mode `Mode::Radio` and §5 shipped it as [`Mode::Options`] — *exactly
+    /// one, and it can never become zero*, which is the whole difference from [`Mode::Single`]. The
+    /// name is recorded rather than changed: a mode called `Radio` would be §5's thirteen match arms
+    /// wearing one component's name.
+    ///
+    /// Two halves, because either alone is satisfiable by the wrong thing: the **set** really does
+    /// hold exactly one at every gesture a set can be given, and the **standalone** row holds no
+    /// selection at all — its whole cross-frame fact is the caller's `&mut bool`, which is four
+    /// bytes plus nothing.
+    #[test]
+    fn a_radio_set_is_a_collection_and_not_a_second_store() {
+        let mut st = CollState::new();
+        st.sel.select_only(0);
+        for gesture in [
+            crate::collect::Gesture::Plain(2),
+            crate::collect::Gesture::Toggle(2),
+            crate::collect::Gesture::Nothing,
+            crate::collect::Gesture::All,
+            crate::collect::Gesture::Extend(3),
+        ] {
+            crate::collect::apply(Mode::Options, &mut st.sel, 4, gesture);
+            assert_eq!(
+                st.sel.count(),
+                1,
+                "{gesture:?}: a set at `Mode::Options` is exactly one and never zero"
+            );
+        }
+
+        // And the standalone widget has no store to be a second of.
+        assert_eq!(std::mem::size_of::<bool>(), 1);
+        let source = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/input.rs"))
+            .expect("this file");
+        let toggles = crate::composed::section(
+            &source,
+            "// `checkbox`, `radio` and `switch` — §17's three Tier 2 toggles",
+        );
+        assert!(!toggles.is_empty());
+        assert!(
+            !crate::dense::declares(toggles, "CollState"),
+            "the standalone radio holds a collection's selection store"
+        );
+    }
+
+    /// **Criterion 7, the steady half: a toggle nobody touches changes 0 cells a frame.**
+    ///
+    /// `marked` is the engine's own counter and unreachable from this crate, so the reachable form
+    /// is register row 48's: carry the surface across frames with [`Pen::over`] and count the cells
+    /// whose value changed.
+    ///
+    /// The sequence is `[n, 0, 0, …]` and there is **no hover frame in it**, because the pointer is
+    /// never posted — which is the difference from `crate::input`'s slider, whose own steady figure
+    /// reads `[40, 1, 0, …]` for the frame the hover arrives on.
+    #[test]
+    fn a_toggle_nobody_touches_changes_nothing_after_its_first_frame() {
+        const FRAMES: usize = 20;
+        for kind in Toggle::ALL {
+            let mut driver = Driver::headless(24, 1).expect("a sink attaches");
+            let mut pen = Pen::over(Canvas::new(24, 1));
+            let mut on = true;
+            let mut changed = Vec::new();
+            for _ in 0..FRAMES {
+                let before = pen.canvas().clone();
+                driver.frame(|cx| {
+                    let area = cx.area();
+                    toggle_into(&mut pen, cx, area, "wrap", &mut on, &opts(kind));
+                });
+                pen.end_frame();
+                changed.push(before.diff(pen.canvas()).cells);
+            }
+            assert_eq!(changed[0], 24, "{kind:?}: the first frame writes the row");
+            assert!(
+                changed[1..].iter().all(|&c| c == 0),
+                "{kind:?}: a settled toggle changes cells — {changed:?}"
+            );
+        }
     }
 }

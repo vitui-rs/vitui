@@ -5,14 +5,17 @@
 //! Being built one ticket at a time from `.scratch/vitui-components-architecture/spec.md`, whose
 //! map is closed; the backlog is `.scratch/vitui-components-impl/`, forty-three tickets.
 //!
-//! **Eighteen of the twenty-nine components are written** — [`text::text`], [`text::chip`],
+//! **Twenty-five of the twenty-nine components are written** — [`text::text`], [`text::chip`],
 //! [`input::button`] and [`structure::panel`] (components ticket 10), [`collect::collection`]
 //! (components ticket 12), [`chart::chart`] and [`chart::plot`] (components ticket 28),
 //! [`collect::table`] (components ticket 15), [`collect::tree`] (components ticket 17),
 //! [`scroll::scroll_area`], [`scroll::scrollbar`] and [`scroll::sticky`] (components ticket 19),
 //! [`disclose::collapsible`] (components ticket 22), [`input::field`] (components ticket 24) and
 //! [`input::select`] with [`overlay::overlay`] (components ticket 26), and
-//! [`files::file_preview_pane`] with [`files::file_picker`] (components ticket 32) — and the
+//! [`files::file_preview_pane`] with [`files::file_picker`] (components ticket 32),
+//! [`input::slider`] (components ticket 33), and the six Tier 2 rows — [`input::checkbox`],
+//! [`input::radio`], [`input::switch`], [`indicate::meter`], [`indicate::sparkline`] and
+//! [`structure::rule`] (components ticket 34) — and the
 //! dense screen, the listing, the grid, the forest, the two scroll-area screens, the accordion and
 //! the preview pane's three screens are
 //! now drawn *through* them
@@ -35,6 +38,10 @@
 //!   eleven columns each, with [`MOVED`] and [`COMPOSITIONS`] beside it. Not a paragraph, because
 //!   *every obligation this map has stated as a sentence has been broken by someone who had read
 //!   it* (ADR 0033).
+//! - [`composed`] — Tier 2's own claim as a value: what each of the six reaches and what it may not
+//!   mint, with a scan that opens the file and answers both halves. *Composed of proved mechanisms*
+//!   is the claim that turns out to be false when it is false, and a scan for absences alone goes
+//!   green when the whole section is deleted.
 //! - [`obligations`] — §17's five obligations as queries over the freeze, each returning a count or
 //!   an equality. **Not one of them can be met yet, and every one of them says so out loud** rather
 //!   than returning green over an empty population.
@@ -340,6 +347,7 @@ pub mod accordion;
 pub mod app;
 pub mod area;
 pub mod clusters;
+pub mod composed;
 pub mod counters;
 pub mod dense;
 pub mod document;

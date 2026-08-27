@@ -76,7 +76,7 @@ pub struct App {
 /// and the reason is that there is nothing to port: what it demonstrates is *one component and one
 /// `Mode`*, and no other library's tutorial has an equivalent because no other library makes the
 /// claim.
-pub const APPS: [App; 12] = [
+pub const APPS: [App; 13] = [
     App {
         name: "counter",
         what: "A bordered panel, a centred value, and Left/Right/q. The smallest program anybody \
@@ -389,6 +389,42 @@ pub const APPS: [App; 12] = [
         ],
         after: None,
     },
+    App {
+        name: "vitals",
+        what: "A dashboard of six components composed of proved mechanisms: three toggles, two \
+               meters, a sparkline over a hundred thousand samples, and four rules. `g` is the one \
+               to press — it steps the glyph rung, and three things happen at once: the meter loses \
+               its partial cell because a prefix has 8 sub-cells at the block rungs and 1 at ASCII, \
+               the checkbox's tick becomes an `x` and the radio's bullet a `*`, and the switch does \
+               not change at all, because its state is two words, a side and a face rather than a \
+               glyph. `a` pushes one sample and the fold count moves; `Tab` moves the focus and it \
+               does not",
+        uses: &[
+            "input::checkbox",
+            "input::radio",
+            "input::switch",
+            "input::toggle_into",
+            "input::ToggleOpts",
+            "indicate::meter_into",
+            "indicate::sparkline_into",
+            "indicate::MeterOpts",
+            "structure::rule_into",
+            "structure::panel_into",
+            "chart::Series",
+            "chart::raster::PlotState",
+            "chart::raster::geom",
+            "chart::raster::RUNGS",
+            "text::text_into",
+            "counters::Tally",
+            "ink::Ink",
+            "ctx::Ctx::with_key",
+            "theme::Themes::set_glyphs",
+            "ctx::Driver::set_theme",
+            "ctx::Driver::unhandled",
+            "ctx::Driver::wait",
+        ],
+        after: None,
+    },
 ];
 
 #[cfg(test)]
@@ -450,9 +486,10 @@ mod tests {
             checked += 1;
         }
         assert_eq!(
-            checked, 10,
-            "triage, ledger, explorer, reader, settings, compose, console, theatre, browse and \
-             mixer open the window; counter and latency read their keys through a `KeyMap` instead"
+            checked, 11,
+            "triage, ledger, explorer, reader, settings, compose, console, theatre, browse, mixer \
+             and vitals open the window; counter and latency read their keys through a `KeyMap` \
+             instead"
         );
 
         // **The other directions**, or a scanner that has stopped finding `driver.frame(` reports
