@@ -940,7 +940,12 @@ mod tests {
                 .filter(|line| !line.starts_with("//") && line.contains(custom))
                 .count()
         };
-        let sites: Vec<(String, usize)> = files
+        // **Sorted, and the CI runner is what asked for it.** `walk` yields `read_dir` order, which
+        // is the filesystem's: this assertion held on one machine and failed on the Linux runner
+        // with `[("picture.rs", 1), ("chart.rs", 1)]` against the same pair the other way round.
+        // The single-element version this replaces was order-independent by accident, which is
+        // exactly the kind of accident a second element removes.
+        let mut sites: Vec<(String, usize)> = files
             .iter()
             .filter(|path| calls(path) > 0)
             .map(|path| {
@@ -953,6 +958,7 @@ mod tests {
                 )
             })
             .collect();
+        sites.sort();
         assert_eq!(
             sites,
             vec![("chart.rs".to_string(), 1), ("picture.rs".to_string(), 1)],
