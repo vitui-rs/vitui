@@ -113,7 +113,7 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 31 of 45 tickets resolved (the last on 2026-08-26). `INVENTORY` is spec
+- **`vitui-components` has started**: 32 of 45 tickets resolved (the last on 2026-08-27). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
   answerable by the machine from here on. All five obligations are `Unmet` and each is watched
@@ -403,6 +403,69 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   the panel, five transport buttons and the track, not one of them a picture, a symbol or a meter**.
   `4` is the key to press: every other component in the library degrades to a worse drawing of itself
   and a picture becomes a **description** of itself.
+
+- **`file_preview_pane` and `file_picker` are the seventeenth and eighteenth components, the scene
+  list has no red row left, and §15's *unclamped* is not a spelling of the offset at all**
+  (components ticket 32, 2026-08-27; ADR 0039). `crates/vitui-components/src/files.rs` is the
+  module; the three preview-pane screens draw through it, so scenes 23, 24 and 25 went green
+  together — the last three, and they left the way they arrived, because they were pinned on one
+  fact and it was the subject. **Every figure they were pinned with reproduced through the
+  component**: 100 of 100 frames against 0 at 103 questions either way with `Worker::asked` 1
+  against 2, 7 of 7 batches against 0 with a longest run of 1, 1 picture against 20 at 18 315 000
+  B/s, the five offset spellings each producing their own defect, 14 857 142 bytes against a slot's
+  4, and 20 torn frames of 20.
+  **§15's *unclamped* is on the extent axis and not on the offset's, and it costs two things rather
+  than one.** `scroll_area` clamps against the extent it is handed on **every** frame and the clamp
+  is free, so an offset cannot be left unclamped; the only way to *the body draws nothing* is a pane
+  that declares no bound — *a landing is a shrink*, and what shrinks is the extent. And an unbounded
+  extent leaves the area **no tail**, so the cells the body cannot write are cells nobody writes:
+  the shrink frame is **21 484 of 24 000** and the 2 516 nobody writes is the document's own. §15's
+  own pair is 4 166 against 1 650 on a screen that did not partition — two different screens, and
+  **the gap is 2 516 in both**, which is what makes `LINE_COLUMNS = 34` derived rather than chosen.
+  **§15's 198 x 74 is the pane's *viewport* and not its rectangle**, and read the other way its own
+  numbers stop agreeing: a positive case for bars-reserved costs one gutter an axis, so a 198 x 74
+  rectangle hands its body 197 x 73 and neither `74 x 34 = 2 516` nor **14 652 customs** comes out.
+  The rectangle is 199 x 75.
+  **A landing is taken at the top of the view and an answer carries its own question** (ADR 0039),
+  and both halves are one decision: `Task::take` is destructive and *a view has no `&mut` with which
+  to put back what it took*. `PaneState::land` is a verb on the state rather than a step inside the
+  component, so the shipped shape has exactly one consumer; and `Preview::shows` is §15's eight
+  bytes, catching **an answer to a question nobody ever asked** — current generation, wrong payload
+  — at 1 refused / 0 landings / **0 content cells**. *A question that was never asked is not out of
+  order*, so no test on the answer's arrival can reach it.
+  **R02's sweep is refused twice and R09's `Edit` once.** Ten tab switches cost **1 spawn, 1 decode
+  and 1 fold against 10 of each**, because nothing here owns the job or the memo; and *a landing that
+  did not happen is still a drop* — a guard taken outside the landing branch advances the revision
+  every frame, so the highlighter re-folds **119 times against 20** on two screens that write the
+  same 2 880 000 cells.
+  **The needle problem, met a fourth time and answered by the ticket that owns the parameter list.**
+  `pub fn file_preview_pane(` could never have matched `pub fn file_preview_pane<T, F>(`; components
+  31 deliberately left the parenthesis rather than dictate this ticket's signature, so this one
+  writes the needle and adds `PANE_OWES` — three fragments each deletable while leaving the
+  declaration scan green and each a mechanism §15 assigns away from the widget. **G10 was already
+  built**: `gates` row 31 is green and its own note already records that §21 is wrong about `Worker`,
+  which is `Sync`; what §15 adds is G10b's `Cell`/`RefCell` sentence, and that is the new pair.
+  **Three findings in the instruments, each the gate being wrong first.** A process-global decode
+  counter read **100 286** units because tests run in parallel — the requirement is *0 on the app
+  thread*, so the counter has to be one the app thread can read about itself. A highlighter with no
+  document folds nothing, or the run's first frame is a real fold and §15's pair comes out 21 against
+  120. And **a screen may not spell `Theme::custom`** — routed through `crate::media::picture_into`,
+  one strip a row with each strip doing its own offsetting, it is §14's stated exception rather than
+  a third palette, and the customs come out at **14 652**, derivable from 198 x 74 rather than
+  measured.
+  **`file_picker` is checked twice**: a source scan over its own body for the four mechanisms it may
+  not mint, and a subtraction over what it declares — **6 regions as 1 + 1 + 1 + 3** — plus a shut
+  face that partitions its row at every width from 1 to 40. Its `decode` and `line` are function
+  pointers because a job must be `Send + 'static` and a body is `FnMut`. **The shut face is one
+  drawing now**: the picker's was `select`'s transcribed, and that drawing is where components 26's
+  one-cell double write lived, so it is `glyphs::elided_row_into` and both components spend their
+  own prefix before calling it — two copies of a drawing that has already been wrong once is one
+  copy too many.
+  Register 175 → **181 rows, 165 evaluated**; scenes **0 red, 29 stood up**.
+  **The application is `browse`**, and `k` then `s` is the one to watch: nothing moves, and the pane
+  goes on showing the file that used to be at that position for ever. Its `--probe` prints one
+  headless frame at 120x30 — 4 800 writes over 4 800 distinct, 4 regions, 1 spawn, 1 landing, 0
+  refused.
 
 - **The preview pane's three screens run and all three are red, and §15's own wire sentence is two
   readings of one number** (components ticket 31, 2026-08-26). `crates/vitui-components/src/preview.rs`
@@ -876,8 +939,8 @@ Read these before working, in this order:
    authority. An `architecture.md` beside a spec is the superseded proposal, kept only as the record
    of what was argued.
 2. `CONTEXT.md` — the glossary. Use its terms in code, comments, tickets and commit messages.
-3. `docs/adr/` — 38 decisions that are hard to reverse and surprising without context. 0001–0011 and
-   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0038 the components.
+3. `docs/adr/` — 39 decisions that are hard to reverse and surprising without context. 0001–0011 and
+   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0039 the components.
 4. The impl backlog `README.md` for the layer being worked on — it holds the phase order, the
    blocking edges, and the defects that shaped both.
 
@@ -895,7 +958,7 @@ crates/vitui-engine       cells, surfaces, layers, compositing, damage, serializ
                           └ crossterm behind a seam: raw mode, input, capability detection
 crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key maps, theming,
                           overlays, the data contract — no scene tree, no reactivity
-crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (16 of 29 built)
+crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (18 of 29 built)
                           └ plus `media`, which is **no row of the freeze at all** — §14's own *no
                             v1 component*, so the family ships and `MEMBERS` is empty
                           └ the partition primitives return `vitui_runtime::Rect`. This crate used
@@ -903,9 +966,9 @@ crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers 
                             unnameable across the crate line; runtime issue 22 re-exported it and
                             components issue 17 deleted the stand-in
 crates/vitui              facade re-export — engine, runtime, components
-crates/vitui-apps         the applications, one file each in `examples/` — 10: `counter`, `triage`,
+crates/vitui-apps         the applications, one file each in `examples/` — 11: `counter`, `triage`,
                           `latency`, `ledger`, `explorer`, `reader`, `settings`, `compose`, `console`,
-                          `theatre`. **A component ticket ships one**: the surface's only
+                          `theatre`, `browse`. **A component ticket ships one**: the surface's only
                           consumer, and three times now the thing that found the defect its gates could not
                           └ a workspace MEMBER, so CI builds them: a consumer nobody builds is a
                             consumer nobody checks (`compare/run.sh` is the precedent). Depends on
@@ -956,6 +1019,8 @@ cargo run -p vitui-apps --example counter   # the first real application; q to q
 cargo run -p vitui-apps --example console   # the overlay family; Ctrl+P palette, Ctrl+Q quit
 cargo run -p vitui-apps --example theatre   # the media family; 4 is the floor of the colour axis
 cargo run -p vitui-apps --example theatre -- --probe   # one headless frame, and what it cost
+cargo run -p vitui-apps --example browse    # the preview pane; k then s is the memo-key rule
+cargo run -p vitui-apps --example browse -- --probe
 (cd conform && cargo run --example tmux)    # the one conformance soak that is headless
 (cd conform && cargo run --example kitty)   # a window, but no automation grant and no config file
 ```

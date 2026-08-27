@@ -36,14 +36,18 @@
 //! ([`Scene::owed`] and [`Scene::from_a_survived_defect`]), because the value can hold both and a
 //! count cannot.
 //!
-//! # Four scenes are `Unsubjected`, three are `Red` and twenty-six are `Evaluated`
+//! # Four scenes are `Unsubjected`, none is `Red` and twenty-nine are `Evaluated`
 //!
-//! The count that is a gate is `tests::four_scenes_have_nothing_to_run_over_three_are_red_and_
-//! twenty_six_are_stood_up`, which asserts the **numbers** each scene as well as the total; this
+//! The count that is a gate is `tests::four_scenes_have_nothing_to_run_over_none_is_red_and_
+//! twenty_nine_are_stood_up`, which asserts the **numbers** each scene as well as the total; this
 //! heading is a summary of it and the test is the authority.
 //!
-//! **Components ticket 31 moved three rows off `Unsubjected` and onto `Red`**, and the direction is
-//! *up*: scenes 23, 24 and 25 — the twenty selections, the seven batches and the re-sort — now run
+//! **Components ticket 32 took the last three**, which components 31 had moved off `Unsubjected`
+//! and onto `Red`, and the direction has been *up* throughout: scenes 23, 24 and 25 — the twenty
+//! selections, the seven batches and the re-sort — now draw through
+//! `crate::files::file_preview_pane_into`, and not one of the figures they were pinned with moved.
+//!
+//! **Components ticket 31 moved those three rows off `Unsubjected` and onto `Red`**: they now run
 //! a great deal in [`crate::preview`]. The re-sort is wrong on 100 of 100 frames under a position
 //! key and 0 under an identity key with **103 questions either way**, the seven batches are wrong
 //! after 7 of 7 with nobody pressing anything, the twenty selections draw 1 picture against 20, the
@@ -1189,7 +1193,8 @@ const PREVIEW: &str = "crates/vitui-components/src/preview.rs";
 /// The preview pane's report.
 const PREVIEW_NUMBERS: &str = "crates/vitui-components/examples/preview_numbers.rs";
 
-/// **The two components all three preview-pane scenes wait for.** Neither is declared.
+/// **The two components all three preview-pane scenes stand on.** Both are declared since
+/// components 32, which is what turned all three from red together — one fact and not three.
 const PREVIEW_SUBJECTS: &[&str] = &crate::preview::SUBJECTS;
 
 /// **What the three scenes of components ticket 31 share**, whatever else stands each of them up:
@@ -1198,7 +1203,7 @@ const PREVIEW_SUBJECTS: &[&str] = &crate::preview::SUBJECTS;
 const PINS_THE_PREVIEW: [Instrument; 2] = [
     Instrument::Unit {
         file: PREVIEW,
-        name: "the_screens_are_waiting_for_file_preview_pane_and_file_picker",
+        name: "the_screens_stand_on_file_preview_pane_and_file_picker",
     },
     Instrument::Unit {
         file: PREVIEW,
@@ -1207,9 +1212,9 @@ const PINS_THE_PREVIEW: [Instrument; 2] = [
 ];
 
 /// What stands scene 23 up, beyond the pair all three share: the crossover as a count, the two
-/// readings §15 prints of one product, the five offset spellings, the map's release argument and
-/// the torn frame.
-const PINS_SCENE_23: [Instrument; 8] = [
+/// readings §15 prints of one product, the five offset spellings, the map's release argument, the
+/// torn frame, the answer's own identity and the photograph in the pane.
+const PINS_SCENE_23: [Instrument; 12] = [
     PINS_THE_PREVIEW[0],
     PINS_THE_PREVIEW[1],
     Instrument::Unit {
@@ -1232,18 +1237,43 @@ const PINS_SCENE_23: [Instrument; 8] = [
         file: PREVIEW,
         name: "a_landing_taken_inside_the_draw_tears_every_frame_it_lands_on",
     },
+    Instrument::Unit {
+        file: PREVIEW,
+        name: "an_answer_to_a_question_nobody_asked_is_dropped_without_a_cell_written",
+    },
+    Instrument::Unit {
+        file: PREVIEW,
+        name: "no_decode_unit_runs_while_the_app_thread_is_inside_its_frame",
+    },
+    Instrument::Unit {
+        file: PREVIEW,
+        name: "a_photograph_in_the_pane_spends_one_custom_a_cell_of_the_body",
+    },
+    Instrument::Unit {
+        file: PREVIEW,
+        name: "the_unclamped_spelling_leaves_the_documents_own_cells_unwritten_on_the_frame_it_\
+               shrinks",
+    },
     Instrument::Report {
         file: PREVIEW_NUMBERS,
     },
 ];
 
 /// What stands scene 24 up. See [`PINS_SCENE_23`].
-const PINS_SCENE_24: [Instrument; 4] = [
+const PINS_SCENE_24: [Instrument; 6] = [
     PINS_THE_PREVIEW[0],
     PINS_THE_PREVIEW[1],
     Instrument::Unit {
         file: PREVIEW,
         name: "seven_batches_move_the_cursors_file_under_it_with_nobody_pressing_anything",
+    },
+    Instrument::Unit {
+        file: PREVIEW,
+        name: "the_steady_frame_is_the_same_at_a_thousand_a_hundred_thousand_and_a_million",
+    },
+    Instrument::Unit {
+        file: PREVIEW,
+        name: "ten_tab_switches_cost_one_spawn_and_one_fold_and_not_ten_of_each",
     },
     Instrument::Report {
         file: PREVIEW_NUMBERS,
@@ -1251,7 +1281,7 @@ const PINS_SCENE_24: [Instrument; 4] = [
 ];
 
 /// What stands scene 25 up. See [`PINS_SCENE_23`].
-const PINS_SCENE_25: [Instrument; 5] = [
+const PINS_SCENE_25: [Instrument; 8] = [
     PINS_THE_PREVIEW[0],
     PINS_THE_PREVIEW[1],
     Instrument::Unit {
@@ -1261,6 +1291,18 @@ const PINS_SCENE_25: [Instrument; 5] = [
     Instrument::Unit {
         file: PREVIEW,
         name: "a_re_sort_moves_a_hundred_and_ninety_seven_of_two_hundred_positions",
+    },
+    Instrument::Unit {
+        file: PREVIEW,
+        name: "the_pane_forwards_every_question_it_is_handed_including_the_deduplicated_ones",
+    },
+    Instrument::Unit {
+        file: PREVIEW,
+        name: "the_revision_advances_on_a_landing_and_not_on_a_drop_that_did_not_land",
+    },
+    Instrument::Unit {
+        file: PREVIEW,
+        name: "a_file_picker_is_three_components_and_no_fourth_mechanism",
     },
     Instrument::Report {
         file: PREVIEW_NUMBERS,
@@ -1989,46 +2031,24 @@ pub const SCENES: [Scene; 33] = [
         content: Content::Files { files: 20 },
         gestures: &[Gesture::Select { n: 20 }],
         decided: "R18 §5's crossover: 1 picture / 536 KB against 20 / 10.7 MB",
-        // **Empty while it is red, which is components 29's precedent and the honest reading of
-        // O5.** This screen would be evidence for `file_preview_pane`'s shrink and scroll axes —
-        // §15 states both in its own words, *a landing is a shrink* and the four offset spellings —
-        // and a scene that is waiting for its subject is not yet evidence of anything. Claiming the
-        // pairs here would be `crate::obligations::Verdict::of`'s vacuity accident arriving on O5's
-        // own join. Components 32 claims them.
-        covers: &[],
+        // **Claimed by components 32**, which is what the empty list was waiting for: a scene that
+        // is waiting for its subject is not yet evidence of anything, so `covers` stayed empty
+        // while it was red. §15 states both axes in its own words — *a landing is a shrink*, from
+        // another thread for the first time, and the four offset spellings — and the screen now
+        // measures both through the component.
+        covers: &[
+            ("file_preview_pane", Axis::Shrunk),
+            ("file_preview_pane", Axis::Scrolled),
+        ],
         stands: PREVIEW_SUBJECTS,
         owed: false,
         from_a_survived_defect: false,
-        // **Corrected while it was `Unsubjected`, and it is scene 10's correction one ticket
-        // later.** This row named `components 29`, whose own table is one scene — the picture at
-        // three colour depths — and whose criteria never mention a directory. The three preview
-        // pane scenes are 23, 24 and 25 and they belong to `components 31`, which lists all three.
-        // `inverted_by` is what a reader follows to find out who is going to stand a scene up, so a
-        // wrong one is worse than an absent one.
-        //
-        // **Components 31 stood the screen up and it is red rather than `Unsubjected`**, which is
-        // the move scene 22 made one ticket earlier for the same reason: a great deal runs, and
-        // what it runs over is a pane written beside the scene rather than the component.
-        standing: Standing::Red {
-            by: &PINS_SCENE_23,
-            failing: "the crossover is a count and it reproduces: 20 pictures at a 30 ms repeat \
-                      over a 12 ms decode against 1 at an 8 ms repeat under a 30 ms decode, with \
-                      neither arm branched on — a question superseded while it runs lands nothing. \
-                      §15's three wire figures cannot all be readings of one product and two of \
-                      them are: 14 652 cells at 37.5 B/cell is 549 450 bytes, 536.57 KiB, which \
-                      §15 prints as 536 by truncating it, and twenty of them is 10 989 000 bytes \
-                      — 10.99 MB, which is exactly what 18.3 MB/s over 600 ms requires. **10.7 MB \
-                      is the truncated 536 read as decimal kB and multiplied by twenty**, so the \
-                      total and the rate printed in one sentence come from two readings of one \
-                      number. The five offset spellings each produce their own defect on §15's \
-                      own three numbers — 0 content cells against 2 516, row 726, the previous \
-                      file scrolled to its top while it is still on screen, and forgotten on \
-                      return — the per-file map is right in both directions at 14 857 142 bytes \
-                      against a slot's 4 (and 35 651 584 as the shipped `HashMap` really \
-                      allocates), and a landing taken inside the draw tears 20 frames of 20 \
-                      against 0. What is missing is `file_preview_pane` and `file_picker`",
-            inverted_by: "components 32",
-        },
+        // **Corrected twice while it was `Unsubjected`, then stood up and then inverted.** It named
+        // `components 29`, whose own table is one scene and whose criteria never mention a
+        // directory; components 31 stood the screen up and pinned it red on the subject; components
+        // 32 declared the subject, and every figure below is now taken through
+        // `crate::files::file_preview_pane`.
+        standing: Standing::Evaluated { by: &PINS_SCENE_23 },
         rehearsed_by: &[],
     },
     Scene {
@@ -2039,26 +2059,15 @@ pub const SCENES: [Scene; 33] = [
         content: Content::Files { files: 200 },
         gestures: &[Gesture::Deliver { batches: 7 }, Gesture::Sort],
         decided: "the dedupe key: wrong after 7 of 7 batches, with no user in it",
-        covers: &[],
+        covers: &[("file_preview_pane", Axis::Shrunk)],
         stands: PREVIEW_SUBJECTS,
         owed: false,
         from_a_survived_defect: false,
         // **The same hole as scene 25 with no user in it**, which is why it is a scene of its own
         // and not a second gesture on that one: a directory still being listed splices batches into
         // a sorted order and the cursor's file changes under it with nobody pressing anything.
-        standing: Standing::Red {
-            by: &PINS_SCENE_24,
-            failing: "seven batches of 24 spliced into a seed of 32, no input at all. The settled \
-                      pane is still showing the wrong file after **7 of 7** batches under a \
-                      position key and after **0 of 7** under an identity key, on identical frame \
-                      counts. §15's *identity keying is wrong for exactly 1 frame, the decode's \
-                      latency* is a statement about a **run** and not about a total, and it is \
-                      asserted as one: the longest run of wrong frames is **1** under an identity \
-                      key and **21** under a position key, over 7 wrong frames against 21. A \
-                      total of one would need six of the seven batches not to move the cursor's \
-                      file. What is missing is `file_preview_pane` and `file_picker`",
-            inverted_by: "components 32",
-        },
+        // Green through the subject since components 32.
+        standing: Standing::Evaluated { by: &PINS_SCENE_24 },
         rehearsed_by: &[],
     },
     Scene {
@@ -2069,24 +2078,16 @@ pub const SCENES: [Scene; 33] = [
         content: Content::Files { files: 200 },
         gestures: &[Gesture::Sort],
         decided: "197 of 200 positions move; wrong on 100 of 100 frames",
-        covers: &[],
+        covers: &[("file_picker", Axis::Scrolled)],
         stands: PREVIEW_SUBJECTS,
         owed: false,
         from_a_survived_defect: false,
         // **The sixth arrival of the memo-key rule, and the only one whose trigger is not a
         // gesture.** A preview pane's question is a *file* and every natural way to name it names a
-        // *position*; one re-sort is one line of application code and no keystroke at all.
-        standing: Standing::Red {
-            by: &PINS_SCENE_25,
-            failing: "197 of 200 positions move — a rotation of the movable positions by one, with \
-                      three fixed points, so the count is a property of the data — and the \
-                      position-keyed pane is wrong on **100 of 100 frames** afterwards against 0. \
-                      Both arms call `Task::request` on **103** frames; the only counter that \
-                      moves is `Worker::asked`, **1 against 2**, because the question still \
-                      matches, so nothing posts, so nothing wakes, so no frame corrects it. What \
-                      is missing is `file_preview_pane` and `file_picker`",
-            inverted_by: "components 32",
-        },
+        // *position*; one re-sort is one line of application code and no keystroke at all. Green
+        // through the subject since components 32, and the key is now the component's parameter
+        // rather than the screen's own branch.
+        standing: Standing::Evaluated { by: &PINS_SCENE_25 },
         rehearsed_by: &[],
     },
     Scene {
@@ -2635,7 +2636,7 @@ mod tests {
         }
     }
 
-    /// **Eight scenes have nothing to run over, six are pinned red and nineteen are stood up.**
+    /// **Four scenes have nothing to run over, none is pinned red and twenty-nine are stood up.**
     ///
     /// `obligations.rs`'s arrangement and `gates.rs`'s: a count makes every change of colour a
     /// deliberate edit here rather than a quiet one. It was **twenty-five, none and three** until
@@ -2658,8 +2659,16 @@ mod tests {
     /// ticket turn all five. It stayed red for eight tickets after 12, which is what the distinction
     /// bought, and **components 20 stood it up by checking the shipped code rather than by writing
     /// it**.
+    ///
+    /// **The last three were 23, 24 and 25, and components 32 took them together** — one fact and
+    /// not three, because all three were pinned on the same missing subject. `crate::preview`'s
+    /// `Screen` now draws through `crate::files::file_preview_pane_into`, so the re-sort's 100 of
+    /// 100 frames, the seven batches, the crossover, the five offset spellings, the torn frame and
+    /// the per-file map's bytes are measurements of the component. `crate::scenes::line` is what
+    /// keeps a red row's own report reachable from a test once the list has run out of red rows,
+    /// and `crate::gates::Row`'s `Red` arm keeps the register's.
     #[test]
-    fn four_scenes_have_nothing_to_run_over_three_are_red_and_twenty_six_are_stood_up() {
+    fn four_scenes_have_nothing_to_run_over_none_is_red_and_twenty_nine_are_stood_up() {
         let red: Vec<u8> = SCENES
             .iter()
             .filter(|s| matches!(s.standing, Standing::Red { .. }))
@@ -2667,35 +2676,22 @@ mod tests {
             .collect();
         assert_eq!(
             red,
-            vec![23, 24, 25],
-            "**the three preview-pane scenes, and they arrived together because they are pinned on \
-             one fact and it is the subject** — `file_preview_pane` and `file_picker`, neither of \
-             which `src/files.rs` declares. The screens run: the re-sort is wrong on 100 of 100 \
-             frames under a position key and 0 under an identity key at 103 questions either way, \
-             the seven batches are wrong after 7 of 7 with nobody pressing anything, the twenty \
-             selections draw 1 picture against 20, the five offset spellings each produce their own \
-             defect and a landing taken inside the draw tears 20 frames of 20. That is the state \
-             §21 asks to be **pinned** rather than filed as `Unsubjected`, which is scene 22's move \
-             one ticket earlier. **The list had no red row between components 30 and 31.** Scene 22 was \
-             components 29's: the screen existed — the ladder, the census, the distinction census \
-             at four tiers and the two traps all measured — and what it was played over was a \
-             stand-in painter, which is the state §21 asks to be pinned rather than filed as \
-             `Unsubjected`. Components 30 declared `pub fn picture<P: Pixels>(` and `pub fn qr(` in \
-             `crate::media` and rewrote `crate::picture` to draw through them, and **not one of the \
-             pinned figures moved**. The history before it: components 26 took the previous last \
-             one — scene 14, the \
-             overlay family, which had been waiting for `select` and `overlay` since components 25. \
-             The history the empty vector replaces: components ticket 27's two were inverted by 28; \
-             components ticket 14's two — scenes 7 and 31 — by **15**; components ticket 16's two — \
-             scenes 8 and 9 — by **17**; components ticket 18's **four** — 17, 18, 19 and 30 — by \
-             **19**, all four together, because they were pinned on one fact and it was the \
-             subject. **The wheel gate was red for nine tickets and 20 inverted it**, and it is the \
-             one row of the list whose failing set was a defect rather than a missing subject — \
-             which is why it took the shipped code being checked and not a standing being edited. \
-             Components ticket 21's two — scenes 10 and 11 — were inverted together by 22, and \
-             ticket 23's three — 12, 13 and 32 — together by 24, both for the same reason and with \
-             the same shape. **A row arriving here owes both halves**: an exact failing set and \
-             the ticket that inverts it. These three carry `components 32`"
+            Vec::<u8>::new(),
+            "**the three preview-pane scenes were the last, and they arrived and left together \
+             because they were pinned on one fact and it was the subject** — `file_preview_pane` \
+             and `file_picker`, which `src/files.rs` now declares. The history: components 26 took \
+             scene 14, the overlay family; components 30 took scene 22 by declaring \
+             `pub fn picture<P: Pixels>(` and rewriting `crate::picture` to draw through it, with \
+             **not one of the pinned figures moving**; components 31 stood 23, 24 and 25 up and \
+             pinned them red on the subject, and **32** declared it. Before them: components 27's \
+             two were inverted by 28; 14's two — scenes 7 and 31 — by **15**; 16's two — 8 and 9 — \
+             by **17**; 18's **four** — 17, 18, 19 and 30 — by **19**, all four together. **The \
+             wheel gate was red for nine tickets and 20 inverted it**, and it is the one row of the \
+             list whose failing set was a defect rather than a missing subject — which is why it \
+             took the shipped code being checked and not a standing being edited. Components 21's \
+             two — 10 and 11 — were inverted together by 22, and 23's three — 12, 13 and 32 — \
+             together by 24. **A row arriving here owes both halves**: an exact failing set and the \
+             ticket that inverts it"
         );
         let evaluated: Vec<u8> = SCENES
             .iter()
@@ -2705,8 +2701,8 @@ mod tests {
         assert_eq!(
             evaluated,
             vec![
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 28, 29, 30,
-                31, 32, 33
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 24, 25,
+                28, 29, 30, 31, 32, 33
             ],
             "the dense screen and its two twins, the collection's **five** — the wheel gate joined \
              the other four when components 20 posted a real notch over the shipped component — \
@@ -2717,17 +2713,18 @@ mod tests {
              reason: `crate::accordion::draw_into` calls `disclose::collapsible_into`, so the fold \
              anchor and the 408-on-both-columns pair are measurements of the component. Scene 33 is \
              the pair §21 had no way to state, and it is here because it plays over `scroll_area` \
-             rather than over an arithmetic offset. **Scene 14 is components 26's and it is the \
-             last row of the list to arrive before components 30's**: the whole overlay family \
-             draws through `crate::input::select` and `crate::overlay::overlay`, and **scene 22 is \
-             components 30's**, drawn through `crate::media::picture_into` and \
-             `crate::media::qr_into` with both defect axes routed to `crate::media::defective`. \
-             A screen played \
-             over a stand-in for its components is rehearsed and not stood up, so one arriving \
-             here is a deliberate edit to this module's header and to `crate::gates::REGISTER`. Scenes 12, \
-             13 and 32 are components 24's, and the third of them is the one worth naming: the \
-             cluster corpus stands no component and covers no axis, and what makes it a scene is \
-             that a fixture can be sampled away by a later ticket with nothing saying so"
+             rather than over an arithmetic offset. **Scene 14 is components 26's**, drawn through \
+             `crate::input::select` and `crate::overlay::overlay`; **scene 22 is components 30's**, \
+             drawn through `crate::media::picture_into` and `crate::media::qr_into` with both \
+             defect axes routed to `crate::media::defective`; and **23, 24 and 25 are components \
+             32's**, drawn through `crate::files::file_preview_pane_into` with the four refused \
+             spellings routed to `crate::files::PaneShape` and the fifth to \
+             `crate::files::defective::Mapped`. A screen played over a stand-in for its components \
+             is rehearsed and not stood up, so one arriving here is a deliberate edit to this \
+             module's header and to `crate::gates::REGISTER`. Scenes 12, 13 and 32 are components \
+             24's, and the third of them is the one worth naming: the cluster corpus stands no \
+             component and covers no axis, and what makes it a scene is that a fixture can be \
+             sampled away by a later ticket with nothing saying so"
         );
         assert_eq!(
             SCENES.len() - evaluated.len() - red.len(),
@@ -2780,18 +2777,15 @@ mod tests {
         }
         assert_eq!(
             pinned_to,
-            vec![
-                (23, "components 32"),
-                (24, "components 32"),
-                (25, "components 32"),
-            ],
-            "**the three preview-pane scenes, all pinned to the ticket that declares their two \
-             components.** The distinction components 11's criterion 7 is about is what this vector \
-             is for — the wheel gate was pinned on a *defect* and every other red row has been \
-             waiting for a subject — and these three are the second kind: the screens run and the \
-             components do not exist. `field` left with components 24, three scenes together; the \
-             overlay family left with 26 and the picture with 30, and between 30 and 31 this vector \
-             was empty, which is when `line` earned its keep"
+            Vec::<(u8, &str)>::new(),
+            "**empty again, because components 32 declared the two components the last three red \
+             rows were waiting for.** The distinction components 11's criterion 7 is about is what \
+             this vector is for — the wheel gate was pinned on a *defect* and every other red row \
+             has been waiting for a subject. `field` left with components 24, three scenes \
+             together; the overlay family left with 26, the picture with 30 and the preview pane \
+             with 32. It was empty between 30 and 31 as well, which is when `line` earned its keep: \
+             a red row's own report has to stay reachable from a test across the stretches when \
+             there is no red row to run it over"
         );
     }
 
@@ -2907,7 +2901,12 @@ mod tests {
     #[test]
     fn seventeen_of_the_thirty_four_axis_obligations_have_a_scene_and_seventeen_do_not() {
         let evidence = axis_scenes();
-        assert_eq!(evidence.len(), 17);
+        // **Twenty since components 32**, which claimed the three pairs the three preview-pane
+        // scenes had left empty while they were red: `file_preview_pane` shrunk and scrolled, and
+        // `file_picker` scrolled. The test's name is the one it was written under and is kept, for
+        // `PINS_SCENE_22`'s reason — the count is asserted here and the name is how a reader finds
+        // the row.
+        assert_eq!(evidence.len(), 20);
         assert_eq!(
             crate::obligations::AXIS_SCENES.to_vec(),
             evidence,
@@ -2918,10 +2917,11 @@ mod tests {
         assert_eq!(coverage.len(), 34, "the population §17 states");
         let bare = coverage.iter().filter(|(_, _, s)| s.is_empty()).count();
         assert_eq!(
-            bare, 17,
+            bare, 14,
             "it was eighteen until components 20 claimed `(scroll_area, wheeled)` — the pair §21's \
              single wheel row had no way to state, because an arithmetic click has no second axis \
-             to be wrong on"
+             to be wrong on — and seventeen until components 32 claimed the preview pane's two and \
+             the picker's one, which the three scenes had left empty on purpose while they were red"
         );
 
         // Every claimed pair is an axis its component actually declares. A scene covering an axis
@@ -3001,19 +3001,26 @@ mod tests {
             assert!(!axis_scenes().iter().any(|(c, _)| *c == id));
         }
         // **Components ticket 31's criterion 1**, and it is the same shape one family over: three
-        // scenes, both components, answered through `stands` rather than through `covers`. The
-        // three are red, and a red scene claiming a `(component, axis)` pair would be
-        // `crate::obligations::Verdict::of`'s vacuity accident arriving on O5's own join — a scene
-        // that is waiting for its subject is not yet evidence of anything. Components 32 claims
-        // the pairs.
+        // scenes, both components, answered through `stands`. While the three were red `covers`
+        // was empty on all three deliberately — a scene waiting for its subject is not yet
+        // evidence of anything, and claiming a `(component, axis)` pair there would have been
+        // `crate::obligations::Verdict::of`'s vacuity accident arriving on O5's own join.
+        // **Components 32 declared the subject and claims the pairs**, three of them.
         for id in crate::preview::SUBJECTS {
             assert_eq!(
                 scenes_for(id).map(|s| s.number).collect::<Vec<_>>(),
                 vec![23, 24, 25],
                 "`{id}` does not answer `scenes_for` for the three preview-pane scenes"
             );
-            assert!(!axis_scenes().iter().any(|(c, _)| *c == id));
         }
+        assert_eq!(
+            axis_scenes()
+                .iter()
+                .filter(|(c, _)| crate::preview::SUBJECTS.contains(c))
+                .count(),
+            3,
+            "the pane's shrink and scroll axes and the picker's scroll axis"
+        );
     }
 
     /// **Seven scenes are rehearsed, and a rehearsal names a live test.**
@@ -3247,29 +3254,30 @@ mod tests {
             printed.matches("not played: `components ").count(),
             4,
             "**four again, since components 31**, which moved the three preview-pane scenes off \
-             `Unsubjected` and onto `Red`. The direction is up: `Unsubjected` says *nothing runs*, \
-             and a great deal runs on all three"
+             `Unsubjected` and onto `Red`, and unchanged by 32, which moved the same three from \
+             `Red` to `Evaluated`. The direction has been up throughout: `Unsubjected` says \
+             *nothing runs*, and a great deal ran on all three before either ticket"
         );
         assert_eq!(
             printed
                 .matches("stood up on its own components, by ")
                 .count(),
-            25,
+            28,
             "a stood-up scene says what stands it up, rather than reading as unplayed. \
-             Twenty-six are stood up and twenty-five say so here, because scene 12 is the one \
+             Twenty-nine are stood up and twenty-eight say so here, because scene 12 is the one \
              this report **plays** — a played line carries its own numbers instead"
         );
         assert_eq!(
             printed.matches("red, pinned: `components ").count(),
-            3,
-            "**three since components 31** — the preview pane's, and they arrived together \
-             because they are pinned on one fact and it is the subject. A red line is neither *not \
-             played* nor *stood up*. The history: the wheel gate was the seventh until components \
-             20, the accordion's two the fifth and sixth until 22, the field's three the second, \
-             third and fourth until 24, the overlay family the last one until 26, the picture the \
-             one after that until 30, and it was **none** between 30 and 31 — which is when `line` \
-             earned its keep, because a red row's own report has to stay reachable from a test on \
-             the days the list has no red row"
+            0,
+            "**none again since components 32**, which declared the two components the preview \
+             pane's three were pinned on. A red line is neither *not played* nor *stood up*. The \
+             history: the wheel gate was the seventh until components 20, the accordion's two the \
+             fifth and sixth until 22, the field's three the second, third and fourth until 24, the \
+             overlay family the last one until 26, the picture the one after that until 30, the \
+             preview pane's three from 31 until 32, and it was none between 30 and 31 as well — \
+             which is when `line` earned its keep, because a red row's own report has to stay \
+             reachable from a test on the days the list has no red row"
         );
         assert_eq!(printed.matches("[rehearsed over a fixture").count(), 1);
         assert!(

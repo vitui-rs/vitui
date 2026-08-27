@@ -1298,28 +1298,21 @@ fn select_shaped<'f, I: Ink>(
     // and invisible to every counter but the pair. That was in the first draft of this file, and
     // `overlay::tests::a_shut_selects_face_is_a_partition_of_its_rectangle_at_every_width` is what
     // caught it.
-    let room = area.w.saturating_sub(MARK);
-    let (shown, tail) = crate::glyphs::elide(cx.theme(), label, room);
-    let ell = width(tail);
+    // **Through `crate::glyphs::elided_row_into`, which is where the pad and the marker meet.**
+    // It was written out here until components 32, whose `file_picker` transcribed it — two copies
+    // of a drawing that had already been wrong once is one copy too many, so the drawing is one
+    // function and both callers spend their own prefix before it.
     let _ = ink.text(cx, area.x, area.y, chevron, paint);
     let _ = ink.text(cx, area.x + 1, area.y, " ", paint);
-    let _ = ink.pad_to(
+    let _ = crate::glyphs::elided_row_into(
+        ink,
         cx,
         area.x + i32::from(MARK),
         area.y,
-        shown,
-        room.saturating_sub(ell),
+        label,
+        area.w.saturating_sub(MARK),
         paint,
     );
-    if ell > 0 {
-        let _ = ink.text(
-            cx,
-            area.x + i32::from(MARK) + i32::from(room.saturating_sub(ell)),
-            area.y,
-            tail,
-            paint,
-        );
-    }
 
     // **A click on the shut face opens it and takes the focus**; a click on the open face shuts it,
     // which is the same gesture and the same one bool.

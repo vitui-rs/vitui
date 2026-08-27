@@ -5,14 +5,16 @@
 //! Being built one ticket at a time from `.scratch/vitui-components-architecture/spec.md`, whose
 //! map is closed; the backlog is `.scratch/vitui-components-impl/`, forty-three tickets.
 //!
-//! **Sixteen of the twenty-nine components are written** — [`text::text`], [`text::chip`],
+//! **Eighteen of the twenty-nine components are written** — [`text::text`], [`text::chip`],
 //! [`input::button`] and [`structure::panel`] (components ticket 10), [`collect::collection`]
 //! (components ticket 12), [`chart::chart`] and [`chart::plot`] (components ticket 28),
 //! [`collect::table`] (components ticket 15), [`collect::tree`] (components ticket 17),
 //! [`scroll::scroll_area`], [`scroll::scrollbar`] and [`scroll::sticky`] (components ticket 19),
 //! [`disclose::collapsible`] (components ticket 22), [`input::field`] (components ticket 24) and
-//! [`input::select`] with [`overlay::overlay`] (components ticket 26) — and the
-//! dense screen, the listing, the grid, the forest, the two scroll-area screens and the accordion are
+//! [`input::select`] with [`overlay::overlay`] (components ticket 26), and
+//! [`files::file_preview_pane`] with [`files::file_picker`] (components ticket 32) — and the
+//! dense screen, the listing, the grid, the forest, the two scroll-area screens, the accordion and
+//! the preview pane's three screens are
 //! now drawn *through* them
 //! rather than through their construction. They are spec §1's four rules with
 //! **two stated substitutions**: [`Rect`] stands in for `Rect`, which cannot be named from a
@@ -243,6 +245,34 @@
 //!   standing on, a catcher layer **swallows** the press it exists to report, a body holding a
 //!   `Copy` of the offset moves it **0 in 20 notches**, and a modal missing either half of its two
 //!   verbs loses the pointer or the keyboard but never both.
+//!
+//! - [`files`] — **`file_preview_pane` and `file_picker`, and every defect is at a seam between two
+//!   of five pieces** (components ticket 32). R3's *composition with no new mechanism* is the class
+//!   that turns out to be false when it is false, so the picker is checked as a **source scan** for
+//!   the four mechanisms it may not mint and as a **subtraction** over what it declares: 6 regions
+//!   decomposing as the owner's shut face, the shell's blur position, the collection's one entry
+//!   however many rows it has, and the pane's three.
+//!
+//!   **Five seams, five decisions.** [`files::Preview::shows`] is §15's eight bytes on the payload —
+//!   an answer to a question *nobody ever asked* arrives with a current generation, because the job
+//!   was started for the right question and answered a different one, and *a question that was never
+//!   asked is not out of order*, so no test on the answer can see it. [`files::Reset::OnTheLanding`]
+//!   is the offset, and the four spellings beside it each produce their own defect on a 4 000-row
+//!   file, an 800-row file and a 74-row viewport. [`files::PaneState::land`] is a **top-of-view
+//!   verb** and not a step inside the component, because `Task::take` is destructive and a caller
+//!   with a status row on each side of the pane straddles a mid-draw take: 20 torn frames of 20.
+//!   [`files::Bump::OnTheLanding`] is R09's `Edit` — *a landing that did not happen is still a drop*
+//!   — 20 folds against 119 on two screens that are cell-identical. And **nothing here owns the job
+//!   or the memo**: ten tab switches cost 1 spawn, 1 decode and 1 fold against 10 of each, because
+//!   R02's sweep releases what an `Id` stopped drawing and *a job's lifetime is the question's, a
+//!   memo's is the data's, and neither is the widget's*.
+//!
+//!   **§15's *unclamped* is not a spelling of the offset at all.** `scroll_area` clamps against the
+//!   extent it is handed on every frame and the clamp is free, so the only way to *the body draws
+//!   nothing* is [`files::Extent::Unbounded`] — and it costs two things rather than one, because an
+//!   unbounded extent leaves the area no tail either. The shrink frame writes **21 484 of 24 000**,
+//!   and the 2 516 nobody writes is the document's own: §15's own pair is 4 166 against 1 650 on a
+//!   screen that did not partition, and **the gap is 2 516 in both**.
 //!
 //! - [`media`] — **the media family, and none of it is a row of the freeze** (components ticket 30).
 //!   §14's *no v1 component* as a value: [`media::MEMBERS`] is empty and the module ships anyway,

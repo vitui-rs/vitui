@@ -667,3 +667,47 @@ fn a_steady_frame_of_the_media_family_allocates_nothing_as_a_total() {
     // pure drawers.
     assert_eq!(driver.inspect().hits().len(), 0);
 }
+
+/// **The preview pane's steady frame allocates nothing as a total**, with a worker in the frame and
+/// a landing in its history.
+///
+/// Components ticket 32's criterion 8, and it could not be measured from inside `crate::preview`:
+/// the counting allocator is `vitui-alloc-probe`, installed in this binary, which is register row
+/// 32's arrangement.
+///
+/// **It is the component and not the screen.** `crate::preview::Screen` formats a `String` for
+/// every list row and every document line and allocates
+/// `crate::preview::SCREEN_ALLOCATIONS_A_FRAME` a frame — which is what an instrument does, and
+/// `crate::ink` says so out loud: *an instrument allocating is not a defect.* §20's budget is the
+/// component's, so the window goes over `files::file_preview_pane_into` with a line drawer that
+/// stages rather than formats.
+///
+/// **The total and not the mean**, for §21 refinement 2's reason: a mean cannot see anything below
+/// `n` and a total can see one. What is under the window is a component holding an asynchronous
+/// answer — `Task::request` is called on every one of the fifty frames and boxes its job on none of
+/// them, because the key does not change and the deduplicated call returns before it looks at it.
+#[test]
+fn a_steady_preview_frame_allocates_nothing_as_a_total() {
+    use vitui_alloc_probe::count_allocations;
+    use vitui_components::counters::Allocations;
+    use vitui_components::preview::Alone;
+
+    let mut alone = Alone::warmed();
+
+    const FRAMES: u32 = 50;
+    let (_, total) = count_allocations(|| {
+        for _ in 0..FRAMES {
+            alone.frame();
+        }
+    });
+    let measured = Allocations::over(FRAMES, total as u64);
+    assert_eq!(
+        measured.total(),
+        0,
+        "{} allocations over {} frames of `file_preview_pane`. A mean would have reported 0 for \
+         any total below {}",
+        measured.total(),
+        measured.frames(),
+        measured.frames()
+    );
+}

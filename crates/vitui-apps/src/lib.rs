@@ -76,7 +76,7 @@ pub struct App {
 /// and the reason is that there is nothing to port: what it demonstrates is *one component and one
 /// `Mode`*, and no other library's tutorial has an equivalent because no other library makes the
 /// claim.
-pub const APPS: [App; 10] = [
+pub const APPS: [App; 11] = [
     App {
         name: "counter",
         what: "A bordered panel, a centred value, and Left/Right/q. The smallest program anybody \
@@ -330,6 +330,37 @@ pub const APPS: [App; 10] = [
         ],
         after: None,
     },
+    App {
+        name: "browse",
+        what: "A file browser whose preview pane really decodes on another thread. `k` then `s` is \
+               the one to watch: key the question on the cursor's position instead of on its file, \
+               re-sort the listing, and the pane goes on showing the file that used to be at that \
+               position for ever — because the question still matches, so nothing posts, so \
+               nothing wakes, so no frame corrects it. `l` makes the two status rows disagree with \
+               no thread involved; `x` blanks the pane after a shrink and leaves 2 516 cells \
+               nobody writes; `b` changes the fold count and not one cell of the screen",
+        uses: &[
+            "files::file_preview_pane_into",
+            "files::PaneState::land",
+            "files::PaneShape",
+            "files::Preview",
+            "files::Question",
+            "collect::collection_into",
+            "media::picture_into",
+            "media::sub_rows",
+            "counters::Tally",
+            "ink::Ink",
+            "order::Rows",
+            "frame::face_paint",
+            "work::Worker::hire",
+            "work::Task",
+            "work::Cancel",
+            "ctx::Driver::wake",
+            "ctx::Driver::unhandled",
+            "ctx::Driver::wait",
+        ],
+        after: None,
+    },
 ];
 
 #[cfg(test)]
@@ -391,9 +422,9 @@ mod tests {
             checked += 1;
         }
         assert_eq!(
-            checked, 8,
-            "triage, ledger, explorer, reader, settings, compose, console and theatre open the \
-             window; counter and latency read their keys through a `KeyMap` instead"
+            checked, 9,
+            "triage, ledger, explorer, reader, settings, compose, console, theatre and browse \
+             open the window; counter and latency read their keys through a `KeyMap` instead"
         );
 
         // **The other directions**, or a scanner that has stopped finding `driver.frame(` reports

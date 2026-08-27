@@ -231,6 +231,15 @@ pub const AXIS_SCENES: &[(&str, Axis)] = &[
     ("scrollbar", Axis::Narrow),
     // §21 scene 18 — a 1M-row scroll area, row 799 999 of 999 999.
     ("scroll_area", Axis::Scrolled),
+    // §21 scenes 23 and 25 — the preview pane's shrink and scroll, and the picker's scroll.
+    // **Empty until components 32**, which is not a filing decision: while all three scenes were
+    // red they were waiting for their subject, and a scene waiting for its subject is not yet
+    // evidence of anything. §15 states both of the pane's axes in its own words — *a landing is a
+    // shrink*, from another thread for the first time, and the four offset spellings that follow
+    // from the offset belonging to neither side.
+    ("file_preview_pane", Axis::Shrunk),
+    ("file_preview_pane", Axis::Scrolled),
+    ("file_picker", Axis::Scrolled),
     // Scene 28 — components 09's narrow axis over the dense screen, at 300x80 and at 120x40. Not a
     // row of §21: the first two scenes of that table are the dense screen and its twin and neither
     // names an axis, and the defect this one is about — *a label that runs into its sibling's
@@ -539,9 +548,11 @@ mod tests {
         // added `text` and `chip`, and ticket 20 added `(scroll_area, wheeled)` — the pair §21 had
         // no way to state, because its single wheel row was written while a click was an arithmetic
         // substitution and a delta added to an offset has no second axis to be wrong on. The other
-        // seventeen are the per-component scenes tickets'. A query that moves is a query that is
+        // seventeen were the per-component scenes tickets', and components 32 took three of them:
+        // the preview pane's shrink and scroll and the picker's scroll, which the three scenes had
+        // left empty on purpose while they were red. A query that moves is a query that is
         // measuring something.
-        assert_eq!(unmet(o5(AXIS_SCENES)), (34, 17), "O5");
+        assert_eq!(unmet(o5(AXIS_SCENES)), (34, 14), "O5");
 
         // The construction sum O3 will be checked against once ticket 37 has screens: 29 rows plus
         // `chart`, `meter` and `sparkline` at 2 and `plot` at 3.
@@ -626,7 +637,7 @@ mod tests {
     /// See [`o1_fails_loudly`]. **The one worth more than the other four together**, and the one
     /// whose population is `(component, axis)` pairs rather than scenes.
     #[test]
-    #[should_panic(expected = "O5 is unmet: 17 of 34")]
+    #[should_panic(expected = "O5 is unmet: 14 of 34")]
     fn o5_fails_loudly() {
         o5(AXIS_SCENES).assert_met("O5");
     }

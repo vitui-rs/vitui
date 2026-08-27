@@ -321,6 +321,40 @@ pub fn elide<'a>(theme: &Theme, s: &'a str, w: u16) -> (&'a str, &'static str) {
     (text::truncate(s, w - 1), theme.glyph(Glyph::Ellipsis))
 }
 
+/// **An elided label written as a partition of the room it was given**, marker and all.
+///
+/// [`elide`] reserves the marker's cell and hands back two slices; writing them is where the mistake
+/// is, and it is the same mistake every time — pad the head to the **whole** width and then write
+/// the marker over the pad's last cell, and one cell of every *truncated* widget is written twice.
+/// It is invisible on the screen, invisible at `writes`, `verbs` and `marked`, and visible only to
+/// the pair. Components 26 found it in `crate::input::select` and components 32 found the same
+/// drawing transcribed into `crate::files::file_picker`.
+///
+/// So the drawing is one function and both call it: the pad stops where the marker starts, and there
+/// is one place for that to be wrong. Answers the columns written, which is `room` unless the room
+/// was zero.
+///
+/// **A partition of `room` and nothing wider**, which is what makes it callable from a component that
+/// has already spent columns on a chevron.
+pub(crate) fn elided_row_into<I: crate::ink::Ink>(
+    ink: &mut I,
+    cx: &mut vitui_runtime::Ctx<'_, '_>,
+    x: i32,
+    y: i32,
+    label: &str,
+    room: u16,
+    paint: vitui_runtime::Paint,
+) -> u16 {
+    let (shown, tail) = elide(cx.theme(), label, room);
+    let marker = text::width(tail);
+    let head = room.saturating_sub(marker);
+    let mut written = ink.pad_to(cx, x, y, shown, head, paint);
+    if marker > 0 {
+        written += ink.text(cx, x + i32::from(head), y, tail, paint);
+    }
+    written
+}
+
 /// A memo key for a value **made of glyphs**, which is the word ADR 0032 adds to R20's rule.
 ///
 /// > A memo carries the theme in its key iff its value is made of paints **or glyphs**.
