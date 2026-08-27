@@ -5360,7 +5360,8 @@ pub const REGISTER: [Row; 168] = [
     Row {
         number: 168,
         on_spec_table: false,
-        gate: "two pictures at two call sites are two ids, and the same call site drawn twice is one",
+        gate: "two pictures and two chromes at two call sites are two ids and 0 merges, and the \
+               same call site drawn twice is one",
         kind: Kind::Equality,
         owner: "C15",
         section: "spec §4, §14",
@@ -5375,10 +5376,23 @@ pub const REGISTER: [Row; 168] = [
         // matters — it takes its id in the frame that carries the attribute — which is what made the
         // diagnosis a comparison rather than a guess.
         standing: Standing::Evaluated {
-            by: &[Instrument::Unit {
-                file: MEDIA,
-                name: "two_pictures_at_two_call_sites_are_two_widgets",
-            }],
+            by: &[
+                Instrument::Unit {
+                    file: MEDIA,
+                    name: "two_pictures_at_two_call_sites_are_two_widgets",
+                },
+                // **And the chrome, where the same defect is not quiet at all.** A review found it
+                // left in the sibling file on the one construction in this family that interacts:
+                // `Ctx::interact` makes a merged claim **inert**, so a second player's seek bar
+                // took no press, no drag and no hover and its transport buttons never clicked, on a
+                // screen that rendered perfectly. It is ADR 0027's rule — *a container roots its
+                // children inside its own id* — and it needs both halves, because `#[track_caller]`
+                // decides *whose* id and `with_id` decides what the keyed children hang from.
+                Instrument::Unit {
+                    file: PLAYER,
+                    name: "two_chromes_at_two_call_sites_are_two_players_and_nothing_merges",
+                },
+            ],
         },
     },
     Row {

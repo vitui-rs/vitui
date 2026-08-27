@@ -522,7 +522,7 @@ fn the_chrome() {
     );
 }
 
-/// 6. What this crate cannot ask.
+/// 8. What this crate cannot ask, with the item each answer needs.
 fn what_this_crate_cannot_ask() {
     println!("report  what this crate cannot ask, and the item each answer needs:");
     println!(
@@ -544,7 +544,7 @@ fn what_this_crate_cannot_ask() {
     println!("  Both are filed as runtime architecture issue 34.\n");
 }
 
-/// 7. What does not reproduce.
+/// 9. What does not reproduce, said out loud rather than engineered away.
 fn what_does_not_reproduce() {
     println!("report  what does not reproduce, said out loud:");
     println!(

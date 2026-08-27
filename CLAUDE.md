@@ -11,7 +11,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `vitui` is a Rust TUI library: fast, layered terminal rendering, meant to be the foundation a
 component library stands on. Version `0.0.0`, unpublished, no stability promise before 0.x. MSRV
-1.85.
+**1.88** — `Cargo.toml` is the authority and the `msrv` job in `.gitlab-ci.yml` is what keeps it
+honest. It said 1.85 here for three releases after let-chains moved it.
 
 **Where the build actually is** (keep this paragraph current — it is the first thing a session needs):
 
@@ -382,6 +383,16 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   `Response::id` is a value a caller may key on rather than one the runtime checks. `barcode` was
   correct beside them for the only reason that matters, which made the diagnosis a comparison rather
   than a guess.
+  **A review then found the same defect one file over, on the one construction that interacts.**
+  `chrome` did not root its children inside its own id — ADR 0027's rule — so two chromes returned
+  **one `Response::id`** and **6 merges**, and this one is *not* quiet: `Ctx::interact` makes a merged
+  claim **inert**, so a second player's seek bar takes no press, no drag and no hover and its buttons
+  never click on a screen that renders perfectly. It needs both halves — `#[track_caller]` decides
+  whose id, `cx.with_id` decides what the keyed children hang from. Two more were the application's,
+  and both are shapes this ticket had already written down: its QR band was capped at half the side
+  column, so the extent clamp silently ate the bottom of the symbol at every ordinary terminal size
+  (it is now what the symbol needs, with **got / wanted** on the status line), and it collected the
+  barcode's pattern on the draw path, which is the exact shape the negative case is kept *for*.
   **What is not built is recorded and not attempted**: `media::WhyThereIsNoWallpaper` carries the
   three `LayerHost` gaps, the still screen's **24 000 cells re-damaged against 1 076** and the
   **13.7×**, and no component-level placement ships. Register 162 → **168 rows, 152 evaluated**;

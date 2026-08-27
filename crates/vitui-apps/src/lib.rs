@@ -303,6 +303,7 @@ pub const APPS: [App; 10] = [
                nothing, from `Response::local` alone",
         uses: &[
             "media::picture_into",
+            "media::sub_rows",
             "media::qr_into",
             "media::barcode_into",
             "media::waveform_into",

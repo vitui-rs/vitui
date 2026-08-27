@@ -226,12 +226,16 @@ struct App {
     modules: Modules,
     /// The samples the waveform buckets, built once.
     samples: Vec<f32>,
+    /// The barcode's pattern, built once. See `draw_side`.
+    bars: Vec<bool>,
     /// The bins the spectrum and the meter read, rebuilt when the position moves.
     bins: Vec<f32>,
     /// What the last frame declared and cost.
     seen: Seen,
     /// The track's rectangle, so the status line can print what the grab was resolved against.
     track_w: u16,
+    /// The rows the QR symbol wanted and the rows it got, so a clipped symbol says so.
+    qr_rows: (u16, u16),
 }
 
 /// What the status line prints, all of it read from the frame that has just drawn.
@@ -302,9 +306,18 @@ impl App {
             ),
             modules: symbol(21),
             samples,
+            bars: (0..SIDE_W)
+                .map(|i| {
+                    !u32::from(i)
+                        .wrapping_mul(2_654_435_761)
+                        .wrapping_shr(9)
+                        .is_multiple_of(5)
+                })
+                .collect(),
             bins: Vec::new(),
             seen: Seen::default(),
             track_w: 0,
+            qr_rows: (0, 0),
         };
         app.player.position = 0.37;
         app.player.subtitle = "-- and that is the whole of the wire argument.".to_owned();
@@ -355,7 +368,7 @@ impl App {
 
         let mut census = Census::default();
         self.draw_picture(&mut sink, cx, picture_at, &mut census);
-        self.draw_side(&mut sink, cx, side, &mut census);
+        self.qr_rows = self.draw_side(&mut sink, cx, side, &mut census);
 
         let track = if self.collecting {
             chrome_defective::chrome_collecting_into(
@@ -418,31 +431,39 @@ impl App {
     }
 
     /// The column of symbols and meters: a QR, a barcode, a waveform, a spectrum and a VU meter.
+    ///
+    /// Returns the rows the symbol **wanted** and the rows it **got**, so a clipped QR says so on
+    /// the status line instead of being a bottom edge nobody looks at.
     fn draw_side<I: Ink>(
         &self,
         ink: &mut I,
         cx: &mut Ctx<'_, '_>,
         side: Rect,
         census: &mut Census,
-    ) {
+    ) -> (u16, u16) {
         if side.w == 0 || side.h == 0 {
-            return;
+            return (self.modules.side(), 0);
         }
-        // A QR at two modules a cell is eleven rows and at one it is twenty-one, so the band is
-        // sized for the taller: a rectangle sized for the first clips the second.
-        let qr_h = self.modules.side().min(side.h);
-        let (qr_at, rest) = rect::split_at_v(side, qr_h.min(side.h / 2));
+        // **The band is what the symbol needs at this rung, and the review caught it being half the
+        // column.** A version-1 symbol is eleven rows at two modules a cell and twenty-one at one,
+        // and `qr_into` clamps to its rectangle rather than painting past it — so a band capped at
+        // `side.h / 2` clips the bottom of the QR at every ordinary terminal size, silently, on the
+        // app whose headline names it. The symbol wins over the meters below it, and the status line
+        // prints what it wanted against what it got.
+        let per_cell = u16::from(vitui_components::media::sub_rows(cx.theme().glyphs())).max(1);
+        let qr_h = self.modules.side().div_ceil(per_cell).min(side.h);
+        let (qr_at, rest) = rect::split_at_v(side, qr_h);
         qr_into(ink, cx, qr_at, &self.modules, census);
+        let rows = (self.modules.side().div_ceil(per_cell), qr_at.h);
 
-        let bars: Vec<bool> = (0..rest.w)
-            .map(|i| {
-                let h = u32::from(i).wrapping_mul(2_654_435_761) >> 9;
-                h % 5 != 0
-            })
-            .collect();
+        // **The pattern is a field and not a `collect` on the draw path**, which the review caught:
+        // it is a pure function of the column index, so a `Vec` built inside the frame is one
+        // allocation a frame for a value that never changes. It is the shape
+        // `player::defective::chrome_collecting_into` is kept as a negative case *for*, and the
+        // note on `rebuild_bins` says the same thing about the other one.
         let band = (rest.h / 4).max(1);
         let (barcode_at, rest) = rect::split_at_v(rest, band.min(rest.h));
-        barcode_into(ink, cx, barcode_at, &bars, census);
+        barcode_into(ink, cx, barcode_at, &self.bars, census);
 
         let (wave_at, rest) = rect::split_at_v(rest, (rest.h / 3).min(rest.h));
         waveform_into(ink, cx, wave_at, &self.samples, census);
@@ -450,6 +471,7 @@ impl App {
         let (spectrum_at, vu_at) = rect::split_at_v(rest, (rest.h / 2).min(rest.h));
         spectrum_into(ink, cx, spectrum_at, &self.bins, census);
         vu_meter_into(ink, cx, vu_at, &self.bins, census);
+        rows
     }
 
     /// **What the frame has just spent, printed under it.**
@@ -465,7 +487,7 @@ impl App {
         let rung = RUNGS[self.rung];
         let line = format!(
             " {tier:?} · {rung:?} · {} · {} · customs {} · roles {} · regions {} · {} · scrub {} \
-             of {} · {}{}{}",
+             of {} · qr {}/{} rows · {}{}{}",
             self.source.word(),
             match self.palette {
                 Palette::Custom => "pixels",
@@ -481,6 +503,8 @@ impl App {
             },
             scrubbed.map_or("-".to_owned(), |v| format!("{v:.4}")),
             self.track_w,
+            self.qr_rows.1,
+            self.qr_rows.0,
             if self.player.playing {
                 "playing"
             } else {
@@ -613,6 +637,11 @@ fn probe(app: &mut App) {
         "  regions      {:>8}   the panel, the five transport buttons and the track. Not one of \
          them is a picture, a symbol or a meter: those declare nothing at all",
         app.seen.regions
+    );
+    println!(
+        "  qr rows      {:>8}   of the {} a version-1 symbol needs at this rung. Fewer is a \
+         clipped symbol, which `qr_into` does rather than paint past its rectangle",
+        app.qr_rows.1, app.qr_rows.0
     );
     println!("  scrub        {:>8}   nothing is held", "-");
 }

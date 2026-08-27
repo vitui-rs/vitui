@@ -36,7 +36,7 @@
 //! integer mean is **0**.
 
 use vitui_runtime::layout::rect;
-use vitui_runtime::{Ctx, Glyph, Interest, Rect, Response, Role};
+use vitui_runtime::{Ctx, Glyph, Id, Interest, Rect, Response, Role};
 
 use super::Census;
 use crate::ink::{Direct, Ink};
@@ -270,6 +270,7 @@ const BUTTON_W: u16 = 4;
 ///     assert_eq!(scrub(&track), None);
 /// });
 /// ```
+#[track_caller]
 pub fn chrome(cx: &mut Ctx<'_, '_>, area: Rect, p: &mut Player) -> Response {
     chrome_into(&mut Direct, cx, area, p, &mut Census::default())
 }
@@ -277,6 +278,7 @@ pub fn chrome(cx: &mut Ctx<'_, '_>, area: Rect, p: &mut Player) -> Response {
 /// **[`chrome`], drawing through an [`Ink`] and publishing its [`Census`] — which is zero customs.**
 ///
 /// The chrome is theme-coloured throughout: it is the contrast §14 draws a picture against.
+#[track_caller]
 pub fn chrome_into<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
@@ -284,7 +286,8 @@ pub fn chrome_into<I: Ink>(
     p: &mut Player,
     census: &mut Census,
 ) -> Response {
-    draw_chrome(ink, cx, area, p, census, Marks::Field)
+    let id = cx.id();
+    draw_chrome(ink, cx, area, id, p, census, Marks::Field)
 }
 
 /// Where the chapter marks the track draws come from. See [`defective`].
@@ -297,7 +300,36 @@ enum Marks {
 }
 
 /// The body both arms are.
+///
+/// # It roots every child inside its own id, and the review caught it not doing so
+///
+/// ADR 0027: *a container roots its children inside its own id*. The chrome draws a track and five
+/// keyed buttons and two keyed lists, and without the scope below **every chrome on a screen derives
+/// the same ids** — `Ctx::id` mints from `Location::caller()`, and a line inside a private body is
+/// one line however many call sites reach it, while `Ctx::with_key` roots at whatever the enclosing
+/// stack happens to be.
+///
+/// What that costs is `Ctx::interact`'s: a merged claim is **inert**, so the second player's seek
+/// bar takes no press, no drag and no hover and its transport buttons never click, on a screen that
+/// renders perfectly. `collect::collection` carries the same call for the same reason and says so.
+///
+/// The `#[track_caller]` on the three public entry points is the other half and neither works alone:
+/// the attribute makes the id the *caller's* line, and the scope is what puts the children under it.
+#[allow(clippy::too_many_arguments)]
 fn draw_chrome<I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    id: Id,
+    p: &mut Player,
+    census: &mut Census,
+    marks: Marks,
+) -> Response {
+    cx.with_id(id, |cx| draw_chrome_inner(ink, cx, area, p, census, marks))
+}
+
+/// The drawing half, inside the chrome's own id.
+fn draw_chrome_inner<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
     area: Rect,
@@ -619,6 +651,7 @@ pub mod defective {
     /// a mean of zero, and only the total tells them apart. See
     /// `crate::picture::tests::the_chrome_allocates_nothing_and_the_shape_it_replaced_allocates_a_
     /// total_no_mean_would_show`.
+    #[track_caller]
     pub fn chrome_collecting_into<I: Ink>(
         ink: &mut I,
         cx: &mut Ctx<'_, '_>,
@@ -626,7 +659,8 @@ pub mod defective {
         p: &mut Player,
         census: &mut Census,
     ) -> Response {
-        draw_chrome(ink, cx, area, p, census, Marks::Collected)
+        let id = cx.id();
+        draw_chrome(ink, cx, area, id, p, census, Marks::Collected)
     }
 }
 
@@ -869,6 +903,49 @@ mod tests {
                 "at {h} rows: the overwrite is the marks and the thumb and nothing else"
             );
         }
+    }
+
+    /// **Two chromes at two call sites are two players**, and both halves of the fix are needed.
+    ///
+    /// ADR 0027's rule — *a container roots its children inside its own id* — on the one
+    /// construction in this family that interacts, and the review caught it broken. `Ctx::id` mints
+    /// from `Location::caller()` and `#[track_caller]` does not propagate into a plain private body,
+    /// so the track's id was the fixed line inside `draw_chrome`: one value for every chrome ever
+    /// drawn. `Ctx::with_key` then roots at whatever the enclosing stack happens to be, so the five
+    /// transport buttons and the two lists collided as well.
+    ///
+    /// **What that costs is `Ctx::interact`'s**, and it is silent: a merged claim is *inert*, so the
+    /// second player's seek bar takes no press, no drag and no hover and its buttons never click —
+    /// on a screen that renders perfectly. `media::tests::two_pictures_at_two_call_sites_are_two_widgets`
+    /// is the same gate over the family's pure drawers, where the only casualty is `Response::id`.
+    #[test]
+    fn two_chromes_at_two_call_sites_are_two_players_and_nothing_merges() {
+        let mut driver = Driver::headless(60, 20).expect("a sink attaches");
+        let (mut top, mut bottom) = (player(), player());
+        let mut ids = (None, None);
+        driver.frame(|cx| {
+            let (upper, lower) = vitui_runtime::layout::rect::split_at_v(cx.area(), 10);
+            ids.0 = Some(chrome(cx, upper, &mut top).id);
+            ids.1 = Some(chrome(cx, lower, &mut bottom).id);
+        });
+        assert_ne!(ids.0, ids.1, "two call sites collided on one track");
+        assert_eq!(
+            driver.inspect().ids().merges(),
+            0,
+            "the chrome's keyed children collided, so the second player is inert on a screen that \
+             renders perfectly"
+        );
+
+        // The other direction, or the inequality above is one a fresh-value id function would also
+        // pass: the **same** call site drawn twice is one player, and its children merge on purpose.
+        let mut twice = Vec::new();
+        driver.frame(|cx| {
+            let area = cx.area();
+            for _ in 0..2 {
+                twice.push(chrome(cx, area, &mut top).id);
+            }
+        });
+        assert_eq!(twice[0], twice[1], "one call site minted two tracks");
     }
 
     /// **Zero customs: the chrome is the contrast §14 draws a picture against.**
