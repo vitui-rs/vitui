@@ -909,26 +909,59 @@ mod tests {
         assert_eq!(offenders, Vec::<String>::new());
         assert!(format!("let s: {needle} = Default::default();").contains(needle));
 
-        // **And `Theme::custom` is called once in the whole crate**, which is what *counted, not
-        // scattered* means as a number. A second call site is a second palette.
+        // **And `Theme::custom` is called from two files and one line of each**, which is what
+        // *counted, not scattered* means as a number. A second **line** is a second palette.
+        //
+        // # The second file is components ticket 29's, and it is the exception §14 states
+        //
+        // This assertion read `["chart.rs"]` for one ticket, and widening it is a deliberate edit
+        // rather than a loosening — §21's refinement 3, the same procedure row 26 uses for the
+        // repertoire branch. §14's own sentence is *a picture is the first caller whose every cell
+        // is outside the theme*: a chart calls `custom` once to build a **palette** of six series
+        // colours, and `crate::picture` calls it once to build a **pixel**. Those are different
+        // claims, and the thing this gate protects — one palette, decided in one place — is
+        // untouched by the second, because a picture has no palette to decide.
+        //
+        // The line count is what keeps the exception at its argument. Two files, one calling line
+        // each: a third line anywhere is a second palette again, whichever file it is in.
+        // **The shipped half, split at `#[cfg(test)]`**, which the review caught this scan not
+        // doing: a test that spells the verb is *measuring* the palette rather than adding one, and
+        // firing a gate whose message says "a second palette" at one would be the failure naming
+        // the wrong thing. `crate::picture`'s own `.fill(` scan splits the same way.
         let custom = concat!(".cus", "tom(");
-        let sites: Vec<String> = files
+        let calls = |path: &PathBuf| {
+            std::fs::read_to_string(path)
+                .unwrap_or_default()
+                .split("#[cfg(test)]")
+                .next()
+                .unwrap_or_default()
+                .lines()
+                .map(str::trim_start)
+                .filter(|line| !line.starts_with("//") && line.contains(custom))
+                .count()
+        };
+        let sites: Vec<(String, usize)> = files
             .iter()
-            .filter(|path| {
-                std::fs::read_to_string(path)
-                    .unwrap_or_default()
-                    .lines()
-                    .map(str::trim_start)
-                    .any(|line| !line.starts_with("//") && line.contains(custom))
-            })
+            .filter(|path| calls(path) > 0)
             .map(|path| {
-                path.file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("?")
-                    .to_owned()
+                (
+                    path.file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("?")
+                        .to_owned(),
+                    calls(path),
+                )
             })
             .collect();
-        assert_eq!(sites, vec!["chart.rs".to_string()]);
+        assert_eq!(
+            sites,
+            vec![("chart.rs".to_string(), 1), ("picture.rs".to_string(), 1)],
+            "`Theme::custom` is called from somewhere new. §16 asks for one palette decided in one \
+             place; the two lines this permits are `chart::series_paint`'s and \
+             `crate::picture::custom`'s, and the second is §14's stated exception — a picture's \
+             cells are outside the theme by construction and there is no palette for a second call \
+             to disagree with"
+        );
     }
 
     /// **A threshold is carried on both axes, and a paint alone dies at sixteen colours.**

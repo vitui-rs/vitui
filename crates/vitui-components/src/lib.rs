@@ -296,6 +296,7 @@ pub mod keys;
 pub mod listing;
 pub mod obligations;
 pub mod order;
+pub mod picture;
 pub mod popup;
 pub mod runner;
 pub mod scenes;

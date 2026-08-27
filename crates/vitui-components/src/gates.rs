@@ -402,6 +402,14 @@ const OVERLAY: &str = "crates/vitui-components/src/overlay.rs";
 /// The overlay family's report.
 const POPUP_NUMBERS: &str = "crates/vitui-components/examples/popup_numbers.rs";
 
+/// **The picture screen's own file**, which is where components ticket 29's rows run. The screen,
+/// the two false ladders, the two traps and the wire probe are one module, so a reviewer's diff
+/// between the correct build and any of them is a field on `Build`.
+const PICTURE: &str = "crates/vitui-components/src/picture.rs";
+
+/// The picture screen's report.
+const MEDIA_NUMBERS: &str = "crates/vitui-components/examples/media_numbers.rs";
+
 /// **`field`'s own file**, which is where the component's rows run. `input.rs` and not `edit.rs`,
 /// because that is where the freeze homes `field`: F6, and [`crate::document::DECLARATIONS`] opens
 /// it to find out whether the three scenes have a subject.
@@ -475,7 +483,7 @@ pub const SPEC_ROWS: usize = 32;
 ///
 /// Row 21 stays `Unreachable` and row 130 is its crate-own form, which is row 41's standing to row
 /// 2's.
-pub const EVALUATED: usize = 140;
+pub const EVALUATED: usize = 145;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
 #[expect(
@@ -485,7 +493,7 @@ pub const EVALUATED: usize = 140;
               array is read at compile time by nothing and at run time by tests, so the copy the \
               lint is warning about is one a test makes once"
 )]
-pub const REGISTER: [Row; 155] = [
+pub const REGISTER: [Row; 162] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -2209,8 +2217,8 @@ pub const REGISTER: [Row; 155] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           twenty_two_are_stood_up",
+                    name: "seven_scenes_have_nothing_to_run_over_one_is_red_and_\
+                           twenty_five_are_stood_up",
                 },
             ],
         },
@@ -2439,8 +2447,8 @@ pub const REGISTER: [Row; 155] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           twenty_two_are_stood_up",
+                    name: "seven_scenes_have_nothing_to_run_over_one_is_red_and_\
+                           twenty_five_are_stood_up",
                 },
             ],
         },
@@ -2853,8 +2861,8 @@ pub const REGISTER: [Row; 155] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           twenty_two_are_stood_up",
+                    name: "seven_scenes_have_nothing_to_run_over_one_is_red_and_\
+                           twenty_five_are_stood_up",
                 },
             ],
         },
@@ -2999,8 +3007,8 @@ pub const REGISTER: [Row; 155] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           twenty_two_are_stood_up",
+                    name: "seven_scenes_have_nothing_to_run_over_one_is_red_and_\
+                           twenty_five_are_stood_up",
                 },
             ],
         },
@@ -3496,8 +3504,8 @@ pub const REGISTER: [Row; 155] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "eight_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           twenty_two_are_stood_up",
+                    name: "seven_scenes_have_nothing_to_run_over_one_is_red_and_\
+                           twenty_five_are_stood_up",
                 },
             ],
         },
@@ -5019,6 +5027,242 @@ pub const REGISTER: [Row; 155] = [
             ],
         },
     },
+    Row {
+        number: 156,
+        on_spec_table: false,
+        gate: "a picture's ladder is 1 / 2 / 2 where a bar's is 1 / 8 / 8, and `Extended == Unicode`",
+        kind: Kind::Equality,
+        owner: "C15",
+        section: "spec §14",
+        // **Both directions, and the second one is what makes the first mean anything.** A picture
+        // draws the identical surface at the top two rungs; the *mark* ladder — 1 / 4 / 8 bits —
+        // draws a different one, so the equality is reading a screen that could have changed rather
+        // than one that had stopped. `crate::media::sub_rows` derives the ladder from
+        // `crate::chart::raster::geom` instead of branching a second time, which keeps row 26's
+        // named exception at one file: a rung that offers a bar eight sub-rows offers a picture the
+        // half block, and `COLOURS_PER_CELL` is the ceiling.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: PICTURE,
+                    name: "extended_equals_unicode_for_a_picture_and_not_for_the_ladder_it_is_not_\
+                           drawn_on",
+                },
+                Instrument::Unit {
+                    file: PICTURE,
+                    name: "a_picture_at_ascii_is_a_picture_and_the_only_thing_it_loses_is_a_sub_row",
+                },
+                Instrument::Report {
+                    file: MEDIA_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 157,
+        on_spec_table: false,
+        gate: "a picture spends one `Theme::custom` a cell and a QR spends four, and no two adjacent \
+               cells of a photograph share a paint",
+        kind: Kind::Count,
+        owner: "C15",
+        section: "spec §14",
+        // **The census `Theme::custom`'s own documentation asks a caller to publish**, and the
+        // adjacency count is what turns *no `fill` is available at any size* from an argument into
+        // arithmetic: `Ctx::fill` takes one paint for a rectangle, and the largest rectangle of this
+        // screen one paint is right for is one cell. The gradient is 3 520 of 47 620 beside the
+        // photograph's 0, printed rather than engineered away.
+        //
+        // **The finding beside it is that the census is not a cost.** The same 24 000 cells drawn
+        // from the thirteen roles spend zero customs and take the same frame, so what the number is
+        // evidence for is structural — a cell outside the theme is a cell no run can reach.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: PICTURE,
+                    name: "a_picture_is_twenty_four_thousand_cells_twenty_four_thousand_verbs_and_\
+                           no_region",
+                },
+                Instrument::Unit {
+                    file: PICTURE,
+                    name: "no_two_adjacent_cells_of_a_photograph_share_a_paint_and_seven_percent_\
+                           of_a_gradient_do",
+                },
+                Instrument::Unit {
+                    file: PICTURE,
+                    name: "the_screen_calls_no_fill_and_no_rectangle_larger_than_a_cell_has_one_\
+                           paint",
+                },
+                Instrument::Unit {
+                    file: PICTURE,
+                    name: "a_qr_spends_four_customs_and_they_are_every_paint_on_its_surface",
+                },
+                Instrument::Unit {
+                    file: PICTURE,
+                    name: "a_picture_drawn_from_roles_spends_no_customs_and_writes_the_same_cells",
+                },
+                // **The zero §14 states in the same sentence as the census.** The µs beside it are
+                // a timing and a report; the zero is a count, and this is the only window in the
+                // workspace with 24 000 style constructions inside it.
+                Instrument::Unit {
+                    file: "crates/vitui-components/tests/budget.rs",
+                    name: "a_steady_frame_of_a_full_screen_picture_allocates_nothing_as_a_total",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 158,
+        on_spec_table: false,
+        gate: "a picture keeps 0 of 23 920 horizontal distinctions at no colour, and the four tiers \
+               are monotone",
+        kind: Kind::Count,
+        owner: "C15",
+        section: "spec §14, §16",
+        // **The axis with a floor of nothing, as a count.** Every other component degrades to a
+        // worse drawing of itself and this one degrades to a description: 23 920 / 23 899 / 15 347
+        // / 0 for a photograph, 20 400 / 473 / 174 / 0 for a gradient.
+        //
+        // **The instrument is a contrivance and it is watched in both directions**, which is the
+        // condition for using one. `Theme::custom` says the caller owes a branch on the terminal's
+        // capabilities and offers no verb to ask with — `roles_differ_on_wire` compares two of the
+        // thirteen **roles** — so `picture::wire_differ` authors a theme per colour pair, putting
+        // the two colours on `Role::Danger` and `Role::Warn`, which `Roles::from_palette` takes
+        // verbatim from `base08` and `base0A` over one ground with no attributes. A probe that were
+        // silently always-true or always-false would make every count above whatever the total is,
+        // so it is asserted against answers known independently. Filed as runtime architecture
+        // issue 34; the row is `Evaluated` because it **runs**, which is what this file's row 5
+        // learned the hard way about writing a barrier one has not tried.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: PICTURE,
+                    name: "a_picture_keeps_none_of_its_distinctions_at_no_colour_and_the_ladder_is_\
+                           monotone",
+                },
+                Instrument::Unit {
+                    file: PICTURE,
+                    name: "the_wire_probe_separates_at_truecolor_and_collapses_at_the_floor",
+                },
+                Instrument::Report {
+                    file: MEDIA_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 159,
+        on_spec_table: false,
+        gate: "the module readback catches an inverted pairing, and two modules a cell is exactly \
+               twice one at every cell aspect",
+        kind: Kind::Equality,
+        owner: "C15",
+        section: "spec §14",
+        // **Two traps and two gates, and the reason they cannot be one is measured.** The inverted
+        // pairing writes the same cells with the same four paints one character apart, and 219 of
+        // 441 modules come back wrong. One module a cell reads back **perfectly** — 0 of 441 — and
+        // is still not a QR, because a module half as tall as it is wide is not a module. The
+        // readback is blind to the aspect and the aspect is blind to the pairing.
+        //
+        // **The readback models the terminal rather than the record**, and the first version did
+        // not: decoding a cell's two modules from its paint alone passed the inverted build 0 of
+        // 441, because a paint is not a picture — what is on the screen is decided by the paint and
+        // the glyph together.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: PICTURE,
+                    name: "the_readback_catches_the_pairing_and_says_nothing_at_all_about_the_\
+                           aspect",
+                },
+                // **A rectangle is an extent and not only an origin**, and the recorder cannot see
+                // the difference: `Pen` records at root coordinates with no clip, so a symbol
+                // painted past its rectangle reads back perfectly. `qr_into` stops at the
+                // rectangle, and one row short of the symbol is 21 modules unread and none of them
+                // written below it.
+                Instrument::Unit {
+                    file: PICTURE,
+                    name: "a_symbol_that_does_not_fit_its_rectangle_is_clipped_rather_than_drawn_\
+                           past_it",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 160,
+        on_spec_table: false,
+        gate: "a picture translated by one whole cell row changes every cell, and a still one \
+               changes none after its first frame",
+        kind: Kind::Count,
+        owner: "C15",
+        section: "spec §14, §20",
+        // **The reachable half of both of §14's wire figures**, and it is row 48's question asked of
+        // the one screen where the answer is the whole rectangle: 24 000 of 24 000 changed by a
+        // translation of one row, and `[24 000, 0, 0, 0]` over a still picture's first four frames.
+        // What the same two frames cost in **bytes** — 5 885 for the translation against 900 134
+        // and then nothing — is row 161's, and it is unreachable.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: PICTURE,
+                    name: "a_translation_by_one_row_changes_every_cell_and_a_still_picture_changes_\
+                           none",
+                },
+                Instrument::Report {
+                    file: MEDIA_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 161,
+        on_spec_table: false,
+        gate: "bytes on the wire: 37.5 B/cell, 900 134 and then 0, 0, 0, and 5 885 for a whole-row \
+               translation",
+        kind: Kind::Count,
+        owner: "C15",
+        section: "spec §14",
+        standing: Standing::Unreachable {
+            needs: "a driver that hands its sink back. `vitui_engine::Output::Sink` exists and the \
+                    runtime uses it — `Driver::headless` passes `Box::new(Vec::new())` — and the \
+                    `Vec` is moved into the engine and never returned, so no crate above it can \
+                    read a byte it wrote. Building one this crate *can* read needs \
+                    `Config { output, clock, .. }`, and **`Output`, `Clock` and `Overrides` are not \
+                    in `vitui_runtime::line::ENGINE_NAMES` at all**, reachable or not — which is \
+                    runtime architecture issue 22's own rule arriving on `Config` itself: *a name a \
+                    consumer can write but not build is a barrier wearing a re-export's clothes*. \
+                    `Config` has a `Default`, so this is the weaker half of that finding and the \
+                    consequence is exact: the only headless door is `Driver::headless`, whose tier \
+                    is hard-coded to truecolor and whose bytes go nowhere. Either \
+                    `Driver::headless_into(w, h, sink)` or those three names re-exported. **Row 160 \
+                    is the reachable form and does not invert this**: it counts the cells that \
+                    would have produced the bytes",
+            inverted_by: "runtime architecture issue 34",
+        },
+    },
+    Row {
+        number: 162,
+        on_spec_table: false,
+        gate: "the picture scene is played over `picture` and `qr` rather than over a stand-in \
+               painter",
+        kind: Kind::Count,
+        owner: "C15",
+        section: "spec §14, §21",
+        // Criterion 6's join, one family over from row 129's: the scene names its subjects, the
+        // subjects are read out of the file the freeze homes them in, and the sentence a reader
+        // sees separates *unimplemented* from *wrong*.
+        standing: Standing::Red {
+            by: &[Instrument::Unit {
+                file: PICTURE,
+                name: "the_picture_screen_is_owed_its_two_components_and_says_so",
+            }],
+            failing: "0 of 2 subjects declared. `crates/vitui-components/src/media.rs` carries no \
+                      `pub fn picture(` and no `pub fn qr(`, so the 24 000 cells, the 24 000 \
+                      customs, the 1 / 2 / 2 ladder, the 23 920 / 23 899 / 15 347 / 0 distinctions \
+                      and the 219 of 441 modules are all measured over a stand-in painter in \
+                      `crate::picture`",
+            inverted_by: "components 30",
+        },
+    },
 ];
 /// **The compile-outcome pair row 31 names, and its positive twin.**
 ///
@@ -5314,10 +5558,11 @@ mod tests {
         assert_eq!(evaluated, EVALUATED, "the count §21 asks a test to assert");
         assert_eq!(
             red,
-            vec![7, 8, 112],
-            "the gates that are red and pinned: the sentinel, the palette after a swap and one \
-             defect in another crate. **No scene is waiting for its subject any more** — row 89 was \
-             the last, and components 26 inverted it. **Twenty wheel clicks is not among them since \
+            vec![7, 8, 112, 162],
+            "the gates that are red and pinned: the sentinel, the palette after a swap, one \
+             defect in another crate, and — since components 29 — a scene waiting for its subject \
+             again. **Row 162 is the picture's**, and row 89 was the previous one of that kind: it \
+             was the last until components 26 inverted it. **Twenty wheel clicks is not among them since \
              components 20** — row 29 was red on a *defect* rather than on a missing subject, which \
              is why it took a gate over the shipped path and two removed substitutions rather than \
              a standing edit. Six have been \
@@ -5331,9 +5576,13 @@ mod tests {
         );
         assert_eq!(
             unreachable,
-            vec![1, 2, 21, 28, 33, 45],
-            "the six that cannot be written from a crate whose dependency list is \
-             `vitui-runtime` and nothing else. **It was seven until components ticket 08**, which \
+            vec![1, 2, 21, 28, 33, 45, 161],
+            "the seven that cannot be written from a crate whose dependency list is \
+             `vitui-runtime` and nothing else. **Row 161 is components 29's**, and it is row 1's \
+             shape one seam further out: not a count the engine keeps private, but the *bytes* it \
+             wrote — `Driver::headless` moves a `Vec` into the engine and `Output`, `Clock` and \
+             `Overrides` are not on `ENGINE_NAMES` at all, so no `Config` this crate can build \
+             sends them anywhere it can read. **It was seven until components ticket 08**, which \
              found row 5's barrier misread: `Mods` is unnameable here and `Chord::mods` hands over \
              the value anyway, so a chord can be pressed after all"
         );
@@ -5346,7 +5595,7 @@ mod tests {
              domain and needs no component to be run against, and its row had been citing spec §13 \
              and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 155);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 162);
     }
 
     /// **The split, not the total.**
@@ -5357,10 +5606,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_a_hundred_and_twenty_three_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_a_hundred_and_thirty_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 123);
+        assert_eq!(REGISTER.len() - on_table, 130);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -5744,6 +5993,7 @@ mod tests {
                 "grid_numbers.rs".to_string(),
                 "keys_numbers.rs".to_string(),
                 "listing_numbers.rs".to_string(),
+                "media_numbers.rs".to_string(),
                 "nav_numbers.rs".to_string(),
                 "order_numbers.rs".to_string(),
                 "partition_numbers.rs".to_string(),

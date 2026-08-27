@@ -112,7 +112,7 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 28 of 45 tickets resolved (the last on 2026-08-26). `INVENTORY` is spec
+- **`vitui-components` has started**: 29 of 45 tickets resolved (the last on 2026-08-26). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
   answerable by the machine from here on. All five obligations are `Unmet` and each is watched
@@ -268,6 +268,65 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   dismissed by a blur could not be reopened**: what the body reports survives the dismissal, so the
   clause fired on the frame after the reopening — the latch had to move to the **owner**, because
   `SelectState::open` is the only thing that knows an opening has begun.
+
+- **The picture scene is red on purpose, and it is the first red row since components 26**
+  (components ticket 29, 2026-08-26; runtime architecture issue **34**). The screen exists —
+  `crates/vitui-components/src/picture.rs` — and what it is played over is a **stand-in painter**:
+  `INVENTORY` has no media row at all, which is §14's own *no v1 component*, so the subjects are read
+  out of `src/media.rs` and it carries no `pub fn picture(` and no `pub fn qr(`. Components 30
+  inverts it.
+  **A picture's ladder is derived rather than branched, and that keeps register row 26's exception at
+  one file.** `crate::media::sub_rows` is `geom(Kind::Bars, set).sy.min(COLOURS_PER_CELL)` — **1 / 2
+  / 2** out of the bar ladder's **1 / 8 / 8** — and the derivation is the argument: the eighth blocks
+  and the half blocks are one contiguous run of block elements, so a rung that offers a bar eight
+  sub-rows offers a picture the half block, and two colours a cell is the ceiling. **`Extended ==
+  Unicode` fires in both directions** — the same screen on the *mark* ladder, 1 / 4 / 8 bits, differs
+  at the top two rungs.
+  **The custom census is real and it is not a cost**, which is the finding under §14's headline:
+  24 000 customs / 24 000 verbs / 24 000 writes / 0 regions / 0 fills, **0 of 47 620 adjacent cell
+  pairs of a photograph sharing a value** — and the same 24 000 cells drawn from the thirteen roles
+  spend **zero** customs and take **the same frame**, 1.384 ms against 1.408 over two hundred
+  interleaved rounds. The census is evidence about *structure* — a cell outside the theme is a cell
+  no run and no `fill` can reach — and not about the clock.
+  **Three of §14's figures do not reproduce.** *50.7% of distinctions gone at sixteen colours* is a
+  prototype's picture: this photograph loses **35.84%** and this gradient **99.27%** of the same
+  23 920 adjacencies — **2.8×**, and **on the distinction axis the source decides a great deal**,
+  which is the opposite direction from §14's B/cell claim that it moves the wire by 9%. *0.97 against
+  0.50* **cannot both come from one cell**, since two modules a cell is exactly twice one at every
+  cell aspect — a nominal cell's floor beside a measured cell's ceiling, both printed, the gate the
+  relation. And *261–357 µs against a 100 µs budget* is a prototype's screen and the wrong class
+  besides: this one is **1.37–1.50 ms**, one verb a cell, which is §20's full-screen class and
+  **1.37–1.50× over it** — printed beside the number rather than optimised against. **What reproduces exactly is the floor**: at `ColorDepth::None` a picture
+  keeps **0 of 23 920**, which is *degrades to a description of itself* as a number and which no
+  other screen in this crate can produce.
+  **The QR readback models the terminal, and the first version of it did not**: decoding a cell's two
+  modules from its **paint alone** passed the inverted build **0 of 441**, because the inversion
+  writes the same cells with the same four paints one character apart. Decoded as a terminal would it
+  is **219 of 441** — and **one module a cell reads back perfectly and is still not a QR**, so the
+  readback is blind to the aspect and the aspect is blind to the pairing.
+  **Two of the ticket's criteria are bytes, and no crate above the engine can read one** (runtime
+  issue 34). `Driver::headless` moves a `Vec` into the engine and never returns it, and `Output`,
+  `Clock` and `Overrides` are **not in `ENGINE_NAMES` at all** — issue 22's construction rule
+  arriving on `Config` itself, in its weaker form, because `Config` has a `Default` and a consumer
+  can build one it cannot configure. The reachable form is gated instead: **24 000 of 24 000 cells
+  changed by a translation of one whole row** and `[24 000, 0, 0, 0]` over a still picture's first
+  four frames. **The colour half is reachable only through a contrivance and the contrivance works**,
+  which is why its row is `Evaluated`: `Theme::custom` says the caller owes a branch on the
+  terminal's capabilities and the only wire question on the surface is over the thirteen **roles**,
+  so `picture::wire_differ` authors a theme per colour pair onto `Danger` and `Warn`, which
+  `Roles::from_palette` takes verbatim from `base08` and `base0A` — about 24 000 theme constructions
+  for one screen. Register 155 → **162 rows, 145 evaluated**; scenes **1 red, 25 stood up**.
+  **A review then found nine, and three are the shape this crate keeps meeting** — the recorder and
+  the defect share a coordinate system, so the gate cannot see it. `qr_into` read its rectangle as an
+  *origin* and `Pen` records at root coordinates with no clip, so a symbol painted past its rectangle
+  read back **0 of 441 wrong**; `adjacent_equal` counted two cells nobody wrote as sharing a paint
+  (`None == None`), which over a symbol in a corner is **47 250 of 47 620** — a blank screen reading
+  as maximally fillable; and `readback` cast a negative `i32` origin with `as u16` and reported
+  **441 of 441 wrong** for a symbol drawn perfectly. Beside them, `Source::Gradient` **masked** its
+  green channel where it should have saturated — `sub_y = 159` is `0x00ff80` and 160 is `0x000080`,
+  reachable from `shift` and from the braille arm and invisible because both play over the
+  photograph — and `distinctions` answered **23 920 kept at truecolor** for a `Palette::Roles` screen
+  that collapses onto thirteen paints.
 
 - **`collapsible` is the thirteenth component, and three of §8's figures are replaced by findings
   rather than reproduced** (components ticket 22, 2026-08-26; ADR 0035). It is **one machine and

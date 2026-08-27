@@ -438,3 +438,45 @@ fn a_steady_field_over_a_megabyte_allocates_nothing() {
         "one hit entry for the widget, on the last of those fifty frames"
     );
 }
+
+/// **A full-screen picture allocates nothing, and it is the one screen where every cell is a
+/// `Theme::custom`.**
+///
+/// Components ticket 29. Spec §14 states the allocation figure in the same sentence as the draw:
+/// *24 000 `Theme::custom` calls a frame, 24 000 verbs, and no `fill` available at any size —
+/// 261–357 µs of draw against a 100 µs budget, **zero allocations***. The µs are a timing and a
+/// report; the zero is a count and a gate, and this is the only screen in the workspace that puts
+/// 24 000 style constructions inside a window.
+///
+/// # Why the session is opened outside the window
+///
+/// `Driver::headless` attaches an engine and allocates its surfaces. Opened *inside* the window,
+/// this reads **64 allocations a frame** — which is the attach, not the draw, and which is exactly
+/// the shape `crate::counters::Allocations` refuses to average away in the other direction.
+/// `vitui_components::picture::Session` is where the warm-up lives, so the thing being priced is a
+/// steady frame and the number is not a report about the constructor.
+#[test]
+fn a_steady_frame_of_a_full_screen_picture_allocates_nothing_as_a_total() {
+    use vitui_components::picture::{self, Build, Source};
+
+    for build in [
+        Build::correct(),
+        Build::correct().of(Source::Gradient),
+        // The Ascii rung, which draws a space with a background colour and is still 24 000 customs.
+        Build::correct().at(vitui_components::chart::raster::RUNGS[0]),
+    ] {
+        let mut session = picture::Session::open(build);
+        steady(|| {
+            for _ in 0..50 {
+                session.frame();
+            }
+        });
+    }
+
+    // And it drew what it claimed: 24 000 cells in 24 000 verbs with 24 000 customs, so the zero is
+    // not a zero over a frame that quietly stopped drawing.
+    let shape = picture::shape(Build::correct());
+    assert_eq!(shape.writes, picture::WRITES);
+    assert_eq!(shape.verbs, picture::VERBS);
+    assert_eq!(shape.census.customs, picture::CUSTOMS);
+}
