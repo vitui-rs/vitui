@@ -400,10 +400,8 @@ pub const APPS: [App; 13] = [
                glyph. `a` pushes one sample and the fold count moves; `Tab` moves the focus and it \
                does not",
         uses: &[
-            "input::checkbox",
-            "input::radio",
-            "input::switch",
             "input::toggle_into",
+            "input::Toggle",
             "input::ToggleOpts",
             "indicate::meter_into",
             "indicate::sparkline_into",

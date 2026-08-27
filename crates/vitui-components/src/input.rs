@@ -3577,8 +3577,12 @@ mod slider_tests {
             }
         }
 
-        // And the seam draws what `Direct` draws: the same frame through a `Pen` and through the
-        // shipped path, compared cell for cell.
+        // **And the seam is deterministic**, which is all a second `Pen` can say. This assertion was
+        // labelled *the `_into` seam is not the shipped draw* and could not have been: arms 0 and 1
+        // draw through `Direct`, only arm 2's canvas is captured, and `Direct` writes into the
+        // engine where **nothing reads a cell back** (ADR 0023) — so the equality compared
+        // `slider_into` with `slider_into` and held whatever `slider` did. Found by the review of
+        // components ticket 34, which had copied the shape into two more components.
         let mut driver = Driver::headless(40, 1).expect("a sink attaches");
         let mut pen = Pen::over(Canvas::new(40, 1));
         let mut value = 0.375f32;
@@ -3589,8 +3593,27 @@ mod slider_tests {
         assert_eq!(
             pen.into_canvas().diff(&painted.remove(0)).cells,
             0,
-            "the `_into` seam is not the shipped draw"
+            "two runs of the seam drew different pictures"
         );
+
+        // **The claim the surface cannot make, made from the source instead**: the three spellings
+        // are one body, which is a scan for the two calls that route into it.
+        let source = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/input.rs"))
+            .expect("this file");
+        let section = crate::composed::section(
+            &source,
+            "// `slider` — spec §14's drag capture, and the row §17 froze at Tier 3",
+        );
+        assert!(!section.is_empty());
+        for owed in [
+            "slider_with(cx, area, value, &SliderOpts::default())",
+            "slider_into(&mut Direct, cx, area, value, opts)",
+        ] {
+            assert!(
+                crate::dense::declares(section, owed),
+                "`{owed}` is not in the shipped slider, so the three spellings are not one body"
+            );
+        }
     }
 
     /// **Criterion 2, the source half: the component stores no press origin and no drag-phase
@@ -4385,7 +4408,11 @@ mod toggle_tests {
                 }
             }
 
-            // And the shipped path draws what the seam draws, compared cell for cell.
+            // **And the seam is deterministic**, which is all a second `Pen` can say: `Direct`
+            // writes into the engine and *nothing reads a cell back* (ADR 0023), so there is no
+            // surface to compare the shipped path against. Two `Pen`s compared is one path
+            // compared with itself, and that is what the assertion below is — kept as the
+            // determinism check it actually is rather than as the equality it was labelled.
             let mut driver = Driver::headless(24, 1).expect("a sink attaches");
             let mut pen = Pen::over(Canvas::new(24, 1));
             let mut on = true;
@@ -4396,9 +4423,44 @@ mod toggle_tests {
             assert_eq!(
                 pen.into_canvas().diff(&painted.remove(0)).cells,
                 0,
-                "{kind:?}: the `_into` seam is not the shipped draw"
+                "{kind:?}: two runs of the seam drew different pictures"
             );
         }
+
+        // **The claim the surface cannot make, made from the source instead.** *The three named
+        // spellings are the same draw* is exactly *they route into one body*, and that is a scan:
+        // each of the three must reach `toggle_with`, and none of them may draw anything itself.
+        //
+        // Written as a `Pen` comparison it was **vacuous** — arms 0 and 1 draw through `Direct` and
+        // only arm 2's canvas was captured, so the equality compared `toggle_into` with
+        // `toggle_into` and held whatever `checkbox` did. Found by review, and the same shape is in
+        // `crate::structure`'s rule and in this file's own slider.
+        let source = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/input.rs"))
+            .expect("this file");
+        let toggles = crate::composed::section(
+            &source,
+            "// `checkbox`, `radio` and `switch` — §17's three Tier 2 toggles",
+        );
+        assert!(!toggles.is_empty());
+        for owed in [
+            "pub fn checkbox(cx: &mut Ctx<'_, '_>, area: Rect, label: &str, on: &mut bool) -> Response",
+            "pub fn radio(cx: &mut Ctx<'_, '_>, area: Rect, label: &str, on: &mut bool) -> Response",
+            "pub fn switch(cx: &mut Ctx<'_, '_>, area: Rect, label: &str, on: &mut bool) -> Response",
+            "toggle_with(cx, area, label, on, &ToggleOpts::default())",
+            "toggle_into(&mut Direct, cx, area, label, on, opts)",
+        ] {
+            assert!(
+                crate::dense::declares(toggles, owed),
+                "`{owed}` is not in the shipped toggles, so the three spellings are not one body"
+            );
+        }
+        // **Three calls into the body and no fourth**, so a spelling that grew its own draw is a
+        // count rather than a reading.
+        assert_eq!(
+            toggles.matches("toggle_with(").count(),
+            4,
+            "the three named spellings call `toggle_with` once each, and `toggle_with` declares              itself"
+        );
     }
 
     /// **Criterion 7: every one of the three writes a partition of its whole rectangle.**

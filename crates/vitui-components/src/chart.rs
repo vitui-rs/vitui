@@ -532,11 +532,6 @@ fn draw<I: Ink>(
     response
 }
 
-/// The paint a run of cells owned by `owner` is drawn in.
-///
-/// **A shared cell can carry only one colour**, which is the third rung's price: a braille cell has
-/// one `Paint` for all eight dots where a quadrant carries a foreground *and* a background. The
-/// per-cell quadrant fallback that would recover it is named in spec §22 and not built.
 /// **What the body loop needs that is not the raster**: the construction, the paints and the
 /// threshold's row.
 ///
@@ -614,6 +609,11 @@ impl Body {
     }
 }
 
+/// The paint a run of cells owned by `owner` is drawn in.
+///
+/// **A shared cell can carry only one colour**, which is the third rung's price: a braille cell has
+/// one `Paint` for all eight dots where a quadrant carries a foreground *and* a background. The
+/// per-cell quadrant fallback that would recover it is named in spec §22 and not built.
 fn paint_of(owner: u8, series: &[Paint; 6], dim: Paint, threshold: Paint) -> Paint {
     match owner {
         0 => dim,

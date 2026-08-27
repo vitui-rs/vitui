@@ -311,7 +311,15 @@ fn line_into<I: Ink>(
     let head_w = width(head);
     let mark_w = width(marker);
     let used = head_w + mark_w;
-    let slack = w - used;
+    debug_assert!(
+        used <= w,
+        "`elide` returned {used} cells for a {w}-cell row: the one-cell ellipsis rule has moved"
+    );
+    // **Saturating, which `crate::glyphs::elided_row_into` is for the same quantity.** It is
+    // unreachable today — `truncate` is width-bounded and both `Glyph::Ellipsis` spellings are one
+    // column — and the day a marker is two columns wide this is a component whose whole contract is
+    // a partition wrapping its trailing run.
+    let slack = w.saturating_sub(used);
     let lead = match opts.justify {
         Justify::Start => 0,
         Justify::Middle => slack / 2,
@@ -536,7 +544,7 @@ mod tests {
                             assert_eq!(
                                 tally.distinct(),
                                 u64::from(w) * u64::from(h),
-                                "{orient:?} {w}x{h}@{ox},{oy} `{caption}` {justify:?}: not a                                  partition"
+                                "{orient:?} {w}x{h}@{ox},{oy} `{caption}` {justify:?}: not a partition"
                             );
                             assert_eq!(
                                 tally.asked(),
@@ -600,7 +608,11 @@ mod tests {
         );
         // **And §16's one-cell ellipsis rule holds on a rule as it does on a label**: the caption
         // goes through `glyphs::elide`, which reserves exactly one cell for the marker.
-        let (_, _) = tallied(30, 1, |tally, cx| {
+        //
+        // **This block asserted nothing until a review said so.** It drew and dropped the tally,
+        // under a comment claiming the rule was checked — which is components 26's one-cell double
+        // write, the defect components 32 found transcribed a second time, with no gate over it.
+        let (elided, _) = tallied(8, 1, |tally, cx| {
             rule_into(
                 tally,
                 cx,
@@ -610,6 +622,14 @@ mod tests {
             );
             Rect::new(0, 0, 0, 0)
         });
+        assert_eq!(
+            (elided.writes(), elided.distinct()),
+            (8, 8),
+            "a truncated caption wrote the marker's cell twice, which is the one-cell rule going"
+        );
+        // Two verbs: the head with its marker written as one `text`, then nothing — a caption that
+        // fills the row exactly has no glyph run either side of it.
+        assert_eq!(elided.verbs(), 2, "the head and the one-cell marker");
     }
 
     /// **A vertical rule is one column and it has no caption at all.**
@@ -679,13 +699,43 @@ mod tests {
             }
         }
         assert_eq!(driver.inspect().hits().len(), 0, "a rule declared a region");
-        assert_eq!(driver.inspect().stop_count(), 0, "a rule is a tab stop");
+        assert_eq!(
+            driver.inspect().stop_count(),
+            0,
+            "a rule declared a tab stop"
+        );
 
+        // **And the seam is deterministic**, which is all a second `Pen` can say: `Direct` writes
+        // into the engine and *nothing reads a cell back* (ADR 0023), so there is no surface to
+        // compare the shipped path against and two `Pen`s compared is one path compared with
+        // itself. Labelled as the equality it is not, this assertion held whatever `rule` did —
+        // found by review, and the same shape is in `crate::input`'s toggles and its slider.
         let mut pen = crate::runner::Pen::over(crate::runner::Canvas::new(30, 3));
         driver.frame(|cx| {
             let area = cx.area();
             rule_into(&mut pen, cx, area, " Section ", &RuleOpts::default());
         });
-        assert_eq!(pen.into_canvas().diff(&painted.remove(0)).cells, 0);
+        assert_eq!(
+            pen.into_canvas().diff(&painted.remove(0)).cells,
+            0,
+            "two runs of the seam drew different pictures"
+        );
+
+        // **The claim the surface cannot make, made from the source instead**: the three spellings
+        // are one body, which is a scan for the two calls that route into it.
+        let source =
+            std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/structure.rs"))
+                .expect("this file");
+        let section = crate::composed::section(&source, "// `rule` — §17's Tier 2 divider");
+        assert!(!section.is_empty());
+        for owed in [
+            "rule_with(cx, area, caption, &RuleOpts::default())",
+            "rule_into(&mut Direct, cx, area, caption, opts)",
+        ] {
+            assert!(
+                crate::dense::declares(section, owed),
+                "`{owed}` is not in the shipped rule, so the three spellings are not one body"
+            );
+        }
     }
 }

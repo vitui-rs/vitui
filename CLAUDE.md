@@ -1033,6 +1033,18 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   row as claiming *not built*, which is right for Tier 3 and wrong for Tier 2, whose definition says
   nothing about whether anybody has written it.
   Register 190 → **200 rows, 184 evaluated**.
+  **A review then found nine, and two of them are gates that could not fail.** *The three spellings
+  are one draw* **compared a drawing with itself** in three components — arms 0 and 1 draw through
+  `Direct` and only the `_into` arm's canvas was captured — and it **cannot** be written as a surface
+  comparison at all, because `Direct` writes into the engine and nothing reads a cell back (ADR
+  0023); what ships is the determinism check it is, plus a source scan for the calls that route the
+  named spellings into one body. The shape came from components 33, so `slider`'s is repaired beside
+  it. The **ellipsis half** of the `rule` verb test drew and dropped its tally under a comment
+  claiming §16's one-cell marker rule was checked. Beside them: the application **never seated a
+  focus**, so `Space` and `Enter` were dead until `Tab` — architecture issue 25's symptom, and no
+  gate here can see it because every gate posts keys at an id it focused itself; and the
+  **sparkline got a zero-row rectangle** at a size the guard admitted, at a terminal **17** rows tall
+  rather than the 13 arithmetic predicts, because a `PanelOpts` is bordered *and* padded.
   **The application is `vitals`**, and `g` is the key to press: it steps the glyph rung and the
   meter, the checkbox and the switch each answer §16 differently on one screen. `--probe` prints
   **3 000 writes over 3 000 distinct** at 100x30, **4 regions** — the panel and the three toggles,

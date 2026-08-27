@@ -1,10 +1,16 @@
 //! **`vitals` — six components composed of proved mechanisms, and `g` is the key to press.**
 //!
-//! Components ticket 34's application, and the only consumer of [`vitui_components::input::checkbox`],
-//! [`radio`](vitui_components::input::radio), [`switch`](vitui_components::input::switch),
-//! [`meter`](vitui_components::indicate::meter),
+//! Components ticket 34's application, and the only consumer of the six Tier 2 components that is
+//! not a gate: the three toggles, [`meter`](vitui_components::indicate::meter),
 //! [`sparkline`](vitui_components::indicate::sparkline) and
-//! [`rule`](vitui_components::structure::rule) that is not a gate. Spec §17, §18 R2.
+//! [`rule`](vitui_components::structure::rule). Spec §17, §18 R2.
+//!
+//! **It reaches them through the `_into` spellings** — `toggle_into`, `meter_into`,
+//! `sparkline_into`, `rule_into` — because `--probe` chooses its [`Ink`] at run time and a second
+//! call site is a second `Location::caller()`, therefore a second id, therefore a screen that looks
+//! identical and loses the focus when the counters are toggled. `mixer` says the same thing about
+//! `slider_into`, and it is why `vitui_apps::APPS`'s row for this file names the seam rather than
+//! the ninety-per-cent spelling.
 //!
 //! ```text
 //! cargo run -p vitui-apps --example vitals            # the dashboard
@@ -104,6 +110,15 @@ const SETTINGS_W: u16 = 30;
 /// How many rows the status bar takes.
 const STATUS_H: u16 = 3;
 
+/// **The smallest interior the dashboard draws in.**
+///
+/// The gauges column is a caption row, the sparkline, a second caption row and one row a core, so
+/// `CORES.len() + 3` is the floor **plus one**, or the sparkline is handed a zero-row rectangle at
+/// exactly the size the guard admits — it returns without writing a cell, correctly, and the status
+/// bar reports `folds 0` on a screen that has just been declared large enough. Found by review; the
+/// old figure was 8 and the sparkline lost its last row at a terminal 13 rows tall.
+const BODY_H: u16 = CORES.len() as u16 + 3;
+
 /// How many points the load series holds. **A hundred thousand**, so that *the frame costs the
 /// rectangle and the edit costs the data* is a claim with a magnitude behind it.
 const POINTS: usize = 100_000;
@@ -132,6 +147,9 @@ struct App {
     seen: Seen,
     /// Whether `--probe` asked for the counters.
     counters: bool,
+    /// Whether the last frame was large enough to draw the gauges at all, rather than the
+    /// too-small message. Read by the probe's sweep and by nothing else.
+    drew_a_gauge: bool,
 }
 
 /// What the status bar prints, gathered during the draw.
@@ -171,6 +189,7 @@ impl App {
             rung_moved: false,
             seen: Seen::default(),
             counters: false,
+            drew_a_gauge: false,
         }
     }
 
@@ -211,7 +230,8 @@ impl App {
             &PanelOpts::default(),
         );
         let interior = block.interior;
-        if interior.h < STATUS_H + 8 || interior.w < SETTINGS_W + 24 {
+        self.drew_a_gauge = false;
+        if interior.h < STATUS_H + BODY_H || interior.w < SETTINGS_W + 24 {
             text_into(
                 ink,
                 cx,
@@ -226,6 +246,7 @@ impl App {
             return;
         }
 
+        self.drew_a_gauge = true;
         let (body, status) = rect::split_at_v(interior, interior.h - STATUS_H);
         let (settings, gauges) = rect::split_at_h(body, SETTINGS_W);
         self.settings(ink, cx, settings);
@@ -258,7 +279,7 @@ impl App {
             drawn += 1;
             let row = Rect::new(rows.x, rows.y + i as i32, rows.w, 1);
             let on = &mut self.on[i];
-            cx.with_key(i as u64, |cx| {
+            let id = cx.with_key(i as u64, |cx| {
                 toggle_into(
                     ink,
                     cx,
@@ -269,8 +290,24 @@ impl App {
                         kind: *kind,
                         ..ToggleOpts::default()
                     },
-                );
+                )
+                .id
             });
+            // **Nothing holds the focus until an application says so** (architecture issue 25).
+            // `Frame::focused` starts `None`, and `toggle_into` reads its keys through
+            // `Ctx::next_key(id)`, which answers only the focused id — so without this line the
+            // key table's `Space` and `Enter` do nothing at all until the user presses `Tab` or
+            // clicks. `Ring::advance` seats the first stop on `Tab`, which is what makes the defect
+            // quiet: the application is recoverable and looks perfect while it is broken. Found by
+            // review, and no gate here can see it — every gate posts keys at an id it focused
+            // itself.
+            //
+            // **`is_none` and not `!is_focused`**: dragging the keyboard back to the first toggle
+            // whenever the user tabs away is a `Tab` that appears to do nothing, which is exactly
+            // the pair issue 25 gates.
+            if cx.focused().is_none() {
+                cx.focus(id);
+            }
         }
         if drawn < rows.h {
             let tail = Rect::new(rows.x, rows.y + i32::from(drawn), rows.w, rows.h - drawn);
@@ -536,8 +573,9 @@ fn probe(app: &mut App) {
     // nothing about the sizes where a band runs out of rows.
     let mut swept = 0usize;
     let mut torn: Vec<(u16, u16)> = Vec::new();
+    let mut foldless: Vec<(u16, u16)> = Vec::new();
     for w in [20u16, 40, 56, 60, 80, 100, 140, 200] {
-        for h in [6u16, 8, 11, 12, 16, 24, 30, 50] {
+        for h in 6u16..=40 {
             swept += 1;
             let mut driver = match Driver::headless(w, h) {
                 Ok(driver) => driver,
@@ -551,6 +589,15 @@ fn probe(app: &mut App) {
             if probe.seen.writes != probe.seen.distinct || probe.seen.distinct != cells {
                 torn.push((w, h));
             }
+            // **And the sparkline drew.** `sparkline_into` returns without writing a cell when its
+            // rectangle is empty — correctly — so a body one row too short is a screen the guard
+            // has declared large enough with nothing in the middle of it and `folds 0` on the bar.
+            // The first sweep sampled eight heights and stepped over the one where it happened,
+            // which is why this one steps every row from 6 to 40 and why `BODY_H` is derived from
+            // `CORES.len()` rather than chosen.
+            if probe.drew_a_gauge && probe.seen.folds == 0 {
+                foldless.push((w, h));
+            }
         }
     }
     println!(
@@ -561,6 +608,16 @@ fn probe(app: &mut App) {
             String::new()
         } else {
             format!(": {torn:?}")
+        }
+    );
+    println!(
+        "  folds        {:>8}   sizes where the sparkline drew nothing on a screen the guard \
+         admitted{}",
+        foldless.len(),
+        if foldless.is_empty() {
+            String::new()
+        } else {
+            format!(": {foldless:?}")
         }
     );
 }
