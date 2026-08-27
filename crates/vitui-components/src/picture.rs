@@ -35,8 +35,8 @@
 //!
 //! # No `fill` is available at any size, and that is measured rather than argued
 //!
-//! [`Ctx::fill`](vitui_runtime::Ctx::fill) takes one [`Paint`] for a rectangle. A photograph's
-//! rectangle has as many paints as it has cells, and [`Shape::adjacent_equal`] is **0 of 47 620**
+//! [`Ctx::fill`](vitui_runtime::Ctx::fill) takes one [`Paint`](vitui_runtime::Paint) for a
+//! rectangle. A photograph's rectangle has as many paints as it has cells, and [`Shape::adjacent_equal`] is **0 of 47 620**
 //! adjacent cell pairs — so the largest rectangle one paint would serve is one cell, and `fill` is
 //! not merely unused but unavailable. The gradient is printed beside it, because the claim is about
 //! the picture and not about the verb.
@@ -81,11 +81,12 @@ use std::time::{Duration, Instant};
 
 use vitui_runtime::ctx::Driver;
 use vitui_runtime::theme::{CATPPUCCIN_MOCHA, Density, Role};
-use vitui_runtime::{ColorDepth, Ctx, GlyphSet, Paint, Rect, Theme};
+use vitui_runtime::{ColorDepth, Ctx, GlyphSet, Rect, Rgb, Theme};
 
 use crate::chart::raster::{Geom, Kind, RUNGS, cluster, geom};
 use crate::counters::Tally;
 use crate::ink::{Direct, Ink};
+use crate::media::{self, Census, Modules, Palette, PictureOpts, Pixels, QrPaints};
 use crate::obligations::Verdict;
 use crate::runner::{Canvas, Pen};
 
@@ -200,16 +201,6 @@ pub enum Ladder {
     Braille,
 }
 
-/// **Where a cell's colours come from.**
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Palette {
-    /// [`Theme::custom`], one call a cell. What a picture is.
-    Custom,
-    /// The theme's thirteen roles, bucketed by luminance. **Zero customs and a description of the
-    /// picture rather than the picture** — the floor of the colour axis, drawn.
-    Roles,
-}
-
 /// **The screen, as one value with one thing changed at a time.**
 ///
 /// The arrangement [`crate::dense`], [`crate::listing`] and [`crate::series`] all use, and its
@@ -288,85 +279,10 @@ impl Build {
     }
 }
 
-/// **What the draw spent, counted by the painter rather than by the surface.**
-///
-/// [`Theme::custom`]'s own documentation asks for this in as many words — *a component that calls
-/// it at all should publish its own call census* — and it is a count of **calls**, not of distinct
-/// paints: the two are 24 000 and 24 000 for a picture and 4 and 4 for a QR, and they are equal for
-/// both only because neither construction has anywhere to cache one.
-#[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
-pub struct Census {
-    /// [`Theme::custom`] calls.
-    pub customs: u64,
-    /// [`Theme::paint`] calls — a role lookup, which is an array read.
-    pub roles: u64,
-}
-
-// **There is no `fills` field, and its absence is the deliberate part.** *No `fill` is available at
-// any size* is the claim, and a counter for it could only ever read zero — which is
-// `crate::counters::Reading`'s own rule from the other side: *a figure defaulted to zero is a
-// counter that prints `0` when it means nobody counted*. The two things that do say it are
-// [`Shape::adjacent_equal`], which is why no rectangle larger than one cell has one paint, and
-// `tests::the_screen_calls_no_fill_and_no_rectangle_larger_than_a_cell_has_one_paint`, which is a
-// scan of this file's shipped half.
-
-/// The four paints a QR spends. §14: *not because it has too many distinctions but because it has
-/// exactly two and they must be those two, which no theme can promise.*
-pub struct QrPaints {
-    /// Both halves dark.
-    pub both_dark: Paint,
-    /// Both halves light.
-    pub both_light: Paint,
-    /// Upper dark, lower light.
-    pub dark_light: Paint,
-    /// Upper light, lower dark.
-    pub light_dark: Paint,
-}
-
-/// The dark module's colour. Black, and it has to be: a QR's two colours are a specification.
-pub const QR_DARK: u32 = 0x0000_0000;
-
-/// The light module's colour. White, for the same reason.
-pub const QR_LIGHT: u32 = 0x00ff_ffff;
-
-impl QrPaints {
-    /// Build the four, counting them.
-    pub fn new(theme: &Theme, census: &mut Census) -> QrPaints {
-        census.customs += 4;
-        QrPaints {
-            both_dark: custom(theme, QR_DARK, QR_DARK),
-            both_light: custom(theme, QR_LIGHT, QR_LIGHT),
-            dark_light: custom(theme, QR_DARK, QR_LIGHT),
-            light_dark: custom(theme, QR_LIGHT, QR_DARK),
-        }
-    }
-
-    /// The paint for a pair of modules, upper first.
-    pub fn of(&self, upper: bool, lower: bool) -> Paint {
-        match (upper, lower) {
-            (true, true) => self.both_dark,
-            (false, false) => self.both_light,
-            (true, false) => self.dark_light,
-            (false, true) => self.light_dark,
-        }
-    }
-
-    /// **Decode a cell's paint back into its two modules**, upper first, or `None` for a paint that
-    /// is not one of the four.
-    pub fn decode(&self, paint: Paint) -> Option<(bool, bool)> {
-        for (upper, lower) in [(true, true), (true, false), (false, true), (false, false)] {
-            if self.of(upper, lower) == paint {
-                return Some((upper, lower));
-            }
-        }
-        None
-    }
-}
-
-/// A paint from two `0xRRGGBB`. The one place this file spells the conversion.
-fn custom(theme: &Theme, fg: u32, bg: u32) -> Paint {
-    theme.custom(rgb(fg), rgb(bg))
-}
+// **The census, the four QR paints and the module matrix all live in `crate::media` now**, because
+// they are the component's obligation rather than the screen's: `Theme::custom`'s own documentation
+// asks a component that calls it to publish its call census, and a screen that kept its own would be
+// counting a copy. See `crate::media::Census`.
 
 /// `0xRRGGBB` as an [`vitui_runtime::Rgb`].
 fn rgb(v: u32) -> vitui_runtime::Rgb {
@@ -377,33 +293,54 @@ fn rgb(v: u32) -> vitui_runtime::Rgb {
     )
 }
 
-/// The thirteen roles, in the order a luminance bucket walks them. [`Palette::Roles`]'s vocabulary.
-const RAMP: [Role; 13] = [
-    Role::Body,
-    Role::Title,
-    Role::Dim,
-    Role::Disabled,
-    Role::Border,
-    Role::Face,
-    Role::FaceHover,
-    Role::FaceActive,
-    Role::Selection,
-    Role::Focus,
-    Role::Danger,
-    Role::Warn,
-    Role::Ok,
-];
-
-/// Integer luminance of `0xRRGGBB`, weighted 2:4:3 over nine — the quantiser's own weights.
-fn luma(v: u32) -> u32 {
-    let (r, g, b) = ((v >> 16) & 0xff, (v >> 8) & 0xff, v & 0xff);
-    (2 * r + 4 * g + 3 * b) / 9
+/// **The scene's source as a [`Pixels`]**, with the translation folded in.
+///
+/// A component is asked for a cell in the **picture's own** coordinates and is never told where on
+/// the screen it landed, so [`Build::shift`] cannot be a component option and does not need to be:
+/// a translation of the picture is a translation of the *source*, which is what a scroll is. The
+/// offset is in sub-rows, which is why it is taken at [`Build::geometry`] — the braille arm samples
+/// four a cell where the correct one samples two.
+#[derive(Clone, Copy, Debug)]
+pub struct Sampled {
+    source: Source,
+    offset: u32,
 }
 
-/// **Draw the picture into `area`.**
+impl Sampled {
+    /// The source this build draws, translated by its own shift.
+    pub fn of(build: Build) -> Sampled {
+        Sampled {
+            source: build.source,
+            offset: u32::from(build.shift) * u32::from(build.geometry().sy),
+        }
+    }
+}
+
+impl Pixels for Sampled {
+    fn pixel(&self, x: u16, sub_y: u32) -> Rgb {
+        rgb(self.source.pixel(x, sub_y + self.offset))
+    }
+}
+
+/// The options this build asks the component for.
+fn picture_opts(build: Build) -> PictureOpts {
+    PictureOpts {
+        palette: build.palette,
+    }
+}
+
+/// **Draw the picture into `area`, through [`crate::media::picture_into`].**
 ///
 /// One verb a cell, because there is nothing else available: a run needs one paint and a picture's
 /// two adjacent cells do not share one.
+///
+/// # The screen is a dispatch and no longer a painter
+///
+/// Components ticket 29 wrote the loop here because `crate::media` carried no `pub fn picture(`;
+/// ticket 30 declared it, so [`Build`]'s three defect axes become **which entry point the screen
+/// calls**. [`Pairing::Inverted`] and [`Ladder::Braille`] are `crate::media::defective`'s arms —
+/// the shipped body with one argument changed — and every figure this file measures is therefore a
+/// measurement of the component.
 pub fn picture_into<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
@@ -411,61 +348,17 @@ pub fn picture_into<I: Ink>(
     build: Build,
     census: &mut Census,
 ) {
-    let theme = *cx.theme();
-    let g = build.geometry();
-    let sub = u32::from(g.sy);
-    let bits = if build.ladder == Ladder::Braille {
-        // Every sub-cell set: the rung offers eight dots and the colour axis has one foreground for
-        // all of them, which is the whole of what the arm demonstrates.
-        u8::MAX
-    } else if build.pairing == Pairing::Upper {
-        // The upper half of a 2x2 quadrant cell is bits 0 and 1 — `▀`.
-        0b0000_0011
-    } else {
-        // The lower half — `▄`. Same cells, same paint, one character apart.
-        0b0000_1100
-    };
-    let quad = Geom { sx: 2, sy: 2 };
-    let glyph = match (build.ladder, g.sy) {
-        // One sub-row: a space with a background colour, which is still a picture.
-        (Ladder::Colour, 1) => ' ',
-        (Ladder::Colour, _) => cluster(Kind::Marks, quad, bits),
-        (Ladder::Braille, _) => cluster(Kind::Marks, g, bits),
-    };
-    let mut buf = [0u8; 4];
-    let glyph = &*glyph.encode_utf8(&mut buf);
-    for row in 0..area.h {
-        let src_row = u32::from(row) + u32::from(build.shift);
-        for col in 0..area.w {
-            let x = area.x + i32::from(col);
-            let y = area.y + i32::from(row);
-            let top = build.source.pixel(col, src_row * sub);
-            let bottom = build
-                .source
-                .pixel(col, src_row * sub + sub.saturating_sub(1));
-            let paint = match build.palette {
-                Palette::Custom => {
-                    census.customs += 1;
-                    custom(&theme, top, bottom)
-                }
-                Palette::Roles => {
-                    census.roles += 1;
-                    // Thirteen buckets over the luminance of the cell's own top pixel. A
-                    // description of the picture: the shape survives and the colours are the
-                    // theme's.
-                    theme.paint(RAMP[(luma(top) as usize * RAMP.len()) / 256])
-                }
-            };
-            ink.run(cx, x, y, glyph, 1, paint);
+    let src = Sampled::of(build);
+    let opts = picture_opts(build);
+    let _ = match (build.ladder, build.pairing) {
+        (Ladder::Colour, Pairing::Upper) => media::picture_into(ink, cx, area, &src, &opts, census),
+        (Ladder::Colour, Pairing::Inverted) => {
+            media::defective::picture_inverted_into(ink, cx, area, &src, &opts, census)
         }
-    }
-}
-
-/// **A QR symbol's module matrix.** Version 1 is 21x21, which is the smallest there is.
-#[derive(Clone, Debug)]
-pub struct Modules {
-    n: u16,
-    dark: Vec<bool>,
+        (Ladder::Braille, _) => {
+            media::defective::picture_braille_into(ink, cx, area, &src, &opts, census)
+        }
+    };
 }
 
 /// The side of a version-1 QR symbol, in modules.
@@ -474,68 +367,58 @@ pub const QR_SIDE: u16 = 21;
 /// **A rectangle the symbol fits in at both rungs**, which is 21 rows and not 11.
 ///
 /// At two modules a cell the symbol is 21x11; at one it is 21x21, and a rectangle sized for the
-/// first **clips the second** — which is what [`qr_into`] now does with a rectangle too small, and
-/// which the aspect arm needs not to be doing while it is being compared against the pairing arm.
+/// first **clips the second** — which is what [`crate::media::qr_into`] does with a rectangle too
+/// small, and which the aspect arm needs not to be doing while it is being compared against the
+/// pairing arm.
 pub fn qr_area() -> Rect {
     Rect::new(3, 3, QR_SIDE, QR_SIDE)
 }
 
-impl Modules {
-    /// **A version-1 symbol's shape**: three finder patterns, two timing tracks, and a payload.
-    ///
-    /// Not an encoder — the payload is deterministic noise. What the scene needs of a QR is that
-    /// its modules are **square, two-valued and positioned**, and an encoder would put a second
-    /// unchecked fixture in the repository for no additional property.
-    pub fn v1() -> Modules {
-        let n = QR_SIDE;
-        let mut dark = vec![false; usize::from(n) * usize::from(n)];
-        let mut set = |x: u16, y: u16, v: bool| {
-            dark[usize::from(y) * usize::from(n) + usize::from(x)] = v;
-        };
-        // The payload first, so the fixed patterns overwrite it where they overlap.
-        for y in 0..n {
-            for x in 0..n {
-                let h =
-                    u32::from(x).wrapping_mul(73_856_093) ^ u32::from(y).wrapping_mul(19_349_663);
-                set(x, y, (h >> 7) & 1 == 1);
+/// **A version-1 symbol's shape**: three finder patterns, two timing tracks, and a payload.
+///
+/// Not an encoder — the payload is deterministic noise. What the scene needs of a QR is that its
+/// modules are **square, two-valued and positioned**, and an encoder would put a second unchecked
+/// fixture in the repository for no additional property.
+///
+/// # The fixture is the screen's and the type is the component's
+///
+/// [`Modules`] is `crate::media`'s, because a QR component takes a matrix its caller brings. This
+/// function is here, because a symbol whose payload is a hash is a **fixture** and a component that
+/// shipped one would be shipping a QR that encodes nothing.
+pub fn v1_symbol() -> Modules {
+    let n = QR_SIDE;
+    let mut dark = vec![false; usize::from(n) * usize::from(n)];
+    let set = |dark: &mut Vec<bool>, x: u16, y: u16, v: bool| {
+        dark[usize::from(y) * usize::from(n) + usize::from(x)] = v;
+    };
+    // The payload first, so the fixed patterns overwrite it where they overlap.
+    for y in 0..n {
+        for x in 0..n {
+            let h = u32::from(x).wrapping_mul(73_856_093) ^ u32::from(y).wrapping_mul(19_349_663);
+            set(&mut dark, x, y, (h >> 7) & 1 == 1);
+        }
+    }
+    for (ox, oy) in [(0, 0), (n - 7, 0), (0, n - 7)] {
+        for dy in 0..7 {
+            for dx in 0..7 {
+                let edge = dx == 0 || dy == 0 || dx == 6 || dy == 6;
+                let core = (2..=4).contains(&dx) && (2..=4).contains(&dy);
+                set(&mut dark, ox + dx, oy + dy, edge || core);
             }
         }
-        for (ox, oy) in [(0, 0), (n - 7, 0), (0, n - 7)] {
-            for dy in 0..7 {
-                for dx in 0..7 {
-                    let edge = dx == 0 || dy == 0 || dx == 6 || dy == 6;
-                    let core = (2..=4).contains(&dx) && (2..=4).contains(&dy);
-                    set(ox + dx, oy + dy, edge || core);
-                }
-            }
-        }
-        for i in 8..n - 8 {
-            set(i, 6, i % 2 == 0);
-            set(6, i, i % 2 == 0);
-        }
-        Modules { n, dark }
     }
-
-    /// The side, in modules.
-    pub fn side(&self) -> u16 {
-        self.n
+    for i in 8..n - 8 {
+        set(&mut dark, i, 6, i % 2 == 0);
+        set(&mut dark, 6, i, i % 2 == 0);
     }
-
-    /// How many modules there are.
-    pub fn count(&self) -> u32 {
-        u32::from(self.n) * u32::from(self.n)
-    }
-
-    /// Whether a module is dark. `false` for anything outside the symbol.
-    pub fn dark(&self, x: u16, y: u16) -> bool {
-        if x >= self.n || y >= self.n {
-            return false;
-        }
-        self.dark[usize::from(y) * usize::from(self.n) + usize::from(x)]
-    }
+    Modules::new(n, dark)
 }
 
-/// **Draw a QR symbol into `area`, two modules to a cell.**
+/// **Draw a QR symbol into `area`, through [`crate::media::qr_into`].**
+///
+/// [`Pairing::Inverted`] is `crate::media::defective::qr_inverted_into` — the same body with the
+/// other half block — so the readback below is comparing the shipped component against the matrix
+/// that produced it.
 pub fn qr_into<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
@@ -544,46 +427,10 @@ pub fn qr_into<I: Ink>(
     modules: &Modules,
     census: &mut Census,
 ) {
-    let theme = *cx.theme();
-    let paints = QrPaints::new(&theme, census);
-    let per_cell = u16::from(crate::media::sub_rows(build.glyphs));
-    let quad = Geom { sx: 2, sy: 2 };
-    let bits = if build.pairing == Pairing::Upper {
-        0b0000_0011
-    } else {
-        0b0000_1100
+    let _ = match build.pairing {
+        Pairing::Upper => media::qr_into(ink, cx, area, modules, census),
+        Pairing::Inverted => media::defective::qr_inverted_into(ink, cx, area, modules, census),
     };
-    let glyph = if per_cell == 1 {
-        ' '
-    } else {
-        cluster(Kind::Marks, quad, bits)
-    };
-    let mut buf = [0u8; 4];
-    let glyph = &*glyph.encode_utf8(&mut buf);
-    // **The rectangle is an extent and not only an origin**, and the review caught it being read as
-    // one. `Pen` records at root coordinates with no clip at `area`, so a symbol drawn past its
-    // rectangle lands on whatever is there and `readback` — which reads the same coordinates —
-    // reports 0 of 441 for it. A symbol that does not fit is drawn as far as it fits.
-    let rows = modules.side().div_ceil(per_cell).min(area.h);
-    let cols = modules.side().min(area.w);
-    for row in 0..rows {
-        for col in 0..cols {
-            let upper = modules.dark(col, row * per_cell);
-            let lower = if per_cell == 1 {
-                upper
-            } else {
-                modules.dark(col, row * per_cell + 1)
-            };
-            ink.run(
-                cx,
-                area.x + i32::from(col),
-                area.y + i32::from(row),
-                glyph,
-                1,
-                paints.of(upper, lower),
-            );
-        }
-    }
 }
 
 /// **Read the drawn cells back into modules and count the ones that disagree.**
@@ -963,7 +810,7 @@ pub fn distinctions(build: Build) -> Distinctions {
 
 // ── the subjects ─────────────────────────────────────────────────────────────────────────────────
 
-/// The components this screen stands on. **Neither is declared today.**
+/// The components this screen stands on. **Both are declared since components 30.**
 pub const SUBJECTS: [&str; 2] = ["picture", "qr"];
 
 /// Where [`SUBJECTS`] belong, as `(module file, the declaration)`.
@@ -971,10 +818,24 @@ pub const SUBJECTS: [&str; 2] = ["picture", "qr"];
 /// The home is [`crate::Family::F11Media`]'s, whose module is `media.rs`. A component is
 /// `fn(&mut Ctx, Rect, …) -> Response` (spec §1, rule 1), so the thing to look for is a public
 /// function of the component's own name in its own family's module.
-pub const DECLARATIONS: [(&str, &str); 2] =
-    [("media.rs", "pub fn picture("), ("media.rs", "pub fn qr(")];
+///
+/// # The picture's needle is generic, and a needle that was not could never have matched
+///
+/// This is components ticket 26's finding a second time, and it arrived the same way: the scan read
+/// `pub fn picture(` and the shipped declaration is **`pub fn picture<P: Pixels>(`**, because §1's
+/// `…` is a *type parameter* here. It has to be — a picture that took a buffer would make the
+/// component's cost the image's size rather than the rectangle's, which is `CONTEXT.md`'s invariant
+/// one layer up. So a scene green on the parenthesis needle would have been green **by deleting the
+/// type parameter**, which is the one thing about this component's signature that is load-bearing.
+///
+/// `pub fn qr(` is not generic and is written out as it is, so the pair also says that the two
+/// needles are two facts rather than one convention.
+pub const DECLARATIONS: [(&str, &str); 2] = [
+    ("media.rs", "pub fn picture<P: Pixels>("),
+    ("media.rs", "pub fn qr("),
+];
 
-/// **Which of [`SUBJECTS`] this crate actually declares. Today: neither.**
+/// **Which of [`SUBJECTS`] this crate actually declares. Since components 30: both.**
 pub fn subjects_declared() -> Vec<&'static str> {
     let mut out = Vec::new();
     for (subject, (file, declaration)) in SUBJECTS.into_iter().zip(DECLARATIONS) {
@@ -988,6 +849,10 @@ pub fn subjects_declared() -> Vec<&'static str> {
 }
 
 /// **Whether the screen stands on its subjects, as a verdict rather than as a sentence.**
+///
+/// [`Verdict::of`] refuses vacuity in its constructor, which is what makes this the right shape: the
+/// population is the two subjects, and *no component exists* was `Unmet` over two rather than `Met`
+/// over nothing. Since components 30 it is `Met` over two.
 pub fn standing() -> Verdict {
     let declared = subjects_declared();
     Verdict::of(
@@ -1114,7 +979,7 @@ pub const REGIONS: usize = 0;
 
 /// **Adjacent cell pairs of a photograph carrying the same value. Zero of 47 620.**
 ///
-/// The measurement behind *no `fill` is available at any size*: `Ctx::fill` takes one [`Paint`] for
+/// The measurement behind *no `fill` is available at any size*: `Ctx::fill` takes one [`Paint`](vitui_runtime::Paint) for
 /// a rectangle, and the largest rectangle of this screen over which one paint is right is **one
 /// cell**.
 pub const ADJACENT_EQUAL: u64 = 0;
@@ -1197,7 +1062,7 @@ mod tests {
 
     /// **No `fill` is available at any size, and both halves of that are checked.**
     ///
-    /// `Ctx::fill` takes one [`Paint`] for a rectangle. Zero adjacent pairs of a photograph share a
+    /// `Ctx::fill` takes one [`Paint`](vitui_runtime::Paint) for a rectangle. Zero adjacent pairs of a photograph share a
     /// value, so the largest rectangle one paint serves is **one cell** — and the screen calls the
     /// verb nowhere, which is a scan rather than a counter because a counter for it could only ever
     /// read zero.
@@ -1411,7 +1276,7 @@ mod tests {
     /// because a module that is half as tall as it is wide is not a module. *Not worse, invalid.*
     #[test]
     fn the_readback_catches_the_pairing_and_says_nothing_at_all_about_the_aspect() {
-        let modules = Modules::v1();
+        let modules = v1_symbol();
         assert_eq!(modules.count(), QR_MODULE_COUNT);
         let area = qr_area();
         let correct = Build::correct();
@@ -1476,7 +1341,7 @@ mod tests {
     /// then missing is visible: one module a cell needs 21 rows, and 20 loses a row of them.
     #[test]
     fn a_symbol_that_does_not_fit_its_rectangle_is_clipped_rather_than_drawn_past_it() {
-        let modules = Modules::v1();
+        let modules = v1_symbol();
         let flat = Build::correct().at(RUNGS[0]);
         let full = qr_area();
         assert_eq!(
@@ -1511,7 +1376,7 @@ mod tests {
     /// **A QR spends four customs and a picture spends 24 000, and the four are the whole palette.**
     #[test]
     fn a_qr_spends_four_customs_and_they_are_every_paint_on_its_surface() {
-        let modules = Modules::v1();
+        let modules = v1_symbol();
         let area = qr_area();
         let build = Build::correct();
         let mut census = Census::default();
@@ -1567,7 +1432,7 @@ mod tests {
             }
         }
         assert!(
-            paints.len() <= RAMP.len(),
+            paints.len() <= media::ROLE_RAMP.len(),
             "{} paints from thirteen roles",
             paints.len()
         );
@@ -1577,12 +1442,32 @@ mod tests {
         );
     }
 
-    /// **The scene is waiting for its subject, and the sentence says which failure that is.**
+    /// **The scene stands on its two components, and the sentence that says otherwise is still
+    /// live.**
+    ///
+    /// Components ticket 30 inverted this. What changed is which side of [`owed_message`] the crate
+    /// is on, not whether the sentence exists: the message is handed an empty declaration list below
+    /// and read, because *a scene that fails because it is unimplemented and a scene that fails
+    /// because the code is wrong are the same failure unless the message separates them*.
     #[test]
-    fn the_picture_screen_is_owed_its_two_components_and_says_so() {
-        assert_eq!(subjects_declared(), Vec::<&str>::new());
-        assert!(!standing().met());
-        let message = owed_message(&subjects_declared(), "scene 22").expect("neither is declared");
+    fn the_picture_screen_stands_on_picture_and_qr() {
+        assert_eq!(subjects_declared(), SUBJECTS.to_vec());
+        assert!(standing().met());
+        assert!(owed_message(&subjects_declared(), "scene 22").is_none());
+
+        // And the needle is the generic one, which is the half that could have gone green by
+        // deleting the type parameter. See `DECLARATIONS`.
+        let source = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/media.rs"))
+            .expect("media.rs is beside the manifest");
+        assert!(
+            !crate::dense::declares(&source, "pub fn picture("),
+            "`picture` is not generic any more, which is the one thing about its signature that is \
+             load-bearing: a buffer parameter makes the frame cost the image rather than the \
+             rectangle"
+        );
+
+        // The other direction, so the waiting sentence is not one nothing can stop saying.
+        let message = owed_message(&[], "scene 22").expect("neither declared");
         assert!(message.contains("components 30"), "{message}");
         assert!(
             message.contains("waiting for its subject rather than failing"),
@@ -1592,8 +1477,5 @@ mod tests {
             message.contains("`picture`") && message.contains("`qr`"),
             "{message}"
         );
-
-        // The other direction, so the sentence is not one nothing can stop saying.
-        assert!(owed_message(&["picture", "qr"], "scene 22").is_none());
     }
 }

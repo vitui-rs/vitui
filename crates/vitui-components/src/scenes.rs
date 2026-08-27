@@ -36,10 +36,10 @@
 //! ([`Scene::owed`] and [`Scene::from_a_survived_defect`]), because the value can hold both and a
 //! count cannot.
 //!
-//! # Seven scenes are `Unsubjected`, one is `Red` and twenty-five are `Evaluated`
+//! # Seven scenes are `Unsubjected`, none is `Red` and twenty-six are `Evaluated`
 //!
-//! The count that is a gate is `tests::seven_scenes_have_nothing_to_run_over_one_is_red_and_
-//! twenty_five_are_stood_up`, which asserts the **numbers** each scene as well as the total; this
+//! The count that is a gate is `tests::seven_scenes_have_nothing_to_run_over_none_is_red_and_
+//! twenty_six_are_stood_up`, which asserts the **numbers** each scene as well as the total; this
 //! heading is a summary of it and the test is the authority.
 //!
 //! [`crate::gates::Standing::Unsubjected`] means *it could run and there is nothing to run it over*.
@@ -1168,16 +1168,19 @@ const PINS_SCENE_14: &[Instrument] = &[
 /// The picture screen's own file, which is where components ticket 29's scene is played.
 const PICTURE: &str = "crates/vitui-components/src/picture.rs";
 
-/// **The components the picture scene stands up.** Neither is declared; components 30 declares both.
+/// **The components the picture scene stands up.** Both are declared since components 30.
 const MEDIA: &[&str] = &crate::picture::SUBJECTS;
 
-/// **What pins scene 22 in its failing state.**
+/// **What stands scene 22 up.**
 ///
-/// Everything the screen itself can be asked is measured and green — the ladder, the equality at
-/// the top two rungs in both directions, the custom census, the distinction census at four tiers
-/// and two sources, the two traps and the readback. What is missing is the subject, and
-/// `the_picture_screen_is_owed_its_two_components_and_says_so` is the instrument that says which
-/// failure that is.
+/// Everything the screen can be asked, and since components 30 every one of these figures is taken
+/// **through** `crate::media::picture_into` and `crate::media::qr_into` rather than over a stand-in
+/// painter: the ladder, the equality at the top two rungs in both directions, the custom census,
+/// the distinction census at four tiers and two sources, the two traps and the readback. The list
+/// is unchanged apart from its last unit, which is the standing itself and has been inverted.
+///
+/// The name is the one it was pinned under, kept because `crate::gates`'s row 162 and this list are
+/// read together and a rename would make the two look like two different scenes.
 const PINS_SCENE_22: &[Instrument] = &[
     Instrument::Unit {
         file: PICTURE,
@@ -1230,7 +1233,7 @@ const PINS_SCENE_22: &[Instrument] = &[
     },
     Instrument::Unit {
         file: PICTURE,
-        name: "the_picture_screen_is_owed_its_two_components_and_says_so",
+        name: "the_picture_screen_stands_on_picture_and_qr",
     },
     Instrument::Report {
         file: "crates/vitui-components/examples/media_numbers.rs",
@@ -1862,25 +1865,18 @@ pub const SCENES: [Scene; 33] = [
         stands: MEDIA,
         owed: false,
         from_a_survived_defect: false,
-        // **Red and not `Unsubjected`, and the difference is that the screen exists.** Components
-        // ticket 29 built it: the ladder is 1 / 2 / 2 against the plot's 1 / 8 / 8, `Extended ==
-        // Unicode` fires in both directions, the census is 24 000 customs against a QR's 4, the
-        // distinction census runs at four tiers over two sources and both traps are caught. What
-        // is missing is the subject, which is exactly the state §21's own rule asks to be pinned.
-        standing: Standing::Red {
-            by: PINS_SCENE_22,
-            failing: "`picture` and `qr` are undeclared, so the 24 000 cells are a stand-in \
-                      painter's and not a component's. Measured over the stand-in and pinned here: \
-                      24 000 writes / 24 000 verbs / 24 000 customs / 0 regions / 0 adjacent equal \
-                      pairs; the ladder 1, 2, 2 against a bar's 1, 8, 8 and a mark's 1, 4, 8; \
-                      23 920 / 23 899 / 15 347 / 0 horizontal distinctions kept at truecolor, 256, \
-                      16 and none for a photograph and 20 400 / 473 / 174 / 0 for a gradient; \
-                      24 000 of 24 000 cells changed by a translation of one whole row against a \
-                      still picture's 0; 219 of 441 modules read back wrong under an inverted \
-                      pairing and 0 of 441 under one module a cell, which is the trap the readback \
-                      cannot see",
-            inverted_by: "components 30",
-        },
+        // **Stood up by components 30, and every figure it was pinned with reproduced.** The screen
+        // now draws through `crate::media::picture_into` and `crate::media::qr_into`, with
+        // `Pairing::Inverted` and `Ladder::Braille` routed to `crate::media::defective` — the
+        // shipped body with one argument changed, which is `crate::ink`'s own rule against a gate
+        // testing a copy. 24 000 writes / 24 000 verbs / 24 000 customs / 0 regions / 0 adjacent
+        // equal pairs; the ladder 1, 2, 2 against a bar's 1, 8, 8 and a mark's 1, 4, 8;
+        // 23 920 / 23 899 / 15 347 / 0 distinctions for a photograph and 20 400 / 473 / 174 / 0 for
+        // a gradient; 24 000 of 24 000 cells moved by a translation of one row; 219 of 441 modules
+        // wrong under an inverted pairing. **Not one of them moved**, which is what a stand-in
+        // written from the component's own construction is supposed to buy and is not usually
+        // checked.
+        standing: Standing::Evaluated { by: PINS_SCENE_22 },
         // **Empty beside a `Red`, and that is the arrangement rather than an omission.** `by`
         // already names the thirteen tests and the report; a `rehearsed_by` repeating them would put
         // one screen in two columns and let a later reader argue the standing from whichever is
@@ -2516,7 +2512,7 @@ mod tests {
     /// bought, and **components 20 stood it up by checking the shipped code rather than by writing
     /// it**.
     #[test]
-    fn seven_scenes_have_nothing_to_run_over_one_is_red_and_twenty_five_are_stood_up() {
+    fn seven_scenes_have_nothing_to_run_over_none_is_red_and_twenty_six_are_stood_up() {
         let red: Vec<u8> = SCENES
             .iter()
             .filter(|s| matches!(s.standing, Standing::Red { .. }))
@@ -2524,13 +2520,15 @@ mod tests {
             .collect();
         assert_eq!(
             red,
-            vec![22],
-            "**scene 22 is components 29's, and it is the first row to arrive here after the list \
-             ran out of red rows.** The screen exists — the ladder, the census, the distinction \
-             census at four tiers and the two traps are all measured — and what it is played over \
-             is a stand-in painter, which is the state §21 asks to be pinned rather than filed as \
-             `Unsubjected`. Components 30 declares `picture` and `qr` and inverts it. The history \
-             before it: components 26 took the previous last one — scene 14, the \
+            Vec::<u8>::new(),
+            "**the list has no red row again, and components 30 took the last one.** Scene 22 was \
+             components 29's: the screen existed — the ladder, the census, the distinction census \
+             at four tiers and the two traps all measured — and what it was played over was a \
+             stand-in painter, which is the state §21 asks to be pinned rather than filed as \
+             `Unsubjected`. Components 30 declared `pub fn picture<P: Pixels>(` and `pub fn qr(` in \
+             `crate::media` and rewrote `crate::picture` to draw through them, and **not one of the \
+             pinned figures moved**. The history before it: components 26 took the previous last \
+             one — scene 14, the \
              overlay family, which had been waiting for `select` and `overlay` since components 25. \
              The history the empty vector replaces: components ticket 27's two were inverted by 28; \
              components ticket 14's two — scenes 7 and 31 — by **15**; components ticket 16's two — \
@@ -2552,8 +2550,8 @@ mod tests {
         assert_eq!(
             evaluated,
             vec![
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 28, 29, 30, 31,
-                32, 33
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 28, 29, 30,
+                31, 32, 33
             ],
             "the dense screen and its two twins, the collection's **five** — the wheel gate joined \
              the other four when components 20 posted a real notch over the shipped component — \
@@ -2565,8 +2563,11 @@ mod tests {
              anchor and the 408-on-both-columns pair are measurements of the component. Scene 33 is \
              the pair §21 had no way to state, and it is here because it plays over `scroll_area` \
              rather than over an arithmetic offset. **Scene 14 is components 26's and it is the \
-             last row of the list to arrive**: the whole overlay family draws through \
-             `crate::input::select` and `crate::overlay::overlay`. A screen played \
+             last row of the list to arrive before components 30's**: the whole overlay family \
+             draws through `crate::input::select` and `crate::overlay::overlay`, and **scene 22 is \
+             components 30's**, drawn through `crate::media::picture_into` and \
+             `crate::media::qr_into` with both defect axes routed to `crate::media::defective`. \
+             A screen played \
              over a stand-in for its components is rehearsed and not stood up, so one arriving \
              here is a deliberate edit to this module's header and to `crate::gates::REGISTER`. Scenes 12, \
              13 and 32 are components 24's, and the third of them is the one worth naming: the \
@@ -2618,14 +2619,15 @@ mod tests {
         }
         assert_eq!(
             pinned_to,
-            vec![(22u8, "components 30")],
-            "**scene 22 is the one pinned row**, and components 29 pinned it. The distinction \
-             components 11's criterion 7 is about is what this vector was for — the wheel gate was \
-             pinned on a *defect* and every other red row was waiting for a subject — and it is \
-             kept empty rather than deleted, because a scene arriving here again owes both halves: \
-             an exact failing set and the ticket that inverts it. `field` left with components 24, \
-             three scenes together; the overlay family left with 26, and `line` is where the shape \
-             of a red row's own report stayed reachable"
+            Vec::<(u8, &str)>::new(),
+            "**no row is pinned, and components 30 took the last one** — scene 22, the picture, \
+             which components 29 had pinned on a stand-in painter. The distinction components 11's \
+             criterion 7 is about is what this vector was for — the wheel gate was pinned on a \
+             *defect* and every other red row was waiting for a subject — and it is kept empty \
+             rather than deleted, because a scene arriving here again owes both halves: an exact \
+             failing set and the ticket that inverts it. `field` left with components 24, three \
+             scenes together; the overlay family left with 26, the picture with 30, and `line` is \
+             where the shape of a red row's own report stayed reachable"
         );
     }
 
@@ -3062,19 +3064,21 @@ mod tests {
             printed
                 .matches("stood up on its own components, by ")
                 .count(),
-            24,
+            25,
             "a stood-up scene says what stands it up, rather than reading as unplayed. \
-             Twenty-five are stood up and twenty-four say so here, because scene 12 is the one \
+             Twenty-six are stood up and twenty-five say so here, because scene 12 is the one \
              this report **plays** — a played line carries its own numbers instead"
         );
         assert_eq!(
             printed.matches("red, pinned: `components ").count(),
-            1,
-            "**one, since components 29**, and a red line is neither *not played* nor *stood up*. \
-             It was none from 26 until 29: the wheel gate was the seventh until components 20, the \
-             accordion's two the fifth and sixth until 22, the field's three the second, third and \
-             fourth until 24, and the overlay family the last one until 26. Scene 22 is the \
-             picture, and what it is waiting for is `picture` and `qr`"
+            0,
+            "**none again, since components 30**, and a red line is neither *not played* nor \
+             *stood up*. It was none from 26 until 29 as well: the wheel gate was the seventh until \
+             components 20, the accordion's two the fifth and sixth until 22, the field's three the \
+             second, third and fourth until 24, the overlay family the last one until 26 and the \
+             picture the one after that until 30. **The line is still built and still reachable** — \
+             `line` is where a red row's own report lives, so the day another arrives it is a \
+             standing that changes and not a formatter"
         );
         assert_eq!(printed.matches("[rehearsed over a fixture").count(), 1);
         assert!(

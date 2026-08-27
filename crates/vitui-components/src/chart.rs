@@ -912,15 +912,19 @@ mod tests {
         // **And `Theme::custom` is called from two files and one line of each**, which is what
         // *counted, not scattered* means as a number. A second **line** is a second palette.
         //
-        // # The second file is components ticket 29's, and it is the exception §14 states
+        // # The second file is components ticket 30's, and it is the exception §14 states
         //
         // This assertion read `["chart.rs"]` for one ticket, and widening it is a deliberate edit
         // rather than a loosening — §21's refinement 3, the same procedure row 26 uses for the
         // repertoire branch. §14's own sentence is *a picture is the first caller whose every cell
         // is outside the theme*: a chart calls `custom` once to build a **palette** of six series
-        // colours, and `crate::picture` calls it once to build a **pixel**. Those are different
-        // claims, and the thing this gate protects — one palette, decided in one place — is
-        // untouched by the second, because a picture has no palette to decide.
+        // colours, and `crate::media` calls it once to build a **pixel**, a QR's four and a
+        // barcode's two. Those are different claims, and the thing this gate protects — one
+        // palette, decided in one place — is untouched by the second, because a picture has no
+        // palette to decide and a symbol's two colours are a specification rather than a choice.
+        //
+        // **It moved from `picture.rs` to `media.rs` with components 30**, which is the screen
+        // handing the verb back to the component that owes the census.
         //
         // The line count is what keeps the exception at its argument. Two files, one calling line
         // each: a third line anywhere is a second palette again, whichever file it is in.
@@ -942,7 +946,7 @@ mod tests {
         };
         // **Sorted, and the CI runner is what asked for it.** `walk` yields `read_dir` order, which
         // is the filesystem's: this assertion held on one machine and failed on the Linux runner
-        // with `[("picture.rs", 1), ("chart.rs", 1)]` against the same pair the other way round.
+        // with `[("media.rs", 1), ("chart.rs", 1)]` against the same pair the other way round.
         // The single-element version this replaces was order-independent by accident, which is
         // exactly the kind of accident a second element removes.
         let mut sites: Vec<(String, usize)> = files
@@ -961,12 +965,12 @@ mod tests {
         sites.sort();
         assert_eq!(
             sites,
-            vec![("chart.rs".to_string(), 1), ("picture.rs".to_string(), 1)],
+            vec![("chart.rs".to_string(), 1), ("media.rs".to_string(), 1)],
             "`Theme::custom` is called from somewhere new. §16 asks for one palette decided in one \
              place; the two lines this permits are `chart::series_paint`'s and \
-             `crate::picture::custom`'s, and the second is §14's stated exception — a picture's \
-             cells are outside the theme by construction and there is no palette for a second call \
-             to disagree with"
+             `crate::media::custom`'s, and the second is §14's stated exception — a picture's \
+             cells, a QR's two and a barcode's two are outside the theme by construction and there \
+             is no palette for a second call to disagree with"
         );
     }
 

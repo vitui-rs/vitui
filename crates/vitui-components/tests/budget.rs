@@ -480,3 +480,190 @@ fn a_steady_frame_of_a_full_screen_picture_allocates_nothing_as_a_total() {
     assert_eq!(shape.verbs, picture::VERBS);
     assert_eq!(shape.census.customs, picture::CUSTOMS);
 }
+
+/// **The player's chrome allocates nothing on a steady frame, and the shape it replaced allocates a
+/// total no integer mean would show.**
+///
+/// Components ticket 30. Spec §21 records the defect this gate exists downstream of:
+/// `player::chrome` collected a `Vec<f32>` of chapter positions on the draw path — **40 allocations
+/// over 40 frames against a budget of zero**, *found only when the figure was computed as a total
+/// rather than an integer mean*. The ticket's instruction is **do not fix it again; keep the shape
+/// it replaced as a negative case**, and
+/// [`vitui_components::media::player::defective::chrome_collecting_into`] is that case.
+///
+/// # The mean is what missed it, and this is why
+///
+/// The collected arm allocates on the frames that draw the **chapter list** — the band above the
+/// transport block, which a short screen does not have room for. So over a run that is mostly short
+/// the total is the defect and the arithmetic mean is a fraction the integer division throws away.
+/// Both numbers are taken here, from the same run, so the argument is a pair of measured figures
+/// rather than a sentence about the past.
+#[test]
+fn the_chrome_allocates_nothing_and_the_shape_it_replaced_allocates_a_total_no_mean_would_show() {
+    use vitui_alloc_probe::count_allocations;
+    use vitui_components::ink::Direct;
+    use vitui_components::media::Census;
+    use vitui_components::media::player::{Chapter, Player, chrome_into, defective};
+    use vitui_runtime::Rect;
+
+    /// How many frames the run is. Every one of them draws; only [`TALL`] of them are tall enough
+    /// for the chapter list.
+    const FRAMES: usize = 200;
+    /// How many of [`FRAMES`] are tall. §21's own numerator.
+    const TALL: usize = 40;
+
+    let player = || {
+        Player::new(
+            3_672.0,
+            vec![
+                "01 - engine, cells and layers".to_owned(),
+                "02 - the runtime seam".to_owned(),
+            ],
+            vec![
+                Chapter {
+                    at: 0.0,
+                    name: "cold open".to_owned(),
+                },
+                Chapter {
+                    at: 0.42,
+                    name: "the seam".to_owned(),
+                },
+            ],
+        )
+    };
+
+    // The two heights. The short one is exactly the transport block, so the lists band is empty.
+    let short = Rect::new(0, 0, W, 4);
+    let tall = Rect::new(0, 0, W, H);
+
+    let mut driver = Driver::headless(W, H).expect("a sink attaches");
+    let mut correct = player();
+    let mut collecting = player();
+
+    // Warm both arms: the frame structures take their allocation on the first frame that needs one,
+    // and the two heights are two shapes.
+    for area in [short, tall] {
+        driver.frame(|cx| {
+            chrome_into(&mut Direct, cx, area, &mut correct, &mut Census::default());
+        });
+        driver.frame(|cx| {
+            defective::chrome_collecting_into(
+                &mut Direct,
+                cx,
+                area,
+                &mut collecting,
+                &mut Census::default(),
+            );
+        });
+    }
+
+    let run = |driver: &mut Driver, arm: &mut dyn FnMut(&mut Driver, Rect)| {
+        count_allocations(|| {
+            for frame in 0..FRAMES {
+                arm(driver, if frame < TALL { tall } else { short });
+            }
+        })
+        .1
+    };
+
+    let shipped = run(&mut driver, &mut |driver: &mut Driver, area: Rect| {
+        driver.frame(|cx| {
+            chrome_into(&mut Direct, cx, area, &mut correct, &mut Census::default());
+        });
+    });
+    assert_eq!(
+        shipped, 0,
+        "the chrome allocated {shipped} times over {FRAMES} frames"
+    );
+
+    let collected = run(&mut driver, &mut |driver: &mut Driver, area: Rect| {
+        driver.frame(|cx| {
+            defective::chrome_collecting_into(
+                &mut Direct,
+                cx,
+                area,
+                &mut collecting,
+                &mut Census::default(),
+            );
+        });
+    });
+    assert_eq!(
+        collected, TALL,
+        "the collected arm is one `Vec<f32>` per frame that draws the chapter list"
+    );
+    // **And this is the figure that missed it.** `allocs / n` is the shape every prototype's report
+    // used, and integer division over a run this shape reads zero for a defect that is really there.
+    assert_eq!(
+        collected / FRAMES,
+        0,
+        "an integer mean would have shown the defect, so the total is not what caught it"
+    );
+}
+
+/// **The audio half adds no allocation and no construction: the bar ladder verbatim, and zero as a
+/// total.**
+///
+/// Components ticket 30. §14: *the audio half adds no mechanism and no construction — §13's
+/// 1 / 8 / 8 ladder verbatim, zero customs, zero allocations.* The customs are counted by
+/// `vitui_components::media`'s own census; the zero here is the allocation half, and it is a total
+/// over fifty frames of all three at once so that a construction allocating on some frames and not
+/// others cannot average itself away.
+///
+/// The symbols are in the same window, because *zero* is the claim for the whole family and running
+/// each alone would let one of them hide behind the warm-up of the next.
+#[test]
+fn a_steady_frame_of_the_media_family_allocates_nothing_as_a_total() {
+    use vitui_components::ink::Direct;
+    use vitui_components::media::{
+        Census, Modules, Pixels, barcode_into, picture_into, qr_into, spectrum_into, vu_meter_into,
+        waveform_into,
+    };
+    use vitui_runtime::{Rect, Rgb};
+
+    struct Ramp;
+    impl Pixels for Ramp {
+        fn pixel(&self, x: u16, sub_y: u32) -> Rgb {
+            Rgb::new((x % 251) as u8, (sub_y % 241) as u8, 0x80)
+        }
+    }
+
+    let modules = Modules::new(21, (0..21 * 21).map(|i: u32| i.is_multiple_of(3)).collect());
+    let bars: Vec<bool> = (0..W).map(|i| !i.is_multiple_of(5)).collect();
+    let samples: Vec<f32> = (0..48_000)
+        .map(|i| ((i as f32) / 137.0).sin() * (1.0 - i as f32 / 48_000.0))
+        .collect();
+    let bins: Vec<f32> = (0..W).map(|i| f32::from(i) / f32::from(W)).collect();
+
+    let mut driver = Driver::headless(W, H).expect("a sink attaches");
+    let band = |row: u16, h: u16| Rect::new(0, i32::from(row), W, h);
+    let one_frame = |driver: &mut Driver| {
+        driver.frame(|cx| {
+            let mut census = Census::default();
+            picture_into(
+                &mut Direct,
+                cx,
+                band(0, 8),
+                &Ramp,
+                &Default::default(),
+                &mut census,
+            );
+            qr_into(&mut Direct, cx, band(8, 5), &modules, &mut census);
+            barcode_into(&mut Direct, cx, band(13, 2), &bars, &mut census);
+            waveform_into(&mut Direct, cx, band(15, 4), &samples, &mut census);
+            spectrum_into(&mut Direct, cx, band(19, 3), &bins, &mut census);
+            vu_meter_into(&mut Direct, cx, band(22, 2), &bins, &mut census);
+        });
+    };
+
+    one_frame(&mut driver);
+    one_frame(&mut driver);
+    steady(|| {
+        for _ in 0..50 {
+            one_frame(&mut driver);
+        }
+    });
+
+    // And nothing in that window declared a region, which is the other half of what these six are:
+    // pure drawers.
+    assert_eq!(driver.inspect().hits().len(), 0);
+}

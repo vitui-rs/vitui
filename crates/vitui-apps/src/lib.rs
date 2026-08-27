@@ -76,7 +76,7 @@ pub struct App {
 /// and the reason is that there is nothing to port: what it demonstrates is *one component and one
 /// `Mode`*, and no other library's tutorial has an equivalent because no other library makes the
 /// claim.
-pub const APPS: [App; 9] = [
+pub const APPS: [App; 10] = [
     App {
         name: "counter",
         what: "A bordered panel, a centred value, and Left/Right/q. The smallest program anybody \
@@ -292,6 +292,43 @@ pub const APPS: [App; 9] = [
         ],
         after: None,
     },
+    App {
+        name: "theatre",
+        what: "A picture at four colour depths, a QR, a barcode and the audio three, under a \
+               video player's chrome. `4` is the one to watch: every other component in the \
+               library degrades to a worse drawing of itself and a picture becomes a description \
+               of itself, 0 of 23 920 distinctions kept. `g` is the ladder and `b` is what makes \
+               it mean something; `p` inverts the pairing and nothing on the screen goes wrong; \
+               and the seek bar is drag capture — press jumps, move carries, release moves \
+               nothing, from `Response::local` alone",
+        uses: &[
+            "media::picture_into",
+            "media::qr_into",
+            "media::barcode_into",
+            "media::waveform_into",
+            "media::spectrum_into",
+            "media::vu_meter_into",
+            "media::Pixels",
+            "media::Modules",
+            "media::Census",
+            "media::Palette",
+            "media::defective::picture_inverted_into",
+            "media::defective::picture_braille_into",
+            "media::player::chrome_into",
+            "media::player::scrub",
+            "media::player::Player",
+            "media::player::defective::chrome_collecting_into",
+            "counters::Tally",
+            "ink::Ink",
+            "structure::panel_into",
+            "text::fit_into",
+            "layout::rect::split_at_v",
+            "ctx::Driver::set_theme",
+            "ctx::Driver::unhandled",
+            "ctx::Driver::wait",
+        ],
+        after: None,
+    },
 ];
 
 #[cfg(test)]
@@ -353,9 +390,9 @@ mod tests {
             checked += 1;
         }
         assert_eq!(
-            checked, 7,
-            "triage, ledger, explorer, reader, settings, compose and console open the window; \
-             counter and latency read their keys through a `KeyMap` instead"
+            checked, 8,
+            "triage, ledger, explorer, reader, settings, compose, console and theatre open the \
+             window; counter and latency read their keys through a `KeyMap` instead"
         );
 
         // **The other directions**, or a scanner that has stopped finding `driver.frame(` reports

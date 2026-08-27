@@ -112,7 +112,7 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 29 of 45 tickets resolved (the last on 2026-08-26). `INVENTORY` is spec
+- **`vitui-components` has started**: 30 of 45 tickets resolved (the last on 2026-08-26). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
   answerable by the machine from here on. All five obligations are `Unmet` and each is watched
@@ -269,12 +269,13 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   clause fired on the frame after the reopening — the latch had to move to the **owner**, because
   `SelectState::open` is the only thing that knows an opening has begun.
 
-- **The picture scene is red on purpose, and it is the first red row since components 26**
-  (components ticket 29, 2026-08-26; runtime architecture issue **34**). The screen exists —
-  `crates/vitui-components/src/picture.rs` — and what it is played over is a **stand-in painter**:
-  `INVENTORY` has no media row at all, which is §14's own *no v1 component*, so the subjects are read
-  out of `src/media.rs` and it carries no `pub fn picture(` and no `pub fn qr(`. Components 30
-  inverts it.
+- **The picture scene was red on purpose and components 30 stood it up** (components ticket 29,
+  2026-08-26; runtime architecture issue **34**). The screen is
+  `crates/vitui-components/src/picture.rs`, and for one ticket what it was played over was a
+  **stand-in painter**: `INVENTORY` has no media row at all, which is §14's own *no v1 component*, so
+  the subjects are read out of `src/media.rs`. Read the bullet below it for what inverting it cost;
+  what follows here is the screen's own findings, every one of which now reproduces **through the
+  component**.
   **A picture's ladder is derived rather than branched, and that keeps register row 26's exception at
   one file.** `crate::media::sub_rows` is `geom(Kind::Bars, set).sy.min(COLOURS_PER_CELL)` — **1 / 2
   / 2** out of the bar ladder's **1 / 8 / 8** — and the derivation is the argument: the eighth blocks
@@ -315,7 +316,7 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   terminal's capabilities and the only wire question on the surface is over the thirteen **roles**,
   so `picture::wire_differ` authors a theme per colour pair onto `Danger` and `Warn`, which
   `Roles::from_palette` takes verbatim from `base08` and `base0A` — about 24 000 theme constructions
-  for one screen. Register 155 → **162 rows, 145 evaluated**; scenes **1 red, 25 stood up**.
+  for one screen. Register 155 → **162 rows, 145 evaluated**; scenes **1 red, 25 stood up** — and components 30 took that last red row, leaving **168 rows, 152 evaluated** and **0 red, 26 stood up**.
   **A review then found nine, and three are the shape this crate keeps meeting** — the recorder and
   the defect share a coordinate system, so the gate cannot see it. `qr_into` read its rectangle as an
   *origin* and `Pen` records at root coordinates with no clip, so a symbol painted past its rectangle
@@ -327,6 +328,70 @@ component library stands on. Version `0.0.0`, unpublished, no stability promise 
   reachable from `shift` and from the braille arm and invisible because both play over the
   photograph — and `distinctions` answered **23 920 kept at truecolor** for a `Palette::Roles` screen
   that collapses onto thirteen paints.
+
+- **The media family ships, six of a video player's ten chrome parts with it, and drag capture is
+  two fields** (components ticket 30, 2026-08-26; ADR 0038). `crates/vitui-components/src/media.rs` is the
+  family — `picture`, `qr`, `barcode`, `waveform`, `spectrum`, `vu_meter`, all of them pure drawers
+  with **no hit entry between them** — and `src/media/player.rs` is the chrome. **`MEMBERS` stays
+  empty and that is the deliverable**: `INVENTORY` has no media row, so the module ships the family
+  and the join says so from both sides.
+  **Every figure the scene was pinned with reproduced through the component** — 24 000 writes /
+  verbs / customs, 0 regions, 0 adjacent equal pairs, the ladder 1 / 2 / 2, 23 920 / 23 899 /
+  15 347 / 0 distinctions, 219 of 441 modules wrong under an inverted pairing — which is what a
+  stand-in written from the component's own construction is supposed to buy and is not usually
+  checked.
+  **The scan's needle could never have matched, and it is components 26's finding a second time.**
+  `DECLARATIONS` read `pub fn picture(` and the shipped declaration is **`pub fn picture<P:
+  Pixels>(`**: §1's `…` is a *type parameter* here and has to be, because a picture handed a buffer
+  makes the frame cost the **image** and a sampler makes it cost the **rectangle**. A scene green on
+  the parenthesis needle would have been green *by deleting the type parameter*.
+  **The census is a contrast rather than four numbers, and the barcode's two is a subtraction**:
+  picture one a cell, QR **4**, barcode **2**, the audio three **0**. A barcode carries no
+  information across a cell's own *height*, so two of a QR's four cell states are unreachable —
+  `COLOURS_PER_CELL` read from the other end, and the same fact that gives it **runs where a picture
+  has none**. All three constructions whose colours are outside the theme share one `Theme::custom`
+  calling line, so `chart`'s one-palette-in-one-place gate reads `[("chart.rs", 1), ("media.rs", 1)]`
+  with its argument untouched.
+  **Three constructions, and the count is a union rather than a product**: two glyph spellings and
+  two palettes are four combinations and three constructions, because the description does not move
+  with the repertoire — its paints are the theme's and its cells read one pixel each.
+  **Drag capture works and it is `Response::local` over `Response::rect` and nothing else.** No press
+  origin, no stored anchor, no *was I dragging last frame*; played through a **posted** pointer over
+  the shipped chrome it is `20/299 = 0.0669`, `60/299 = 0.2007` and unchanged on release. **`slider`
+  leaves Tier 3** and what is left for ticket 33 is the thumb, the keyboard, the step and the
+  orientation. The cadence had to be written around and it is the usual two frames — the grab is
+  awarded at `end` — so a gate playing one frame a phase would have measured the cadence and called
+  it the mechanism.
+  **The negative case fires on the mean and not on the total, measured in one run.** `chrome`'s
+  marks are a field; `defective::chrome_collecting_into` is the shape they replaced and it allocates
+  on the frames that draw the **chapter list**, which a short screen has no room for. Over 200 frames
+  of which 40 are tall: shipped **0**, collected **40**, `allocs / n` **0**.
+  **Three near-misses in the instruments.** A row about allocations drafted as *allocates* walked
+  past a filter looking for *allocation* — and neither a wider needle (`alloc` also matches the row
+  about the *allocator*) nor a `for` in place of the `any` (which fires on row 36, about the probe)
+  is the answer, so the row was spelled to be caught and **the count is the assertion**. Every drawer
+  here has a subject **smaller than its rectangle** and the easy arm is a `continue`, so all six
+  fill — and a QR's remainder is the **quiet zone its own specification asks for**, the one place on
+  this map where the partition rule and the subject's own standard are the same sentence. And
+  `Stamp` saturated on the minutes alone, so 4 369 minutes read `99:00`.
+  **A review then found a fourth, and it is `Ctx::id`'s documented trap with the half nobody
+  states.** `picture_into` and `qr_into` carry `#[track_caller]` and took their id inside a plain
+  private body one frame down — and the attribute propagates only through functions that carry it —
+  so **every picture in a program had the same id**, whatever the call site. Both ways to notice it
+  are quiet: a picture declares no region, so nothing merges and nothing is lost on the screen, and
+  `Response::id` is a value a caller may key on rather than one the runtime checks. `barcode` was
+  correct beside them for the only reason that matters, which made the diagnosis a comparison rather
+  than a guess.
+  **What is not built is recorded and not attempted**: `media::WhyThereIsNoWallpaper` carries the
+  three `LayerHost` gaps, the still screen's **24 000 cells re-damaged against 1 076** and the
+  **13.7×**, and no component-level placement ships. Register 162 → **168 rows, 152 evaluated**;
+  scenes **0 red, 26 stood up**.
+  **The application is `theatre`**, and `--probe` is its own answer to a screen whose subject is a
+  count: one headless frame at 100×30 prints **3 006 writes over 3 000 distinct** — every cell of the
+  terminal, the six overwrites being the chapter marks and the thumb — 890 customs, and **7 regions:
+  the panel, five transport buttons and the track, not one of them a picture, a symbol or a meter**.
+  `4` is the key to press: every other component in the library degrades to a worse drawing of itself
+  and a picture becomes a **description** of itself.
 
 - **`collapsible` is the thirteenth component, and three of §8's figures are replaced by findings
   rather than reproduced** (components ticket 22, 2026-08-26; ADR 0035). It is **one machine and
@@ -752,8 +817,8 @@ Read these before working, in this order:
    authority. An `architecture.md` beside a spec is the superseded proposal, kept only as the record
    of what was argued.
 2. `CONTEXT.md` — the glossary. Use its terms in code, comments, tickets and commit messages.
-3. `docs/adr/` — 37 decisions that are hard to reverse and surprising without context. 0001–0011 and
-   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0037 the components.
+3. `docs/adr/` — 38 decisions that are hard to reverse and surprising without context. 0001–0011 and
+   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0038 the components.
 4. The impl backlog `README.md` for the layer being worked on — it holds the phase order, the
    blocking edges, and the defects that shaped both.
 
@@ -772,13 +837,16 @@ crates/vitui-engine       cells, surfaces, layers, compositing, damage, serializ
 crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key maps, theming,
                           overlays, the data contract — no scene tree, no reactivity
 crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (16 of 29 built)
+                          └ plus `media`, which is **no row of the freeze at all** — §14's own *no
+                            v1 component*, so the family ships and `MEMBERS` is empty
                           └ the partition primitives return `vitui_runtime::Rect`. This crate used
                             to name its own rectangle (`Cells`) because `vitui_engine::Rect` was
                             unnameable across the crate line; runtime issue 22 re-exported it and
                             components issue 17 deleted the stand-in
 crates/vitui              facade re-export — engine, runtime, components
-crates/vitui-apps         the applications, one file each in `examples/` — 9: `counter`, `triage`,
-                          `latency`, `ledger`, `explorer`, `reader`, `settings`, `compose`, `console`. **A component ticket ships one**: the surface's only
+crates/vitui-apps         the applications, one file each in `examples/` — 10: `counter`, `triage`,
+                          `latency`, `ledger`, `explorer`, `reader`, `settings`, `compose`, `console`,
+                          `theatre`. **A component ticket ships one**: the surface's only
                           consumer, and three times now the thing that found the defect its gates could not
                           └ a workspace MEMBER, so CI builds them: a consumer nobody builds is a
                             consumer nobody checks (`compare/run.sh` is the precedent). Depends on
@@ -827,6 +895,8 @@ cargo deny check                            # needs `cargo install cargo-deny`
 (cd conform && cargo test)                  # the conformance gate, over committed captures
 cargo run -p vitui-apps --example counter   # the first real application; q to quit
 cargo run -p vitui-apps --example console   # the overlay family; Ctrl+P palette, Ctrl+Q quit
+cargo run -p vitui-apps --example theatre   # the media family; 4 is the floor of the colour axis
+cargo run -p vitui-apps --example theatre -- --probe   # one headless frame, and what it cost
 (cd conform && cargo run --example tmux)    # the one conformance soak that is headless
 (cd conform && cargo run --example kitty)   # a window, but no automation grant and no config file
 ```

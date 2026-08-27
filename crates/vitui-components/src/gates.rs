@@ -410,6 +410,13 @@ const PICTURE: &str = "crates/vitui-components/src/picture.rs";
 /// The picture screen's report.
 const MEDIA_NUMBERS: &str = "crates/vitui-components/examples/media_numbers.rs";
 
+/// **The media family's own file**, which is where components ticket 30's components live.
+const MEDIA: &str = "crates/vitui-components/src/media.rs";
+
+/// **The player chrome's file.** Six of §14's ten parts, the grab, and the shape that is kept
+/// because it was wrong.
+const PLAYER: &str = "crates/vitui-components/src/media/player.rs";
+
 /// **`field`'s own file**, which is where the component's rows run. `input.rs` and not `edit.rs`,
 /// because that is where the freeze homes `field`: F6, and [`crate::document::DECLARATIONS`] opens
 /// it to find out whether the three scenes have a subject.
@@ -483,7 +490,7 @@ pub const SPEC_ROWS: usize = 32;
 ///
 /// Row 21 stays `Unreachable` and row 130 is its crate-own form, which is row 41's standing to row
 /// 2's.
-pub const EVALUATED: usize = 145;
+pub const EVALUATED: usize = 152;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
 #[expect(
@@ -493,7 +500,7 @@ pub const EVALUATED: usize = 145;
               array is read at compile time by nothing and at run time by tests, so the copy the \
               lint is warning about is one a test makes once"
 )]
-pub const REGISTER: [Row; 162] = [
+pub const REGISTER: [Row; 168] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -2217,8 +2224,8 @@ pub const REGISTER: [Row; 162] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "seven_scenes_have_nothing_to_run_over_one_is_red_and_\
-                           twenty_five_are_stood_up",
+                    name: "seven_scenes_have_nothing_to_run_over_none_is_red_and_\
+                           twenty_six_are_stood_up",
                 },
             ],
         },
@@ -2447,8 +2454,8 @@ pub const REGISTER: [Row; 162] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "seven_scenes_have_nothing_to_run_over_one_is_red_and_\
-                           twenty_five_are_stood_up",
+                    name: "seven_scenes_have_nothing_to_run_over_none_is_red_and_\
+                           twenty_six_are_stood_up",
                 },
             ],
         },
@@ -2861,8 +2868,8 @@ pub const REGISTER: [Row; 162] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "seven_scenes_have_nothing_to_run_over_one_is_red_and_\
-                           twenty_five_are_stood_up",
+                    name: "seven_scenes_have_nothing_to_run_over_none_is_red_and_\
+                           twenty_six_are_stood_up",
                 },
             ],
         },
@@ -3007,8 +3014,8 @@ pub const REGISTER: [Row; 162] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "seven_scenes_have_nothing_to_run_over_one_is_red_and_\
-                           twenty_five_are_stood_up",
+                    name: "seven_scenes_have_nothing_to_run_over_none_is_red_and_\
+                           twenty_six_are_stood_up",
                 },
             ],
         },
@@ -3504,8 +3511,8 @@ pub const REGISTER: [Row; 162] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "seven_scenes_have_nothing_to_run_over_one_is_red_and_\
-                           twenty_five_are_stood_up",
+                    name: "seven_scenes_have_nothing_to_run_over_none_is_red_and_\
+                           twenty_six_are_stood_up",
                 },
             ],
         },
@@ -5030,7 +5037,8 @@ pub const REGISTER: [Row; 162] = [
     Row {
         number: 156,
         on_spec_table: false,
-        gate: "a picture's ladder is 1 / 2 / 2 where a bar's is 1 / 8 / 8, and `Extended == Unicode`",
+        gate: "a picture's ladder is 1 / 2 / 2 where a bar's is 1 / 8 / 8, `Extended == Unicode`, \
+               and the whole thing is three constructions",
         kind: Kind::Equality,
         owner: "C15",
         section: "spec §14",
@@ -5051,6 +5059,15 @@ pub const REGISTER: [Row; 162] = [
                 Instrument::Unit {
                     file: PICTURE,
                     name: "a_picture_at_ascii_is_a_picture_and_the_only_thing_it_loses_is_a_sub_row",
+                },
+                // **§17's `constructions: 1..=3`, and the count is a union rather than a product.**
+                // Two glyph spellings and two palettes are four combinations and three
+                // constructions, because the description does not move with the repertoire — its
+                // paints are the theme's and its cells read one pixel each.
+                Instrument::Unit {
+                    file: MEDIA,
+                    name: "a_picture_is_three_constructions_because_the_two_axes_are_not_\
+                           independent",
                 },
                 Instrument::Report {
                     file: MEDIA_NUMBERS,
@@ -5250,17 +5267,199 @@ pub const REGISTER: [Row; 162] = [
         // Criterion 6's join, one family over from row 129's: the scene names its subjects, the
         // subjects are read out of the file the freeze homes them in, and the sentence a reader
         // sees separates *unimplemented* from *wrong*.
-        standing: Standing::Red {
+        // **Inverted by components 30, and the needle had to move with it.** This is components
+        // ticket 26's finding a second time: the scan read `pub fn picture(` and the shipped
+        // declaration is `pub fn picture<P: Pixels>(`, because §1's `…` is a **type parameter**
+        // here — a picture that took a buffer would make the frame cost the image rather than the
+        // rectangle. A row green on the parenthesis needle would have been green *by deleting the
+        // type parameter*, which is the one thing about that signature that is load-bearing.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: PICTURE,
+                    name: "the_picture_screen_stands_on_picture_and_qr",
+                },
+                // And the screen really does draw through them: every figure above is now taken
+                // over `crate::media::picture_into` and `crate::media::qr_into`, with the two
+                // defect axes routed to `crate::media::defective`.
+                Instrument::Unit {
+                    file: PICTURE,
+                    name: "a_picture_is_twenty_four_thousand_cells_twenty_four_thousand_verbs_and_\
+                           no_region",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 163,
+        on_spec_table: false,
+        gate: "a picture spends one `Theme::custom` a cell, a QR four, a barcode two and the audio \
+               three none at all, and the family costs 0 allocations as a total",
+        kind: Kind::Count,
+        owner: "C15",
+        section: "spec §14",
+        // **The census as a contrast, which is what makes it a gate rather than four numbers.** §14
+        // states the split in the family — *a waveform spends zero because its colours are roles; a
+        // QR spends four not because it has too many distinctions but because it has exactly two
+        // and they must be those two, which no theme can promise* — and any one of those figures
+        // alone is a number with nothing to be surprising against.
+        //
+        // **The barcode's two is this ticket's own subtraction.** A barcode carries no information
+        // across a cell's own height, so two of a QR's four cell states are unreachable — which is
+        // `COLOURS_PER_CELL` read from the other end, and the same fact that gives it *runs where a
+        // picture has none*.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: MEDIA,
+                    name: "the_custom_census_is_one_a_cell_then_four_then_two_then_none",
+                },
+                Instrument::Unit {
+                    file: MEDIA,
+                    name: "the_audio_half_climbs_the_bar_ladder_and_adds_no_rung_of_its_own",
+                },
+                Instrument::Unit {
+                    file: PLAYER,
+                    name: "the_chrome_spends_no_theme_custom_at_all",
+                },
+                Instrument::Report {
+                    file: MEDIA_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 167,
+        on_spec_table: false,
+        gate: "every media drawer writes a partition of its rectangle at four sizes, and a QR's \
+               remainder is the quiet zone its own specification asks for",
+        kind: Kind::Equality,
+        owner: "C15",
+        section: "spec §2, §14",
+        // §2 over a family whose subjects are routinely **smaller than the rectangle they are
+        // handed** — a QR at two modules a cell fills eleven of twenty-one rows, a bar pattern is
+        // shorter than its band, an audio column is mostly empty. Every one of those cells is the
+        // component's, and the arm that would have been easy is a `continue`.
+        //
+        // **The QR's remainder is the one place on this map where the partition rule and the
+        // subject's own standard are the same sentence**: a reader asks for a light margin, so the
+        // run that satisfies §2 makes the symbol *more* readable rather than merely tidier.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: MEDIA,
+                    name: "every_drawer_writes_each_cell_of_its_rectangle_exactly_once",
+                },
+                Instrument::Unit {
+                    file: MEDIA,
+                    name: "the_drawers_declare_nothing_and_the_chrome_declares_something",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 168,
+        on_spec_table: false,
+        gate: "two pictures at two call sites are two ids, and the same call site drawn twice is one",
+        kind: Kind::Equality,
+        owner: "C15",
+        section: "spec §4, §14",
+        // **A defect this ticket wrote and this row is why it did not ship.** `Ctx::id` mints from
+        // `Location::caller()` and `#[track_caller]` propagates only through functions that carry
+        // it, so the first `picture_into` — which took its id inside a plain private body one frame
+        // down — gave **every picture in a program the same id**, whatever the call site.
+        //
+        // Both ways to notice it are quiet: a picture declares no region, so nothing merges and
+        // nothing is lost on the screen, and `Response::id` is a value a caller may key on rather
+        // than one the runtime checks. `barcode` was correct beside them for the only reason that
+        // matters — it takes its id in the frame that carries the attribute — which is what made the
+        // diagnosis a comparison rather than a guess.
+        standing: Standing::Evaluated {
             by: &[Instrument::Unit {
-                file: PICTURE,
-                name: "the_picture_screen_is_owed_its_two_components_and_says_so",
+                file: MEDIA,
+                name: "two_pictures_at_two_call_sites_are_two_widgets",
             }],
-            failing: "0 of 2 subjects declared. `crates/vitui-components/src/media.rs` carries no \
-                      `pub fn picture(` and no `pub fn qr(`, so the 24 000 cells, the 24 000 \
-                      customs, the 1 / 2 / 2 ladder, the 23 920 / 23 899 / 15 347 / 0 distinctions \
-                      and the 219 of 441 modules are all measured over a stand-in painter in \
-                      `crate::picture`",
-            inverted_by: "components 30",
+        },
+    },
+    Row {
+        number: 164,
+        on_spec_table: false,
+        gate: "a drag is `Response::local` over `Response::rect` and nothing else: press 20/299, \
+               move 60/299, release unchanged",
+        kind: Kind::Equality,
+        owner: "C15",
+        section: "spec §14, §17",
+        // **The mechanism §17 froze `slider` in Tier 3 for**, measured over the shipped chrome with
+        // a **posted** pointer rather than over a `Response` written beside the gate. There is no
+        // press origin, no stored anchor and no *was I dragging last frame*, which is the whole
+        // claim: a delta-only API cannot express a press that jumps.
+        //
+        // **The cadence had to be written around and it is the usual two frames.**
+        // `Response::pressed` is `frame.grab == id` and the grab is awarded at `end` from the index
+        // that has just drawn, so the frame that delivers the `Down` reads `false`. A gate playing
+        // one frame a phase would have measured the cadence and called it the mechanism.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: PLAYER,
+                    name: "a_posted_press_jumps_a_posted_move_carries_and_the_release_moves_nothing",
+                },
+                Instrument::Unit {
+                    file: PLAYER,
+                    name: "a_press_jumps_a_move_carries_and_nothing_else_is_read",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 165,
+        on_spec_table: false,
+        gate: "the player's chrome costs 0 allocations as a total over 200 frames, and the shape \
+               it replaced costs 40 — an integer mean of 0",
+        kind: Kind::Count,
+        owner: "C15",
+        section: "spec §14, §20, §21",
+        // **§21's own refinement 2, with both halves measured in one run.** The defect this is
+        // downstream of was `player::chrome` collecting a `Vec<f32>` of chapter positions on the
+        // draw path, *found only when the figure was computed as a total rather than an integer
+        // mean*. The marks are a field now; `defective::chrome_collecting_into` is the shape they
+        // replaced, kept because the ticket says **do not fix it again**.
+        //
+        // The collected arm allocates on the frames that draw the **chapter list**, which a short
+        // screen has no room for — so 40 of 200 frames pay, the total is the defect and `allocs / n`
+        // is 0. Both numbers come out of the same run.
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: "crates/vitui-components/tests/budget.rs",
+                name: "the_chrome_allocates_nothing_and_the_shape_it_replaced_allocates_a_total_no_\
+                       mean_would_show",
+            }],
+        },
+    },
+    Row {
+        number: 166,
+        on_spec_table: false,
+        gate: "six of the video player's ten chrome parts ship, and the other four each name the \
+               mechanism they wait for",
+        kind: Kind::Count,
+        owner: "C15",
+        section: "spec §14, §17",
+        // **The survey's ✅ as a table with the column it did not have.** *Transport, seek bar,
+        // timeline, volume, subtitles, playlist, chapters: all ✅ cells* is a claim about the
+        // engine, and the engine is not what the chrome was waiting for: two of the ten are
+        // `slider` (components 33, on the mechanism row 164 measures), one is a component that owns
+        // a clock (components 42) and one is survey §6.1's passthrough.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: PLAYER,
+                    name: "six_parts_ship_and_the_other_four_each_name_what_they_wait_for",
+                },
+                Instrument::Unit {
+                    file: PLAYER,
+                    name: "the_chrome_writes_every_cell_of_its_rectangle_exactly_once",
+                },
+            ],
         },
     },
 ];
@@ -5542,7 +5741,7 @@ mod tests {
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn a_hundred_and_forty_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn a_hundred_and_fifty_two_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -5558,7 +5757,7 @@ mod tests {
         assert_eq!(evaluated, EVALUATED, "the count §21 asks a test to assert");
         assert_eq!(
             red,
-            vec![7, 8, 112, 162],
+            vec![7, 8, 112],
             "the gates that are red and pinned: the sentinel, the palette after a swap, one \
              defect in another crate, and — since components 29 — a scene waiting for its subject \
              again. **Row 162 is the picture's**, and row 89 was the previous one of that kind: it \
@@ -5595,7 +5794,7 @@ mod tests {
              domain and needs no component to be run against, and its row had been citing spec §13 \
              and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 162);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 168);
     }
 
     /// **The split, not the total.**
@@ -5606,10 +5805,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_a_hundred_and_thirty_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_a_hundred_and_thirty_six_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 130);
+        assert_eq!(REGISTER.len() - on_table, 136);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -5723,6 +5922,14 @@ mod tests {
     /// written without the word. Every prototype's spelling was `allocs / n`, and a row saying
     /// *zero allocations in a steady frame* with no qualifier is that spelling with the division
     /// hidden.
+    ///
+    /// **The needle is a word and a row can be written past it**, which components ticket 30 found
+    /// by drafting one that said *allocates*: it walked straight past the filter, and a scan that
+    /// misses the row it is aimed at reports green for the population it happened to match. The
+    /// answer is not a wider needle — `alloc` also matches the row about the *allocator*, which
+    /// correctly says nothing about totals — so the row was spelled to be caught instead. Both
+    /// attempts to tighten this test failed on a row that mentions allocations without being about
+    /// a figure, which is why the count is the assertion and the word is only a floor.
     #[test]
     fn an_allocation_row_says_it_is_a_total() {
         let rows: Vec<&Row> = REGISTER
@@ -5731,13 +5938,19 @@ mod tests {
             .collect();
         assert_eq!(
             rows.len(),
-            4,
-            "rows 32 and 36, ticket 23's row 82 and ticket 25's row 87"
+            6,
+            "rows 32 and 36, ticket 23's row 82, ticket 25's row 87 and ticket 30's two — 163 and \
+             165"
         );
         assert!(
             rows.iter().any(|r| r.gate.contains("total")),
             "the steady-frame allocation row must say `total`"
         );
+        // **`any` and not `for`, and the attempt to strengthen it is the second half of the note
+        // above.** Row 36 is about the *probe* — *a zeroed allocation is counted exactly once* —
+        // and correctly says nothing about totals, so the population is *rows that mention
+        // allocations* and the property is *at least one of them is the steady-frame figure and
+        // says so*. A `for` here fires on row 36 and names the wrong thing.
     }
 
     /// **`vitui-alloc-probe` is the only counting allocator in the workspace.**

@@ -5,12 +5,13 @@
 //! Being built one ticket at a time from `.scratch/vitui-components-architecture/spec.md`, whose
 //! map is closed; the backlog is `.scratch/vitui-components-impl/`, forty-three tickets.
 //!
-//! **Thirteen of the twenty-nine components are written** — [`text::text`], [`text::chip`],
+//! **Sixteen of the twenty-nine components are written** — [`text::text`], [`text::chip`],
 //! [`input::button`] and [`structure::panel`] (components ticket 10), [`collect::collection`]
 //! (components ticket 12), [`chart::chart`] and [`chart::plot`] (components ticket 28),
 //! [`collect::table`] (components ticket 15), [`collect::tree`] (components ticket 17),
-//! [`scroll::scroll_area`], [`scroll::scrollbar`] and [`scroll::sticky`] (components ticket 19) and
-//! [`disclose::collapsible`] (components ticket 22) — and the
+//! [`scroll::scroll_area`], [`scroll::scrollbar`] and [`scroll::sticky`] (components ticket 19),
+//! [`disclose::collapsible`] (components ticket 22), [`input::field`] (components ticket 24) and
+//! [`input::select`] with [`overlay::overlay`] (components ticket 26) — and the
 //! dense screen, the listing, the grid, the forest, the two scroll-area screens and the accordion are
 //! now drawn *through* them
 //! rather than through their construction. They are spec §1's four rules with
@@ -242,6 +243,35 @@
 //!   standing on, a catcher layer **swallows** the press it exists to report, a body holding a
 //!   `Copy` of the offset moves it **0 in 20 notches**, and a modal missing either half of its two
 //!   verbs loses the pointer or the keyboard but never both.
+//!
+//! - [`media`] — **the media family, and none of it is a row of the freeze** (components ticket 30).
+//!   §14's *no v1 component* as a value: [`media::MEMBERS`] is empty and the module ships anyway,
+//!   because F11's sixteen survey entries reduce to *constructions* rather than to components.
+//!   [`media::picture`] is the one caller on this map whose every cell is outside the theme — one
+//!   [`vitui_runtime::Theme::custom`] a cell, one verb a cell, **no `fill` available at any size**
+//!   and no interactive region at all — and the family is legible as a **census**: a picture spends
+//!   one a cell, a QR [`media::QR_CUSTOMS`], a barcode [`media::BARCODE_CUSTOMS`] and the audio
+//!   three **none**, because their colours are roles. The barcode's two is the subtraction that
+//!   makes the contrast a rule rather than a list: it carries no information across a cell's own
+//!   height, so two of a QR's four cell states are unreachable — the same fact that gives it runs
+//!   where a picture has none.
+//!
+//!   **The ladder is derived rather than branched**, which keeps register row 26's exception at one
+//!   file: [`media::sub_rows`] is the bar ladder under a ceiling of [`media::COLOURS_PER_CELL`], so
+//!   1 / 8 / 8 becomes **1 / 2 / 2** and `Extended == Unicode` follows from arithmetic. A picture is
+//!   sampled through [`media::Pixels`] rather than handed a buffer, because a buffer makes the frame
+//!   cost the *image* — and that type parameter is the reason `crate::picture::DECLARATIONS` needles
+//!   `pub fn picture<P: Pixels>(`: a scene green on `pub fn picture(` would have been green by
+//!   deleting the one thing about the signature that is load-bearing.
+//!
+//!   [`media::player`] is §14's chrome, **six parts of ten**, with [`media::player::PARTS`] as the
+//!   column the survey did not have. [`media::player::scrub`] is the mechanism §17 froze `slider` in
+//!   Tier 3 for, and it is `Response::local` over `Response::rect` and **nothing else** — press
+//!   jumps to `20/299`, move carries to `60/299`, release moves nothing. What is left for components
+//!   33 is the thumb, the keyboard, the step and the orientation.
+//!   [`media::player::defective::chrome_collecting_into`] is kept because it was wrong: the shape it
+//!   replaced allocates on the frames that draw the chapter list, so over a run that is mostly short
+//!   the **total** is the defect and `allocs / n` is 0.
 //!
 //! **And all seven of spec §3's helpers now exist**, which is the first code here that a component
 //! will call rather than be measured by: [`text::fit`] and [`frame::block`] are the two partition

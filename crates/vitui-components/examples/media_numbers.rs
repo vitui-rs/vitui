@@ -1,7 +1,7 @@
-//! **The picture screen: the colour ladder, the custom census, the two traps and the distinctions
-//! the colour axis takes away, as numbers.**
+//! **The media family: the colour ladder, the custom census across every construction, the two
+//! traps, the distinctions the colour axis takes away, and the chrome's six parts of ten.**
 //!
-//! Components ticket 29. The convention is the runtime's — a file in `examples/` named
+//! Components tickets 29 and 30. The convention is the runtime's — a file in `examples/` named
 //! `<subject>_numbers.rs` that prints the numbers a human reads — and so is the rule about what an
 //! example may be: **`cargo test` does not run this file.** The rows of
 //! [`vitui_components::gates::REGISTER`] this ticket adds *cite* it, and each names a `#[test]` in
@@ -14,8 +14,12 @@
 //! 3. **The ladder**, beside the plot's, which is where `Extended == Unicode` comes from.
 //! 4. **The distinction census** at four tiers and two sources, which is the colour axis.
 //! 5. **The two traps**, each with the counter that sees it and the counter that does not.
-//! 6. **What this crate cannot ask**, with the item each answer needs.
-//! 7. **What does not reproduce**, said out loud rather than engineered away.
+//! 6. **The family's census**, one row a construction — 24 000, 4, 2, 0, 0, 0 — which is what §14
+//!    states as a *contrast* and what makes F11 legible as a count.
+//! 7. **The chrome**, ten parts and the mechanism each of the four that do not ship is waiting for,
+//!    with the grab's three phases beside it.
+//! 8. **What this crate cannot ask**, with the item each answer needs.
+//! 9. **What does not reproduce**, said out loud rather than engineered away.
 //!
 //! # It asserts the shape and not the timings
 //!
@@ -27,14 +31,22 @@ use std::time::{Duration, Instant};
 
 use vitui_alloc_probe::{CountingAllocator, count_allocations};
 use vitui_components::chart::raster::RUNGS;
+use vitui_components::counters::Tally;
 use vitui_components::gates::Standing;
+use vitui_components::ink::Direct;
+use vitui_components::media::player::{Chapter, Needs, PARTS, Player, SHIPPED, chrome_into, scrub};
+use vitui_components::media::{
+    BARCODE_CUSTOMS, Census, Palette, QR_CUSTOMS, barcode_into, picture_into, spectrum_into,
+    vu_meter_into, waveform_into,
+};
 use vitui_components::picture::{
     self, ADJACENT_EQUAL, ADJACENT_EQUAL_GRADIENT, BAR_LADDER, Build, CELL_ASPECT_MEASURED,
     CELL_ASPECT_NOMINAL, CELLS, CUSTOMS, DEPTHS, H, HORIZONTAL_PAIRS, LADDER, Ladder, MARK_BITS,
-    Modules, Pairing, Palette, QR_CUSTOMS, QR_MODULE_COUNT, Source, W,
+    Pairing, QR_MODULE_COUNT, Source, W, v1_symbol,
 };
 use vitui_components::scenes::{SCENES, scenes_for};
-use vitui_runtime::ColorDepth;
+use vitui_runtime::ctx::Driver;
+use vitui_runtime::{Button, Buttons, ColorDepth, Mods, Mouse, MouseKind, Rect};
 
 // **The probe, because `allocations` is a total and a total needs something that counts.**
 #[global_allocator]
@@ -43,6 +55,12 @@ static PROBE: CountingAllocator = CountingAllocator;
 /// How many frames a per-frame figure is taken over. The minimum of eight, warmed.
 const FRAMES: u32 = 8;
 
+/// One construction's draw, in the shape a census row needs it: an ink, a context and a census.
+///
+/// A `type` rather than the tuple written out, which is clippy's own request and is also what makes
+/// the six rows of the census table read as six rows of one thing.
+type Draw<'a> = dyn Fn(&mut Tally, &mut vitui_runtime::Ctx<'_, '_>, &mut Census) + 'a;
+
 fn main() {
     println!("The picture screen — {W}x{H}, {CELLS} cells, every one of them outside the theme\n");
     scene_list();
@@ -50,6 +68,8 @@ fn main() {
     the_ladder();
     the_colour_axis();
     the_two_traps();
+    the_family_census();
+    the_chrome();
     what_this_crate_cannot_ask();
     what_does_not_reproduce();
 }
@@ -77,7 +97,10 @@ fn scene_list() {
             scene.number, scene.name
         );
     }
-    assert_eq!(red, 1, "the picture scene is red until components 30");
+    assert_eq!(
+        red, 0,
+        "the picture scene has stood on `picture` and `qr` since components 30"
+    );
     println!(
         "\n  scenes_for(\"picture\") answers {} and scenes_for(\"qr\") answers {}",
         scenes_for("picture").count(),
@@ -240,7 +263,7 @@ fn the_two_traps() {
     assert_eq!(shifted, u64::from(CELLS));
     assert_eq!(frames, vec![u64::from(CELLS), 0, 0, 0]);
 
-    let modules = Modules::v1();
+    let modules = v1_symbol();
     let area = picture::qr_area();
     let correct = Build::correct();
     let inverted = Build {
@@ -292,6 +315,210 @@ fn the_two_traps() {
          many distinctions but because it has exactly two and they must be *those* two. The \
          readback catches the pairing and is blind to the aspect; the aspect is arithmetic and is \
          blind to the pairing\n"
+    );
+}
+
+/// 6. The family's census, one row a construction — the contrast §14 states.
+fn the_family_census() {
+    println!("report  what each construction spends on `Theme::custom`, and it is the contrast:");
+    println!(
+        "  {:<24}  {:>8}  {:>7}  {:>8}  {:>7}  why",
+        "construction", "customs", "roles", "writes", "verbs"
+    );
+
+    // One rectangle, so the numbers are comparable. Small, because what is being compared is the
+    // census and not the screen.
+    const CW: u16 = 40;
+    const CH: u16 = 10;
+    let cells = u64::from(CW) * u64::from(CH);
+
+    let bars: Vec<bool> = (0..CW).map(|i| i % 3 != 0).collect();
+    let samples: Vec<f32> = (0..4_000)
+        .map(|i| {
+            let t = i as f32 / 4_000.0;
+            (1.0 - t).powf(0.4) * (t * 240.0).sin()
+        })
+        .collect();
+    let bins: Vec<f32> = (0..CW)
+        .map(|i| 1.0 - f32::from(i) / f32::from(CW))
+        .collect();
+    let modules = v1_symbol();
+
+    let rows: [(&str, &str, &Draw<'_>); 6] = [
+        (
+            "picture",
+            "every cell is a pixel, and a pixel is outside the theme",
+            &|ink, cx, census| {
+                let src = picture::Sampled::of(Build::correct());
+                picture_into(ink, cx, cx.area(), &src, &Default::default(), census);
+            },
+        ),
+        (
+            "qr",
+            "two colours that must be *those* two, and a cell carries a pair",
+            &|ink, cx, census| {
+                let _ = vitui_components::media::qr_into(ink, cx, cx.area(), &modules, census);
+            },
+        ),
+        (
+            "barcode",
+            "the same specification with no vertical structure inside a cell",
+            &|ink, cx, census| {
+                barcode_into(ink, cx, cx.area(), &bars, census);
+            },
+        ),
+        ("waveform", "its colours are roles", &|ink, cx, census| {
+            waveform_into(ink, cx, cx.area(), &samples, census);
+        }),
+        ("spectrum", "its colours are roles", &|ink, cx, census| {
+            spectrum_into(ink, cx, cx.area(), &bins, census);
+        }),
+        (
+            "vu meter",
+            "three roles and a threshold",
+            &|ink, cx, census| {
+                vu_meter_into(ink, cx, cx.area(), &bins, census);
+            },
+        ),
+    ];
+
+    let mut spent = Vec::new();
+    for (label, why, draw) in rows {
+        let mut driver = Driver::headless(CW, CH).expect("a sink attaches");
+        let mut census = Census::default();
+        let mut tally = Tally::new();
+        driver.frame(|cx| draw(&mut Tally::new(), cx, &mut Census::default()));
+        driver.frame(|cx| draw(&mut tally, cx, &mut census));
+        println!(
+            "  {label:<24}  {:>8}  {:>7}  {:>8}  {:>7}  {why}",
+            census.customs,
+            census.roles,
+            tally.writes(),
+            tally.verbs()
+        );
+        spent.push((label, census.customs));
+    }
+
+    assert_eq!(spent[0].1, cells, "a picture spends one custom a cell");
+    assert_eq!(spent[1].1, QR_CUSTOMS);
+    assert_eq!(spent[2].1, BARCODE_CUSTOMS);
+    for (label, customs) in &spent[3..] {
+        assert_eq!(*customs, 0, "{label} spent a custom");
+    }
+    println!(
+        "\n  §14 states the split rather than the figures: a picture spends one a cell, a waveform \
+         **zero** because its colours are roles, and a QR **four** — not because it has too many \
+         distinctions but because it has exactly two and they must be *those* two, which no theme \
+         can promise. A barcode's **two** is this ticket's own subtraction: it carries no \
+         information across a cell's own height, so two of a QR's four cell states are unreachable — \
+         which is the same fact that gives it runs where a picture has none\n"
+    );
+}
+
+/// 7. The chrome: ten parts, six shipped, and the grab's three phases.
+fn the_chrome() {
+    println!("report  the video player's chrome, and what each part is waiting for:");
+    println!("  {:<28}  needs", "part");
+    for part in PARTS {
+        let needs = match part.needs {
+            Needs::Nothing => "nothing — it ships",
+            Needs::DragCapture => "the grab — measured below; the component is `slider` (30 -> 33)",
+            Needs::Clock => "a component that owns a clock (components 42)",
+            Needs::Passthrough => "the engine's out-of-band graphics (survey §6.1)",
+        };
+        println!("  {:<28}  {needs}", part.name);
+    }
+    assert_eq!(
+        PARTS.iter().filter(|p| p.needs == Needs::Nothing).count(),
+        SHIPPED
+    );
+    println!(
+        "\n  {SHIPPED} of {} ship. The survey's ✅ is a claim about the engine, and the engine is \
+         not what the chrome was waiting for",
+        PARTS.len()
+    );
+
+    // The grab, over the shipped chrome with a posted pointer. §14's own fractions.
+    const TW: u16 = 300;
+    const TH: u16 = 4;
+    const TRACK_ROW: u16 = 1;
+    let at = |x: u16, kind: MouseKind| Mouse {
+        x,
+        y: TRACK_ROW,
+        kind,
+        buttons: Buttons::NONE,
+        mods: Mods::NONE,
+        at: Instant::now(),
+    };
+    let mut driver = Driver::headless(TW, TH).expect("a sink attaches");
+    let mut player = Player::new(
+        3_672.0,
+        vec!["01 - engine, cells and layers".to_owned()],
+        vec![Chapter {
+            at: 0.42,
+            name: "the seam".to_owned(),
+        }],
+    );
+    let step = |driver: &mut Driver, player: &mut Player| {
+        let mut answer = None;
+        driver.frame(|cx| {
+            let track = chrome_into(
+                &mut Direct,
+                cx,
+                Rect::new(0, 0, TW, TH),
+                player,
+                &mut Census::default(),
+            );
+            answer = scrub(&track);
+        });
+        if let Some(v) = answer {
+            player.position = v;
+        }
+        answer
+    };
+
+    println!("\n  {:<34}  {:>10}  {:>10}", "phase", "value", "§14");
+    driver.post_mouse(at(20, MouseKind::Move));
+    let hover = step(&mut driver, &mut player);
+    println!(
+        "  {:<34}  {:>10}  {:>10}",
+        "the pointer arrives", "none", "-"
+    );
+    assert!(hover.is_none());
+
+    driver.post_mouse(at(20, MouseKind::Down(Button::Left)));
+    // Two frames: the grab is awarded at `end` from the index that has just drawn.
+    step(&mut driver, &mut player);
+    let pressed = step(&mut driver, &mut player).expect("the grab is held");
+    println!(
+        "  {:<34}  {pressed:>10.4}  {:>10.4}",
+        "the press jumps (20/299)",
+        20.0 / 299.0
+    );
+
+    driver.post_mouse(at(60, MouseKind::Move));
+    let moved = step(&mut driver, &mut player).expect("still held");
+    println!(
+        "  {:<34}  {moved:>10.4}  {:>10.4}",
+        "the move carries (60/299)",
+        60.0 / 299.0
+    );
+
+    driver.post_mouse(at(60, MouseKind::Up(Button::Left)));
+    step(&mut driver, &mut player);
+    let released = step(&mut driver, &mut player);
+    println!(
+        "  {:<34}  {:>10}  {:>10}",
+        "the release moves nothing", "none", "-"
+    );
+    assert!(released.is_none());
+    assert!((pressed - 20.0 / 299.0).abs() < 1e-6);
+    assert!((moved - 60.0 / 299.0).abs() < 1e-6);
+    assert!((player.position - moved).abs() < f32::EPSILON);
+    println!(
+        "\n  Every one of those three is `Response::local` over `Response::rect`: no press origin, \
+         no stored anchor, no fifth cross-frame fact. **`slider` leaves Tier 3 on this**, and what \
+         is left for components 33 is the thumb, the keyboard, the step and the orientation\n"
     );
 }
 
