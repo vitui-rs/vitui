@@ -413,6 +413,15 @@ const MEDIA_NUMBERS: &str = "crates/vitui-components/examples/media_numbers.rs";
 /// **The media family's own file**, which is where components ticket 30's components live.
 const MEDIA: &str = "crates/vitui-components/src/media.rs";
 
+/// **The preview pane's three screens**, which is where components ticket 31's rows run. The pane,
+/// its two keys, its five offset spellings and the two places a landing can be taken are one
+/// module, so a reviewer's diff between the arm that ships and any of the others is a field on
+/// `Build`.
+const PREVIEW: &str = "crates/vitui-components/src/preview.rs";
+
+/// The preview pane's report.
+const PREVIEW_NUMBERS: &str = "crates/vitui-components/examples/preview_numbers.rs";
+
 /// **The player chrome's file.** Six of §14's ten parts, the grab, and the shape that is kept
 /// because it was wrong.
 const PLAYER: &str = "crates/vitui-components/src/media/player.rs";
@@ -490,7 +499,7 @@ pub const SPEC_ROWS: usize = 32;
 ///
 /// Row 21 stays `Unreachable` and row 130 is its crate-own form, which is row 41's standing to row
 /// 2's.
-pub const EVALUATED: usize = 152;
+pub const EVALUATED: usize = 158;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
 #[expect(
@@ -500,7 +509,7 @@ pub const EVALUATED: usize = 152;
               array is read at compile time by nothing and at run time by tests, so the copy the \
               lint is warning about is one a test makes once"
 )]
-pub const REGISTER: [Row; 168] = [
+pub const REGISTER: [Row; 175] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -2224,7 +2233,7 @@ pub const REGISTER: [Row; 168] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "seven_scenes_have_nothing_to_run_over_none_is_red_and_\
+                    name: "four_scenes_have_nothing_to_run_over_three_are_red_and_\
                            twenty_six_are_stood_up",
                 },
             ],
@@ -2454,7 +2463,7 @@ pub const REGISTER: [Row; 168] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "seven_scenes_have_nothing_to_run_over_none_is_red_and_\
+                    name: "four_scenes_have_nothing_to_run_over_three_are_red_and_\
                            twenty_six_are_stood_up",
                 },
             ],
@@ -2868,7 +2877,7 @@ pub const REGISTER: [Row; 168] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "seven_scenes_have_nothing_to_run_over_none_is_red_and_\
+                    name: "four_scenes_have_nothing_to_run_over_three_are_red_and_\
                            twenty_six_are_stood_up",
                 },
             ],
@@ -3014,7 +3023,7 @@ pub const REGISTER: [Row; 168] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "seven_scenes_have_nothing_to_run_over_none_is_red_and_\
+                    name: "four_scenes_have_nothing_to_run_over_three_are_red_and_\
                            twenty_six_are_stood_up",
                 },
             ],
@@ -3511,7 +3520,7 @@ pub const REGISTER: [Row; 168] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "seven_scenes_have_nothing_to_run_over_none_is_red_and_\
+                    name: "four_scenes_have_nothing_to_run_over_three_are_red_and_\
                            twenty_six_are_stood_up",
                 },
             ],
@@ -5476,6 +5485,238 @@ pub const REGISTER: [Row; 168] = [
             ],
         },
     },
+    Row {
+        number: 169,
+        on_spec_table: false,
+        gate: "the three preview-pane scenes are played over `file_preview_pane` and `file_picker` \
+               rather than over a pane written beside them",
+        kind: Kind::Count,
+        owner: "C16",
+        section: "spec §15, §21",
+        // Criterion 6's join, one family over from rows 129's and 162's: the scenes name their
+        // subjects, the subjects are read out of the file the freeze homes them in, and the
+        // sentence a reader sees separates *unimplemented* from *wrong*.
+        //
+        // **The needle is a parenthesis on purpose**, and the load-bearing half is a second scan.
+        // Components 26 read `pub fn select(` for a component §1 already says costs two lifetime
+        // annotations and components 30 read `pub fn picture(` for one whose `…` is a type
+        // parameter; both would have gone green *by deleting the thing that mattered*. A longer
+        // needle here would be this ticket dictating ticket 32's parameter list. What §15 settles
+        // is a **negative** — *a job's lifetime is the question's, a memo's is the data's, and
+        // neither is the widget's* — so `crate::preview::mints_its_own_task` is the half that
+        // cannot be satisfied by deleting anything, and it is watched in both directions.
+        standing: Standing::Red {
+            by: &[
+                Instrument::Unit {
+                    file: PREVIEW,
+                    name: "the_screens_are_waiting_for_file_preview_pane_and_file_picker",
+                },
+                Instrument::Unit {
+                    file: PREVIEW,
+                    name: "the_subject_scan_finds_a_declaration_when_there_is_one",
+                },
+                Instrument::Unit {
+                    file: PREVIEW,
+                    name: "the_task_scan_fires_in_both_directions",
+                },
+            ],
+            failing: "`src/files.rs` declares neither `pub fn file_preview_pane(` nor \
+                      `pub fn file_picker(`, so 0 of 2 subjects are declared and what stands on \
+                      the three screens is `crate::preview::Screen` — a pane written beside the \
+                      scenes. Everything else on rows 170 to 175 runs and passes over it",
+            inverted_by: "components 32",
+        },
+    },
+    Row {
+        number: 170,
+        on_spec_table: false,
+        gate: "a re-sort under a preview pane is wrong on 100 of 100 frames under a position key \
+               and 0 under an identity key, at 103 questions either way",
+        kind: Kind::Count,
+        owner: "C16",
+        section: "spec §10, §15",
+        // **The sixth arrival of the memo-key rule, and the only one whose trigger is not a
+        // gesture.** A preview pane's question is a file and every natural way to name it names a
+        // position: one re-sort is one line of application code and no keystroke at all. The
+        // counter that separates the arms is `Worker::asked` — 1 against 2 — and every other
+        // counter this crate can read is identical, *because the question still matches, so
+        // nothing posts, so nothing wakes, so no frame corrects it.*
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: PREVIEW,
+                    name: "a_position_key_is_wrong_on_a_hundred_of_a_hundred_frames_after_one_re_\
+                           sort",
+                },
+                // And the permutation is a property of the data rather than a stated one: 197 of
+                // 200 positions move because the movable positions are rotated by one.
+                Instrument::Unit {
+                    file: PREVIEW,
+                    name: "a_re_sort_moves_a_hundred_and_ninety_seven_of_two_hundred_positions",
+                },
+                Instrument::Report {
+                    file: PREVIEW_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 171,
+        on_spec_table: false,
+        gate: "a directory streamed in seven batches is wrong after 7 of 7 under a position key \
+               and for a run of exactly 1 frame under an identity key",
+        kind: Kind::Count,
+        owner: "C16",
+        section: "spec §15",
+        // **The same hole with no user in it**, which is why §21 carries it as a scene of its own.
+        // §15's *identity keying is wrong for exactly 1 frame, the decode's latency* is a statement
+        // about a **run** and not about a total, and it is asserted as one: seven batches each cost
+        // their own latency frame, so a total of one would need six of the seven not to move the
+        // cursor's file. 7 wrong frames against 21, longest run 1 against 21.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: PREVIEW,
+                    name: "seven_batches_move_the_cursors_file_under_it_with_nobody_pressing_\
+                           anything",
+                },
+                Instrument::Report {
+                    file: PREVIEW_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 172,
+        on_spec_table: false,
+        gate: "twenty selections draw 1 picture or 20, and §15's three wire figures are two \
+               readings of one product",
+        kind: Kind::Count,
+        owner: "C16",
+        section: "spec §15, R18 §5",
+        // **The crossover as a count**, which is the only form of it this crate can reach: row 161
+        // says why no crate above the engine can read a byte it wrote. The bytes here are that
+        // count times a figure the engine's own map states, and the schedule is a virtual clock —
+        // neither arm is branched on, because a question superseded while it runs lands nothing.
+        //
+        // **The finding is inside §15's own sentence.** 14 652 cells at 37.5 B/cell is 549 450
+        // bytes — 536.57 KiB, which §15 prints as *536 KB* by truncating — and twenty of them is
+        // 10 989 000 bytes, 10.99 MB, which is exactly what *18.3 MB/s over 600 ms* requires.
+        // §15's **10.7 MB** is the truncated 536 read as decimal kB and multiplied by twenty, so
+        // the total and the rate printed in one sentence come from two readings of one number. The
+        // two that agree are gated and the third is recorded.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: PREVIEW,
+                    name: "twenty_selections_draw_one_picture_or_twenty_and_the_bytes_peak_with_\
+                           the_waste",
+                },
+                Instrument::Unit {
+                    file: PREVIEW,
+                    name: "the_pictures_size_and_the_rate_agree_and_the_total_printed_beside_them_\
+                           does_not",
+                },
+                Instrument::Report {
+                    file: PREVIEW_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 173,
+        on_spec_table: false,
+        gate: "each of the five offset spellings produces its own defect on a 4 000-row file, an \
+               800-row file and a 74-row viewport",
+        kind: Kind::Equality,
+        owner: "C16",
+        section: "spec §15, §9",
+        // **The offset belongs to neither side**, and §15's row is a table because the five are
+        // five different defects rather than five degrees of one: 0 content cells against 2 516;
+        // row 726, the new file's last page; the *previous* file, still on screen, scrolled to its
+        // top for the length of the decode; right on arrival and 0 on return; and right in both
+        // directions.
+        //
+        // **§15's own headline pair is a screen that did not partition its rectangle.** 1 650
+        // writes against 4 166 cannot be reproduced by a screen that obeys §2 — it writes 24 000
+        // either way — so this one reports both, and reads one thing *out* of §15's pair: the
+        // difference is 2 516, which is 74 x 34 exactly, so the prototype's document was 34 columns
+        // wide and `crate::preview::LINE_COLUMNS` is derived from that rather than chosen.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: PREVIEW,
+                    name: "each_of_the_five_offset_spellings_is_wrong_in_its_own_way",
+                },
+                Instrument::Unit {
+                    file: PREVIEW,
+                    name: "only_the_request_reset_moves_the_file_that_is_still_on_screen",
+                },
+                Instrument::Unit {
+                    file: PREVIEW,
+                    name: "every_cell_is_written_once_and_the_counter_that_sees_the_defect_is_the_\
+                           content",
+                },
+                Instrument::Report {
+                    file: PREVIEW_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 174,
+        on_spec_table: false,
+        gate: "a per-file offset map is 14 857 142 bytes at a million entries against one slot's 4",
+        kind: Kind::Count,
+        owner: "C16",
+        section: "spec §15",
+        // **R02's sweep releases what an `Id` stopped drawing and a file is not an `Id`**, so the
+        // one spelling that is right in both directions is the one nothing releases. §15's number
+        // is reproduced from the arithmetic that produces it — `entries * (8 + 4 + 1) * 8 / 7` —
+        // and the shipped `HashMap<u64, u32>` is **35 651 584**, because buckets round to a power
+        // of two and the pair pads to sixteen bytes rather than packing to twelve. The estimate is
+        // gated because it is §15's; the measurement is asserted to be larger, because a refusal
+        // that got easier when it was checked would be worth checking again.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: PREVIEW,
+                    name: "a_per_file_map_at_a_million_is_fourteen_million_bytes_against_a_slots_\
+                           four",
+                },
+                Instrument::Report {
+                    file: PREVIEW_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 175,
+        on_spec_table: false,
+        gate: "a landing taken inside the draw tears 20 frames of 20 and taken at the top of the \
+               view tears none",
+        kind: Kind::Count,
+        owner: "C16",
+        section: "spec §15, R18 §7",
+        // **R18 §7's unenforced ordering, and no thread is involved in it.** `Task::take` is
+        // destructive: a view that asks for the answer where it happens to want it takes it in the
+        // *first* consumer and leaves the second — three quarters of a screen further down —
+        // looking at the value that was there before. A view has no `&mut` to the pane's state, so
+        // it cannot put back what it took, and the two status rows of one frame are drawn from two
+        // versions of one value. The count is read off the drawn surface, because the claim is that
+        // the *screen* disagrees with itself.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: PREVIEW,
+                    name: "a_landing_taken_inside_the_draw_tears_every_frame_it_lands_on",
+                },
+                Instrument::Report {
+                    file: PREVIEW_NUMBERS,
+                },
+            ],
+        },
+    },
 ];
 /// **The compile-outcome pair row 31 names, and its positive twin.**
 ///
@@ -5755,7 +5996,7 @@ mod tests {
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn a_hundred_and_fifty_two_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn a_hundred_and_fifty_eight_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -5771,7 +6012,7 @@ mod tests {
         assert_eq!(evaluated, EVALUATED, "the count §21 asks a test to assert");
         assert_eq!(
             red,
-            vec![7, 8, 112],
+            vec![7, 8, 112, 169],
             "the gates that are red and pinned: the sentinel, the palette after a swap, one \
              defect in another crate, and — since components 29 — a scene waiting for its subject \
              again. **Row 162 is the picture's**, and row 89 was the previous one of that kind: it \
@@ -5785,7 +6026,14 @@ mod tests {
              declared **and** `crate::grid::draw_into` calling it, row 74 by components 17 on \
              the same two conditions for `tree`, and row 89 by components 26, which took `select` \
              and `overlay` being declared **and** the scan's own needle being wrong — it read \
-             `pub fn select(` for a component spec §1 already says costs two lifetime annotations"
+             `pub fn select(` for a component spec §1 already says costs two lifetime annotations. \
+             **Row 169 is components 31's**, and it is row 162's shape one family over: the three \
+             preview-pane screens run — the memo key at 100 of 100 frames, the seven batches, the \
+             crossover, the five offset spellings, the map and the tear — and what they run over is \
+             a pane written beside them, because `src/files.rs` declares neither of the two \
+             components. Its needle is deliberately the parenthesis, with the load-bearing half a \
+             *second* scan: §15 settles a negative — a job's lifetime is the question's — and a \
+             longer needle would be this ticket dictating ticket 32's parameter list"
         );
         assert_eq!(
             unreachable,
@@ -5808,7 +6056,7 @@ mod tests {
              domain and needs no component to be run against, and its row had been citing spec §13 \
              and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 168);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 175);
     }
 
     /// **The split, not the total.**
@@ -5819,10 +6067,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_a_hundred_and_thirty_six_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_a_hundred_and_forty_three_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 136);
+        assert_eq!(REGISTER.len() - on_table, 143);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -6226,6 +6474,7 @@ mod tests {
                 "partition_numbers.rs".to_string(),
                 "popup_numbers.rs".to_string(),
                 "press_numbers.rs".to_string(),
+                "preview_numbers.rs".to_string(),
                 "primitive_numbers.rs".to_string(),
                 "scene_numbers.rs".to_string(),
                 "series_numbers.rs".to_string(),

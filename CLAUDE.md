@@ -113,7 +113,7 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 30 of 45 tickets resolved (the last on 2026-08-26). `INVENTORY` is spec
+- **`vitui-components` has started**: 31 of 45 tickets resolved (the last on 2026-08-26). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
   answerable by the machine from here on. All five obligations are `Unmet` and each is watched
@@ -403,6 +403,54 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   the panel, five transport buttons and the track, not one of them a picture, a symbol or a meter**.
   `4` is the key to press: every other component in the library degrades to a worse drawing of itself
   and a picture becomes a **description** of itself.
+
+- **The preview pane's three screens run and all three are red, and §15's own wire sentence is two
+  readings of one number** (components ticket 31, 2026-08-26). `crates/vitui-components/src/preview.rs`
+  is the screen; `src/files.rs` declares neither `file_preview_pane` nor `file_picker`, so scenes 23,
+  24 and 25 go `Unsubjected` → **`Red`** with their figures as the failing set and components 32 as
+  the inverter. It is scene 22's move one ticket earlier, and **the list had no red row in between**,
+  which is the stretch `scenes::line` was kept alive for.
+  **The memo-key rule arrives through the one door that is not a gesture.** A preview pane's question
+  is a *file* and every natural way to name it names a *position*: one re-sort — one line of
+  application code, no keystroke — and the position-keyed pane is wrong on **100 of 100 frames**
+  against 0, with `Task::request` called **103 times either way** and `Worker::asked` the only
+  counter that moves, **1 against 2**, *because the question still matches, so nothing posts, so
+  nothing wakes, so no frame corrects it*. The **197 of 200** is a property of the data rather than a
+  stated permutation — the movable positions rotated by one, with `File::size` each file's rank in
+  that order — so the re-sort really is a sort. `frames` and `requests` are two counters incremented
+  in two places, because one counter read twice is a spelling.
+  **Three of §15's sentences are read rather than reproduced, and each reading is the finding.** Its
+  *identity keying is wrong for exactly 1 frame* is a **run** and not a total — **1 against 21** over
+  7 wrong frames against 21 — because a total of one would need six of the seven batches not to move
+  the cursor's file. Its *1 650 writes against 4 166* is a screen that **did not partition its
+  rectangle**: a component writes every cell of its own, so this one writes **24 000 either way** and
+  both `writes` and `distinct` are blind to the offset defect while `content_writes` is not — and
+  **4 166 − 1 650 = 2 516 = 74 × 34**, which is where the document's width is derived from rather
+  than chosen. And its three wire figures are **two readings of one number**: 14 652 cells at 37.5
+  B/cell is 549 450 bytes = **536.57 KiB**, which §15 prints as *536 KB* by truncating; twenty of
+  them is 10 989 000 bytes = **10.99 MB**, which is exactly what **18.3 MB/s over 600 ms** requires —
+  and the *10.7 MB* printed beside that rate is the truncated 536 read as decimal kB. The two that
+  agree are gated and the third is recorded.
+  **The five offset spellings each produce their own column**, which is why §15's row is a table: 0
+  content cells against 2 516, row **726**, the *previous* file scrolled to its top while it is still
+  on screen, right on arrival and 0 on return, and right in both directions. The map is refused at
+  **14 857 142 bytes against a slot's 4** — §15's own number from the arithmetic that produces it —
+  with the shipped `HashMap` at **35 651 584** and **the relation gated rather than that figure**,
+  because a count of the standard library's own allocation is a gate on somebody else's
+  implementation.
+  **The tear needs no thread at all.** `Task::take` is destructive, so a view that asks for the
+  answer where it happens to want it takes it in the *first* consumer and leaves the second — three
+  quarters of a screen further down — looking at the value that was there before; a view has no
+  `&mut` to put back what it took. **20 torn frames of 20 against 0**, read off the drawn surface,
+  and the state ends up correct either way, which is why a torn frame leaves nothing behind.
+  **The needle problem, met a third time and answered differently.** A longer needle would be this
+  ticket dictating ticket 32's parameter list, so the existence scan stays `pub fn file_preview_pane(`
+  and the load-bearing half is a **negative** scan: §15 refuses R02's sweep on a job's lifetime —
+  *neither is the widget's* — so `preview::mints_its_own_task` looks for `Task::new(` inside
+  `files.rs`, which cannot be satisfied by deleting anything and is watched over two sources rather
+  than over one empty file. **`covers` is empty on all three deliberately**: a scene waiting for its
+  subject is not yet evidence of anything. Register 168 → **175 rows, 158 evaluated**; scenes **3
+  red, 26 stood up**.
 
 - **`collapsible` is the thirteenth component, and three of §8's figures are replaced by findings
   rather than reproduced** (components ticket 22, 2026-08-26; ADR 0035). It is **one machine and

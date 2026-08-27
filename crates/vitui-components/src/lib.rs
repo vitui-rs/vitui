@@ -328,6 +328,7 @@ pub mod obligations;
 pub mod order;
 pub mod picture;
 pub mod popup;
+pub mod preview;
 pub mod runner;
 pub mod scenes;
 pub mod series;
