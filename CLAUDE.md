@@ -212,6 +212,60 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   on a resize, so *cells nobody ever wrote* is zero on any screen that clears and says nothing about
   any component.
 
+- **`spinner`'s mechanism is prototyped and the answer is narrower than the question: a component
+  may own an *anchor* and may not own a *clock*** (components ticket 42, 2026-08-28; map decision
+  **C29**). It is a **prototype ticket** — the code is on `prototype/c17-owned-clock` as
+  `crates/proto-c17-clock` and never merges, the write-up is
+  `.scratch/vitui-components-impl/research/42-a-component-that-owns-a-clock.md`, and it opens exactly
+  one implementation ticket, **46**. §22's *mechanisms named with an owner and not prototyped* loses
+  its first row and `spinner` leaves §17's at-risk tier; the row stays `built: false` until 46 lands,
+  so the crate is still 28 of 29.
+  **The rule is not a permission granted here.** *Stored state may be an anchor, never a phase* — an
+  anchor is a value the current state is recoverable from at any `now`, so there is no state
+  *between* two states; a phase is only meaningful relative to a frame that already ran, which is §8's
+  own sentence. `Collapse` was already obeying it, and a spinner asks for **strictly less**: 32 B of
+  `anim::Steps` against the 40 B tween slot `disclose::Collapse` carries as a field, with no target
+  and nothing to land on.
+  **The refusal of the other arm is a count, and the control is what makes it one.** Three arms on
+  one screen with a tweening `collapsible` beside them: eight advances of a pinned clock move the
+  anchored spinner through **8** ladder frames, the accumulating one through **2** and the
+  self-sampling one through **0**, while the tween reads `[0, 2, 5, 6, 6, 6, 6, 6]` in all three.
+  ***`Driver::pin_clock` is the entire test regime of this workspace and a self-sampling component is
+  invisible to it*** — every screen it appears on loses the ability to advance time, not only its own
+  gates. §22's *120 Hz configured, 99.7 fps achieved* reproduces exactly at **37 anchored steps
+  against 31**, 16.9% slow, and the shortfall is a *rate*, so a fixed `dt` is not expressible and the
+  runtime computes none to hand one.
+  **The cost is the frame and never the arithmetic** — ~50 ns of `Steps::index` against **65.8 µs at
+  100x30** and **478.8 µs at 300x80**, both inside their §20 class and 0.082% / 0.599% of a core at
+  12.5 Hz — so the only lever is the **cadence**, which is where the playhead is: **60 wakes against
+  431 991** over a two-hour film on a sixty-column bar, because the instant the drawn column next
+  moves is a function of `(anchor, duration, width)` and **only an anchored playhead can compute it**.
+  A scrub is a re-anchor and nothing else, which is components 30's `Response::local` from the time
+  axis.
+  **Two numbers nobody had.** A spinner **marks 2 812 cells to change 1** — the engine's refused
+  write-time equality filter (`surface.rs`: `clear`-then-draw defeats it), collapsed at pack time one
+  crate down, so *marked* and *on the wire* are two figures and no crate above the engine can read
+  the second. And *not visible* is **two questions**: undrawn is the same answer **and the same
+  mechanism** as an off-viewport section — the body is not called — while a **clipped** spinner runs,
+  writes nothing and can still ask, which is one line of rule over two screens that look identical.
+  **The allocation window had to be counted per frame**, components 22's warming finding from a third
+  side: a 200-frame window reads `1 / 0 / 0` across the arms — a counter separating them in the
+  direction that approves the two defects — and the one is `Driver::headless`'s undrained output
+  buffer, runtime architecture issue 34. Per frame it is **0** on every steady frame on all three
+  arms. Over six thousand frames the doubling arrives 4 / 1 / 2 in arm order, which is **the only
+  wire signal reachable from a crate above the engine and an accident of a leak rather than an
+  instrument** — recorded, gated nowhere.
+  **Two corrections to the freeze, both measured.** `constructions` for `spinner` is **2** and not
+  §17's 1 — the ladder is `4 / 10 / 10` frames at Ascii / Unicode / Extended, and §16's *every
+  spelling one cell, no spelling blank* is true of it and **decides nothing**; what decides it is
+  whether the frame count moves with the rung. That takes `obligations`' construction sum **34 → 35**
+  while `buildable` stays 33, and *the pair is what says the correction is in the right place*. And
+  `glyphs: &[]` is **right**: a `Glyph` is one lookup with no spelling blank, a ladder is an ordered
+  set of `n` spellings that differ *from each other*, so it is the component's own table exactly as
+  `chart::raster::RUNGS` and `media::sub_rows` are. **There is no theme bit to read instead** —
+  `Distinction` has ten entries and none is *motion is visible* — so the motion switch is the
+  caller's `Duration`, unchanged from §8.
+
 - **Register row 8 is green, and the memo ADR 0030's rule is about had to be built because this
   crate has none** (components ticket 41, 2026-08-28; ADR 0048). *No cell keeps the previous palette
   a frame after a swap* — **0 of 24 000 at 300x80 and 0 of 3 000 on every page at 100x30**, on all
@@ -1523,7 +1577,9 @@ crates/vitui-engine       cells, surfaces, layers, compositing, damage, serializ
                           └ crossterm behind a seam: raw mode, input, capability detection
 crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key maps, theming,
                           overlays, the data contract — no scene tree, no reactivity
-crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (28 of 29 built)
+crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (28 of 29 built —
+                          the one left is `spinner`, whose mechanism is prototyped since ticket 42
+                          and sliced as ticket 46: a component may own an anchor and not a clock)
                           └ and `gallery`, the assembled screen: 28 panels as a value the
                             application iterates, which is where O2's two equalities are measured
                             (ticket 39), and §21's row 7 — every cell of the rectangle written at

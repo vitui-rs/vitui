@@ -1000,19 +1000,29 @@ pub const INVENTORY: &[Component] = &[
     Component {
         id: "spinner",
         tier: Tier::Three,
-        // **The one row still genuinely at risk** (§17). Its mechanism is *a component that owns a
-        // clock*, §8 and §9 both refused a stored transition state, and it is prototyped nowhere on
-        // the map — ticket 42's, and §22 still carries it.
+        // **The last unbuilt row, and it is no longer at risk.** Its mechanism — *a component that
+        // owns a clock* — was §17's at-risk column and §22's *named with an owner and not
+        // prototyped*; components ticket 42 prototyped it and the answer holds. The rule it lands on
+        // is *stored state may be an anchor, never a phase*, which is what §8 and §9 were already
+        // obeying rather than a permission granted here: `Steps` is 32 B against the 40 B tween slot
+        // `disclose::Collapse` already carries as a field. What is left is a component, and it is
+        // ticket 46. See `.scratch/vitui-components-impl/research/42-a-component-that-owns-a-clock.md`.
         built: false,
         layer: Layer::L1,
         families: &[Family::F5Indicators],
+        // **Empty, and measured rather than deferred.** A `Glyph` is one lookup with no spelling
+        // blank; a spinner needs an ordered set of n spellings that differ *from each other*, which
+        // is not one lookup and not n of them — cycling the four arrows at a reader tells them
+        // nothing four times. So the ladder is the component's own table, exactly as
+        // `chart::raster::RUNGS` is `chart`'s and `crate::media::sub_rows` is the picture's.
         glyphs: &[],
-        // 1, and this is one of the numbers the spec does not settle: whether a spinner's frame set
-        // is a glyph ladder (one construction) or a branch whose frame count changes with the rung
-        // (two or three) is decided by the ticket that builds it. §16's rule points at 1 — every
-        // spelling exactly one cell, no spelling blank, and the Unicode and Extended rows identical
-        // in 0 of 20 entries.
-        constructions: 1,
+        // **2, corrected by ticket 42 from §17's 1.** §16's rule points at 1 on the grounds that
+        // every spelling is exactly one cell and no spelling is blank — both are true of the
+        // measured ladder and *neither decides it*. What decides it is whether the frame count moves
+        // with the rung, and it is `4 / 10 / 10` at Ascii / Unicode / Extended: two distinct
+        // ladders, with `Extended == Unicode` being why it is two and not three. The same shape
+        // `crate::media::sub_rows` reports as `1 / 2 / 2` one family over.
+        constructions: 2,
         can_shrink: false,
         owns_offset: false,
         scrolled: false,

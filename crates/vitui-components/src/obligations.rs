@@ -780,12 +780,20 @@ mod tests {
         // measuring something.
         assert_eq!(unmet(o5(AXIS_SCENES)), (34, 14), "O5");
 
-        // **The construction sum, both ways round.** Over the whole freeze it is 34 — 29 rows plus
-        // `chart`, `meter` and `sparkline` at 2 and `plot` at 3 — and over the rows that have a
-        // component to draw it is **33**, which is what `GOLDENS` adds up to and what
+        // **The construction sum, both ways round.** Over the whole freeze it is 35 — 29 rows plus
+        // `chart`, `meter` and `sparkline` at 2, `plot` at 3 and `spinner` at 2 — and over the rows
+        // that have a component to draw it is **33**, which is what `GOLDENS` adds up to and what
         // `crate::golden::SCREENS` holds.
+        //
+        // **It was 34 until components 42**, and the row that moved is the unbuilt one: `spinner`'s
+        // `constructions` was §17's 1 on the grounds that every spelling is one cell and no spelling
+        // is blank, and the prototype found that both are true of the measured ladder and neither
+        // decides it. The frame count moves with the rung — `4 / 10 / 10` — so it is two distinct
+        // ladders. **The two sums are the pair that says the correction is in the right place**:
+        // `owed` moved and `buildable` did not, because a construction of a component nobody has
+        // written is owed and not buildable.
         let owed: u32 = INVENTORY.iter().map(|c| u32::from(c.constructions)).sum();
-        assert_eq!(owed, 34);
+        assert_eq!(owed, 35);
         let buildable: u32 = INVENTORY
             .iter()
             .filter(|c| c.built)
