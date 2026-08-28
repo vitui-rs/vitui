@@ -26,7 +26,11 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   entry (kitty has no cursor attribute for conceal or overline, settled from the shipped binary
   because no dump can tell *not stored* from *not serialised*); the row it **refused** to answer,
   where a dotted underline kitty renders arrives in the capture as `CSI 4 : m` and comparing it would
-  have earned a sixth bit for a misbehaviour that is not happening; and **architecture ticket 20**,
+  have earned a sixth bit for a misbehaviour that is not happening; `quirks.rs`'s **sixth** entry (JetBrains' IDE terminal abandons the ITU-T colon form of SGR 38/48
+  and emits the remainder as text, so a screen fills with `:` and every glyph after one is pushed
+  sideways — the first entry this repository got from a user's screenshot rather than from an
+  instrument, and the one that cannot have a capture because JediTerm cannot be asked what is on its
+  grid); and **architecture ticket 20**,
   the only decision on the engine map settled by asking a terminal rather than by argument — scene 04
   asked three families what they do with a cluster printed over one half of a double-width glyph, all
   three blank the orphaned half themselves, and *they disagree about what it wears*, which is what
@@ -1424,9 +1428,14 @@ crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers 
                             unnameable across the crate line; runtime issue 22 re-exported it and
                             components issue 17 deleted the stand-in
 crates/vitui              facade re-export — engine, runtime, components
-crates/vitui-apps         the applications, one file each in `examples/` — 15: `counter`, `triage`,
+crates/vitui-apps         the applications, one file each in `examples/` — 16: `counter`, `triage`,
                           `latency`, `ledger`, `explorer`, `reader`, `settings`, `compose`, `console`,
-                          `theatre`, `browse`, `mixer`, `vitals`, `roster`, `gallery`. **A component ticket ships one**: the surface's
+                          `theatre`, `browse`, `mixer`, `vitals`, `roster`, `gallery`, `caps`. **A component ticket ships one**: the surface's
+                          └ `caps` is the odd one and draws no frame: attach, read
+                            `Capabilities::report`, detach, print. Every gate here is headless, so
+                            none of them can answer *what did my terminal claim* — which is the
+                            question a person holding a broken screen has, and the one that produced
+                            `quirks.rs`'s sixth entry
                           only consumer, and four times now the thing that found the defect its gates
                           could not
                           └ a workspace MEMBER, so CI builds them: a consumer nobody builds is a
@@ -1489,6 +1498,7 @@ cargo run -p vitui-apps --example roster -- --probe
 cargo run -p vitui-apps --example gallery   # every built component on one screen; t is the key
 cargo run -p vitui-apps --example gallery -- --probe    # the budget, measured in the gallery
 cargo run -p vitui-apps --example gallery -- --matrix   # §16's nine cells, as counts
+cargo run -p vitui-apps --example caps      # what THIS terminal answered; draws no frame
 (cd conform && cargo run --example tmux)    # the one conformance soak that is headless
 (cd conform && cargo run --example kitty)   # a window, but no automation grant and no config file
 ```

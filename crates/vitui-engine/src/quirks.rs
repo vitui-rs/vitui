@@ -21,13 +21,39 @@
 //! | VSCode's integrated terminal | `$TERM_PROGRAM` is `vscode` | legacy SGR |
 //! | tmux | **XTVERSION answers `tmux …`** | overline is accepted, stored, and never forwarded |
 //! | kitty | **XTVERSION answers `kitty(…)`** | conceal and overline have no attribute to be stored in |
+//! | JetBrains' IDE terminal | `$TERMINAL_EMULATOR` starts `JetBrains-` | legacy SGR |
 //!
-//! **The first three are not recognised by a query, and that is not an oversight**: they are
+//! **The first three and the sixth are not recognised by a query, and that is not an oversight**: they are
 //! recognised the way libvaxis recognises them, because the misbehaviour is not something the
 //! terminal will admit to. This is the one place `$TERM_PROGRAM`-shaped evidence is legitimate, and
 //! it is legitimate precisely because it is not being used to *detect a capability* — spec §10's
 //! refusal of terminfo is a refusal to infer capabilities from a name, and an entry here overrides
 //! a capability that was measured.
+//!
+//! # The sixth entry, and it is the cheapest evidence in the table
+//!
+//! JediTerm answers DA2 `0;10;0`, answers no XTVERSION, and sets `TERM=xterm-256color` — so there is
+//! nothing in a query to recognise it by, which is exactly VSCode's position. `$TERMINAL_EMULATOR` is
+//! JetBrains' own variable, `JetBrains-JediTerm` is the classic emulator's value, and nothing else
+//! sets that key.
+//!
+//! **What the misbehaviour looks like is worth writing down, because it is not a lost colour.** The
+//! engine writes truecolour as `SGR 38:2::r:g:b`, the ITU-T T.416 colon form. A parser that handles
+//! only the semicolon form and *abandons the sequence* rather than ignoring it emits the remainder
+//! **as text** — so the screen fills with runs of `:` and digits, and every glyph after one is
+//! pushed sideways. Reported on `counter`, which is a panel and two strings: the title's `C` gone,
+//! `Value: ` replaced by sixteen colons, the left border eight columns in from the edge.
+//!
+//! **Three observations, and they are what the entry rests on.** `examples/caps` in `vitui-apps`
+//! printed `legacy_sgr false` with `TERMINAL_EMULATOR=JetBrains-JediTerm`; the same binary under
+//! `VITUI_FORCE_LEGACY_SGR=1` drew correctly; and the same binary in Ghostty 1.3.1 drew correctly
+//! without it. The bytes were also confirmed identical to the commit before the report, so this is a
+//! standing property of that terminal and not a regression in anything above it.
+//!
+//! **It has no `conform/` capture and cannot have one**, which is the honest limit: that harness
+//! reads a terminal's own screen dump, and JediTerm has no facility to be asked for one. The three
+//! observations above are what is available, and the lever they were taken with ships — so the entry
+//! is falsifiable by a single run in that terminal with `VITUI_FORCE_LEGACY_SGR=0`.
 //!
 //! # The fourth entry, and what it cost to know
 //!
@@ -248,6 +274,25 @@ impl Quirks {
                 ..Quirks::default()
             };
         }
+        // **The sixth entry, and it is VSCode's twice over**: the same misbehaviour, recognised the
+        // same way, for the same reason it cannot be recognised by a query. See the module docs for
+        // the run that produced it.
+        //
+        // `starts_with` and not an equality: `JetBrains-JediTerm` is the classic emulator and the
+        // variable is the product's rather than that engine's, so a reworked terminal shipping under
+        // the same key is covered and one shipping under a different value is not — which is the
+        // honest boundary, because the second has not been observed.
+        if env
+            .terminal_emulator
+            .as_deref()
+            .is_some_and(|v| v.starts_with("JetBrains-"))
+        {
+            return Quirks {
+                name: Some("jetbrains"),
+                legacy_sgr: true,
+                ..Quirks::default()
+            };
+        }
         if cfg!(windows) && version.is_none() {
             return Quirks {
                 name: Some("conpty"),
@@ -260,11 +305,16 @@ impl Quirks {
         // and a real observed misbehaviour will add — one entry at a time, each with the report that
         // produced it.
         //
-        // **Five is where the evidence stops, not where the need does**, and the last two are what
-        // the sentence is for: it took building `conform/` to get either, and the eleven attribute
-        // facts are now observed on **three** of spec §10's tier-1 terminals out of seven. The four
-        // that remain are inference from libvaxis's three entries, and none of the four is named by
-        // any of them.
+        // **Six is where the evidence stops, not where the need does.** The fourth and fifth are
+        // what the sentence is for: it took building `conform/` to get either, and the eleven
+        // attribute facts are now observed on **three** of spec §10's tier-1 terminals out of seven.
+        // The four that remain are inference from libvaxis's three entries, and none of the four is
+        // named by any of them.
+        //
+        // **The sixth arrived from a user's screen rather than from an instrument**, and that is the
+        // other way this table grows — the one §15 was describing when it called populating it field
+        // work. It is the cheapest evidence here and it is still evidence: three runs, two terminals
+        // and a lever that ships.
         Quirks::default()
     }
 

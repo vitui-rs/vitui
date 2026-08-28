@@ -3,6 +3,54 @@
 Hand-written and dated, because a number and what it means are two different artefacts with two
 different lifetimes. `REPORT.md` is generated; this is not.
 
+## 2026-08-28 — the sixth quirk entry, and it came from a screenshot rather than from this directory
+
+**JetBrains' IDE terminal mis-parses the colon form of SGR 38/48**, and it is the sixth row of
+`crates/vitui-engine/src/quirks.rs` — the first that this directory did not produce and could not.
+
+It arrived the way field work usually does. Somebody ran `cargo run -p vitui-apps --example counter`
+in RustRover's terminal and the screen was wrong: the title's `C` gone, `Value: ` replaced by sixteen
+colons, the panel's left border eight columns in from the edge, runs of `:` down the interior. A panel
+and two strings.
+
+**The mechanism is not a lost colour, and that is why it looks like corruption.** The engine writes
+truecolour as `SGR 38:2::r:g:b`, the ITU-T T.416 colon form. A parser that handles only the semicolon
+form and *ignores* what it cannot read loses the colour and nothing else. A parser that **abandons the
+sequence** emits the remainder as text — so the colons and digits of the escape land on the screen as
+glyphs, and every glyph after one is pushed sideways. The screen fills with `:` because an SGR
+truecolour sequence is mostly colons.
+
+**Three observations, and they are the whole of the evidence:**
+
+| run | result |
+|---|---|
+| `examples/caps` in RustRover | `legacy_sgr false`, `TERMINAL_EMULATOR=JetBrains-JediTerm`, DA2 `0;10;0`, no XTVERSION, `TERM=xterm-256color` |
+| `VITUI_FORCE_LEGACY_SGR=1 … --example counter` in RustRover | correct |
+| the same binary in Ghostty 1.3.1, no lever | correct |
+
+Beside them, the bytes `counter` writes were confirmed **identical** to the commit before the report
+(`cmp` over two pty captures of two builds), so this is a standing property of that terminal rather
+than a regression in anything above it.
+
+**There is no capture and there cannot be one, which is the honest limit of this entry.** Every other
+row here rests on a terminal's own screen dump — Ghostty's `+list-fonts`-era dump, tmux's
+`capture-pane -e`, kitty's shipped `.so`. JediTerm has no facility to be asked what is on its grid, so
+the arm that would belong in `arms/` cannot be written. What replaces it is falsifiability from the
+other direction: the lever ships, so one run in that terminal with `VITUI_FORCE_LEGACY_SGR=0` puts the
+garbage back, and one with `=1` takes it away.
+
+**Recognised by `$TERMINAL_EMULATOR` starting `JetBrains-`**, which is VSCode's position exactly:
+nothing in a query distinguishes it, and spec §10's refusal of terminfo does not reach here because
+this is not inferring a capability from a name — it is overriding one that was measured. `starts_with`
+rather than an equality, so a reworked terminal shipping under the same key is covered and one
+shipping under a different value is not, which is where the observation stops.
+
+**And the entry produced an instrument.** `crates/vitui-apps/examples/caps.rs` is what turned a
+screenshot into three lines of evidence: attach, read `Capabilities::report`, detach, print, and draw
+no frame at all so that nothing it prints can be a consequence of a component. Every gate in this
+workspace is headless; none of them can answer *what did my terminal claim*. That question now has a
+command.
+
 ## 2026-08-23 — the terminals agree about the repair and disagree about its colour
 
 Scene 04, four arms, and the reason production ticket 06 was blocked on this directory rather than on

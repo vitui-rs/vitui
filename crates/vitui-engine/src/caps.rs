@@ -375,6 +375,14 @@ pub(crate) struct Env {
     pub(crate) term_program: Option<String>,
     /// `TERMUX_VERSION`, which is how the quirk table recognises Termux.
     pub(crate) termux: Option<String>,
+    /// `TERMINAL_EMULATOR`, which is how the quirk table recognises JetBrains' terminal.
+    ///
+    /// **It is JetBrains' own variable and nothing else sets it.** The IDE terminal answers DA2
+    /// `0;10;0`, answers no XTVERSION, and sets `TERM=xterm-256color` — so there is nothing in a
+    /// query to recognise it by, which is the same position VSCode's entry is in and the reason
+    /// §10's refusal of terminfo does not reach here: this is not inferring a capability from a
+    /// name, it is overriding one that was measured.
+    pub(crate) terminal_emulator: Option<String>,
 }
 
 impl Env {
@@ -394,6 +402,7 @@ impl Env {
             colorterm: var("COLORTERM"),
             term_program: var("TERM_PROGRAM"),
             termux: var("TERMUX_VERSION"),
+            terminal_emulator: var("TERMINAL_EMULATOR"),
         }
     }
 
@@ -1656,6 +1665,106 @@ mod tests {
             Capabilities::identified_as("kitty(0.48.2)").attrs_dropped(),
             both
         );
+    }
+
+    /// **The sixth entry**: JetBrains' IDE terminal takes the semicolon form of SGR 38/48.
+    ///
+    /// Recognised by `$TERMINAL_EMULATOR`, because there is nothing in a query to recognise it by —
+    /// it answers DA2 `0;10;0`, answers no XTVERSION and sets `TERM=xterm-256color`, which is
+    /// exactly VSCode's position. See `crate::quirks`'s module documentation for the three
+    /// observations the entry rests on.
+    ///
+    /// **Both directions**, and the second is the one that matters: an entry recognised by a variable
+    /// nothing else sets must not fire on a terminal that does not set it, or every terminal in the
+    /// table's blind spot silently loses the colon form.
+    #[test]
+    fn jetbrains_takes_the_semicolon_form_of_sgr() {
+        let jetbrains = Env {
+            terminal_emulator: Some("JetBrains-JediTerm".to_string()),
+            term: Some("xterm-256color".to_string()),
+            colorterm: Some("truecolor".to_string()),
+            ..Env::default()
+        };
+        let quirks = Quirks::lookup(None, &jetbrains);
+        assert!(quirks.legacy_sgr);
+        assert_eq!(quirks.name, Some("jetbrains"));
+        // The attribute bits are nobody's business here: this entry is one parser disagreement and
+        // says nothing about what the terminal renders.
+        assert_eq!(quirks.attrs_dropped, 0);
+        assert_eq!(quirks.underlines, Underlines::Standard);
+
+        // **`starts_with`, so a reworked terminal under the same key is covered** — and a different
+        // key is not, which is the honest boundary because it has not been observed.
+        let reworked = Env {
+            terminal_emulator: Some("JetBrains-Reworked".to_string()),
+            ..Env::default()
+        };
+        assert!(Quirks::lookup(None, &reworked).legacy_sgr);
+        let stranger = Env {
+            terminal_emulator: Some("SomethingElse".to_string()),
+            ..Env::default()
+        };
+        assert!(!Quirks::lookup(None, &stranger).legacy_sgr);
+        assert!(!Quirks::lookup(None, &Env::default()).legacy_sgr);
+
+        // And the whole way through `assemble`, because the field the serialiser reads is the one
+        // the table lays over detection rather than the one it returns.
+        let caps = assemble(
+            Overrides::default(),
+            &jetbrains,
+            Ground::Tty,
+            &modern(),
+            Quirks::lookup(None, &jetbrains),
+        );
+        assert!(
+            caps.legacy_sgr(),
+            "detection says nothing about SGR and the table is what decides it"
+        );
+        // **The identity the entry supplies is a fallback and only that**, which `modern()` above is
+        // the wrong fixture to show: it answers XTVERSION, so detection has an identity of its own
+        // and `apply` leaves it alone. On the detection JediTerm actually produces — DA2 and no
+        // XTVERSION — the report names the terminal a person is looking at.
+        let jediterm = Detected {
+            da2: Some((0, 10, 0)),
+            version: None,
+            ..modern()
+        };
+        let named = assemble(
+            Overrides::default(),
+            &jetbrains,
+            Ground::Tty,
+            &jediterm,
+            Quirks::lookup(None, &jetbrains),
+        );
+        assert!(named.report().contains("DA2 0;10;0"), "{}", named.report());
+
+        // **So the entry's own `name` is dead on the terminal it is for**, and it is set anyway for
+        // the reason the other three env-recognised entries set theirs: it is the identity a report
+        // carries when there is nothing else, and DA2 is not something this table can rely on. The
+        // path is exercised here rather than left as a claim.
+        let mute = Detected {
+            da2: None,
+            version: None,
+            ..modern()
+        };
+        let fallback = assemble(
+            Overrides::default(),
+            &jetbrains,
+            Ground::Tty,
+            &mute,
+            Quirks::lookup(None, &jetbrains),
+        );
+        assert!(
+            fallback.report().contains("jetbrains"),
+            "{}",
+            fallback.report()
+        );
+
+        // **A query still beats the variable**, on the precedent `tmux_inside_vscode_is_tmux` sets:
+        // a JetBrains terminal running tmux is talking to tmux.
+        let inside = Quirks::lookup(Some("tmux 3.7c"), &jetbrains);
+        assert!(!inside.legacy_sgr, "the tmux entry is the one that applies");
+        assert_eq!(inside.attrs_dropped, crate::style::OVERLINE);
     }
 
     /// A query beats an environment variable it was handed by inheritance.
