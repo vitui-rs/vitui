@@ -486,8 +486,10 @@ impl Counters {
 /// so a screen probe would make one equality out of two different instruments; and the recorder is
 /// the **conservative** one of the two, because a verb that does not go through the caller's `Ink`
 /// is invisible to it and makes this number *larger*. A surface probe counts the engine's own clear
-/// and passes quietly — which is the shape of the defect components 39 found, where the gallery's
-/// clear was bypassing the caller's ink.
+/// and passes quietly — which is the shape of a defect this map has met twice: components 15's
+/// `ledger` drew a table cell with `cx.text` rather than through the ink it was handed (78 cells and
+/// 10 verbs on a frame that wrote 1 560, on a screen that looked correct), and components 39's
+/// gallery cleared through `Direct`.
 ///
 /// # It is a count and it fails loudly by being non-zero
 ///

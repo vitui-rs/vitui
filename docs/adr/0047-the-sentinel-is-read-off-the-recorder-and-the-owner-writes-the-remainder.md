@@ -40,8 +40,10 @@ refinements are about.
 And the recorder is the **stricter** of the two, in the direction that matters:
 
 - A verb that does not go through the caller's `Ink` is invisible to the recorder, so it
-  **under**-counts what was written and the gate fails loudly. Components 39 shipped precisely that
-  defect — the gallery's clear bypassing the caller's ink — and this is the gate that catches it.
+  **under**-counts what was written and the gate fails loudly. That defect is on this map twice
+  already: components 15's `ledger` drew a table cell with `cx.text` instead of through the ink it
+  was handed — 78 cells and 10 verbs on a frame that wrote 1 560, on a screen that looked correct —
+  and components 39's gallery cleared through `Direct` rather than through the caller's ink.
 - A surface probe counts the engine's own clear as a write and passes quietly. It cannot tell *the
   component wrote this cell* from *something painted over it first*, which is the whole subject.
 
@@ -81,7 +83,8 @@ and awards all of is a rectangle whose hover repaints cells nobody wrote.
 The gallery hands each panel the whole of its tile's interior and the twelve that used to be handed
 one row are handed thirteen. `chip`, `button` and the three toggles centre themselves in it; `meter`
 and `slider` **fill** it, which is a fatter drawing than before and a true one — a meter is as tall as
-its rectangle. At 300x80 the screen wrote **13 748** of its 24 000 cells before this ticket and writes
+its rectangle. At 300x80 the screen wrote **13 748** of its 24 000 cells before this ticket — its 10 252
+unwritten, since `writes == distinct` held there too — and writes
 all 24 000 now, and the arm that leaves every remainder alone is 21 044 writes and 1 871 verbs against
 1 933. The frame stays inside §20's full-screen class, `writes == distinct` and `merges == 0` at every
 size and on every page, and the allocation total stays zero.

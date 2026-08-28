@@ -224,8 +224,10 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   coordinates since components 19, so **the second half is that same union against the area** — read on
   the screen the pair would be an equality between two different instruments. The recorder is also the
   **stricter** one, because a verb that skips the caller's `Ink` makes the number *larger* and fails
-  loudly, where a surface probe counts the engine's own clear and passes quietly. That is components
-  39's own defect, the gallery's clear bypassing the caller's ink.
+  loudly, where a surface probe counts the engine's own clear and passes quietly. That defect is on
+  this map twice: components 15's `ledger` drew a table cell with `cx.text` rather than through the
+  ink it was handed — 78 cells and 10 verbs on a frame that wrote 1 560, on a screen that looked
+  correct — and components 39's gallery cleared through `Direct`.
   **Three mechanisms and a fourth that is no component's**, which is §2's sentence as four numbers:
   `panel` hands back `Frame::interior` (**294**), `collapsible` hands back `Disclosure::used`
   (**432**), a `scrollbar` is three columns of a wider tile because *this caller* narrowed it

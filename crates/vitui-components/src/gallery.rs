@@ -2923,8 +2923,10 @@ mod tests {
     ///   pair a pair.
     /// - **The recorder is the stricter of the two.** A verb that does not go through the caller's
     ///   `Ink` is invisible to it, so it **under**-counts what was written and fails loudly; a
-    ///   surface probe counts the engine's own clear and passes quietly. The gallery's clear was
-    ///   bypassing the ink until components 39 and this is the gate that would have caught it.
+    ///   surface probe counts the engine's own clear and passes quietly. A component drawing with
+    ///   `cx.text` rather than through the ink it was handed is components 15's own defect — 78
+    ///   cells and 10 verbs on a frame that wrote 1 560, on a screen that looked correct — and it is
+    ///   this number that moves when it happens.
     ///
     /// So the number this asserts is [`Shape::unwritten`], `crate::runner::Pen`'s, and
     /// [`crate::counters::sentinel`] is the same question asked of a canvas.
