@@ -1,0 +1,13 @@
+scene: field  frame: 0  size: 20x2  tier: truecolor/extended
+
+glyph
+  0 hello···············
+  1 ····················
+
+style
+  0 aaaaaaaaaaaaaaaaaaaa
+  1 aaaaaaaaaaaaaaaaaaaa
+
+legend
+  a  Face  (40 cells)
+  ·  a blank cell, U+0020

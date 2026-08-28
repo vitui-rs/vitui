@@ -1,0 +1,19 @@
+scene: tree  frame: 0  size: 24x4  tier: truecolor/extended
+
+glyph
+  0 αalpha··················
+  1 ···beta·················
+  2 ···gamma················
+  3 ·delta··················
+
+style
+  0 abbbbbbbbbbbbbbbbbbbbbbb
+  1 aaaaaaaaaaaaaaaaaaaaaaaa
+  2 aaaaaaaaaaaaaaaaaaaaaaaa
+  3 aaaaaaaaaaaaaaaaaaaaaaaa
+
+legend
+  a  Body  (73 cells)
+  b  Focus  (23 cells)
+  ·  a blank cell, U+0020
+  α  U+25BC (width 1)  (1 cell)

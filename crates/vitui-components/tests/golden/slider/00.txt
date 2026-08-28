@@ -1,0 +1,14 @@
+scene: slider  frame: 0  size: 20x1  tier: truecolor/extended
+
+glyph
+  0 ααααααααβααααααααααα
+
+style
+  0 aaaaaaaabccccccccccc
+
+legend
+  a  Ok  (8 cells)
+  b  Face  (1 cell)
+  c  Dim  (11 cells)
+  α  U+2500 (width 1)  (19 cells)
+  β  U+2588 (width 1)  (1 cell)

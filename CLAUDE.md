@@ -113,16 +113,69 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 36 of 45 tickets resolved (the last on 2026-08-27). `INVENTORY` is spec
+- **`vitui-components` has started**: 37 of 45 tickets resolved (the last on 2026-08-27). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
-  answerable by the machine from here on. **O1 is met since ticket 36** and the other four are `Unmet`,
-  each watched panicking, because a query with no evidence must fail loudly rather than pass: O4
+  answerable by the machine from here on. **O1 is met since ticket 36 and O3 since ticket 37** and
+  the other three are `Unmet`, each watched panicking, because a query with no evidence must fail loudly rather than pass: O4
   first returned **`Met` over 29 rows with no evidence at all**, since *an equality between two
   things that do not exist holds*. **Building the freeze contradicted four figures in the closed map** — the built count
   (19/10, not ADR 0033's thirteen-unbuilt), the count of empty families (five, not §17's two), §1's
   layer rule against §6's own composition, and the `layer` column being uncheckable without stated
   edges. All four are asserted as measured rather than bent to fit.
+- **O3 is green — thirty-three screens, one per construction, in the engine's format and not a second
+  one** (components ticket 37, 2026-08-27; ADR 0044). `crate::golden` is the format, the screen table
+  and the play; `tests/golden.rs` is the three-rung sweep and the equalities;
+  `examples/golden_numbers.rs` is the report. **A golden is the one instrument on this map that
+  catches a wrong cell** — §17's own reason O1 and O2 do not substitute — and the engine's
+  `golden.rs` is `pub(crate)` throughout (ADR 0023), so the *code* cannot be shared and what must not
+  be forked is named by path in `golden::FORMAT_OWNER`, with the owner's four load-bearing sentences
+  read back out of that file against a flattened source. `VITUI_BLESS=1` is the owner's command;
+  blessing in CI is refused.
+  **The population is `built`, which is ticket 36's finding a second time**: §17 states O3's count
+  over nothing at all, `spinner` is the one unbuilt row, and *a golden of a function that does not
+  exist is not a screen anybody can draw* — so asking for one pins a row nothing here can invert,
+  which is `Verdict::of`'s vacuity failure in mirror image. 33 over 28 rows; 34 over the freeze; the
+  population moves on its own.
+  **The finding is the legend's ceiling and it is a fact about braille.** Twenty-six keys, a
+  twenty-seventh refused as *not reviewable by eye*, and a `plot` at `Extended` is 256 states a cell:
+  **41** keys at 24x6 and **20** at 12x4, against **16** at Unicode and **0** at Ascii on the same
+  rectangle. **The one place on this map where the *format* decides how big a screen may be**, gated
+  with both numbers so a rasteriser change fails with a count rather than inside the renderer.
+  **Two of the three figures do not reproduce**: `plot`'s two block rungs are **21 cells over 3 rows**
+  where §17 says 882, and the dense screen at 300×80 between Ascii and Unicode is **1 065 cells over
+  78 of 80 rows** where §16 says 7 276 over 80 of 80 — and *the two rows that do not move are the
+  finding inside it*, since a cell count alone reports the same screen as *the repertoire is
+  everywhere*. What does reproduce is a rule nobody had counted: **0 of 33 screens keep a cluster
+  outside printable ASCII at the ASCII rung**, and the dense screen keeps exactly **one** — the em
+  dash of `dense::HEADER`, a fixture's own title and no component's glyph, which is §16's *text is
+  legitimately a component's own content* as 1 cell of 24 000.
+  **Three departures from the owner's format, each because the surface is different**: a cell nobody
+  wrote is `▪` and not a blank (§2's partition rule is the subject here, where the engine's unpainted
+  cell is a finding); the style plane names a **`Role`**, because ADR 0018 says a component names a
+  role and never a colour, with paints outside the thirteen printed as `custom #n` so two identical
+  legend lines cannot happen; and the failure report carries **cells and rows** beside the owner's
+  first-differing-line.
+  **`select` and `file_picker` are photographed shut**, and that is the overlay family rather than a
+  choice about two screens: `Ctx::overlay`'s body is `move |cx|` and takes no ink — a body is
+  borrowed for the frame and a `&mut I` is not — so **a popup's interior cannot reach a `Pen` at
+  all**, and a golden of an open `select` is four rows of *a cell no verb wrote* under one row of
+  face. `overlay`'s own screen does show an interior, because `overlay_into` is a shell and not a
+  layer. Register 209 → **215 rows, 199 evaluated**; the rung is named in **five** files and none of
+  them is `src/`.
+  **A review then found this ticket's own equality unable to see its own subject.** A plane's key is
+  first-appearance order, so a plane encodes the **pattern** of distinct clusters and not the
+  clusters — two screens whose non-ASCII cells are swapped one for one have *identical planes*, and
+  a count over them answers `(0, 0)` for the one regression the equality exists to catch. On the
+  plot's own two block rungs it under-reports **12 against 21**. Every equality and every figure runs
+  over `Canvas::diff` now, with both numbers asserted; `divergence` stays for the **file**, where
+  there is no canvas and the line comparison has already caught the legend. Four more beside it,
+  each latent: a multi-frame shot that ended its frames once, so an award declared on frame one would
+  land on frame two's cells; a row width taken from two of the four planes; a negative arm asserting
+  a property of its own string literal rather than running the scan; and `describe_paint` taking the
+  **first** matching role, so the thirteen paints are now asserted pairwise distinct — the runtime's
+  `Roles::pick` exists because a stub palette once had `Dim` and `Border` both on `indexed(8)`.
+
 - **`field` is the fourteenth component, and §11's API consequence is a deletion three `compile_fail`
   pairs keep deleted** (components ticket 24, 2026-08-26; ADR 0036). `input` and `textarea` are **one
   type and one flag** — `edit::WrapKind`, a break rule — and the near-miss is refused on a
@@ -1189,8 +1242,8 @@ Read these before working, in this order:
    authority. An `architecture.md` beside a spec is the superseded proposal, kept only as the record
    of what was argued.
 2. `CONTEXT.md` — the glossary. Use its terms in code, comments, tickets and commit messages.
-3. `docs/adr/` — 43 decisions that are hard to reverse and surprising without context. 0001–0011 and
-   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0043 the components.
+3. `docs/adr/` — 44 decisions that are hard to reverse and surprising without context. 0001–0011 and
+   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0044 the components.
 4. The impl backlog `README.md` for the layer being worked on — it holds the phase order, the
    blocking edges, and the defects that shaped both.
 
@@ -1210,6 +1263,8 @@ crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key map
                           overlays, the data contract — no scene tree, no reactivity
 crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (28 of 29 built)
                           └ every built one carries a doc page with a compiled example (O1, ticket 36)
+                          └ and a golden screen per construction under `tests/golden/` — 33 of them,
+                            in the engine's format, blessed with `VITUI_BLESS=1` (O3, ticket 37)
                           └ plus `media`, which is **no row of the freeze at all** — §14's own *no
                             v1 component*, so the family ships and `MEMBERS` is empty
                           └ the partition primitives return `vitui_runtime::Rect`. This crate used
@@ -1298,6 +1353,7 @@ scripts/observer-gate.sh      # the debug observer is absent from a release bina
 scripts/steady-report.sh      # 60 fps for 30 s against 5% of a core
 scripts/lint-rung-gate.sh     # the clippy.toml rung fires in an application and not from a dep
 n=1 cargo test -p vitui-engine golden        # regenerate the golden frames; review the git diff
+VITUI_BLESS=1 cargo test -p vitui-components golden   # the components' 33 screens; same, and refused in CI
 ```
 
 The fuzz targets are a **soak, never a gate** — the committed corpus replayed by `cargo test` is the

@@ -1,0 +1,11 @@
+scene: chip  frame: 0  size: 14x1  tier: truecolor/extended
+
+glyph
+  0 ····draft·····
+
+style
+  0 aaaaaaaaaaaaaa
+
+legend
+  a  Face  (14 cells)
+  ·  a blank cell, U+0020

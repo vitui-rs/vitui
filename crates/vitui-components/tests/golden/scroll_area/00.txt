@@ -1,0 +1,29 @@
+scene: scroll_area  frame: 0  size: 20x6  tier: truecolor/extended
+
+glyph
+  0 gamma··············α
+  1 delta··············β
+  2 alpha··············γ
+  3 beta···············γ
+  4 gamma··············δ
+  5 εββββββββββββββββγζγ
+
+style
+  0 aaaaaaaaaaaaaaaaaaab
+  1 aaaaaaaaaaaaaaaaaaac
+  2 aaaaaaaaaaaaaaaaaaab
+  3 aaaaaaaaaaaaaaaaaaab
+  4 aaaaaaaaaaaaaaaaaaab
+  5 bccccccccccccccccbbb
+
+legend
+  a  Body  (95 cells)
+  b  Border  (8 cells)
+  c  Face  (17 cells)
+  ·  a blank cell, U+0020
+  α  U+25B2 (width 1)  (1 cell)
+  β  U+2588 (width 1)  (17 cells)
+  γ  U+2591 (width 1)  (4 cells)
+  δ  U+25BC (width 1)  (1 cell)
+  ε  U+25C0 (width 1)  (1 cell)
+  ζ  U+25B6 (width 1)  (1 cell)

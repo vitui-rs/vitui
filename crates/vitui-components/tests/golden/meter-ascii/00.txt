@@ -1,0 +1,11 @@
+scene: meter-ascii  frame: 0  size: 16x1  tier: truecolor/ascii
+
+glyph
+  0 ##########::::::
+
+style
+  0 aaaaaaaaaabbbbbb
+
+legend
+  a  Ok  (10 cells)
+  b  Dim  (6 cells)

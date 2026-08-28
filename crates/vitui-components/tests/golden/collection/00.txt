@@ -1,0 +1,18 @@
+scene: collection  frame: 0  size: 20x4  tier: truecolor/extended
+
+glyph
+  0 alpha···············
+  1 beta················
+  2 gamma···············
+  3 delta···············
+
+style
+  0 aaaaaaaaaaaaaaaaaaaa
+  1 bbbbbbbbbbbbbbbbbbbb
+  2 bbbbbbbbbbbbbbbbbbbb
+  3 bbbbbbbbbbbbbbbbbbbb
+
+legend
+  a  Focus  (20 cells)
+  b  Body  (60 cells)
+  ·  a blank cell, U+0020

@@ -1,0 +1,41 @@
+scene: plot-extended  frame: 0  size: 12x4  tier: truecolor/extended
+
+glyph
+  0 ···αβγδεζγηθ
+  1 ·50αλζμξπστφ
+  2 ···α·ψωβΓ·ωΔ
+  3 ···Θηηηηηηηη
+
+style
+  0 aaabccdccced
+  1 aaabcccdcccd
+  2 aaabadcccacc
+  3 aaabbbbbbbbb
+
+legend
+  a  Dim  (14 cells)
+  b  Border  (12 cells)
+  c  custom #1 (Theme::custom or Theme::mix, outside the thirteen roles)  (16 cells)
+  d  custom #2 (Theme::custom or Theme::mix, outside the thirteen roles)  (5 cells)
+  e  Danger  (1 cell)
+  ·  a blank cell, U+0020
+  α  U+2502 (width 1)  (3 cells)
+  β  U+28F9 (width 1)  (2 cells)
+  γ  U+28E6 (width 1)  (2 cells)
+  δ  U+2804 (width 1)  (1 cell)
+  ε  U+28B0 (width 1)  (1 cell)
+  ζ  U+28BB (width 1)  (2 cells)
+  η  U+2500 (width 1)  (9 cells)
+  θ  U+2880 (width 1)  (1 cell)
+  λ  U+2807 (width 1)  (1 cell)
+  μ  U+2844 (width 1)  (1 cell)
+  ξ  U+285E (width 1)  (1 cell)
+  π  U+284F (width 1)  (1 cell)
+  σ  U+28B9 (width 1)  (1 cell)
+  τ  U+2847 (width 1)  (1 cell)
+  φ  U+287C (width 1)  (1 cell)
+  ψ  U+2808 (width 1)  (1 cell)
+  ω  U+28BF (width 1)  (2 cells)
+  Γ  U+2801 (width 1)  (1 cell)
+  Δ  U+28F3 (width 1)  (1 cell)
+  Θ  U+2514 (width 1)  (1 cell)

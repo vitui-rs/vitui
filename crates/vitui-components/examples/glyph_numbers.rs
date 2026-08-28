@@ -12,7 +12,7 @@
 //! 4. **What does not reproduce**, said out loud rather than engineered away.
 //!
 //! This file and `tests/glyph_matrix.rs` are the only two in the crate that name the repertoire
-//! type, and `tests::the_axis_is_named_in_three_files_and_one_of_them_is_a_components` asserts exactly that
+//! type, and `tests::the_axis_is_named_in_five_files_and_one_of_them_is_a_components` asserts exactly that
 //! pair.
 
 use vitui_components::INVENTORY;

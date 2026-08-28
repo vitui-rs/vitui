@@ -1,0 +1,14 @@
+scene: status_bar  frame: 0  size: 24x1  tier: truecolor/extended
+
+glyph
+  0 ready·······α3·of·9·····
+
+style
+  0 aaaaabbbbbbbcaaaaaabbbbb
+
+legend
+  a  Dim  (11 cells)
+  b  Body  (12 cells)
+  c  Border  (1 cell)
+  ·  a blank cell, U+0020
+  α  U+2502 (width 1)  (1 cell)

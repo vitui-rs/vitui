@@ -1,0 +1,25 @@
+scene: chart-ascii  frame: 0  size: 24x6  tier: truecolor/ascii
+
+glyph
+  0 ···|####-----#####------
+  1 ···|######··########···#
+  2 ·50|######··########··##
+  3 ···|####################
+  4 ···|####################
+  5 ···+--------------------
+
+style
+  0 aaabcdddeeeeecccddeeeeee
+  1 aaabdddddcaacdcdddddaaac
+  2 aaabddddddaacdddddddaacc
+  3 aaabdddddddccddddddddccc
+  4 aaabdddddddddddddddddddd
+  5 aaabbbbbbbbbbbbbbbbbbbbb
+
+legend
+  a  Dim  (27 cells)
+  b  Border  (26 cells)
+  c  custom #1 (Theme::custom or Theme::mix, outside the thirteen roles)  (16 cells)
+  d  custom #2 (Theme::custom or Theme::mix, outside the thirteen roles)  (64 cells)
+  e  Danger  (11 cells)
+  ·  a blank cell, U+0020

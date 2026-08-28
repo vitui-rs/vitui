@@ -1,0 +1,18 @@
+scene: table  frame: 0  size: 24x4  tier: truecolor/extended
+
+glyph
+  0 al··alpha···············
+  1 be··beta················
+  2 ga··gamma···············
+  3 de··delta···············
+
+style
+  0 aaaaaaaaaaaaaaaaaaaaaaaa
+  1 bbbbbbbbbbbbbbbbbbbbbbbb
+  2 bbbbbbbbbbbbbbbbbbbbbbbb
+  3 bbbbbbbbbbbbbbbbbbbbbbbb
+
+legend
+  a  Focus  (24 cells)
+  b  Body  (72 cells)
+  ·  a blank cell, U+0020

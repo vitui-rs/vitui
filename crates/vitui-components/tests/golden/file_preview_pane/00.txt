@@ -1,0 +1,27 @@
+scene: file_preview_pane  frame: 0  size: 24x5  tier: truecolor/extended
+
+glyph
+  0 row·00·················α
+  1 row·01·················β
+  2 row·02·················β
+  3 ·······················γ
+  4 δβββββββββββββββββββββεζ
+
+style
+  0 aaaaaaaaaaaaaaaaaaaaaaab
+  1 aaaaaaaaaaaaaaaaaaaaaaac
+  2 aaaaaaaaaaaaaaaaaaaaaaac
+  3 aaaaaaaaaaaaaaaaaaaaaaab
+  4 bcccccccccccccccccccccbb
+
+legend
+  a  Body  (92 cells)
+  b  Border  (5 cells)
+  c  Face  (23 cells)
+  ·  a blank cell, U+0020
+  α  U+25B2 (width 1)  (1 cell)
+  β  U+2588 (width 1)  (23 cells)
+  γ  U+25BC (width 1)  (1 cell)
+  δ  U+25C0 (width 1)  (1 cell)
+  ε  U+25B6 (width 1)  (1 cell)
+  ζ  U+2591 (width 1)  (1 cell)

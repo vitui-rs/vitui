@@ -459,6 +459,16 @@ const DOC_NUMBERS: &str = "crates/vitui-components/examples/doc_numbers.rs";
 /// what it may not mint, and the scan that opens the file and answers both halves.
 const COMPOSED: &str = "crates/vitui-components/src/composed.rs";
 
+/// O3's screens and the format they are written in. Ticket 37.
+const GOLDEN: &str = "crates/vitui-components/src/golden.rs";
+
+/// The three-rung sweep, which is the one file outside `src/` that may name a repertoire — and the
+/// fourth entry of `tests/glyph_matrix.rs`'s own exception list.
+const GOLDEN_TESTS: &str = "crates/vitui-components/tests/golden.rs";
+
+/// Ticket 37's report.
+const GOLDEN_NUMBERS: &str = "crates/vitui-components/examples/golden_numbers.rs";
+
 /// **`field`'s own file**, which is where the component's rows run. `input.rs` and not `edit.rs`,
 /// because that is where the freeze homes `field`: F6, and [`crate::document::DECLARATIONS`] opens
 /// it to find out whether the three scenes have a subject.
@@ -537,7 +547,7 @@ pub const SPEC_ROWS: usize = 32;
 /// and none of the three is an inversion: rows 210, 211 and 212 are O1's other three halves, which
 /// row 30 could not carry because it is `Kind::Count` and O1 is a count *and* a compile outcome —
 /// which is what §21's own `mixed` in the kind column was hiding.
-pub const EVALUATED: usize = 196;
+pub const EVALUATED: usize = 199;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
 #[expect(
@@ -547,7 +557,7 @@ pub const EVALUATED: usize = 196;
               array is read at compile time by nothing and at run time by tests, so the copy the \
               lint is warning about is one a test makes once"
 )]
-pub const REGISTER: [Row; 212] = [
+pub const REGISTER: [Row; 215] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -1174,7 +1184,7 @@ pub const REGISTER: [Row; 212] = [
                 // failing test rather than a drift back to twenty-four occurrences.
                 Instrument::Unit {
                     file: "crates/vitui-components/tests/glyph_matrix.rs",
-                    name: "the_axis_is_named_in_three_files_and_one_of_them_is_a_components",
+                    name: "the_axis_is_named_in_five_files_and_one_of_them_is_a_components",
                 },
             ],
         },
@@ -1287,18 +1297,21 @@ pub const REGISTER: [Row; 212] = [
         kind: Kind::Count,
         owner: "C10",
         section: "spec §17",
-        // **One of the six is green, and components ticket 36 is which.** It stood at zero of six
-        // for thirty-five tickets — O2 is two equalities — twenty-five of which shipped a component
-        // entitled to add a row to `DOC_TESTED` and none of which did, because a list filled by
-        // whichever ticket happened to write a doctest is a list nobody audits.
+        // **Two of the six are green: O1 since components ticket 36 and O3 since components 37.**
+        // It stood at zero of six for thirty-five tickets — O2 is two equalities — twenty-five of
+        // which shipped a component entitled to add a row to `DOC_TESTED` and none of which did,
+        // because a list filled by whichever ticket happened to write a doctest is a list nobody
+        // audits.
         //
-        // **O1's population is `built` and that is a finding rather than a convenience.** §17 states
-        // O2's second equality over `built` and states O1's count over nothing at all, so the
-        // reading was owed; `spinner` is the one row no ticket has built, a doc page for a function
-        // that does not exist is not a page anybody can write, and asking for one puts a permanent
-        // row in the failing set that no ticket on this backlog can invert. *A query stuck red is
-        // as uninformative as a query vacuously green.* The population moves on its own: the day
-        // `spinner` ships, `crate::doc::pages` returns twenty-nine.
+        // **Both populations are `built`, and the second one is the first one's finding a second
+        // time.** §17 states O2's second equality over `built` and states O1's count and O3's count
+        // over nothing at all, so the reading was owed twice; `spinner` is the one row no ticket has
+        // built, a doc page for a function that does not exist is not a page anybody can write and a
+        // golden of one is not a screen anybody can draw, and asking for either puts a permanent row
+        // in the failing set that no ticket on this backlog can invert. *A query stuck red is as
+        // uninformative as a query vacuously green.* Both populations move on their own: the day
+        // `spinner` ships, `crate::doc::pages` returns twenty-nine and O3 asks for thirty-four
+        // screens.
         //
         // **This row is `Kind::Count` and O1 is two gates**, which is what §21's own `mixed` in the
         // kind column was hiding. The compile-outcome half is row 210, the axis equality row 211
@@ -1308,7 +1321,7 @@ pub const REGISTER: [Row; 212] = [
             by: &[
                 Instrument::Unit {
                     file: "crates/vitui-components/src/obligations.rs",
-                    name: "one_of_the_five_obligations_is_met_and_it_is_o1",
+                    name: "two_of_the_five_obligations_are_met_and_they_are_o1_and_o3",
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/obligations.rs",
@@ -6995,8 +7008,174 @@ pub const REGISTER: [Row; 212] = [
             ],
         },
     },
+    Row {
+        number: 213,
+        on_spec_table: false,
+        gate: "every construction of every built row has a golden screen, and it is the picture on \
+               file",
+        kind: Kind::Count,
+        owner: "C10",
+        section: "spec §17",
+        // **The one instrument on this map that catches a wrong cell.** O1 catches an API that
+        // cannot be called from outside the crate and O2 an inventory that has drifted from what
+        // ships; neither of them looks at a picture, and §17 says so in as many words.
+        //
+        // **Three sources and not two.** `crate::golden::SCREENS` is what is drawn,
+        // `crate::obligations::GOLDENS` is what O3 is asked about, and `crate::golden::on_disk`
+        // opens the directory — because neither of the first two would notice a golden that had
+        // been deleted, and a count that agrees with itself is what ADR 0033 is against.
+        //
+        // **`spinner` has no screen and that is the population rather than a hole**, which is O1's
+        // finding a second time: a golden of a function that does not exist is not a screen anybody
+        // can draw, and asking for one would pin a row nothing on this backlog can invert.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: GOLDEN_TESTS,
+                    name: "every_screen_is_the_picture_on_file",
+                },
+                Instrument::Unit {
+                    file: GOLDEN_TESTS,
+                    name: "the_three_sources_agree_about_how_many_screens_there_are",
+                },
+                Instrument::Unit {
+                    file: GOLDEN_TESTS,
+                    name: "a_scene_name_starts_with_the_row_it_is_evidence_for",
+                },
+                Instrument::Report {
+                    file: GOLDEN_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 214,
+        on_spec_table: false,
+        gate: "screens declared identical are identical, and the pairs declared different differ by \
+               an asserted count",
+        kind: Kind::Equality,
+        owner: "C10",
+        section: "spec §16, §17",
+        // **The half that carries the claim.** A component that draws the same construction at two
+        // rungs would otherwise file a golden for each — two files that can only ever drift apart —
+        // and the count alone would not notice the day a bar chart started spelling itself
+        // differently at `Extended`. Three rows are declared identical (`chart`, `meter`,
+        // `sparkline`) and `media`'s picture is a fourth with no freeze row at all, which is §14's
+        // own *no v1 component*.
+        //
+        // **The equalities run over `Canvas::diff` and never over `golden::divergence`, and that
+        // was a review finding in this ticket's own instrument.** A plane's key is
+        // `GLYPH_KEYS[i]` in first-appearance order, so it encodes the *pattern* of distinct
+        // clusters and not the clusters: two screens whose non-ASCII cells are swapped one for one
+        // have identical planes, and a count over them reports `(0, 0)` for *a bar chart that
+        // started spelling itself differently at `Extended`* — which is the one regression the
+        // equality half exists to catch. `divergence` is a report about a **file**, where the
+        // whole-file line comparison has already caught the legend; the cell truth is
+        // `crate::runner::Canvas::diff`, and the blindness is **a number on this row's own
+        // subject**: the plot's two block rungs read 12 cells apart over the planes and 21 over the
+        // cells. Both are asserted, so the note cannot go stale in either direction.
+        //
+        // **And the other direction is a number, not a `> 0`.** A count of zero and a count of one
+        // are the same inequality, and three separate defects on this map scored *different* by
+        // drawing something wrong rather than something else. Two of the three figures do not
+        // reproduce and are asserted as measured beside what the map remembers: `plot`'s two block
+        // rungs are **12 cells over 3 rows** where §17 says 882, and the dense screen at 300x80 is
+        // **1 065 cells over 78 of 80 rows** where §16 says 7 276 over 80 of 80. The row count is
+        // why the second one is worth carrying: two rows of that screen carry no glyph at all.
+        //
+        // **The ASCII rung's own claim, as a picture**: thirty-three of thirty-three screens keep
+        // **0** clusters outside printable ASCII, and the dense screen keeps exactly **1** — the em
+        // dash of `dense::HEADER`, which is a fixture's title and not a glyph. That is §16's *text
+        // is legitimately a component's own content and there is nothing to forbid* as a number.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: GOLDEN_TESTS,
+                    name: "a_rung_that_adds_nothing_draws_the_same_screen",
+                },
+                Instrument::Unit {
+                    file: GOLDEN_TESTS,
+                    name: "a_picture_at_extended_is_the_picture_at_unicode",
+                },
+                Instrument::Unit {
+                    file: GOLDEN_TESTS,
+                    name: "the_rungs_that_change_the_picture_change_it_by_this_much",
+                },
+                Instrument::Unit {
+                    file: GOLDEN_TESTS,
+                    name: "the_dense_screen_between_ascii_and_unicode",
+                },
+                Instrument::Unit {
+                    file: GOLDEN_TESTS,
+                    name: "no_screen_keeps_a_non_ascii_cluster_at_the_ascii_rung",
+                },
+                Instrument::Unit {
+                    file: GOLDEN,
+                    name: "divergence_is_blind_to_a_rename_and_the_canvas_is_not",
+                },
+                Instrument::Report {
+                    file: GOLDEN_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 215,
+        on_spec_table: false,
+        gate: "the golden format is the engine's, named by path, and a plot at Extended can outgrow \
+               its legend",
+        kind: Kind::Equality,
+        owner: "C10",
+        section: "spec §17",
+        // **There is no second format and no second bless command**, which is what the ticket asks
+        // for and what a path makes checkable. The engine's `golden.rs` is `pub(crate)` throughout
+        // — a cell, a handle and a style bit are unreadable from outside the engine (ADR 0023) — so
+        // what cannot be shared is the code; what must not be forked is the format. The four
+        // load-bearing sentences are `crate::golden::FORMAT_PROPERTIES`, read out of the owner's own
+        // header against a **flattened** source, which is `crate::overlay::OWED_SENTENCE`'s
+        // arrangement and its reason: `rustfmt` breaks a phrase across a line.
+        //
+        // **The ceiling is the finding beside it, and it is the one place on this map where the
+        // format decides how big a screen may be.** The legend has twenty-six keys because a
+        // twenty-seventh is *not reviewable by eye*, and braille is 256 states a cell — so a `plot`
+        // at `Extended` needs **41** keys at 24x6 and **20** at 12x4, which is why its screen is the
+        // size it is. The two rungs below it stay inside at 24x6: **16** at Unicode and **0** at
+        // Ascii, so the ceiling is braille's and not charting's.
+        //
+        // **The density is a source scan and there is nothing else it could be.** Density is theme
+        // data and it changes rectangles (§3), so a golden taken at another one is a golden of
+        // another screen — and the header line has no field for it, because adding one would be the
+        // second format this row exists to prevent.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: GOLDEN_TESTS,
+                    name: "the_format_is_the_engines_and_the_owner_is_named_by_path",
+                },
+                Instrument::Unit {
+                    file: GOLDEN_TESTS,
+                    name: "a_plot_at_extended_can_outgrow_the_legend",
+                },
+                Instrument::Unit {
+                    file: GOLDEN_TESTS,
+                    name: "every_screen_is_taken_at_the_default_density",
+                },
+                Instrument::Unit {
+                    file: GOLDEN,
+                    name: "the_tier_reads_the_themes_own_two_axes",
+                },
+                Instrument::Unit {
+                    file: GOLDEN,
+                    name: "a_failing_golden_reports_the_section_the_column_and_the_totals",
+                },
+                Instrument::Unit {
+                    file: GOLDEN,
+                    name: "the_thirteen_role_paints_are_distinct_so_the_legend_names_one_role",
+                },
+            ],
+        },
+    },
 ];
-
 /// **The compile-outcome pair row 31 names, and its positive twin.**
 ///
 /// # The twin, naming the protected items by path
@@ -7338,7 +7517,7 @@ mod tests {
              domain and needs no component to be run against, and its row had been citing spec §13 \
              and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 212);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 215);
     }
 
     /// **The split, not the total.**
@@ -7352,7 +7531,7 @@ mod tests {
     fn thirty_two_rows_are_the_specs_and_a_hundred_and_eighty_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 180);
+        assert_eq!(REGISTER.len() - on_table, 183);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -7750,6 +7929,7 @@ mod tests {
                 "field_numbers.rs".to_string(),
                 "gates_numbers.rs".to_string(),
                 "glyph_numbers.rs".to_string(),
+                "golden_numbers.rs".to_string(),
                 "grid_numbers.rs".to_string(),
                 "keys_numbers.rs".to_string(),
                 "listing_numbers.rs".to_string(),

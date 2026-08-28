@@ -1,0 +1,15 @@
+scene: pagination  frame: 0  size: 24x1  tier: truecolor/extended
+
+glyph
+  0 α1··2··3··4··5··6··7···β
+
+style
+  0 abbbccccccccccccccccccca
+
+legend
+  a  Border  (2 cells)
+  b  Focus  (3 cells)
+  c  Body  (19 cells)
+  ·  a blank cell, U+0020
+  α  U+25C0 (width 1)  (1 cell)
+  β  U+25B6 (width 1)  (1 cell)

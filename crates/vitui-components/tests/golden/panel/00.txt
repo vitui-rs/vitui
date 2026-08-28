@@ -1,0 +1,27 @@
+scene: panel  frame: 0  size: 24x5  tier: truecolor/extended
+
+glyph
+  0 αβGeneralββββββββββββββγ
+  1 δ······················δ
+  2 δ······················δ
+  3 δ······················δ
+  4 εββββββββββββββββββββββζ
+
+style
+  0 aabbbbbbbaaaaaaaaaaaaaaa
+  1 acccccccccccccccccccccca
+  2 acccccccccccccccccccccca
+  3 acccccccccccccccccccccca
+  4 aaaaaaaaaaaaaaaaaaaaaaaa
+
+legend
+  a  Border  (47 cells)
+  b  Title  (7 cells)
+  c  Body  (66 cells)
+  ·  a blank cell, U+0020
+  α  U+250C (width 1)  (1 cell)
+  β  U+2500 (width 1)  (37 cells)
+  γ  U+2510 (width 1)  (1 cell)
+  δ  U+2502 (width 1)  (6 cells)
+  ε  U+2514 (width 1)  (1 cell)
+  ζ  U+2518 (width 1)  (1 cell)

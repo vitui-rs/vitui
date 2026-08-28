@@ -1,0 +1,19 @@
+scene: collapsible  frame: 0  size: 24x4  tier: truecolor/extended
+
+glyph
+  0 αGeneral················
+  1 alpha···················
+  2 beta····················
+  3 gamma···················
+
+style
+  0 abbbbbbbaaaaaaaaaaaaaaaa
+  1 aaaaaaaaaaaaaaaaaaaaaaaa
+  2 aaaaaaaaaaaaaaaaaaaaaaaa
+  3 aaaaaaaaaaaaaaaaaaaaaaaa
+
+legend
+  a  Body  (89 cells)
+  b  Title  (7 cells)
+  ·  a blank cell, U+0020
+  α  U+25BC (width 1)  (1 cell)

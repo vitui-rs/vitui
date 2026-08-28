@@ -1,0 +1,11 @@
+scene: switch  frame: 0  size: 16x1  tier: truecolor/extended
+
+glyph
+  0 ·on·enabled·····
+
+style
+  0 aaaaaaaaaaaaaaaa
+
+legend
+  a  Face  (16 cells)
+  ·  a blank cell, U+0020

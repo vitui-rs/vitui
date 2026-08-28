@@ -1,0 +1,13 @@
+scene: text  frame: 0  size: 20x2  tier: truecolor/extended
+
+glyph
+  0 the·quick·brown·fox·
+  1 ····················
+
+style
+  0 aaaaaaaaaaaaaaaaaaaa
+  1 aaaaaaaaaaaaaaaaaaaa
+
+legend
+  a  Body  (40 cells)
+  ·  a blank cell, U+0020

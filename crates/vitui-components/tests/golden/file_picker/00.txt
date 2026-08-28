@@ -1,0 +1,12 @@
+scene: file_picker  frame: 0  size: 40x1  tier: truecolor/extended
+
+glyph
+  0 α·beta··································
+
+style
+  0 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+legend
+  a  Face  (40 cells)
+  ·  a blank cell, U+0020
+  α  U+25B6 (width 1)  (1 cell)

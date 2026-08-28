@@ -1,0 +1,21 @@
+scene: plot-ascii  frame: 0  size: 12x4  tier: truecolor/ascii
+
+glyph
+  0 ···|******-*
+  1 ·50|********
+  2 ···|·****·**
+  3 ···+--------
+
+style
+  0 aaabccdccced
+  1 aaabcccdcccd
+  2 aaabadcccacc
+  3 aaabbbbbbbbb
+
+legend
+  a  Dim  (14 cells)
+  b  Border  (12 cells)
+  c  custom #1 (Theme::custom or Theme::mix, outside the thirteen roles)  (16 cells)
+  d  custom #2 (Theme::custom or Theme::mix, outside the thirteen roles)  (5 cells)
+  e  Danger  (1 cell)
+  ·  a blank cell, U+0020

@@ -366,6 +366,7 @@ pub mod form;
 pub mod frame;
 pub mod gates;
 pub mod glyphs;
+pub mod golden;
 pub mod grid;
 pub mod ink;
 pub mod inventory;

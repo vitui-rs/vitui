@@ -1,0 +1,22 @@
+scene: sparkline-unicode  frame: 0  size: 20x2  tier: truecolor/unicode
+
+glyph
+  0 αβββγδ···γεζββζη····
+  1 ββββββαδδβββββββζεθη
+
+style
+  0 aaaaaabbbaaaaaaabbbb
+  1 aaaaaaaaaaaaaaaaaaaa
+
+legend
+  a  custom #1 (Theme::custom or Theme::mix, outside the thirteen roles)  (33 cells)
+  b  Dim  (7 cells)
+  ·  a blank cell, U+0020
+  α  U+2585 (width 1)  (2 cells)
+  β  U+2588 (width 1)  (18 cells)
+  γ  U+2586 (width 1)  (2 cells)
+  δ  U+2582 (width 1)  (3 cells)
+  ε  U+2583 (width 1)  (2 cells)
+  ζ  U+2587 (width 1)  (3 cells)
+  η  U+2584 (width 1)  (2 cells)
+  θ  U+2581 (width 1)  (1 cell)

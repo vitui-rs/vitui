@@ -1,0 +1,14 @@
+scene: sparkline-ascii  frame: 0  size: 20x2  tier: truecolor/ascii
+
+glyph
+  0 ######···#######····
+  1 ####################
+
+style
+  0 aaaaaabbbaaaaaaabbbb
+  1 aaaaaaaaaaaaaaaaaaaa
+
+legend
+  a  custom #1 (Theme::custom or Theme::mix, outside the thirteen roles)  (33 cells)
+  b  Dim  (7 cells)
+  ·  a blank cell, U+0020

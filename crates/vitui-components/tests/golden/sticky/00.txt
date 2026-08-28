@@ -1,0 +1,14 @@
+scene: sticky  frame: 0  size: 20x2  tier: truecolor/extended
+
+glyph
+  0 name··········size··
+  1 alpha···············
+
+style
+  0 aaaaaaaaaaaaaaaaaaaa
+  1 bbbbbbbbbbbbbbbbbbbb
+
+legend
+  a  Title  (20 cells)
+  b  Body  (20 cells)
+  ·  a blank cell, U+0020

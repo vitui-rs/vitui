@@ -28,8 +28,16 @@
 //! three rungs to sweep them — a repertoire is declared and never probed (ADR 0010). **Naming the
 //! exception rather than loosening the gate**, which is `crate::gates`'s own refinement 3: the
 //! exception is this file and `examples/glyph_numbers.rs`, neither is a component, and
-//! [`the_axis_is_named_in_three_files_and_one_of_them_is_a_components`] asserts the list so that a fifth is
-//! a deliberate edit rather than a drift back to twenty-four occurrences.
+//! [`the_axis_is_named_in_five_files_and_one_of_them_is_a_components`] asserts the list so that a
+//! sixth is a deliberate edit rather than a drift back to twenty-four occurrences.
+//!
+//! **The fourth and fifth arrived together with components ticket 37**, and they are a pair rather
+//! than a drift: `tests/golden.rs` sweeps O3's screens across three rungs and
+//! `examples/golden_numbers.rs` prints what each rung costs, so both need the `match` that joins
+//! `vitui_components::golden::Rung` — three arms, no spelling and no table — to a repertoire. The
+//! two copies of that match are two lines each and they are deliberate: an example is not a test,
+//! and importing one from the other would make the report a dependency of the gate. Neither is in
+//! `src/`, which is where the count is.
 
 use vitui_components::glyphs::{
     Census, GLYPH_PAIRS, ROLE_PAIRS, SIGNAL_PAIRS, census, cross_family_collapses,
@@ -273,7 +281,7 @@ fn the_signal_column_is_the_product_of_the_two_partitions() {
 /// is held by `vitui_components::gates`' scan to the exact three lines that may spell a repertoire
 /// in it. §21's refinement 3: **name the exception; do not loosen the gate.**
 #[test]
-fn the_axis_is_named_in_three_files_and_one_of_them_is_a_components() {
+fn the_axis_is_named_in_five_files_and_one_of_them_is_a_components() {
     use std::path::{Path, PathBuf};
 
     // Assembled, not written: a scan for a literal its own source carries finds itself in every file
@@ -325,8 +333,10 @@ fn the_axis_is_named_in_three_files_and_one_of_them_is_a_components() {
         naming,
         vec![
             "examples/glyph_numbers.rs".to_string(),
+            "examples/golden_numbers.rs".to_string(),
             "src/chart/raster.rs".to_string(),
             "tests/glyph_matrix.rs".to_string(),
+            "tests/golden.rs".to_string(),
         ],
         "the repertoire is named outside the files that measure it and the one branch that is \
          allowed to. A component names a role and a glyph and never a repertoire — that is the \

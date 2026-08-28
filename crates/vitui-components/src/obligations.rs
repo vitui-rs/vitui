@@ -4,17 +4,20 @@
 //! > Every documentation and verification obligation is a query over it, not a sentence in a
 //! > document. (ADR 0033)
 //!
-//! # Four of the five still cannot run, and that is the load-bearing half of this file
+//! # Three of the five still cannot run, and that is the load-bearing half of this file
 //!
-//! **O1 is green since components ticket 36** and it is the first of the six queries to turn. A
-//! gallery panel, a golden screen and a keyboard contract are still things later tickets build, and
-//! **a query over an obligation nobody has met yet is the exact shape that returns green by
-//! accident**:
+//! **O1 is green since components ticket 36 and O3 since components ticket 37**, the first two of
+//! the six queries to turn. A gallery panel and a keyboard contract are still things later tickets
+//! build, and **a query over an obligation nobody has met yet is the exact shape that returns green
+//! by accident**:
 //!
 //! - *every panel in the gallery is in the freeze* over an empty gallery is **vacuously true**;
 //! - *every component has at least one scene per declared axis* over an empty scene list, written
 //!   as a loop over scenes rather than over components, is **vacuously true**;
-//! - *goldens == constructions* written as `for g in goldens` is **vacuously true**.
+//! - *goldens == constructions* written as `for g in goldens` is **vacuously true** — which is why
+//!   [`o3`] iterates the freeze and not the evidence, and why its population is `built` rather than
+//!   all twenty-nine: a row nothing on this backlog can draw a screen for reads **red** for ever,
+//!   which is the same failure in mirror image.
 //!
 //! Three of the five have that shape, and §21 has already been bitten by the neighbouring version
 //! of it twice: the gallery's theme-swap gate asserted `changed > 0` — *the theme changed and not
@@ -185,10 +188,48 @@ pub const PANELS: &[&str] = &[];
 
 /// How many golden screens each id has. O3's evidence.
 ///
-/// Empty, and ticket 37 fills it. **One golden per construction, not per matrix cell**: nine
-/// screenshots per component is nine times the maintenance for a claim the count in the theme's
-/// matrix already makes, and screens declared identical are asserted identical instead.
-pub const GOLDENS: &[(&str, u8)] = &[];
+/// **One golden per construction, not per matrix cell**: nine screenshots per component is nine
+/// times the maintenance for a claim the count in the theme's matrix already makes, and screens
+/// declared identical are asserted identical instead.
+///
+/// Written out, for [`DOC_TESTED`]'s reason: a `const fn` over the freeze would make the population
+/// and the evidence one expression, and an equality between two things derived from each other
+/// holds. What holds it honest is **two** other sources — `crate::golden::counted`, which is what
+/// the screen table adds up to, and `crate::golden::on_disk`, which opens the directory — joined by
+/// `tests/golden.rs`'s `the_three_sources_agree_about_how_many_screens_there_are`. Neither of the
+/// first two would notice a golden that had been deleted.
+///
+/// `spinner` is absent, and that is [`o3`]'s population rather than an omission here.
+pub const GOLDENS: &[(&str, u8)] = &[
+    ("text", 1),
+    ("panel", 1),
+    ("chip", 1),
+    ("button", 1),
+    ("field", 1),
+    ("collection", 1),
+    ("table", 1),
+    ("tree", 1),
+    ("select", 1),
+    ("overlay", 1),
+    ("scroll_area", 1),
+    ("scrollbar", 1),
+    ("sticky", 1),
+    ("collapsible", 1),
+    ("chart", 2),
+    ("plot", 3),
+    ("checkbox", 1),
+    ("radio", 1),
+    ("switch", 1),
+    ("meter", 2),
+    ("sparkline", 2),
+    ("rule", 1),
+    ("status_bar", 1),
+    ("pagination", 1),
+    ("form", 1),
+    ("slider", 1),
+    ("file_picker", 1),
+    ("file_preview_pane", 1),
+];
 
 /// The ids whose keyboard contract is **documented** and rendered as help. O4's first half.
 ///
@@ -370,12 +411,28 @@ pub fn o2_everything_built_has_a_panel(panels: &[&str]) -> Verdict {
 
 /// **O3 — one golden screen per construction.**
 ///
-/// A count, `goldens == constructions`, and the equality beside it — screens declared identical
-/// must be identical — is ticket 37's and needs the screens. The sum this is checked against is
-/// 34: twenty-nine rows at one construction each, plus one for `chart`, one for `meter`, one for
-/// `sparkline` and two for `plot`.
+/// A count, `goldens == constructions`, with the equality beside it — screens declared identical
+/// must be identical — in `crates/vitui-components/tests/golden.rs`, because that half compares two
+/// pictures and this one counts.
+///
+/// # The population is `built`, and it is [`o1`]'s finding a second time
+///
+/// §17 states O2's second equality over `built` and states O3's count over nothing at all, so the
+/// reading was owed here as it was there. **A golden for a function that does not exist is not a
+/// screen anybody can draw**: `spinner` is the one unbuilt row of the freeze — *a component that
+/// owns a clock*, which is components 42's prototype and no ticket on this backlog ships — so
+/// asking for its screen would put a permanent row in the failing set that nothing can invert.
+/// *A query stuck red is [`Verdict::of`]'s vacuity failure in mirror image*: it reads red whatever
+/// happens, so nobody reads it.
+///
+/// The population **moves**, so the day `spinner` ships the query asks about twenty-nine rows and
+/// thirty-four screens with no edit here.
+///
+/// The sum over the twenty-eight built rows is **33**: twenty-four at one construction each, plus
+/// two for `chart`, two for `meter`, two for `sparkline` and three for `plot`.
 pub fn o3(goldens: &[(&str, u8)]) -> Verdict {
-    let failing = INVENTORY
+    let built: Vec<&Component> = INVENTORY.iter().filter(|c| c.built).collect();
+    let failing = built
         .iter()
         .filter(|c| {
             let have: u8 = goldens
@@ -387,7 +444,7 @@ pub fn o3(goldens: &[(&str, u8)]) -> Verdict {
         })
         .count();
     Verdict::of(
-        INVENTORY.len(),
+        built.len(),
         failing,
         "components have a golden-screen count that is not their construction count, so a rung \
          builds something different and no screen says what",
@@ -518,18 +575,20 @@ mod tests {
         );
     }
 
-    /// **One of the five is met, and the number is written down.**
+    /// **Two of the five are met, and the number is written down.**
     ///
     /// The runtime `register.rs`'s arrangement, one crate up: a list that says how many are green makes
-    /// the next change a deliberate edit rather than a quiet one. Today the answer is **one of six**
-    /// queries — O2 is two equalities — and every one of the other five names the ticket that
+    /// the next change a deliberate edit rather than a quiet one. Today the answer is **two of
+    /// six** queries — O2 is two equalities — and every one of the other four names the ticket that
     /// inverts it.
     ///
-    /// **O1 is the first, and components ticket 36 is the deliberate edit this test was written to
-    /// force.** It stood at zero for thirty-five tickets, twenty-five of which shipped a component
-    /// entitled to add a row to [`DOC_TESTED`] and none of which did.
+    /// **O1 was the first**, and components ticket 36 was the deliberate edit this test was written
+    /// to force: it stood at zero for thirty-five tickets, twenty-five of which shipped a component
+    /// entitled to add a row to [`DOC_TESTED`] and none of which did. **O3 is the second**, and
+    /// components ticket 37 is its edit — thirty-three screens over the twenty-eight built rows,
+    /// with the equalities in `crates/vitui-components/tests/golden.rs`.
     #[test]
-    fn one_of_the_five_obligations_is_met_and_it_is_o1() {
+    fn two_of_the_five_obligations_are_met_and_they_are_o1_and_o3() {
         let all = [
             ("O1", o1(DOC_TESTED)),
             ("O2a", o2_nothing_shown_is_absent_from_the_freeze(PANELS)),
@@ -545,13 +604,13 @@ mod tests {
             .collect();
         assert_eq!(
             met,
-            vec!["O1"],
+            vec!["O1", "O3"],
             "an obligation has changed colour. That is the point of the backlog and it is also a \
              deliberate edit to this test, to this module's header and to the ticket that inverted \
              it — the number is here so a green one cannot arrive unremarked"
         );
 
-        for (name, verdict) in all.into_iter().filter(|(n, _)| *n != "O1") {
+        for (name, verdict) in all.into_iter().filter(|(n, _)| *n != "O1" && *n != "O3") {
             let Verdict::Unmet {
                 over,
                 failing,
@@ -601,7 +660,10 @@ mod tests {
             (28, 28),
             "O2b"
         );
-        assert_eq!(unmet(o3(GOLDENS)), (29, 29), "O3");
+        // **O3 is `Met` over the same twenty-eight built rows**, so it is asserted from the other
+        // side too. See `o3` for why the population is `built`: `spinner` has no component to draw,
+        // and a row nothing on this backlog can invert is a row that reads red for ever.
+        assert_eq!(o3(GOLDENS), Verdict::Met { over: 28 }, "O3");
         // **O4's population is 0, and that is a finding rather than an oversight.** Written over
         // `INVENTORY` it returned `Met` over twenty-nine, because two empty lists agree about every
         // row — the one query of the six that read green, and the reason this test exists at all.
@@ -622,10 +684,19 @@ mod tests {
         // measuring something.
         assert_eq!(unmet(o5(AXIS_SCENES)), (34, 14), "O5");
 
-        // The construction sum O3 will be checked against once ticket 37 has screens: 29 rows plus
-        // `chart`, `meter` and `sparkline` at 2 and `plot` at 3.
+        // **The construction sum, both ways round.** Over the whole freeze it is 34 — 29 rows plus
+        // `chart`, `meter` and `sparkline` at 2 and `plot` at 3 — and over the rows that have a
+        // component to draw it is **33**, which is what `GOLDENS` adds up to and what
+        // `crate::golden::SCREENS` holds.
         let owed: u32 = INVENTORY.iter().map(|c| u32::from(c.constructions)).sum();
         assert_eq!(owed, 34);
+        let buildable: u32 = INVENTORY
+            .iter()
+            .filter(|c| c.built)
+            .map(|c| u32::from(c.constructions))
+            .sum();
+        assert_eq!(buildable, 33);
+        assert_eq!(GOLDENS.iter().map(|(_, n)| u32::from(*n)).sum::<u32>(), 33);
     }
 
     /// **Vacuous truth is refused in the constructor, and this is where that is asserted.**
@@ -694,11 +765,25 @@ mod tests {
         o2_everything_built_has_a_panel(PANELS).assert_met("O2 (everything built has a panel)");
     }
 
-    /// See [`o1_fails_loudly`].
+    /// See [`o1_fails_loudly`]. **O3 has turned, so it is watched failing over the shipped list
+    /// with one screen taken away** — the arm that matters now, which is that the query still
+    /// notices a construction whose screen has gone. `plot` is the row it is taken from, because a
+    /// row at three constructions can lose one and still have two: a query comparing against
+    /// *non-zero* would not see it.
     #[test]
-    #[should_panic(expected = "O3 is unmet: 29 of 29")]
+    #[should_panic(expected = "O3 is unmet: 1 of 28")]
     fn o3_fails_loudly() {
-        o3(GOLDENS).assert_met("O3");
+        let short: Vec<(&str, u8)> = GOLDENS
+            .iter()
+            .map(|(id, n)| {
+                if *id == "plot" {
+                    (*id, n - 1)
+                } else {
+                    (*id, *n)
+                }
+            })
+            .collect();
+        o3(&short).assert_met("O3");
     }
 
     /// See [`o1_fails_loudly`].

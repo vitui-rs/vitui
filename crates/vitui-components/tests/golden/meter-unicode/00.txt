@@ -1,0 +1,13 @@
+scene: meter-unicode  frame: 0  size: 16x1  tier: truecolor/unicode
+
+glyph
+  0 ααααααααααββββββ
+
+style
+  0 aaaaaaaaaabbbbbb
+
+legend
+  a  Ok  (10 cells)
+  b  Dim  (6 cells)
+  α  U+2588 (width 1)  (10 cells)
+  β  U+2591 (width 1)  (6 cells)

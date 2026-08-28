@@ -1,0 +1,35 @@
+scene: plot-unicode  frame: 0  size: 12x4  tier: truecolor/unicode
+
+glyph
+  0 ···αβγδεζγηθ
+  1 ·50αλζδμμζλξ
+  2 ···α·πββσ·ββ
+  3 ···τηηηηηηηη
+
+style
+  0 aaabccdccced
+  1 aaabcccdcccd
+  2 aaabadcccacc
+  3 aaabbbbbbbbb
+
+legend
+  a  Dim  (14 cells)
+  b  Border  (12 cells)
+  c  custom #1 (Theme::custom or Theme::mix, outside the thirteen roles)  (16 cells)
+  d  custom #2 (Theme::custom or Theme::mix, outside the thirteen roles)  (5 cells)
+  e  Danger  (1 cell)
+  ·  a blank cell, U+0020
+  α  U+2502 (width 1)  (3 cells)
+  β  U+2588 (width 1)  (5 cells)
+  γ  U+2599 (width 1)  (2 cells)
+  δ  U+2596 (width 1)  (2 cells)
+  ε  U+2590 (width 1)  (1 cell)
+  ζ  U+259C (width 1)  (3 cells)
+  η  U+2500 (width 1)  (9 cells)
+  θ  U+2597 (width 1)  (1 cell)
+  λ  U+258C (width 1)  (2 cells)
+  μ  U+259B (width 1)  (2 cells)
+  ξ  U+259F (width 1)  (1 cell)
+  π  U+259D (width 1)  (1 cell)
+  σ  U+2598 (width 1)  (1 cell)
+  τ  U+2514 (width 1)  (1 cell)

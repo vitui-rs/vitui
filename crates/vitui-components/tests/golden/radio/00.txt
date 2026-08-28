@@ -1,0 +1,12 @@
+scene: radio  frame: 0  size: 16x1  tier: truecolor/extended
+
+glyph
+  0 α·enabled·······
+
+style
+  0 aaaaaaaaaaaaaaaa
+
+legend
+  a  Face  (16 cells)
+  ·  a blank cell, U+0020
+  α  U+2022 (width 1)  (1 cell)
