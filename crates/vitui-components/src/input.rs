@@ -104,6 +104,11 @@ impl Default for ButtonOpts {
 /// **A label on a face that reacts, and a tab stop.** Spec §1's own signature, with `Rect` for
 /// `Rect`.
 ///
+/// **Hostile axes:** none.
+///
+/// One rectangle, one face out of [`crate::state::press`] and one tab stop. Nothing about its
+/// construction is a function of its width, and it holds no offset and no content of its own.
+///
 /// ```
 /// use vitui_runtime::Rect;
 /// use vitui_components::input::button;
@@ -438,6 +443,12 @@ pub struct WhyThereIsNoWayToPutTheCaretAtByteN;
 pub struct WhyBlockSelectionIsNotBuilt;
 
 /// **A text field: one component, one flag.** Spec §11.
+///
+/// **Hostile axes:** `scrolled`, `shrunk`, `wheeled`, `narrow`.
+///
+/// All four, and it is the only Tier 1 row that declares all four for its own reasons rather than by
+/// inheritance. Scene 13 is the narrow one — the wrap memo at 300 and at 120, 625 rows drawn where
+/// 875 are needed; the other three are the caret's, the document's and the offset's.
 ///
 /// `input` and `textarea` are not two functions with two states — they are one machine under two
 /// break rules, and the rule is [`WrapKind`] on the state rather than an argument here. Everything
@@ -1091,6 +1102,12 @@ pub(crate) const CATCHER_KEY: u64 = 2;
 pub struct WhyThePopupIsRequestedLast;
 
 /// **`select` — a shut face, and a popup that is the owner's.**
+///
+/// **Hostile axes:** `scrolled`, `wheeled`.
+///
+/// The popup's list is a windowed [`crate::collect::collection`] and a notch moves the offset it
+/// owns. The other two are not this component's: the shut face elides at every width through the
+/// one elision drawing this crate has, and the popup's extent is a fixpoint rather than a residue.
 ///
 /// Spec §1's shape, with the one cost §1 records: **an overlay costs two lifetime annotations**, and
 /// this is the component §1 measured them on. `popup` and `options` are `'f` because the body
@@ -1845,6 +1862,11 @@ impl Default for ToggleOpts {
 
 /// **A box with a tick in it, a label beside it, and the caller's own `bool`.**
 ///
+/// **Hostile axes:** none.
+///
+/// Its whole cross-frame fact is the caller's `&mut bool`. The mark is one cell out of the theme's
+/// table and the label elides through [`crate::text::fit`], which is `text`'s flag and scene 28's.
+///
 /// Spec §1 writes this signature out by name — `fn(&mut Ctx, Rect, &str, &mut bool) -> Response` —
 /// and rule 2 is what the `&mut bool` is: *the widget's own value, never application data*.
 ///
@@ -1869,8 +1891,29 @@ pub fn checkbox(cx: &mut Ctx<'_, '_>, area: Rect, label: &str, on: &mut bool) ->
 
 /// **A standalone radio button.** [`checkbox`] with [`Toggle::Radio`]'s mark.
 ///
+/// **Hostile axes:** none.
+///
+/// [`checkbox`]'s, for [`checkbox`]'s reason: one machine, one `&mut bool`, one cell of mark.
+///
 /// A radio *set* is [`crate::collect::collection`] at [`Mode::Options`] and is a different call
-/// entirely — see [`Toggle::Radio`].
+/// entirely — see [`Toggle::Radio`]. **A standalone radio is the caller's own `bool`**, and two of
+/// them side by side are two `bool`s the caller keeps exclusive; nothing here does that for anybody.
+///
+/// ```
+/// use vitui_components::input::radio;
+/// use vitui_runtime::Rect;
+/// use vitui_runtime::ctx::Driver;
+///
+/// let mut driver = Driver::headless(20, 2).expect("a sink attaches");
+/// let (mut ascending, mut descending) = (true, false);
+/// driver.frame(|cx| {
+///     let up = radio(cx, Rect::new(0, 0, 20, 1), "ascending", &mut ascending);
+///     let down = radio(cx, Rect::new(0, 1, 20, 1), "descending", &mut descending);
+///     // Two call sites, so two ids, so two targets. Exclusivity is the caller's.
+///     assert_ne!(up.id, down.id);
+/// });
+/// assert!(ascending && !descending);
+/// ```
 #[track_caller]
 pub fn radio(cx: &mut Ctx<'_, '_>, area: Rect, label: &str, on: &mut bool) -> Response {
     toggle_with(
@@ -1886,6 +1929,31 @@ pub fn radio(cx: &mut Ctx<'_, '_>, area: Rect, label: &str, on: &mut bool) -> Re
 }
 
 /// **A switch.** [`checkbox`] with a knob that travels and two words instead of a glyph.
+///
+/// **Hostile axes:** none.
+///
+/// [`checkbox`]'s. The knob's travel is a property of [`ToggleOpts::words`] and not of the
+/// rectangle's width, which is what makes the field a derived number rather than a second
+/// construction.
+///
+/// **It is the one row of the twenty-nine whose state survives ASCII *and* no colour**, because it
+/// is carried on three axes and only one of them is the palette: the two words, the side the knob
+/// sits on, and the face. A checkbox and a radio differ in exactly **1** cell between on and off and
+/// that cell came out of the theme's glyph table; a switch differs in **3** and none of them did.
+///
+/// ```
+/// use vitui_components::input::switch;
+/// use vitui_runtime::Rect;
+/// use vitui_runtime::ctx::Driver;
+///
+/// let mut driver = Driver::headless(24, 1).expect("a sink attaches");
+/// let mut wrap = true;
+/// driver.frame(|cx| {
+///     let resp = switch(cx, Rect::new(0, 0, 24, 1), "wrap", &mut wrap);
+///     assert!(!resp.changed, "nothing has happened on a frame with no input");
+/// });
+/// assert!(wrap);
+/// ```
 #[track_caller]
 pub fn switch(cx: &mut Ctx<'_, '_>, area: Rect, label: &str, on: &mut bool) -> Response {
     toggle_with(
@@ -2275,6 +2343,12 @@ pub fn stepped(k: &Pressed, value: f32, opts: &SliderOpts) -> Option<f32> {
 /// **A value on a track, dragged from where the pointer is and stepped by the keyboard.** §17's
 /// Tier 3 row, and the mechanism under it is [`grab`].
 ///
+/// **Hostile axes:** none.
+///
+/// The track is the rectangle, the value is a fraction of it and the thumb is derived — nothing here
+/// is a window onto content larger than what it was handed, and the grab is
+/// [`vitui_runtime::Response::local`] over [`vitui_runtime::Response::rect`] and nothing else.
+///
 /// `value` is a fraction of the track, `0.0..=1.0`. **It is not a range**, and that is spec §9's
 /// unit rule rather than a simplification: a component that owned a minimum and a maximum would own
 /// a *unit*, and the one thing no layer of this library does for its caller is decide what a number
@@ -2564,6 +2638,11 @@ impl Default for FormOpts {
 pub const FORM_IS: [&str; 3] = ["field", "nav::cursor", "the focus ring"];
 
 /// **A column of labelled fields, one tab stop, and the arrows moving inside it.**
+///
+/// **Hostile axes:** none.
+///
+/// The fields are [`field`]s and each carries its own four. What is left over is a column of
+/// rectangles and one tab stop, and neither is a function of the width or a window onto anything.
 ///
 /// Spec §18's R3 in its own words: *a composition of shipped components with no new mechanism.* The
 /// fields are [`field`], the navigation is [`crate::nav::cursor`], and what says where the keyboard

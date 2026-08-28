@@ -593,6 +593,11 @@ pub struct Shell {
 /// **The shell an overlay body draws inside: the blur position, the reserved bar, the barrier and
 /// the trap — and not one cell of the interior.**
 ///
+/// **Hostile axes:** none.
+///
+/// It writes the blur position, the reserved bar, the barrier and the trap, and **not one cell of the
+/// interior** — so every axis on this list belongs to the body it wraps rather than to the shell.
+///
 /// Called **from inside the body**, on the body's own rectangle, which for a popup is `cx.area()`.
 /// The three kinds differ in exactly what this function does and in nothing else:
 ///
@@ -1369,18 +1374,36 @@ pub const OWED_IN: &str = "crates/vitui-runtime/src/ctx.rs";
 /// **The sentence spec §1 says `Ctx::overlay`'s documentation owes**, as three phrases a scan looks
 /// for.
 ///
-/// Three and not one because the obligation is three claims — *the body answers through the inbox*,
-/// *a `&'f mut` capture compiles*, and *it costs you the state for the rest of the frame* — and a
-/// note that carries two of them is a note that has lost the half a reader needs.
+/// Four and not one because the obligation is four claims — *the body answers through the inbox*,
+/// *a `&'f mut` capture compiles*, *it costs you the state for the rest of the frame*, and **the
+/// code of the diagnostic a reader will actually meet** — and a note that carries three of them is
+/// a note that has lost the half a reader needs.
+///
+/// # The fourth arrived with components ticket 36, and it is the one a reader searches for
+///
+/// O1 states the obligation as *the sentence exists verbatim, **with the `E0503` trap named***, and
+/// the two halves are not the same claim. The first three are the mechanism; `E0503` is the string
+/// a reader pastes into a search engine at the moment they meet it, because **the diagnostic never
+/// mentions the overlay** — it arrives at the *caller*, one level away, naming the next ordinary
+/// read of a local whose only unusual property is that a closure three lines up captured it. A note
+/// that explains the mechanism perfectly and never prints the code is a note nobody finds.
+///
+/// **The needle carries its context and is not the bare code**, and that is the difference between
+/// a scan and a coincidence. `OWED_IN` is seven thousand lines and `e0503` is five characters: a
+/// borrowck code named anywhere else in that file — another item's `# Errors` section, a
+/// `compile_fail` note — would satisfy a bare needle the day `Ctx::overlay`'s own paragraph lost
+/// the code, and the gate would go on reporting four of four. The other three phrases are sentences
+/// that can only be in the note they guard, and this one is spelled to be the same kind of thing.
 ///
 /// They are matched against [`flattened`] and not against the file, because a doc comment is
 /// line-wrapped by `rustfmt` at a column nobody chose: in the shipped file *for the rest of the*
 /// ends one line and *frame* begins the next, so a literal needle is a gate that fails on a reflow
 /// and passes again when somebody reflows it back.
-pub const OWED_SENTENCE: [&str; 3] = [
+pub const OWED_SENTENCE: [&str; 4] = [
     "the body answers through the inbox",
     "capture compiles",
     "costs the caller that state for the rest of the frame",
+    "one level away, as e0503",
 ];
 
 /// **A source file as one line of prose**: comment markers, emphasis, backticks and line breaks
@@ -1420,10 +1443,21 @@ pub fn flattened(source: &str) -> String {
 pub fn owed_sentence_is_written() -> Vec<&'static str> {
     let path =
         std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../..")).join(OWED_IN);
-    let source = flattened(&std::fs::read_to_string(&path).unwrap_or_default());
+    owed_sentence_in(&std::fs::read_to_string(&path).unwrap_or_default())
+}
+
+/// **Which of [`OWED_SENTENCE`]'s phrases a source carries.** The half of
+/// [`owed_sentence_is_written`] that is not a file read.
+///
+/// Split out by components ticket 36, and not for tidiness: the shipped runtime carries all four,
+/// so the gate above cannot be watched reporting a partial answer, and *a note that carries three
+/// of the four* is the failure the fourth phrase was added to catch.
+#[must_use]
+pub fn owed_sentence_in(source: &str) -> Vec<&'static str> {
+    let flat = flattened(source);
     OWED_SENTENCE
         .into_iter()
-        .filter(|phrase| source.contains(&flattened(phrase)))
+        .filter(|phrase| flat.contains(&flattened(phrase)))
         .collect()
 }
 
@@ -1922,5 +1956,13 @@ mod tests {
         let path =
             std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../..")).join(OWED_IN);
         assert!(path.is_file(), "{}", path.display());
+        // **Watched reporting a partial answer**, which the shipped file cannot be made to do. The
+        // three-phrase note is exactly what this scan looked like before components ticket 36
+        // widened it, and the phrase it now misses is the one a reader searches for.
+        let three = "the body answers through the inbox, a `&'f mut` capture compiles, and it \
+                     costs the caller that state for the rest of the frame";
+        assert_eq!(owed_sentence_in(three).len(), OWED_SENTENCE.len() - 1);
+        assert!(!owed_sentence_in(three).contains(&"one level away, as e0503"));
+        assert!(owed_sentence_in("").is_empty());
     }
 }

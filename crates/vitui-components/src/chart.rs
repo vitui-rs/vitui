@@ -233,6 +233,11 @@ pub fn series_paint(theme: &Theme, i: usize, role_series: bool) -> Paint {
 
 /// **`chart`: bottom-anchored bars over one or more series.**
 ///
+/// **Hostile axes:** `narrow`.
+///
+/// Scene 15: §13's overlap is **green at 300x80 and red at 60x20**, which is the one axis on which a
+/// component's construction changes rather than its contents.
+///
 /// Spec §1's shape — `fn(&mut Ctx, Rect, …) -> Response` — with the data and the plot's own state
 /// in the argument list (rule 2) and an options struct that `Default`s (rule 3).
 ///
@@ -302,6 +307,10 @@ pub fn chart_into<I: Ink>(
 }
 
 /// **`plot`: arbitrary marks over one or more series.**
+///
+/// **Hostile axes:** `narrow`.
+///
+/// Scene 15, the same screen as [`chart`]'s at 60x20, and the mark ladder is what changes under it.
 ///
 /// A cell is a **set** of positions, so its states are a power set and both sub-axes are live. The
 /// ladder is **1x1 / 2x2 / 2x4** — 2, 16 and 256 states — and the third rung is `plot`'s alone,

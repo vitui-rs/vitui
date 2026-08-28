@@ -602,6 +602,12 @@ impl Band {
 /// **Draw a band: a rectangle split that shares one of the two offsets, pins the other to zero, and
 /// is a view.**
 ///
+/// **Hostile axes:** `scrolled`.
+///
+/// A band shares one of the two offsets and pins the other to zero, so the shared axis is the hostile
+/// one and there is no second axis for it to be wrong on. It declares nothing, so nothing here is a
+/// target and no notch reaches it.
+///
 /// This is the one construction spec §9 states, with [`Shares`] as its axis argument. `scroll_area`
 /// calls it for all four of §9's bands and nothing else in this crate opens a band of its own.
 ///
@@ -698,6 +704,11 @@ impl Default for ScrollbarOpts {
 }
 
 /// **The scrollbar: two steppers and the track between them, over one [`Span`].**
+///
+/// **Hostile axes:** `narrow`.
+///
+/// Scene 17, the other half of the fixpoint. **It does not own an offset**: the [`Span`] arrives from
+/// whoever does, which is why the wheel is not on this line.
 ///
 /// [`bar`] is the *helper* this draws through — spec §3's *the bar every scrollable draws* — and
 /// this is the **component**: it declares a hit entry, so the thumb is a drag target and the
@@ -991,6 +1002,13 @@ pub fn parts(rect: Rect, extent: (u32, u32), opts: &AreaOpts) -> Parts {
 pub struct WhyAnAutoHidingBarNeedsADeclaredExtent;
 
 /// **The scroll area: bars are reserved, and the rectangle is reduced before the body is called.**
+///
+/// **Hostile axes:** `scrolled`, `shrunk`, `wheeled`, `narrow`.
+///
+/// Scenes 17, 18 and 33. The narrow one is the bar fixpoint over 5 475 600 pairs; the scrolled one is
+/// row 799 999 of 999 999; and the wheeled one is the pair components 20 found, because
+/// [`vitui_runtime::scroll::Area::into_view`] answers per axis — *a body dead downward is alive
+/// sideways*.
 ///
 /// # Bars are reserved. There is no overlay option
 ///

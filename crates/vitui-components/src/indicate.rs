@@ -119,6 +119,11 @@ impl Default for MeterOpts {
 
 /// **A fraction of a track, filled to the sub-cell where the rung has sub-cells.**
 ///
+/// **Hostile axes:** none.
+///
+/// It writes every cell of the rectangle it was handed, from a fraction, and holds nothing across
+/// frames. The ladder is the repertoire's and not the width's.
+///
 /// `value` is a fraction, `0.0..=1.0`. **It is not a range**, which is spec §9's unit rule and
 /// [`crate::input::slider`]'s own sentence: the one thing no layer of this library does for its
 /// caller is decide what a number means.
@@ -278,6 +283,11 @@ pub struct SparkOpts {
 }
 
 /// **A chart with no chrome: every cell of the rectangle is body.**
+///
+/// **Hostile axes:** none.
+///
+/// Every cell of the rectangle is body, and the fold is the caller's [`PlotState`] — so there is no
+/// chrome whose construction could change with the width and no offset to be wrong about.
 ///
 /// The memo is the caller's [`PlotState`], exactly as [`crate::chart::chart`]'s is — rule 2 puts the
 /// data behind a shared reference and the state in a `&mut` beside it.

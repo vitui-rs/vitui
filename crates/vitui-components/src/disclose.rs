@@ -579,6 +579,12 @@ pub struct Disclosure {
 /// **A header row, and a body that is drawn inside the rectangle it was handed — or is not called at
 /// all.**
 ///
+/// **Hostile axes:** `shrunk`.
+///
+/// Scene 11, and it is the axis whose defect **no golden-cell gate can see**: a closed body drawn into
+/// an `h = 0` rectangle instead of skipped declares **408 more hit entries and 408 more ring entries**
+/// on a surface that is 0 cells over 0 rows apart.
+///
 /// `size` is the sizing function: given the body's width it answers the body's height in rows, which
 /// is the shape [`sizing::check`](vitui_runtime::sizing::check) sweeps a component against. `body`
 /// is called **only when the section has height**, which is the whole of §8's *closed content is not

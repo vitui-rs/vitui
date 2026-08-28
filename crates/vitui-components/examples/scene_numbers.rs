@@ -181,10 +181,20 @@ fn main() {
             println!("    {id:<20} {}", axis.name());
         }
     }
-    // Seventeen since components 20, which claimed `(scroll_area, wheeled)` — the pair §21 had no
+    // **Twenty since components 32**, which claimed the preview pane's shrink and scroll and the
+    // picker's scroll — three pairs its three scenes had deliberately left empty while they were
+    // red, because a scene waiting for its subject is not yet evidence of anything. It was
+    // seventeen from components 20, which claimed `(scroll_area, wheeled)` — the pair §21 had no
     // way to state, because its single wheel row was written while a click was an arithmetic
     // substitution and a delta added to an offset has no second axis to be wrong on.
-    assert_eq!(covered, 17);
+    //
+    // **This line said seventeen for four tickets and nothing said so**, which is components ticket
+    // 20's own finding arriving in the file that finding was about: `cargo test` does not run an
+    // example, so an `assert!` here is compiled by `cargo clippy --all-targets` and evaluated by
+    // nobody. `crate::obligations`'s own `unmet(o5(AXIS_SCENES)) == (34, 14)` is the gate and was
+    // green throughout; this report — **O5's own** — had been panicking. Found by a review during
+    // components 36.
+    assert_eq!(covered, 20);
     assert_eq!(coverage.len(), 34);
     assert_eq!(
         INVENTORY

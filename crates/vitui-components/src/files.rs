@@ -456,6 +456,12 @@ impl PaneOpts {
 
 /// **The file preview pane**: a scroll area over a document that arrives from another thread.
 ///
+/// **Hostile axes:** `scrolled`, `shrunk`, `wheeled`.
+///
+/// Scenes 23 and 24, and §15 states the second of them in its own words — *a landing is a shrink*,
+/// from another thread for the first time. The offset belongs to neither side, which is where the
+/// five spellings of scene 24 come from.
+///
 /// It asks its question on every frame, declares the extent of the answer it is showing, and calls
 /// `line` once per document row that is both inside the viewport and inside the document. Everything
 /// else in its rectangle — the two reserved gutters, the corner and the cells past the extent — is
@@ -807,8 +813,14 @@ impl Default for PickerOpts {
 /// **The file picker: `collection` + `overlay` + [`file_preview_pane`], and no mechanism that is
 /// new.**
 ///
-/// That is R3's claim (spec §18) and it is the class that turns out to be false when it is false, so
-/// it is checked rather than asserted: `crate::preview::picker_introduces_no_mechanism` reads this
+/// **Hostile axes:** `scrolled`, `shrunk`, `wheeled`.
+///
+/// Scene 25. All three are [`crate::collect::collection`]'s and [`file_preview_pane`]'s, which is
+/// R3's claim read on this list: a composition that introduces no mechanism introduces no axis
+/// either.
+///
+/// **R3's claim is checked rather than asserted** (spec §18), because it is the class that turns out
+/// to be false when it is false: `crate::preview::picker_introduces_no_mechanism` reads this
 /// function's own source for a second [`Task`], a second [`CollState`], a second hit entry and a
 /// second key loop, and `crate::preview::picker_declares_what_its_parts_declare` compares the frame
 /// it produces against the three parts drawn by hand.
@@ -822,6 +834,59 @@ impl Default for PickerOpts {
 /// than once and may capture nothing that dies with the frame. A `fn(u64, &Cancel) -> T` is `Copy`,
 /// `Send`, `Sync` and `'static` by construction, which is exactly the set. A decode is a free
 /// function over an identity in every application that has one.
+///
+/// ```
+/// use vitui_components::files::{
+///     Entry, PickerBody, PickerOpts, PickerState, Preview, file_picker,
+/// };
+/// use vitui_runtime::Rect;
+/// use vitui_runtime::ctx::Driver;
+/// use vitui_runtime::work::{Cancel, Task, Worker};
+///
+/// struct Doc(u64);
+/// impl Preview for Doc {
+///     fn shows(&self) -> u64 { self.0 }
+///     fn extent(&self) -> (u32, u32) { (8, 2) }
+/// }
+///
+/// // A decode is a free function over an identity — never a closure. See above.
+/// fn decode(id: u64, _cancel: &Cancel) -> Doc { Doc(id) }
+/// fn line(cx: &mut vitui_runtime::ctx::Ctx<'_, '_>, row: Rect, _doc: &Doc, i: u32) {
+///     let paint = cx.theme().paint(vitui_runtime::Role::Body);
+///     let _ = cx.text(row.x, row.y, &format!("row {i:03}"), paint);
+/// }
+///
+/// let names = ["notes.md", "main.rs"];
+/// let files: Vec<Entry<'_>> = names
+///     .iter()
+///     .enumerate()
+///     .map(|(i, n)| Entry { id: i as u64, name: n })
+///     .collect();
+///
+/// let worker = Worker::queueing();
+/// let task: Task<Doc> = Task::new(&worker);
+/// let mut body: PickerBody<Doc> = PickerBody::new();
+/// let mut st = PickerState::new();
+/// let opts = PickerOpts::default();
+///
+/// let mut driver = Driver::headless(60, 12).expect("a sink attaches");
+/// driver.frame(|cx| {
+///     let resp = file_picker(
+///         cx,
+///         Rect::new(0, 0, 40, 1),
+///         &mut st,
+///         &mut body,
+///         &files,
+///         &task,
+///         decode,
+///         line,
+///         &opts,
+///     );
+///     assert_eq!(resp.rect.h, 1, "shut, the picker is its own one row");
+/// });
+/// // Shut: one region, and no overlay has been placed.
+/// assert_eq!(driver.inspect().overlays_placed(), 0);
+/// ```
 #[track_caller]
 #[expect(
     clippy::too_many_arguments,

@@ -236,6 +236,12 @@ impl Default for TextOpts {
 
 /// **One line of text, filling the rectangle it was handed.** Spec §1's pure drawer.
 ///
+/// **Hostile axes:** `narrow`.
+///
+/// Scene 28. §16's one-cell marker rule only fires at a width where the label truncates: a
+/// three-cell `...` where one cell was reserved moves **468 cells over 78 rows** with writes, verbs
+/// and marked identical at 23 402 / 2 163 / 0 either way.
+///
 /// ```
 /// use vitui_runtime::Rect;
 /// use vitui_components::text::text;
@@ -352,6 +358,11 @@ impl Default for ChipOpts {
 
 /// **A label on a face that reacts.** One rectangle, one paint out of [`crate::state::press`], and
 /// every cell written exactly once.
+///
+/// **Hostile axes:** `narrow`.
+///
+/// Scene 28, and §2 names the defect in the axis's own word: *a chip that does not narrow, whose
+/// label runs into its sibling's rectangle* — **432 cells re-damaged every steady frame**.
 ///
 /// ```
 /// use vitui_runtime::Rect;

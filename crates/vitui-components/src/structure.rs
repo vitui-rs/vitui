@@ -96,6 +96,12 @@ pub struct Panel {
 
 /// **A frame, a title in its top run, a padding ring, and the interior handed back unwritten.**
 ///
+/// **Hostile axes:** none.
+///
+/// Its title's truncation is [`crate::text::text`]'s construction and not a second one. Duplicating
+/// the flag would buy O5 a second scene for one defect, which is the opposite of what a per-axis
+/// scene count is for.
+///
 /// ```
 /// use vitui_runtime::Rect;
 /// use vitui_components::structure::panel;
@@ -199,6 +205,11 @@ impl Default for RuleOpts {
 }
 
 /// **One row or one column of a [`Glyph`], centred in the rectangle it was handed.**
+///
+/// **Hostile axes:** none.
+///
+/// One row or one column of a [`Glyph`], with the caption elided through [`crate::text::fit`] —
+/// `text`'s flag and scene 28's, not a second one here.
 ///
 /// The line is [`Glyph::HLine`] or [`Glyph::VLine`] — §16's `rule` family, two entries — and every
 /// other cell of the rectangle is padding, because §2's rule is that *a component handed a rectangle
@@ -432,6 +443,12 @@ impl Default for StatusOpts {
 }
 
 /// **A band of segments across the bottom of a screen — one hit entry, and a view.**
+///
+/// **Hostile axes:** none.
+///
+/// A bar's content is one row derived from its own segments, so it has nothing to be wrong about on
+/// either axis: `Shares::Y` and `Shares::Neither` draw the same bar at four different offsets, **0
+/// cells of 30x2 apart**.
 ///
 /// Spec §21's ticket 35 settles what it *is*: **the same construction as a sticky header or a
 /// footer**, a rectangle split that shares one of the two offsets and pins the other to zero. So

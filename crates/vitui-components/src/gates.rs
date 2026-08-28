@@ -447,6 +447,14 @@ const COMPOSITE_NUMBERS: &str = "crates/vitui-components/examples/composite_numb
 /// count.
 const TIER_TWO_NUMBERS: &str = "crates/vitui-components/examples/tier_two_numbers.rs";
 
+/// **O1's own file.** The page per built component, the axis join and the six refusals, as values a
+/// scan runs over rather than as a review habit.
+const DOC: &str = "crates/vitui-components/src/doc.rs";
+
+/// **Components ticket 36's report**, which prints the page table O1's count compresses into a
+/// number, the axis join with the freeze's answer beside the page's, and the fence census.
+const DOC_NUMBERS: &str = "crates/vitui-components/examples/doc_numbers.rs";
+
 /// **The Tier 2 composition claim's own file.** Six rows, each naming what its component reaches and
 /// what it may not mint, and the scan that opens the file and answers both halves.
 const COMPOSED: &str = "crates/vitui-components/src/composed.rs";
@@ -524,7 +532,12 @@ pub const SPEC_ROWS: usize = 32;
 ///
 /// Row 21 stays `Unreachable` and row 130 is its crate-own form, which is row 41's standing to row
 /// 2's.
-pub const EVALUATED: usize = 193;
+///
+/// **Components ticket 36 moved it from a hundred and ninety-three to a hundred and ninety-six**,
+/// and none of the three is an inversion: rows 210, 211 and 212 are O1's other three halves, which
+/// row 30 could not carry because it is `Kind::Count` and O1 is a count *and* a compile outcome —
+/// which is what §21's own `mixed` in the kind column was hiding.
+pub const EVALUATED: usize = 196;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
 #[expect(
@@ -534,7 +547,7 @@ pub const EVALUATED: usize = 193;
               array is read at compile time by nothing and at run time by tests, so the copy the \
               lint is warning about is one a test makes once"
 )]
-pub const REGISTER: [Row; 209] = [
+pub const REGISTER: [Row; 212] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -1274,16 +1287,42 @@ pub const REGISTER: [Row; 209] = [
         kind: Kind::Count,
         owner: "C10",
         section: "spec §17",
+        // **One of the six is green, and components ticket 36 is which.** It stood at zero of six
+        // for thirty-five tickets — O2 is two equalities — twenty-five of which shipped a component
+        // entitled to add a row to `DOC_TESTED` and none of which did, because a list filled by
+        // whichever ticket happened to write a doctest is a list nobody audits.
+        //
+        // **O1's population is `built` and that is a finding rather than a convenience.** §17 states
+        // O2's second equality over `built` and states O1's count over nothing at all, so the
+        // reading was owed; `spinner` is the one row no ticket has built, a doc page for a function
+        // that does not exist is not a page anybody can write, and asking for one puts a permanent
+        // row in the failing set that no ticket on this backlog can invert. *A query stuck red is
+        // as uninformative as a query vacuously green.* The population moves on its own: the day
+        // `spinner` ships, `crate::doc::pages` returns twenty-nine.
+        //
+        // **This row is `Kind::Count` and O1 is two gates**, which is what §21's own `mixed` in the
+        // kind column was hiding. The compile-outcome half is row 210, the axis equality row 211
+        // and the refusals row 212 — three rows rather than a fourth kind, because a row that is a
+        // count and a compile outcome at once is a row no `Kind` can print.
         standing: Standing::Evaluated {
             by: &[
                 Instrument::Unit {
                     file: "crates/vitui-components/src/obligations.rs",
-                    name: "not_one_of_the_five_obligations_is_met",
+                    name: "one_of_the_five_obligations_is_met_and_it_is_o1",
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/obligations.rs",
                     name: "each_query_reports_the_population_it_could_not_answer_for",
                 },
+                Instrument::Unit {
+                    file: DOC,
+                    name: "every_built_component_carries_a_page_with_a_compiled_example",
+                },
+                Instrument::Unit {
+                    file: DOC,
+                    name: "the_written_list_and_the_scan_agree",
+                },
+                Instrument::Report { file: DOC_NUMBERS },
             ],
         },
     },
@@ -6861,6 +6900,101 @@ pub const REGISTER: [Row; 209] = [
             ],
         },
     },
+    Row {
+        number: 210,
+        on_spec_table: false,
+        gate: "the crate compiles under `#![deny(missing_docs)]` and the pipeline runs the doctests",
+        kind: Kind::CompileOutcome,
+        owner: "C10",
+        section: "spec §17",
+        // **O1's other half**, and neither part of it is a thing this process can observe about
+        // itself: a test cannot ask what lint level the crate it is linked into was compiled at,
+        // and it cannot watch a pipeline. So the instrument reads the two files that decide, which
+        // is `crate::line`'s arrangement for exactly this shape.
+        //
+        // **`deny` and `warn` are the same gate here, measured rather than assumed.** The workspace
+        // carries `[workspace.lints.rust] warnings = "deny"`, so an undocumented `pub fn` added to
+        // `canvas.rs` failed the build under both spellings with the same diagnostic. `deny` ships
+        // anyway, because the two are the same gate only while that table exists — written `warn`,
+        // this crate stops being documented the day somebody relaxes a lint table three files up,
+        // and nothing here would say so.
+        //
+        // **There is no sixth CI job, and that is `.gitlab-ci.yml`'s own decision rather than a
+        // shortfall.** Its note above the jobs says a sixth means this pipeline alone can saturate
+        // a runner shared with every other repo on the machine, and the `test` job's own comment
+        // already records that its one serialised invocation *also runs the doctests, and the
+        // doctests are where the negative gates live*. A `cargo test --doc` line beside it runs the
+        // same seventy-six a second time for a duplicate green.
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: DOC,
+                name: "the_crate_denies_missing_docs_and_the_pipeline_runs_the_doctests",
+            }],
+        },
+    },
+    Row {
+        number: 211,
+        on_spec_table: false,
+        gate: "every component's page states the hostile axes its freeze row sets, and no others",
+        kind: Kind::Equality,
+        owner: "C10",
+        section: "spec §17",
+        // **The equality is the load-bearing half and the count is not.** O1's fifth criterion is
+        // *a reader knows which of the four apply before they hit one*, and **thirteen of the
+        // twenty-eight built components declare none at all** — so a page that mentions the axes it
+        // has is silent on nearly half the freeze, and silence is indistinguishable from a page
+        // that forgot. That is `crate::obligations::Verdict::of`'s vacuity refusal arriving on the
+        // documentation axis, and the answer is the same: every page says `none` out loud, in the
+        // same place, and the gate compares the two sets in **both** directions. A page listing all
+        // four fails exactly as loudly as one listing none.
+        //
+        // The line and not a paragraph, because a scan for a claim inside prose passes on the day
+        // somebody writes *it does not narrow*.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: DOC,
+                    name: "a_page_states_the_axes_its_row_sets_and_no_others",
+                },
+                Instrument::Unit {
+                    file: DOC,
+                    name: "a_page_missing_any_one_of_the_four_does_not_hold",
+                },
+                Instrument::Report { file: DOC_NUMBERS },
+            ],
+        },
+    },
+    Row {
+        number: 212,
+        on_spec_table: false,
+        gate: "the six refused spellings each still carry the doc line that says they are refused",
+        kind: Kind::Count,
+        owner: "C10",
+        section: "spec §17, §21",
+        // **A refusal is a doc comment, so nothing a compiler can be asked about sees it go.** The
+        // item it defends compiles identically the day the paragraph is deleted, no `use` and no
+        // `compile_fail` can name it, and the next reader re-derives the argument from scratch and
+        // usually gets it wrong. All six were already written — by the ticket that made the refusal,
+        // which is the right place and the place nothing was watching.
+        //
+        // Five carry a `WhyThereIsNo…` item beside the paragraph, which is this crate's shape for a
+        // refusal that also has a compile outcome to show. The sixth — the animated fold — has
+        // none, and that is not an omission: what it refuses is a *stored third state*, and there
+        // is no type to point a `compile_fail` at because the whole claim is that the type does not
+        // exist.
+        //
+        // Watched failing over an empty source, because six needles that all happen to be present
+        // is a scan nobody has seen work.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: DOC,
+                    name: "every_refused_spelling_says_it_is_refused",
+                },
+                Instrument::Report { file: DOC_NUMBERS },
+            ],
+        },
+    },
 ];
 
 /// **The compile-outcome pair row 31 names, and its positive twin.**
@@ -7141,7 +7275,7 @@ mod tests {
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn a_hundred_and_eighty_four_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn a_hundred_and_ninety_six_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -7204,7 +7338,7 @@ mod tests {
              domain and needs no component to be run against, and its row had been citing spec §13 \
              and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 209);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 212);
     }
 
     /// **The split, not the total.**
@@ -7215,10 +7349,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_a_hundred_and_seventy_seven_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_a_hundred_and_eighty_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 177);
+        assert_eq!(REGISTER.len() - on_table, 180);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -7612,6 +7746,7 @@ mod tests {
                 "collection_numbers.rs".to_string(),
                 "composite_numbers.rs".to_string(),
                 "dense_numbers.rs".to_string(),
+                "doc_numbers.rs".to_string(),
                 "field_numbers.rs".to_string(),
                 "gates_numbers.rs".to_string(),
                 "glyph_numbers.rs".to_string(),

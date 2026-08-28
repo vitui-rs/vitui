@@ -43,8 +43,16 @@
 //!   is the claim that turns out to be false when it is false, and a scan for absences alone goes
 //!   green when the whole section is deleted.
 //! - [`obligations`] — §17's five obligations as queries over the freeze, each returning a count or
-//!   an equality. **Not one of them can be met yet, and every one of them says so out loud** rather
-//!   than returning green over an empty population.
+//!   an equality. **One of the six is green — O1, since components ticket 36 — and the other five
+//!   say so out loud** rather than returning green over an empty population.
+//! - [`doc`] — **O1's evidence as a value**: a documentation page per built component, located by
+//!   the freeze's own `families` column rather than listed, with a scan that opens each file and
+//!   reports what is in it. It is the value [`obligations::DOC_TESTED`] is compared against, because
+//!   a hand-written evidence list is a claim about twenty-eight files. Its own finding is the
+//!   **axis line**: O1 asks that a page state its hostile axes, and **thirteen of the twenty-eight
+//!   built components declare none at all** — so a page that mentions the axes it has is silent on
+//!   nearly half the freeze, and silence is indistinguishable from a page that forgot. Every page
+//!   says `none` out loud and the gate is an equality against the freeze **in both directions**.
 //! - [`gates`] — §21's register: **a hundred and twenty-one gates as rows, a hundred and one of
 //!   them evaluated**,
 //!   six pinned red with their failing sets, six unreachable across the crate line with what
@@ -341,7 +349,7 @@
 // `deny`, so nothing inside the crate can turn it back on with an `allow`; it subsumes the
 // `unsafe_op_in_unsafe_fn` this line used to carry.
 #![forbid(unsafe_code)]
-#![warn(missing_docs)]
+#![deny(missing_docs)]
 
 pub mod accordion;
 pub mod app;
@@ -350,6 +358,7 @@ pub mod clusters;
 pub mod composed;
 pub mod counters;
 pub mod dense;
+pub mod doc;
 pub mod document;
 pub mod edit;
 pub mod forest;

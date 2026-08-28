@@ -4,11 +4,12 @@
 //! > Every documentation and verification obligation is a query over it, not a sentence in a
 //! > document. (ADR 0033)
 //!
-//! # Not one of the five can run yet, and that is the load-bearing half of this file
+//! # Four of the five still cannot run, and that is the load-bearing half of this file
 //!
-//! None of the twenty-nine components exists. A doc page, a gallery panel, a golden screen, a
-//! keyboard contract and a hostile-axis scene are all things later tickets build, and **a query
-//! over an obligation nobody has met yet is the exact shape that returns green by accident**:
+//! **O1 is green since components ticket 36** and it is the first of the six queries to turn. A
+//! gallery panel, a golden screen and a keyboard contract are still things later tickets build, and
+//! **a query over an obligation nobody has met yet is the exact shape that returns green by
+//! accident**:
 //!
 //! - *every panel in the gallery is in the freeze* over an empty gallery is **vacuously true**;
 //! - *every component has at least one scene per declared axis* over an empty scene list, written
@@ -35,10 +36,17 @@
 //!
 //! # The evidence is an argument, not a file read
 //!
-//! Every query takes what it is checking against as a slice, and this crate ships each of those
+//! Every query takes what it is checking against as a slice, and this crate shipped each of those
 //! slices **empty with the ticket that fills it named**. That is what keeps the five pure functions
 //! over the freeze: when ticket 39 builds the gallery, [`PANELS`] stops being empty and `o2` starts
 //! answering a real question with no change to the query.
+//!
+//! **[`DOC_TESTED`] is the first one to be filled, and filling it needed a second value beside it.**
+//! A written-out evidence list is a claim about twenty-eight files, so [`crate::doc`] opens each of
+//! them and derives the same list; `crate::doc::tests::the_written_list_and_the_scan_agree` is the
+//! comparison. Two lists a test compares is the arrangement [`KEYBOARD_DOCUMENTED`] and
+//! [`KEYBOARD_REGISTERED`] already use, and for O4's reason: an equality between two things derived
+//! from each other holds.
 
 use crate::{Axis, Component, INVENTORY};
 
@@ -124,15 +132,49 @@ impl Verdict {
 
 /// The ids that carry a rustdoc page with a **compiled** example. O1's evidence.
 ///
-/// Empty, and ticket 36 fills it. **Five of the twenty-nine now have one** — `text`, `chip`,
-/// `button`, `panel` and `field` each carry a doctest that calls them from outside, which is C01's
-/// actual question — and this list stays empty anyway, because filling it is ticket 36's job and a list
-/// filled by whichever ticket happened to write a doctest is a list nobody audits. What ticket 10
-/// changed is that O1 has a population it can be asked about at all. `deny(missing_docs)` plus `cargo test --doc` is the compile
-/// outcome; the count beside it is *components with 0 doc-tests == 0*, because a page that carries
-/// no example does not catch what O1 exists to catch — **an API that cannot be called from outside
-/// the crate**, which was C01's actual question.
-pub const DOC_TESTED: &[&str] = &[];
+/// **Twenty-eight of twenty-nine, and filled by components ticket 36.** Every built row of the
+/// freeze carries a doctest that calls it from outside the crate — which is C01's actual question —
+/// beside the `**Hostile axes:**` line its page owes and the `#![deny(missing_docs)]` the crate
+/// compiles under. The twenty-ninth is `spinner`; see [`o1`].
+///
+/// It is written out rather than computed, for [`AXIS_SCENES`]'s reason, and it is **not** the only
+/// value that knows this: [`crate::doc::doc_tested`] derives the same list by opening each page's
+/// file, and `crate::doc::tests::the_written_list_and_the_scan_agree` compares them. A list filled
+/// by whichever ticket happened to write a doctest is a list nobody audits — which is why this one
+/// stayed empty through twenty-five tickets that were each entitled to add a row to it.
+///
+/// The order is [`INVENTORY`]'s, so a row added to the freeze in the middle is a failing test here
+/// rather than a tidy append.
+pub const DOC_TESTED: &[&str] = &[
+    "text",
+    "panel",
+    "chip",
+    "button",
+    "field",
+    "collection",
+    "table",
+    "tree",
+    "select",
+    "overlay",
+    "scroll_area",
+    "scrollbar",
+    "sticky",
+    "collapsible",
+    "chart",
+    "plot",
+    "checkbox",
+    "radio",
+    "switch",
+    "meter",
+    "sparkline",
+    "rule",
+    "status_bar",
+    "pagination",
+    "form",
+    "slider",
+    "file_picker",
+    "file_preview_pane",
+];
 
 /// The ids the gallery binary shows a panel for. O2's evidence.
 ///
@@ -262,16 +304,31 @@ pub const AXIS_SCENES: &[(&str, Axis)] = &[
 /// The count is *components with 0 doc-tests == 0*. O1 and O2 do not substitute for each other: O1
 /// catches an API that cannot be called from outside the crate, O2 catches an inventory that has
 /// drifted from what ships, and **neither catches a wrong cell** — that is O3 and O5.
+///
+/// # The population is `built`, and that is a finding rather than a convenience
+///
+/// §17 states O2's second equality as *everything **`built`** must have a panel* and states O1's
+/// count with no population at all — *components with 0 doc-tests == 0* — so the reading is owed
+/// rather than given. **It is the same population, for the same reason.** `spinner` is the one row
+/// of the twenty-nine that no ticket has built: its mechanism is *a component that owns a clock*,
+/// it is still §22's, and it is components ticket 42's to prototype. A doc page for a function that
+/// does not exist is not a page anybody can write, and asking for one puts a permanent row in the
+/// failing set that **no ticket on this backlog can invert** — which turns a query that is
+/// measuring something into a query that always reads red and is therefore never read.
+///
+/// The cost of getting it the other way round is the one this file exists to refuse, in mirror
+/// image: a query stuck red is as uninformative as a query vacuously green, and both of them stop
+/// being evidence. What keeps this one honest is that **the population moves**: the day `spinner`
+/// ships, [`crate::doc::pages`] returns twenty-nine and this query asks about twenty-nine, with no
+/// edit here.
 pub fn o1(doc_tested: &[&str]) -> Verdict {
-    let failing = INVENTORY
-        .iter()
-        .filter(|c| !doc_tested.contains(&c.id))
-        .count();
+    let built: Vec<&Component> = INVENTORY.iter().filter(|c| c.built).collect();
+    let failing = built.iter().filter(|c| !doc_tested.contains(&c.id)).count();
     Verdict::of(
-        INVENTORY.len(),
+        built.len(),
         failing,
-        "components carry no compiled doc example, so nothing proves their API is callable from \
-         outside this crate",
+        "built components carry no compiled doc example, so nothing proves their API is callable \
+         from outside this crate",
         "components 36",
     )
 }
@@ -461,13 +518,18 @@ mod tests {
         );
     }
 
-    /// **Not one of the five is met, and the number is written down.**
+    /// **One of the five is met, and the number is written down.**
     ///
     /// The runtime `register.rs`'s arrangement, one crate up: a list that says how many are green makes
-    /// the next change a deliberate edit rather than a quiet one. Today the answer is zero of six
-    /// queries — O2 is two equalities — and every one of them names the ticket that inverts it.
+    /// the next change a deliberate edit rather than a quiet one. Today the answer is **one of six**
+    /// queries — O2 is two equalities — and every one of the other five names the ticket that
+    /// inverts it.
+    ///
+    /// **O1 is the first, and components ticket 36 is the deliberate edit this test was written to
+    /// force.** It stood at zero for thirty-five tickets, twenty-five of which shipped a component
+    /// entitled to add a row to [`DOC_TESTED`] and none of which did.
     #[test]
-    fn not_one_of_the_five_obligations_is_met() {
+    fn one_of_the_five_obligations_is_met_and_it_is_o1() {
         let all = [
             ("O1", o1(DOC_TESTED)),
             ("O2a", o2_nothing_shown_is_absent_from_the_freeze(PANELS)),
@@ -483,13 +545,13 @@ mod tests {
             .collect();
         assert_eq!(
             met,
-            Vec::<&str>::new(),
-            "an obligation has turned green. That is the point of the backlog and it is also a \
+            vec!["O1"],
+            "an obligation has changed colour. That is the point of the backlog and it is also a \
              deliberate edit to this test, to this module's header and to the ticket that inverted \
-             it — the number is here so the first green one cannot arrive unremarked"
+             it — the number is here so a green one cannot arrive unremarked"
         );
 
-        for (name, verdict) in all {
+        for (name, verdict) in all.into_iter().filter(|(n, _)| *n != "O1") {
             let Verdict::Unmet {
                 over,
                 failing,
@@ -519,7 +581,11 @@ mod tests {
             Verdict::Unmet { over, failing, .. } => (over, failing),
             Verdict::Met { .. } => panic!("met"),
         };
-        assert_eq!(unmet(o1(DOC_TESTED)), (29, 29), "O1");
+        // **O1 is `Met` over the twenty-eight built rows**, so it has no failing set to report and
+        // is asserted from the other side. See `o1` for why the population is `built` and not all
+        // twenty-nine.
+        assert_eq!(o1(DOC_TESTED), Verdict::Met { over: 28 }, "O1");
+        assert_eq!(DOC_TESTED.len(), 28);
         // The two halves of O2 differ in population, which is exactly ADR 0033's point that they do
         // not substitute for each other. The first is over the gallery and is **empty**, so it is
         // the vacuity refusal firing; the second is over the twenty-eight built rows — twenty-five
@@ -601,10 +667,16 @@ mod tests {
     /// `-D warnings`, and C11 found a `cargo deny` job that had never passed at all. The
     /// corresponding mistake for a query is a `Verdict` nobody ever asserts on, which reads as a
     /// gate and is a value.
+    ///
+    /// **O1 is the one that has turned, so it is watched failing over a list with a row removed**
+    /// rather than over the shipped one. That is the arm that matters now: the query has to still
+    /// notice a page that stops carrying an example, and a `Met` verdict cannot be watched
+    /// panicking.
     #[test]
-    #[should_panic(expected = "O1 is unmet: 29 of 29")]
+    #[should_panic(expected = "O1 is unmet: 1 of 28")]
     fn o1_fails_loudly() {
-        o1(DOC_TESTED).assert_met("O1");
+        let one_short: Vec<&str> = DOC_TESTED.iter().copied().skip(1).collect();
+        o1(&one_short).assert_met("O1");
     }
 
     /// See [`o1_fails_loudly`]. This is the vacuity arm: zero of zero, and it still panics.

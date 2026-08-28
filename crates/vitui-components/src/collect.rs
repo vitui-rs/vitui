@@ -763,6 +763,12 @@ pub const SEARCH_BUDGET: usize = 4_096;
 
 /// **`collection` — the component the rest of this library is mostly made of.**
 ///
+/// **Hostile axes:** `scrolled`, `shrunk`, `wheeled`.
+///
+/// Scenes 4, 5 and 6, and each of the three was established by a defect that passed every gate then
+/// in force **and looked healthier than the correct build**. The fourth is deliberately absent: a row
+/// truncates through [`crate::text::fit`], which is `text`'s flag and scene 28's.
+///
 /// Spec §1's shape exactly: `fn(&mut Ctx, Rect, …) -> Response`. The row drawer's shape is §5's
 /// exactly: `(cx, rect, index, Face)`, five independent bits and no `Sel` enum.
 ///
@@ -2761,6 +2767,11 @@ pub struct TableOpts {
 
 /// **`table` — [`collection`] plus a column rect split, and the `+` is paid in verbs.**
 ///
+/// **Hostile axes:** `scrolled`, `shrunk`, `wheeled`, `narrow`.
+///
+/// Scene 7 is its own — a twelve-column table under a horizontal offset, both edges pinned — and the
+/// other three arrive with the store, because a table is [`collection`] and a column split.
+///
 /// Spec §6, ADR 0028. Spec §1's shape exactly: `fn(&mut Ctx, Rect, …) -> Response`.
 ///
 /// # It is `collection`, and the sentence is checkable rather than decorative
@@ -3319,6 +3330,11 @@ impl Default for TreeOpts {
 
 /// **`tree` — [`collection`] plus a flatten index, and the `+` costs two verbs a row.**
 ///
+/// **Hostile axes:** `scrolled`, `shrunk`, `wheeled`, `narrow`.
+///
+/// Scenes 8 and 9: a million-node forest at depth 59 999 windowed by the flatten index, and a fold
+/// and an unfold, which is content shrinking inside a rectangle that does not move.
+///
 /// Spec §7, ADR 0028, ADR 0031. Spec §1's shape exactly: `fn(&mut Ctx, Rect, …) -> Response`.
 ///
 /// # It is `collection`, and the sentence is checkable rather than decorative
@@ -3776,6 +3792,12 @@ fn fits(room: u16, cell: u16) -> u16 {
 }
 
 /// **A strip of page numbers with a stepper at each end — `collection` at a small length.**
+///
+/// **Hostile axes:** none.
+///
+/// It is [`collection`]'s store at a small length: the pages *are* the whole content, so there is no
+/// window onto anything larger and no offset a notch could move. The row loop — which is where the
+/// other three would live — is the axis this component does not reach.
 ///
 /// Spec §18's R3: *a composition of shipped components with no new mechanism.* The store is
 /// [`CollState`], the policy is [`Mode::Options`], the keyboard is [`collection`]'s own drain loop

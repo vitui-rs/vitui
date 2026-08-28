@@ -113,13 +113,13 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 35 of 45 tickets resolved (the last on 2026-08-27). `INVENTORY` is spec
+- **`vitui-components` has started**: 36 of 45 tickets resolved (the last on 2026-08-27). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
-  answerable by the machine from here on. All five obligations are `Unmet` and each is watched
-  panicking, because a query with no evidence must fail loudly rather than pass: O4 first returned
-  **`Met` over 29 rows with no evidence at all**, since *an equality between two things that do not
-  exist holds*. **Building the freeze contradicted four figures in the closed map** — the built count
+  answerable by the machine from here on. **O1 is met since ticket 36** and the other four are `Unmet`,
+  each watched panicking, because a query with no evidence must fail loudly rather than pass: O4
+  first returned **`Met` over 29 rows with no evidence at all**, since *an equality between two
+  things that do not exist holds*. **Building the freeze contradicted four figures in the closed map** — the built count
   (19/10, not ADR 0033's thirteen-unbuilt), the count of empty families (five, not §17's two), §1's
   layer rule against §6's own composition, and the `layer` column being uncheckable without stated
   edges. All four are asserted as measured rather than bent to fit.
@@ -638,8 +638,11 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   carried two standing counts from before ticket 12. **`cargo test` does not run an example** — it is
   compiled by `cargo clippy --all-targets` and evaluated by nothing, which is runtime ticket 20's
   *a number measured in a file nothing evaluates* one crate over and the reason `examples/frame.rs`
-  needed a CI line. All twenty-one `*_numbers.rs` run to completion now, and **none of them is a
-  gate** — the convention that no register row rests on one is untouched.
+  needed a CI line. All twenty-one `*_numbers.rs` ran to completion then, and **none of them is a
+  gate** — the convention that no register row rests on one is untouched. **It rotted again by
+  components 32 and a review during 36 found it**: `scene_numbers` had been asserting `covered == 17`
+  since this ticket while the answer was 20. A sweep of all twenty-six is the check, and it is not a
+  gate either.
 
 - **`scroll_area`, `scrollbar` and `sticky` are the tenth, eleventh and twelfth components, and the
   ticket found that both of this crate's recorders were in the wrong coordinate system** (components
@@ -1054,6 +1057,68 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   the partition. **There is no `q` to bind** — a focused field consumes every text-bearing key, which
   is `compose`'s finding for the second time.
 
+- **O1 is green — the first of the five obligations to turn — and its population is `built`, which
+  is a finding rather than a convenience** (components ticket 36, 2026-08-27; ADR 0043).
+  `crate::doc` is O1's evidence as a value: a page per built component, **located** by the freeze's
+  own `families` column rather than listed, with a scan that opens each file and reports what is in
+  it. `DOC_TESTED` is twenty-eight ids and `crate::doc::doc_tested` derives the same list from the
+  files; the crate compiles under `#![deny(missing_docs)]`. It had stood at zero for **thirty-five
+  tickets, twenty-five of which shipped a component entitled to add a row to it and none of which
+  did** — `obligations`'s own *a list filled by whichever ticket happened to write a doctest is a
+  list nobody audits*, holding for twenty-five tickets and then needing one to discharge it.
+  **§17 states O2's second equality over `built` and states O1's count over nothing at all**, so the
+  reading was owed. `spinner` is the one unbuilt row and a doc page for a function that does not
+  exist is not a page anybody can write, so asking for one puts a permanent row in the failing set
+  **no ticket on this backlog can invert** — *a query stuck red is `Verdict::of`'s vacuity failure in
+  mirror image*: it reads red whatever happens, so nobody reads it. The population **moves**, so the
+  day `spinner` ships the query asks about twenty-nine with no edit.
+  **The axis criterion cannot be met by mentioning the axes you have, and the number is why.**
+  **Thirteen of the twenty-eight declare none at all**, so a page that names the axes it has is
+  silent on nearly half the freeze and silence is indistinguishable from a page that forgot. Every
+  page carries one line — the freeze's own words in the freeze's own order, or `none` — and the gate
+  is an equality **in both directions**: a page listing an axis its row does not set fails as loudly
+  as one omitting an axis its row does. A scan for the words anywhere in the prose was refused
+  because it passes on *it does not narrow* and fails on a page explaining why an axis does not
+  apply — two mistakes with opposite signs that one scan cannot separate.
+  **The needle problem, met a fifth time, and the file is the freeze's and not the name's.** There is
+  a `pub fn text(` in `document.rs`, a `pub fn chip(` in `state.rs` and a `pub fn table(` in
+  `gates.rs`, and **none of them is a component**; `Component::module()` is what disambiguates, so
+  the join that finds a page is §19's own. The boundary is `(` **or** `<`, because
+  `pub fn file_preview_pane<T, F>(` could never have matched the parenthesis.
+  **A `compile_fail` fence is the opposite of evidence for O1**, and the report prints the census
+  rather than concluding from a zero: 28 fences on the twenty-eight pages, 28 of them run, and the
+  eleven hostile fences in the ten files the pages live in sit on `WhyThereIsNo…` items of their own — *the rule
+  is right and this crate is not the evidence for it*.
+  **The gate was wrong first, three times.** `running_examples` tracked *am I inside a running
+  fence* rather than *am I inside a fence*, so the line closing a `compile_fail` body read as the
+  opening of a running one — and **the crate is on the wrong side of that arm to notice**, since
+  every page here carries a running fence anyway. The negative arm of the `deny(missing_docs)` scan
+  first pointed at `doc.rs`, which contains the literal three lines up: *a scanner looking for a
+  literal contains that literal*, for the third time on this map. And a review found the third **in
+  the clause the whole obligation rests on**: `calls_itself` was a substring search for `<id>(`, and
+  **`Ctx::text` exists and every drawing doctest in this crate calls it** — so `text`'s page could
+  drop its own call, draw with `cx.text(…)`, and go on holding with O1 `Met` and nothing proving the
+  API is callable from outside the crate. The collision is **already live** in `file_picker`'s
+  example. The call has to be a *free* one, and the same review found the `E0503` needle was five
+  characters over a seven-thousand-line file: it is `one level away, as e0503` now, the same kind of
+  thing as the other three phrases.
+  **And the review found `scene_numbers` panicking, which is ticket 20's finding in the file that
+  finding was about.** Its `covered` assertion had said **17** since components 20 and components 32
+  took it to 20 — *`cargo test` does not run an example*, so an `assert!` there is compiled by
+  `cargo clippy --all-targets` and evaluated by nobody. **O5's own report had been broken for four
+  tickets** while `unmet(o5(AXIS_SCENES)) == (34, 14)` — the gate — stayed green throughout.
+  **`deny` and `warn` are the same gate here, measured rather than assumed** — `warnings = "deny"`
+  already turns it into an error and an undocumented `pub fn` failed the build under both spellings —
+  and `deny` ships because the two agree only while that table exists. **There is no sixth CI job**:
+  `cargo test --doc` is spelled `cargo test --workspace`, whose own comment already says the
+  doctests are where the negative gates live.
+  **`overlay::OWED_SENTENCE` gained a fourth phrase**, because O1 asks for the sentence *with the
+  `E0503` trap named* and the two halves are not the same claim: three phrases are the mechanism and
+  `E0503` is the string a reader searches for at the moment they meet it, **since the diagnostic
+  never mentions the overlay**. Register 209 → **212 rows, 196 evaluated** — rows 210, 211 and 212,
+  because **row 30 is `Kind::Count` and O1 is two gates**, which is what §21's own `mixed` in the
+  kind column was hiding.
+
 - **The six Tier 2 rows ship, Tier 2's claim is a value a scan runs over, and `switch`'s empty glyph
   column is the finding rather than the hole** (components ticket 34, 2026-08-27; ADR 0041).
   `crates/vitui-components/src/composed.rs` is the claim — six rows, each naming what its component
@@ -1124,8 +1189,8 @@ Read these before working, in this order:
    authority. An `architecture.md` beside a spec is the superseded proposal, kept only as the record
    of what was argued.
 2. `CONTEXT.md` — the glossary. Use its terms in code, comments, tickets and commit messages.
-3. `docs/adr/` — 42 decisions that are hard to reverse and surprising without context. 0001–0011 and
-   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0042 the components.
+3. `docs/adr/` — 43 decisions that are hard to reverse and surprising without context. 0001–0011 and
+   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0043 the components.
 4. The impl backlog `README.md` for the layer being worked on — it holds the phase order, the
    blocking edges, and the defects that shaped both.
 
@@ -1144,6 +1209,7 @@ crates/vitui-engine       cells, surfaces, layers, compositing, damage, serializ
 crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key maps, theming,
                           overlays, the data contract — no scene tree, no reactivity
 crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (28 of 29 built)
+                          └ every built one carries a doc page with a compiled example (O1, ticket 36)
                           └ plus `media`, which is **no row of the freeze at all** — §14's own *no
                             v1 component*, so the family ships and `MEMBERS` is empty
                           └ the partition primitives return `vitui_runtime::Rect`. This crate used
