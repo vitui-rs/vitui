@@ -1019,6 +1019,13 @@ where
         if k.kind == Edge::Release {
             continue;
         }
+        // **A chord belongs to the application** — `crate::input::select`'s guard, and components
+        // ticket 38 found both loops missing it together, which is what *one drawing and one drain
+        // loop apart* costs when only the drawing was shared.
+        if crate::keys::is_chord(&k) {
+            cx.decline(k);
+            break;
+        }
         match k.code {
             Code::Enter | Code::Char(' ') | Code::Down => st.open(),
             Code::Escape if st.open => st.close(),

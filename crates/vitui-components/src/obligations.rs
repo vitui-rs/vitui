@@ -4,12 +4,11 @@
 //! > Every documentation and verification obligation is a query over it, not a sentence in a
 //! > document. (ADR 0033)
 //!
-//! # Three of the five still cannot run, and that is the load-bearing half of this file
+//! # Two of the six still cannot run, and that is the load-bearing half of this file
 //!
-//! **O1 is green since components ticket 36 and O3 since components ticket 37**, the first two of
-//! the six queries to turn. A gallery panel and a keyboard contract are still things later tickets
-//! build, and **a query over an obligation nobody has met yet is the exact shape that returns green
-//! by accident**:
+//! **O1 is green since components ticket 36, O3 since 37 and O4 since 38**, the first three of the
+//! six queries to turn. A gallery panel is still a thing a later ticket builds, and **a query over
+//! an obligation nobody has met yet is the exact shape that returns green by accident**:
 //!
 //! - *every panel in the gallery is in the freeze* over an empty gallery is **vacuously true**;
 //! - *every component has at least one scene per declared axis* over an empty scene list, written
@@ -233,15 +232,56 @@ pub const GOLDENS: &[(&str, u8)] = &[
 
 /// The ids whose keyboard contract is **documented** and rendered as help. O4's first half.
 ///
-/// Empty, and ticket 38 fills it.
-pub const KEYBOARD_DOCUMENTED: &[&str] = &[];
-
-/// The ids whose keyboard contract is **registered** in the runtime's key map. O4's second half.
+/// Thirteen, and components ticket 38 filled it. Written out for [`AXIS_SCENES`]'s reason: a
+/// `const fn` over [`crate::contract::CONTRACTS`] would make the population and the evidence one
+/// expression. What holds it honest is `crate::contract::tests::the_written_lists_and_the_sweep_agree`.
 ///
-/// Empty, and ticket 38 fills it. O4 is an equality between the two and not a subset in either
-/// direction: a binding that is registered and undocumented is a feature nobody can find, and one
-/// that is documented and unregistered is a help bar that lies.
-pub const KEYBOARD_REGISTERED: &[&str] = &[];
+/// **The sixteen rows that are not here read no key at all**, and that is the faithful reading
+/// rather than a gap — see [`o4`] for why the population is the union of the two lists and not the
+/// whole freeze.
+pub const KEYBOARD_DOCUMENTED: &[&str] = &[
+    "collection",
+    "table",
+    "tree",
+    "pagination",
+    "select",
+    "file_picker",
+    "field",
+    "form",
+    "collapsible",
+    "slider",
+    "checkbox",
+    "radio",
+    "switch",
+];
+
+/// The ids whose keyboard contract is **registered** — the ones the machine is observed to answer.
+///
+/// O4 is an equality between the two and not a subset in either direction: a binding that is
+/// registered and undocumented is a feature nobody can find, and one that is documented and
+/// unregistered is a help bar that lies.
+///
+/// **The two lists are the same thirteen ids and the equality is not at this level.** A roll-up to
+/// ids is what [`o4`] can ask over the freeze, and it would be satisfied by a component declaring
+/// one binding and answering a hundred. The chord-for-chord equality is
+/// `crate::contract::tests::documented_equals_registered_for_every_component`, over a corpus of
+/// **162** triggers a component could bind, with the runtime's own share subtracted by a control
+/// arm — and it is what turned four defects up in code that was already green.
+pub const KEYBOARD_REGISTERED: &[&str] = &[
+    "collection",
+    "table",
+    "tree",
+    "pagination",
+    "select",
+    "file_picker",
+    "field",
+    "form",
+    "collapsible",
+    "slider",
+    "checkbox",
+    "radio",
+    "switch",
+];
 
 /// The scenes that exist, as `(component, axis)` pairs. O5's evidence.
 ///
@@ -586,9 +626,11 @@ mod tests {
     /// to force: it stood at zero for thirty-five tickets, twenty-five of which shipped a component
     /// entitled to add a row to [`DOC_TESTED`] and none of which did. **O3 is the second**, and
     /// components ticket 37 is its edit — thirty-three screens over the twenty-eight built rows,
-    /// with the equalities in `crates/vitui-components/tests/golden.rs`.
+    /// with the equalities in `crates/vitui-components/tests/golden.rs`. **O4 is the third**, and
+    /// components ticket 38 is its edit — thirteen contracts, and the equality that matters is one
+    /// level down in `crate::contract`, chord for chord against a sweep that runs the component.
     #[test]
-    fn two_of_the_five_obligations_are_met_and_they_are_o1_and_o3() {
+    fn three_of_the_five_obligations_are_met_and_they_are_o1_o3_and_o4() {
         let all = [
             ("O1", o1(DOC_TESTED)),
             ("O2a", o2_nothing_shown_is_absent_from_the_freeze(PANELS)),
@@ -604,13 +646,16 @@ mod tests {
             .collect();
         assert_eq!(
             met,
-            vec!["O1", "O3"],
+            vec!["O1", "O3", "O4"],
             "an obligation has changed colour. That is the point of the backlog and it is also a \
              deliberate edit to this test, to this module's header and to the ticket that inverted \
              it — the number is here so a green one cannot arrive unremarked"
         );
 
-        for (name, verdict) in all.into_iter().filter(|(n, _)| *n != "O1" && *n != "O3") {
+        for (name, verdict) in all
+            .into_iter()
+            .filter(|(n, _)| *n != "O1" && *n != "O3" && *n != "O4")
+        {
             let Verdict::Unmet {
                 over,
                 failing,
@@ -664,13 +709,14 @@ mod tests {
         // side too. See `o3` for why the population is `built`: `spinner` has no component to draw,
         // and a row nothing on this backlog can invert is a row that reads red for ever.
         assert_eq!(o3(GOLDENS), Verdict::Met { over: 28 }, "O3");
-        // **O4's population is 0, and that is a finding rather than an oversight.** Written over
-        // `INVENTORY` it returned `Met` over twenty-nine, because two empty lists agree about every
-        // row — the one query of the six that read green, and the reason this test exists at all.
-        // See `o4`'s own documentation.
+        // **O4's population was 0 for thirty-seven tickets, and that was a finding rather than an
+        // oversight.** Written over `INVENTORY` it returned `Met` over twenty-nine, because two
+        // empty lists agree about every row — the one query of the six that read green, and the
+        // reason this test exists at all. It is `Met` over **thirteen** now, which is the union of
+        // the two lists and not the freeze: sixteen rows read no key.
         assert_eq!(
-            unmet(o4(KEYBOARD_DOCUMENTED, KEYBOARD_REGISTERED)),
-            (0, 0),
+            o4(KEYBOARD_DOCUMENTED, KEYBOARD_REGISTERED),
+            Verdict::Met { over: 13 },
             "O4"
         );
         // **O5 has moved three times and it is still red.** Ticket 04's scene list covered twelve
@@ -786,11 +832,17 @@ mod tests {
         o3(&short).assert_met("O3");
     }
 
-    /// See [`o1_fails_loudly`].
+    /// See [`o1_fails_loudly`]. **Watched failing with one id struck**, because O4 is met and a
+    /// met query cannot be watched failing on its own evidence.
     #[test]
-    #[should_panic(expected = "O4 is unmet: 0 of 0")]
+    #[should_panic(expected = "O4 is unmet: 1 of 13")]
     fn o4_fails_loudly() {
-        o4(KEYBOARD_DOCUMENTED, KEYBOARD_REGISTERED).assert_met("O4");
+        let short: Vec<&str> = KEYBOARD_REGISTERED
+            .iter()
+            .copied()
+            .filter(|id| *id != "slider")
+            .collect();
+        o4(KEYBOARD_DOCUMENTED, &short).assert_met("O4");
     }
 
     /// See [`o1_fails_loudly`]. **The one worth more than the other four together**, and the one

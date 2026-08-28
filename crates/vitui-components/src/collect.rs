@@ -575,13 +575,21 @@ pub fn from_click(mods: Mods, at: usize) -> Gesture {
 /// the one that produces no gesture at all** — it moves the cursor and leaves the selection where it
 /// is, which is what every file manager does and what an enum of selection states cannot say.
 pub fn from_key(k: &Pressed, lead: usize, moved: Option<usize>) -> Option<Gesture> {
-    if k.mods.ctrl() && k.code == Code::Char('a') {
+    if k.mods.ctrl() && !k.mods.alt() && k.code == Code::Char('a') {
         return Some(Gesture::All);
+    }
+    // **`Esc` and `Space` are keys and not chords**, and the two guards are components ticket 38's
+    // finding: written as `k.code == Code::Escape` alone, `Ctrl+Esc` and `Alt+Esc` cleared the
+    // selection and `Alt+Space` toggled a row, so a focused collection ate every accelerator built
+    // on either. `crate::keys::is_chord` is the one predicate that decides it (spec §3), and it
+    // leaves `Shift` alone deliberately — `Shift+Space` is this component's own toggle.
+    if crate::keys::is_chord(k) {
+        return None;
     }
     if k.code == Code::Escape {
         return Some(Gesture::Nothing);
     }
-    if k.code == Code::Char(' ') && !k.mods.ctrl() {
+    if k.code == Code::Char(' ') {
         return Some(Gesture::Toggle(lead));
     }
     let to = moved?;
@@ -1384,11 +1392,45 @@ pub fn search_range(lead: usize, len: usize, budget: usize) -> Range<usize> {
 /// line and every one of them **passes at least one gate the correct build passes**.
 pub mod defective {
     use super::{
-        Band, BandShape, Cell, CellKeys, ColVirt, CollOpts, CollState, Column, Ctx, Face, HSign,
-        Id, Indent, Ink, Node, Order, Range, Rect, Response, Reveal, Rows, Scan, Shape, TableOpts,
-        TableShape, TableState, TreeOpts, TreeShape, TreeState, draw_with, no_refusal, table_with,
-        tree_with,
+        Band, BandShape, Cell, CellKeys, Code, ColVirt, CollOpts, CollState, Column, Ctx, Face,
+        Gesture, HSign, Id, Indent, Ink, Node, Order, Pressed, Range, Rect, Response, Reveal, Rows,
+        Scan, Shape, TableOpts, TableShape, TableState, TreeOpts, TreeShape, TreeState, draw_with,
+        no_refusal, table_with, tree_with,
     };
+
+    /// **[`super::from_key`] reading `k.code` alone, which is how it shipped for thirty-seven
+    /// tickets.**
+    ///
+    /// `Esc` and `Space` were matched on the code with no modifier guard, so `Ctrl+Esc` and
+    /// `Alt+Esc` cleared the selection and `Alt+Space` toggled a row — a focused collection ate
+    /// every accelerator built on either, and §21's *a chord pressed into every focusable types
+    /// nothing* stayed green throughout, because clearing a selection types nothing.
+    ///
+    /// Kept runnable for [`super::super::frame::defective`]'s reason: the correct arm and this one
+    /// are one guard apart, so the diff a reviewer would have to catch is the diff the register
+    /// names.
+    #[must_use]
+    pub fn from_key_on_code_alone(
+        k: &Pressed,
+        lead: usize,
+        moved: Option<usize>,
+    ) -> Option<Gesture> {
+        if k.mods.ctrl() && k.code == Code::Char('a') {
+            return Some(Gesture::All);
+        }
+        if k.code == Code::Escape {
+            return Some(Gesture::Nothing);
+        }
+        if k.code == Code::Char(' ') && !k.mods.ctrl() {
+            return Some(Gesture::Toggle(lead));
+        }
+        let to = moved?;
+        match (k.mods.ctrl(), k.mods.shift()) {
+            (true, _) => None,
+            (false, true) => Some(Gesture::Extend(to)),
+            (false, false) => Some(Gesture::Plain(to)),
+        }
+    }
 
     /// **The listing that iterates its whole content and lets the clip reject the rest.**
     ///

@@ -113,16 +113,78 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 37 of 45 tickets resolved (the last on 2026-08-27). `INVENTORY` is spec
+- **`vitui-components` has started**: 38 of 45 tickets resolved (the last on 2026-08-28). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
-  answerable by the machine from here on. **O1 is met since ticket 36 and O3 since ticket 37** and
-  the other three are `Unmet`, each watched panicking, because a query with no evidence must fail loudly rather than pass: O4
-  first returned **`Met` over 29 rows with no evidence at all**, since *an equality between two
+  answerable by the machine from here on. **O1 is met since ticket 36, O3 since 37 and O4 since 38**
+  and the other two are `Unmet`, each watched panicking, because a query with no evidence must fail loudly rather than pass: O4
+  itself first returned **`Met` over 29 rows with no evidence at all**, since *an equality between two
   things that do not exist holds*. **Building the freeze contradicted four figures in the closed map** — the built count
   (19/10, not ADR 0033's thirteen-unbuilt), the count of empty families (five, not §17's two), §1's
   layer rule against §6's own composition, and the `layer` column being uncheckable without stated
   edges. All four are asserted as measured rather than bent to fit.
+- **O4 is green — thirteen keyboard contracts as declared data, and *registered* is what the machine
+  answers** (components ticket 38, 2026-08-28; ADR 0045). `crate::contract` is the value:
+  a `Contract` per component that reads a key, a `Bind` list, and a `live` function pointer that
+  **runs the shipped widget**. `crate::obligations::o4` is `Met` over **13** — the union of the two
+  lists and not the freeze, because sixteen rows read no key at all — and the chord-for-chord
+  equality is register row 216. **The equality could not have been between two readings of one
+  declaration**, which is `obligations`'s own header one level down: a `registered` list derived from
+  `CONTRACTS` agrees with a `documented` list derived from `CONTRACTS` for ever. So `registered` is a
+  sweep of **162 triggers** posted at a headless driver with the widget's id holding the focus,
+  answered by `Driver::unhandled` — *the keys this frame's batch carried that nobody took* — read
+  after the frame. A click has no such window, so its observable is the **picture**: the same drive
+  with and without the modifiers, compared through `Canvas::diff`.
+  **The control arm is the mechanism and a finding at once.** `unhandled` says *nobody took it* and
+  **the runtime is one of the takers**: `Tab` and `BackTab` at all five modifier states are the focus
+  walk, **10 of 162**, and without subtracting them all thirteen contracts register ten chords they
+  have never heard of — an equality that would have been reconciled by *declaring* them. The control
+  is `button`, a row of the freeze and not a fixture, so what it makes checkable is *a tab stop that
+  reads no key*. That is §21's *`Tab` inside a trap* from the other side: it is the runtime's key and
+  no component's.
+  **Five chord leaks in code that was already green, and register row 5 could not see one of them** —
+  *a chord pressed into every focusable types nothing* is a claim about a **buffer**, and moving a
+  caret, opening a list and clearing a selection all type nothing. `field` answered `Ctrl+Left` and
+  the whole cursor and edit set; `select` and `file_picker` opened on `Ctrl+Down` and `Alt+Enter`;
+  `collect::from_key` cleared a selection on `Ctrl+Esc` and toggled a row on `Alt+Space`; and
+  `input::popup_body`'s own refusal committed on `Ctrl+Enter` — **the one with nowhere else to go**,
+  because that loop runs *inside* a trapless overlay where the application has no other reader. **The
+  sharpest is this ticket's own subject**: `Ctrl+Left` is what a user pressing for word motion means,
+  word motion is `contract::ABSENT`'s one row — the engine exports `graphemes()` and `width_of()` and
+  no word iterator — so the widget was swallowing the accelerator *and* answering it with a cluster.
+  Each repair is one `keys::is_chord` guard, `collect::defective::from_key_on_code_alone` keeps the
+  replaced spelling runnable, and **none of the four broke a single existing test**.
+  **`Bind::ignores` is spec §3's rule declared rather than a convenience**: `SIGNIFICANT` is
+  `CTRL | ALT` and Shift is deliberately not in it, so a component that filters through `is_chord`
+  and matches on `code` answers `Shift+X` as it answers `X` — two chords where a help bar prints one
+  line. It is per bind: `collection` declares `Up` and `Shift+Up` as **two**, because there the
+  second is a different action.
+  **A contract is read where it is whole and what the other configuration removes is a number.**
+  `field` at `WrapKind::Ruler` loses `Up`, `Down` and `Enter` — ADR 0042 as **6 spellings**;
+  `collection` at `Mode::Single` keeps **2 of 3** pointer gestures, and *the gesture that disappears
+  is the one that works*, because a ctrl-click **is** a plain click there while the two extends the
+  mode refuses leave a different picture. **`select` is the third instance and it is two keyboards
+  rather than two configurations**: shut, the owner's loop runs; open, *the popup takes the keyboard
+  from its owner*, and the contract is the **union** of the two seats — which the sweep needs a third
+  frame to reach, because the handover happens during the frame after the plant.
+  **And the family is not one keyboard: `file_picker`'s popup has none at all.** It draws a plain
+  `collection_into`, seats no focus and declares no refusal, so an open picker has no arrows, no
+  `Home`/`End`, no type-ahead and **no way to choose a file** — mouse only, on a screen that renders
+  perfectly. **35 spellings against 8 over one family**, which is components 32's *two copies of a
+  drawing that has already been wrong once is one copy too many* with the keyboard as the half that
+  stayed transcribed. Not repaired here — seating a focus and minting a refusal inside `picker_body`
+  is a component's keyboard being *designed* — so it is **components architecture issue 23**, held by
+  `PICKER_IS_MISSING = 27` asserted exactly with the owner's four asserted equal.
+  **A fifth defect was in the gate**, and it is ADR 0031 arriving in an instrument: `Order::built`
+  stamps `Revision::fresh()` and a collection handed an unseen revision **clears the selection**, so a
+  probe rebuilding its index inside the draw reported `tree` deaf to all three pointer gestures. Two
+  more fixture facts came the same way — the click seeds at column **6**, because at column 1 a
+  `tree` row of depth 1 is indent and chevron and the press toggles a fold; and every probe's labels
+  begin with `a`, `m` and `z`, because **a collection's type-ahead consumes a letter only when a row
+  starts with it**.
+  The walkthrough and *a chord types nothing* were already green and are cited rather than rebuilt
+  (rows 34, 88 and 5). **Nothing here decides whether a binding may render as unavailable.**
+  Register 215 → **218 rows, 202 evaluated**.
 - **O3 is green — thirty-three screens, one per construction, in the engine's format and not a second
   one** (components ticket 37, 2026-08-27; ADR 0044). `crate::golden` is the format, the screen table
   and the play; `tests/golden.rs` is the three-rung sweep and the equalities;
@@ -1242,8 +1304,8 @@ Read these before working, in this order:
    authority. An `architecture.md` beside a spec is the superseded proposal, kept only as the record
    of what was argued.
 2. `CONTEXT.md` — the glossary. Use its terms in code, comments, tickets and commit messages.
-3. `docs/adr/` — 44 decisions that are hard to reverse and surprising without context. 0001–0011 and
-   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0044 the components.
+3. `docs/adr/` — 45 decisions that are hard to reverse and surprising without context. 0001–0011 and
+   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0045 the components.
 4. The impl backlog `README.md` for the layer being worked on — it holds the phase order, the
    blocking edges, and the defects that shaped both.
 
@@ -1263,6 +1325,9 @@ crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key map
                           overlays, the data contract — no scene tree, no reactivity
 crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (28 of 29 built)
                           └ every built one carries a doc page with a compiled example (O1, ticket 36)
+                          └ and, for the thirteen that read a key, a declared keyboard contract whose
+                            help is rendered from it and whose other half is a sweep that runs the
+                            component (O4, ticket 38)
                           └ and a golden screen per construction under `tests/golden/` — 33 of them,
                             in the engine's format, blessed with `VITUI_BLESS=1` (O3, ticket 37)
                           └ plus `media`, which is **no row of the freeze at all** — §14's own *no
@@ -1348,6 +1413,7 @@ lives in examples that print a report:
 ```bash
 cargo run --release --example budget -p vitui-engine     # asserts the gates, prints the numbers
 cargo run --release --example layout_numbers -p vitui-runtime   # one of sixteen *_numbers reports
+cargo run --example contract_numbers -p vitui-components   # O4: what each component declares and answers
 scripts/idle-gate.sh 30       # 0.00 user / 0.00 sys over 30 s; thirty is a floor, not a preference
 scripts/observer-gate.sh      # the debug observer is absent from a release binary
 scripts/steady-report.sh      # 60 fps for 30 s against 5% of a core

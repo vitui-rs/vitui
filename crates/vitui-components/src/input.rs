@@ -16,9 +16,14 @@
 //! a `Role` absorbs every button variant. The colour wheel, the dial and the font picker are R4 —
 //! sub-cell rasterisation, one rasteriser and a different mapping.
 //!
-//! **Two entries are open rather than reduced**: ctrl-click and shift-click, because `rt::Input`
-//! carries no modifier byte on a pointer event. The keyboard half of multi-select is complete; the
-//! pointer half is inexpressible, and that is the runtime map's to change (§22).
+//! **~~Two entries are open rather than reduced~~ — closed by runtime ticket 10.** It read:
+//! *ctrl-click and shift-click, because `rt::Input` carries no modifier byte on a pointer event.
+//! The keyboard half of multi-select is complete; the pointer half is inexpressible, and that is
+//! the runtime map's to change (§22).* `Response` carries `mods: Mods` — one byte on a sixteen-byte
+//! hit entry — `crate::collect::from_click` reads it, and components ticket 38 declares the three
+//! modified clicks as bindings like any other (`crate::contract`). The engine had been reporting
+//! modifiers on every pointer event all along; dropping them was a runtime omission and not a
+//! terminal limit.
 
 //! # `button` is spec §1's own example, and the shape is the rule with one substitution
 //!
@@ -487,6 +492,15 @@ pub fn field_with(cx: &mut Ctx<'_, '_>, area: Rect, st: &mut Text, opts: &FieldO
     field_into(&mut Direct, cx, area, st, opts)
 }
 
+/// **The letters this widget owns as chords: undo and select-all.**
+///
+/// Named so that the loop's refusal is one list rather than a match arm nobody reads beside the arm
+/// that acts. What holds the two together is not co-location — it is
+/// `crate::contract`'s sweep, which posts every chord and compares what the widget takes against
+/// what it declares: a letter added here and nowhere else answers nothing and reads as a **dead**
+/// declaration, and one added below and not here is declined before it arrives.
+const OWNED_CHORDS: [char; 2] = ['z', 'a'];
+
 /// **[`field`], drawing through an [`Ink`] so a counter can see every cell.**
 ///
 /// The entry point a gate takes; [`field`] is this with [`Direct`].
@@ -587,6 +601,23 @@ fn draw_with<I: Ink>(
             resp.changed = true;
             asked = true;
             continue;
+        }
+        // **A chord is not a motion and is not an edit**, and this guard is components ticket 38's
+        // finding rather than a tidy-up. Without it the arms beneath read `k.code` alone, so
+        // `Ctrl+Left` moved the caret **one cluster** — the widget swallowed the accelerator *and*
+        // did the wrong thing with it, which is worse than either half: §21's *a chord pressed into
+        // every focusable types nothing* is green either way, because a caret move types nothing.
+        // Word motion is exactly what a user pressing `Ctrl+Left` means, and it is
+        // `crate::contract::ABSENT`'s one row — the engine exports no word iterator — so the honest
+        // answer is to hand the key back rather than to answer it with a cluster.
+        //
+        // **Shift is not in `SIGNIFICANT` and that is the whole point of the predicate** (spec §3):
+        // a capital is what Shift is for, and `Shift+Left` is this widget's own selection step.
+        // The two chords the widget owns are read below, in their own arm; every other one is the
+        // application's. One list and not two, so a third owned chord is one edit.
+        if keys::is_chord(&k) && !matches!(k.code, Code::Char(c) if OWNED_CHORDS.contains(&c)) {
+            cx.decline(k);
+            break;
         }
         let shift = k.mods.shift();
         let moved = match k.code {
@@ -1400,6 +1431,14 @@ fn select_shaped<'f, I: Ink>(
         if k.kind == Edge::Release {
             continue;
         }
+        // **A chord belongs to the application** (spec §3), and components ticket 38 found this
+        // loop reading `k.code` alone: `Ctrl+Down` and `Alt+Enter` opened the list, so a shut
+        // `select` ate every accelerator built on the four keys it owns — silently, on a screen
+        // where nothing had visibly happened.
+        if keys::is_chord(&k) {
+            cx.decline(k);
+            break;
+        }
         match k.code {
             Code::Enter | Code::Char(' ') | Code::Down => st.open(),
             // **`Esc` only while it is open**, and the guard is not tidiness: a shut widget that
@@ -1611,16 +1650,26 @@ fn popup_body(
             // level's turn at the queue*, so a popup that read `Enter` before the collection would leave
             // it nothing and one that read it after would find the queue closed. `Esc` and `Enter` are
             // the popup's two, and `crate::nav::step` owns the rest.
-            let mut mine = |k: &Pressed, cursor: usize| match k.code {
-                Code::Enter => {
-                    answer = Some(cursor);
-                    true
+            let mut mine = |k: &Pressed, cursor: usize| {
+                // **A chord belongs to the application**, here as much as at the owner (spec §3).
+                // Components ticket 38 found this closure reading `k.code` alone: `Ctrl+Enter`
+                // committed and `Alt+Esc` dismissed, so an open popup ate every accelerator built
+                // on its own two keys — and unlike the owner's, this one is *inside* a trapless
+                // overlay, where the application has no other reader.
+                if keys::is_chord(k) {
+                    return false;
                 }
-                Code::Escape => {
-                    answer = Some(chosen);
-                    true
+                match k.code {
+                    Code::Enter => {
+                        answer = Some(cursor);
+                        true
+                    }
+                    Code::Escape => {
+                        answer = Some(chosen);
+                        true
+                    }
+                    _ => false,
                 }
-                _ => false,
             };
             let filled = shape.fill == Fill::FillFirst;
             // **What the list position lives in.** The shipped arm hands the collection the caller's own

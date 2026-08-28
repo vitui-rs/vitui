@@ -442,6 +442,14 @@ const STRUCTURE: &str = "crates/vitui-components/src/structure.rs";
 /// and the pager's window.
 const COMPOSITE_NUMBERS: &str = "crates/vitui-components/examples/composite_numbers.rs";
 
+/// **O4's own file.** The thirteen contracts, the sweep that runs the component, and the control
+/// arm. Ticket 38.
+const CONTRACT: &str = "crates/vitui-components/src/contract.rs";
+
+/// **Components ticket 38's report**, which prints the chord that differs where the equality prints
+/// a count.
+const CONTRACT_NUMBERS: &str = "crates/vitui-components/examples/contract_numbers.rs";
+
 /// **Components ticket 34's report**, which prints the two things its rows compress into a sentence:
 /// the two eighth-block runs side by side, and the sparkline's three verb counts over one write
 /// count.
@@ -547,7 +555,13 @@ pub const SPEC_ROWS: usize = 32;
 /// and none of the three is an inversion: rows 210, 211 and 212 are O1's other three halves, which
 /// row 30 could not carry because it is `Kind::Count` and O1 is a count *and* a compile outcome —
 /// which is what §21's own `mixed` in the kind column was hiding.
-pub const EVALUATED: usize = 199;
+///
+/// **Components ticket 38 moved it from a hundred and ninety-nine to two hundred and two**, and
+/// none of the three is an inversion either: rows 216, 217 and 218 are O4's, at the level O4 means
+/// it. Row 30's own instrument compares two lists of *ids*, which is the most a query over the
+/// freeze can ask; the chord-for-chord equality needs a value with a machine in it, and
+/// `crate::contract::Contract::live` is that machine — it runs the shipped component.
+pub const EVALUATED: usize = 202;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
 #[expect(
@@ -557,7 +571,7 @@ pub const EVALUATED: usize = 199;
               array is read at compile time by nothing and at run time by tests, so the copy the \
               lint is warning about is one a test makes once"
 )]
-pub const REGISTER: [Row; 215] = [
+pub const REGISTER: [Row; 218] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -677,6 +691,20 @@ pub const REGISTER: [Row; 215] = [
                 },
                 Instrument::Report {
                     file: "crates/vitui-components/examples/keys_numbers.rs",
+                },
+                // **Components ticket 38 found four chord leaks this row cannot see, and that is a
+                // fact about what it measures rather than a defect in it.** *Types nothing* is a
+                // claim about a **buffer**: `Ctrl+Left` moved a caret, `Ctrl+Down` opened a
+                // `select`'s list and `Ctrl+Esc` cleared a collection's selection, and every one of
+                // those types nothing. What they did was **take the key**, so the application's
+                // accelerator never arrived — which is row 216's question and not this one.
+                Instrument::Unit {
+                    file: CONTRACT,
+                    name: "the_four_chord_leaks_are_shut",
+                },
+                Instrument::Unit {
+                    file: CONTRACT,
+                    name: "an_open_popup_does_not_eat_a_chord_built_on_its_own_two_keys",
                 },
             ],
         },
@@ -1297,7 +1325,12 @@ pub const REGISTER: [Row; 215] = [
         kind: Kind::Count,
         owner: "C10",
         section: "spec §17",
-        // **Two of the six are green: O1 since components ticket 36 and O3 since components 37.**
+        // **Three of the six are green: O1 since components ticket 36, O3 since 37 and O4 since
+        // 38.** O4's population is the **union of the two lists** — thirteen of twenty-nine — and
+        // not the freeze, because sixteen rows read no key at all and *every component appears in
+        // both lists* is not the obligation. Its own three halves are rows 216, 217 and 218; the
+        // roll-up to ids that this row can ask over the freeze would be satisfied by a component
+        // declaring one binding and answering a hundred.
         // It stood at zero of six for thirty-five tickets — O2 is two equalities — twenty-five of
         // which shipped a component entitled to add a row to `DOC_TESTED` and none of which did,
         // because a list filled by whichever ticket happened to write a doctest is a list nobody
@@ -1321,7 +1354,7 @@ pub const REGISTER: [Row; 215] = [
             by: &[
                 Instrument::Unit {
                     file: "crates/vitui-components/src/obligations.rs",
-                    name: "two_of_the_five_obligations_are_met_and_they_are_o1_and_o3",
+                    name: "three_of_the_five_obligations_are_met_and_they_are_o1_o3_and_o4",
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/obligations.rs",
@@ -7175,6 +7208,194 @@ pub const REGISTER: [Row; 215] = [
             ],
         },
     },
+    Row {
+        number: 216,
+        on_spec_table: false,
+        gate: "every component's bindings are declared data and the machine answers exactly them",
+        kind: Kind::Equality,
+        owner: "C10",
+        section: "spec §17",
+        // **The equality O4 states, at the level it means it.** `crate::obligations::o4` compares
+        // two lists of *ids*, which is the most the freeze can be asked about and would be
+        // satisfied by a component declaring one binding and answering a hundred. This row is the
+        // chord-for-chord form, over the thirteen components that read a key.
+        //
+        // **The two sides come from two places, which is the whole of the row.** One is
+        // `crate::contract::CONTRACTS`, written; the other is a sweep of a hundred and sixty-two
+        // triggers that **runs the shipped component** and reads `Driver::unhandled` — *the keys
+        // this frame's batch carried that nobody took*. A `registered` list derived from the
+        // declaration would agree with it for ever, whatever either said about the component, which
+        // is `crate::obligations`'s own header one file over.
+        //
+        // **The control arm is what makes it a component's answer**, and it is a finding as well as
+        // a mechanism: the focus walk takes `Tab` and `BackTab` at all five modifier states before
+        // any component sees them, so without a subtraction all thirteen contracts register ten
+        // chords they have never heard of — and the equality would have been reconciled by
+        // *declaring* them. `button` is the control, which is a row of the freeze rather than a
+        // fixture: **a tab stop that reads no key**.
+        //
+        // **It found five chord leaks in code that was already green**, none of them reachable from
+        // row 5: the cursor and edit arms of `field`, the owner loops of `select` and
+        // `file_picker`, `collect::from_key`'s `Esc` and `Space`, and `input::popup_body`'s own
+        // refusal. Every one was a drain loop matching on `k.code` with no modifier guard, and
+        // every one types nothing. `Ctrl+Left` is the sharpest, because it is what a user pressing
+        // for **word motion** means and word motion is `crate::contract::ABSENT`'s one row — the
+        // widget was swallowing the accelerator *and* answering it with a cluster. The fifth is the
+        // one with nowhere else to go: `popup_body`'s loop runs *inside* a trapless overlay, so the
+        // application has no other reader for the key it just lost.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: CONTRACT,
+                    name: "documented_equals_registered_for_every_component",
+                },
+                Instrument::Unit {
+                    file: CONTRACT,
+                    name: "a_contract_wrong_in_both_directions_is_caught_in_both_directions",
+                },
+                Instrument::Unit {
+                    file: CONTRACT,
+                    name: "the_control_is_a_component_of_the_freeze_that_reads_no_key",
+                },
+                Instrument::Unit {
+                    file: CONTRACT,
+                    name: "the_sweep_and_every_answer_are_the_size_they_are",
+                },
+                Instrument::Unit {
+                    file: CONTRACT,
+                    name: "the_written_lists_and_the_sweep_agree",
+                },
+                Instrument::Report {
+                    file: CONTRACT_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 217,
+        on_spec_table: false,
+        gate: "the help is rendered from the declaration through the runtime's own renderer, and \
+               there is no second list",
+        kind: Kind::Equality,
+        owner: "C10",
+        section: "spec §17",
+        // **R12's `Binding` carries a help string precisely so that bindings are declared once and
+        // read twice**, and the second reading is this. `crate::contract::help` builds the
+        // runtime's `KeyMap` out of a contract's own binds and prints each through
+        // `vitui_runtime::keys::write_help`; the class and the click borrow the same `write_chord`
+        // for their spelling, so what a help bar prints and what the sweep reports are one function
+        // of one value.
+        //
+        // **`Bind::ignores` is the modelling decision underneath it**, and it is spec §3's rule
+        // rather than a convenience: `crate::keys::SIGNIFICANT` is `CTRL | ALT` and Shift is
+        // deliberately not in it, so a component that filters through `is_chord` and then matches
+        // on `code` answers `Shift+X` exactly as it answers `X`. The sweep finds two chords where a
+        // help bar should print one line, and the field is that fact declared. It is not a licence:
+        // `collection` declares `Up` and `Shift+Up` as two binds, because there the second is a
+        // different action.
+        //
+        // **And what is absent is absent, with the fact that makes it so.** Word motion is
+        // `ABSENT`'s one row, and the gate reads both halves — no help line offers it, and the
+        // engine still exports no word iterator. *Missing* and *not yet done* are the same thing to
+        // a reader.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: CONTRACT,
+                    name: "the_runtimes_renderer_and_the_spelling_agree",
+                },
+                Instrument::Unit {
+                    file: CONTRACT,
+                    name: "a_pointer_gesture_is_spelled_by_the_same_function_a_chord_is",
+                },
+                Instrument::Unit {
+                    file: CONTRACT,
+                    name: "the_absent_binding_is_absent_from_every_help_line",
+                },
+                Instrument::Unit {
+                    file: CONTRACT,
+                    name: "an_action_is_declared_once_within_a_contract",
+                },
+                Instrument::Report {
+                    file: CONTRACT_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 218,
+        on_spec_table: false,
+        gate: "a component's contract is read at the configuration where it is whole, and what the \
+               other one removes is a number",
+        kind: Kind::Count,
+        owner: "C10",
+        section: "spec §17, §21",
+        // **Two components on this map have a contract that moves with their options**, and a sweep
+        // that read either at the wrong one would report the component as broken rather than as
+        // configured.
+        //
+        // `field` is one flag — §11's break rule — and at `WrapKind::Ruler` it declines `Up`,
+        // `Down` and `Enter`, which is ADR 0042 as six spellings. `collection` is `Mode`, and the
+        // finding there is the direction: at `Mode::Single` a ctrl-click *is* a plain click, so it
+        // leaves the same picture and reads **deaf**, while the two extends the mode refuses leave
+        // a different one and read **fluent**. The gesture that disappears is the one that works.
+        //
+        // **The three collections declare one contract and the pager declares its keys alone**,
+        // which is §6's *a table is a collection plus a column split* and §7's *a tree is a
+        // collection plus a flatten index* as an equality between three declarations, with
+        // components 35's store-without-a-row-loop as the difference: four binds, the type-ahead
+        // and the three pointer gestures.
+        //
+        // **And the overlay family's two owners do *not* declare one contract, which is a defect
+        // and is filed as components architecture issue 23.** `select`'s popup takes the keyboard
+        // from its owner and reads `Enter` and `Esc` through a `Refusal`; `file_picker`'s seats no
+        // focus and declares none, so **an open picker can only be used with a mouse** — 35 against
+        // 8 over one family, on a screen that renders perfectly. The owner's four are asserted
+        // equal, because those really are one contract; the rest is `PICKER_IS_MISSING`, so the day
+        // the issue is answered the count fails rather than the gate quietly widening.
+        //
+        // And the text class is a class, asked of three letters rather than of one — with a
+        // collection's own refusal beside it, because `seek` declines a letter no row starts with.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: CONTRACT,
+                    name: "the_break_rule_decides_three_of_a_fields_binds",
+                },
+                Instrument::Unit {
+                    file: CONTRACT,
+                    name: "the_mode_decides_the_pointer_half_and_hides_the_gesture_that_works",
+                },
+                Instrument::Unit {
+                    file: CONTRACT,
+                    name: "the_three_collections_declare_the_pager_plus_the_listing",
+                },
+                Instrument::Unit {
+                    file: CONTRACT,
+                    name: "the_three_toggles_declare_one_contract",
+                },
+                Instrument::Unit {
+                    file: CONTRACT,
+                    name: "the_two_overlay_owners_do_not_declare_one_contract",
+                },
+                Instrument::Unit {
+                    file: CONTRACT,
+                    name: "every_seeking_line_states_its_deadline_and_the_typing_one_has_none",
+                },
+                Instrument::Unit {
+                    file: CONTRACT,
+                    name: "the_text_class_is_a_class",
+                },
+                Instrument::Unit {
+                    file: CONTRACT,
+                    name: "a_collections_type_ahead_declines_a_letter_no_row_starts_with",
+                },
+                Instrument::Report {
+                    file: CONTRACT_NUMBERS,
+                },
+            ],
+        },
+    },
 ];
 /// **The compile-outcome pair row 31 names, and its positive twin.**
 ///
@@ -7517,7 +7738,7 @@ mod tests {
              domain and needs no component to be run against, and its row had been citing spec §13 \
              and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 215);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 218);
     }
 
     /// **The split, not the total.**
@@ -7528,10 +7749,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_a_hundred_and_eighty_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_a_hundred_and_eighty_six_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 183);
+        assert_eq!(REGISTER.len() - on_table, 186);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -7924,6 +8145,7 @@ mod tests {
                 "collapsible_numbers.rs".to_string(),
                 "collection_numbers.rs".to_string(),
                 "composite_numbers.rs".to_string(),
+                "contract_numbers.rs".to_string(),
                 "dense_numbers.rs".to_string(),
                 "doc_numbers.rs".to_string(),
                 "field_numbers.rs".to_string(),

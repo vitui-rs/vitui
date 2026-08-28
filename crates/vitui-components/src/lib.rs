@@ -43,8 +43,9 @@
 //!   is the claim that turns out to be false when it is false, and a scan for absences alone goes
 //!   green when the whole section is deleted.
 //! - [`obligations`] — §17's five obligations as queries over the freeze, each returning a count or
-//!   an equality. **One of the six is green — O1, since components ticket 36 — and the other five
-//!   say so out loud** rather than returning green over an empty population.
+//!   an equality. **Three of the six are green — O1 since components ticket 36, O3 since 37 and O4
+//!   since 38 — and the other three say so out loud** rather than returning green over an empty
+//!   population.
 //! - [`doc`] — **O1's evidence as a value**: a documentation page per built component, located by
 //!   the freeze's own `families` column rather than listed, with a scan that opens each file and
 //!   reports what is in it. It is the value [`obligations::DOC_TESTED`] is compared against, because
@@ -53,6 +54,15 @@
 //!   built components declare none at all** — so a page that mentions the axes it has is silent on
 //!   nearly half the freeze, and silence is indistinguishable from a page that forgot. Every page
 //!   says `none` out loud and the gate is an equality against the freeze **in both directions**.
+//! - [`contract`] — **O4's evidence as a value**: thirteen components' key bindings as declared
+//!   data, the help rendered from it through the runtime's own [`vitui_runtime::keys::write_help`],
+//!   and a sweep of a hundred and sixty-two triggers that **runs the shipped component** and reads
+//!   `Driver::unhandled` for the other half of the equality. A `registered` list derived from the
+//!   declaration would agree with it for ever. Its control arm is a `button` — *a tab stop that
+//!   reads no key* — because the focus walk takes `Tab` before any component sees it, and without
+//!   subtracting that all thirteen contracts register ten chords they have never heard of. It found
+//!   four chord leaks in code that was already green, the sharpest of which answered `Ctrl+Left`
+//!   with a cluster.
 //! - [`gates`] — §21's register: **a hundred and twenty-one gates as rows, a hundred and one of
 //!   them evaluated**,
 //!   six pinned red with their failing sets, six unreachable across the crate line with what
@@ -356,6 +366,7 @@ pub mod app;
 pub mod area;
 pub mod clusters;
 pub mod composed;
+pub mod contract;
 pub mod counters;
 pub mod dense;
 pub mod doc;
