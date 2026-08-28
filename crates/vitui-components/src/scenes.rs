@@ -1339,6 +1339,39 @@ const GALLERY_NUMBERS: &str = "crates/vitui-components/examples/gallery_numbers.
 /// `crate::gallery::swap` carries one surface across the change and the first frame clears, so a cell
 /// nobody writes on a steady frame is inside `written` already and counts as `kept`. At 100x30 a rung
 /// change keeps 2 005 of 3 000 with row 7 red and with it green.
+/// **Scene 27's instruments** — a theme swap over the assembled gallery, played against an oracle.
+///
+/// §21's clause is *R20 §3 has no caller; six panels keep the old palette permanently*, and both
+/// halves are answered rather than reproduced. The rule has no caller because there is no memo here
+/// made of paints or glyphs to be its caller (`crate::memos`); no panel keeps the old palette
+/// because the screen's own clear key names all three axes of the theme. What the scene measures is
+/// `Swap::stale` — the cells the swapped surface and a surface played at the destination theme from
+/// its first frame disagree about — at **0 of 24 000 and 0 of 3 000 on every page**, with the memo
+/// the rule is about built as an axis so the scene can be watched failing: **18 156 stale at 300x80
+/// under `Keying::DataAndTier`, with `changed > 0` green on it**.
+const PINS_SCENE_27: &[Instrument] = &[
+    Instrument::Unit {
+        file: GALLERY,
+        name: "no_cell_of_the_assembled_gallery_carries_the_previous_palette",
+    },
+    Instrument::Unit {
+        file: GALLERY,
+        name: "the_tier_keyed_memo_is_wrong_on_this_screen_and_the_old_gate_passes_on_it",
+    },
+    Instrument::Unit {
+        file: GALLERY,
+        name: "a_memo_keyed_on_the_themes_own_revision_is_never_stale_and_does_hit",
+    },
+    Instrument::Unit {
+        file: "crates/vitui-components/src/memos.rs",
+        name: "no_shipped_memo_in_this_crate_holds_a_paint_or_a_cluster",
+    },
+    Instrument::Unit {
+        file: "crates/vitui-components/tests/glyph_matrix.rs",
+        name: "a_tier_keyed_memo_survives_a_palette_swap_and_is_wrong_after_a_repertoire_one",
+    },
+];
+
 const PINS_SCENE_26: &[Instrument] = &[
     Instrument::Unit {
         file: GALLERY,
@@ -2219,13 +2252,22 @@ pub const SCENES: [Scene; 33] = [
         content: Content::Assembled { parts: 12 },
         gestures: &[Gesture::Swap { what: Swap::Theme }],
         decided: "R20 §3 has no caller; six panels keep the old palette permanently",
+        // **`covers` stays empty and `stands` does not**, for scene 26's reason: §21's row names no
+        // component and no axis, and a swap is not one of O5's four. What the screen does is put
+        // every built row of the freeze under one theme change.
         covers: &[],
-        stands: &[],
+        stands: &STANDS_THE_GALLERY,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Unsubjected {
-            inverted_by: "components 41",
-        },
+        // **Stood up by components 41, and what it took was the gate being rewritten.** §21's own
+        // clause here — *R20 §3 has no caller; six panels keep the old palette permanently* — is
+        // two claims, and neither reproduced. The rule really did have no caller, because
+        // `crate::memos` finds that **no shipped memo in this crate holds a paint or a cluster**;
+        // and no panel keeps the old palette, because `Gallery`'s own clear key names the scheme,
+        // the repertoire and the depth. So the scene is played against an **oracle** — the same
+        // gallery at the destination theme from its first frame — and the memo the rule is about is
+        // built as `crate::gallery::Keying` so the scene has something to be false on.
+        standing: Standing::Evaluated { by: PINS_SCENE_27 },
         rehearsed_by: &[],
     },
     // ── this backlog's scenes, beside §21's table ────────────────────────────────────────────────
@@ -2806,9 +2848,15 @@ mod tests {
             evaluated,
             vec![
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 24, 25,
-                26, 28, 29, 30, 31, 32, 33
+                26, 27, 28, 29, 30, 31, 32, 33
             ],
-            "**Scene 26 is components 40's**, and it is the first row of this list stood up by a \
+            "**Scene 27 is components 41's**, and it is the last of §21's own twenty-seven to be \
+             stood up: a theme swap over the assembled gallery, played against a second gallery at \
+             the destination theme from its first frame. Neither half of §21's clause reproduced — \
+             the rule really has no caller, because no shipped memo in this crate holds a paint or \
+             a cluster, and no panel keeps the old palette, because the screen's own clear key \
+             names all three axes of the theme — so the memo the rule is about is built as an axis \
+             and the scene is watched failing on it. **Scene 26 is components 40's**, and it is the first row of this list stood up by a \
              ticket that is not its own `inverted_by`: the gallery has existed since components 39 \
              and the scene went on reading *not played: `components 39` builds the subject*, which \
              is a citation decayed into naming a resolved ticket. What turns it is the scene's own \
@@ -2838,11 +2886,10 @@ mod tests {
         );
         assert_eq!(
             SCENES.len() - evaluated.len() - red.len(),
-            3,
-            "**three, since components 40 stood the assembled gallery up.** What is left is the \
-             swap over it — components 41's, and its clause of scene 26 is why the two rows were \
-             never independent — the two scroll areas with overlay bars, which is §21's one \
-             `(owed)` row, and the repertoire matrix"
+            2,
+            "**two, since components 41 stood the swap over the assembled gallery up** — the last \
+             row of §21's own twenty-seven to be played. What is left is the two scroll areas with \
+             overlay bars, which is §21's one `(owed)` row, and the repertoire matrix"
         );
 
         let mut pinned_to = Vec::new();
@@ -3081,9 +3128,11 @@ mod tests {
         let collection: Vec<u8> = scenes_for("collection").map(|s| s.number).collect();
         assert_eq!(
             collection,
-            vec![3, 4, 5, 6, 26, 29],
-            "components ticket 11's five, and the assembled gallery since components 40 stood scene \
-             26 up: one screen carrying every built row of the freeze answers `scenes_for` for all \
+            vec![3, 4, 5, 6, 26, 27, 29],
+            "components ticket 11's five, and the assembled gallery **twice** — scene 26 since \
+             components 40 and scene 27 since components 41, which is the same twenty-eight \
+             components under a theme swap. \
+             Components 40 stood scene 26 up: one screen carrying every built row of the freeze answers `scenes_for` for all \
              twenty-eight of them, through `stands` and never through `covers` — §21's own row for \
              it names no component and no axis, so it is evidence that a component is *drawn* and \
              not that an axis has a scene"
@@ -3115,26 +3164,27 @@ mod tests {
         assert!(matches!(narrow.gestures, [Gesture::Resize { .. }]));
         assert_eq!(
             scenes_for("table").map(|s| s.number).collect::<Vec<_>>(),
-            vec![7, 26, 31],
+            vec![7, 26, 27, 31],
             "components ticket 14's two, and the second answers through `stands` as well as \
              `covers` because it claims no pair §21's row 7 has not already claimed. The gallery is \
-             the third"
+             the third and the fourth: scene 26 draws it and scene 27 swaps its theme"
         );
         assert_eq!(
             scenes_for("checkbox").map(|s| s.number).collect::<Vec<_>>(),
-            vec![26],
-            "**a component with no declared axis and no screen of its own now has one screen**, \
-             which is what the assembled gallery is for: it was 0 until components 40 stood scene \
-             26 up, and a `checkbox` declares no hostile axis at all, so this answer can only ever \
-             come through `stands`"
+            vec![26, 27],
+            "**a component with no declared axis and no screen of its own now has two**, which is \
+             what the assembled gallery is for: it was 0 until components 40 stood scene 26 up and \
+             41 stood 27 up, and a `checkbox` declares no hostile axis at all, so this answer can \
+             only ever come through `stands`"
         );
         // Criterion 1, for all four of the dense screen's components.
         for id in SUBJECTS {
             assert_eq!(
                 scenes_for(id).map(|s| s.number).collect::<Vec<_>>(),
-                vec![1, 2, 26, 28],
+                vec![1, 2, 26, 27, 28],
                 "`{id}` does not answer `scenes_for` for the three scenes components 09 stood up, \
-                 or for the assembled gallery components 40 added to every built row's list"
+                 or for the assembled gallery, which components 40 and 41 added to every built \
+                 row's list twice — once drawn and once swapped"
             );
         }
         // And two of them are in **no** `(component, axis)` pair, which is the distinction the two
@@ -3152,7 +3202,7 @@ mod tests {
         for id in crate::preview::SUBJECTS {
             assert_eq!(
                 scenes_for(id).map(|s| s.number).collect::<Vec<_>>(),
-                vec![23, 24, 25, 26],
+                vec![23, 24, 25, 26, 27],
                 "`{id}` does not answer `scenes_for` for the three preview-pane scenes and the \
                  assembled gallery"
             );
@@ -3242,7 +3292,7 @@ mod tests {
     fn a_rehearsal_is_never_what_stands_a_scene_up() {
         // The files where a screen or one of its components is measured. `crate::runner`'s is not
         // one of them, and that is the whole check.
-        const SCREEN_FILES: [&str; 23] = [
+        const SCREEN_FILES: [&str; 25] = [
             DENSE,
             LISTING,
             AREA,
@@ -3289,6 +3339,13 @@ mod tests {
             // are.
             GALLERY,
             GALLERY_NUMBERS,
+            // **The memo census** (components 41). Scene 27's clause is *R20 §3 has no caller*, and
+            // the file that answers it is the one that enumerates the memos — the screen alone
+            // cannot say why the rule had no caller, only that nothing on it is stale.
+            "crates/vitui-components/src/memos.rs",
+            // **The 598-character form** (components 05), which is the same defect over a value
+            // that really is made of glyphs and at a corpus small enough to count by hand.
+            "crates/vitui-components/tests/glyph_matrix.rs",
         ];
         for scene in SCENES {
             match scene.standing {
@@ -3403,8 +3460,10 @@ mod tests {
         );
         assert_eq!(
             printed.matches("not played: `components ").count(),
-            3,
-            "**three since components 40**, which stood the assembled gallery up: it was four again \
+            2,
+            "**two since components 41**, which stood scene 27 up — the theme swap over the \
+             assembled gallery, the last row of §21's own table to be played. It was three after \
+             components 40**, which stood the assembled gallery up: it was four again \
              after components 31 moved the three preview-pane scenes off `Unsubjected` and onto \
              `Red`, and unchanged by 32, which moved the same three from `Red` to `Evaluated`. The \
              direction has been up throughout: `Unsubjected` says *nothing runs*, and a great deal \
@@ -3414,10 +3473,10 @@ mod tests {
             printed
                 .matches("stood up on its own components, by ")
                 .count(),
-            29,
-            "a stood-up scene says what stands it up, rather than reading as unplayed. **Thirty** \
-             are stood up since components 40 and twenty-nine say so here, because scene 12 is the \
-             one this report **plays** — a played line carries its own numbers instead"
+            30,
+            "a stood-up scene says what stands it up, rather than reading as unplayed. \
+             **Thirty-one** are stood up since components 41 and thirty say so here, because scene \
+             12 is the one this report **plays** — a played line carries its own numbers instead"
         );
         assert_eq!(
             printed.matches("red, pinned: `components ").count(),

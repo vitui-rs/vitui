@@ -69,8 +69,8 @@
 //!   component. The application (`crates/vitui-apps/examples/gallery.rs`) iterates the table and
 //!   mints no panel of its own, which is the direction neither equality over the table can see. It
 //!   lives here rather than in the application because §21 names two defects to be measured *on the
-//!   assembled gallery* — the sentinel and the palette swap, register rows 7 and 8 — and both are
-//!   components tickets whose gate is `cargo test`. Its own findings are that **`ColorDepth` had been
+//!   assembled gallery* — the sentinel and the palette swap, register rows 7 and 8, green since
+//!   components 40 and 41 — and both are components tickets whose gate is `cargo test`. Its own findings are that **`ColorDepth` had been
 //!   reachable since runtime issue 22** while register row 45 filed §16's nine-cell matrix as
 //!   unreachable and named that very issue as its inverter, and that **the colour axis is not
 //!   observable on a canvas at all**: `Theme::resolve` returns the same paint for all thirteen roles
@@ -227,6 +227,17 @@
 //!   with their settled defaults and **the one that is refused**, and the memo is
 //!   [`order::Keyed`], which takes the whole key and **records the input it was built at** —
 //!   because `recomputes` goes *down* when a key has forgotten one.
+//!
+//! - [`memos`] — **ADR 0030's rule as a population**: *a memo carries the theme in its key iff its
+//!   value is made of paints or glyphs*, five rows joined to [`inventory::INVENTORY`] because
+//!   components 41's criterion is *a gate enumerates them from `INVENTORY` rather than from a grep*.
+//!   Its finding is that **not one shipped memo in this crate holds a paint or a cluster** — a
+//!   sub-cell bit grid, an axis domain and a wrap index — so the rule is true here **vacuously**,
+//!   and the memo it is about had to be built as [`gallery::Keying`] for register row 8 to have a
+//!   gate that can fail. The completeness check is the grep, and it found `crate::order`'s own scan
+//!   claiming *no memo here takes a bare `Revision`* while `src/chart/raster.rs` built two of them:
+//!   one non-recursive `read_dir` over `src/`, which is [`inventory`]'s own recorded defect
+//!   arriving a second time in a different file.
 //!
 //! - [`area`] — **the scroll area's screens**: the bar fixpoint over 5 475 600 viewport x extent
 //!   pairs (0 failures, 3 passes, 0 unneeded bars), the spelling a reader writes instead — which
@@ -396,6 +407,7 @@ pub mod ink;
 pub mod inventory;
 pub mod keys;
 pub mod listing;
+pub mod memos;
 pub mod obligations;
 pub mod order;
 pub mod picture;

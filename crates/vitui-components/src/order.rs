@@ -1871,31 +1871,73 @@ mod tests {
         assert_eq!(memo.recomputes, 2);
         assert_eq!(memo.built_at(), Some(&(rev, NARROW)));
 
-        // **No memo in this crate's library half takes a bare `Revision`.** A source scan, for the
-        // reason `crate::state`'s press gate is one: an absence has no expression, and the edit that
-        // would break the obligation is somebody reaching for `vitui_runtime::Memo` because it is
-        // one word shorter.
-        let src = std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/src"));
-        for entry in std::fs::read_dir(&src).expect("a readable source directory") {
-            let path = entry.expect("a directory entry reads").path();
-            if !path.extension().is_some_and(|x| x == "rs") {
-                continue;
-            }
-            let source = std::fs::read_to_string(&path).expect("a readable source file");
-            let library = source
-                .split_once("\n#[cfg(test)]\n")
-                .map_or(source.as_str(), |(head, _)| head)
-                .to_owned();
-            for line in library.lines().map(str::trim) {
-                assert!(
-                    line.starts_with("//") || !line.contains("Memo::new()"),
-                    "{} builds a `vitui_runtime::Memo`, whose `get` takes one `Revision` and \
-                     cannot express a compound key. `crate::order::Keyed` is the one that can: \
-                     {line}",
-                    path.display()
-                );
+        // **A `vitui_runtime::Memo` is built in exactly one place in this crate, and it folds.** A
+        // source scan, for the reason `crate::state`'s press gate is one: an absence has no
+        // expression, and the edit that would break the obligation is somebody reaching for
+        // `vitui_runtime::Memo` because it is one word shorter.
+        //
+        // **The claim used to be *nowhere at all*, and the scan could not see the crate.** One
+        // non-recursive `read_dir` over `src/` walks twenty-nine files and not `src/chart/raster.rs`
+        // — where two of them are built — so a scan asserting the absence of a spelling was green
+        // beside two uses of it, for as long as `PlotState` has existed. It is `crate::inventory`'s
+        // own recorded defect (*the walk was one `read_dir` over `src/`, so a component in a
+        // subdirectory was never scanned*) arriving a second time in a different file, and both
+        // halves of the repair matter: the recursion, and the claim restated to what is true.
+        //
+        // What is true is that `Memo::get` takes one `Revision`, so a compound key is a **fold**
+        // into eight bytes — which is the runtime's own documented door — and `Keyed` is for the key
+        // that cannot be folded, because it records what it was built at. `crate::memos` is the
+        // census, and `crate::memos::tests::the_census_names_every_memo_in_the_source` is this scan
+        // from the population's side.
+        fn memo_sites(dir: &std::path::Path, out: &mut Vec<String>) {
+            let root = std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/src"));
+            for entry in std::fs::read_dir(dir).expect("a readable source directory") {
+                let path = entry.expect("a directory entry reads").path();
+                if path.is_dir() {
+                    memo_sites(&path, out);
+                    continue;
+                }
+                if !path.extension().is_some_and(|x| x == "rs") {
+                    continue;
+                }
+                let source = std::fs::read_to_string(&path).expect("a readable source file");
+                let library = source
+                    .split_once("\n#[cfg(test)]\n")
+                    .map_or(source.as_str(), |(head, _)| head)
+                    .to_owned();
+                if library
+                    .lines()
+                    .map(str::trim)
+                    .any(|line| !line.starts_with("//") && line.contains("Memo::new()"))
+                {
+                    out.push(
+                        path.strip_prefix(&root)
+                            .unwrap_or(&path)
+                            .to_string_lossy()
+                            .into_owned(),
+                    );
+                }
             }
         }
+        let src = std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/src"));
+        let mut sites = Vec::new();
+        memo_sites(&src, &mut sites);
+        sites.sort_unstable();
+        assert_eq!(
+            sites,
+            vec!["chart/raster.rs".to_owned()],
+            "a `vitui_runtime::Memo` is built somewhere new. Its `get` takes one `Revision`, so its \
+             key has to be a fold; `crate::order::Keyed` is the one that holds a compound key as a \
+             value and records what it was built at. Add the row to `crate::memos::MEMOS` and this \
+             list together"
+        );
+        let raster =
+            std::fs::read_to_string(src.join("chart/raster.rs")).expect("a readable source file");
+        assert!(
+            raster.contains("fn fold(parts: &[u64]) -> Revision"),
+            "the one file that builds a `Memo` folds its key into eight bytes, which is what makes \
+             a ten-part key expressible through a `get` that takes one `Revision`"
+        );
     }
 
     /// **Criterion 9: the 300 → 120 resize, where the wrong key recomputes less and is wrong on the

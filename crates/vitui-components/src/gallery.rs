@@ -7,7 +7,8 @@
 //! Components ticket 39. The binary is `crates/vitui-apps/examples/gallery.rs`; what lives here is
 //! the **screen**, and the reason it lives here rather than in the application is that spec §21
 //! names two defects to be measured *on the assembled gallery* — the sentinel (register row 7) and
-//! the palette swap (row 8) — and both are components tickets whose gate is `cargo test`. A screen
+//! the palette swap (row 8), green since components 41 — and both are components tickets whose gate
+//! is `cargo test`. A screen
 //! only an application can reach is a screen no gate can measure.
 //!
 //! # The gallery is a gate, not a demo, and the table is what makes that checkable
@@ -56,12 +57,12 @@
 //! runtime 22 warned about arriving on this register: *a `Barrier` citation that still passes while
 //! meaning the opposite*. The row inverts here, because this ticket's own criterion is that matrix.
 //!
-//! # Register row 7 is green here and row 8 is not
+//! # Register rows 7 and 8 are both green here
 //!
 //! Components 39 delivered the screen and left both rows red with their figures printed on it;
-//! **components 40 inverted row 7** — *every cell of the rectangle written at least once* — and row 8
-//! is components 41's. What the second half of §2 cost this screen is four numbers and three
-//! mechanisms:
+//! **components 40 inverted row 7** — *every cell of the rectangle written at least once* — and
+//! **components 41 inverted row 8**. What the second half of §2 cost this screen is four numbers and
+//! three mechanisms:
 //!
 //! | | cells at 300x80 | who owns it |
 //! |---|---|---|
@@ -77,15 +78,32 @@
 //! sentence — twenty-six of the twenty-eight already did, and the two that did not were `select` and
 //! `file_picker`, whose remainder no `Response` could name.
 //!
-//! [`swap`] still prints row 8's number, and components 40 measured that the two rows are
-//! **independent** here: see [`swap`] itself.
+//! Components 40 measured that the two rows are **independent** here: see [`swap_on`] itself.
+//!
+//! # Row 8 is a count against an oracle, and the memo it is about is on this screen because there
+//! was none
+//!
+//! *No cell keeps the previous palette a frame after a swap.* Neither the delta nor its complement
+//! could have been that gate — `changed > 0` is green on the exact set it exists to catch, and
+//! `kept` reads 17 884 of 24 000 under a repertoire change with nothing whatever wrong — so
+//! [`swap_on`] plays a **second gallery** at the destination theme from its first frame and
+//! [`Swap::stale`] is what the two disagree about.
+//!
+//! And [`crate::memos`] found the rule ADR 0030 states has **nothing in this crate subject to it**:
+//! every shipped memo holds bits, floats or byte offsets, and every cluster and paint is derived
+//! from the theme in front of the frame. So the memo is built here, as [`Keying`] — one axis, a
+//! right arm and a wrong one, over the same twenty-eight call sites — which is [`Remainder`]'s
+//! arrangement one enum over and for the same reason: *a gate that cannot fail is not a gate*.
 
 use std::fmt::Write as _;
 
 use vitui_runtime::ctx::Driver;
+use vitui_runtime::data::Revision;
 use vitui_runtime::layout::{Constraint, rect};
 use vitui_runtime::work::{Cancel, Task, Worker};
-use vitui_runtime::{ColorDepth, Ctx, Density, GlyphSet, Rect, Role, Theme, Themes};
+use vitui_runtime::{
+    ColorDepth, Ctx, Density, GlyphSet, Paint, Rect, Response, Role, Theme, Themes,
+};
 
 use crate::app::Clears;
 use crate::chart::raster::{PlotState, RUNGS};
@@ -406,6 +424,44 @@ pub enum Remainder {
     LeftAlone,
 }
 
+/// **What a memo over a panel's drawing is keyed on** — [`swap_on`]'s negative axis, and the one
+/// thing in this crate whose value really is made of paints and glyphs.
+///
+/// # It is a fixture, and that it had to be is the finding
+///
+/// ADR 0030's rule is *a memo carries the theme in its key iff its value is made of paints or
+/// glyphs*, and ticket 41's account of the defect is six panels holding such a memo with the theme
+/// left out of the key. **No memo in this crate holds one.** [`crate::memos`] is that reading as a
+/// census: the three shipped ones hold a sub-cell bit grid, an axis domain and a wrap index, every
+/// cluster and every paint is derived from the theme in front of it on the frame that draws it, and
+/// the rule is therefore true here **vacuously**.
+///
+/// A rule that is true because nothing is subject to it is `Verdict::of`'s vacuity failure in the
+/// shape this map keeps meeting, so the memo the rule is about is built here instead — as an axis
+/// with a right arm and a wrong one, over the same twenty-eight call sites, which is
+/// [`Remainder`]'s own arrangement one enum up. **It is what an application author reaches for
+/// first**: a panel's drawing is expensive and its data did not move, so keep the verbs and replay
+/// them.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum Keying {
+    /// **Shipped: there is no memo.** Every panel is drawn on every frame and every cluster and
+    /// paint is derived from the theme the frame carries.
+    #[default]
+    Derived,
+    /// **The rule.** The same memo, keyed with `Theme::memo_key` — the theme's own `Revision`
+    /// folded with the data's, which is the runtime's own door for a caller with two revisions and
+    /// one `Memo::get`.
+    Themed,
+    /// **The defect, and the plausible one.** `(data, tier)`: the colour depth is in the key and the
+    /// theme is not, so it invalidates on `Ctrl+L` — the one axis that moves nothing on any panel
+    /// (ADR 0018) — and is a **hit** on `t` and on `Ctrl+G`, which are the two that move everything.
+    ///
+    /// It is the spelling ticket 41 names, and its shape is why: an enumeration of axes is a list
+    /// the next reader forgets one of, and the theme's own `Revision` is the one key that cannot be
+    /// short.
+    DataAndTier,
+}
+
 /// **Everything the twenty-eight panels keep between frames.**
 ///
 /// One value the caller owns, because the runtime has no retained structure (ADR 0012): what
@@ -633,6 +689,9 @@ pub struct Gallery {
     select_popup: PopupState,
     /// `file_picker`'s overlay body, for [`Gallery::select_popup`]'s reason.
     picker_body: PickerBody<Doc>,
+    /// The per-tile memo, at [`Keying::Derived`] unless a gate asked otherwise — beside the bag for
+    /// [`Gallery::select_popup`]'s reason, and inert on the shipped arm.
+    panels: Panels,
     /// Where the picker's answers land.
     picker_task: Task<Doc>,
     themes: Themes,
@@ -667,6 +726,7 @@ impl Gallery {
             bag: Bag::new(worker),
             select_popup: PopupState::new(),
             picker_body: PickerBody::new(),
+            panels: Panels::new(),
             picker_task,
             themes,
             rung,
@@ -677,6 +737,22 @@ impl Gallery {
             heading: String::new(),
             left: String::new(),
         }
+    }
+
+    /// **Put the twenty-eight panels behind a memo**, at one of [`Keying`]'s two memoised arms.
+    ///
+    /// [`Keying::Derived`] is what an application gets and what every other gate in this crate runs
+    /// through. The other two exist for [`swap_on`], which is the only caller: they are how *no
+    /// cell carries the previous palette* is watched failing over the assembled screen rather than
+    /// asserted about an arithmetic beside it.
+    pub fn key_panels(&mut self, keying: Keying) {
+        self.panels = Panels::new();
+        self.panels.keying = keying;
+    }
+
+    /// The per-tile memo, for a report that wants its two counters.
+    pub const fn panels(&self) -> &Panels {
+        &self.panels
     }
 
     /// The theme the loop is to hand the driver.
@@ -940,6 +1016,7 @@ impl Gallery {
             select_popup,
             picker_body,
             picker_task,
+            panels,
             shown,
             left,
             ..
@@ -953,6 +1030,7 @@ impl Gallery {
         let drawn = tiles_into(
             bag,
             &mut owners,
+            panels,
             ink,
             cx,
             grid_rows,
@@ -1001,6 +1079,7 @@ impl Gallery {
             select_popup,
             picker_body,
             picker_task,
+            panels,
             shown,
             ..
         } = self;
@@ -1010,10 +1089,211 @@ impl Gallery {
             files: &FILES,
             task: picker_task,
         };
-        *shown = tiles_into(bag, &mut owners, ink, cx, whole, 1, 1, at..at + 1);
+        *shown = tiles_into(bag, &mut owners, panels, ink, cx, whole, 1, 1, at..at + 1);
         true
     }
 }
+
+// ── the memo the rule is about, as an axis ───────────────────────────────────────────────────────
+
+/// **One verb, kept.** [`Panels`]'s element, and what *a value made of paints and glyphs* is when it
+/// is written out: a cluster or a string, a paint, and where they went.
+///
+/// `Ink::award` is not among them and does not need to be — it writes no cell of its own, and a
+/// panel served from the memo is a panel that did not draw, so it declares nothing either. That is
+/// the memo's real cost and it is left visible rather than papered over: the arm exists to be wrong
+/// about the surface.
+#[derive(Clone, Debug)]
+enum Verb {
+    Text {
+        x: i32,
+        y: i32,
+        s: String,
+        st: Paint,
+    },
+    Run {
+        x: i32,
+        y: i32,
+        cluster: String,
+        n: u16,
+        st: Paint,
+    },
+    Pad {
+        x: i32,
+        y: i32,
+        s: String,
+        w: u16,
+        st: Paint,
+    },
+}
+
+/// **An [`Ink`] that keeps what it wrote and writes it anyway** — the miss arm of [`Panels`].
+///
+/// It forwards every verb, so a recorded frame draws exactly the frame that was not recorded: the
+/// two arms of [`Keying`] differ on what the *next* frame does and on nothing else.
+struct Recording<'a, I: Ink + ?Sized> {
+    inner: &'a mut I,
+    verbs: Vec<Verb>,
+}
+
+impl<I: Ink + ?Sized> Ink for Recording<'_, I> {
+    fn text(&mut self, cx: &mut Ctx<'_, '_>, x: i32, y: i32, s: &str, st: Paint) -> u16 {
+        self.verbs.push(Verb::Text {
+            x,
+            y,
+            s: s.to_owned(),
+            st,
+        });
+        self.inner.text(cx, x, y, s, st)
+    }
+
+    fn run(
+        &mut self,
+        cx: &mut Ctx<'_, '_>,
+        x: i32,
+        y: i32,
+        cluster: &str,
+        n: u16,
+        st: Paint,
+    ) -> u16 {
+        self.verbs.push(Verb::Run {
+            x,
+            y,
+            cluster: cluster.to_owned(),
+            n,
+            st,
+        });
+        self.inner.run(cx, x, y, cluster, n, st)
+    }
+
+    fn pad_to(&mut self, cx: &mut Ctx<'_, '_>, x: i32, y: i32, s: &str, w: u16, st: Paint) -> u16 {
+        self.verbs.push(Verb::Pad {
+            x,
+            y,
+            s: s.to_owned(),
+            w,
+            st,
+        });
+        self.inner.pad_to(cx, x, y, s, w, st)
+    }
+
+    fn award(&mut self, cx: &mut Ctx<'_, '_>, cells: Rect, resp: &Response, role: Role) {
+        self.inner.award(cx, cells, resp, role);
+    }
+}
+
+/// **A memo per tile over what that tile drew**, at whichever arm of [`Keying`] the caller chose.
+///
+/// It is beside [`Bag`] and not in it, for the reason `select_popup` is: the draw closure takes the
+/// whole bag, so a field of the bag cannot be borrowed across it. [`Owners`] is the other value that
+/// lives here for the same reason.
+#[derive(Debug, Default)]
+pub struct Panels {
+    keying: Keying,
+    /// Per slot: the key it was built at, and the verbs it drew.
+    slots: Vec<(Revision, Vec<Verb>)>,
+    hits: u32,
+    misses: u32,
+}
+
+impl Panels {
+    /// A memo that has drawn nothing, at the shipped arm.
+    pub fn new() -> Panels {
+        Panels::default()
+    }
+
+    /// How many tiles were served from the memo, over every frame. A **report**: a narrower key hits
+    /// *more* often and is wrong, so this counter points the wrong way on the class of defect it
+    /// looks like it would catch — `chart::raster::PlotState::misses`'s own note, one screen up.
+    pub const fn hits(&self) -> u32 {
+        self.hits
+    }
+
+    /// How many tiles were drawn, over every frame. See [`Panels::hits`].
+    pub const fn misses(&self) -> u32 {
+        self.misses
+    }
+
+    /// The key this arm folds for a theme, with the panel's own data revision.
+    ///
+    /// **The data is the same on both arms and the theme is the whole difference**, so a hit under
+    /// [`Keying::DataAndTier`] is a hit for exactly one reason.
+    fn key(&self, theme: &Theme, data: Revision) -> Revision {
+        match self.keying {
+            // `Derived` never asks for a key; it is folded in with the rule rather than given a
+            // panic arm, because a branch a gate cannot exercise is a branch nothing checks.
+            Keying::Derived | Keying::Themed => theme.memo_key(data),
+            Keying::DataAndTier => {
+                let tier = match theme.tier() {
+                    ColorDepth::None => 1u64,
+                    ColorDepth::Ansi16 => 2,
+                    ColorDepth::Indexed256 => 3,
+                    ColorDepth::TrueColor => 4,
+                };
+                Revision::from_raw(data.raw().wrapping_mul(31).wrapping_add(tier).max(1))
+            }
+        }
+    }
+
+    /// **A hit: write the tile's kept verbs and do not draw it.** `false` on a miss.
+    fn replay<I: Ink + ?Sized>(
+        &mut self,
+        slot: usize,
+        key: Revision,
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+    ) -> bool {
+        let Some((at, verbs)) = self.slots.get(slot) else {
+            return false;
+        };
+        if *at != key || verbs.is_empty() {
+            return false;
+        }
+        for verb in verbs {
+            match verb {
+                Verb::Text { x, y, s, st } => {
+                    let _ = ink.text(cx, *x, *y, s, *st);
+                }
+                Verb::Run {
+                    x,
+                    y,
+                    cluster,
+                    n,
+                    st,
+                } => {
+                    let _ = ink.run(cx, *x, *y, cluster, *n, *st);
+                }
+                Verb::Pad { x, y, s, w, st } => {
+                    let _ = ink.pad_to(cx, *x, *y, s, *w, *st);
+                }
+            }
+        }
+        self.hits += 1;
+        true
+    }
+
+    /// Keep what the tile drew, at the key it was drawn under.
+    fn store(&mut self, slot: usize, key: Revision, verbs: Vec<Verb>) {
+        if self.slots.len() <= slot {
+            self.slots
+                .resize_with(slot + 1, || (Revision::UNKNOWN, Vec::new()));
+        }
+        self.slots[slot] = (key, verbs);
+        self.misses += 1;
+    }
+
+    /// Which arm this memo is at.
+    pub const fn keying(&self) -> Keying {
+        self.keying
+    }
+}
+
+/// **The gallery's panel data never moves**, so the data half of every key is a constant and the
+/// theme half is the whole of the difference between [`Keying`]'s two memoised arms.
+///
+/// It is not [`Revision::UNKNOWN`], which `Theme::memo_key` preserves on purpose — *memoise
+/// nothing* means nothing — so a screen keyed on it would never hit and both arms would be right.
+const DATA: Revision = Revision::from_raw(1);
 
 /// **The tile loop, and the only place a panel is drawn.**
 ///
@@ -1031,6 +1311,7 @@ impl Gallery {
 fn tiles_into<'f, I: Ink>(
     bag: &'f mut Bag,
     owners: &mut Owners<'f>,
+    panels: &mut Panels,
     ink: &mut I,
     cx: &mut Ctx<'f, '_>,
     area: Rect,
@@ -1057,11 +1338,33 @@ fn tiles_into<'f, I: Ink>(
         // `Ctx::interact` makes a merged claim **inert** and every tile but the first stops hearing
         // the pointer on a screen that renders perfectly. `defective::tiles_under_one_id` is the
         // spelling this replaced and the gate watches it merging.
-        cx.with_key(slot as u64, |cx| {
-            let frame = panel_into(&mut *ink, cx, here, panel.title, &opts);
-            let mut sink: Sink<'_> = ink;
-            (panel.draw)(bag, owners, &mut sink, cx, frame.interior);
-        });
+        // **The memo, and on the shipped arm there is not one.** [`Keying::Derived`] draws, which
+        // is the branch every other gate in this crate runs through; the two memoised arms exist so
+        // that *no cell carries the previous palette* is a gate that can be watched failing, over
+        // the assembled screen and not over an arithmetic beside it.
+        if panels.keying == Keying::Derived {
+            cx.with_key(slot as u64, |cx| {
+                let frame = panel_into(&mut *ink, cx, here, panel.title, &opts);
+                let mut sink: Sink<'_> = ink;
+                (panel.draw)(bag, owners, &mut sink, cx, frame.interior);
+            });
+        } else {
+            let key = panels.key(cx.theme(), DATA);
+            if panels.replay(slot, key, ink, cx) {
+                drawn += 1;
+                continue;
+            }
+            let mut rec = Recording {
+                inner: &mut *ink,
+                verbs: Vec::new(),
+            };
+            cx.with_key(slot as u64, |cx| {
+                let frame = panel_into(&mut rec, cx, here, panel.title, &opts);
+                let mut sink: Sink<'_> = &mut rec;
+                (panel.draw)(bag, owners, &mut sink, cx, frame.interior);
+            });
+            panels.store(slot, key, rec.verbs);
+        }
         drawn += 1;
     }
     // **The slots with no panel in them, which are the grid's own remainder.**
@@ -1862,9 +2165,41 @@ pub struct Swap {
     pub change: Change,
     /// Cells whose value differs after the swap.
     pub changed: usize,
-    /// **Cells that carry the old theme's value a frame after the swap.** Register row 8's subject,
-    /// reported and not gated — components 41 owns it.
+    /// **Cells whose value did not move**, which is `written - changed` and nothing more.
+    ///
+    /// **It is on the wrong side of the question and it is printed, never gated**, which is §21's
+    /// first refinement in the one place this module can demonstrate it: most of the cells a swap
+    /// leaves alone are left alone *correctly*. A rung change moves the cells drawn from the theme's
+    /// glyph table and no others, so the letters of every label are `kept` and right; the colour
+    /// axis moves nothing on any panel at all (ADR 0018), so `kept` reads 100% on a screen with
+    /// nothing wrong with it. Register row 8's subject is [`Swap::stale`], which is a different
+    /// number measured against a different arm.
     pub kept: usize,
+    /// **Cells that carry the previous theme's value a frame after the swap.** Register row 8's
+    /// subject, and the gate.
+    ///
+    /// It is a count over the surface against an **oracle** and not a threshold on a delta: the
+    /// same gallery, at the same page, driven the same number of frames with the destination theme
+    /// in place from the first one. A cell the two arms disagree about is a cell the swap did not
+    /// reach — a memo that did not invalidate, or residue nothing rewrote — and *no cell carries the
+    /// previous palette* is `stale == 0`.
+    ///
+    /// **The complement form is what `changed > 0` could not be.** A screen where the swap reached
+    /// nothing and a screen where it had nothing to reach are the same delta and different oracles.
+    pub stale: usize,
+    /// Of [`Swap::stale`], how many are on a panel — [`Swap::changed_on_a_panel`]'s exclusion, for
+    /// the same reason and over both chrome rows.
+    pub stale_on_a_panel: usize,
+    /// [`Swap::stale`] as **cells over rows**, which is the form every defect on this map was
+    /// legible in: 3 583 cells over 30 rows is a screen, 3 583 over 6 is six panels.
+    pub divergence: crate::runner::Diff,
+    /// **Tiles served from the memo over the four frames**, which is `0` on the shipped arm and is
+    /// the anti-vacuity number on the other two: a memo that never hits is a memo that cannot be
+    /// stale, so a `Keying::Themed` reading `stale == 0` says nothing until this is above zero.
+    pub served: u32,
+    /// Tiles drawn over the four frames. On [`Keying::Derived`] it is `0` — nothing is counted
+    /// because nothing is memoised — and on the other two it is the misses.
+    pub drew: u32,
     /// Cells anybody wrote, which is the denominator both of the above are read against.
     pub written: usize,
     /// **Of [`Swap::changed`], how many are on a panel** — outside the heading row and the status
@@ -1887,13 +2222,9 @@ pub struct Swap {
 
 /// **One theme swap over the assembled gallery, read cell for cell.**
 ///
-/// The screen register row 8 is measured on. It is a **report** here and deliberately so: the row is
-/// pinned red with components 41 named as its inverter, and a ticket that also inverted it would
-/// leave nothing for the one that owns the rule — *a memo carries the theme in its key iff its value
-/// is made of paints or glyphs*.
-///
-/// **`changed` is printed beside `kept` because `changed > 0` is the gate this map already got
-/// wrong**: one cell of 4 800 satisfies it while 3 583 carry the old palette (§21's refinement 1).
+/// The screen register row 8 is measured on, and green since components 41. [`Swap::stale`] is the
+/// gate; [`Swap::changed`] and [`Swap::kept`] are the delta, printed and never gated, because both
+/// are on the wrong side of the question — see [`swap_on`].
 pub fn swap(w: u16, h: u16, change: Change) -> Swap {
     swap_as(w, h, change, Remainder::Written)
 }
@@ -1904,66 +2235,97 @@ pub fn swap(w: u16, h: u16, change: Change) -> Swap {
 /// the change and the first frame clears, so a cell nobody writes on a steady frame is inside
 /// `written` already.
 pub fn swap_as(w: u16, h: u16, change: Change, remainder: Remainder) -> Swap {
-    let mut driver = crate::runner::driver_at(w, h, Density::default());
-    let mut gallery = Gallery::new(Worker::queueing());
-    gallery.bag.remainder = remainder;
-    driver.set_theme(*gallery.theme());
+    swap_on(w, h, 0, change, remainder, Keying::Derived)
+}
+
+/// [`swap_as`], on one page of the twenty-eight — [`shape_on`]'s argument, for [`shape_on`]'s
+/// reason: a page is a different set of drawings in the same rectangles, so *no cell carries the
+/// previous palette* is a different claim on each of them.
+///
+/// # The oracle, and why the gate could not be a delta
+///
+/// Two arms are played. **The swapped arm** is what a terminal does: one surface, three frames at
+/// the old theme, the key, one frame more. **The reference arm** is the same gallery on the same
+/// page driven the same four frames with the destination theme in place from the first — the screen
+/// the swap was *supposed* to produce.
+///
+/// [`Swap::stale`] is the cells the two disagree about. It is the engine's own arrangement one
+/// crate down (`reference.rs`: the obviously-correct, far-too-slow compositor, from which the
+/// expectation is **generated** rather than hand-written, *because a hand-written expectation about
+/// damage is written by the person who wrote the damage*), and it is the only spelling that can
+/// tell **the swap reached nothing** from **the swap had nothing to reach** — which a delta cannot,
+/// because on this screen those two are the same number on two of the three axes.
+pub fn swap_on(
+    w: u16,
+    h: u16,
+    page: usize,
+    change: Change,
+    remainder: Remainder,
+    keying: Keying,
+) -> Swap {
     // **One surface, carried across the change, which is what a terminal is.**
     //
     // This function rendered the *after* picture onto a **fresh** `Pen` for one commit, and every
     // gate over it was green while `Ctrl+N` put the previous page inside the new page's frames on a
-    // real screen. A recorder that starts blank cannot see residue — which is
-    // `crate::golden`'s own note about a multi-frame shot, in as many words — and residue is the
-    // entire subject of register rows 7 and 8.
+    // real screen. A recorder that starts blank cannot see residue — which is `crate::golden`'s own
+    // note about a multi-frame shot, in as many words — and residue is the entire subject of
+    // register rows 7 and 8.
     //
-    // **And it is why this number never depended on row 7**, which §21 states the other way round
-    // (*the swap excess equal to it on five of six*, on a prototype's gallery). The surface is
-    // carried and the first frame **clears**, so a cell nobody writes on a steady frame is still a
-    // cell somebody wrote once: it is inside `written` and it counts as `kept`. Components 40 turned
-    // every one of those cells into a pad and `kept` at 100x30 did not move by one — 2 005 of 3 000
-    // under a rung change either way.
-    let mut pen = crate::runner::Pen::new(w, h);
-    let frame = |gallery: &mut Gallery, driver: &mut Driver, pen: &mut crate::runner::Pen| {
-        gallery.bag.answer_queued();
-        pen.end_frame();
-        let mut sink: Sink<'_> = pen;
-        driver.frame(|cx| gallery.ui_into(&mut sink, cx, ""));
-    };
+    // **And it is why `kept` never depended on row 7**, which §21 states the other way round (*the
+    // swap excess equal to it on five of six*, on a prototype's gallery). The surface is carried and
+    // the first frame **clears**, so a cell nobody writes on a steady frame is still a cell somebody
+    // wrote once: it is inside `written` and it counts as `kept`. Components 40 turned every one of
+    // those cells into a pad and `kept` at 100x30 did not move by one — 2 005 of 3 000 under a rung
+    // change either way. `stale` is measured against the reference arm instead, and that arm carries
+    // its own surface across its own four frames, so residue is compared with residue.
+    let mut swapped = Played::open(w, h, page, remainder, keying);
     for _ in 0..3 {
-        frame(&mut gallery, &mut driver, &mut pen);
+        swapped.frame();
     }
-    let before: Vec<Option<(String, String)>> = read(&pen, w, h);
+    let before = read(&swapped.pen, w, h);
+    swapped.apply(change);
+    swapped.frame();
+    let after = read(&swapped.pen, w, h);
 
-    match change {
-        Change::Scheme => gallery.next_theme(),
-        Change::Rung => gallery.next_rung(),
-        Change::Tier => gallery.next_tier(),
+    // The reference arm: the destination theme in place before the first frame, so nothing on it has
+    // ever seen the one being left behind.
+    // **The reference arm is [`Keying::Derived`] whatever the swapped arm is**, and it has to be:
+    // the oracle is *the screen the destination theme produces*, and a memo is a thing the screen
+    // under test does. Handing the reference the same memo would compare a stale picture with a
+    // picture that never had a chance to go stale — and both arms would agree, which is the vacuity
+    // this whole ticket is about arriving one level in.
+    let mut reference = Played::open(w, h, page, remainder, Keying::Derived);
+    reference.apply(change);
+    for _ in 0..4 {
+        reference.frame();
     }
-    driver.set_theme(*gallery.theme());
-    frame(&mut gallery, &mut driver, &mut pen);
-    let after = read(&pen, w, h);
+    let fresh = read(&reference.pen, w, h);
+
+    let on_a_panel = |i: usize| {
+        let y = (i / usize::from(w)) as u16;
+        y > 0 && y + 1 < h
+    };
 
     let mut changed = 0;
     let mut changed_on_a_panel = 0;
     let mut kept = 0;
     let mut written = 0;
     for (i, (a, b)) in before.iter().zip(after.iter()).enumerate() {
-        let y = (i / usize::from(w)) as u16;
         match (a, b) {
             (Some(a), Some(b)) => {
                 written += 1;
-                // **What *keeping the old theme* means depends on which key was pressed**, and
-                // reading one axis for the other is how a swap gate goes green: a scheme change
-                // moves paints and not clusters, and a rung change moves clusters and not paints.
-                let stale = match change {
+                // **What *the value moved* means depends on which key was pressed**, and reading one
+                // axis for the other is how a delta over a swap goes green: a scheme change moves
+                // paints and not clusters, and a rung change moves clusters and not paints.
+                let same = match change {
                     Change::Scheme | Change::Tier => a.1 == b.1,
                     Change::Rung => a.0 == b.0,
                 };
-                if stale {
+                if same {
                     kept += 1;
                 } else {
                     changed += 1;
-                    if y > 0 && y + 1 < h {
+                    if on_a_panel(i) {
                         changed_on_a_panel += 1;
                     }
                 }
@@ -1972,12 +2334,105 @@ pub fn swap_as(w: u16, h: u16, change: Change, remainder: Remainder) -> Swap {
             _ => {}
         }
     }
+
+    // **The whole cell and not one axis of it.** `kept` reads the axis the key is about, because a
+    // rung change leaving a paint alone is not a finding; `stale` reads both, because a cell that
+    // disagrees with the reference arm disagrees about something the destination theme decides, and
+    // which axis it is on is the report's business rather than the gate's.
+    let mut stale = 0;
+    let mut stale_on_a_panel = 0;
+    let mut rows = 0usize;
+    let mut first = None;
+    for y in 0..h {
+        let mut row_differs = false;
+        for x in 0..w {
+            let i = usize::from(y) * usize::from(w) + usize::from(x);
+            if after[i] != fresh[i] {
+                stale += 1;
+                row_differs = true;
+                if on_a_panel(i) {
+                    stale_on_a_panel += 1;
+                }
+                if first.is_none() {
+                    first = Some((x, y));
+                }
+            }
+        }
+        if row_differs {
+            rows += 1;
+        }
+    }
+
     Swap {
         change,
         changed,
         kept,
+        served: swapped.gallery.panels().hits(),
+        drew: swapped.gallery.panels().misses(),
+        stale,
+        stale_on_a_panel,
+        divergence: crate::runner::Diff {
+            cells: stale,
+            rows,
+            first,
+            over: (w, h),
+        },
         written,
         changed_on_a_panel,
+    }
+}
+
+/// **A gallery, its driver and the one surface all its frames land on** — [`swap_on`]'s two arms, so
+/// that *the same gallery, on the same page, driven the same number of frames* is one piece of code
+/// rather than two that have to be read against each other.
+struct Played {
+    gallery: Gallery,
+    driver: Driver,
+    pen: crate::runner::Pen,
+}
+
+impl Played {
+    /// A gallery at `page`, at the registry's first theme, with nothing drawn yet.
+    fn open(w: u16, h: u16, page: usize, remainder: Remainder, keying: Keying) -> Played {
+        let mut driver = crate::runner::driver_at(w, h, Density::default());
+        let mut gallery = Gallery::new(Worker::queueing());
+        gallery.bag.remainder = remainder;
+        gallery.key_panels(keying);
+        for _ in 0..page {
+            gallery.next_page(w, h);
+        }
+        driver.set_theme(*gallery.theme());
+        Played {
+            gallery,
+            driver,
+            pen: crate::runner::Pen::new(w, h),
+        }
+    }
+
+    /// One frame, onto the surface every other frame landed on.
+    fn frame(&mut self) {
+        self.gallery.bag.answer_queued();
+        self.pen.end_frame();
+        let Played {
+            gallery,
+            driver,
+            pen,
+        } = self;
+        let mut sink: Sink<'_> = pen;
+        driver.frame(|cx| gallery.ui_into(&mut sink, cx, ""));
+    }
+
+    /// Press the key, and hand the driver what the gallery answers.
+    ///
+    /// **The theme reaches the driver between frames and cannot do better** — [`Gallery::theme`]'s
+    /// own note — so this is the whole of what a swap is on the app thread, in both arms.
+    fn apply(&mut self, change: Change) {
+        match change {
+            Change::Scheme => self.gallery.next_theme(),
+            Change::Rung => self.gallery.next_rung(),
+            Change::Tier => self.gallery.next_tier(),
+        }
+        self.driver.set_theme(*self.gallery.theme());
     }
 }
 
@@ -3082,51 +3537,180 @@ mod tests {
         assert_eq!(left("file_picker"), 0);
     }
 
-    /// **What this ticket leaves for the next one**, printed by `examples/gallery_numbers.rs` and
-    /// asserted here only for the shape components 41 has to move.
+    /// **Register row 8: no cell carries the previous palette a frame after a swap.**
     ///
-    /// Register row 8 is pinned red with components 41 named. This asserts that its number is
-    /// **non-trivial on this screen** — a screen where nothing keeps a stale palette would leave
-    /// that ticket with no subject, and a screen where everything does would mean the gallery had
-    /// stopped drawing.
+    /// **0 of 24 000 at 300x80 and 0 of 3 000 on every page at 100x30**, on all three axes and at
+    /// both arms of [`Remainder`]. It is the last of §21's two pinned reds and the second whose
+    /// failing set was measured on this screen.
     ///
-    /// **§21 pins the two rows in one sentence — *the swap excess equal to it on five of six* — and
-    /// on this screen they are independent.** [`swap`] carries one surface across the change and the
-    /// first frame clears, so a cell nobody writes on a *steady* frame is still a cell somebody wrote
-    /// once: it is inside `written` and it counts as `kept`. Measured across components 40: at
-    /// 100x30 a rung change keeps **2 005 of 3 000 either way**, unmoved by 525 unwritten cells
-    /// becoming 0.
+    /// # The gate is a count over the surface against an oracle, and it had to be
     ///
-    /// Both arms are run below, so that is a reading rather than a claim.
+    /// §21's first refinement is *a threshold on the wrong side of the question is not a weak gate,
+    /// it is a green one*, and this row is its own example: the spelling that shipped asserted
+    /// `changed > 0`, and one cell of 4 800 satisfies it while 3 583 carry the old palette. The
+    /// complement is not the repair either — on this screen `kept` is **17 884 of 24 000** under a
+    /// rung change with nothing whatever wrong, because a rung change moves the cells drawn from the
+    /// theme's glyph table and no others, and it is **23 990 of 24 000** under a tier change because
+    /// the colour axis moves nothing on any canvas at all (ADR 0018). *Both numbers are the delta,
+    /// read from its two ends.*
     ///
-    /// What did move is the opposite direction and for another reason. Twelve panels used to be
-    /// handed the first row of their tile and are handed all of it now, and two of them — `meter`
-    /// and `slider` — **fill** it with glyphs a repertoire change moves, so at 300x80 `kept` fell
-    /// from 19 132 to **17 884** and `changed` rose by the same 1 248. Cells that were a pad became
-    /// a component's own drawing.
+    /// What separates *the swap reached nothing* from *the swap had nothing to reach* is a second
+    /// arm: the same gallery, same page, same four frames, with the destination theme in place from
+    /// the first. [`Swap::stale`] is what the two disagree about.
+    ///
+    /// # And it is watched failing, over this screen, on the memo the rule is about
+    ///
+    /// [`crate::memos`]'s finding is that **no shipped memo in this crate holds a paint or a
+    /// cluster**, so ADR 0030's rule is true here vacuously and a gate resting on it would be green
+    /// for ever. [`Keying`] is the memo built to be subject to it, at a right arm and a wrong one
+    /// over the same twenty-eight call sites, and the wrong one is
+    /// `the_tier_keyed_memo_is_wrong_on_this_screen_and_the_old_gate_passes_on_it`.
     #[test]
-    fn row_eight_still_has_a_subject_on_this_screen() {
-        // **Read per axis, and `changed > 0` is not the reading.** A scheme change moves every
-        // paint on the screen; a rung change moves clusters on the panels whose repertoire matters;
-        // and a **tier change moves nothing on any panel at all** — the cells it moves are the two
-        // chrome rows printing the depth's own name. That last row is the module's colour-axis
-        // finding arriving as a count, and asserting `changed > 0` there would pass on the chrome
-        // while saying nothing about the screen.
-        //
-        // **At two sizes, because one size agreeing with a law the other breaks is how a gate over
-        // one size stays green** — which this arm was, until the chrome was two rows rather than one.
+    fn no_cell_of_the_assembled_gallery_carries_the_previous_palette() {
+        for (w, h) in [(100u16, 30u16), (300, 80)] {
+            for page in 0..pages(w, h) {
+                for change in [Change::Scheme, Change::Rung, Change::Tier] {
+                    // **Both arms of `Remainder`, so row 7 and row 8 are green at the same time.**
+                    // Ticket 41's own criterion, and the reading is that they are independent here:
+                    // `swap_on` carries one surface across the change, so a cell nobody writes on a
+                    // steady frame was still written once, and the reference arm carries its own.
+                    for remainder in [Remainder::Written, Remainder::LeftAlone] {
+                        let s = swap_on(w, h, page, change, remainder, Keying::Derived);
+                        assert_eq!(
+                            (s.stale, s.stale_on_a_panel),
+                            (0, 0),
+                            "{change:?} at {w}x{h} page {page} ({remainder:?}): {} carry the \
+                             previous palette",
+                            s.divergence
+                        );
+                        assert!(
+                            s.written > 0,
+                            "{change:?} at {w}x{h} page {page} drew nothing"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// **The rule's own arm, and the proof the memo was live.**
+    ///
+    /// [`Keying::Themed`] keys the per-tile memo with `Theme::memo_key` — the theme's own
+    /// `Revision` folded with the data's — and the gate stays at zero with the memo **hitting**: 56
+    /// of 112 tile draws at 300x80 are served from it, which is frames two and three, and the swap
+    /// frame is a miss because the theme moved.
+    ///
+    /// Without the second number this arm would be green on a memo that never hit, which is the same
+    /// vacuity one level in: *a memo that cannot be stale says nothing about a rule against
+    /// staleness*.
+    #[test]
+    fn a_memo_keyed_on_the_themes_own_revision_is_never_stale_and_does_hit() {
+        for (w, h) in [(100u16, 30u16), (300, 80)] {
+            for change in [Change::Scheme, Change::Rung, Change::Tier] {
+                let s = swap_on(w, h, 0, change, Remainder::Written, Keying::Themed);
+                assert_eq!(
+                    (s.stale, s.stale_on_a_panel),
+                    (0, 0),
+                    "{change:?} at {w}x{h}: the rule's own key left {} behind",
+                    s.divergence
+                );
+                assert!(
+                    s.served > 0,
+                    "{change:?} at {w}x{h}: the memo never hit, so `stale == 0` is a statement \
+                     about a memo that was never used"
+                );
+                // Four frames of the same tiles: the first misses, the two steady ones hit, and the
+                // swap frame misses because the theme's revision moved. An equality rather than a
+                // ratio, because the count of tiles is the page's and the count of frames is this
+                // function's.
+                assert_eq!(
+                    s.served, s.drew,
+                    "{change:?} at {w}x{h}: two hits and two misses per tile is what a swap on the \
+                     fourth of four frames costs, and this arm no longer spends them that way"
+                );
+            }
+        }
+    }
+
+    /// **The defect, on this screen: `(data, tier)` keeps the previous palette and `changed > 0` is
+    /// green on it.**
+    ///
+    /// §21's refinement 1 as a measurement over the assembled gallery rather than as an arithmetic
+    /// on recalled numbers — `tests/gates.rs` keeps the arithmetic beside it, and this is the same
+    /// sentence with the screen underneath.
+    ///
+    /// **The sharpest reading is page three at 100x30**: `changed` is **2 159 of 3 000** and 861
+    /// cells carry the old palette. A gate on the delta sees a screen that moved two thirds of
+    /// itself and passes; the complement sees a screen a third of which is wrong.
+    ///
+    /// **And `Change::Tier` is 0 on the defective arm**, which is the whole argument for the key
+    /// being the theme's own `Revision` rather than an enumeration: the axis this key remembered is
+    /// right, and it is the one axis that moves nothing anyway (ADR 0018). *An enumeration of axes
+    /// is a key the next reader forgets one of, and this one forgot the two that matter.*
+    #[test]
+    fn the_tier_keyed_memo_is_wrong_on_this_screen_and_the_old_gate_passes_on_it() {
+        /// The spelling that shipped. **A threshold on the delta.**
+        fn the_gate_that_was_there(s: &Swap) -> bool {
+            s.changed > 0
+        }
+
+        for (w, h) in [(100u16, 30u16), (300, 80)] {
+            for page in 0..pages(w, h) {
+                for change in [Change::Scheme, Change::Rung] {
+                    let s = swap_on(w, h, page, change, Remainder::Written, Keying::DataAndTier);
+                    assert!(
+                        s.stale > 0 && s.stale_on_a_panel > 0,
+                        "{change:?} at {w}x{h} page {page}: the tier-keyed memo was not stale, so \
+                         this gate cannot be watched failing"
+                    );
+                    assert!(
+                        the_gate_that_was_there(&s),
+                        "{change:?} at {w}x{h} page {page}: the spelling this replaced would have \
+                         failed here, which is the one thing refinement 1 says it does not do"
+                    );
+                    // The memo was hit **on the swap frame**, which is the defect itself: three of
+                    // the four frames are served and only the first is drawn.
+                    assert!(
+                        s.served > s.drew,
+                        "{change:?} at {w}x{h} page {page}: served {} against drew {}",
+                        s.served,
+                        s.drew
+                    );
+                }
+                // The one axis this key does remember.
+                let tier = swap_on(
+                    w,
+                    h,
+                    page,
+                    Change::Tier,
+                    Remainder::Written,
+                    Keying::DataAndTier,
+                );
+                assert_eq!(
+                    (tier.stale, tier.served, tier.drew),
+                    (0, tier.drew, tier.served),
+                    "the colour depth is in this key, so `Ctrl+L` invalidates it — and it is the \
+                     one press that moves nothing on any panel"
+                );
+            }
+        }
+    }
+
+    /// **`kept` and `changed` are reports, and this is why.**
+    ///
+    /// Both are the delta read from one of its two ends, and on two of the three axes the delta is
+    /// the same number on a healthy screen and on a broken one. Kept as the record of what the row's
+    /// failing set was measured with, and asserted here so that the numbers in
+    /// `examples/gallery_numbers.rs` cannot drift without a test moving.
+    #[test]
+    fn the_delta_is_printed_and_never_gated() {
         for (w, h) in [(100u16, 30u16), (300, 80)] {
             for change in [Change::Scheme, Change::Rung] {
                 let swap = swap(w, h, change);
                 assert!(swap.written > 0, "{change:?} at {w}x{h}");
                 assert!(
-                    swap.kept > 0 || change == Change::Scheme,
-                    "{change:?} at {w}x{h} left row 8 nothing to measure"
-                );
-                assert!(
                     swap.changed_on_a_panel > 0,
-                    "{change:?} at {w}x{h} moved no cell of any panel, so row 8 has nothing to \
-                     measure"
+                    "{change:?} at {w}x{h} moved no cell of any panel"
                 );
             }
             // **The two rows are independent, measured**: the same swap with every remainder left

@@ -487,6 +487,10 @@ const INPUT: &str = "crates/vitui-components/src/input.rs";
 /// gives: a screen only an application can reach is a screen no `cargo test` can measure.
 const GALLERY: &str = "crates/vitui-components/src/gallery.rs";
 
+/// **The memo census** — ADR 0030's rule with a population it can be false on, and the finding that
+/// the population is one row and it had to be built.
+const MEMOS: &str = "crates/vitui-components/src/memos.rs";
+
 /// See [`GALLERY`].
 const GALLERY_NUMBERS: &str = "crates/vitui-components/examples/gallery_numbers.rs";
 
@@ -589,7 +593,7 @@ pub const SPEC_ROWS: usize = 32;
 /// it. Row 30's own instrument compares two lists of *ids*, which is the most a query over the
 /// freeze can ask; the chord-for-chord equality needs a value with a machine in it, and
 /// `crate::contract::Contract::live` is that machine — it runs the shipped component.
-pub const EVALUATED: usize = 209;
+pub const EVALUATED: usize = 213;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
 #[expect(
@@ -599,7 +603,7 @@ pub const EVALUATED: usize = 209;
               array is read at compile time by nothing and at run time by tests, so the copy the \
               lint is warning about is one a test makes once"
 )]
-pub const REGISTER: [Row; 223] = [
+pub const REGISTER: [Row; 226] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -865,24 +869,68 @@ pub const REGISTER: [Row; 223] = [
         kind: Kind::Count,
         owner: "C11 / R20 §3",
         section: "spec §16",
-        standing: Standing::Red {
+        // **The gate is a count over the surface against an oracle**, and neither the delta nor its
+        // complement could have been it. The spelling that shipped asserted `changed > 0` and one
+        // cell of 4 800 satisfies it while 3 583 carry the old palette (§21's refinement 1); the
+        // complement reads `kept` **17 884 of 24 000** under a rung change with nothing wrong,
+        // because a rung change moves the cells drawn from the theme's glyph table and no others,
+        // and **23 990 of 24 000** under a tier change because the colour axis moves nothing on any
+        // canvas (ADR 0018). Both numbers are the delta read from its two ends, and neither can tell
+        // *the swap reached nothing* from *the swap had nothing to reach*.
+        //
+        // So `gallery::swap_on` plays a second arm — the same gallery, the same page, the same four
+        // frames, with the destination theme in place from the first — and `Swap::stale` is what the
+        // two disagree about. It is the engine's own `reference.rs` arrangement one crate up: the
+        // expectation is generated rather than hand-written, *because a hand-written expectation
+        // about damage is written by the person who wrote the damage*.
+        //
+        // **The barrier this row carried was ADR 0023 and it did not need lifting**, for row 7's
+        // reason one ticket earlier: the count is read off `crate::runner::Pen`, which is where the
+        // partition rule's other half has always been read, and where the two arms of a swap can be
+        // compared cell for cell without any crate above the engine reading a cell.
+        //
+        // **And the memo enumeration really did have nothing to enumerate.** `crate::memos` is the
+        // census and its finding is that **no shipped memo in this crate holds a paint or a
+        // cluster** — three of them hold sub-cell bits, an axis domain and a wrap index — so ADR
+        // 0030's rule is true here **vacuously**. A gate resting on it would be green for ever, so
+        // the memo the rule is about is built as an axis instead: `gallery::Keying`, right arm and
+        // wrong arm over the same twenty-eight call sites, and `Keying::DataAndTier` is what this
+        // row is watched failing on — **2 403 of 3 000 at 100x30 with `changed` reading 758**, which
+        // is refinement 1 measured on this screen rather than recalled.
+        standing: Standing::Evaluated {
             by: &[
+                // The gate: every axis, every page, both arms of the remainder, so this row and
+                // row 7 are green at the same time.
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "no_cell_of_the_assembled_gallery_carries_the_previous_palette",
+                },
+                // Watched failing, on the memo the rule is about, with the old spelling green on it.
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "the_tier_keyed_memo_is_wrong_on_this_screen_and_the_old_gate_passes_on_it",
+                },
+                // And the rule's own arm, with the memo proved live: a memo that never hits cannot
+                // be stale.
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "a_memo_keyed_on_the_themes_own_revision_is_never_stale_and_does_hit",
+                },
+                // The arithmetic §21 states, kept beside the screen.
                 Instrument::Unit {
                     file: "crates/vitui-components/tests/gates.rs",
                     name: "changed_greater_than_zero_passes_on_the_exact_set_it_had_to_catch",
                 },
-                Instrument::Barrier {
-                    file: "docs/adr/0023-the-cell-is-never-visible-in-the-public-api.md",
-                    line: "# The cell is never visible in the public API",
+                // The 598-character form, over a value that really is made of glyphs — components
+                // 05 built it and this row is where it was owed.
+                Instrument::Unit {
+                    file: "crates/vitui-components/tests/glyph_matrix.rs",
+                    name: "a_tier_keyed_memo_survives_a_palette_swap_and_is_wrong_after_a_repertoire_one",
+                },
+                Instrument::Report {
+                    file: GALLERY_NUMBERS,
                 },
             ],
-            failing: "six panels of twelve keep the old palette permanently, because the rule *a \
-                      memo carries the theme in its key iff its value is made of paints or glyphs* \
-                      has no caller. The gate that was there asserted `changed > 0`, which one cell \
-                      of 4 800 satisfies while 3 583 are wrong. Both halves are unrunnable here: \
-                      the surface count needs the readback, and the memo enumeration has 0 memos \
-                      to enumerate",
-            inverted_by: "components 41",
         },
     },
     Row {
@@ -7739,6 +7787,125 @@ pub const REGISTER: [Row; 223] = [
             ],
         },
     },
+    Row {
+        number: 224,
+        on_spec_table: false,
+        gate: "every memo in this crate carries the theme in its key iff its value is made of \
+               paints or glyphs",
+        kind: Kind::Equality,
+        owner: "C11 / R20 §3",
+        section: "spec §16, ADR 0030, ADR 0032",
+        // **The rule as a population rather than as a sentence**, which is components ticket 41's
+        // own criterion: *a gate enumerates them from `INVENTORY` rather than from a grep*.
+        // `crate::memos::MEMOS` is five rows, `held_by` is the join, and the rule is checked as the
+        // `iff` it is — a memo carrying the theme in the key of a value the theme has no say in is
+        // as much a defect as one that leaves it out, because it is a value rebuilt on every `t` for
+        // nothing.
+        //
+        // **The finding is that the rule is true here vacuously**, and it is the reason this row is
+        // not the gate row 8 rests on. Three shipped memos: a sub-cell bit grid, an axis domain and
+        // a wrap index — bits, floats and byte offsets — and every cluster and every paint on every
+        // panel is derived from the theme in front of the frame that draws it. *An equality between
+        // two things that do not exist holds*, which is `Verdict::of`'s vacuity failure in the shape
+        // this map keeps meeting, and the answer is the same one O4 gave: build the subject. The one
+        // row the rule can be false about is `gallery::Panels`, and it is off unless a gate turns it
+        // on.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: MEMOS,
+                    name: "every_memo_carries_the_theme_iff_its_value_is_made_of_paints_or_glyphs",
+                },
+                Instrument::Unit {
+                    file: MEMOS,
+                    name: "no_shipped_memo_in_this_crate_holds_a_paint_or_a_cluster",
+                },
+                Instrument::Unit {
+                    file: MEMOS,
+                    name: "the_census_joins_to_the_freeze_in_both_directions",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 225,
+        on_spec_table: false,
+        gate: "the census names every memo in the source, and the scan that checks it recurses",
+        kind: Kind::Count,
+        owner: "C11",
+        section: "spec §10, ADR 0030",
+        // **A census nobody compares against the source is a list that decays**, so the grep is kept
+        // — as the completeness check rather than as the enumeration.
+        //
+        // **And it found a scan that could not see two thirds of the crate.** `crate::order`'s own
+        // claim was *no memo in this crate's library half takes a bare `Revision`*, checked with one
+        // non-recursive `read_dir` over `src/` — and `src/chart/raster.rs` builds two
+        // `vitui_runtime::Memo`s. The scan had been green beside two uses of the spelling it forbids
+        // for as long as `PlotState` has existed. It is `crate::inventory`'s own recorded defect
+        // (*the walk was one `read_dir` over `src/`, so a component in a subdirectory was never
+        // scanned*) arriving a second time in a different file, and the repair is both halves: the
+        // recursion, and the claim restated to what is true — `Memo::get` takes one `Revision`, so a
+        // compound key is a **fold** into eight bytes, which is the runtime's own documented door,
+        // and `Keyed` is for the key that cannot be folded.
+        //
+        // **Two of the five are invisible to any needle**, which is why the enumeration is a value:
+        // a hand-rolled memo is a field and a comparison and has no spelling to search for.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: MEMOS,
+                    name: "the_census_names_every_memo_in_the_source",
+                },
+                Instrument::Unit {
+                    file: MEMOS,
+                    name: "two_of_the_five_are_invisible_to_any_needle",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/order.rs",
+                    name: "every_memo_spells_its_key_and_records_what_it_was_built_at",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 226,
+        on_spec_table: false,
+        gate: "a theme swap allocates nothing, and it happens between two frames",
+        kind: Kind::Count,
+        owner: "C11",
+        section: "spec §16, §20",
+        // **§16 states it as a timing and §21 makes a timing a report**, so what is gated is the
+        // half a count can carry: *off the frame path*. `Gallery::theme` returns a theme and
+        // `Driver::set_theme` is the loop's, so the whole of a swap — the import, the resolve, the
+        // re-narrowing of the ten distinction bits — happens between two frames, and the window is
+        // drawn round exactly that. **0 over 168 presses**, which wraps all fourteen schemes, all
+        // three repertoires and all four depths.
+        //
+        // **The window is round the press and not round the frame, and that is a finding.** A window
+        // covering the frame cannot be zero on this instrument: `Driver::headless` moves a `Vec<u8>`
+        // into the engine and never drains it, so a themed frame — a full-screen repaint — feeds a
+        // buffer that only grows. Measured over 6 000 presses at 100x30 it reallocates at **92, 275,
+        // 641, 1 372, 2 836 and 5 762**, exact doubling, inside `vitui_engine::engine::write_frame`;
+        // at 300x80 the same 300 presses allocate nothing, because the buffer is eight times larger
+        // before the window opens. Runtime architecture issue 34's own sentence arriving as a
+        // number, and an instrument's property rather than an application's — a real screen's output
+        // is a `Stdout` and the bytes leave.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/tests/budget.rs",
+                    name: "the_theme_swap_itself_allocates_nothing",
+                },
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "the_screen_clears_once_and_again_when_its_layout_or_its_theme_moves",
+                },
+                Instrument::Report {
+                    file: GALLERY_NUMBERS,
+                },
+            ],
+        },
+    },
 ];
 /// **The compile-outcome pair row 31 names, and its positive twin.**
 ///
@@ -8018,7 +8185,7 @@ mod tests {
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn two_hundred_and_nine_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn two_hundred_and_thirteen_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -8034,9 +8201,16 @@ mod tests {
         assert_eq!(evaluated, EVALUATED, "the count §21 asks a test to assert");
         assert_eq!(
             red,
-            vec![8, 112],
-            "the gates that are red and pinned: the palette after a swap and one defect in another \
-             crate. **The sentinel left with components 40** — row 7, the second of the three that \
+            vec![112],
+            "the one gate that is red and pinned, and it is a defect in another crate. **The \
+             palette after a swap left with components 41** — row 8, the last of §21's two, and \
+             the one whose gate had to be **rewritten** rather than run: `changed > 0` is green on \
+             the exact set it exists to catch and its complement is green on a screen with nothing \
+             wrong, so the gate is a count over the surface against a second arm played at the \
+             destination theme. Its barrier was ADR 0023 and did not need lifting, for row 7's \
+             reason; its memo enumeration really did have nothing to enumerate, so the memo the \
+             rule is about is built as `gallery::Keying` and the row is watched failing on it. \
+             **The sentinel left with components 40** — row 7, the second of the three that \
              was red on a *defect* rather than on a missing subject, and the only one whose \
              prescribed detector could not be built at all: ADR 0023 forbids the readback, so the \
              count is read off `crate::runner::Pen`, which is the instrument the rule's other half \
@@ -8085,7 +8259,7 @@ mod tests {
              domain and needs no component to be run against, and its row had been citing spec §13 \
              and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 223);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 226);
     }
 
     /// **The split, not the total.**
@@ -8096,10 +8270,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_a_hundred_and_ninety_one_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_a_hundred_and_ninety_four_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 191);
+        assert_eq!(REGISTER.len() - on_table, 194);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,

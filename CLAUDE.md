@@ -117,7 +117,7 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 40 of 45 tickets resolved (the last on 2026-08-28). `INVENTORY` is spec
+- **`vitui-components` has started**: 41 of 45 tickets resolved (the last on 2026-08-28). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
   answerable by the machine from here on. **O1 is met since ticket 36, O3 since 37, O4 since 38 and
@@ -211,6 +211,58 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   a steady frame's**, and it has to be: `crate::app::Clears` writes every cell on the first frame and
   on a resize, so *cells nobody ever wrote* is zero on any screen that clears and says nothing about
   any component.
+
+- **Register row 8 is green, and the memo ADR 0030's rule is about had to be built because this
+  crate has none** (components ticket 41, 2026-08-28; ADR 0048). *No cell keeps the previous palette
+  a frame after a swap* — **0 of 24 000 at 300x80 and 0 of 3 000 on every page at 100x30**, on all
+  three axes and at both arms of `Remainder`. It is the last of §21's two pinned reds; red 2 → **1**,
+  and the one left is another crate's. Register 223 → **226 rows, 213 evaluated**; scenes **31 stood
+  up, 2 unsubjected, 0 red**.
+  **Neither the delta nor its complement could have been the gate**, and this row is §21's first
+  refinement arriving on the row it was written for. `changed > 0` is green on the exact set it
+  exists to catch — one cell of 4 800 satisfies it while 3 583 are wrong — and the complement is no
+  better: `kept` reads **17 884 of 24 000** under a repertoire change with nothing whatever wrong,
+  because a rung moves the cells drawn from the theme's glyph table and no others, and **23 990 of
+  24 000** under a colour-depth change, because `Theme::resolve` returns the same `Paint` at every
+  depth. *Both numbers are the delta read from its two ends*, and neither can tell **the swap
+  reached nothing** from **the swap had nothing to reach**.
+  **So `gallery::swap_on` plays a second gallery** — the same page, the same four frames, with the
+  destination theme in place from the first — and `Swap::stale` is what the two disagree about. The
+  engine's own `reference.rs` arrangement one crate up: *a hand-written expectation about damage is
+  written by the person who wrote the damage.* The reference arm is always `Keying::Derived`, because
+  handing the oracle the same memo would compare a stale picture with one that never had the chance
+  to go stale. **ADR 0023 did not have to be lifted**, for row 7's reason: the count is read off
+  `crate::runner::Pen`.
+  **The memo enumeration really did have nothing to enumerate.** `crate::memos` is the rule as a
+  population joined to `INVENTORY`, and **not one shipped memo in this crate holds a paint or a
+  cluster** — a sub-cell bit grid, an axis domain and a wrap index, with every cluster and paint
+  derived from the theme in front of the frame that draws it. The rule is true here **vacuously**, so
+  the memo it is about is built as `gallery::Keying`: `Derived` (shipped, none), `Themed` (the rule,
+  `Theme::memo_key`) and `DataAndTier` (the defect), over the same twenty-eight call sites. The
+  defective arm leaves **18 156 stale of 24 000** under a scheme change and **6 509** under a
+  repertoire one, and page three at 100x30 is the sharpest — **861 of 3 000 wrong while `changed`
+  reads 2 159**. **The tier axis is 0 on it**, which is the whole argument for the key: `(data,
+  tier)` is right about the one axis that moves nothing anyway and blind to the two that move
+  everything. `Themed` is held to *hitting* — 56 of 112 tile draws — because a memo that never hits
+  cannot be stale. The **598-character** form was already built (components 05,
+  `tests/glyph_matrix.rs`) and is cited rather than rebuilt.
+  **The completeness check found a scan that could not see two thirds of the crate**:
+  `crate::order` claimed *no memo in this crate's library half takes a bare `Revision`* and checked
+  it with one non-recursive `read_dir` over `src/`, while `src/chart/raster.rs` builds two
+  `vitui_runtime::Memo`s — `crate::inventory`'s own recorded defect a second time in a different
+  file. Both halves repaired: the recursion, and the claim restated to what is true — a `Memo`'s key
+  is a **fold** into eight bytes, and `Keyed` is for the key that cannot be folded. **Two of the five
+  memos are invisible to any needle**, which is why the enumeration is a value.
+  **And the allocation window for `t` is round the press and not round the frame.**
+  `Driver::headless` moves a `Vec<u8>` into the engine and never drains it, so a themed frame — a
+  full-screen repaint — feeds a buffer that only grows: over 6 000 presses at 100x30 it reallocates
+  at **92, 275, 641, 1 372, 2 836 and 5 762**, exact doubling inside
+  `vitui_engine::engine::write_frame`, while at 300x80 the same 300 presses allocate nothing at all.
+  Runtime architecture issue 34 as a number, and an instrument's property rather than an
+  application's. What is gated is the press: **0 allocations over 168**, wrapping all fourteen
+  schemes, three repertoires and four depths.
+  **Scene 27 is stood up here**, the last row of §21's own twenty-seven to be played, and neither
+  half of its clause reproduced.
 
 - **Register row 7 is green, and the detector spec §2 prescribes could not be built at all**
   (components ticket 40, 2026-08-28; ADR 0047). *Every cell of the rectangle written at least once* —
@@ -1452,8 +1504,8 @@ Read these before working, in this order:
    authority. An `architecture.md` beside a spec is the superseded proposal, kept only as the record
    of what was argued.
 2. `CONTEXT.md` — the glossary. Use its terms in code, comments, tickets and commit messages.
-3. `docs/adr/` — 47 decisions that are hard to reverse and surprising without context. 0001–0011 and
-   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0047 the components.
+3. `docs/adr/` — 48 decisions that are hard to reverse and surprising without context. 0001–0011 and
+   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0048 the components.
 4. The impl backlog `README.md` for the layer being worked on — it holds the phase order, the
    blocking edges, and the defects that shaped both.
 
@@ -1475,7 +1527,9 @@ crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers 
                           └ and `gallery`, the assembled screen: 28 panels as a value the
                             application iterates, which is where O2's two equalities are measured
                             (ticket 39), and §21's row 7 — every cell of the rectangle written at
-                            least once, green since ticket 40, with row 8 the one still red
+                            least once, green since ticket 40, and row 8 — no cell keeps the
+                            previous palette a frame after a swap, green since ticket 41, measured
+                            against a second gallery played at the destination theme
                           └ every built one carries a doc page with a compiled example (O1, ticket 36)
                           └ and, for the thirteen that read a key, a declared keyboard contract whose
                             help is rendered from it and whose other half is a sweep that runs the

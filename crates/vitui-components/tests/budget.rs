@@ -1112,6 +1112,103 @@ fn a_steady_frame_of_the_gallery_allocates_nothing_as_a_total() {
     }
 }
 
+/// **The theme swap allocates nothing, and it is measured on the press rather than on the frame.**
+///
+/// Components ticket 41's last criterion. §16 states it as *the resolve is 291 ns, once per theme,
+/// **off the frame path*** — a timing, which §21 makes a report — and the half a components gate can
+/// reach is the last three words: `Gallery::theme` returns a theme and `Driver::set_theme` is the
+/// loop's, so the whole of a swap happens between two frames and the window below is drawn round
+/// exactly that. Fourteen schemes, three repertoires and four depths, wrapped several times over,
+/// because a swap that never leaves one theme never re-imports a palette.
+///
+/// # The window is round the press and not round the frame, and that is a finding rather than a
+/// convenience
+///
+/// A window round the press **and** the frame it lands on cannot be zero on this instrument, and the
+/// reason is one crate down: `Driver::headless` moves a `Vec<u8>` into the engine as its output and
+/// never drains it, so every frame's bytes are appended to a buffer that only grows. Measured over
+/// 6 000 theme presses at 100x30 it reallocates at presses **92, 275, 641, 1 372, 2 836 and 5 762**
+/// — exact doubling, one `Vec<u8>::extend_from_slice` inside `vitui_engine::engine::write_frame` —
+/// and a themed frame is a **full-screen repaint**, so it feeds that buffer an order of magnitude
+/// faster than a damage-tracked one does. At 300x80 the same 300 presses allocate **nothing at
+/// all**, because the buffer is eight times larger before the window opens: *one size agreeing with
+/// a law the other breaks*, and here neither size is measuring the swap.
+///
+/// It is runtime architecture issue 34's own sentence arriving as a number — *`Driver::headless`
+/// moves a `Vec` into the engine and never returns it* — and it is an instrument's property, not an
+/// application's: a real screen's output is a `Stdout` and the bytes leave.
+///
+/// So the count that is about the swap is the press: **0 allocations over 168 of them**, which is
+/// the import, the resolve, the re-narrowing of the ten distinction bits and the `Themes` walk.
+#[test]
+fn the_theme_swap_itself_allocates_nothing() {
+    use vitui_alloc_probe::count_allocations;
+    use vitui_components::counters::Allocations;
+    use vitui_components::gallery::{Gallery, Sink};
+    use vitui_components::ink::Direct;
+    use vitui_components::runner::driver_at;
+    use vitui_runtime::Density;
+    use vitui_runtime::work::Worker;
+
+    let (w, h) = (100u16, 30u16);
+    let mut driver = driver_at(w, h, Density::default());
+    let mut gallery = Gallery::new(Worker::queueing());
+    driver.set_theme(*gallery.theme());
+    let one = |driver: &mut Driver, gallery: &mut Gallery| {
+        gallery.bag.answer_queued();
+        let mut sink: Sink<'_> = &mut Direct;
+        driver.frame(|cx| gallery.ui_into(&mut sink, cx, "swap"));
+    };
+
+    // Warmed on the shape being priced — components 22's finding: a window warmed on a different
+    // workload prices the first frame of this one.
+    for _ in 0..3 {
+        gallery.next_theme();
+        gallery.next_rung();
+        gallery.next_tier();
+        driver.set_theme(*gallery.theme());
+        one(&mut driver, &mut gallery);
+    }
+
+    // 14 schemes x 3 repertoires x 4 depths is 168, and each press moves all three.
+    const PRESSES: u32 = 168;
+    let mut total = 0u64;
+    for _ in 0..PRESSES {
+        let (_, spent) = count_allocations(|| {
+            gallery.next_theme();
+            gallery.next_rung();
+            gallery.next_tier();
+            driver.set_theme(*gallery.theme());
+        });
+        total += spent as u64;
+        // The frame is outside the window, for the reason in this test's own header.
+        one(&mut driver, &mut gallery);
+    }
+    let pressing = Allocations::over(PRESSES, total);
+    assert_eq!(
+        pressing.total(),
+        0,
+        "{} allocations over {} presses. A `t` that allocates is a `t` that can pause",
+        pressing.total(),
+        pressing.frames()
+    );
+
+    // **And the frame it lands on is a clear and not a rebuild.** One clear per press and no more,
+    // which is `Clears`'s whole contract: the swap is a full-screen repaint because every cell's
+    // paint moved, and it is *one* of them.
+    let before = gallery.cleared();
+    gallery.next_theme();
+    driver.set_theme(*gallery.theme());
+    one(&mut driver, &mut gallery);
+    one(&mut driver, &mut gallery);
+    one(&mut driver, &mut gallery);
+    assert_eq!(
+        gallery.cleared() - before,
+        1,
+        "a theme press clears the screen once and the frames after it do not"
+    );
+}
+
 /// The top row of `area`, which is the shape a horizontal slider is drawn in.
 fn top_row(area: vitui_runtime::Rect) -> vitui_runtime::Rect {
     vitui_runtime::layout::rect::split_at_v(area, 1).0

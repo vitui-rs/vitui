@@ -1,5 +1,6 @@
 //! **Components ticket 39's report**: what the assembled gallery costs, §16's nine cells, register
-//! row 7 green and row 8's number beside it, and what `t` costs on a live frame.
+//! rows 7 and 8 green with the arm each gate replaced beside it, the memo census, and what `t`
+//! costs on a live frame.
 //!
 //! ```text
 //! cargo run --release --example gallery_numbers -p vitui-components
@@ -45,6 +46,7 @@ fn main() {
     the_nine_cells();
     the_traffic_light();
     the_two_pinned_rows();
+    the_memo_census();
     what_t_costs();
     the_frame();
 }
@@ -143,7 +145,7 @@ fn the_traffic_light() {
     );
 }
 
-/// **What components 40 and 41 are measured on: row 7 green, row 8 still red.**
+/// **What components 40 and 41 are measured on: both rows green, and the two arms of each.**
 fn the_two_pinned_rows() {
     println!("== register rows 7 and 8, on this screen ==\n");
     for (w, h) in [(300u16, 80u16), (100, 30)] {
@@ -163,35 +165,113 @@ fn the_two_pinned_rows() {
         );
         for change in [Change::Scheme, Change::Rung, Change::Tier] {
             let swap = gallery::swap(w, h, change);
+            let broken = gallery::swap_on(
+                w,
+                h,
+                0,
+                change,
+                gallery::Remainder::Written,
+                gallery::Keying::DataAndTier,
+            );
             println!(
-                "    row 8  {:<7} kept {:>7} of {} written   {:>5.1}%   changed {} ({} on a panel)",
+                "    row 8  {:<7} stale {:>6} of {} written   {:>5.1}%   \
+                 (tier-keyed memo: {} stale, {} on a panel, `changed > 0` {})",
                 format!("{change:?}").to_lowercase(),
-                swap.kept,
+                swap.stale,
                 swap.written,
-                100.0 * swap.kept as f64 / swap.written.max(1) as f64,
-                swap.changed,
-                swap.changed_on_a_panel,
+                100.0 * swap.stale as f64 / swap.written.max(1) as f64,
+                broken.stale,
+                broken.stale_on_a_panel,
+                if broken.changed > 0 {
+                    "passes"
+                } else {
+                    "fails"
+                },
+            );
+            println!(
+                "             {:<7} the delta, printed and never gated: changed {} ({} on a \
+                 panel), kept {}",
+                "", swap.changed, swap.changed_on_a_panel, swap.kept,
             );
         }
     }
     println!(
-        "\n  **Row 7 is green and gated** since components 40 — swept over sizes and pages in\n  \
-         `gallery::tests`, per construction in `tests/golden.rs` — and printed here with the arm it\n  \
-         replaced beside it. Row 8 is components 41's and is a report.\n\n  \
+        "\n  **Both rows are green and gated.** Row 7 since components 40 — swept over sizes and\n  \
+         pages in `gallery::tests`, per construction in `tests/golden.rs` — and row 8 since\n  \
+         components 41, swept over every axis, every page and both arms of `Remainder`, with the\n  \
+         arm each gate replaced printed beside its zero.\n\n  \
+         **`stale` is a count over the surface against an oracle, and neither the delta nor its\n  \
+         complement could have been the gate.** The spelling that shipped asserted `changed > 0`,\n  \
+         and one cell of 4 800 satisfies it while 3 583 carry the old palette. The complement is no\n  \
+         better: `kept` reads 17 884 of 24 000 under a rung change with nothing whatever wrong —\n  \
+         a rung change moves the cells drawn from the theme's glyph table and no others — and\n  \
+         23 990 of 24 000 under a tier change, because the colour axis moves nothing on any canvas\n  \
+         (ADR 0018). Both numbers are the delta read from its two ends, and neither can tell *the\n  \
+         swap reached nothing* from *the swap had nothing to reach*. So `swap_on` plays a second\n  \
+         arm — the same gallery, the same page, the same four frames, with the destination theme in\n  \
+         place from the first — and `stale` is what the two disagree about. It is the engine's own\n  \
+         `reference.rs` arrangement one crate up.\n\n  \
+         **The tier-keyed column is the gate watched failing**, over this screen rather than over\n  \
+         an arithmetic beside it. `crate::memos` found that no shipped memo in this crate holds a\n  \
+         paint or a cluster, so ADR 0030's rule is true here vacuously; `gallery::Keying` is the\n  \
+         memo the rule is about, built with a right arm and a wrong one over the same twenty-eight\n  \
+         call sites. `(data, tier)` survives a palette swap and a repertoire swap alike, and the\n  \
+         sharpest reading is page three at 100x30: `changed` is 2 159 of 3 000 and 861 cells carry\n  \
+         the old palette. **The tier row is 0 on the defective arm**, which is the whole argument\n  \
+         for the key being the theme's own `Revision`: the axis this key remembered is the one axis\n  \
+         that moves nothing anyway.\n\n  \
          **§21 pins the two rows in one sentence — *the swap excess equal to it on five of six* —\n  \
          and on this screen they are independent.** `swap` carries one surface across the change and\n  \
          the first frame clears, so a cell nobody writes on a *steady* frame is still a cell somebody\n  \
          wrote once: it is inside `written` and it counts as `kept`. At 100x30 a rung change keeps\n  \
          2 005 of 3 000 with row 7 red and with it green. What moved is 1 248 cells at 300x80, in the\n  \
          other direction: twelve panels are handed the whole of their tile now instead of its first\n  \
-         row, and `meter` and `slider` **fill** what they are handed with glyphs a rung change moves.\n\n  \
-         `changed` is printed beside `kept` because `changed > 0` is the gate this map already got\n  \
-         wrong — one cell of 4 800 satisfies it while 3 583 carry the old palette — and *(on a\n  \
-         panel)* is printed beside `changed` because for the **tier** axis that is the whole of it:\n  \
-         the cells a colour depth moves are the ones where the heading prints the depth's own name,\n  \
-         and **not one cell of any panel**. Which is the colour-axis finding arriving as a count, and\n  \
-         the reason a gate on `changed` there could not tell it from the gallery having stopped\n  \
-         redrawing.\n"
+         row, and `meter` and `slider` **fill** what they are handed with glyphs a rung change moves.\n"
+    );
+}
+
+/// **The memo census, which is ADR 0030's rule with a population it can be false on.**
+fn the_memo_census() {
+    use vitui_components::memos::{MEMOS, MadeOf, without};
+
+    println!("== every memo in this crate, and what its key is ==\n");
+    println!("  {:<44} {:<14} theme in key", "site", "made of");
+    for m in MEMOS {
+        let site = m.site.rsplit_once(" — ").map_or(m.site, |(_, tail)| tail);
+        let file = m.site.split_once(" — ").map_or("", |(head, _)| {
+            head.rsplit_once('/').map_or(head, |(_, f)| f)
+        });
+        println!(
+            "  {:<44} {:<14} {}",
+            format!("{file}::{site}"),
+            match m.made_of {
+                MadeOf::Themed => "paints/glyphs",
+                MadeOf::Neither => "neither",
+            },
+            if m.theme_in_key {
+                "yes"
+            } else {
+                "no — and owes none"
+            },
+        );
+    }
+    println!(
+        "\n  **Not one shipped memo in this crate holds a paint or a cluster.** The three are a\n  \
+         sub-cell bit grid, an axis domain and a wrap index — bits, floats and byte offsets — and\n  \
+         every cluster and every paint on every panel is derived from the theme in front of the\n  \
+         frame that draws it. So ADR 0030's rule is satisfied here by there being nothing subject\n  \
+         to it, which is `Verdict::of`'s vacuity failure in the shape this map keeps meeting, and\n  \
+         the answer is O4's: build the subject. `gallery::Panels` is the one row the rule can be\n  \
+         false about and it is off unless a gate turns it on.\n\n  \
+         **{} of the twenty-nine rows of the freeze keep no memo at all**, and the five that do are\n  \
+         `field`, `chart`, `plot`, `sparkline` and `form`.\n\n  \
+         **Two of the five are invisible to any needle**, which is why the enumeration is a value\n  \
+         and the grep is only the completeness check: a hand-rolled memo is a field and a\n  \
+         comparison and has no spelling to search for. And the check found a scan that could not\n  \
+         see two thirds of the crate — `crate::order`'s claim that no memo here takes a bare\n  \
+         `Revision` was checked with one non-recursive `read_dir` over `src/`, and\n  \
+         `src/chart/raster.rs` builds two of them.\n",
+        without().len(),
     );
 }
 
