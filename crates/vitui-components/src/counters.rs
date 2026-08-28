@@ -457,61 +457,48 @@ impl Counters {
     }
 }
 
-/// **The sentinel probe: stamp the base layer, draw once more, count what survives.**
+/// **The sentinel: the cells of a recorded surface that no verb wrote.**
 ///
 /// > `distinct cells touched == area.w * area.h` (no cell never)
 ///
 /// This is the second half of §2's partition rule, and the half that **had no counter on either
 /// map** — a cell nobody writes keeps what was already there, and what was already there is almost
-/// always right. Ticket 40 owns inverting it; ticket 03 owns building the detector, and the detector
-/// cannot be built here.
+/// always right. Components ticket 40 inverted it; what follows is why it is a reading of a
+/// [`crate::runner::Canvas`] rather than the surface probe spec §2 prescribes.
 ///
-/// # It must be the base layer, and that is not a preference
+/// # Spec §2 asks for a screen probe, and the recorder is the stricter instrument
 ///
-/// The engine filters a write whose value equals the cell's current value, so a cell rewritten with
-/// what it already held is **indistinguishable from one never written** by anything downstream of
-/// the filter. A sentinel on an overlay layer is composited over the base and tells you what the
-/// overlay wrote; a sentinel *in* the base is the only arrangement where survival means *nobody
-/// wrote here*.
+/// The prescription is: stamp a `Theme::custom` paint no role can produce over the **base** layer
+/// between frames, draw one more, count the cells still carrying it. It has to be the base layer,
+/// because the engine filters a write whose value equals the cell's current value — so downstream of
+/// that filter a cell rewritten with what it already held is indistinguishable from one never
+/// written. Three barriers stood in front of it, and the third is a decision rather than a gap:
 ///
-/// # Three barriers, and the first has lifted
+/// 1. **The stamp's value — lifted** by runtime architecture issue 22. `Rgb` is
+///    `vitui_runtime::Rgb` now, so `Theme::custom(fg, bg)` is callable here.
+/// 2. **The stamp's reach — never a barrier.** `Ctx::clear` writes the whole of a context.
+/// 3. **The readback — ADR 0023, and it holds.** No `Surface`, `View`, `Screen` or `Presented`
+///    method returns a cell, a handle or a style bit, to this crate or to the engine's own callers.
 ///
-/// 1. **The stamp's value — lifted by runtime architecture issue 22.** This read: *`Theme::custom(&self,
-///    fg: Rgb, bg: Rgb) -> Paint` is public and cannot be called: `Rgb` is
-///    `EngineName { name: "Rgb", reachable_as: None }`, so there is no expression of that type to
-///    pass.* `Rgb` is now `vitui_runtime::Rgb` and the call compiles, so the stamp can be minted
-///    here. The reasoning is kept rather than deleted because it is why the sentinel is shaped as it
-///    is: a `Theme::paint(Role::…)` is still not a substitute — the sentinel has to be a paint **no
-///    role can produce**, or a cell legitimately painted in that role counts as unwritten.
-/// 2. **The stamp's reach.** `Ctx::clear` writes the whole of a context and is the medium, so
-///    *stamping* is reachable: one frame that clears, one frame that draws. This barrier is only
-///    the value, not the act.
-/// 3. **The readback.** Nothing reads a cell. ADR 0023 — *the cell is never visible in the public
-///    API* — is a decision and not an oversight, and it holds against `vitui-engine`'s own callers
-///    as well as this crate's: no `Surface`, `View`, `Screen` or `Presented` method returns a cell,
-///    a handle or a style bit. Counting survivors therefore has no expression to write.
+/// **It does not need lifting, and the reason is the pair.** `writes == distinct` — the rule's
+/// *first* half — has always been read off [`Tally`], whose union has been in the coordinates of the
+/// frame's root since components 19. The second half is that same union compared against the area,
+/// so a screen probe would make one equality out of two different instruments; and the recorder is
+/// the **conservative** one of the two, because a verb that does not go through the caller's `Ink`
+/// is invisible to it and makes this number *larger*. A surface probe counts the engine's own clear
+/// and passes quietly — which is the shape of the defect components 39 found, where the gallery's
+/// clear was bypassing the caller's ink.
 ///
-/// **What would have to change**, in the order a ticket would do it. The middle step is **done**:
-/// `vitui-runtime` re-exports `Rgb` (issue 22), so the alternative it offered — *`Theme` grows a
-/// `custom_rgb24(u32, u32) -> Paint` that needs no engine name* — is not needed and should not be
-/// built. What is left is the engine's half: `vitui-engine` grows a survivor count that never hands
-/// a cell over — a `fn survivors(&self, paint) -> usize` on the composited surface, which is a count
-/// and not a readback, so ADR 0023 survives it; and `Driver` grows the door, because this crate
-/// still cannot name `vitui_engine` and issue 22 did not change that.
+/// # It is a count and it fails loudly by being non-zero
 ///
-/// # It fails loudly, and the register's row is red rather than absent
-///
-/// Returning `0` here would satisfy *no cell never* on every screen for ever, which is §21's own
-/// first refinement — *a threshold on the wrong side of the question is not a weak gate, it is a
-/// green one* — arriving as a counter instead of as a comparison.
-pub fn sentinel() -> Reading {
-    Reading::Unreachable {
-        needs: "a survivor count on the engine that hands over no cell (ADR 0023 forbids the \
-                readback and not the count) and a `Driver` accessor for it. The stamp is no longer \
-                one of these: runtime issue 22 re-exported `Rgb`, so `Theme::custom` is callable \
-                here and the paint can be minted",
-        inverted_by: "components 40",
-    }
+/// Returning `0` where nothing could be counted would satisfy *no cell never* on every screen for
+/// ever, which is §21's own first refinement — *a threshold on the wrong side of the question is not
+/// a weak gate, it is a green one*. There is nothing to fake now: the count comes from the surface
+/// the frame was recorded on, and its gates are `crate::gallery`'s assembled sweep and the
+/// per-construction sweep in `tests/golden.rs`.
+pub fn sentinel(canvas: &crate::runner::Canvas) -> Reading {
+    let cells = usize::from(canvas.w()) * usize::from(canvas.h());
+    Reading::Measured((cells - canvas.written()) as u64)
 }
 
 #[cfg(test)]
@@ -559,12 +546,31 @@ mod tests {
         let _ = counters.marked.get(Counter::Marked);
     }
 
-    /// See [`marked_panics_rather_than_answering_zero`]. The sentinel is the other loud one, and it
-    /// names three barriers rather than one.
+    /// **The sentinel answers, and it answers about the surface it was handed.**
+    ///
+    /// It used to be the loud one beside [`marked_panics_rather_than_answering_zero`] — three
+    /// barriers, `Reading::Unreachable`, and a `should_panic` naming ADR 0023. Components 40
+    /// inverted it: see [`sentinel`] for why the readback that decision forbids is not what this
+    /// question needs.
+    ///
+    /// Both directions, on one surface: a row written and a row left alone, so a `0` here is a
+    /// reading and not a constant.
     #[test]
-    #[should_panic(expected = "ADR 0023 forbids the readback and not the count")]
-    fn the_sentinel_panics_rather_than_reporting_no_survivors() {
-        let _ = sentinel().get(Counter::Distinct);
+    fn the_sentinel_counts_the_cells_no_verb_wrote() {
+        use crate::ink::Ink as _;
+        let mut driver = Driver::headless(10, 2).expect("a sink cannot fail to attach");
+        let mut pen = crate::runner::Pen::new(10, 2);
+        driver.frame(|cx| {
+            let body = cx.theme().paint(Role::Body);
+            pen.pad_to(cx, 0, 0, "ten", 10, body);
+        });
+        assert_eq!(sentinel(pen.canvas()).get(Counter::Distinct), 10);
+
+        driver.frame(|cx| {
+            let body = cx.theme().paint(Role::Body);
+            pen.pad_to(cx, 0, 1, "ten", 10, body);
+        });
+        assert_eq!(sentinel(pen.canvas()).get(Counter::Distinct), 0);
     }
 
     /// **A measured reading does not panic**, which is what makes the two above evidence.

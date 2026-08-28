@@ -276,8 +276,15 @@ fn probe() {
                 "** tiles share an id **"
             }
         );
+        // **Register row 7, with the arm it replaced beside it.** A zero on its own cannot be told
+        // from an instrument that stopped reading, so the probe prints what the same screen leaves
+        // behind when every remainder is left to whatever was already in the cells: three drawings
+        // hand a rectangle back to their owner and, at 300x80, two slots of a six-by-five grid hold
+        // no panel at all.
+        let left = gallery::shape_as(w, h, 3, gallery::Remainder::LeftAlone).unwritten;
         println!(
-            "  unwritten  {:>8}   register row 7's subject, reported and not gated (components 40)\n",
+            "  unwritten  {:>8}   register row 7, green since components 40 — {left} without the \
+             remainders\n",
             shape.unwritten
         );
     }

@@ -296,7 +296,11 @@ fn o5() {
          O5 is therefore unmoved by this ticket, which left it at fourteen of thirty-four;\n  \
          components 18 has since moved it to sixteen, on `scrollbar` and `scroll_area`.\n"
     );
-    assert_eq!(stands, vec![3, 4, 5, 6, 29]);
+    assert_eq!(
+        stands,
+        vec![3, 4, 5, 6, 26, 29],
+        "the four axis columns, and the assembled gallery since components 40"
+    );
     assert!(!component.declares(Axis::Narrow));
 }
 

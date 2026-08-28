@@ -36,6 +36,7 @@
 use vitui_alloc_probe::{CountingAllocator, count_allocations};
 use vitui_components::counters::{Allocations, Counter, Counters, Tally};
 use vitui_components::gates::{EVALUATED, REGISTER, Standing, table};
+use vitui_components::ink::Ink as _;
 use vitui_runtime::ctx::{Ctx, Driver};
 use vitui_runtime::layout::{
     Col,
@@ -209,22 +210,28 @@ fn main() {
     println!(
         "\n          `marked` is the one counter nobody outside `vitui-engine` can read: its\n\
          \x20         damage structure is `pub(crate)` from top to bottom and `Presented` carries no\n\
-         \x20         cell count. The sentinel probe is unreachable for three reasons at once —\n\
-         \x20         see `counters::sentinel`."
+         \x20         cell count. It is the last of the nine, and the sentinel beside it answers\n\
+         \x20         since components 40 — see `counters::sentinel`."
     );
 
-    // ── the sentinel, refusing ───────────────────────────────────────────────────────────────────
-    let hook = std::panic::take_hook();
-    std::panic::set_hook(Box::new(|_| {}));
-    let refused = std::panic::catch_unwind(|| {
-        vitui_components::counters::sentinel().get(Counter::Distinct);
+    // ── the sentinel, answering ──────────────────────────────────────────────────────────────────
+    //
+    // **It used to refuse here**, and the refusal was asserted: three barriers, `Unreachable`, and a
+    // `catch_unwind` making sure an answer of 0 could not be mistaken for a green gate. Components
+    // 40 read it off `crate::runner::Pen` instead of off the screen ADR 0023 will not open — the
+    // recorder is the stricter instrument, because a verb that skips the caller's `Ink` makes this
+    // number *larger* — so what is printed is a count, on a surface with a row nobody wrote.
+    let mut driver = Driver::headless(20, 3).expect("a sink cannot fail to attach");
+    let mut pen = vitui_components::runner::Pen::new(20, 3);
+    driver.frame(|cx| {
+        let body = cx.theme().paint(Role::Body);
+        pen.pad_to(cx, 0, 0, "two rows of three", 20, body);
+        pen.pad_to(cx, 0, 1, "written", 20, body);
     });
-    std::panic::set_hook(hook);
-    assert!(refused.is_err(), "the sentinel must refuse, not answer 0");
-    println!(
-        "\nsentinel  refused, as it must: an answer of 0 here would satisfy `no cell never` on"
-    );
-    println!("          every screen for ever. See `REGISTER`'s row 7 and `components 40`.");
+    let left = vitui_components::counters::sentinel(pen.canvas()).get(Counter::Distinct);
+    assert_eq!(left, 20, "the third row of twenty");
+    println!("\nsentinel  {left} cells of 60 written by nobody — the third row of a 20x3 surface,");
+    println!("          which is `no cell never` as a count. See `REGISTER`'s row 7.");
 }
 
 /// Break a long line for the report, on spaces, at `width`.

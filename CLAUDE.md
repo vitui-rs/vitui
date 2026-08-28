@@ -117,7 +117,7 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 39 of 45 tickets resolved (the last on 2026-08-28). `INVENTORY` is spec
+- **`vitui-components` has started**: 40 of 45 tickets resolved (the last on 2026-08-28). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
   answerable by the machine from here on. **O1 is met since ticket 36, O3 since 37, O4 since 38 and
@@ -203,13 +203,71 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   backtrace came first contains both strings; and a file here may not spell `GlyphSet::`, so the
   repertoire axis goes through `chart::raster::RUNGS` — the third caller that const was made public
   for. Register 218 → **223 rows, 208 evaluated**.
-  **Rows 7 and 8 stay red on purpose**: `gallery::shape` and `gallery::swap` print both numbers as
-  measured here — 10 252 unwritten cells of 24 000 at 300x80 on a **steady** frame, and a swap that
-  keeps 0 of 13 748 paints, 64.6% of clusters under a rung change and 99.9% under a tier change — so
-  components 40 and 41 start from a figure taken on this screen. Reading one axis for the other is how
-  a swap gate goes green. **`unwritten` is a steady frame's**, and it has to be: `crate::app::Clears`
-  writes every cell on the first frame and on a resize, so *cells nobody ever wrote* is zero on any
-  screen that clears and says nothing about any component.
+  **Rows 7 and 8 were left red on purpose and row 7 is green since components 40** (below):
+  `gallery::shape` and `gallery::swap` print both numbers as measured here — 10 252 unwritten cells of
+  24 000 at 300x80 on a **steady** frame, and a swap that keeps 0 of 13 748 paints, 64.6% of clusters
+  under a rung change and 99.9% under a tier change — so components 40 and 41 start from a figure
+  taken on this screen. Reading one axis for the other is how a swap gate goes green. **`unwritten` is
+  a steady frame's**, and it has to be: `crate::app::Clears` writes every cell on the first frame and
+  on a resize, so *cells nobody ever wrote* is zero on any screen that clears and says nothing about
+  any component.
+
+- **Register row 7 is green, and the detector spec §2 prescribes could not be built at all**
+  (components ticket 40, 2026-08-28; ADR 0047). *Every cell of the rectangle written at least once* —
+  **0 of 24 000 at 300x80, 0 of 3 000 at 100x30, 0 at eight sizes on every page** — the second of the
+  three red rows whose failing set was a **defect** rather than a missing subject, and the longest
+  pinned. Register 208 → **209 evaluated of 223**, red 3 → **2**.
+  **The sentinel is a reading of a recorded surface and not a probe of the screen.** §2 asks for a
+  stamp on the base layer and a count of survivors; two of `counters::sentinel`'s three barriers were
+  gone and the third is **ADR 0023**, which is a decision. It did not need lifting, and the argument is
+  the pair: `writes == distinct` has always been read off `Tally`, whose union has been in root
+  coordinates since components 19, so **the second half is that same union against the area** — read on
+  the screen the pair would be an equality between two different instruments. The recorder is also the
+  **stricter** one, because a verb that skips the caller's `Ink` makes the number *larger* and fails
+  loudly, where a surface probe counts the engine's own clear and passes quietly. That is components
+  39's own defect, the gallery's clear bypassing the caller's ink.
+  **Three mechanisms and a fourth that is no component's**, which is §2's sentence as four numbers:
+  `panel` hands back `Frame::interior` (**294**), `collapsible` hands back `Disclosure::used`
+  (**432**), a `scrollbar` is three columns of a wider tile because *this caller* narrowed it
+  (**630**), and two slots of a six-by-five grid hold no panel at all (**1 600**). The first two were
+  named in a return value and the gallery discarded it. `gallery::Remainder::LeftAlone` keeps all four
+  runnable on the same twenty-eight call sites and the gate is watched leaving **2 956 cells at 300x80
+  and 145 at 100x30**, attributed per tile rather than as a total — and **at 80x24 it leaves 0**, which
+  is why the sweep is a sweep.
+  **Twenty-six of the twenty-eight already wrote every cell of any rectangle they were handed, and the
+  two that did not are the two overlay owners** — `select` and `file_picker`, **576 cells of a 48x13
+  interior each**, exactly the two whose body is in another layer (§12). **Their remainder could not be
+  named**: §2's third clause is *the cells it does not write are named in its return value* and both
+  return the runtime's `Response`, so writing them is the only reachable answer rather than the chosen
+  one. The paint is the face's, because `press_into` declares the hover award over the whole rectangle
+  — a rectangle a component paints one row of and awards all of is one whose hover repaints cells
+  nobody wrote.
+  **The per-component form runs over the shipped call site and over the constructions**, which is
+  §21's own account of why the row survived: *the per-component forms were report-only across nine to
+  twelve binaries*. `gallery::shot` at five rectangles for each of the twenty-eight, and
+  `tests/golden.rs` over the **thirty-three** constructions at all three rungs — the second was
+  already true and asserted by nothing, and `golden::UNWRITTEN` being `▪` rather than a blank is what
+  makes it a gate rather than a coincidence.
+  **Row 8 did not move with row 7, and §21 pins the two in one sentence** — *the swap excess equal to
+  it on five of six*. `swap` carries **one surface** across the change and the first frame clears, so a
+  cell nobody writes on a *steady* frame is still a cell somebody wrote once: it is inside `written`
+  and counts as `kept`. A rung change at 100x30 keeps **2 005 of 3 000** with row 7 red and with it
+  green, both arms run. What moved is **1 248 cells at 300x80 in the other direction**, because twelve
+  panels are handed the whole of their tile now instead of its first row and `meter` and `slider`
+  **fill** what they are handed with glyphs a repertoire change moves.
+  **`crate::form`'s unwritten tail stays, as the exception §21's third refinement asks to be named.**
+  The form is a **fixture**: its two helpers each write a partition of what they were handed and
+  `block` *returns* the interior it did not write. The tail is what buys two of ticket 06's three
+  measurements, and a gate run over every screen in this crate would have to delete them to go green.
+  **Scene 26 is stood up and its own `inverted_by` had named components 39** — the screen has existed
+  since 39 and the scene went on reading *not played: `components 39` builds the subject*, a citation
+  decayed into naming a resolved ticket. `covers` stays empty (O5 unmoved) and `stands` is every built
+  row of the freeze, which is the answer `scenes_for("checkbox")` had none of before; **five reports
+  asserted counts that moved with it**, found by running all twenty-six, which is components 20's
+  *`cargo test` does not run an example* for the third time.
+  Scenes **30 stood up, 3 unsubjected, 0 red**. The screen writes 24 000 cells at 300x80 against
+  13 748 before, `writes == distinct` and `merges == 0` at every size and page, zero allocations, and
+  the frame is still inside §20's full-screen class.
 
 - **O4 is green — thirteen keyboard contracts as declared data, and *registered* is what the machine
   answers** (components ticket 38, 2026-08-28; ADR 0045). `crate::contract` is the value:
@@ -1392,8 +1450,8 @@ Read these before working, in this order:
    authority. An `architecture.md` beside a spec is the superseded proposal, kept only as the record
    of what was argued.
 2. `CONTEXT.md` — the glossary. Use its terms in code, comments, tickets and commit messages.
-3. `docs/adr/` — 46 decisions that are hard to reverse and surprising without context. 0001–0011 and
-   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0046 the components.
+3. `docs/adr/` — 47 decisions that are hard to reverse and surprising without context. 0001–0011 and
+   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0047 the components.
 4. The impl backlog `README.md` for the layer being worked on — it holds the phase order, the
    blocking edges, and the defects that shaped both.
 
@@ -1413,8 +1471,9 @@ crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key map
                           overlays, the data contract — no scene tree, no reactivity
 crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (28 of 29 built)
                           └ and `gallery`, the assembled screen: 28 panels as a value the
-                            application iterates, which is where O2's two equalities and §21's two
-                            still-red rows are measured (ticket 39)
+                            application iterates, which is where O2's two equalities are measured
+                            (ticket 39), and §21's row 7 — every cell of the rectangle written at
+                            least once, green since ticket 40, with row 8 the one still red
                           └ every built one carries a doc page with a compiled example (O1, ticket 36)
                           └ and, for the thirteen that read a key, a declared keyboard contract whose
                             help is rendered from it and whose other half is a sweep that runs the

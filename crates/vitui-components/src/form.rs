@@ -20,10 +20,20 @@
 //!   fall off the bottom. Two panels, two rows each: **four widgets**, which is the number spec §3
 //!   reports beside `20 804 / 267` against `20 992 / 263`. It is a consequence of `pad_y` and of the
 //!   panel count, not a tuned figure.
-//! - The one that does not overflow is what leaves an **unwritten tail**, which is register row 7's
-//!   red standing — *no cell never* — arriving on a screen instead of in a sentence. It is also what
-//!   makes the two densities' write counts differ at all: a form whose every interior row is written
-//!   covers 24 000 cells at both densities and the comparison says nothing.
+//! - The one that does not overflow is what leaves an **unwritten tail** — *no cell never*, register
+//!   row 7, arriving on a screen instead of in a sentence. It is also what makes the two densities'
+//!   write counts differ at all: a form whose every interior row is written covers 24 000 cells at
+//!   both densities and the comparison says nothing.
+//!
+//!   **Row 7 is green since components 40 and this tail is the named exception, not a hole.** §21's
+//!   own third refinement is *name the exception; do not loosen the gate*, and the exception is that
+//!   this form is a **fixture** rather than a component: the two helpers it is built from each write
+//!   a partition of the rectangle they were handed and `block` *returns* the interior it did not
+//!   write, which is the rule working. What does not write the tail is the screen — this file — and
+//!   it is what buys two of ticket 06's three measurements. A gate run over every screen in this
+//!   crate would have to delete them to go green, which is the trade the refinement exists to
+//!   refuse. The rule is checked where it is a rule: per component in `tests/golden.rs` over the
+//!   thirty-three constructions, and over the assembled gallery in `crate::gallery`.
 //!
 //! # The three arms
 //!
@@ -671,11 +681,17 @@ mod tests {
 
     /// **The form leaves a tail nobody writes, and says how big it is.**
     ///
-    /// Register row 7 — *every cell of the rectangle written at least once* — is pinned red at
-    /// 9 956 cells of 53 280 over six panels of twelve, and its detector is unreachable from this
-    /// crate (ADR 0023). This is the same defect standing on a screen this crate *can* measure, by
-    /// the one route that does not need a cell: the third panel asks for fewer widgets than fit, so
-    /// the rows below them are written by nobody and the model knows it.
+    /// Register row 7 — *every cell of the rectangle written at least once* — was pinned red at
+    /// 9 956 cells of 53 280 over six panels of twelve when this was written, with the note that its
+    /// detector was unreachable from this crate (ADR 0023). **Components 40 inverted it, and this
+    /// tail is deliberately still here**: the count is read off `crate::runner::Pen` — the same
+    /// recorder `distinct` below comes from — and the row's population is *components* and the
+    /// assembled gallery, not every screen this crate can draw. This form is a fixture, and its tail
+    /// is what buys the density pair and the naive differential; see this module's header for why
+    /// that is a named exception rather than a gap.
+    ///
+    /// So what this asserts is unchanged and its subject is not: the third panel asks for fewer
+    /// widgets than fit, the rows below them are written by nobody, and the model knows it.
     #[test]
     fn the_short_panels_tail_is_written_by_nobody_and_the_count_says_so() {
         for (density, writes) in [
@@ -687,7 +703,8 @@ mod tests {
             assert_eq!(run.tally().distinct(), writes);
             assert!(
                 unwritten > 0,
-                "{density:?}: the form covers its screen, so it cannot stand row 7's defect up"
+                "{density:?}: the form covers its screen, so the tail two of ticket 06's three \
+                 measurements rest on is gone"
             );
             assert_eq!(
                 unwritten,

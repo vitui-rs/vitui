@@ -133,9 +133,11 @@ impl Clears {
     /// surface the number is there immediately.
     ///
     /// **It is not a substitute for the partition rule.** Steady frames are untouched — this fires
-    /// only on the transition — so the cells nobody writes are still nobody's, which is register
-    /// row 7 and components 40's to invert. What this closes is the *sequence* half, which is the
-    /// half a caller owns and the half no per-frame count can state.
+    /// only on the transition — so a screen that clears here and leaves cells to nobody on every
+    /// other frame is a screen this verb cannot save. That is register row 7, **green since
+    /// components 40**, and the two are different halves rather than one: this closes the *sequence*
+    /// half, which a caller owns and no per-frame count can state, and the rule closes the frame.
+    /// The 525 cells above are 0 on the shipped gallery now.
     pub fn relaid_into<I: Ink>(&mut self, ink: &mut I, cx: &mut Ctx<'_, '_>, key: u64) -> bool {
         let moved = self.seen != Some(size_of_screen(cx)) || self.key != key;
         self.key = key;

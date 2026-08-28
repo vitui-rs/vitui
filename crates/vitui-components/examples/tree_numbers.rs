@@ -91,10 +91,13 @@ fn scene_list() {
             scene.number, scene.name, word
         );
     }
-    assert_eq!(evaluated, 2, "both stand on `tree`, since components 17");
+    assert_eq!(
+        evaluated, 3,
+        "both stand on `tree` since components 17, and the assembled gallery since components 40"
+    );
     assert_eq!(
         SCENES.iter().filter(|s| s.stands.contains(&"tree")).count(),
-        2
+        3
     );
     println!(
         "\n  Both were pinned red on one fact — `tree` was not declared — and components ticket 17\n  \

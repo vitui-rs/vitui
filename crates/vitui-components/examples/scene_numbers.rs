@@ -249,7 +249,7 @@ fn main() {
     // it because `cargo test` does not run an example**: it is compiled by `cargo clippy
     // --all-targets` and evaluated by nothing. Resyncing them would put the same trap back one
     // number later, so they are deleted rather than corrected, and
-    // `scenes::tests::four_scenes_have_nothing_to_run_over_three_are_red_and_twenty_six_are_stood_up`
+    // `scenes::tests::three_scenes_have_nothing_to_run_over_none_is_red_and_thirty_are_stood_up`
     // owns those figures — it asserts the scene *numbers* and not only their count, which is
     // strictly more than these two lines said. Found by components 20.
 }

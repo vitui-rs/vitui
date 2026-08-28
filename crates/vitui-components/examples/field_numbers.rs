@@ -307,7 +307,10 @@ fn scene_list() {
         "both scenes were pinned red for one ticket and components 24 stood them up, together with \
          the corpus scene they run over"
     );
-    assert_eq!(scenes_for("field").count(), 2);
+    // **Three since components 40**, which stood the assembled gallery up: one screen carrying
+    // every built row of the freeze answers `scenes_for` for all twenty-eight of them, through
+    // `stands` and never through `covers`.
+    assert_eq!(scenes_for("field").count(), 3);
     println!(
         "  `scenes_for(\"field\")` answers {} scenes, and `crate::document::standing()` is {:?}\n",
         scenes_for("field").count(),

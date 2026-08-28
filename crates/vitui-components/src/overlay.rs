@@ -1659,37 +1659,52 @@ mod tests {
     ///
     /// Swept over widths that straddle the label, because a partition that holds where nothing
     /// truncates is a partition that has not been asked the question.
+    ///
+    /// **And over heights, which is components 40's half.** *No cell never* was red for nine tickets
+    /// and this component was one of the two rows of the freeze that did not meet it: handed a
+    /// rectangle taller than its face it wrote **one row of it**, 576 cells of a 48x13 tile left to
+    /// whatever was already there. The other is `crate::files::file_picker` — the two overlay owners,
+    /// which is the family §12 gives its own rules, and not a coincidence: their body is in another
+    /// layer, so a tall rectangle looks to each of them like somebody else's problem.
+    ///
+    /// **The remainder could not be named**, which is what makes writing it the only answer rather
+    /// than the chosen one: §2's third clause is *the cells it does not write are named in its return
+    /// value*, and `select_into` returns the runtime's `Response`, which has no field for a
+    /// rectangle. `crate::disclose`'s `Disclosure::used` is what naming it looks like where the
+    /// return type is this crate's own.
     #[test]
     fn a_shut_selects_face_is_a_partition_of_its_rectangle_at_every_width() {
         for w in 3u16..=24 {
-            let mut driver = Driver::headless(w, 3).expect("a sink attaches");
-            let mut st = SelectState::at(1);
-            let mut popup = PopupState::new();
-            let opts = SelectOpts::default();
-            let mut tally = Tally::new();
-            driver.frame(|cx| {
-                let _ = select_into(
-                    &mut tally,
-                    cx,
-                    OWNER,
-                    Rect::new(0, 0, w, 1),
-                    &mut st,
-                    &mut popup,
-                    &SHORT,
-                    &opts,
+            for h in 1u16..=4 {
+                let mut driver = Driver::headless(w, 4).expect("a sink attaches");
+                let mut st = SelectState::at(1);
+                let mut popup = PopupState::new();
+                let opts = SelectOpts::default();
+                let mut tally = Tally::new();
+                driver.frame(|cx| {
+                    let _ = select_into(
+                        &mut tally,
+                        cx,
+                        OWNER,
+                        Rect::new(0, 0, w, h),
+                        &mut st,
+                        &mut popup,
+                        &SHORT,
+                        &opts,
+                    );
+                });
+                assert_eq!(
+                    tally.writes(),
+                    u64::from(w) * u64::from(h),
+                    "the shut face wrote {} cells into a {w}x{h} rectangle",
+                    tally.writes()
                 );
-            });
-            assert_eq!(
-                tally.writes(),
-                u64::from(w),
-                "the shut face wrote {} cells into {w} columns",
-                tally.writes()
-            );
-            assert_eq!(
-                tally.distinct(),
-                u64::from(w),
-                "{w}: a cell was written twice, which is what padding past the ellipsis does"
-            );
+                assert_eq!(
+                    tally.distinct(),
+                    u64::from(w) * u64::from(h),
+                    "{w}x{h}: a cell was written twice, which is what padding past the ellipsis does"
+                );
+            }
         }
     }
 

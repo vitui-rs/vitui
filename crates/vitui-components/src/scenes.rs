@@ -36,11 +36,19 @@
 //! ([`Scene::owed`] and [`Scene::from_a_survived_defect`]), because the value can hold both and a
 //! count cannot.
 //!
-//! # Four scenes are `Unsubjected`, none is `Red` and twenty-nine are `Evaluated`
+//! # Three scenes are `Unsubjected`, none is `Red` and thirty are `Evaluated`
 //!
-//! The count that is a gate is `tests::four_scenes_have_nothing_to_run_over_none_is_red_and_
-//! twenty_nine_are_stood_up`, which asserts the **numbers** each scene as well as the total; this
+//! The count that is a gate is `tests::three_scenes_have_nothing_to_run_over_none_is_red_and_
+//! thirty_are_stood_up`, which asserts the **numbers** each scene as well as the total; this
 //! heading is a summary of it and the test is the authority.
+//!
+//! **Components ticket 40 stood scene 26 up — the assembled gallery — and it is the first row here
+//! turned by a ticket that is not its own `inverted_by`.** The screen has existed since components
+//! 39 and the scene went on reading *not played: `components 39` builds the subject*, which is a
+//! citation decayed into naming a resolved ticket. What turns it is the scene's own number: *9 956
+//! cells nobody writes* was a prototype's gallery and 10 252 of 24 000 was the shipped one, and both
+//! are 0 now — at every size, on every page, with the spelling that replaced them watched leaving
+//! its exact set behind. The scene's other clause is components 41's and stays a report.
 //!
 //! **Components ticket 32 took the last three**, which components 31 had moved off `Unsubjected`
 //! and onto `Red`, and the direction has been *up* throughout: scenes 23, 24 and 25 — the twenty
@@ -1309,6 +1317,95 @@ const PINS_SCENE_25: [Instrument; 8] = [
     },
 ];
 
+/// The gallery's own file, where the assembled screen lives — the library's and not the
+/// application's, because §21 names two defects to be measured *on the assembled gallery* and a
+/// components gate is `cargo test`.
+const GALLERY: &str = "crates/vitui-components/src/gallery.rs";
+
+/// The gallery's report.
+const GALLERY_NUMBERS: &str = "crates/vitui-components/examples/gallery_numbers.rs";
+
+/// **What stands scene 26 up.**
+///
+/// The assembled gallery, and the number §21 pinned it with is **gone**: *9 956 cells nobody
+/// writes* was the prototype's screen and 10 252 of 24 000 was the shipped one, and components 40
+/// made both 0 — at every size, on every page, with the spelling it replaced watched leaving its
+/// exact set behind. What is on this list is the screen's own gates: the two halves of §2 as one
+/// equality, the per-panel form over the shipped call site, and the drift gate that makes the panel
+/// table the freeze's.
+///
+/// **The scene's other clause is components 41's and stays a report** — *the swap excess equal to it
+/// on five of six* — and components 40 found that on this screen the two are **independent**:
+/// `crate::gallery::swap` carries one surface across the change and the first frame clears, so a cell
+/// nobody writes on a steady frame is inside `written` already and counts as `kept`. At 100x30 a rung
+/// change keeps 2 005 of 3 000 with row 7 red and with it green.
+const PINS_SCENE_26: &[Instrument] = &[
+    Instrument::Unit {
+        file: GALLERY,
+        name: "no_cell_of_the_assembled_gallery_is_written_by_nobody",
+    },
+    Instrument::Unit {
+        file: GALLERY,
+        name: "the_remainder_left_alone_is_three_drawings_and_the_grids_own_slack",
+    },
+    Instrument::Unit {
+        file: GALLERY,
+        name: "every_panel_writes_every_cell_of_the_interior_it_was_handed",
+    },
+    Instrument::Unit {
+        file: GALLERY,
+        name: "every_panel_draws_at_least_one_cell_of_its_own_interior",
+    },
+    Instrument::Unit {
+        file: GALLERY,
+        name: "both_halves_of_o2_are_met_over_the_twenty_eight_built_rows",
+    },
+    Instrument::Unit {
+        file: GALLERY,
+        name: "row_eight_still_has_a_subject_on_this_screen",
+    },
+    Instrument::Report {
+        file: GALLERY_NUMBERS,
+    },
+];
+
+/// **Every built row of the freeze, which is what one assembled gallery stands up.**
+///
+/// Written out because a `const` cannot call a function, and compared with
+/// `crate::gallery::panel_ids()` in `tests::the_gallery_scene_stands_up_every_panel_on_the_screen` —
+/// two lists a test compares, which is this crate's arrangement wherever one of them has to be a
+/// literal (`crate::doc`'s for O1, `crate::contract`'s for O4).
+const STANDS_THE_GALLERY: [&str; 28] = [
+    "text",
+    "panel",
+    "chip",
+    "button",
+    "field",
+    "collection",
+    "table",
+    "tree",
+    "select",
+    "overlay",
+    "scroll_area",
+    "scrollbar",
+    "sticky",
+    "collapsible",
+    "chart",
+    "plot",
+    "checkbox",
+    "radio",
+    "switch",
+    "meter",
+    "sparkline",
+    "rule",
+    "status_bar",
+    "pagination",
+    "form",
+    "slider",
+    "file_picker",
+    "file_preview_pane",
+];
+
 /// **What stands scene 22 up.**
 ///
 /// Everything the screen can be asked, and since components 30 every one of these figures is taken
@@ -2098,13 +2195,20 @@ pub const SCENES: [Scene; 33] = [
         content: Content::Assembled { parts: 12 },
         gestures: &[],
         decided: "9 956 cells nobody writes; the swap excess equal to it on five of six",
+        // **`covers` stays empty and `stands` does not.** §21's row names no component and no axis,
+        // and a scene that plausibly exercises an axis without saying so is not evidence for it —
+        // O5's whole population would stop being enumerable. What the screen does do is put every
+        // built row of the freeze on one surface, which is what `stands` is for.
         covers: &[],
-        stands: &[],
+        stands: &STANDS_THE_GALLERY,
         owed: false,
         from_a_survived_defect: false,
-        standing: Standing::Unsubjected {
-            inverted_by: "components 39",
-        },
+        // **Stood up by components 40, and its own `inverted_by` had named components 39.** The
+        // gallery has existed since 39 and the scene went on saying *not played: `components 39`
+        // builds the subject* — a citation that had decayed into naming a resolved ticket, which is
+        // the near-miss runtime 22 warned about arriving on the scene list. 40 is where it turns
+        // because 40 is the ticket that measures the scene's own number.
+        standing: Standing::Evaluated { by: PINS_SCENE_26 },
         rehearsed_by: &[],
     },
     Scene {
@@ -2668,7 +2772,7 @@ mod tests {
     /// keeps a red row's own report reachable from a test once the list has run out of red rows,
     /// and `crate::gates::Row`'s `Red` arm keeps the register's.
     #[test]
-    fn four_scenes_have_nothing_to_run_over_none_is_red_and_twenty_nine_are_stood_up() {
+    fn three_scenes_have_nothing_to_run_over_none_is_red_and_thirty_are_stood_up() {
         let red: Vec<u8> = SCENES
             .iter()
             .filter(|s| matches!(s.standing, Standing::Red { .. }))
@@ -2702,9 +2806,15 @@ mod tests {
             evaluated,
             vec![
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 24, 25,
-                28, 29, 30, 31, 32, 33
+                26, 28, 29, 30, 31, 32, 33
             ],
-            "the dense screen and its two twins, the collection's **five** — the wheel gate joined \
+            "**Scene 26 is components 40's**, and it is the first row of this list stood up by a \
+             ticket that is not its own `inverted_by`: the gallery has existed since components 39 \
+             and the scene went on reading *not played: `components 39` builds the subject*, which \
+             is a citation decayed into naming a resolved ticket. What turns it is the scene's own \
+             number — *9 956 cells nobody writes* on the prototype's screen and 10 252 of 24 000 on \
+             the shipped one, now 0 at every size and on every page. \
+             The dense screen and its two twins, the collection's **five** — the wheel gate joined \
              the other four when components 20 posted a real notch over the shipped component — \
              the two million-point series with the 175 712 axis pairs, and the table's two: the \
              twelve-column screen and the equality under a horizontal offset, both of which \
@@ -2728,10 +2838,11 @@ mod tests {
         );
         assert_eq!(
             SCENES.len() - evaluated.len() - red.len(),
-            4,
-            "**four, since components 31 moved three off `Unsubjected`.** What is left is the \
-             gallery's two, the two scroll areas with overlay bars — §21's one `(owed)` row — and \
-             the repertoire matrix"
+            3,
+            "**three, since components 40 stood the assembled gallery up.** What is left is the \
+             swap over it — components 41's, and its clause of scene 26 is why the two rows were \
+             never independent — the two scroll areas with overlay bars, which is §21's one \
+             `(owed)` row, and the repertoire matrix"
         );
 
         let mut pinned_to = Vec::new();
@@ -2939,6 +3050,26 @@ mod tests {
         }
     }
 
+    /// **The gallery scene stands up every panel on the screen**, and the two lists are compared
+    /// rather than one of them trusted.
+    ///
+    /// [`STANDS_THE_GALLERY`] has to be a literal — a `const` cannot call a function — so it is the
+    /// same arrangement `crate::doc` uses for O1 and `crate::contract` for O4, and for their reason:
+    /// a list derived from the table it is checked against agrees with it for ever.
+    #[test]
+    fn the_gallery_scene_stands_up_every_panel_on_the_screen() {
+        let scene = SCENES
+            .iter()
+            .find(|s| s.number == 26)
+            .expect("the assembled gallery");
+        assert_eq!(
+            scene.stands.to_vec(),
+            crate::gallery::panel_ids(),
+            "the scene claims a component the screen does not draw, or misses one it does"
+        );
+        assert_eq!(scene.stands.len(), 28, "every built row of the freeze");
+    }
+
     /// **`scenes_for` enumerates from the component's side**, which is criterion 2's shape.
     ///
     /// Components ticket 09's criterion 1: *three scenes registered in the scene list, each
@@ -2950,9 +3081,12 @@ mod tests {
         let collection: Vec<u8> = scenes_for("collection").map(|s| s.number).collect();
         assert_eq!(
             collection,
-            vec![3, 4, 5, 6, 29],
-            "components ticket 11's five: the three that exist because a defect survived every \
-             gate, the three volumes and the narrow collection"
+            vec![3, 4, 5, 6, 26, 29],
+            "components ticket 11's five, and the assembled gallery since components 40 stood scene \
+             26 up: one screen carrying every built row of the freeze answers `scenes_for` for all \
+             twenty-eight of them, through `stands` and never through `covers` — §21's own row for \
+             it names no component and no axis, so it is evidence that a component is *drawn* and \
+             not that an axis has a scene"
         );
 
         // **Criterion 1, and it is the reason the narrow collection is a scene at all**: those five
@@ -2967,7 +3101,11 @@ mod tests {
             .flat_map(|s| s.covers.iter().filter(|(id, _)| *id == "collection"))
             .map(|(_, axis)| *axis)
             .collect();
-        assert_eq!(claimed, vec![Axis::Scrolled, Axis::Shrunk, Axis::Wheeled]);
+        assert_eq!(
+            claimed,
+            vec![Axis::Scrolled, Axis::Shrunk, Axis::Wheeled],
+            "and the gallery adds no pair, which is what keeps O5's population enumerable"
+        );
         let narrow = SCENES
             .iter()
             .find(|s| s.number == 29)
@@ -2977,21 +3115,26 @@ mod tests {
         assert!(matches!(narrow.gestures, [Gesture::Resize { .. }]));
         assert_eq!(
             scenes_for("table").map(|s| s.number).collect::<Vec<_>>(),
-            vec![7, 31],
+            vec![7, 26, 31],
             "components ticket 14's two, and the second answers through `stands` as well as \
-             `covers` because it claims no pair §21's row 7 has not already claimed"
+             `covers` because it claims no pair §21's row 7 has not already claimed. The gallery is \
+             the third"
         );
         assert_eq!(
-            scenes_for("checkbox").count(),
-            0,
-            "a component with no declared axis and no screen has no scene, and that is not a failure"
+            scenes_for("checkbox").map(|s| s.number).collect::<Vec<_>>(),
+            vec![26],
+            "**a component with no declared axis and no screen of its own now has one screen**, \
+             which is what the assembled gallery is for: it was 0 until components 40 stood scene \
+             26 up, and a `checkbox` declares no hostile axis at all, so this answer can only ever \
+             come through `stands`"
         );
         // Criterion 1, for all four of the dense screen's components.
         for id in SUBJECTS {
             assert_eq!(
                 scenes_for(id).map(|s| s.number).collect::<Vec<_>>(),
-                vec![1, 2, 28],
-                "`{id}` does not answer `scenes_for` for the three scenes components 09 stood up"
+                vec![1, 2, 26, 28],
+                "`{id}` does not answer `scenes_for` for the three scenes components 09 stood up, \
+                 or for the assembled gallery components 40 added to every built row's list"
             );
         }
         // And two of them are in **no** `(component, axis)` pair, which is the distinction the two
@@ -3009,8 +3152,9 @@ mod tests {
         for id in crate::preview::SUBJECTS {
             assert_eq!(
                 scenes_for(id).map(|s| s.number).collect::<Vec<_>>(),
-                vec![23, 24, 25],
-                "`{id}` does not answer `scenes_for` for the three preview-pane scenes"
+                vec![23, 24, 25, 26],
+                "`{id}` does not answer `scenes_for` for the three preview-pane scenes and the \
+                 assembled gallery"
             );
         }
         assert_eq!(
@@ -3098,7 +3242,7 @@ mod tests {
     fn a_rehearsal_is_never_what_stands_a_scene_up() {
         // The files where a screen or one of its components is measured. `crate::runner`'s is not
         // one of them, and that is the whole check.
-        const SCREEN_FILES: [&str; 21] = [
+        const SCREEN_FILES: [&str; 23] = [
             DENSE,
             LISTING,
             AREA,
@@ -3138,6 +3282,13 @@ mod tests {
             // over is written beside them rather than declared in `files.rs`.
             PREVIEW,
             PREVIEW_NUMBERS,
+            // **The assembled gallery and its report** (components 39, stood up by 40). The screen
+            // is in the library rather than in the application for §21's own reason — it names two
+            // defects to be measured *on the assembled gallery*, and a components gate is
+            // `cargo test` — so this is the screen's own file in exactly the sense the four above
+            // are.
+            GALLERY,
+            GALLERY_NUMBERS,
         ];
         for scene in SCENES {
             match scene.standing {
@@ -3252,20 +3403,21 @@ mod tests {
         );
         assert_eq!(
             printed.matches("not played: `components ").count(),
-            4,
-            "**four again, since components 31**, which moved the three preview-pane scenes off \
-             `Unsubjected` and onto `Red`, and unchanged by 32, which moved the same three from \
-             `Red` to `Evaluated`. The direction has been up throughout: `Unsubjected` says \
-             *nothing runs*, and a great deal ran on all three before either ticket"
+            3,
+            "**three since components 40**, which stood the assembled gallery up: it was four again \
+             after components 31 moved the three preview-pane scenes off `Unsubjected` and onto \
+             `Red`, and unchanged by 32, which moved the same three from `Red` to `Evaluated`. The \
+             direction has been up throughout: `Unsubjected` says *nothing runs*, and a great deal \
+             ran on all three before either ticket"
         );
         assert_eq!(
             printed
                 .matches("stood up on its own components, by ")
                 .count(),
-            28,
-            "a stood-up scene says what stands it up, rather than reading as unplayed. \
-             Twenty-nine are stood up and twenty-eight say so here, because scene 12 is the one \
-             this report **plays** — a played line carries its own numbers instead"
+            29,
+            "a stood-up scene says what stands it up, rather than reading as unplayed. **Thirty** \
+             are stood up since components 40 and twenty-nine say so here, because scene 12 is the \
+             one this report **plays** — a played line carries its own numbers instead"
         );
         assert_eq!(
             printed.matches("red, pinned: `components ").count(),

@@ -1,5 +1,5 @@
-//! **Components ticket 39's report**: what the assembled gallery costs, §16's nine cells, the two
-//! numbers tickets 40 and 41 are measured on, and what `t` costs on a live frame.
+//! **Components ticket 39's report**: what the assembled gallery costs, §16's nine cells, register
+//! row 7 green and row 8's number beside it, and what `t` costs on a live frame.
 //!
 //! ```text
 //! cargo run --release --example gallery_numbers -p vitui-components
@@ -7,7 +7,7 @@
 //!
 //! # What is here and what is not
 //!
-//! Nothing below is a gate. The gates are `crate::gates::REGISTER` rows 45 and 219–221, and this
+//! Nothing below is a gate. The gates are `crate::gates::REGISTER` rows 7, 45 and 219–223, and this
 //! file is cited beside them as a [`Report`](vitui_components::gates::Instrument::Report) and never
 //! instead of one — components ticket 20's finding, which is that `cargo test` does not run an
 //! example, so an `assert!` here is compiled by `cargo clippy --all-targets` and evaluated by
@@ -20,9 +20,11 @@
 //! - **the nine cells**, where the repertoire axis moves the cluster count, the colour axis moves
 //!   the collapsed-role count, and the paint count moves on neither — which is why the colour half
 //!   is measured on the theme;
-//! - **the two pinned rows' subjects**, unwritten cells and cells that keep the old palette,
-//!   printed so components 40 and 41 start from a figure taken on this screen rather than from a
-//!   prototype's;
+//! - **the two rows §21 pins on this screen**, unwritten cells and cells that keep the old palette.
+//!   Row 7 is **green since components 40** and its number is printed anyway, because a zero with
+//!   the defect's own figure beside it is the only form in which a reader can tell a gate that holds
+//!   from a gate with nothing to hold: `Remainder::LeftAlone` is the spelling it replaced and its
+//!   2 956 cells are one line down. Row 8 is components 41's and still a report;
 //! - **`t`**, which is the whole argument for keeping the key: a theme swap is an import plus a
 //!   resolve, and the criterion states it in nanoseconds because if construction quietly meant *at
 //!   start-up* the key would stutter.
@@ -141,17 +143,23 @@ fn the_traffic_light() {
     );
 }
 
-/// **What components 40 and 41 are measured on.**
+/// **What components 40 and 41 are measured on: row 7 green, row 8 still red.**
 fn the_two_pinned_rows() {
     println!("== register rows 7 and 8, on this screen ==\n");
     for (w, h) in [(300u16, 80u16), (100, 30)] {
         let cells = usize::from(w) * usize::from(h);
         let s = gallery::shape(w, h, 3);
+        // **The arm the gate replaced, printed beside the zero.** Three drawings hand a rectangle
+        // back to their owner and two slots of a six-by-five grid hold no panel at all; a 0 with
+        // nothing beside it cannot be told from a screen the instrument stopped reading.
+        let left = gallery::shape_as(w, h, 3, gallery::Remainder::LeftAlone);
         println!("  {w}x{h}");
         println!(
-            "    row 7  unwritten {:>7} of {cells} cells   {:.1}%",
+            "    row 7  unwritten {:>7} of {cells} cells   {:.1}%   \
+             ({} left alone by the spelling it replaced)",
             s.unwritten,
-            100.0 * s.unwritten as f64 / cells as f64
+            100.0 * s.unwritten as f64 / cells as f64,
+            left.unwritten,
         );
         for change in [Change::Scheme, Change::Rung, Change::Tier] {
             let swap = gallery::swap(w, h, change);
@@ -167,14 +175,23 @@ fn the_two_pinned_rows() {
         }
     }
     println!(
-        "\n  Both are reported and neither is gated: row 7 is components 40's to invert and row 8 is\n  \
-         components 41's. `changed` is printed beside `kept` because `changed > 0` is the gate this\n  \
-         map already got wrong — one cell of 4 800 satisfies it while 3 583 carry the old palette —\n  \
-         and *(on a panel)* is printed beside `changed` because for the **tier** axis that is the\n  \
-         whole of it: the cells a colour depth moves are the ones where the heading prints the\n  \
-         depth's own name, and **not one cell of any panel**. Which is the colour-axis finding\n  \
-         arriving as a count, and the reason a gate on `changed` there could not tell it from the\n  \
-         gallery having stopped redrawing.\n"
+        "\n  **Row 7 is green and gated** since components 40 — swept over sizes and pages in\n  \
+         `gallery::tests`, per construction in `tests/golden.rs` — and printed here with the arm it\n  \
+         replaced beside it. Row 8 is components 41's and is a report.\n\n  \
+         **§21 pins the two rows in one sentence — *the swap excess equal to it on five of six* —\n  \
+         and on this screen they are independent.** `swap` carries one surface across the change and\n  \
+         the first frame clears, so a cell nobody writes on a *steady* frame is still a cell somebody\n  \
+         wrote once: it is inside `written` and it counts as `kept`. At 100x30 a rung change keeps\n  \
+         2 005 of 3 000 with row 7 red and with it green. What moved is 1 248 cells at 300x80, in the\n  \
+         other direction: twelve panels are handed the whole of their tile now instead of its first\n  \
+         row, and `meter` and `slider` **fill** what they are handed with glyphs a rung change moves.\n\n  \
+         `changed` is printed beside `kept` because `changed > 0` is the gate this map already got\n  \
+         wrong — one cell of 4 800 satisfies it while 3 583 carry the old palette — and *(on a\n  \
+         panel)* is printed beside `changed` because for the **tier** axis that is the whole of it:\n  \
+         the cells a colour depth moves are the ones where the heading prints the depth's own name,\n  \
+         and **not one cell of any panel**. Which is the colour-axis finding arriving as a count, and\n  \
+         the reason a gate on `changed` there could not tell it from the gallery having stopped\n  \
+         redrawing.\n"
     );
 }
 

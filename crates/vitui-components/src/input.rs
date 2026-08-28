@@ -1413,6 +1413,23 @@ fn select_shaped<'f, I: Ink>(
         area.w.saturating_sub(MARK),
         paint,
     );
+    // **And the rows below the face, because the face is the rectangle** — §2's second half, which
+    // components 40 found unmet here and in `crate::files::file_picker` and nowhere else on the
+    // freeze: twenty-six of the twenty-eight write every cell of any rectangle they are handed, and
+    // the two that did not are the two overlay owners. **A remainder cannot be named in a
+    // `Response`** — the rule's third clause says *the cells it does not write are named in its
+    // return value*, and the return value here is the runtime's own type, so writing them is the
+    // only reachable answer rather than the chosen one.
+    //
+    // **The paint is the face's and not `Role::Body`**, because `press_into` declares the hover
+    // award over the whole of `area`: a rectangle a component paints one row of and awards all of
+    // is a rectangle whose hover repaints cells nobody wrote.
+    crate::text::pad_rows(
+        ink,
+        cx,
+        Rect::new(area.x, area.y + 1, area.w, area.h.saturating_sub(1)),
+        paint,
+    );
 
     // **A click on the shut face opens it and takes the focus**; a click on the open face shuts it,
     // which is the same gesture and the same one bool.

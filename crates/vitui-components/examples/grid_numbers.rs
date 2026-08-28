@@ -88,8 +88,9 @@ fn scene_list() {
     }
     assert_eq!(
         (red, stood),
-        (0, 2),
-        "both stand on `table` since components 15"
+        (0, 3),
+        "both stand on `table` since components 15, and the assembled gallery is the third since \
+         components 40 stood scene 26 up"
     );
     println!(
         "\n  Both stood up when components 15 declared `table` and rewrote `grid::draw_into` to \
@@ -424,7 +425,11 @@ fn o5() {
     }
     let stands: Vec<u8> = scenes_for("table").map(|s| s.number).collect();
     println!("  `scenes_for(\"table\")` answers {stands:?}");
-    assert_eq!(stands, vec![7, 31]);
+    assert_eq!(
+        stands,
+        vec![7, 26, 31],
+        "and the assembled gallery, which claims no axis pair at all"
+    );
     println!(
         "\n  O5 did not move, and that is correct: §21's row 7 already claimed \
          `(table, scrolled)` and\n  `(table, narrow)`, and scene 31 is a second **instrument** on \

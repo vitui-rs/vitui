@@ -1003,6 +1003,16 @@ where
         area.w.saturating_sub(used),
         paint,
     );
+    // **And the rows below it, for `crate::input::select`'s reason and by the same three lines** —
+    // the face is the rectangle, the hover award covers all of it, and a `Response` has no field a
+    // remainder could be named in. Components 40; the two overlay owners were the only two rows of
+    // the freeze that did not write a rectangle taller than their content.
+    crate::text::pad_rows(
+        ink,
+        cx,
+        Rect::new(area.x, area.y + 1, area.w, area.h.saturating_sub(1)),
+        paint,
+    );
 
     if resp.clicked {
         cx.focus(id);

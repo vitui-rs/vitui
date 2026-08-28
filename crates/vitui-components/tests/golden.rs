@@ -302,6 +302,69 @@ fn no_screen_keeps_a_non_ascii_cluster_at_the_ascii_rung() {
     );
 }
 
+/// **Every construction writes every cell of its own rectangle**, which is register row 7 per
+/// component — the half §21 records as *report-only across nine to twelve binaries*, and the reason
+/// it survived nine tickets.
+///
+/// > `distinct cells touched == area.w * area.h` (no cell never)
+///
+/// The population is the thirty-three screens rather than the twenty-eight rows, because the axis a
+/// construction can be false on is its **own**: `plot` at braille rasterises a rectangle no other
+/// rung of it does. It is asserted here and not reported, and the number it asserts is
+/// `crate::counters::sentinel`'s — the recorder's, for the reason that function's header gives.
+///
+/// **What makes it a gate rather than a coincidence** is that the format already renders such a cell
+/// and has since components 37: `golden::UNWRITTEN` is `▪` and not a blank, *because rendering it as
+/// a space would make a golden agree with itself about the cells the shrink axis is about*. So the
+/// negative arm is a real screen's file and not a contrivance — a shrunk `▪` in any of the
+/// thirty-three would have been visible to a reviewer and invisible to every count.
+///
+/// The assembled form is `vitui_components::gallery`'s own sweep, and the two are not one gate: a
+/// construction alone in its rectangle and twenty-eight of them in a grid fail differently — three
+/// of the gallery's tiles hand a rectangle back to their owner and two of its slots hold no panel at
+/// all.
+#[test]
+fn every_construction_writes_every_cell_of_its_rectangle() {
+    for s in SCREENS {
+        for rung in [Rung::Ascii, Rung::Unicode, Rung::Extended] {
+            let (_, canvas) = golden::shot(s, at(rung));
+            let cells = usize::from(s.size.0) * usize::from(s.size.1);
+            assert_eq!(
+                canvas.written(),
+                cells,
+                "{} at {rung:?}: {} cells of a {}x{} screen were written by nobody, and a cell \
+                 nobody writes keeps what was already in it",
+                s.scene,
+                cells - canvas.written(),
+                s.size.0,
+                s.size.1,
+            );
+        }
+    }
+
+    // **Watched failing, on the one screen this file can shrink without owning a component**: a
+    // rectangle one row taller than the construction was photographed in. `file_preview_pane` is the
+    // multi-frame screen, so the row is chosen on `text` — the simplest drawing on the freeze — and
+    // the count is the row's width.
+    let mut driver = vitui_components::runner::driver_at(24, 6, vitui_runtime::Density::default());
+    let mut pen = vitui_components::runner::Pen::new(24, 6);
+    (screen("text").shoot)(&mut pen, &mut driver);
+    pen.end_frame();
+    let canvas = pen.into_canvas();
+    let own = screen("text").size;
+    assert_ne!(
+        canvas.written(),
+        24 * 6,
+        "the comparison every arm above makes did not fire on a screen that leaves cells behind"
+    );
+    assert_eq!(
+        canvas.written(),
+        usize::from(own.0) * usize::from(own.1),
+        "and what it wrote is exactly its own rectangle — a count off the surface against a count \
+         off the table"
+    );
+}
+
 /// **The legend has twenty-six keys and braille has two hundred and fifty-six states a cell.**
 ///
 /// The one construction on this map whose alphabet can outgrow the format, and the reason `plot`'s

@@ -472,7 +472,9 @@ pub const APPS: [App; 16] = [
                the test of *degradation is resolved at construction* — and `Ctrl+T` is the spelling \
                that still arrives when a focused `field` has eaten the `t`. `Ctrl+G` and `Ctrl+L` \
                walk §16's nine cells, and `Ctrl+L` is where a human watches the traffic light go \
-               monochrome. `--probe` prints the budget measured in the gallery and `--matrix` the \
+               monochrome. `--probe` prints the budget measured in the gallery — with register \
+               row 7's zero and, beside it, what the same screen leaves unwritten when every \
+               remainder is left to whatever was already in the cells — and `--matrix` the \
                nine cells; `--panic` exists for `scripts/gallery-panic-gate.sh` and for nothing else",
         uses: &[
             "gallery::Gallery",
@@ -482,6 +484,8 @@ pub const APPS: [App; 16] = [
             "gallery::matrix",
             "gallery::traffic_light",
             "gallery::shape",
+            "gallery::shape_as",
+            "gallery::Remainder",
             "counters::Tally",
             "ink::Direct",
             "ink::Ink",

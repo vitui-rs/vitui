@@ -1975,6 +1975,8 @@ pub struct Shut {
     pub writes: u64,
     /// Distinct cells touched. **Equal to [`Shut::writes`]**, or a cell was written twice.
     pub distinct: u64,
+    /// How many rows it was handed. See [`shut_faces`].
+    pub h: u16,
 }
 
 /// **The shut face at every width from 1 to 40**, which is §2's rule on the one drawing this
@@ -1987,8 +1989,14 @@ pub struct Shut {
 /// Components 26 found it in `select` and `select` grew a gate; the copy inherited the shape, so it
 /// gets the gate.
 ///
-/// **One row and not a rectangle**, which is the answer `select` gives: the widget is a line, and a
-/// caller handing it a taller rectangle is handing it more than it claims.
+/// **A rectangle and not a row, which is components 40 correcting this sentence.** It read *one row
+/// and not a rectangle, which is the answer `select` gives: the widget is a line, and a caller
+/// handing it a taller rectangle is handing it more than it claims* — and that was the register's
+/// seventh row being red in prose. Handed thirteen rows this component wrote **one**, 576 cells of a
+/// 48x13 tile left to whatever was already in them, and `crate::input::select` did the same: the two
+/// overlay owners were the only two rows of the freeze that did not write every cell of a rectangle
+/// taller than their content. A `Response` has no field a remainder could be named in (§2's third
+/// clause), so the face is the rectangle. Swept over both axes here.
 pub fn shut_faces() -> Vec<Shut> {
     use crate::files::{Entry, PickerBody, PickerOpts, PickerState, file_picker_into};
 
@@ -2005,13 +2013,13 @@ pub fn shut_faces() -> Vec<Shut> {
         .collect();
     let opts = PickerOpts::default();
     let mut out = Vec::new();
-    for w in 1..=40u16 {
+    for (w, h) in (1..=40u16).flat_map(|w| (1..=3u16).map(move |h| (w, h))) {
         let worker = Worker::queueing();
         let task: Task<Doc> = Task::new(&worker);
         let mut body: PickerBody<Doc> = PickerBody::new();
         let mut st = PickerState::new();
         st.choose(entries[2].id);
-        let mut driver = Driver::headless(w, 1).expect("a sink cannot fail to attach");
+        let mut driver = Driver::headless(w, h).expect("a sink cannot fail to attach");
         let mut tally = Tally::new();
         // Two frames and not one: the frame structures take their allocation on the first frame
         // that needs one, so a cold frame is not a frame.
@@ -2021,7 +2029,7 @@ pub fn shut_faces() -> Vec<Shut> {
                 &mut Direct,
                 cx,
                 id,
-                Rect::new(0, 0, w, 1),
+                Rect::new(0, 0, w, h),
                 &mut st,
                 &mut body,
                 &entries,
@@ -2037,7 +2045,7 @@ pub fn shut_faces() -> Vec<Shut> {
                 &mut tally,
                 cx,
                 id,
-                Rect::new(0, 0, w, 1),
+                Rect::new(0, 0, w, h),
                 &mut st,
                 &mut body,
                 &entries,
@@ -2049,6 +2057,7 @@ pub fn shut_faces() -> Vec<Shut> {
         });
         out.push(Shut {
             w,
+            h,
             writes: tally.writes(),
             distinct: tally.distinct(),
         });
@@ -2959,21 +2968,26 @@ mod tests {
     ///
     /// **And the counter is watched seeing it**, on the same three verbs at the same width, because
     /// a pair asserted only in the direction that passes is a pair nobody has watched.
+    ///
+    /// **Over heights as well since components 40**, which is where the other half of §2 met this
+    /// component: the face is the rectangle it was handed and not the first row of it. See
+    /// [`shut_faces`], whose header carried the sentence this corrected.
     #[test]
     fn a_shut_pickers_face_is_a_partition_of_its_row_at_every_width() {
         let faces = shut_faces();
-        assert_eq!(faces.len(), 40);
+        assert_eq!(faces.len(), 120);
         for face in &faces {
             assert_eq!(
                 face.writes,
-                u64::from(face.w),
-                "the shut face left a cell of its row unwritten at width {}",
-                face.w
+                u64::from(face.w) * u64::from(face.h),
+                "the shut face left a cell of its {}x{} rectangle unwritten",
+                face.w,
+                face.h
             );
             assert_eq!(
                 face.distinct, face.writes,
-                "the shut face wrote a cell of its row twice at width {}",
-                face.w
+                "the shut face wrote a cell twice at {}x{}",
+                face.w, face.h
             );
         }
 

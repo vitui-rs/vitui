@@ -93,8 +93,9 @@ fn scene_list() {
         );
     }
     assert_eq!(
-        stood, 2,
-        "both scenes stand on `chart` and `plot`, which components 28 declared"
+        stood, 3,
+        "both scenes stand on `chart` and `plot`, which components 28 declared, and the assembled \
+         gallery is the third since components 40"
     );
     println!(
         "\n  scenes_for(\"chart\") answers {} and scenes_for(\"plot\") answers {}",

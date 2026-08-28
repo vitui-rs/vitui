@@ -55,8 +55,8 @@
 //!   `Evaluated` would be claiming six green gates over an empty population. The count in the line
 //!   below is the authority; this is a summary of it.
 //!
-//! **A hundred and eighteen evaluated, five red, six unreachable, six unsubjected**, and
-//! `tests::a_hundred_and_forty_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next
+//! **Two hundred and nine evaluated, two red, six unreachable, six unsubjected**, and
+//! `tests::two_hundred_and_nine_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next
 //! change a deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
 //! and subjected row 27, the cross-family collapse gate; ticket 07 added five, and none of them
@@ -574,12 +574,22 @@ pub const SPEC_ROWS: usize = 32;
 /// row 30 could not carry because it is `Kind::Count` and O1 is a count *and* a compile outcome —
 /// which is what §21's own `mixed` in the kind column was hiding.
 ///
+/// **Components ticket 40 moved it from two hundred and eight to two hundred and nine, and the one
+/// is an inversion**: row 7, the sentinel — *every cell of the rectangle written at least once* —
+/// which had been pinned red since ticket 03 with its exact failing set. It is the **second** red
+/// row on this register whose failing set was a *defect* rather than a missing subject (row 29 was
+/// the first), and the only one whose prescribed instrument could not be built at all: §2 asks for a
+/// stamp on the base layer and a count of survivors on the composited surface, and ADR 0023 forbids
+/// the readback as a decision. The count is read off `crate::runner::Pen` instead — which is the
+/// instrument the rule's *other* half has always been read off, and the stricter of the two, since a
+/// verb that skips the caller's `Ink` makes it larger rather than smaller.
+///
 /// **Components ticket 38 moved it from a hundred and ninety-nine to two hundred and two**, and
 /// none of the three is an inversion either: rows 216, 217 and 218 are O4's, at the level O4 means
 /// it. Row 30's own instrument compares two lists of *ids*, which is the most a query over the
 /// freeze can ask; the chord-for-chord equality needs a value with a machine in it, and
 /// `crate::contract::Contract::live` is that machine — it runs the shipped component.
-pub const EVALUATED: usize = 208;
+pub const EVALUATED: usize = 209;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
 #[expect(
@@ -779,30 +789,73 @@ pub const REGISTER: [Row; 223] = [
         kind: Kind::Count,
         owner: "C11",
         section: "spec §2",
-        standing: Standing::Red {
+        // **Inverted by components 40, and the detector is not the one spec §2 prescribes.**
+        //
+        // The failing set this row was pinned with, kept because it is the record of what it caught:
+        // *9 956 cells of 53 280 (18.7%) over six panels of twelve — the chip screen 4 189, the
+        // preview pane 2 159, the scroll area 1 799, media 1 286, the chart 496, the collection pair
+        // 27* on the prototype's gallery, and **10 252 of 24 000 at 300x80 and 525 of 3 000 at
+        // 100x30** on the shipped one, which is the figure components 39 left this ticket to start
+        // from. Both are gone; the shipped screen's are 0 at every size and on every page.
+        //
+        // **The sentinel is a reading of a recorded surface and not a probe of the screen.** ADR
+        // 0023 forbids the readback and that is a decision, not a gap — and it does not need
+        // lifting: the rule's *first* half has always been read off `Tally`, whose union has been in
+        // root coordinates since components 19, so the second half is that same union against the
+        // area. Read on the screen, the pair would be an equality between two instruments. And the
+        // recorder is the **stricter** one, because a verb that skips the caller's `Ink` makes the
+        // count larger. So the `Barrier` citation this row carried is struck rather than left
+        // pointing at a line that still exists — runtime 22's own near-miss — and
+        // `crate::counters::sentinel` answers.
+        //
+        // **Three mechanisms and a fourth that is nobody's component**, which is §2's own sentence
+        // arriving as four numbers: `panel` hands back `Frame::interior` (294), `collapsible` hands
+        // back `Disclosure::used` (432), a `scrollbar` is three columns of a wider tile because this
+        // caller narrowed it (630), and two slots of a six-by-five grid hold no panel at all
+        // (1 600). Beside them, the one component-side finding: `select` and `file_picker` wrote
+        // **one row of any rectangle** and their `Response` has no field a remainder could be named
+        // in, so they write it.
+        standing: Standing::Evaluated {
             by: &[
+                // The assembled form, swept over sizes and pages, with the spelling it replaced
+                // watched leaving its exact set behind.
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "no_cell_of_the_assembled_gallery_is_written_by_nobody",
+                },
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "the_remainder_left_alone_is_three_drawings_and_the_grids_own_slack",
+                },
+                // The per-component form, which §21 records as *report-only across nine to twelve
+                // binaries* — over the shipped call site at five rectangles, and over the
+                // thirty-three constructions at all three rungs.
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "every_panel_writes_every_cell_of_the_interior_it_was_handed",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/tests/golden.rs",
+                    name: "every_construction_writes_every_cell_of_its_rectangle",
+                },
+                // The two rows of the freeze that did not meet it, each swept over both axes now.
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/overlay.rs",
+                    name: "a_shut_selects_face_is_a_partition_of_its_rectangle_at_every_width",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/preview.rs",
+                    name: "a_shut_pickers_face_is_a_partition_of_its_row_at_every_width",
+                },
+                // The counter itself, answering, in both directions on one surface.
                 Instrument::Unit {
                     file: "crates/vitui-components/src/counters.rs",
-                    name: "the_sentinel_panics_rather_than_reporting_no_survivors",
+                    name: "the_sentinel_counts_the_cells_no_verb_wrote",
                 },
-                // **The `Rgb` barrier lifted with runtime architecture issue 22 and is struck from
-                // this list rather than left pointing at the line.** `name: "Rgb",` is still in
-                // `ENGINE_NAMES` and the row below it now reads `reachable_as: Some(..)`, so the
-                // citation would have gone on passing while meaning the opposite — which is a
-                // `Barrier` decaying into exactly the citation this arm was added to stop being.
-                // `Theme::custom(fg: Rgb, bg: Rgb)` is callable from this crate now, so the stamp
-                // can be minted; two of `sentinel`'s three barriers remain and the row stays red.
-                Instrument::Barrier {
-                    file: "docs/adr/0023-the-cell-is-never-visible-in-the-public-api.md",
-                    line: "# The cell is never visible in the public API",
+                Instrument::Report {
+                    file: GALLERY_NUMBERS,
                 },
             ],
-            failing: "9 956 cells of 53 280 (18.7%) over six panels of twelve: the chip screen \
-                      4 189, the preview pane 2 159, the scroll area 1 799, media 1 286, the chart \
-                      496, the collection pair 27. And the detector itself is still unreachable \
-                      here — `crate::counters::sentinel` named three barriers, issue 22 lifted the \
-                      first (`Rgb`), and the readback ADR 0023 forbids is the one that matters",
-            inverted_by: "components 40",
         },
     },
     Row {
@@ -2405,8 +2458,8 @@ pub const REGISTER: [Row; 223] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "four_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           twenty_nine_are_stood_up",
+                    name: "three_scenes_have_nothing_to_run_over_none_is_red_and_\
+                           thirty_are_stood_up",
                 },
             ],
         },
@@ -2635,8 +2688,8 @@ pub const REGISTER: [Row; 223] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "four_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           twenty_nine_are_stood_up",
+                    name: "three_scenes_have_nothing_to_run_over_none_is_red_and_\
+                           thirty_are_stood_up",
                 },
             ],
         },
@@ -3049,8 +3102,8 @@ pub const REGISTER: [Row; 223] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "four_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           twenty_nine_are_stood_up",
+                    name: "three_scenes_have_nothing_to_run_over_none_is_red_and_\
+                           thirty_are_stood_up",
                 },
             ],
         },
@@ -3205,8 +3258,8 @@ pub const REGISTER: [Row; 223] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "four_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           twenty_nine_are_stood_up",
+                    name: "three_scenes_have_nothing_to_run_over_none_is_red_and_\
+                           thirty_are_stood_up",
                 },
             ],
         },
@@ -3702,8 +3755,8 @@ pub const REGISTER: [Row; 223] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "four_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           twenty_nine_are_stood_up",
+                    name: "three_scenes_have_nothing_to_run_over_none_is_red_and_\
+                           thirty_are_stood_up",
                 },
             ],
         },
@@ -7965,7 +8018,7 @@ mod tests {
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn two_hundred_and_eight_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn two_hundred_and_nine_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -7981,9 +8034,13 @@ mod tests {
         assert_eq!(evaluated, EVALUATED, "the count §21 asks a test to assert");
         assert_eq!(
             red,
-            vec![7, 8, 112],
-            "the gates that are red and pinned: the sentinel, the palette after a swap and one \
-             defect in another crate. **Row 169 left with components 32**, which declared \
+            vec![8, 112],
+            "the gates that are red and pinned: the palette after a swap and one defect in another \
+             crate. **The sentinel left with components 40** — row 7, the second of the three that \
+             was red on a *defect* rather than on a missing subject, and the only one whose \
+             prescribed detector could not be built at all: ADR 0023 forbids the readback, so the \
+             count is read off `crate::runner::Pen`, which is the instrument the rule's other half \
+             has always been read off and the stricter of the two. **Row 169 left with components 32**, which declared \
              `pub fn file_preview_pane<T, F>(` and `pub fn file_picker<'f, T>(` in `src/files.rs` \
              and rewrote `crate::preview::Screen` to draw through the first of them — and not one \
              of the figures rows 170 to 175 carry moved, which is what a screen written from the \

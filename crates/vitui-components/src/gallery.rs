@@ -56,13 +56,29 @@
 //! runtime 22 warned about arriving on this register: *a `Barrier` citation that still passes while
 //! meaning the opposite*. The row inverts here, because this ticket's own criterion is that matrix.
 //!
-//! # What is deliberately **not** done here
+//! # Register row 7 is green here and row 8 is not
 //!
-//! Register rows 7 and 8 stay red. This ticket delivers the screen they are measured on; components
-//! 40 inverts the sentinel and components 41 the palette swap. [`shape`] and [`swap`] print both
-//! numbers as
-//! they are measured on this screen, so that the two tickets start from a figure rather than from a
-//! prototype's — which is the discipline every other row of this crate's map has needed.
+//! Components 39 delivered the screen and left both rows red with their figures printed on it;
+//! **components 40 inverted row 7** — *every cell of the rectangle written at least once* — and row 8
+//! is components 41's. What the second half of §2 cost this screen is four numbers and three
+//! mechanisms:
+//!
+//! | | cells at 300x80 | who owns it |
+//! |---|---|---|
+//! | `draws::panel` | 294 | `Frame::interior`: a `block` returns the rectangle it did not write |
+//! | `draws::scrollbar` | 630 | this module's own narrowing — a bar is three columns of a wider tile |
+//! | `draws::collapsible` | 432 | `Disclosure::used`: every row below the section is the caller's |
+//! | two slots with no panel | 1 600 | the grid's: twenty-eight panels in a six-by-five grid |
+//!
+//! `draws::rest` is where the first three meet and `tiles_into` writes the fourth, and
+//! [`Remainder`] keeps the spelling they replaced runnable so the gate can be watched failing. **The
+//! other twenty-five panels are handed the whole of their tile's interior and fill it themselves**,
+//! which is §2's *a component handed a rectangle writes all of that* on the screen rather than in a
+//! sentence — twenty-six of the twenty-eight already did, and the two that did not were `select` and
+//! `file_picker`, whose remainder no `Response` could name.
+//!
+//! [`swap`] still prints row 8's number, and components 40 measured that the two rows are
+//! **independent** here: see [`swap`] itself.
 
 use std::fmt::Write as _;
 
@@ -368,6 +384,28 @@ pub fn panel_ids() -> Vec<&'static str> {
 
 // ── the state ────────────────────────────────────────────────────────────────────────────────────
 
+/// **The one axis this screen can be false on that is neither a key nor a size**, as one value.
+///
+/// One field on [`Bag`] rather than a second tile loop in [`defective`], which is this crate's own
+/// arrangement wherever a refused spelling has to stay runnable — `crate::collect::TreeShape`,
+/// `crate::input::SelectShape`, `crate::disclose`'s `Shape`. Its reason is a reviewer's diff: the
+/// shipped build and the refused one are **one line apart** and draw through the same twenty-eight
+/// call sites, so a gate over the defect is a gate over the code that replaced it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum Remainder {
+    /// **The rule.** A rectangle a drawing did not write is written by the owner that handed it
+    /// over: spec §2's second half, and `draws::rest` is where the three of them meet.
+    #[default]
+    Written,
+    /// **The defect**, and the spelling components 40 replaced. `crate::app::Clears` writes every
+    /// cell on the first frame and on a resize, so what is left alone here is left alone on a
+    /// *steady* frame — and a cell nobody writes keeps what was already there, which on `Ctrl+N` is
+    /// the panel that used to be in that tile. [`shape_as`], [`shot_as`], [`screen`] and [`swap_as`]
+    /// take this arm, and `tests::the_remainder_left_alone_is_three_drawings_and_the_grids_own_slack`
+    /// is the exact set.
+    LeftAlone,
+}
+
 /// **Everything the twenty-eight panels keep between frames.**
 ///
 /// One value the caller owns, because the runtime has no retained structure (ADR 0012): what
@@ -401,6 +439,7 @@ pub struct Bag {
     pane: PaneState<Doc>,
     pane_task: Task<Doc>,
     pane_key: u64,
+    remainder: Remainder,
 }
 
 impl Bag {
@@ -447,6 +486,7 @@ impl Bag {
             pane: PaneState::new(),
             pane_task,
             pane_key: 7,
+            remainder: Remainder::Written,
         }
     }
 
@@ -824,14 +864,18 @@ impl Gallery {
         //
         // A resize is `Clears`'s own trigger and it is not the only one here: this screen pages
         // twenty-eight panels through twelve tiles, so `Ctrl+N` puts a **different component in the
-        // same rectangle**, and §2's second half is not met — 525 cells of 3 000 at 100x30 are
-        // written by nobody, and a cell nobody writes keeps what was already there. On `Ctrl+N` that
-        // was a `radio` panel with a `collection`'s rows still inside it.
+        // same rectangle**. When this was written §2's second half was not met — 525 cells of 3 000
+        // at 100x30 written by nobody, and on `Ctrl+N` that was a `radio` panel with a
+        // `collection`'s rows still inside it.
         //
         // **This is not the partition rule and does not stand in for it.** It fires on the
-        // transition frame only, so a steady frame is untouched and the cells nobody writes are
-        // still nobody's — register row 7, components 40's to invert. What it closes is the
-        // *sequence* half, which is the half a caller owns.
+        // transition frame only, so a steady frame is untouched — and since components 40 a steady
+        // frame writes every cell of itself (register row 7, 0 at every size and on every page),
+        // which means residue has nowhere left to survive on *this* screen. What this closes is the
+        // *sequence* half: `crate::app::Clears` is a guarantee `crate::app` makes to any caller, and
+        // the frame it fires on is the one where the **terminal** rather than a component decided
+        // what a cell held. `tests::a_carried_surface_after_a_change_equals_a_fresh_one` is what
+        // would notice either half going away.
         //
         // The theme is in the key rather than read from `Ctx::theme_changed`, because a value that
         // moved is a fact and a flag is a report of one — and the density, which changes rectangles
@@ -1020,6 +1064,24 @@ fn tiles_into<'f, I: Ink>(
         });
         drawn += 1;
     }
+    // **The slots with no panel in them, which are the grid's own remainder.**
+    //
+    // `grid` answers `cols x rows` and the last page is short: twenty-eight panels in a six-by-five
+    // grid leave **two tiles of 50x16 — 1 600 cells — that no panel is ever drawn into**, and
+    // `tests::the_tiles_tile_the_grid_exactly_at_every_size` proves they are inside the rectangle
+    // this loop was handed rather than outside it. A cell nobody writes keeps what was there, and on
+    // `Ctrl+N` what was there is the previous page's panel; this is the steady-frame half of the same
+    // sentence `crate::app::Clears` closes for the transition frame (§2, register row 7).
+    if bag.remainder == Remainder::Written {
+        for slot in drawn..(cols as usize * rows as usize) {
+            let here = tile(area, cols, rows, slot as u16);
+            if here.is_empty() {
+                continue;
+            }
+            let paint = cx.theme().paint(Role::Body);
+            crate::text::pad_rows(ink, cx, here, paint);
+        }
+    }
     drawn
 }
 
@@ -1073,13 +1135,17 @@ mod draws {
     }
 
     pub fn panel(
-        _b: &mut Bag,
+        b: &mut Bag,
         _o: &mut Owners<'_>,
         ink: &mut Sink<'_>,
         cx: &mut Ctx<'_, '_>,
         r: Rect,
     ) {
-        let _ = panel_into(ink, cx, r, "General", &PanelOpts::default());
+        let frame = panel_into(ink, cx, r, "General", &PanelOpts::default());
+        // **A `block` returns the rectangle it did not write** (spec §3), and the owner writes it.
+        // This is §2's second half in the one shape the rule states outright, and the panel inside a
+        // panel is where the gallery meets it: 294 cells of a 50x15 tile.
+        rest(b, ink, cx, frame.interior);
     }
 
     pub fn chip(
@@ -1089,7 +1155,7 @@ mod draws {
         cx: &mut Ctx<'_, '_>,
         r: Rect,
     ) {
-        let _ = chip_into(ink, cx, one_row(r), "draft", &ChipOpts::default());
+        let _ = chip_into(ink, cx, r, "draft", &ChipOpts::default());
     }
 
     pub fn button(
@@ -1099,7 +1165,7 @@ mod draws {
         cx: &mut Ctx<'_, '_>,
         r: Rect,
     ) {
-        let _ = button_into(ink, cx, one_row(r), "Save", &ButtonOpts::default());
+        let _ = button_into(ink, cx, r, "Save", &ButtonOpts::default());
     }
 
     pub fn field(
@@ -1207,7 +1273,7 @@ mod draws {
             ink,
             cx,
             id,
-            one_row(r),
+            r,
             &mut b.select,
             popup,
             &OPTIONS,
@@ -1282,7 +1348,7 @@ mod draws {
     }
 
     pub fn scrollbar(
-        _b: &mut Bag,
+        b: &mut Bag,
         _o: &mut Owners<'_>,
         ink: &mut Sink<'_>,
         cx: &mut Ctx<'_, '_>,
@@ -1296,6 +1362,20 @@ mod draws {
         };
         let bar = Rect::new(r.x, r.y, 3.min(r.w), r.h);
         let _ = scrollbar_into(ink, cx, id, bar, span, &ScrollbarOpts::default());
+        // **The narrowing is this module's, so the remainder is too.** A bar is three columns wide
+        // whatever it is offered — `scrollbar_into` writes every cell of the rectangle it is handed
+        // — so the forty-five columns beside it are the gallery's, and nobody wrote them.
+        rest(
+            b,
+            ink,
+            cx,
+            Rect::new(
+                bar.x + i32::from(bar.w),
+                r.y,
+                r.w.saturating_sub(bar.w),
+                r.h,
+            ),
+        );
     }
 
     /// **The band, which is all `sticky` is** (spec §9): the header shares `x` with a body scrolled
@@ -1335,7 +1415,7 @@ mod draws {
         cx: &mut Ctx<'_, '_>,
         r: Rect,
     ) {
-        let _ = collapsible_into(
+        let shown = collapsible_into(
             ink,
             cx,
             r,
@@ -1350,6 +1430,22 @@ mod draws {
                     ink.pad_to(cx, 0, i32::from(y), NAMES[usize::from(y)], w, paint);
                 }
             },
+        );
+        // **`Disclosure::used` is the mechanism and this is its one caller on the screen**: a
+        // section occupies its header plus its body's height, *every row below is the caller's, and
+        // this is how it is named*. A caller that reads its tail from the height the section had
+        // before a collapse leaves 240 cells of the old body standing (§8); a caller that reads it
+        // and does nothing leaves them unwritten, which is the same cells and the other defect.
+        rest(
+            b,
+            ink,
+            cx,
+            Rect::new(
+                r.x,
+                r.y + i32::from(shown.used),
+                r.w,
+                r.h.saturating_sub(shown.used),
+            ),
         );
     }
 
@@ -1390,7 +1486,7 @@ mod draws {
             kind: Toggle::Check,
             ..Default::default()
         };
-        let _ = toggle_into(ink, cx, one_row(r), "enabled", &mut b.checkbox, &opts);
+        let _ = toggle_into(ink, cx, r, "enabled", &mut b.checkbox, &opts);
     }
 
     pub fn radio(
@@ -1404,7 +1500,7 @@ mod draws {
             kind: Toggle::Radio,
             ..Default::default()
         };
-        let _ = toggle_into(ink, cx, one_row(r), "enabled", &mut b.radio, &opts);
+        let _ = toggle_into(ink, cx, r, "enabled", &mut b.radio, &opts);
     }
 
     pub fn switch(
@@ -1418,7 +1514,7 @@ mod draws {
             kind: Toggle::Switch,
             ..Default::default()
         };
-        let _ = toggle_into(ink, cx, one_row(r), "enabled", &mut b.switch, &opts);
+        let _ = toggle_into(ink, cx, r, "enabled", &mut b.switch, &opts);
     }
 
     pub fn meter(
@@ -1428,7 +1524,7 @@ mod draws {
         cx: &mut Ctx<'_, '_>,
         r: Rect,
     ) {
-        let _ = meter_into(ink, cx, one_row(r), b.meter, &MeterOpts::default());
+        let _ = meter_into(ink, cx, r, b.meter, &MeterOpts::default());
     }
 
     pub fn sparkline(
@@ -1451,7 +1547,7 @@ mod draws {
         cx: &mut Ctx<'_, '_>,
         r: Rect,
     ) {
-        let _ = rule_into(ink, cx, one_row(r), " limits ", &RuleOpts::default());
+        let _ = rule_into(ink, cx, r, " limits ", &RuleOpts::default());
     }
 
     pub fn status_bar(
@@ -1464,7 +1560,7 @@ mod draws {
         let _ = status_bar_into(
             ink,
             cx,
-            one_row(r),
+            r,
             &["ready", "3 of 9"],
             (0, 0),
             &StatusOpts::default(),
@@ -1478,7 +1574,7 @@ mod draws {
         cx: &mut Ctx<'_, '_>,
         r: Rect,
     ) {
-        let _ = pagination_into(ink, cx, one_row(r), &mut b.pager, 9, &PageOpts::default());
+        let _ = pagination_into(ink, cx, r, &mut b.pager, 9, &PageOpts::default());
     }
 
     pub fn form(
@@ -1502,7 +1598,7 @@ mod draws {
         cx: &mut Ctx<'_, '_>,
         r: Rect,
     ) {
-        let _ = slider_into(ink, cx, one_row(r), &mut b.slider, &SliderOpts::default());
+        let _ = slider_into(ink, cx, r, &mut b.slider, &SliderOpts::default());
     }
 
     /// **Shut, one row** — [`select`]'s reason one family over.
@@ -1522,7 +1618,7 @@ mod draws {
             ink,
             cx,
             id,
-            one_row(r),
+            r,
             &mut b.picker,
             body,
             o.files,
@@ -1571,9 +1667,21 @@ mod draws {
         );
     }
 
-    /// The top row of an interior, for the eleven components whose drawing is one row.
-    const fn one_row(r: Rect) -> Rect {
-        Rect::new(r.x, r.y, r.w, 1)
+    /// **The rectangle a drawing was handed and did not write, written by its owner.**
+    ///
+    /// Three of the twenty-eight hand part of their tile back, each by the mechanism spec §2's rule
+    /// names — [`panel`] gets `Frame::interior`, [`collapsible`] gets `Disclosure::used`, and
+    /// [`scrollbar`] is handed a three-column bar out of a wider rectangle by *this* module. The
+    /// remainder is the owner's, and the owner is here.
+    ///
+    /// `Role::Body` and not the panel's face, because what is left of a panel's interior is the
+    /// panel's background — the same paint the one clear at the top of the frame writes.
+    fn rest(b: &Bag, ink: &mut Sink<'_>, cx: &mut Ctx<'_, '_>, rest: Rect) {
+        if b.remainder == Remainder::LeftAlone {
+            return;
+        }
+        let paint = cx.theme().paint(Role::Body);
+        crate::text::pad_rows(ink, cx, rest, paint);
     }
 }
 
@@ -1596,8 +1704,9 @@ pub struct Shape {
     pub stops: usize,
     /// Widgets that arrived under an id another widget had already claimed.
     pub merges: u32,
-    /// **Cells no verb wrote on the frame measured.** Register row 7's subject, reported and not
-    /// gated — components 40 owns it.
+    /// **Cells no verb wrote on the frame measured.** Register row 7, **green since components
+    /// 40** — `tests::no_cell_of_the_assembled_gallery_is_written_by_nobody` is the sweep and
+    /// [`Remainder::LeftAlone`] is the arm it is watched failing on.
     ///
     /// A *steady* frame, and the distinction is the whole number: `crate::app::Clears` writes every
     /// cell of the screen on the first frame and on a resize, so *cells nobody ever wrote* is zero
@@ -1611,15 +1720,80 @@ pub struct Shape {
 /// The instrument is [`crate::runner::Pen`], so the numbers are of the shipped drawing and not of a
 /// copy: every panel routes through the same `Ink` an application's does.
 pub fn shape(w: u16, h: u16, frames: u32) -> Shape {
+    shape_as(w, h, frames, Remainder::Written)
+}
+
+/// [`shape`], at either arm of [`Remainder`]. The defect's own numbers come out of here.
+pub fn shape_as(w: u16, h: u16, frames: u32, remainder: Remainder) -> Shape {
+    let (gallery, driver, pen) = play(w, h, 0, frames, remainder);
+    read_shape(&gallery, &driver, &pen, w, h)
+}
+
+/// [`shape_as`], on one page of the twenty-eight.
+///
+/// **A page is a different set of drawings in the same rectangles**, so §2's second half is a
+/// different claim on each of them — and the two tiles with no panel in them exist on the last page
+/// of a grid that does not divide and nowhere else.
+///
+/// Three frames, which is the warm-up the two file components need: the answer arrives on a frame
+/// after the one that asked (spec §15).
+pub fn shape_on(w: u16, h: u16, page: usize, remainder: Remainder) -> Shape {
+    let (gallery, driver, pen) = play(w, h, page, 3, remainder);
+    read_shape(&gallery, &driver, &pen, w, h)
+}
+
+/// The eight counters of one recorded frame.
+fn read_shape(
+    gallery: &Gallery,
+    driver: &Driver,
+    pen: &crate::runner::Pen,
+    w: u16,
+    h: u16,
+) -> Shape {
+    let cells = usize::from(w) * usize::from(h);
+    Shape {
+        panels: gallery.shown(),
+        writes: pen.tally().writes(),
+        distinct: pen.tally().distinct(),
+        verbs: pen.tally().verbs(),
+        regions: driver.inspect().hits().len(),
+        stops: driver.inspect().stop_count(),
+        merges: driver.inspect().ids().merges(),
+        unwritten: cells - pen.canvas().written(),
+    }
+}
+
+/// **The recorded surface [`shape`] counts** — for a gate that has to say *where* the cells nobody
+/// wrote are, and not only how many there were.
+///
+/// Register row 7's failing set was a table of six panels, and a total cannot be checked against
+/// one: `tests::the_remainder_left_alone_is_three_drawings_and_the_grids_own_slack` attributes every
+/// cell of it to the tile it is in.
+pub fn screen(w: u16, h: u16, frames: u32, remainder: Remainder) -> crate::runner::Canvas {
+    play(w, h, 0, frames, remainder).2.into_canvas()
+}
+
+/// **Warmed, then measured on a fresh recorder.**
+///
+/// The warm frames are what the two file components need — the answer arrives on a frame after the
+/// one that asked (spec §15) — and the fresh recorder is what makes [`Shape::unwritten`] a **steady
+/// frame's** number: `crate::app::Clears` writes every cell of the screen on the first frame and on
+/// a resize, so a recorder carried across that frame answers *nobody ever left a cell alone*, which
+/// is zero on any screen that clears and says nothing about any component.
+fn play(
+    w: u16,
+    h: u16,
+    page: usize,
+    frames: u32,
+    remainder: Remainder,
+) -> (Gallery, Driver, crate::runner::Pen) {
     let mut driver = crate::runner::driver_at(w, h, Density::default());
     let mut gallery = Gallery::new(Worker::queueing());
+    gallery.bag.remainder = remainder;
+    for _ in 0..page {
+        gallery.next_page(w, h);
+    }
     driver.set_theme(*gallery.theme());
-    // **Warmed, then measured on a fresh recorder.** The warm frames are what the two file
-    // components need — the answer arrives on a frame after the one that asked (spec §15) — and the
-    // fresh recorder is what makes `unwritten` a **steady frame's** number: `crate::app::Clears`
-    // writes every cell of the screen on the first frame and on a resize, so a recorder carried
-    // across that frame answers *nobody ever left a cell alone*, which is zero on any screen that
-    // clears and says nothing about any component.
     let mut warm = crate::runner::Pen::new(w, h);
     for _ in 0..frames.max(2) - 1 {
         gallery.bag.answer_queued();
@@ -1633,18 +1807,7 @@ pub fn shape(w: u16, h: u16, frames: u32) -> Shape {
         let mut sink: Sink<'_> = &mut pen;
         driver.frame(|cx| gallery.ui_into(&mut sink, cx, ""));
     }
-    let cells = usize::from(w) * usize::from(h);
-    let written = pen.canvas().written();
-    Shape {
-        panels: gallery.shown(),
-        writes: pen.tally().writes(),
-        distinct: pen.tally().distinct(),
-        verbs: pen.tally().verbs(),
-        regions: driver.inspect().hits().len(),
-        stops: driver.inspect().stop_count(),
-        merges: driver.inspect().ids().merges(),
-        unwritten: cells - written,
-    }
+    (gallery, driver, pen)
 }
 
 /// **One named panel, photographed alone over `w x h`.**
@@ -1653,8 +1816,21 @@ pub fn shape(w: u16, h: u16, frames: u32) -> Shape {
 /// is what the preview pane needs — the answer arrives on a frame after the one that asked (spec
 /// §15).
 pub fn shot(id: &str, w: u16, h: u16, frames: u32) -> crate::runner::Canvas {
+    shot_as(id, w, h, frames, Remainder::Written)
+}
+
+/// [`shot`], at either arm of [`Remainder`] — which is how the per-panel half of register row 7 is
+/// watched failing on the drawing that owns each cell of it.
+pub fn shot_as(
+    id: &str,
+    w: u16,
+    h: u16,
+    frames: u32,
+    remainder: Remainder,
+) -> crate::runner::Canvas {
     let mut driver = crate::runner::driver_at(w, h, Density::default());
     let mut gallery = Gallery::new(Worker::queueing());
+    gallery.bag.remainder = remainder;
     driver.set_theme(*gallery.theme());
     let mut pen = crate::runner::Pen::new(w, h);
     let mut found = false;
@@ -1719,8 +1895,18 @@ pub struct Swap {
 /// **`changed` is printed beside `kept` because `changed > 0` is the gate this map already got
 /// wrong**: one cell of 4 800 satisfies it while 3 583 carry the old palette (§21's refinement 1).
 pub fn swap(w: u16, h: u16, change: Change) -> Swap {
+    swap_as(w, h, change, Remainder::Written)
+}
+
+/// [`swap`], at either arm of [`Remainder`] — which is how *the two rows are independent* stops
+/// being a sentence. §21 pins rows 7 and 8 together (*the swap excess equal to it on five of six*)
+/// and on this screen closing the first moves nothing in the second: the surface is carried across
+/// the change and the first frame clears, so a cell nobody writes on a steady frame is inside
+/// `written` already.
+pub fn swap_as(w: u16, h: u16, change: Change, remainder: Remainder) -> Swap {
     let mut driver = crate::runner::driver_at(w, h, Density::default());
     let mut gallery = Gallery::new(Worker::queueing());
+    gallery.bag.remainder = remainder;
     driver.set_theme(*gallery.theme());
     // **One surface, carried across the change, which is what a terminal is.**
     //
@@ -1728,9 +1914,14 @@ pub fn swap(w: u16, h: u16, change: Change) -> Swap {
     // gate over it was green while `Ctrl+N` put the previous page inside the new page's frames on a
     // real screen. A recorder that starts blank cannot see residue — which is
     // `crate::golden`'s own note about a multi-frame shot, in as many words — and residue is the
-    // entire subject of register rows 7 and 8. Read on one carried surface the number is there
-    // immediately: 525 cells of 3 000 keep the old palette at 100x30, and it is the *same* 525 that
-    // `Shape::unwritten` counts.
+    // entire subject of register rows 7 and 8.
+    //
+    // **And it is why this number never depended on row 7**, which §21 states the other way round
+    // (*the swap excess equal to it on five of six*, on a prototype's gallery). The surface is
+    // carried and the first frame **clears**, so a cell nobody writes on a steady frame is still a
+    // cell somebody wrote once: it is inside `written` and it counts as `kept`. Components 40 turned
+    // every one of those cells into a pad and `kept` at 100x30 did not move by one — 2 005 of 3 000
+    // under a rung change either way.
     let mut pen = crate::runner::Pen::new(w, h);
     let frame = |gallery: &mut Gallery, driver: &mut Driver, pen: &mut crate::runner::Pen| {
         gallery.bag.answer_queued();
@@ -2592,10 +2783,16 @@ mod tests {
     /// **A carried surface after a change equals a fresh surface of what it changed to.**
     ///
     /// The equality residue means, and the one this module shipped without. A page change puts a
-    /// **different component in the same rectangle**, and §2's second half is not met on this screen
-    /// — 525 cells of 3 000 at 100x30 are written by nobody — so `Ctrl+N` left the previous page
-    /// inside the new page's frames: a `radio` panel with a `collection`'s rows in it, on a screen
-    /// whose every gate was green.
+    /// **different component in the same rectangle**, and when this was written §2's second half was
+    /// not met on this screen — 525 cells of 3 000 at 100x30 written by nobody — so `Ctrl+N` left the
+    /// previous page inside the new page's frames: a `radio` panel with a `collection`'s rows in it,
+    /// on a screen whose every gate was green.
+    ///
+    /// **It holds for two reasons now and it did for one.** Components 40 closed the frame half, so a
+    /// page writes every cell of the screen and cannot inherit anything; the clear at the top of
+    /// [`Gallery::ui_into`] closes the *sequence* half, which is a caller's guarantee about the frame
+    /// where the **terminal** rather than a component decided what a cell held. This equality is what
+    /// would notice either one going away.
     ///
     /// **The reason every gate was green is the instrument, and it is the shape this crate keeps
     /// meeting**: [`swap`] rendered the *after* picture onto a **fresh** [`crate::runner::Pen`], and
@@ -2704,21 +2901,209 @@ mod tests {
         );
     }
 
-    /// **What this ticket delivers rather than gates**, printed by `examples/gallery_numbers.rs` and
-    /// asserted here only for the shape a later ticket has to move.
+    /// **No cell of the assembled gallery is written by nobody**, at every size and on every page.
     ///
-    /// Register rows 7 and 8 are pinned red with components 40 and 41 named. This asserts that both
-    /// numbers are **non-trivial on this screen** — a screen where nothing is unwritten and nothing
-    /// keeps a stale palette would leave those two tickets with no subject, and a screen where
-    /// *everything* does would mean the gallery had stopped drawing.
+    /// Register row 7, and this is the half §21 states over the assembled screen: *distinct cells
+    /// touched == area.w * area.h*. It was pinned red for nine tickets with **10 252 cells of
+    /// 24 000 at 300x80 and 525 of 3 000 at 100x30** as its failing set, and the pin was on this
+    /// screen since components 39 built it.
+    ///
+    /// # The detector is the recorder and not the sentinel, and that is the finding
+    ///
+    /// Spec §2 prescribes a **sentinel**: stamp a paint no role can produce over the base layer,
+    /// draw one more frame, count the cells still carrying it. Two of its three barriers are gone
+    /// and the third is a decision — ADR 0023, *the cell is never visible in the public API* — so
+    /// counting survivors on the composited surface has no expression to write, in this crate or in
+    /// the engine's own callers. It does not need one:
+    ///
+    /// - **The rule's first half has always been read off the recorder.** `writes == distinct` is
+    ///   `Tally`'s two counters, and `distinct` has unioned in the coordinates of the frame's root
+    ///   since components 19. *The second half is that same union against the area* — so read on the
+    ///   screen it would be an equality between two different instruments, which is what makes the
+    ///   pair a pair.
+    /// - **The recorder is the stricter of the two.** A verb that does not go through the caller's
+    ///   `Ink` is invisible to it, so it **under**-counts what was written and fails loudly; a
+    ///   surface probe counts the engine's own clear and passes quietly. The gallery's clear was
+    ///   bypassing the ink until components 39 and this is the gate that would have caught it.
+    ///
+    /// So the number this asserts is [`Shape::unwritten`], `crate::runner::Pen`'s, and
+    /// [`crate::counters::sentinel`] is the same question asked of a canvas.
+    ///
+    /// **Swept over sizes and pages**, because a page is a different set of twelve drawings in the
+    /// same rectangles and the grid is a different shape at every width: the two empty tiles of a
+    /// six-by-five grid exist at 300x80 and at no other size on this list.
     #[test]
-    fn the_two_pinned_rows_have_a_subject_on_this_screen() {
-        let (w, h) = (100u16, 30u16);
-        let cells = usize::from(w) * usize::from(h);
-        let shape = shape(w, h, 3);
-        assert!(shape.unwritten > 0 && shape.unwritten < cells, "{shape:?}");
-        assert_eq!(shape.writes, shape.distinct, "a cell is written twice");
+    fn no_cell_of_the_assembled_gallery_is_written_by_nobody() {
+        for (w, h) in [
+            (300u16, 80u16),
+            (200, 60),
+            (137, 47),
+            (100, 30),
+            (79, 24),
+            (52, 17),
+            (26, 9),
+            (25, 8),
+        ] {
+            let cells = usize::from(w) * usize::from(h);
+            for page in 0..pages(w, h) {
+                let shape = shape_on(w, h, page, Remainder::Written);
+                assert_eq!(
+                    shape.unwritten, 0,
+                    "{w}x{h} page {page}: {} cells of {cells} keep whatever was already in them, \
+                     which on `Ctrl+N` is the panel that used to be in that tile",
+                    shape.unwritten
+                );
+                // **Both halves at once, or the fix is a trade.** A blanket fill would make the
+                // first number 0 and the second one large, which is the defect §2's rule was
+                // widened to catch.
+                assert_eq!(
+                    shape.writes, shape.distinct,
+                    "{w}x{h} page {page}: a cell was written twice"
+                );
+                assert_eq!(
+                    shape.distinct as usize, cells,
+                    "{w}x{h} page {page}: the two halves are one equality"
+                );
+            }
+        }
+    }
 
+    /// See [`no_cell_of_the_assembled_gallery_is_written_by_nobody`]. **The spelling it replaced,
+    /// watched leaving its exact set behind — three drawings and the grid's own slack.**
+    ///
+    /// [`Remainder::LeftAlone`] is one line and draws through the same twenty-eight call sites, so
+    /// this is the register's failing set attributed to the tile each cell is in rather than a total:
+    ///
+    /// | at 300x80 | cells | who owns it |
+    /// |---|---|---|
+    /// | `panel` | **294** | `Frame::interior` — a `block` returns the rectangle it did not write |
+    /// | `scrollbar` | **630** | this module's own narrowing: a bar is three columns of a wider tile |
+    /// | `collapsible` | **432** | `Disclosure::used` — every row below the section is the caller's |
+    /// | two slots with no panel | **1 600** | the grid's: twenty-eight panels in a six-by-five grid |
+    ///
+    /// **At 100x30 it is 145 and all of it is the scrollbar's**, because a page of twelve fills the
+    /// grid exactly and `collapsible` is on page two — one size agreeing with a law the other breaks
+    /// is how a gate over one size stays green (§21, and this module has met it twice).
+    #[test]
+    fn the_remainder_left_alone_is_three_drawings_and_the_grids_own_slack() {
+        let attribute = |w: u16, h: u16| -> Vec<(&'static str, usize)> {
+            let canvas = screen(w, h, 3, Remainder::LeftAlone);
+            let (cols, rows, _) = grid(w, h);
+            let grid_rows = Rect::new(0, 1, w, h.saturating_sub(CHROME_ROWS));
+            let mut out = Vec::new();
+            for slot in 0..(cols as usize * rows as usize) {
+                let t = tile(grid_rows, cols, rows, slot as u16);
+                let mut un = 0;
+                for y in t.y..t.y + i32::from(t.h) {
+                    for x in t.x..t.x + i32::from(t.w) {
+                        if canvas.get(x as u16, y as u16).is_none() {
+                            un += 1;
+                        }
+                    }
+                }
+                if un > 0 {
+                    out.push((
+                        PANELS.get(slot).map_or("a slot with no panel", |p| p.id),
+                        un,
+                    ));
+                }
+            }
+            out
+        };
+        assert_eq!(
+            attribute(300, 80),
+            vec![
+                ("panel", 294),
+                ("scrollbar", 630),
+                ("collapsible", 432),
+                ("a slot with no panel", 800),
+                ("a slot with no panel", 800),
+            ]
+        );
+        assert_eq!(attribute(100, 30), vec![("scrollbar", 145)]);
+        // And the total is the surface's, so no cell of the set is outside the grid.
+        assert_eq!(shape_as(300, 80, 3, Remainder::LeftAlone).unwritten, 2_956);
+        assert_eq!(shape_as(100, 30, 3, Remainder::LeftAlone).unwritten, 145);
+    }
+
+    /// **Every panel writes every cell of the interior it was handed**, which is register row 7 per
+    /// component and over the shipped call site rather than over a second arrangement of it.
+    ///
+    /// §21's own account of why this row survived: *the per-component forms were report-only across
+    /// nine to twelve binaries*. [`shot`] draws one panel through the same tile loop the screen uses,
+    /// so what is asserted here is what the gallery draws.
+    ///
+    /// # Twenty-six of the twenty-eight already held, and the two that did not are the overlay
+    /// owners
+    ///
+    /// Measured before anything was changed: handed a rectangle taller and wider than its content,
+    /// every row of the freeze wrote all of it except **`select` and `file_picker` — 576 cells of a
+    /// 48x13 interior each** — which are exactly the two whose body is in another layer (§12). Their
+    /// remainder could not be *named*: §2's third clause is *the cells it does not write are named
+    /// in its return value*, and both return the runtime's `Response`, which has no field for one.
+    /// Writing them is the only reachable answer and both now do.
+    ///
+    /// The three that hand part of a tile back do name it — `Frame::interior`, `Disclosure::used`,
+    /// and a bar this module narrows itself — and the owner writes it; see
+    /// [`the_remainder_left_alone_is_three_drawings_and_the_grids_own_slack`].
+    #[test]
+    fn every_panel_writes_every_cell_of_the_interior_it_was_handed() {
+        for (w, h) in [(50u16, 15u16), (34, 7), (44, 9), (26, 7), (60, 20)] {
+            let cells = usize::from(w) * usize::from(h);
+            for panel in PANELS {
+                let canvas = shot(panel.id, w, h, 3);
+                assert_eq!(
+                    canvas.written(),
+                    cells,
+                    "{}: {} cells of a {w}x{h} tile were written by nobody",
+                    panel.id,
+                    cells - canvas.written()
+                );
+            }
+        }
+        // **Watched failing on the three that hand a rectangle back**, at the size the table above
+        // is read at. `select` and `file_picker` are not on this list and cannot be: their fill is
+        // inside the component now, and a component's own partition is not an axis this module can
+        // flip.
+        let left = |id: &str| -> usize {
+            let canvas = shot_as(id, 50, 15, 3, Remainder::LeftAlone);
+            50 * 15 - canvas.written()
+        };
+        assert_eq!(left("panel"), 294);
+        assert_eq!(left("scrollbar"), 585);
+        assert_eq!(left("collapsible"), 432);
+        assert_eq!(
+            left("select"),
+            0,
+            "the component's own fill is not this flag's"
+        );
+        assert_eq!(left("file_picker"), 0);
+    }
+
+    /// **What this ticket leaves for the next one**, printed by `examples/gallery_numbers.rs` and
+    /// asserted here only for the shape components 41 has to move.
+    ///
+    /// Register row 8 is pinned red with components 41 named. This asserts that its number is
+    /// **non-trivial on this screen** — a screen where nothing keeps a stale palette would leave
+    /// that ticket with no subject, and a screen where everything does would mean the gallery had
+    /// stopped drawing.
+    ///
+    /// **§21 pins the two rows in one sentence — *the swap excess equal to it on five of six* — and
+    /// on this screen they are independent.** [`swap`] carries one surface across the change and the
+    /// first frame clears, so a cell nobody writes on a *steady* frame is still a cell somebody wrote
+    /// once: it is inside `written` and it counts as `kept`. Measured across components 40: at
+    /// 100x30 a rung change keeps **2 005 of 3 000 either way**, unmoved by 525 unwritten cells
+    /// becoming 0.
+    ///
+    /// Both arms are run below, so that is a reading rather than a claim.
+    ///
+    /// What did move is the opposite direction and for another reason. Twelve panels used to be
+    /// handed the first row of their tile and are handed all of it now, and two of them — `meter`
+    /// and `slider` — **fill** it with glyphs a repertoire change moves, so at 300x80 `kept` fell
+    /// from 19 132 to **17 884** and `changed` rose by the same 1 248. Cells that were a pad became
+    /// a component's own drawing.
+    #[test]
+    fn row_eight_still_has_a_subject_on_this_screen() {
         // **Read per axis, and `changed > 0` is not the reading.** A scheme change moves every
         // paint on the screen; a rung change moves clusters on the panels whose repertoire matters;
         // and a **tier change moves nothing on any panel at all** — the cells it moves are the two
@@ -2733,9 +3118,23 @@ mod tests {
                 let swap = swap(w, h, change);
                 assert!(swap.written > 0, "{change:?} at {w}x{h}");
                 assert!(
+                    swap.kept > 0 || change == Change::Scheme,
+                    "{change:?} at {w}x{h} left row 8 nothing to measure"
+                );
+                assert!(
                     swap.changed_on_a_panel > 0,
                     "{change:?} at {w}x{h} moved no cell of any panel, so row 8 has nothing to \
                      measure"
+                );
+            }
+            // **The two rows are independent, measured**: the same swap with every remainder left
+            // to whatever was already in the cells keeps the same count.
+            for change in [Change::Scheme, Change::Rung, Change::Tier] {
+                assert_eq!(
+                    swap_as(w, h, change, Remainder::LeftAlone).kept,
+                    swap(w, h, change).kept,
+                    "{change:?} at {w}x{h}: row 8's number moved with row 7's, so `swap` has \
+                     stopped carrying one surface across the change"
                 );
             }
             let tier = swap(w, h, Change::Tier);
