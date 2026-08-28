@@ -467,8 +467,10 @@ mod tests {
         }
         let drawing = INVENTORY.iter().filter(|c| !c.glyphs.is_empty()).count();
         assert_eq!(
-            drawing, 20,
-            "twenty of the twenty-nine rows draw at least one glyph"
+            drawing, 21,
+            "twenty-one of the twenty-nine rows draw at least one glyph. **It was twenty until \
+             components ticket 35**, which added `form` and corrected three rows that could draw an \
+             `Ellipsis` and did not declare one"
         );
 
         // And every distinction with a glyph carrier has at least one component that draws both of

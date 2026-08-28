@@ -113,7 +113,7 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 34 of 45 tickets resolved (the last on 2026-08-27). `INVENTORY` is spec
+- **`vitui-components` has started**: 35 of 45 tickets resolved (the last on 2026-08-27). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
   answerable by the machine from here on. All five obligations are `Unmet` and each is watched
@@ -990,6 +990,70 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   that is true**: a focused `slider` takes cursor keys and nothing else, where a `field` consumes every
   text-bearing key and a `collection` eats it into a type-ahead buffer.
 
+- **The last three Tier 2 rows ship, `pagination` is `collection`'s store rather than its row loop,
+  and a `field` had been eating every cursor key it could not act on** (components ticket 35,
+  2026-08-27; ADR 0042). `status_bar` is in `crates/vitui-components/src/structure.rs`, `pagination`
+  in `src/collect.rs` and `form` in `src/input.rs`, so the freeze is **28 built of 29** — every row
+  but `spinner`, whose mechanism is *a component that owns a clock* — `MOVED` goes nine → twelve, and
+  `crate::composed`'s Tier 2 claim goes six rows → **nine** with nothing left on the unbuilt side.
+  **The row loop is an axis and a paginator is the other one.** `table` is `collection` plus a column
+  split and `tree` plus a flatten index, and both *call* `collection_into`; a pager cannot, because
+  the row loop hands its drawer `Rect::new(0, y, area.w, 1)` and asks `Ctx::visible_rows` which rows
+  are reachable — both the vertical axis by construction. **A transpose is not a rectangle split, it
+  is a different `Ctx`**, so what `pagination` reaches is the half of `collection` with no axis at
+  all: the store (`CollState`, its `offset` read as the first visible *page*), the thirteen arms of
+  `apply`, and the **one drain loop**. The gate is the equality — the same key at the same length
+  lands a pager and a `collection` at `Mode::Options` on the same index — and `nav::step` reading
+  `←`/`→` as `↑`/`↓` is components 17's collision arriving as exactly the right answer.
+  **The sweep was vacuous when it was written**, which is components 33's finding a second time: the
+  first frame and the drive loop were two call sites, so `Ctx::id` minted two ids, the planted focus
+  named a widget no later frame declared, **not one key was delivered**, and both arms stood still at
+  zero for all thirty-nine rows.
+  **The axis argument is the band's and not the bar's.** `status_bar` draws through `scroll::sticky`
+  and mints nothing, and the clip is what that buys — a segment written by arithmetic lands on its
+  neighbour and re-damages those cells for ever. But a bar's content is one row derived from its own
+  segments, so `Shares::Y` and `Shares::Neither` draw the same bar at every offset (**0 cells of
+  30×2 apart** at four of them) and only `Shares::X` moves anything, and only at `Fill::Natural`.
+  **A container that moves the focus inside itself mints its children's ids.** `Ctx::id` is
+  `Location::caller()`, so a form cannot ask what id row 7 would have — and it must know **before**
+  it draws, because the key that names a row is handed back by the focused field at `Ctx::scope`'s
+  after-the-body moment. So the ids are arithmetic — `Id::keyed(form_id, row)` through
+  `input::field_keyed` — which is `collect::Cell::id`'s answer one component over, and
+  `input::form_row_id` is public because architecture issue 25 says the *application* seats the first
+  focus. **`FormState` is `size_of::<TypeAhead>()` and nothing more**, which is how *no new
+  mechanism* stops being a claim: the cursor is the focus, read back with `Ctx::is_focused`.
+  **A form is one tab stop and the runtime's vocabulary is what says so** — `ScopeKind` has three
+  arms and the other two are a modal and a code editor, so a form that is not a `Group` is a form
+  with **no `nav::cursor` at all**: 6 ring entries / 1 stop grouped, 6 / 6 flat, and `Down` moves the
+  focus on exactly one of the two. Its type-ahead is unreachable while a field holds the keyboard,
+  which is §3's own sentence from the other side.
+  **The defect is in code that was already green**: a `field` consumed `Up`/`Down` even where a
+  one-row `input` has no row to step to — components 20's *declared and consumed nothing* on the
+  keyboard axis — so every `form` above it had no arrows, on a screen that rendered perfectly. The
+  answer is the caret's own position rather than a flag on the kind.
+  **Two more the gates found in themselves.** The allocation window caught `pagination` spelling its
+  page labels with `to_string()` — **9 240 over 60 frames** at 137 pages, with the writes, the verbs
+  and the picture identical either way; it is `Digits` on the stack now and the negative case is
+  `input::defective::form_collecting_labels`, the record-shaped form, which pays **60 over 60**
+  because `nav::cursor` takes `&[&str]`. And the partition sweeps drew at the screen's own edge,
+  where the screen clipped every overrun: given two cells of margin the pager was writing **5 cells
+  into a 4-cell strip** and **2 into a 1-cell one**. The recorder and the defect sharing a coordinate
+  system, for the third time on this map.
+  **And a third finding, in the column rather than in the code**: §17's `glyphs` column is what
+  §16's within-component collapse gate runs over, so a component drawing a marker its column does not
+  declare is a gate running over less than the component draws. `crate::composed` is the one place
+  carrying a component's own **section**, so the join is possible there — *a Tier 2 row whose section
+  reaches an eliding call declares `Ellipsis`* — and it found `rule` under-declaring since ticket 34
+  beside `status_bar`, `form` and `pagination`. The three toggles are excluded **by construction**:
+  one machine, one section, and `switch`'s empty column is a finding rather than a hole. 20 of the 29
+  rows drew a glyph; **21** do.
+  Register 200 → **209 rows, 193 evaluated**.
+  **The application is `roster`**, and `Ctrl+G` is the key to press: it takes the form's `Group`
+  away, the stops go 2 → 7, `Tab` starts walking the fields and the arrows die. `--probe` prints
+  **3 000 writes over 3 000 distinct** at 100×30, 9 regions and 2 tab stops, and sweeps 320 sizes for
+  the partition. **There is no `q` to bind** — a focused field consumes every text-bearing key, which
+  is `compose`'s finding for the second time.
+
 - **The six Tier 2 rows ship, Tier 2's claim is a value a scan runs over, and `switch`'s empty glyph
   column is the finding rather than the hole** (components ticket 34, 2026-08-27; ADR 0041).
   `crates/vitui-components/src/composed.rs` is the claim — six rows, each naming what its component
@@ -1060,8 +1124,8 @@ Read these before working, in this order:
    authority. An `architecture.md` beside a spec is the superseded proposal, kept only as the record
    of what was argued.
 2. `CONTEXT.md` — the glossary. Use its terms in code, comments, tickets and commit messages.
-3. `docs/adr/` — 41 decisions that are hard to reverse and surprising without context. 0001–0011 and
-   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0041 the components.
+3. `docs/adr/` — 42 decisions that are hard to reverse and surprising without context. 0001–0011 and
+   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0042 the components.
 4. The impl backlog `README.md` for the layer being worked on — it holds the phase order, the
    blocking edges, and the defects that shaped both.
 
@@ -1079,7 +1143,7 @@ crates/vitui-engine       cells, surfaces, layers, compositing, damage, serializ
                           └ crossterm behind a seam: raw mode, input, capability detection
 crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key maps, theming,
                           overlays, the data contract — no scene tree, no reactivity
-crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (25 of 29 built)
+crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (28 of 29 built)
                           └ plus `media`, which is **no row of the freeze at all** — §14's own *no
                             v1 component*, so the family ships and `MEMBERS` is empty
                           └ the partition primitives return `vitui_runtime::Rect`. This crate used
@@ -1087,9 +1151,9 @@ crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers 
                             unnameable across the crate line; runtime issue 22 re-exported it and
                             components issue 17 deleted the stand-in
 crates/vitui              facade re-export — engine, runtime, components
-crates/vitui-apps         the applications, one file each in `examples/` — 13: `counter`, `triage`,
+crates/vitui-apps         the applications, one file each in `examples/` — 14: `counter`, `triage`,
                           `latency`, `ledger`, `explorer`, `reader`, `settings`, `compose`, `console`,
-                          `theatre`, `browse`, `mixer`, `vitals`. **A component ticket ships one**: the surface's
+                          `theatre`, `browse`, `mixer`, `vitals`, `roster`. **A component ticket ships one**: the surface's
                           only consumer, and four times now the thing that found the defect its gates
                           could not
                           └ a workspace MEMBER, so CI builds them: a consumer nobody builds is a
@@ -1147,6 +1211,8 @@ cargo run -p vitui-apps --example mixer     # the slider; x fifty steps, f swaps
 cargo run -p vitui-apps --example mixer -- --probe
 cargo run -p vitui-apps --example vitals    # the six Tier 2 rows; g steps the glyph rung
 cargo run -p vitui-apps --example vitals -- --probe
+cargo run -p vitui-apps --example roster    # the three Tier 2 composites; Ctrl+G takes the arrows away
+cargo run -p vitui-apps --example roster -- --probe
 (cd conform && cargo run --example tmux)    # the one conformance soak that is headless
 (cd conform && cargo run --example kitty)   # a window, but no automation grant and no config file
 ```

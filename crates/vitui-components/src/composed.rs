@@ -66,12 +66,20 @@ impl Found {
     }
 }
 
-/// **The six components ticket 34 ships, and what each of them is.**
+/// **The nine components Tier 2 is, and what each of them is.**
 ///
-/// Nine rows are frozen at Tier 2 and six are here: `status_bar`, `pagination` and `form` are ticket
-/// 35's, and a row for a component that does not exist is a row no scan can falsify —
-/// `tests::every_built_tier_two_row_is_surveyed` counts the two sets against each other so that the
-/// day ticket 35 lands, this table has to grow or fail.
+/// Six arrived with ticket 34 and the last three — `status_bar`, `pagination` and `form` — with
+/// ticket 35. A row for a component that does not exist is a row no scan can falsify, so
+/// `tests::every_built_tier_two_row_is_surveyed` counts the two sets against each other in both
+/// directions; it is what made this table grow rather than agree with itself the day ticket 35
+/// landed.
+///
+/// **The three composites are the ones §18 warns about.** R3 is *a composition of shipped
+/// components with no new mechanism*, and it is **the class that requires the most care, because
+/// composition without a new mechanism is exactly the claim that turns out to be false when it is
+/// false.* So each of the three carries the mechanism it may not mint in the shape that would make
+/// its tier a lie: a second clip for the band, a second store or a second navigation model for the
+/// pager, and a cursor of its own for the form.
 pub const TIER_TWO: &[Row] = &[
     Row {
         id: "checkbox",
@@ -150,6 +158,76 @@ pub const TIER_TWO: &[Row] = &[
         ],
     },
     Row {
+        id: "status_bar",
+        file: "crates/vitui-components/src/structure.rs",
+        banner: STATUS_BAR,
+        // **§9's one band construction, with the axis argument taken verbatim.** The clip is the
+        // whole of what a band buys over arithmetic, so `sticky` is the needle rather than
+        // `Shares`: a bar that read the axis and drew by hand would satisfy a scan for the enum.
+        uses: &[
+            "pub fn status_bar(",
+            "crate::scroll::sticky(",
+            "Glyph::VLine",
+            "crate::text::fit_into(",
+        ],
+        mints: &[
+            "struct BarState",
+            "cx.child(",
+            ".scrolled(",
+            "cx.scrollable(",
+            "custom(",
+            "Style {",
+        ],
+    },
+    Row {
+        id: "pagination",
+        file: "crates/vitui-components/src/collect.rs",
+        banner: PAGINATION,
+        // **`collection`'s store, its thirteen arms and its one drain loop.** `keyboard(` is the
+        // load-bearing needle: it is the function `collection` itself calls, so a pager that reached
+        // it cannot have a second navigation model — and `nav::step(` below is the spelling that
+        // would mean it had.
+        uses: &[
+            "pub fn pagination(",
+            "keyboard(",
+            "Mode::Options",
+            "apply(coll.mode",
+            "Scan::seek(",
+        ],
+        mints: &[
+            "struct PageState",
+            "nav::step(",
+            "from_key(",
+            "Selection::new()",
+            "cx.scrollable(",
+        ],
+    },
+    Row {
+        id: "form",
+        file: "crates/vitui-components/src/input.rs",
+        banner: FORM,
+        // **§18 R3's own example, and its three clauses are three needles**: the fields, the
+        // navigation, and the ring — which is `ScopeKind::Group` on the way in and `cx.is_focused`
+        // on the way back, because the cursor **is** the focus and is read rather than kept.
+        uses: &[
+            "pub fn form(",
+            "field_keyed(",
+            "nav::cursor(",
+            "ScopeKind::Group",
+            "cx.is_focused(",
+        ],
+        // A cursor of its own is what would make R3 a lie here, and there are three ways to spell
+        // one: a type, a store borrowed from the collection, or a hit entry the form declares so it
+        // can hold the keyboard itself instead of handing it to a field.
+        mints: &[
+            "struct FormCursor",
+            "CollState",
+            "Selection",
+            "cx.interact(",
+            "keys::text(",
+        ],
+    },
+    Row {
         id: "rule",
         file: "crates/vitui-components/src/structure.rs",
         banner: RULE,
@@ -183,6 +261,17 @@ const SPARKLINE: &str = "// `sparkline` — `chart` at a small rectangle";
 
 /// `rule`'s banner.
 const RULE: &str = "// `rule` — §17's Tier 2 divider";
+
+/// `status_bar`'s banner.
+const STATUS_BAR: &str = "// `status_bar` — §17's Tier 2 band: `sticky`'s one construction, an axis argument, one hit entry";
+
+/// `pagination`'s banner.
+const PAGINATION: &str =
+    "// `pagination` — §17's Tier 2 pager: `collection` at a small length, on the other axis";
+
+/// `form`'s banner.
+const FORM: &str =
+    "// `form` — §18's R3 example: `field` + `nav::cursor` + the focus ring the draw builds";
 
 /// **What the three toggles may not mint.** One list, because they are one machine and a
 /// per-component list would be three places for the same claim to drift.
@@ -400,17 +489,81 @@ mod tests {
             surveyed, built,
             "the survey and the freeze's built Tier 2 rows disagree"
         );
-        assert_eq!(surveyed.len(), 6);
-        // Three of the nine are ticket 35's and are deliberately absent from both sides.
+        assert_eq!(surveyed.len(), 9);
+        // **And there is nothing left on the other side.** This assertion was
+        // `["status_bar", "pagination", "form"]` for one ticket, which is the shape a row for a
+        // component that does not exist has to take: absent from the survey and *named* as absent,
+        // so that the day it is built the table has to grow or this fails.
         let unbuilt: std::collections::BTreeSet<&str> = INVENTORY
             .iter()
             .filter(|c| c.tier == Tier::Two && !c.built)
             .map(|c| c.id)
             .collect();
-        assert_eq!(
-            unbuilt,
-            std::collections::BTreeSet::from(["status_bar", "pagination", "form"])
-        );
+        assert_eq!(unbuilt, std::collections::BTreeSet::new());
+    }
+
+    /// **A Tier 2 row that can elide declares `Glyph::Ellipsis`, and one that cannot does not.**
+    ///
+    /// §17's `glyphs` column is *the per-component demand set*, and §16's within-component
+    /// cross-family collapse gate runs over it — so a component that draws a marker its column does
+    /// not declare is a gate running over less than the component draws. That is the **quiet**
+    /// direction: nothing fails, the screen is right, and the collapse the column was meant to catch
+    /// is simply not looked for.
+    ///
+    /// The join is possible here and nowhere else, because [`TIER_TWO`] is the one place in this
+    /// crate that carries a component's own **section** of its file. It found a row that had been
+    /// under-declared since components ticket 34: `rule` goes through `crate::glyphs::elide` and
+    /// declared `HLine` and `VLine` alone.
+    ///
+    /// Both directions, so that adding `Ellipsis` to a row that cannot draw one fails too.
+    #[test]
+    fn a_tier_two_row_declares_the_ellipsis_it_can_draw_and_no_row_declares_one_it_cannot() {
+        // The three calls in this crate that can put `Glyph::Ellipsis` on a screen.
+        const ELIDES: [&str; 3] = [
+            "crate::glyphs::elide(",
+            "crate::glyphs::elided_row_into(",
+            "crate::text::fit_into(",
+        ];
+        let mut can = Vec::new();
+        for row in TIER_TWO {
+            // **A shared banner cannot answer for one of its rows.** `checkbox`, `radio` and
+            // `switch` are one machine in one section, and the freeze separates them on exactly this
+            // axis — `switch`'s empty `glyphs` column is components ticket 34's finding rather than
+            // a hole, and a section-level answer would put a glyph in it on behalf of the two rows
+            // beside it. The three are excluded by construction rather than by name.
+            if TIER_TWO.iter().filter(|r| r.banner == row.banner).count() > 1 {
+                continue;
+            }
+            let source = read(row.file);
+            let body = section(&source, row.banner);
+            assert!(!body.is_empty(), "`{}`'s section is empty", row.id);
+            let elides = ELIDES.iter().any(|n| crate::dense::declares(body, n));
+            let declared = crate::INVENTORY
+                .iter()
+                .find(|c| c.id == row.id)
+                .expect("a Tier 2 row is a row of the freeze")
+                .glyphs
+                .contains(&vitui_runtime::Glyph::Ellipsis);
+            assert_eq!(
+                elides,
+                declared,
+                "`{}` {} elide and its `glyphs` column {} `Ellipsis`",
+                row.id,
+                if elides { "can" } else { "cannot" },
+                if declared {
+                    "declares"
+                } else {
+                    "does not declare"
+                }
+            );
+            if elides {
+                can.push(row.id);
+            }
+        }
+        // Named, so that a row leaving this set is a deliberate edit rather than a quiet one. Four
+        // of the six rows with a section of their own can put a marker on a screen; `meter` and
+        // `sparkline` cannot, because neither draws a label at all.
+        assert_eq!(can, vec!["status_bar", "pagination", "form", "rule"]);
     }
 
     /// **No role variant is a component row**, which is [`crate::indicate::ROLE_VARIANTS`]'s gate and

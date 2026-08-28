@@ -434,8 +434,13 @@ const PLAYER: &str = "crates/vitui-components/src/media/player.rs";
 /// into `chart`.
 const INDICATE: &str = "crates/vitui-components/src/indicate.rs";
 
-/// **The F2 module's file**, where `panel` and `rule` live.
+/// **The F2 module's file**, where `panel`, `rule` and `status_bar` live.
 const STRUCTURE: &str = "crates/vitui-components/src/structure.rs";
+
+/// **Components ticket 35's report**, which prints the three things its rows compress into a
+/// sentence: what a shared offset does to a band whose content has no rows, the two densities' form,
+/// and the pager's window.
+const COMPOSITE_NUMBERS: &str = "crates/vitui-components/examples/composite_numbers.rs";
 
 /// **Components ticket 34's report**, which prints the two things its rows compress into a sentence:
 /// the two eighth-block runs side by side, and the sparkline's three verb counts over one write
@@ -519,7 +524,7 @@ pub const SPEC_ROWS: usize = 32;
 ///
 /// Row 21 stays `Unreachable` and row 130 is its crate-own form, which is row 41's standing to row
 /// 2's.
-pub const EVALUATED: usize = 184;
+pub const EVALUATED: usize = 193;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
 #[expect(
@@ -529,7 +534,7 @@ pub const EVALUATED: usize = 184;
               array is read at compile time by nothing and at run time by tests, so the copy the \
               lint is warning about is one a test makes once"
 )]
-pub const REGISTER: [Row; 200] = [
+pub const REGISTER: [Row; 209] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -637,6 +642,15 @@ pub const REGISTER: [Row; 200] = [
                 Instrument::Unit {
                     file: "crates/vitui-components/src/keys.rs",
                     name: "every_text_bearing_name_is_in_the_freeze",
+                },
+                // **Components ticket 35 gave the row a component to stand on.** Every focusable of
+                // a real `form` is focused in turn and `Ctrl+S` pressed into it: nothing lands in
+                // any of the six buffers and all six keys reach the application, with a plain `s`
+                // beside it typing, so the gate is not measuring a form that has stopped accepting
+                // anything.
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "a_chord_pressed_into_every_focusable_in_a_form_types_nothing",
                 },
                 Instrument::Report {
                     file: "crates/vitui-components/examples/keys_numbers.rs",
@@ -3011,6 +3025,16 @@ pub const REGISTER: [Row; 200] = [
                 Instrument::Unit {
                     file: POPUP,
                     name: "where_the_keyboard_goes_when_a_modal_closes_is_three_different_programs",
+                },
+                // **Components ticket 35 ran it over a form**, which is the population §17's O4
+                // names — spec §18 calls `form` R3's own example, and the impl backlog calls it *the
+                // natural host for the walkthrough gate*. The ungrouped arm is the one that says
+                // something: 6 of 6 with nothing standing, 1 of 7 with a modal over it, and the trap
+                // naming itself.
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "the_walk_over_a_form_repeats_no_id_and_reaches_every_stop_unless_a_\
+                           trap_is_standing",
                 },
             ],
         },
@@ -6491,7 +6515,354 @@ pub const REGISTER: [Row; 200] = [
             ],
         },
     },
+    Row {
+        number: 201,
+        on_spec_table: false,
+        gate: "a `status_bar` is §9's one band construction with an axis argument, and declares one \
+               hit entry however many segments it has",
+        kind: Kind::Count,
+        owner: "C11",
+        section: "spec §9, §17",
+        // **The rule is §9's, one component over**: *one hit entry for all four bands, because a
+        // band that were a second scroll area would win the wheel from the body it is a header of.*
+        // A status bar is the one member of the family that declares anything at all, and what it
+        // declares is **one** region — the count does not move with the segment count, and it is
+        // never a tab stop.
+        //
+        // **The axis argument is the band's and not the bar's**, which is the finding rather than
+        // the criterion: a bar's content is one row derived from its own segments, so the shared
+        // *vertical* offset has nothing to move. `Shares::Y` and `Shares::Neither` draw the same
+        // bar at every offset — 0 cells of 30×2 apart at four of them — and only `Shares::X` moves
+        // anything, and only at `Fill::Natural`, where the content can be wider than the band.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: STRUCTURE,
+                    name: "a_status_bar_declares_one_hit_entry_however_many_segments_it_has",
+                },
+                Instrument::Unit {
+                    file: STRUCTURE,
+                    name: "the_two_offsets_a_band_can_share_are_not_two_bars",
+                },
+                Instrument::Unit {
+                    file: STRUCTURE,
+                    name: "a_status_bar_is_stickys_construction_and_not_a_copy_of_it",
+                },
+                Instrument::Unit {
+                    file: STRUCTURE,
+                    name: "two_status_bars_on_one_screen_are_two_widgets_and_merge_nothing",
+                },
+                // **And the demand column is joined against what the section can draw.** §17's
+                // `glyphs` column is what §16's within-component collapse gate runs over, so a
+                // component that draws a marker its column does not declare is a gate running over
+                // less than the component draws — the quiet direction, where nothing fails and the
+                // collapse simply is not looked for. It found three rows under-declaring
+                // `Ellipsis`, one of them `rule`'s since components ticket 34.
+                Instrument::Unit {
+                    file: COMPOSED,
+                    name: "a_tier_two_row_declares_the_ellipsis_it_can_draw_and_no_row_declares_\
+                           one_it_cannot",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 202,
+        on_spec_table: false,
+        gate: "a status bar writes every visible cell of its band exactly once at every offset, and \
+               a segment wider than the band is clipped rather than written beside it",
+        kind: Kind::Equality,
+        owner: "C02",
+        section: "spec §2, §9",
+        // **The clip is why a status bar is a band and not arithmetic**, and it is priced one module
+        // over: a segment written by arithmetic into the caller's context lands on whatever is
+        // beside it, is overdrawn by that neighbour, and re-damages those cells on every steady
+        // frame for ever (`crate::scroll::defective::arithmetic_band`).
+        //
+        // The offset is what makes the partition worth sweeping rather than asserting once: the
+        // segments are laid out in the band's **content** coordinates, so a bar scrolled past the
+        // end of its own text has cells the segments cannot reach — and those are cells nobody
+        // writes unless the trailing run runs to the end of the window. That is components ticket
+        // 32's unbounded-extent finding arriving as a run rather than as a hole, and the sweep is
+        // watched failing on it: with the tail dropped, a 1×1 band at offset 40 covers 0 of 1.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: STRUCTURE,
+                    name: "a_status_bar_writes_every_visible_cell_of_its_band_exactly_once",
+                },
+                Instrument::Unit {
+                    file: STRUCTURE,
+                    name: "a_segment_wider_than_its_band_is_clipped_and_not_written_beside_it",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 203,
+        on_spec_table: false,
+        gate: "a pager and a collection land on the same index for every key in the vocabulary and \
+               at every length: no second store, no second navigation model",
+        kind: Kind::Equality,
+        owner: "C11",
+        section: "spec §5, §17, §18",
+        // **`pagination` is `collection` at a small length, and the axis is the finding.** `table`
+        // is `collection` plus a column split and `tree` is `collection` plus a flatten index, and
+        // both of them *call* `collection_into`. A pager cannot: the row loop hands its drawer
+        // `Rect::new(0, y, area.w, 1)` and asks `Ctx::visible_rows` which rows are reachable, both
+        // of which are the vertical axis by construction. A transpose is not a rectangle split — it
+        // is a different `Ctx` — so what a pager reaches is the half of `collection` that has no
+        // axis at all: the store, the thirteen arms of `apply`, and the one drain loop.
+        //
+        // The equality is what says the sharing is real rather than transcribed, and **it was
+        // vacuous when it was first written**: the first frame and the drive loop were two call
+        // sites, so `Ctx::id` minted two ids, the planted focus named a widget no later frame
+        // declared, not one key was delivered, and both arms stood still at zero for all
+        // thirty-nine rows. It asserts the ids agree and that more than one index was reached.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "a_pager_and_a_collection_land_on_the_same_index",
+                },
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "a_pager_reaches_the_one_drain_loop_and_mints_no_second_reading_of_it",
+                },
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "a_pagers_window_is_the_stores_own_offset_and_follows_only_a_key",
+                },
+                // The pointer half, which is `from_click` and `from_key` as two readings of one
+                // vocabulary: the pager resolves *which column* by arithmetic and hands the answer
+                // to the same `apply` the keyboard reaches.
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "a_click_on_a_page_selects_it_and_a_click_on_a_stepper_steps",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 204,
+        on_spec_table: false,
+        gate: "a pager writes every cell of its rectangle exactly once and declares one hit entry \
+               however many pages it has",
+        kind: Kind::Count,
+        owner: "C02",
+        section: "spec §2, §17",
+        // §2's two equalities over the one component in `crate::collect` whose content does not fill
+        // its own rectangle by construction: a strip of `shown` cells of `cell` columns leaves a gap
+        // before the trailing stepper whenever the two do not divide, and that gap is the pager's
+        // own — `collection`'s tail on the other axis.
+        //
+        // **A page's label is `Digits` on the stack**, and that is here because the allocation
+        // window found the obvious spelling: `(i + 1).to_string()` is one allocation a page a frame
+        // and read **9 240 over 60 frames** at 137 pages, with the writes, the verbs, the regions
+        // and the picture identical either way.
+        //
+        // **And the sweep draws the pager two cells inside a larger screen, which is what makes it
+        // a sweep at all.** Its first spelling put the strip at the screen's own edge, where the
+        // screen clipped every overrun — and the pager was writing **5 cells into a 4-cell strip**
+        // and **2 into a 1-cell one**, once because `fits` floors at one page and once because
+        // `Ink::pad_to` pads a short label and writes a long one whole. The recorder and the defect
+        // shared a coordinate system, which is the third time on this map (components 19's
+        // `Tally::distinct`, components 29's `qr_into`).
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "a_pager_writes_every_cell_of_its_rectangle_exactly_once",
+                },
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "a_pager_declares_one_hit_entry_however_many_pages_it_has",
+                },
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "two_pagers_on_one_screen_are_two_widgets_and_merge_nothing",
+                },
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "a_pages_label_is_digits_on_the_stack_and_typing_one_finds_it",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 205,
+        on_spec_table: false,
+        gate: "`size_of::<FormState>() == size_of::<TypeAhead>()`: a form introduces no mechanism \
+               `field`, `nav::cursor` and the ring do not already have",
+        kind: Kind::Equality,
+        owner: "C11",
+        section: "spec §18 R3",
+        // **§18's R3 is the class that requires the most care**, in its own words, *because
+        // composition without a new mechanism is exactly the claim that turns out to be false when
+        // it is false* — so the gate is a `size_of` rather than a reading. `FormState` is exactly
+        // the one thing `nav::cursor` cannot borrow from the ring: the type-ahead buffer that has to
+        // survive a frame. There is **no cursor** — the cursor is the focus, read back with
+        // `Ctx::is_focused` during the draw — no selection, no per-row slot and no geometry.
+        //
+        // Beside it, the source half: R3 names three things and `FORM_IS` is those three as a value,
+        // joined against a scan of the component's own section for the calls that reach them and for
+        // the three spellings of a cursor of its own.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "a_form_adds_nothing_to_what_nav_cursor_already_needs",
+                },
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "a_form_is_the_three_things_r3_says_it_is",
+                },
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "two_forms_on_one_screen_are_two_sets_of_ids_and_merge_nothing",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 206,
+        on_spec_table: false,
+        gate: "a grouped form is one tab stop over six ring entries and an ungrouped one is six of \
+               six, and only the grouped arm has arrows at all",
+        kind: Kind::Count,
+        owner: "C02",
+        section: "spec §3, §17",
+        // Spec §3: *`nav::cursor`'s placement is the decision, not its contents* — a collection
+        // opens its own `Group` scope, so *a list is one tab stop*, and a form is the same
+        // arrangement over fields.
+        //
+        // **Both arms are measured because the difference is not cosmetic.** A container receives
+        // the keys its children hand back **only** through `Ctx::scope`'s after-the-body moment, and
+        // `ScopeKind` has three arms of which the other two are a modal's `Trap` and the code
+        // editor's `Isolated`. So *no group* is not *a form without a group scope*: it is a form
+        // whose arrow keys reach nothing at all, and the gate presses `Down` on both arms and
+        // asserts the focus moves on exactly one of them.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "a_grouped_form_is_one_tab_stop_and_an_ungrouped_one_is_every_field",
+                },
+                // **The cursor is carried through the drain loop and not read once before it.**
+                // `Ctx::next_key` closes the level's queue on a *decline* and not on a take, so a
+                // form can be handed several keys in one frame — and two `Down`s then move **one**
+                // row, on a screen where nothing else is wrong. Watched failing.
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "two_arrows_in_one_batch_move_two_rows",
+                },
+                Instrument::Report {
+                    file: COMPOSITE_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 207,
+        on_spec_table: false,
+        gate: "`Compact` against `Cosy` on the same form: 240 writes and 240 distinct either way, \
+               four fields standing against two, and two rows of padding is two fields",
+        kind: Kind::Count,
+        owner: "C02",
+        section: "spec §3, §20",
+        // Spec §3's own sentence — *`Compact` against `Cosy`: 20 804 writes and 267 regions against
+        // 20 992 and 263, four widgets fall off the bottom of the form because the padding is real,
+        // **and neither writes a cell twice*** — run against the **component** rather than against
+        // `crate::form`'s three-arm screen, which is where ticket 06 measured it.
+        //
+        // The magnitudes are this screen's and are printed rather than engineered to match: 240
+        // cells is a 30×8 panel, and what reproduces is the **structure** — the two densities cover
+        // the same screen, neither writes a cell twice, and the count that falls off the bottom is
+        // a count of *drawn fields* (the frame's hit entries) rather than an inference from a
+        // height. One cell of padding against two, on both edges, is two rows of interior, and two
+        // rows of a one-row entry is two fields.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "the_same_form_stands_fewer_fields_at_cosy_and_neither_writes_a_cell_\
+                           twice",
+                },
+                Instrument::Report {
+                    file: COMPOSITE_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 208,
+        on_spec_table: false,
+        gate: "a field declines a cursor key it could not act on, so a container above it is not \
+               deaf",
+        kind: Kind::Count,
+        owner: "C11",
+        section: "spec §11, §18 R3",
+        // **The defect components ticket 35 found in code that was already green**, and it is
+        // components ticket 20's *declared and consumed nothing* arriving on the keyboard axis.
+        //
+        // §11's one flag makes `input` and `textarea` one component, so `field` reads `Up` and
+        // `Down` as a caret row step — and a one-row `input`, which is most fields anybody writes,
+        // has no row to step to. It consumed the key anyway. What that costs is not visible on the
+        // field at all: a `form` is a `Group` whose `nav::cursor` **never sees an arrow**, on a
+        // screen that renders perfectly, and the gate for it reads *the focus did not move* rather
+        // than *a cell is wrong*.
+        //
+        // The answer is the caret's own position rather than a flag on the kind, because the same
+        // line is right at the top of a textarea and at the bottom of one.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "a_grouped_form_is_one_tab_stop_and_an_ungrouped_one_is_every_field",
+                },
+                Instrument::Unit {
+                    file: INPUT,
+                    name: "a_field_declines_a_cursor_key_it_could_not_act_on",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 209,
+        on_spec_table: false,
+        gate: "the three Tier 2 composites allocate 0 as a total over 60 frames, and the \
+               record-shaped form allocates 60",
+        kind: Kind::Count,
+        owner: "C02",
+        section: "spec §20, §21",
+        // **A total and not an integer mean** — §21's refinement 2, for the fourth time on this map.
+        //
+        // **The negative case is what this row is for.** `nav::cursor` takes `&[&str]`, so a form
+        // written over a slice of *records* — a label and a `Text` in one struct, which reads better
+        // and is what a reviewer expects — has to build that slice every frame. The picture, the
+        // writes and the verbs are identical either way, and this window is the only instrument in
+        // the workspace that can tell the two apart. Measured in one run: shipped 0, record-shaped
+        // 60 over 60.
+        //
+        // **It found a real defect on its first run**, which is the third time a `format!` or a
+        // `Vec` on a draw path has been caught here: `pagination` spelled its page labels with
+        // `to_string()` and read **9 240 over 60 frames** at 137 pages.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/tests/budget.rs",
+                    name: "the_three_tier_two_composites_allocate_nothing_and_the_record_shaped_\
+                           form_allocates_a_frame",
+                },
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "a_pages_label_is_digits_on_the_stack_and_typing_one_finds_it",
+                },
+            ],
+        },
+    },
 ];
+
 /// **The compile-outcome pair row 31 names, and its positive twin.**
 ///
 /// # The twin, naming the protected items by path
@@ -6833,7 +7204,7 @@ mod tests {
              domain and needs no component to be run against, and its row had been citing spec §13 \
              and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 200);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 209);
     }
 
     /// **The split, not the total.**
@@ -6844,10 +7215,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_a_hundred_and_sixty_eight_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_a_hundred_and_seventy_seven_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 168);
+        assert_eq!(REGISTER.len() - on_table, 177);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -7239,6 +7610,7 @@ mod tests {
                 "area_numbers.rs".to_string(),
                 "collapsible_numbers.rs".to_string(),
                 "collection_numbers.rs".to_string(),
+                "composite_numbers.rs".to_string(),
                 "dense_numbers.rs".to_string(),
                 "field_numbers.rs".to_string(),
                 "gates_numbers.rs".to_string(),

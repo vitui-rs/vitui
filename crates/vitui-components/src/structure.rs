@@ -32,7 +32,7 @@ use vitui_runtime::{Ctx, Glyph, Interest, Response, Role};
 
 use crate::frame::{BlockOpts, block_into};
 use crate::ink::{Direct, Ink};
-use crate::scroll::Orient;
+use crate::scroll::{Orient, Shares};
 use crate::text::Justify;
 use vitui_runtime::Rect;
 
@@ -353,6 +353,250 @@ fn pad_columns<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, cells: Rect, st: vitui
     }
     for r in 0..cells.h {
         ink.run(cx, cells.x, cells.y + i32::from(r), " ", cells.w, st);
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+// `status_bar` — §17's Tier 2 band: `sticky`'s one construction, an axis argument, one hit entry
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+
+/// **How wide each segment is.**
+///
+/// Not a second construction — it decides *rectangles* and nothing about the repertoire, which is
+/// what [`crate::Component::constructions`] counts. What it decides is whether the bar's content can
+/// be **wider than its band**, and that is the one thing that makes [`StatusOpts::shares`] observable
+/// at all: a bar laid out over its own visible width has nothing to scroll.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum Fill {
+    /// **Split the visible width evenly**, the odd cells going to the leading segments. The default,
+    /// and the shape a bar across the bottom of a screen has.
+    #[default]
+    Even,
+    /// **Each segment as wide as it measures**, separators between them. The content is then as wide
+    /// as the text, which may be wider than the band — and a bar sharing `x` with the body it is a
+    /// bar of scrolls with it.
+    Natural,
+}
+
+/// [`status_bar`]'s options.
+///
+/// Spec §1's rule 3: a `Default` struct, never a required builder.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct StatusOpts {
+    /// **Which offset the band shares.** Spec §9's axis argument, taken verbatim from
+    /// [`crate::scroll::sticky`] — this component adds no fifth band and no fourth value.
+    ///
+    /// [`Shares::X`] by default: a status bar is a header or a footer, and those are the two of
+    /// §9's four that share the horizontal offset.
+    pub shares: Shares,
+    /// How wide each segment is. See [`Fill`].
+    pub fill: Fill,
+    /// The role the segments are drawn in.
+    pub role: Role,
+    /// The role the padding is drawn in.
+    ///
+    /// Separate from [`StatusOpts::role`] for [`crate::text::FitOpts`]'s reason: a caller that had
+    /// to pass one role would fill the band first to get the second, which is the defect the
+    /// partition rule exists to refuse.
+    pub pad: Role,
+    /// The role the separator between two segments is drawn in.
+    pub sep: Role,
+    /// Where each segment sits inside its own share.
+    pub justify: Justify,
+    /// **What the bar declares. One entry for the bar, never one per segment.**
+    ///
+    /// The rule is spec §9's, one component over: *one hit entry for all four bands, because a band
+    /// that were a second scroll area would win the wheel from the body it is a header of*. A
+    /// status bar is the one member of the family that declares anything at all, and what it
+    /// declares is **one** region — a segment is a rectangle a caller can resolve out of
+    /// [`Response::local`], not a widget.
+    ///
+    /// [`Interest::SCROLL`] is not in it, for components ticket 20's reason: a widget that declares
+    /// the wheel and consumes nothing is worse than one declaring nothing at all, because it is the
+    /// topmost region over its rectangle and the area beneath never sees the notch.
+    pub interest: Interest,
+}
+
+impl Default for StatusOpts {
+    fn default() -> StatusOpts {
+        StatusOpts {
+            shares: Shares::X,
+            fill: Fill::Even,
+            role: Role::Dim,
+            pad: Role::Body,
+            sep: Role::Border,
+            justify: Justify::Start,
+            interest: Interest::CLICK.with(Interest::HOVER),
+        }
+    }
+}
+
+/// **A band of segments across the bottom of a screen — one hit entry, and a view.**
+///
+/// Spec §21's ticket 35 settles what it *is*: **the same construction as a sticky header or a
+/// footer**, a rectangle split that shares one of the two offsets and pins the other to zero. So
+/// this draws through [`crate::scroll::sticky`] and mints nothing — no fifth band, no second clip,
+/// no offset of its own.
+///
+/// # The clip is the reason, and it is priced one module over
+///
+/// A segment longer than its share, written by arithmetic into the caller's context instead, lands
+/// on whatever is beside it, is overdrawn by that neighbour, and **re-damages those cells on every
+/// steady frame for ever** — `crate::scroll::defective::arithmetic_band`. The band is a *view*, so
+/// the overrun costs its own cells and nothing else's.
+///
+/// ```
+/// use vitui_components::structure::status_bar;
+/// use vitui_runtime::Rect;
+/// use vitui_runtime::ctx::Driver;
+///
+/// let mut driver = Driver::headless(40, 6).expect("a sink attaches");
+/// driver.frame(|cx| {
+///     let bar = Rect::new(0, 5, 40, 1);
+///     let resp = status_bar(cx, bar, &["ready", "utf-8", "ln 1"]);
+///     // Rule 4: a `Response` back, and nothing has happened on a frame with no input.
+///     assert!(!resp.clicked);
+/// });
+/// // **One hit entry for three segments**, which is the whole of this component's own criterion.
+/// assert_eq!(driver.inspect().hits().len(), 1);
+/// ```
+#[track_caller]
+pub fn status_bar(cx: &mut Ctx<'_, '_>, area: Rect, segments: &[&str]) -> Response {
+    status_bar_with(cx, area, segments, (0, 0), &StatusOpts::default())
+}
+
+/// [`status_bar`], with the body's offset and the options spelled out.
+///
+/// `offset` is the offset of the body this is a bar of, handed to [`crate::scroll::sticky`] whole;
+/// [`StatusOpts::shares`] decides which half of it survives.
+#[track_caller]
+pub fn status_bar_with(
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    segments: &[&str],
+    offset: (i32, i32),
+    opts: &StatusOpts,
+) -> Response {
+    status_bar_into(&mut Direct, cx, area, segments, offset, opts)
+}
+
+/// **[`status_bar`], drawing through an [`Ink`] so a counter can see the verbs.**
+///
+/// The entry point a gate takes; [`status_bar`] is this with [`Direct`].
+///
+/// # The axis argument is the band's and not the bar's
+///
+/// §9's four bands differ in *which offset they share*, and a bar's content is one row derived from
+/// its own segments — so the shared **vertical** offset has nothing to move. That is asserted rather
+/// than left to a reader: `tests::the_two_offsets_a_band_can_share_are_not_two_bars` draws the same
+/// bar at all three values of [`Shares`] and reports how many cells differ, and only the horizontal
+/// one moves anything, and only at [`Fill::Natural`].
+///
+/// # Every visible cell of the band, exactly once, at every offset
+///
+/// The segments are laid out in the band's **content** coordinates and the trailing padding is
+/// extended to the end of the visible window — so an offset past the end of the text pads rather
+/// than leaving the cells nobody wrote that components ticket 32 found on an unbounded scroll area.
+#[track_caller]
+pub fn status_bar_into<I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    segments: &[&str],
+    offset: (i32, i32),
+    opts: &StatusOpts,
+) -> Response {
+    // **The id, taken outside every closure** (ADR 0027). `#[track_caller]` all the way down, or two
+    // bars in one application are one bar and the second one's `Response` is inert.
+    let id = cx.id();
+    if area.is_empty() {
+        return Response::inert(id, area);
+    }
+    // **One hit entry, declared before the band opens.** Inside the view it would be declared in the
+    // band's own coordinates and a caller resolving a segment out of `Response::local` would be
+    // reading a rectangle from one coordinate system against a position from another.
+    let resp = cx.interact(id, area, opts.interest);
+    let shares = opts.shares;
+    let (dx, dy) = shares.of(offset);
+    let window = Rect::new(dx, dy, area.w, area.h);
+    crate::scroll::sticky(cx, area, shares, offset, |cx| {
+        segments_into(ink, cx, window, segments, opts);
+    });
+    resp
+}
+
+/// **The bar's content, in the band's own coordinates**: the segments on the first visible row, the
+/// separators between them, and padding everywhere else.
+fn segments_into<I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    window: Rect,
+    segments: &[&str],
+    opts: &StatusOpts,
+) {
+    let theme = cx.theme();
+    let pad = theme.paint(opts.pad);
+    let sep_paint = theme.paint(opts.sep);
+    let sep_glyph = theme.glyph(Glyph::VLine);
+
+    // The row the segments sit on, and the rows below it. `fit`'s split, so a bar in a three-row
+    // band writes its text where a chip's label would — at the top, because a status bar's row is
+    // the row it was cut to.
+    let (band, below) = rect::split_at_v(window, 1);
+    crate::text::pad_rows(ink, cx, below, pad);
+    if band.is_empty() {
+        return;
+    }
+
+    let n = u16::try_from(segments.len()).unwrap_or(u16::MAX);
+    if n == 0 {
+        ink.run(cx, band.x, band.y, " ", band.w, pad);
+        return;
+    }
+    // Separators sit **between** segments, so there are `n - 1` of them however wide the band is.
+    let seps = n - 1;
+    let mut x = match opts.fill {
+        // Even splits the *visible* window, so the layout starts where the window does.
+        Fill::Even => band.x,
+        // Natural is laid out from the band's own content origin, which is what a shared offset
+        // then scrolls.
+        Fill::Natural => 0,
+    };
+    let room = band.w.saturating_sub(seps);
+    for (i, seg) in segments.iter().enumerate() {
+        let share = match opts.fill {
+            // The odd cells go to the leading segments, which is `Row`'s own rule for a weighted
+            // split and is why the shares sum to the band exactly.
+            Fill::Even => {
+                let i = u16::try_from(i).unwrap_or(u16::MAX);
+                room / n + u16::from(i < room % n)
+            }
+            Fill::Natural => width(seg),
+        };
+        crate::text::fit_into(
+            ink,
+            cx,
+            Rect::new(x, band.y, share, 1),
+            seg,
+            &crate::text::FitOpts {
+                justify: opts.justify,
+                role: opts.role,
+                pad: opts.pad,
+            },
+        );
+        x += i32::from(share);
+        if i + 1 < segments.len() {
+            ink.text(cx, x, band.y, sep_glyph, sep_paint);
+            x += 1;
+        }
+    }
+    // **The tail, out to the end of the visible window.** Under `Even` it is empty by construction;
+    // under `Natural` it is what stops a bar shorter than its band — or scrolled past its own text —
+    // from leaving cells nobody wrote.
+    let end = window.x + i32::from(window.w);
+    if x < end {
+        let w = u16::try_from(end - x).unwrap_or(u16::MAX);
+        ink.run(cx, x, band.y, " ", w, pad);
     }
 }
 
@@ -735,6 +979,251 @@ mod tests {
             assert!(
                 crate::dense::declares(section, owed),
                 "`{owed}` is not in the shipped rule, so the three spellings are not one body"
+            );
+        }
+    }
+
+    // ── `status_bar` ─────────────────────────────────────────────────────────────────────────────
+
+    /// A tally over one frame of `f` on a sink two cells larger than `w` by `h` on every side.
+    ///
+    /// **The margin is the point.** A component drawn at the screen's own edge is clipped by the
+    /// screen, so a verb that runs past its rectangle costs nothing a counter can see — and this
+    /// component's whole argument is that the band is a *view*, which is only worth asserting where
+    /// there is somewhere for an overrun to land. A pager one module over was writing 5 cells into
+    /// a 4-cell strip under a sweep that had no margin.
+    fn tallied_bar(w: u16, h: u16, f: impl FnOnce(&mut Tally, &mut Ctx<'_, '_>)) -> Tally {
+        let mut driver = Driver::headless(w + 4, h + 4).expect("a sink cannot fail to attach");
+        let mut tally = Tally::new();
+        driver.frame(|cx| f(&mut tally, cx));
+        tally
+    }
+
+    /// **Criterion 2, the partition half: a status bar writes every visible cell of its band exactly
+    /// once, at every size, at both fills and at every offset.**
+    ///
+    /// The offset is what makes this worth sweeping rather than asserting once. A bar laid out in
+    /// **content** coordinates can be scrolled past the end of its own text, and the cells the
+    /// segments then cannot reach are cells nobody writes — which is components ticket 32's finding
+    /// on an unbounded scroll area, arriving here as a trailing run rather than as a hole.
+    #[test]
+    fn a_status_bar_writes_every_visible_cell_of_its_band_exactly_once() {
+        for (w, h) in [(1, 1), (3, 1), (12, 1), (40, 1), (40, 3), (7, 2), (80, 1)] {
+            for fill in [Fill::Even, Fill::Natural] {
+                for offset in [(0, 0), (3, 0), (40, 0), (0, 5), (400, 9)] {
+                    for segments in [
+                        &[][..],
+                        &["ready"][..],
+                        &["ready", "utf-8", "ln 1, col 1"][..],
+                        &["a segment far wider than this whole bar is"][..],
+                    ] {
+                        let opts = StatusOpts {
+                            fill,
+                            ..StatusOpts::default()
+                        };
+                        let tally = tallied_bar(w, h, |tally, cx| {
+                            status_bar_into(
+                                tally,
+                                cx,
+                                Rect::new(2, 2, w, h),
+                                segments,
+                                offset,
+                                &opts,
+                            );
+                        });
+                        let cells = u64::from(w) * u64::from(h);
+                        assert_eq!(
+                            tally.writes(),
+                            tally.distinct(),
+                            "{w}x{h} {fill:?} {offset:?} {segments:?}: {} cells written twice",
+                            tally.writes() - tally.distinct()
+                        );
+                        assert_eq!(
+                            tally.distinct(),
+                            cells,
+                            "{w}x{h} {fill:?} {offset:?} {segments:?}: the band is not covered"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// **Criterion 2, the region half: one hit entry for the bar, never one per segment.**
+    ///
+    /// Spec §9's rule one component over — *one hit entry for all four bands* — and the number that
+    /// makes it a gate rather than a sentence is that it does not move with the segment count.
+    #[test]
+    fn a_status_bar_declares_one_hit_entry_however_many_segments_it_has() {
+        for n in [0usize, 1, 3, 12] {
+            let labels: Vec<String> = (0..n).map(|i| format!("seg {i}")).collect();
+            let segments: Vec<&str> = labels.iter().map(String::as_str).collect();
+            let mut driver = Driver::headless(60, 4).expect("a sink cannot fail to attach");
+            driver.frame(|cx| {
+                status_bar(cx, Rect::new(0, 3, 60, 1), &segments);
+            });
+            let frame = driver.inspect();
+            assert_eq!(
+                frame.hits().len(),
+                1,
+                "{n} segments declared {} regions",
+                frame.hits().len()
+            );
+            // And it is not a tab stop: a status bar is read, not visited.
+            assert_eq!(frame.stop_count(), 0);
+        }
+    }
+
+    /// **The axis argument is the band's and not the bar's**, and this is the number that says so.
+    ///
+    /// §9's four bands differ in which offset they share. A status bar's content is one row derived
+    /// from its own segments, so the **vertical** share has nothing to move: `Shares::Y` and
+    /// `Shares::Neither` draw the same bar at every offset, and only `Shares::X` moves anything —
+    /// and only at [`Fill::Natural`], because a bar laid out over its own visible width has nothing
+    /// to scroll.
+    ///
+    /// Both halves are the assertion. A bar that ignored the argument entirely would pass the first
+    /// and fail the second; one that transposed its layout would pass the second and fail the first.
+    #[test]
+    fn the_two_offsets_a_band_can_share_are_not_two_bars() {
+        let segments = ["ready", "utf-8", "ln 1, col 1", "spaces: 4", "rust"];
+        let drawn = |shares: Shares, fill: Fill, offset: (i32, i32)| -> crate::runner::Canvas {
+            let mut driver = Driver::headless(30, 2).expect("a sink cannot fail to attach");
+            let mut pen = crate::runner::Pen::new(30, 2);
+            driver.frame(|cx| {
+                status_bar_into(
+                    &mut pen,
+                    cx,
+                    Rect::new(0, 0, 30, 2),
+                    &segments,
+                    offset,
+                    &StatusOpts {
+                        shares,
+                        fill,
+                        ..StatusOpts::default()
+                    },
+                );
+            });
+            pen.end_frame();
+            pen.into_canvas()
+        };
+
+        for fill in [Fill::Even, Fill::Natural] {
+            for offset in [(0, 0), (6, 0), (0, 4), (6, 4)] {
+                let pinned = drawn(Shares::Neither, fill, offset);
+                let vertical = drawn(Shares::Y, fill, offset);
+                assert_eq!(
+                    pinned.diff(&vertical).cells,
+                    0,
+                    "{fill:?} {offset:?}: a shared `y` moved a bar whose content has no rows"
+                );
+            }
+        }
+
+        // And the horizontal share is not decoration: at `Natural` the content is wider than the
+        // band, so six columns of offset move it.
+        let still = drawn(Shares::X, Fill::Natural, (0, 0));
+        let scrolled = drawn(Shares::X, Fill::Natural, (6, 0));
+        assert!(
+            still.diff(&scrolled).cells > 0,
+            "a shared `x` over content wider than the band moved nothing"
+        );
+        // At `Even` the layout is the window's, so there is nothing to scroll and the two agree.
+        assert_eq!(
+            drawn(Shares::X, Fill::Even, (0, 0))
+                .diff(&drawn(Shares::X, Fill::Even, (6, 0)))
+                .cells,
+            0
+        );
+    }
+
+    /// **The band is a view, and that is why an overrunning segment costs its own cells.**
+    ///
+    /// `crate::scroll::sticky`'s clip, priced: a bar in the middle of a screen whose text is far
+    /// wider than its band writes **nothing at all** outside the band, at any offset. Written by
+    /// arithmetic into the caller's context instead, the overrun lands on whatever is beside it, is
+    /// overdrawn by that neighbour, and re-damages those cells on every steady frame for ever.
+    #[test]
+    fn a_segment_wider_than_its_band_is_clipped_and_not_written_beside_it() {
+        let band = Rect::new(10, 2, 8, 1);
+        let mut driver = Driver::headless(40, 6).expect("a sink cannot fail to attach");
+        let mut pen = crate::runner::Pen::new(40, 6);
+        driver.frame(|cx| {
+            status_bar_into(
+                &mut pen,
+                cx,
+                band,
+                &["a label very much wider than eight cells", "and another"],
+                (0, 0),
+                &StatusOpts {
+                    fill: Fill::Natural,
+                    ..StatusOpts::default()
+                },
+            );
+        });
+        pen.end_frame();
+        let canvas = pen.into_canvas();
+        assert_eq!(canvas.written(), usize::from(band.w) * usize::from(band.h));
+        for y in 0..6u16 {
+            for x in 0..40u16 {
+                let inside = (10..18).contains(&x) && y == 2;
+                assert_eq!(
+                    canvas.get(x, y).is_some(),
+                    inside,
+                    "({x}, {y}) is outside the band and was written"
+                );
+            }
+        }
+    }
+
+    /// **Two status bars on one screen are two widgets and merge nothing** — ADR 0027, on a
+    /// component that draws a `#[track_caller]` helper inside its own body.
+    ///
+    /// `crate::scroll::sticky` is itself `#[track_caller]`, so its `Ctx::id` resolves to the line
+    /// inside `status_bar_into` and **both bars' bands mint the same id**. That is harmless only
+    /// because a band declares no region and returns an inert `Response`; the count is here so that
+    /// the day a band declares one, this fails rather than making the second bar inert on a screen
+    /// that renders perfectly. `crate::media`'s chrome shipped exactly that defect twice.
+    #[test]
+    fn two_status_bars_on_one_screen_are_two_widgets_and_merge_nothing() {
+        let mut driver = Driver::headless(40, 4).expect("a sink cannot fail to attach");
+        let mut ids = (None, None);
+        driver.frame(|cx| {
+            ids.0 = Some(status_bar(cx, Rect::new(0, 0, 40, 1), &["one", "two"]).id);
+            ids.1 = Some(status_bar(cx, Rect::new(0, 3, 40, 1), &["three", "four"]).id);
+        });
+        assert_ne!(ids.0, ids.1, "two bars are one bar");
+        let frame = driver.inspect();
+        assert_eq!(frame.hits().len(), 2, "two bars, two regions");
+        assert_eq!(frame.ids().merges(), 0);
+    }
+
+    /// **`status_bar` mints no band of its own**, which is criterion 2's other half read off the
+    /// source rather than off a screen.
+    ///
+    /// The scan is `crate::composed`'s, and it runs there over the whole Tier 2 table. What is here
+    /// is the one thing that table cannot say: that the call it looks for is the *component's* and
+    /// not a second copy of `sticky`'s three lines with the clip left out.
+    #[test]
+    fn a_status_bar_is_stickys_construction_and_not_a_copy_of_it() {
+        let source =
+            std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/structure.rs"))
+                .expect("this file is here");
+        let section = crate::composed::section(
+            &source,
+            "// `status_bar` — §17's Tier 2 band: `sticky`'s one construction, an axis argument, one hit entry",
+        );
+        assert!(!section.is_empty());
+        assert!(crate::dense::declares(section, "crate::scroll::sticky("));
+        for minted in [
+            "cx.child(",
+            ".scrolled(",
+            "cx.scrollable(",
+            "struct BarState",
+        ] {
+            assert!(
+                !crate::dense::declares(section, minted),
+                "`status_bar` mints `{minted}`, and it is a band rather than a second clip"
             );
         }
     }

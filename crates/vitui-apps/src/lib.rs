@@ -76,7 +76,7 @@ pub struct App {
 /// and the reason is that there is nothing to port: what it demonstrates is *one component and one
 /// `Mode`*, and no other library's tutorial has an equivalent because no other library makes the
 /// claim.
-pub const APPS: [App; 13] = [
+pub const APPS: [App; 14] = [
     App {
         name: "counter",
         what: "A bordered panel, a centred value, and Left/Right/q. The smallest program anybody \
@@ -423,6 +423,42 @@ pub const APPS: [App; 13] = [
         ],
         after: None,
     },
+    App {
+        name: "roster",
+        what: "A staff directory: a form of six labelled fields, a pager over 137 records, and a \
+               status bar along the bottom — §18 R3's three compositions on one screen. `Ctrl+G` is \
+               the one to press: it takes the form's `Group` scope away, the tab stops go from 2 to \
+               7, `Tab` starts walking the fields, and **the arrows stop working entirely**, \
+               because a container hears what its children hand back only through a scope and \
+               `ScopeKind`'s other two arms are a modal and a code editor. `Ctrl+D` swaps the \
+               density and two fields fall off the bottom; `Ctrl+F` makes the bar's segments as \
+               wide as they measure, and `Ctrl+←`/`Ctrl+→` then scroll it under its own rectangle. \
+               There is no `q` to bind: a focused field consumes every text-bearing key, which is \
+               what a field is for",
+        uses: &[
+            "input::form_into",
+            "input::FormOpts",
+            "input::FormState",
+            "input::form_row_id",
+            "collect::pagination_into",
+            "collect::PageOpts",
+            "collect::CollState",
+            "structure::status_bar_into",
+            "structure::StatusOpts",
+            "structure::Fill",
+            "structure::panel_into",
+            "text::text_into",
+            "edit::Text",
+            "counters::Tally",
+            "ink::Ink",
+            "ctx::Ctx::focused",
+            "theme::Themes::set_density",
+            "ctx::Driver::set_theme",
+            "ctx::Driver::unhandled",
+            "ctx::Driver::wait",
+        ],
+        after: None,
+    },
 ];
 
 #[cfg(test)]
@@ -484,10 +520,10 @@ mod tests {
             checked += 1;
         }
         assert_eq!(
-            checked, 11,
-            "triage, ledger, explorer, reader, settings, compose, console, theatre, browse, mixer \
-             and vitals open the window; counter and latency read their keys through a `KeyMap` \
-             instead"
+            checked, 12,
+            "triage, ledger, explorer, reader, settings, compose, console, theatre, browse, mixer, \
+             vitals and roster open the window; counter and latency read their keys through a \
+             `KeyMap` instead"
         );
 
         // **The other directions**, or a scanner that has stopped finding `driver.frame(` reports

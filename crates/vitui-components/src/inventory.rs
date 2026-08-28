@@ -319,6 +319,24 @@ pub const MOVED: &[Moved] = &[
         why: "ticket 34 built it as `fit`'s four skippable parts with a `Glyph` where the padding \
               was, over one row or one column, plus `elide`'s one-cell marker",
     },
+    Moved {
+        id: "status_bar",
+        why: "ticket 35 built it as §9's one band construction with the axis argument taken \
+              verbatim — `scroll::sticky`, a view rather than arithmetic — plus one hit entry for \
+              the bar and never one per segment",
+    },
+    Moved {
+        id: "pagination",
+        why: "ticket 35 built it as `collection`'s store, its thirteen-arm `apply` and its one \
+              drain loop laid out on the other axis: the row loop is vertical by construction and a \
+              transpose is not a rectangle split",
+    },
+    Moved {
+        id: "form",
+        why: "ticket 35 built it as §18 R3's own example — `field` + `nav::cursor` + the focus ring \
+              the draw builds — with a state exactly as big as the type-ahead buffer `nav::cursor` \
+              cannot borrow from the ring",
+    },
 ];
 
 /// One stated edge of the L0..L5 graph: `of` is built on `on`.
@@ -889,7 +907,12 @@ pub const INVENTORY: &[Component] = &[
         // `fit`'s remainder over one row or one column, plus a `Glyph` (ticket 34).
         layer: Layer::L0,
         families: &[Family::F2Structure],
-        glyphs: &[Glyph::HLine, Glyph::VLine],
+        // **`Ellipsis` arrived with components ticket 35 and it is a correction rather than a
+        // change**: `rule_into` has gone through `crate::glyphs::elide` since it was written, so a
+        // caption wider than its line has always been able to draw a marker this column did not
+        // declare. Under-declaring is the quiet direction — §16's within-component collapse gate
+        // runs over the column, so it was running over two glyphs where the component draws three.
+        glyphs: &[Glyph::HLine, Glyph::VLine, Glyph::Ellipsis],
         constructions: 1,
         can_shrink: false,
         owns_offset: false,
@@ -899,12 +922,17 @@ pub const INVENTORY: &[Component] = &[
     Component {
         id: "status_bar",
         tier: Tier::Two,
-        built: false,
+        built: true,
         // Ticket 35: **the same construction as a sticky header or footer** — a rectangle split
         // that shares one of the two offsets and pins the other to zero, and it must be a view.
         layer: Layer::L3,
         families: &[Family::F2Structure, Family::F13System],
-        glyphs: &[Glyph::VLine],
+        // **`Ellipsis` beside the separator**, because a segment is written through
+        // `crate::text::fit_into` and a segment wider than its share is elided. The demand column
+        // is what §16's within-component collapse gate runs over, so a component that can draw a
+        // marker and does not declare one is a gate running over less than the component draws —
+        // and `text`, `chip`, `select` and `file_picker` all declare it for the same reason.
+        glyphs: &[Glyph::VLine, Glyph::Ellipsis],
         constructions: 1,
         can_shrink: false,
         // One hit entry, not one per segment (ticket 35), and a band never wins the wheel.
@@ -915,12 +943,16 @@ pub const INVENTORY: &[Component] = &[
     Component {
         id: "pagination",
         tier: Tier::Two,
-        built: false,
+        built: true,
         // `collection` at a small length plus `nav::cursor`; no second store and no second
         // navigation model (ticket 35).
         layer: Layer::L5,
         families: &[Family::F7Collections, Family::F8Navigation],
-        glyphs: &[Glyph::ArrowLeft, Glyph::ArrowRight],
+        // **`Ellipsis` beside the two arrows**, and this row is where §16's C09 pair would land if
+        // it came back: a page number elided next to a `›` stepper is `tree`'s `Ellipsis`-spelled-
+        // `>` defect on a pager. It does not collide — components ticket 05 spelled `Ellipsis` `~`
+        // at ASCII — and `crate::glyphs::within_component_collapses` is what keeps saying so.
+        glyphs: &[Glyph::ArrowLeft, Glyph::ArrowRight, Glyph::Ellipsis],
         constructions: 1,
         can_shrink: false,
         owns_offset: false,
@@ -930,11 +962,15 @@ pub const INVENTORY: &[Component] = &[
     Component {
         id: "form",
         tier: Tier::Two,
-        built: false,
+        built: true,
         // **§18 R3's own example**: a composition of shipped components with no new mechanism.
         layer: Layer::L5,
         families: &[Family::F6Input],
-        glyphs: &[],
+        // **`Ellipsis` and nothing else.** A form draws no glyph of its own — the fields are
+        // `field`'s and the ring is the runtime's — but a label wider than the label column goes
+        // through `crate::text::fit_into`, which elides. See
+        // `crate::composed::tests::a_tier_two_row_declares_the_ellipsis_it_can_draw_and_no_row_declares_one_it_cannot`.
+        glyphs: &[Glyph::Ellipsis],
         constructions: 1,
         can_shrink: false,
         owns_offset: false,
@@ -1162,6 +1198,9 @@ mod tests {
                 "meter",
                 "sparkline",
                 "rule",
+                "status_bar",
+                "pagination",
+                "form",
             ])
         );
         for m in MOVED {
@@ -1175,9 +1214,10 @@ mod tests {
         // which would put the built count at sixteen — the Tier 1 count exactly, and it could not
         // be reached even at nineteen without contradicting §17's own three sentences about
         // `slider`, `file_picker` and `file_preview_pane`. Recorded here rather than resolved by
-        // bending a column: ticket 34 built six of Tier 2's nine, so the number that reproduces
-        // from the freeze is twenty-five.
-        assert_eq!(INVENTORY.iter().filter(|c| c.built).count(), 25);
+        // bending a column: ticket 34 built six of Tier 2's nine and ticket 35 the other three, so
+        // the number that reproduces from the freeze is twenty-eight — every row but `spinner`,
+        // whose mechanism is *a component that owns a clock* and is prototyped nowhere on the map.
+        assert_eq!(INVENTORY.iter().filter(|c| c.built).count(), 28);
     }
 
     /// **Every `built` row is declared in the module that homes it — and this is the gate components
@@ -1233,8 +1273,8 @@ mod tests {
             checked += 1;
         }
         assert_eq!(
-            checked, 25,
-            "twenty-five built rows, and every one of them checked"
+            checked, 28,
+            "twenty-eight built rows, and every one of them checked"
         );
 
         // **Both spellings are accepted, watched.** A join that took only the parenthesis is a join
@@ -1255,7 +1295,9 @@ mod tests {
         // **And the column agrees in the other direction too, which is what gives the gate teeth.**
         // Four rows are not built; if any of them were declared, `built` would be understating the
         // crate rather than overstating it — the same drift with the sign flipped, and a gate that
-        // only looked at the `true` rows could not see it. Zero of ten, counted rather than assumed.
+        // only looked at the `true` rows could not see it. Zero of one, counted rather than assumed
+        // — and it was the direction that fired when ticket 35 declared its three components before
+        // moving their column, which is the reverse-direction half doing exactly its job.
         let declared_but_not_built: Vec<&str> = INVENTORY
             .iter()
             .filter(|c| !c.built)
@@ -1273,7 +1315,7 @@ mod tests {
             declared_but_not_built.is_empty(),
             "{declared_but_not_built:?} are declared and the `built` column says they are not"
         );
-        assert_eq!(INVENTORY.iter().filter(|c| !c.built).count(), 4);
+        assert_eq!(INVENTORY.iter().filter(|c| !c.built).count(), 1);
     }
 
     /// **The DAG: an edge from a lower layer to a higher one is refused.**
@@ -1632,8 +1674,10 @@ mod tests {
         );
         assert_eq!(
             INVENTORY.iter().filter(|c| !c.glyphs.is_empty()).count(),
-            20,
-            "twenty of the twenty-nine rows draw at least one glyph"
+            21,
+            "twenty-one of the twenty-nine rows draw at least one glyph. **It was twenty until \
+             components ticket 35**, and the row that arrived is `form` — with `Ellipsis` alone, \
+             because a form draws no glyph of its own and a label wider than its column is elided"
         );
     }
 

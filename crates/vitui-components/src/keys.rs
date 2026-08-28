@@ -364,13 +364,18 @@ pub fn chord_into(arm: Arm, start: &str, c: Chord) -> Typed {
 /// opens [`crate::INVENTORY`] and fails on a name that is not a row of it, which is
 /// `crate::gates::Instrument`'s rule applied to a population instead of to a file.
 ///
-/// **None of the seven exists in this crate**, and the gate says so out loud rather than reading
-/// [`crate::Component::built`] — which is the *prototype's* column and is `true` for six of these
-/// (C16 built them one map ago). What row 5 stands over is seven **sinks**, one per row of this
-/// list, and that is a real standing: the claim is *the predicate declines a chord whatever is
-/// holding the focus*, which does not depend on what the focus is holding. It is not a claim about
-/// seven components, and `crate::obligations` is one file over precisely because that distinction is
-/// the one this map keeps losing.
+/// **All seven exist in this crate since components ticket 35**, and the gate says so by reading the
+/// source rather than [`crate::Component::built`] — which was the *prototype's* column when this
+/// list was written and is the shipped one now. When it was none of the seven, what row 5 stood over
+/// was seven **sinks**, one per row of this list, and that was a real standing: the claim is *the
+/// predicate declines a chord whatever is holding the focus*, which does not depend on what the
+/// focus is holding.
+///
+/// **Two of the seven arrived by repairing the needle**, not by anybody building anything — `select`
+/// and `file_picker` have carried a lifetime and a type parameter since tickets 26 and 32, and the
+/// parenthesis `tests::every_text_bearing_name_is_in_the_freeze` looked for answered *undeclared*
+/// about both. `crate::obligations` is one file over precisely because *a query with no evidence
+/// must fail loudly* is the distinction this map keeps losing.
 pub const TEXT_BEARING: [&str; 7] = [
     // §11's one flag absorbs sixteen named input variants including `textarea`.
     "field",
@@ -701,18 +706,28 @@ mod tests {
             .collect();
         assert!(sources.len() > 10, "the scan found no sources");
 
-        // **`(cx`, not `(`.** A component's signature is `pub fn button(cx: &mut Ctx, …)`
-        // (spec §1), and the bare form has a false positive already in the crate: `gates::table()`
-        // prints the register and is not the `table` component. The second spelling is the same
-        // signature with the parameters on their own lines, which is the only form a
-        // seven-parameter component has — see this test's own header.
+        // **`(cx`, not `(`** — a component's signature is `pub fn button(cx: &mut Ctx, …)` (spec
+        // §1), and the bare form has a false positive already in the crate: `gates::table()` prints
+        // the register and is not the `table` component. The second spelling is the same signature
+        // with the parameters on their own lines, which is the only form a seven-parameter
+        // component has.
+        //
+        // **And the third is `<`, which is components ticket 33's either-delimiter rule.** Two of
+        // the seven have been declared since tickets 26 and 32 and this predicate could not see
+        // either: `select` is `pub fn select<'f>(` — spec §1 already says a component that opens an
+        // overlay costs two lifetime annotations — and `file_picker` is `pub fn file_picker<'f,
+        // T>(`. **Both were counted as unbuilt for six tickets by a needle rather than by a fact**,
+        // which is the fifth time on this map that a scan's parenthesis has answered *undeclared*
+        // about a component that is right there.
         let declared_here = |name: &str| {
             let one_line = format!("pub fn {name}(cx");
             let broken = format!("pub fn {name}(");
+            let generic = format!("pub fn {name}<");
             sources.iter().any(|s| {
-                s.lines()
-                    .map(str::trim)
-                    .any(|l| !l.starts_with("//") && (l.contains(&one_line) || l == broken))
+                s.lines().map(str::trim).any(|l| {
+                    !l.starts_with("//")
+                        && (l.contains(&one_line) || l == broken || l.starts_with(&generic))
+                })
             })
         };
 
@@ -728,23 +743,32 @@ mod tests {
         }
         assert_eq!(
             built,
-            vec!["field", "collection", "table", "tree"],
-            "row 5's population is **seven names, four of which are built** — `field` since \
-             components ticket 24, `tree` since components ticket 17, beside the `table` ticket 15 \
-             declared and the `collection` ticket 12 declared. The message said *six sinks and two \
-             components* and then *five and three*, and both add to eight over a seven-row table: \
-             the count is stated as the split of `TEXT_BEARING` now rather than as two numbers \
-             nothing multiplies. A name arriving here or leaving it is a deliberate edit — the row \
-             is a claim about what a chord does to *every* focusable, and which of them are real \
-             components is the half this test keeps honest. **`field` is the one that makes the \
-             row a claim rather than a prediction**: every other name on it consumes a text-bearing \
-             key into a type-ahead buffer, and this one consumes it into a document"
+            vec![
+                "field",
+                "form",
+                "select",
+                "collection",
+                "table",
+                "tree",
+                "file_picker"
+            ],
+            "row 5's population is **seven names, and since components ticket 35 every one of them \
+             is built** — `field` since ticket 24, `select` since 26, `tree` since 17, `table` since \
+             15, `collection` since 12, `file_picker` since 32, and `form` here. **Two of those \
+             arrived by repairing the needle rather than by anybody building anything**: `select` \
+             and `file_picker` carry a lifetime and a type parameter, and the parenthesis this \
+             predicate looked for answered *undeclared* about both for six tickets. A name arriving \
+             here or leaving it is a deliberate edit — the row is a claim about what a chord does to \
+             *every* focusable, and which of them are real components is the half this test keeps \
+             honest. **`field` is the one that makes the row a claim rather than a prediction**: \
+             every other name on it consumes a text-bearing key into a type-ahead buffer, and this \
+             one consumes it into a document"
         );
         assert_eq!(
             TEXT_BEARING.len() - built.len(),
-            3,
-            "and three of the seven are names no component declares yet: `form`, `select` and \
-             `file_picker`"
+            0,
+            "and the count of names no component declares is zero, which is what this module's \
+             header said it was waiting for"
         );
         // No duplicates, or the count above is not the population.
         let mut sorted = TEXT_BEARING.to_vec();

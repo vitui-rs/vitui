@@ -109,7 +109,7 @@ use std::time::Instant;
 
 use vitui_runtime::keys::{Code, Edge, Pressed};
 use vitui_runtime::layout::text::{truncate, width};
-use vitui_runtime::layout::{Constraint, solve};
+use vitui_runtime::layout::{Constraint, rect, solve};
 use vitui_runtime::{Ctx, Glyph, Id, Interest, Mods, Rect, Response, Revision, Role, Scrollable};
 
 use crate::frame::Face;
@@ -3711,10 +3711,414 @@ pub fn edit_follow_costs(len: usize, entries: usize) -> (u128, u128) {
     (slot, started.elapsed().as_nanos())
 }
 
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+// `pagination` — §17's Tier 2 pager: `collection` at a small length, on the other axis
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+
+/// [`pagination`]'s options.
+///
+/// Spec §1's rule 3: a `Default` struct, never a required builder.
+///
+/// **There is no `mode` here.** A pager is [`Mode::Options`] — *exactly one, and it can never become
+/// zero* — and that is not a caller's choice: a paginator with nothing selected is a paginator
+/// showing no page. It is the one place in this module where a [`CollOpts`] field is fixed rather
+/// than forwarded, and `page_opts` — one private function — is where that happens once.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct PageOpts {
+    /// How many rows one type-ahead keystroke may look at. [`CollOpts::search`], forwarded whole.
+    pub search: usize,
+    /// **A stepper at each end**, drawn in the two arrow glyphs the freeze declares for this
+    /// component (spec §17). Dropped when the strip has no room for a page between them, because a
+    /// pager with no page in it is two buttons and a lie — `crate::scroll::ScrollbarOpts::caps`
+    /// makes the same call for the same reason.
+    pub steppers: bool,
+    /// How wide one page's cell is, or `0` to derive it from the widest label.
+    pub cell: u16,
+    /// The role the steppers are drawn in.
+    pub stepper: Role,
+    /// The role the strip's own cells — the gaps the pages do not reach — are written in.
+    pub tail: Role,
+    /// Where a page's label sits in its cell.
+    pub justify: crate::text::Justify,
+}
+
+impl Default for PageOpts {
+    fn default() -> PageOpts {
+        PageOpts {
+            search: SEARCH_BUDGET,
+            steppers: true,
+            cell: 0,
+            stepper: Role::Border,
+            tail: Role::Body,
+            justify: crate::text::Justify::Middle,
+        }
+    }
+}
+
+/// **The [`CollOpts`] a pager is**, and the one line that makes *no second navigation model* a fact
+/// rather than a claim.
+///
+/// [`keyboard`] reads `mode` and `search` and nothing else, so a pager that reached the drain loop
+/// with its own options would be a second policy wearing the same call. This is the whole
+/// translation, and it is one function so that a reader can see there is no second one.
+fn page_opts(opts: &PageOpts) -> CollOpts {
+    CollOpts {
+        mode: Mode::Options,
+        search: opts.search,
+        tail: opts.tail,
+    }
+}
+
+/// **How many pages fit in `room` cells at `cell` cells each.** At least one, because a strip with
+/// no page in it has nothing to be a pager of.
+fn fits(room: u16, cell: u16) -> u16 {
+    (room / cell.max(1)).max(1)
+}
+
+/// **A strip of page numbers with a stepper at each end — `collection` at a small length.**
+///
+/// Spec §18's R3: *a composition of shipped components with no new mechanism.* The store is
+/// [`CollState`], the policy is [`Mode::Options`], the keyboard is [`collection`]'s own drain loop
+/// and therefore [`crate::nav::cursor`], and what this component adds is a **rectangle split**.
+///
+/// # It is `collection`'s store and not `collection`'s row loop, and the reason is an axis
+///
+/// [`table`] is `collection` plus a column split and [`tree`] is `collection` plus a flatten index,
+/// and both of them *call* [`collection_into`]. A pager cannot: the row loop hands its drawer
+/// `Rect::new(0, y, area.w, 1)` and asks [`Ctx::visible_rows`](vitui_runtime::Ctx::visible_rows)
+/// which rows are reachable, both of which are **the vertical axis by construction**, and a pager is
+/// a row of cells. A transpose is not a rectangle split — it is a different `Ctx` — so what this
+/// reaches is the half of `collection` that has no axis at all: the store, the thirteen arms of
+/// [`apply`], and the one drain loop.
+///
+/// That is not a weaker claim than `table`'s, and `tests::a_pager_and_a_collection_land_on_the_same_index`
+/// is why: the same key sequence over the same length moves both to the same index, at every length
+/// and for every key in the vocabulary.
+///
+/// ```
+/// use vitui_components::collect::{CollState, pagination};
+/// use vitui_runtime::Rect;
+/// use vitui_runtime::ctx::Driver;
+///
+/// let mut st = CollState::new();
+/// let mut driver = Driver::headless(40, 3).expect("a sink attaches");
+/// driver.frame(|cx| {
+///     let resp = pagination(cx, Rect::new(0, 2, 40, 1), &mut st, 9);
+///     // Rule 4: a `Response` back, and nothing has happened on a frame with no input.
+///     assert!(!resp.clicked);
+/// });
+/// // Exactly one, and it can never be zero: the first page is current before anybody has pressed
+/// // anything, because that is what `Mode::Options` means.
+/// assert_eq!(st.sel.lead, 0);
+/// // One hit entry for the strip, never one per page.
+/// assert_eq!(driver.inspect().hits().len(), 1);
+/// ```
+#[track_caller]
+pub fn pagination(cx: &mut Ctx<'_, '_>, area: Rect, st: &mut CollState, pages: usize) -> Response {
+    pagination_with(cx, area, st, pages, &PageOpts::default())
+}
+
+/// [`pagination`], with the options spelled out.
+#[track_caller]
+pub fn pagination_with(
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    st: &mut CollState,
+    pages: usize,
+    opts: &PageOpts,
+) -> Response {
+    pagination_into(&mut Direct, cx, area, st, pages, opts)
+}
+
+/// **[`pagination`], drawing through an [`Ink`] so a counter can see every cell.**
+///
+/// The entry point a gate takes; [`pagination`] is this with [`Direct`].
+#[track_caller]
+pub fn pagination_into<I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    st: &mut CollState,
+    pages: usize,
+    opts: &PageOpts,
+) -> Response {
+    // **The id, taken outside every closure** (ADR 0027), and `#[track_caller]` all the way down.
+    let id = cx.id();
+    if area.is_empty() {
+        return Response::inert(id, area);
+    }
+    let len = pages.max(1);
+    let coll = page_opts(opts);
+
+    // **One hit entry for the strip, never one per page**, and no `Interest::SCROLL`: a pager does
+    // not own an offset the wheel may move (spec §17's own column), so a notch over it chains
+    // outward to whatever is beneath.
+    let mut resp = cx.interact(
+        id,
+        area,
+        Interest::CLICK.with(Interest::HOVER).with(Interest::FOCUS),
+    );
+
+    let (strip, below) = rect::split_at_v(area, 1);
+    let cell = page_cell(len, opts);
+    let caps = u16::from(opts.steppers && strip.w >= 2 + cell);
+    let room = strip.w.saturating_sub(caps.saturating_mul(2));
+    let shown = usize::from(fits(room, cell)).min(len);
+
+    // **The window's first page is `CollState::offset`**, which is the store's own field read on the
+    // axis this component lays out on. A second field for it would be ADR 0028's *two stores of one
+    // fact* with the count as the argument rather than the shape.
+    let max = i32::try_from(len - shown).unwrap_or(i32::MAX);
+    st.offset = st.offset.clamp(0, max);
+
+    // The pointer half. `local` is this frame's, so the page is arithmetic and there is no frame lag
+    // and no per-page hit entry — `collection`'s own reading, one axis over.
+    let over = resp
+        .local
+        .filter(|(_, ly)| *ly == 0)
+        .and_then(|(lx, _)| page_at(lx, st.offset, strip.w, caps, cell, len, shown));
+    let press_edge = resp.pressed && !st.pressing;
+    st.pressing = resp.pressed;
+    st.edge = press_edge;
+    if press_edge {
+        // **`from_click` and not a `Gesture` written here**, which is the pointer half of *no second
+        // navigation model*: `from_click` and `from_key` are two readings of one vocabulary (§5),
+        // and at `Mode::Options` `apply` collapses ctrl and shift onto `select_only` in one arm. A
+        // pager that spelled `Gesture::Plain` directly would be right today and would stop being
+        // right the day that arm moves.
+        let at = match over {
+            Some(Hit::Page(at)) => Some(at),
+            Some(Hit::Prev) => Some(st.sel.lead.saturating_sub(1)),
+            Some(Hit::Next) => Some((st.sel.lead + 1).min(len - 1)),
+            None => None,
+        };
+        if let Some(at) = at {
+            apply(coll.mode, &mut st.sel, len, from_click(resp.mods, at));
+            cx.focus(id);
+            resp.changed = true;
+        }
+    }
+
+    // **The keyboard is `collection`'s own drain loop and there is no second one.** `nav::step`
+    // reads `←`/`→` as `↑`/`↓` — components ticket 17's finding, which is a collision for a `tree`
+    // and is exactly right here, because a pager's axis *is* the horizontal one.
+    // **The caller's search, which for a pager is a prefix over its own page numbers** — and it
+    // allocates nothing, because a label is [`Digits`] on the stack. `collection` owns the buffer,
+    // the deadline and the bound; this is the half §5 says is the caller's.
+    let mut find = |buf: &str, range: Range<usize>| {
+        range
+            .into_iter()
+            .find(|&i| Digits::of(i).as_str().starts_with(buf))
+    };
+    let asked = keyboard(
+        cx,
+        id,
+        st,
+        &coll,
+        len,
+        &mut find,
+        shown.max(1),
+        &mut no_refusal,
+    );
+    resp.changed |= asked.changed;
+
+    // **The window follows the cursor here rather than through `request_into_view`**, because the
+    // offset is this component's own and a reveal is a request to whatever owns the *enclosing*
+    // area. Conditional on the key having moved something, which is `CONTEXT.md`'s rule and the one
+    // four resolved prototypes broke.
+    if asked.reveal {
+        let lead = i32::try_from(st.sel.lead).unwrap_or(0);
+        let span = i32::from(u16::try_from(shown).unwrap_or(u16::MAX)).max(1);
+        st.offset = st.offset.clamp(lead - span + 1, lead).clamp(0, max);
+    }
+
+    strip_into(
+        ink, cx, strip, st, len, shown, caps, cell, opts, &resp, over,
+    );
+    crate::text::pad_rows(ink, cx, below, cx.theme().paint(opts.tail));
+    resp
+}
+
+/// **What a column of the strip is**, resolved from `Response::local` by arithmetic.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Hit {
+    /// The leading stepper.
+    Prev,
+    /// One of the visible pages.
+    Page(usize),
+    /// The trailing stepper.
+    Next,
+}
+
+/// **A page's label, formatted into the stack.**
+///
+/// One-based, because a paginator is read by a person — and a `String`, because the obvious
+/// spelling is what it costs: `(i + 1).to_string()` is **one allocation a page a frame**, which over
+/// 137 pages and 60 frames is 9 240 against a budget of zero. The pager pays it twice, once to draw
+/// each visible cell and once for the type-ahead's search, and **every other counter is blind to
+/// it** — the writes, the verbs, the regions and the picture are identical either way. It was caught
+/// by `tests::the_three_tier_two_composites_allocate_nothing_and_the_record_shaped_form_allocates_a_frame`
+/// on its first run, which is `crate::structure::rule`'s `format!` and `crate::media::player`'s
+/// `Vec` for the third time on this map.
+///
+/// Twenty digits is `usize::MAX`, so the buffer cannot be short.
+struct Digits {
+    buf: [u8; 20],
+    at: usize,
+}
+
+impl Digits {
+    /// The one-based label for index `i`.
+    fn of(i: usize) -> Digits {
+        let mut d = Digits {
+            buf: [b'0'; 20],
+            at: 20,
+        };
+        let mut n = i.saturating_add(1);
+        loop {
+            d.at -= 1;
+            d.buf[d.at] = b'0' + u8::try_from(n % 10).unwrap_or(0);
+            n /= 10;
+            if n == 0 || d.at == 0 {
+                break;
+            }
+        }
+        d
+    }
+
+    /// What it spells. ASCII digits, so the conversion cannot fail.
+    fn as_str(&self) -> &str {
+        std::str::from_utf8(&self.buf[self.at..]).unwrap_or("0")
+    }
+}
+
+/// **How wide one page's cell is.** The caller's, or the widest label plus a cell either side.
+fn page_cell(len: usize, opts: &PageOpts) -> u16 {
+    if opts.cell > 0 {
+        return opts.cell.max(1);
+    }
+    width(Digits::of(len.saturating_sub(1)).as_str())
+        .saturating_add(2)
+        .max(3)
+}
+
+/// Which part of the strip column `lx` is, or `None` for a gap the pages do not reach.
+fn page_at(
+    lx: i32,
+    offset: i32,
+    w: u16,
+    caps: u16,
+    cell: u16,
+    len: usize,
+    shown: usize,
+) -> Option<Hit> {
+    if lx < 0 || lx >= i32::from(w) {
+        return None;
+    }
+    if caps > 0 {
+        if lx < i32::from(caps) {
+            return Some(Hit::Prev);
+        }
+        if lx >= i32::from(w - caps) {
+            return Some(Hit::Next);
+        }
+    }
+    let into = lx - i32::from(caps);
+    let slot = usize::try_from(into / i32::from(cell.max(1))).ok()?;
+    if slot >= shown {
+        return None;
+    }
+    let at = usize::try_from(offset).unwrap_or(0) + slot;
+    (at < len).then_some(Hit::Page(at))
+}
+
+/// **The strip: the two steppers, the visible pages, and the gap the pages do not reach.**
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the strip's own geometry, resolved once by `pagination_into` and handed over whole. \
+              Recomputing it here would be two derivations of one layout, which is the shape the \
+              pointer half and the drawing half must not be allowed to disagree about"
+)]
+fn strip_into<I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    strip: Rect,
+    st: &CollState,
+    len: usize,
+    shown: usize,
+    caps: u16,
+    cell: u16,
+    opts: &PageOpts,
+    resp: &Response,
+    over: Option<Hit>,
+) {
+    if strip.is_empty() {
+        return;
+    }
+    let theme = cx.theme();
+    let tail = theme.paint(opts.tail);
+    let stepper = theme.paint(opts.stepper);
+    let (left, right) = (
+        theme.glyph(Glyph::ArrowLeft),
+        theme.glyph(Glyph::ArrowRight),
+    );
+
+    let mut x = strip.x;
+    if caps > 0 {
+        ink.pad_to(cx, x, strip.y, left, caps, stepper);
+        x += i32::from(caps);
+    }
+    let first = usize::try_from(st.offset).unwrap_or(0);
+    // **The last column a page may write.** `fits` floors at one, so a strip with no room for a
+    // whole cell still stands a page — and a cell written at its full width there runs **past the
+    // rectangle**, onto whatever is beside it. It is `crate::scroll`'s `arithmetic_band` in a
+    // component that has no view to be clipped by, and the sweep that should have caught it drew
+    // the pager at the screen's own edge, where the screen clipped the overrun: the recorder and
+    // the defect shared a coordinate system, which is the third time on this map.
+    let stop = strip.right() - i32::from(caps);
+    // **Seeked once and advanced in lockstep**, which is `collection`'s own scan and the reason a
+    // pager needs no second selection reading.
+    let mut scan = Scan::seek(&st.sel, first);
+    for slot in 0..shown {
+        let i = first + slot;
+        if i >= len || x >= stop {
+            break;
+        }
+        let face = Face {
+            selected: scan.at(i),
+            cursor: st.sel.lead == i,
+            active: resp.focused,
+            hovered: over == Some(Hit::Page(i)),
+            disabled: false,
+        };
+        let paint = crate::frame::face_paint(cx.theme(), face);
+        let room = u16::try_from(stop - x).unwrap_or(cell).min(cell);
+        // **`elided_row_into` and not `pad_to`**, and the difference is a partition: `pad_to` pads a
+        // short label and writes a long one **whole**, so a page cell narrower than its own number
+        // writes past its share — a `137` in a one-cell strip is two cells, one of them the
+        // neighbour's. Elided, §16's one-cell marker rule holds here as it does on a label, and the
+        // cell is exactly `room` wide whatever the number is.
+        crate::glyphs::elided_row_into(ink, cx, x, strip.y, Digits::of(i).as_str(), room, paint);
+        x += i32::from(room);
+    }
+    // **The gap between the last page and the trailing stepper is the pager's own**, and writing it
+    // is the same half of §2's rule that `collection`'s tail is: the cells the content does not
+    // reach belong to the component that was handed the rectangle.
+    if x < stop {
+        let w = u16::try_from(stop - x).unwrap_or(0);
+        ink.run(cx, x, strip.y, " ", w, tail);
+    }
+    if caps > 0 {
+        ink.pad_to(cx, stop, strip.y, right, caps, stepper);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::counters::Tally;
     use crate::order::Entry;
+    use vitui_runtime::ctx::Driver;
 
     /// **Criterion 1: one component, one `Mode`, thirteen match arms.**
     ///
@@ -3777,6 +4181,449 @@ mod tests {
         let path = alternating(1_000);
         assert_eq!(path.span_count(), 1_000);
         assert_eq!(path.bytes(), 16_000);
+    }
+
+    // ── `pagination` ─────────────────────────────────────────────────────────────────────────────
+
+    /// A tally over one frame of `f` on a sink two cells larger than `w` by `h` on every side.
+    ///
+    /// **The margin is the point.** A component drawn at the screen's own edge is clipped by the
+    /// screen, so a verb that runs past its rectangle costs nothing a counter can see — which is how
+    /// the first spelling of the sweep below missed a pager writing **5 cells into a 4-cell strip**.
+    /// The recorder and the defect shared a coordinate system, which is the third time this crate
+    /// has met that shape (components 19's `Tally::distinct`, components 29's `qr_into`).
+    fn tallied_page(w: u16, h: u16, f: impl FnOnce(&mut Tally, &mut Ctx<'_, '_>)) -> Tally {
+        let mut driver = Driver::headless(w + 4, h + 4).expect("a sink cannot fail to attach");
+        let mut tally = Tally::new();
+        driver.frame(|cx| f(&mut tally, cx));
+        tally
+    }
+
+    /// **A pager writes every cell of its rectangle exactly once**, at every size, page count and
+    /// window position.
+    ///
+    /// §2's two equalities over the one component in this module whose content does not fill its own
+    /// rectangle by construction: a strip of `shown` cells of `cell` columns leaves a gap before the
+    /// trailing stepper whenever the two do not divide, and that gap is the pager's own.
+    #[test]
+    fn a_pager_writes_every_cell_of_its_rectangle_exactly_once() {
+        for (w, h) in [(1, 1), (4, 1), (12, 1), (40, 1), (40, 3), (13, 2), (200, 1)] {
+            for pages in [1usize, 2, 9, 10, 137, 5_000] {
+                for offset in [0i32, 3, 900] {
+                    for steppers in [true, false] {
+                        let opts = PageOpts {
+                            steppers,
+                            ..PageOpts::default()
+                        };
+                        let mut st = CollState::new();
+                        st.offset = offset;
+                        let tally = tallied_page(w, h, |tally, cx| {
+                            pagination_into(
+                                tally,
+                                cx,
+                                Rect::new(2, 2, w, h),
+                                &mut st,
+                                pages,
+                                &opts,
+                            );
+                        });
+                        let cells = u64::from(w) * u64::from(h);
+                        assert_eq!(
+                            tally.writes(),
+                            tally.distinct(),
+                            "{w}x{h} {pages} pages at {offset}: {} cells written twice",
+                            tally.writes() - tally.distinct()
+                        );
+                        assert_eq!(
+                            tally.distinct(),
+                            cells,
+                            "{w}x{h} {pages} pages at {offset}: the strip is {} cells rather than \
+                             {cells}, and the margin around it is what makes an overrun visible \
+                             rather than clipped",
+                            tally.distinct()
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// **One hit entry for the strip, never one per page, and the count does not move with the page
+    /// count.**
+    #[test]
+    fn a_pager_declares_one_hit_entry_however_many_pages_it_has() {
+        for pages in [1usize, 9, 137, 100_000] {
+            let mut st = CollState::new();
+            let mut driver = Driver::headless(60, 3).expect("a sink cannot fail to attach");
+            driver.frame(|cx| {
+                pagination(cx, Rect::new(0, 2, 60, 1), &mut st, pages);
+            });
+            let frame = driver.inspect();
+            assert_eq!(frame.hits().len(), 1, "{pages} pages");
+            // One tab stop, because a pager is reached with `Tab` and moved with the arrows.
+            assert_eq!(frame.stop_count(), 1);
+        }
+    }
+
+    /// **A click on a page selects it and a click on a stepper steps**, both through `from_click`.
+    ///
+    /// `from_click` and `from_key` are two readings of one vocabulary (§5), and this is the pointer
+    /// half of *no second navigation model*: the pager resolves *which column* by arithmetic and
+    /// hands the answer to the same `apply` the keyboard reaches.
+    ///
+    /// **A press is two frames**, because the grab is awarded at `end` — components ticket 30's
+    /// cadence, and a gate playing one frame a phase would measure the cadence and call it the
+    /// mechanism.
+    #[test]
+    fn a_click_on_a_page_selects_it_and_a_click_on_a_stepper_steps() {
+        /// Ten pages over an 11-cell strip with room for three, from one call site.
+        fn frame(driver: &mut Driver, st: &mut CollState) {
+            let opts = PageOpts {
+                cell: 3,
+                ..PageOpts::default()
+            };
+            driver.frame(|cx| {
+                pagination_with(cx, Rect::new(0, 0, 11, 1), st, 10, &opts);
+            });
+        }
+
+        let mut st = CollState::new();
+        let mut driver = Driver::headless(11, 1).expect("a sink cannot fail to attach");
+        frame(&mut driver, &mut st);
+
+        // Column 4 is the second visible page: one stepper, then three-cell cells.
+        press_at(&mut driver, 4);
+        frame(&mut driver, &mut st);
+        frame(&mut driver, &mut st);
+        assert_eq!(
+            st.sel.lead, 1,
+            "a click on the second page did not select it"
+        );
+        release_at(&mut driver, 4);
+        frame(&mut driver, &mut st);
+
+        // And the trailing stepper is the last column.
+        press_at(&mut driver, 10);
+        frame(&mut driver, &mut st);
+        frame(&mut driver, &mut st);
+        assert_eq!(st.sel.lead, 2, "the trailing stepper did not step");
+    }
+
+    /// A pointer press at column `x` on the strip's own row.
+    fn press_at(driver: &mut Driver, x: u16) {
+        driver.post_mouse(vitui_runtime::Mouse {
+            x,
+            y: 0,
+            kind: vitui_runtime::MouseKind::Down(vitui_runtime::Button::Left),
+            buttons: vitui_runtime::Buttons::NONE,
+            mods: Mods::NONE,
+            at: Instant::now(),
+        });
+    }
+
+    /// The release that ends it.
+    fn release_at(driver: &mut Driver, x: u16) {
+        driver.post_mouse(vitui_runtime::Mouse {
+            x,
+            y: 0,
+            kind: vitui_runtime::MouseKind::Up(vitui_runtime::Button::Left),
+            buttons: vitui_runtime::Buttons::NONE,
+            mods: Mods::NONE,
+            at: Instant::now(),
+        });
+    }
+
+    /// **Two pagers on one screen are two widgets and merge nothing** — ADR 0027.
+    ///
+    /// A pager keys nothing per page, so what this catches is the one thing that could go wrong at
+    /// its own level: a `#[track_caller]` that stopped one frame short of the call would make both
+    /// pagers one widget, and `Ctx::interact` makes a merged claim **inert** — so the second pager
+    /// would take no press, no drag and no hover on a screen that renders perfectly.
+    #[test]
+    fn two_pagers_on_one_screen_are_two_widgets_and_merge_nothing() {
+        let (mut a, mut b) = (CollState::new(), CollState::new());
+        let mut driver = Driver::headless(40, 4).expect("a sink cannot fail to attach");
+        let mut ids = (None, None);
+        driver.frame(|cx| {
+            ids.0 = Some(pagination(cx, Rect::new(0, 0, 40, 1), &mut a, 9).id);
+            ids.1 = Some(pagination(cx, Rect::new(0, 3, 40, 1), &mut b, 40).id);
+        });
+        assert_ne!(ids.0, ids.1, "two pagers are one pager");
+        let frame = driver.inspect();
+        assert_eq!(frame.hits().len(), 2);
+        assert_eq!(frame.stop_count(), 2);
+        assert_eq!(frame.ids().merges(), 0);
+    }
+
+    /// **Criterion 3: no second store and no second navigation model** — the same keys move a pager
+    /// and a collection to the same index, at every length and for every key in the vocabulary.
+    ///
+    /// This is the load-bearing half of *`pagination` is `collection` at a small length*. The two
+    /// components lay their content out on different axes and share [`keyboard`], so an equality
+    /// between the indices they land on is what says the sharing is real: a pager that had grown its
+    /// own reading of `←`/`→` would still draw correctly and would diverge here.
+    ///
+    /// `crate::nav::step` reads `←` and `→` as `↑` and `↓`, which is components ticket 17's collision
+    /// for a `tree` and is exactly what a pager wants — so the horizontal keys are in the sweep
+    /// beside the vertical ones and both must agree.
+    #[test]
+    fn a_pager_and_a_collection_land_on_the_same_index() {
+        use vitui_runtime::keys::Chord;
+
+        let codes = [
+            Code::Left,
+            Code::Right,
+            Code::Up,
+            Code::Down,
+            Code::Home,
+            Code::End,
+            Code::PageUp,
+            Code::PageDown,
+        ];
+        let mut landed = std::collections::BTreeSet::new();
+        for len in [1usize, 2, 9, 40] {
+            for code in codes {
+                for presses in [1usize, 3] {
+                    let chords = vec![Chord::new(code); presses];
+                    let pager = drive_pager(len, &chords);
+                    let coll = drive_collection(len, &chords);
+                    assert_eq!(
+                        pager, coll,
+                        "{len} pages, {presses}x {code:?}: a pager and a collection disagree about \
+                         where the cursor is"
+                    );
+                    landed.insert(pager);
+                }
+            }
+        }
+        // **The sweep is not vacuous**, and this line is here because the first spelling of it was:
+        // the first frame and the drive loop were two call sites, so `Ctx::id` minted two ids, the
+        // planted focus named a widget no later frame declared, **not one key was delivered**, and
+        // both arms stood still at zero for every row of the sweep. Thirty-nine equal zeroes.
+        assert!(
+            landed.len() > 1,
+            "every drive landed on the same index, so the equality is between two things that did \
+             not move: {landed:?}"
+        );
+    }
+
+    /// **One frame of the pager, from one call site.**
+    ///
+    /// `Ctx::id` mints from `Location::caller()` and this function does **not** carry
+    /// `#[track_caller]`, which is the whole point: every frame of a drive comes from the line below
+    /// and is therefore the same widget. Written with the first frame at one call site and the rest
+    /// at another — the obvious spelling — the planted focus names an id no later frame declares,
+    /// **no key is ever delivered**, and the sweep above passes with both arms standing still. That
+    /// is components ticket 33's finding arriving in the instrument again, and
+    /// `tests::a_pager_and_a_collection_land_on_the_same_index` asserts the ids agree so it cannot
+    /// come back.
+    fn pager_frame(driver: &mut Driver, st: &mut CollState, len: usize) -> Id {
+        let opts = PageOpts {
+            // **A strip with room for exactly one page cell**, so that a pager's page and a
+            // collection's viewport are the same jump and `PageUp`/`PageDown` can be compared at
+            // all. Left at the default the strip fits fourteen and the two arms disagree about one
+            // key out of eight — which is a difference in the *screen*, not in the model.
+            cell: 3,
+            ..PageOpts::default()
+        };
+        let mut id = None;
+        driver.frame(|cx| id = Some(pagination_with(cx, Rect::new(0, 0, 5, 1), st, len, &opts).id));
+        id.expect("a frame ran")
+    }
+
+    /// The same, for `collection` at `Mode::Options` — which is what a pager is.
+    fn collection_frame(driver: &mut Driver, st: &mut CollState, len: usize) -> Id {
+        let opts = CollOpts {
+            mode: Mode::Options,
+            ..CollOpts::default()
+        };
+        let mut id = None;
+        driver.frame(|cx| {
+            id = Some(
+                collection(
+                    cx,
+                    Rect::new(0, 0, 60, 1),
+                    st,
+                    &opts,
+                    Rows::of(len),
+                    &mut |_, _| None,
+                    &mut |_, _, _, _| {},
+                )
+                .id,
+            );
+        });
+        id.expect("a frame ran")
+    }
+
+    /// Press `chords` into a focused pager over `len` pages, one key a frame, and answer the cursor.
+    fn drive_pager(len: usize, chords: &[vitui_runtime::keys::Chord]) -> usize {
+        let mut st = CollState::new();
+        let mut driver = Driver::headless(5, 1).expect("a sink cannot fail to attach");
+        let first = pager_frame(&mut driver, &mut st, len);
+        for &c in chords {
+            driver.plant(None, Some(first), None);
+            driver.post_key(crate::keys::press(c));
+            let again = pager_frame(&mut driver, &mut st, len);
+            assert_eq!(again, first, "two frames of one pager are two widgets");
+        }
+        st.sel.lead
+    }
+
+    /// The same drive over `collection` at `Mode::Options`.
+    ///
+    /// **One row of viewport on both sides**, so that `PageUp`/`PageDown` mean the same jump: a
+    /// pager's page is how many page cells fit, which the sweep pins at one by giving the strip room
+    /// for exactly one cell.
+    fn drive_collection(len: usize, chords: &[vitui_runtime::keys::Chord]) -> usize {
+        let mut st = CollState::new();
+        let mut driver = Driver::headless(60, 1).expect("a sink cannot fail to attach");
+        let first = collection_frame(&mut driver, &mut st, len);
+        for &c in chords {
+            driver.plant(None, Some(first), None);
+            driver.post_key(crate::keys::press(c));
+            let again = collection_frame(&mut driver, &mut st, len);
+            assert_eq!(again, first, "two frames of one collection are two widgets");
+        }
+        st.sel.lead
+    }
+
+    /// **A page's label is formatted into the stack**, and the type-ahead is a prefix over the
+    /// numbers.
+    ///
+    /// The obvious spelling — `(i + 1).to_string()` — is one allocation a page a frame, and the
+    /// allocation window caught it at **9 240 over 60 frames** on its first run with every other
+    /// counter reading identically. What is asserted here is the two things that would make the
+    /// repair wrong: the digits, and that typing still finds a page.
+    #[test]
+    fn a_pages_label_is_digits_on_the_stack_and_typing_one_finds_it() {
+        for (i, spelled) in [
+            (0usize, "1"),
+            (8, "9"),
+            (9, "10"),
+            (136, "137"),
+            (99_998, "99999"),
+        ] {
+            assert_eq!(Digits::of(i).as_str(), spelled);
+        }
+        // `usize::MAX` is twenty digits and the buffer is twenty, so the largest label a pager can
+        // carry is the one the type can name.
+        assert_eq!(Digits::of(usize::MAX - 1).as_str(), usize::MAX.to_string());
+
+        // And the type-ahead is a prefix over those, which is the caller's search §5 asks for.
+        use vitui_runtime::keys::Chord;
+        let mut st = CollState::new();
+        let mut driver = Driver::headless(60, 1).expect("a sink cannot fail to attach");
+        let opts = PageOpts::default();
+        fn frame(driver: &mut Driver, st: &mut CollState, opts: &PageOpts) -> Id {
+            let mut id = None;
+            driver.frame(|cx| {
+                id = Some(pagination_with(cx, Rect::new(0, 0, 60, 1), st, 137, opts).id);
+            });
+            id.expect("a frame ran")
+        }
+        let id = frame(&mut driver, &mut st, &opts);
+        for c in ['1', '2'] {
+            driver.plant(None, Some(id), None);
+            driver.post_key(crate::keys::press(Chord::typed(c)));
+            frame(&mut driver, &mut st, &opts);
+        }
+        // `1` lands on page 1 (index 0) and `12` on page 12 (index 11) — one buffer, one deadline,
+        // and both of them `collection`'s.
+        assert_eq!(st.sel.lead, 11);
+    }
+
+    /// **A pager mints no second store and no second navigation model**, read off the source.
+    ///
+    /// The scan `crate::composed` runs over the whole Tier 2 table, restricted here to the one thing
+    /// that table cannot say: the needles are checked against *this* file's section rather than
+    /// against a claim, and the negative half is watched being satisfiable — a section that reached
+    /// `nav::step` directly would be a second reading of the two keys `keyboard` already owns.
+    #[test]
+    fn a_pager_reaches_the_one_drain_loop_and_mints_no_second_reading_of_it() {
+        let source =
+            std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/collect.rs"))
+                .expect("this file is here");
+        let section = crate::composed::section(
+            &source,
+            "// `pagination` — §17's Tier 2 pager: `collection` at a small length, on the other axis",
+        );
+        assert!(!section.is_empty());
+        for used in [
+            "keyboard(",
+            "apply(coll.mode",
+            "Mode::Options",
+            "Scan::seek(",
+        ] {
+            assert!(
+                crate::dense::declares(section, used),
+                "a pager no longer reaches `{used}`"
+            );
+        }
+        for minted in [
+            "nav::step(",
+            "from_key(",
+            "struct PageState",
+            "Selection::new()",
+            "cx.scrollable(",
+        ] {
+            assert!(
+                !crate::dense::declares(section, minted),
+                "a pager mints `{minted}`, which is a second navigation model or a second store"
+            );
+        }
+    }
+
+    /// **The window is `CollState::offset` and it follows the cursor only when a key moved it.**
+    ///
+    /// `CONTEXT.md` forbids the unconditional form by name and four resolved prototypes shipped it
+    /// anyway. Here the offset is this component's own rather than a request to an enclosing area,
+    /// so the arm that would be wrong is a clamp taken every frame — and what that costs is
+    /// measured: a caller that moved the window by hand cannot keep it, on a frame with no key in
+    /// it at all.
+    #[test]
+    fn a_pagers_window_is_the_stores_own_offset_and_follows_only_a_key() {
+        use vitui_runtime::keys::{Chord, Code};
+
+        /// Ten pages over a strip with room for three, from one call site — see [`pager_frame`].
+        fn frame(driver: &mut Driver, st: &mut CollState) -> Id {
+            let opts = PageOpts {
+                cell: 3,
+                ..PageOpts::default()
+            };
+            let mut id = None;
+            driver.frame(|cx| {
+                id = Some(pagination_with(cx, Rect::new(0, 0, 11, 1), st, 10, &opts).id);
+            });
+            id.expect("a frame ran")
+        }
+
+        let mut st = CollState::new();
+        let mut driver = Driver::headless(11, 1).expect("a sink cannot fail to attach");
+        let id = frame(&mut driver, &mut st);
+        assert_eq!((st.offset, st.sel.lead), (0, 0));
+
+        // A caller moving the window by hand is left alone: no key moved anything.
+        st.offset = 5;
+        frame(&mut driver, &mut st);
+        assert_eq!(
+            st.offset, 5,
+            "the window moved on a frame with no key in it"
+        );
+
+        // And a key that moves the cursor drags the window exactly far enough to show it.
+        driver.plant(None, Some(id), None);
+        driver.post_key(crate::keys::press(Chord::new(Code::Home)));
+        frame(&mut driver, &mut st);
+        assert_eq!((st.offset, st.sel.lead), (0, 0));
+
+        driver.plant(None, Some(id), None);
+        driver.post_key(crate::keys::press(Chord::new(Code::End)));
+        frame(&mut driver, &mut st);
+        assert_eq!(
+            (st.offset, st.sel.lead),
+            (7, 9),
+            "`End` did not bring the last page into view"
+        );
     }
 
     /// **Criterion 3: `size_of::<CollState>()` is independent of length.**

@@ -909,6 +909,126 @@ fn a_steady_frame_of_the_six_tier_two_components_allocates_nothing_as_a_total() 
     assert_eq!(spark.misses(), 1);
 }
 
+/// **The three Tier 2 composites allocate nothing, as a total over sixty frames — and the shape one
+/// of them replaced allocates once a frame.**
+///
+/// Components ticket 35, criterion 8. Spec §20's *zero allocations during frame composition*, as a
+/// **total** rather than an integer mean (§21's refinement 2).
+///
+/// **The negative case is the point of this one.** [`crate::nav::cursor`] takes `&[&str]`, so a form
+/// written over a slice of *records* — a label and a `Text` in one struct, which reads better and is
+/// what a reviewer expects — has to build that slice every frame. The picture is **identical**
+/// either way, the writes and the verbs are identical either way, and the only instrument in this
+/// workspace that can tell the two apart is this window. Measured in one run: shipped **0**,
+/// record-shaped **60 over 60**.
+///
+/// **The window warms the path it prices** — components ticket 22's discipline, met for the fifth
+/// time here: the warm-up posts a key, because a form drains the keyboard and the frame's key queue
+/// takes its own first allocation on the first key that reaches it.
+#[test]
+fn the_three_tier_two_composites_allocate_nothing_and_the_record_shaped_form_allocates_a_frame() {
+    use vitui_alloc_probe::count_allocations;
+    use vitui_components::collect::{CollState, PageOpts, pagination_with};
+    use vitui_components::counters::Allocations;
+    use vitui_components::edit::Text;
+    use vitui_components::input::{FormOpts, FormState, defective, form_with};
+    use vitui_components::structure::{StatusOpts, status_bar_with};
+    use vitui_runtime::Mods;
+    use vitui_runtime::keys::Code;
+
+    /// How many frames the run is.
+    const FRAMES: usize = 60;
+    const LABELS: [&str; 4] = ["name", "email", "role", "team"];
+
+    let mut driver = Driver::headless(W, H).expect("a sink attaches");
+    let mut form_state = FormState::new();
+    let mut pages = CollState::new();
+    let mut texts = [Text::input(), Text::input(), Text::input(), Text::input()];
+    let bar = StatusOpts::default();
+    let page = PageOpts::default();
+    let shape = FormOpts::default();
+
+    let once = |driver: &mut Driver,
+                form_state: &mut FormState,
+                pages: &mut CollState,
+                texts: &mut [Text],
+                collected: bool| {
+        driver.frame(|cx| {
+            let area = cx.area();
+            let (rows, rest) = vitui_runtime::layout::rect::split_at_v(area, 4);
+            let (strip, tail) = vitui_runtime::layout::rect::split_at_v(rest, 1);
+            match collected {
+                true => defective::form_collecting_labels(
+                    &mut vitui_components::ink::Direct,
+                    cx,
+                    rows,
+                    form_state,
+                    &LABELS,
+                    texts,
+                    &shape,
+                ),
+                false => form_with(cx, rows, form_state, &LABELS, texts, &shape),
+            };
+            pagination_with(cx, strip, pages, 137, &page);
+            status_bar_with(
+                cx,
+                vitui_runtime::layout::rect::split_at_v(tail, 1).0,
+                &["ready", "utf-8", "ln 1"],
+                (0, 0),
+                &bar,
+            );
+        });
+    };
+
+    // Two warm frames each, and both post a key: a warm-up that draws but never presses is not
+    // warming the drain loop a form reads its arrows out of.
+    for collected in [false, true] {
+        for _ in 0..2 {
+            driver.post_key(vitui_components::keys::press_with(Code::Tab, Mods::NONE));
+            once(
+                &mut driver,
+                &mut form_state,
+                &mut pages,
+                &mut texts,
+                collected,
+            );
+        }
+    }
+
+    let shipped = count_allocations(|| {
+        for _ in 0..FRAMES {
+            driver.post_key(vitui_components::keys::press_with(Code::Tab, Mods::NONE));
+            once(&mut driver, &mut form_state, &mut pages, &mut texts, false);
+        }
+    })
+    .1;
+    let record_shaped = count_allocations(|| {
+        for _ in 0..FRAMES {
+            driver.post_key(vitui_components::keys::press_with(Code::Tab, Mods::NONE));
+            once(&mut driver, &mut form_state, &mut pages, &mut texts, true);
+        }
+    })
+    .1;
+
+    let measured = Allocations::over(FRAMES as u32, shipped as u64);
+    assert_eq!(
+        measured.total(),
+        0,
+        "the three Tier 2 composites allocated {} times over {} frames. A mean would have reported \
+         0 for any total below {}",
+        measured.total(),
+        measured.frames(),
+        measured.frames()
+    );
+    // **And the refused shape is watched paying**, in the same run and on the same screen, so the
+    // zero above is a measurement rather than a warm-up.
+    assert_eq!(
+        record_shaped, FRAMES,
+        "the record-shaped form allocated {record_shaped} times over {FRAMES} frames, and the \
+         claim is exactly one a frame — the `Vec<&str>` `nav::cursor`'s signature forces"
+    );
+}
+
 /// The top row of `area`, which is the shape a horizontal slider is drawn in.
 fn top_row(area: vitui_runtime::Rect) -> vitui_runtime::Rect {
     vitui_runtime::layout::rect::split_at_v(area, 1).0

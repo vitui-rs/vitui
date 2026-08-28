@@ -365,10 +365,10 @@ pub const CHROME: usize = 2;
 ///
 /// # Why it is not the screen spec §3 measured
 ///
-/// §3's **266 tab stops become 69** is C02's twelve-panel gallery, and not one of the components
-/// on it — `table`, `tree`, `select`, `form`, `pagination` — is declared in this crate; they were
-/// built as prototypes, which is what [`crate::Component::built`] records, and none of that code is
-/// here. There is no way to stand that screen up from this crate today and no
+/// §3's **266 tab stops become 69** is C02's twelve-panel gallery. When this fixture was written not
+/// one of the components on it — `table`, `tree`, `select`, `form`, `pagination` — was declared
+/// here; all five are now, and the fixture stays anyway, because what it measures is the
+/// **identity** and not the screen. There is no way to stand C02's screen up from this crate and no
 /// arrangement of a fixture that honestly produces those two numbers: `266 = c·r + s` with
 /// `69 = c + s` forces `c·(r − 1) = 197`, and 197 is prime — so the only uniform screen that yields
 /// the pair is **one** collection of 198 rows beside 68 loose focusables, which is not a gallery and

@@ -33,6 +33,7 @@
 //! which removes the reason and not the code. Whether the signature goes back to §1's own spelling
 //! is components architecture issue 17, and it is not decided in this file.
 
+use vitui_runtime::focus::ScopeKind;
 use vitui_runtime::keys::{Code, Edge, Pressed};
 use vitui_runtime::layout::rect;
 use vitui_runtime::layout::text::{truncate, width};
@@ -44,6 +45,7 @@ use crate::edit::{Text, WrapKind};
 use crate::frame::{Face, face_paint};
 use crate::ink::{Direct, Ink};
 use crate::keys;
+use crate::nav::{self, Cursor, TypeAhead};
 use crate::order::Rows;
 use crate::overlay::{Blur, MARK, PopupState, ShellOpts, overlay_with, popup_size};
 use crate::scroll::Orient;
@@ -485,7 +487,34 @@ pub fn field_into<I: Ink>(
     st: &mut Text,
     opts: &FieldOpts,
 ) -> Response {
-    draw_with(ink, cx, area, st, opts, defective::Regions::Widget)
+    let id = cx.id();
+    field_keyed(ink, cx, id, area, st, opts)
+}
+
+/// **[`field_into`] under an id its container minted**, which is the seam a [`form`] needs and the
+/// only way one can exist.
+///
+/// [`Ctx::id`] mints from `Location::caller()`, so a container cannot ask *what id would row 7
+/// have* — it can only find out by drawing row 7 and reading [`Response::id`] back. A form has to
+/// know the answer **before** it draws, because the key that moves the cursor is handed back by the
+/// focused field and arrives at the scope's after-the-body moment, one row too late to be the row it
+/// names. So the ids are the container's arithmetic: `Id::keyed(form_id, row)`, minted here and
+/// hung under the form's own id, which is ADR 0027's rule and [`crate::collect::Cell::id`]'s answer
+/// one component over — spec §4's *every workaround that looks like a hack is the id being opaque*.
+///
+/// Crate-private, because an id is not part of spec §1's component shape: a public one would let an
+/// application spell a field's identity, and identity comes from the call site and may never be
+/// persisted (ADR 0013).
+#[track_caller]
+pub(crate) fn field_keyed<I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    id: Id,
+    area: Rect,
+    st: &mut Text,
+    opts: &FieldOpts,
+) -> Response {
+    draw_with(ink, cx, id, area, st, opts, defective::Regions::Widget)
 }
 
 /// **The one axis `field` can be false on that is not on [`FieldOpts`]**, threaded here so the
@@ -494,13 +523,14 @@ pub fn field_into<I: Ink>(
 fn draw_with<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
+    id: Id,
     area: Rect,
     st: &mut Text,
     opts: &FieldOpts,
     regions: defective::Regions,
 ) -> Response {
-    // **The id, taken outside every closure** (ADR 0027).
-    let id = cx.id();
+    // **The id is the caller's** — minted by `field_into` from `Ctx::id` (ADR 0027, outside every
+    // closure) or by a container that owes its rows' identities, which is [`field_keyed`].
     if area.is_empty() {
         return Response::inert(id, area);
     }
@@ -567,8 +597,18 @@ fn draw_with<I: Ink>(
             }
             Code::Up | Code::Down => {
                 let up = k.code == Code::Up;
+                let before = st.caret();
                 st.step_row(w, up, shift);
-                true
+                // **A cursor key this widget cannot act on belongs to whatever is above it.** A
+                // one-row `input` — §11's flag at `WrapKind::Ruler`, which is most fields anybody
+                // writes — has no row to step to, and a field that consumed `Up`/`Down` anyway
+                // leaves every container above it **deaf**: a `crate::input::form` is a `Group`
+                // whose `crate::nav::cursor` never sees an arrow, on a screen that renders
+                // perfectly. That is components ticket 20's *declared and consumed nothing*
+                // arriving on the keyboard axis, and it is why the answer is the caret's own
+                // position rather than a flag: the same line is right at the top of a textarea and
+                // at the bottom of one.
+                st.caret() != before
             }
             _ => false,
         };
@@ -2440,6 +2480,314 @@ fn thumb_cell(value: f32, length: u16) -> u16 {
     at.min(length - 1)
 }
 
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+// `form` — §18's R3 example: `field` + `nav::cursor` + the focus ring the draw builds
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+
+/// **Everything a form keeps across frames, and it is [`crate::nav::cursor`]'s own parameter.**
+///
+/// One field, and the type is exactly as big as the thing `nav::cursor` cannot borrow from the ring:
+/// the buffer that has to survive a frame. There is **no cursor here** — the cursor is the focus,
+/// which is the runtime's, read back with [`Ctx::is_focused`](vitui_runtime::Ctx::is_focused) during
+/// the draw; and there is no selection, no per-row slot and no geometry.
+/// `tests::a_form_adds_nothing_to_what_nav_cursor_already_needs` is that as a `size_of`, which is
+/// what turns §18's *no new mechanism* from a claim into a number.
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
+pub struct FormState {
+    /// The type-ahead buffer and the one deadline it owes. [`crate::nav::TypeAhead`], because a
+    /// second buffer would be a second place the one-second window is written down.
+    pub ahead: TypeAhead,
+}
+
+impl FormState {
+    /// A form nobody has typed into.
+    pub fn new() -> FormState {
+        FormState::default()
+    }
+}
+
+/// [`form`]'s options.
+///
+/// Spec §1's rule 3: a `Default` struct, never a required builder.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct FormOpts {
+    /// The role a label is drawn in.
+    pub label: Role,
+    /// How wide the label column is, or `0` to derive it from the widest label. Capped at half the
+    /// form's width, because a label column wider than its fields is a form with no fields in it.
+    pub label_w: u16,
+    /// How many cells sit between a label and its field.
+    pub gap: u16,
+    /// How many rows one entry takes. One is an `input`; more is a `textarea` — §11's one flag, and
+    /// the form does not have a second opinion about it.
+    pub rows: u16,
+    /// The role the gap, the label column's padding and the tail below the last entry are drawn in.
+    pub pad: Role,
+    /// **Whether the form is one tab stop.**
+    ///
+    /// `true` by default, which is spec §3's placement decision rather than this component's taste:
+    /// *`nav::cursor`'s placement is the decision, not its contents* — a `Group` collapses the walk
+    /// onto the first entry and the rest stay in the ring, so `Tab` reaches the form and the arrows
+    /// move inside it.
+    ///
+    /// **It is also the only way a form can have arrows at all**, and that is a fact about the
+    /// runtime rather than a preference. A container receives the keys its children hand back only
+    /// through [`Ctx::scope`](vitui_runtime::Ctx::scope)'s after-the-body moment, and
+    /// [`ScopeKind`] has three arms: a `Group`, a modal's `Trap`, and the code editor's `Isolated`.
+    /// So `false` is a form of *n* tab stops whose arrow keys do nothing, and both arms are measured
+    /// — see `tests::a_grouped_form_is_one_tab_stop_and_an_ungrouped_one_is_every_field`.
+    pub group: bool,
+    /// What each field is. [`FieldOpts`], forwarded whole — a form has no field of its own.
+    pub field: FieldOpts,
+}
+
+impl Default for FormOpts {
+    fn default() -> FormOpts {
+        FormOpts {
+            label: Role::Dim,
+            label_w: 0,
+            gap: 1,
+            rows: 1,
+            pad: Role::Body,
+            group: true,
+            field: FieldOpts::default(),
+        }
+    }
+}
+
+/// **What a form is made of, as a value**, so that *no new mechanism* is enumerable rather than
+/// asserted.
+///
+/// Three names, one per clause of §18's R3 sentence — *`form` is `field` + `nav::cursor` + the focus
+/// ring the draw builds* — and `tests::a_form_is_the_three_things_r3_says_it_is` reads them out of
+/// this file. A fourth entry here would be a fourth clause in the spec.
+pub const FORM_IS: [&str; 3] = ["field", "nav::cursor", "the focus ring"];
+
+/// **A column of labelled fields, one tab stop, and the arrows moving inside it.**
+///
+/// Spec §18's R3 in its own words: *a composition of shipped components with no new mechanism.* The
+/// fields are [`field`], the navigation is [`crate::nav::cursor`], and what says where the keyboard
+/// is is the focus ring the draw builds — [`FormState`] is one type-ahead buffer and nothing else.
+///
+/// # The labels arrive as their own slice, and that is a count rather than a shape
+///
+/// [`crate::nav::cursor`] takes `&[&str]`. A form written over a slice of records — a label and a
+/// `Text` in one struct, which is the obvious spelling — has to **build** that slice every frame,
+/// and a `Vec<&str>` a frame is one allocation a frame against a budget of zero (spec §20). The
+/// refused shape is kept runnable at [`defective::form_collecting_labels`] and priced by
+/// `tests::a_form_allocates_nothing_and_the_record_shaped_spelling_allocates_a_frame`.
+///
+/// # Two entries that do not fit are two entries nobody drew
+///
+/// Density is theme data and it changes rectangles (spec §3), so the same form inside the same panel
+/// stands a different number of fields at `Compact` and at `Cosy`. That is **reported rather than
+/// hidden**: the count that falls off the bottom is `labels.len()` minus the hit entries the frame
+/// declared, and `tests::the_same_form_stands_fewer_fields_at_cosy_and_neither_writes_a_cell_twice`
+/// is where both columns are printed.
+///
+/// ```
+/// use vitui_components::edit::Text;
+/// use vitui_components::input::{FormState, form};
+/// use vitui_runtime::ctx::Driver;
+///
+/// let labels = ["name", "email", "role"];
+/// let mut texts = [Text::input(), Text::input(), Text::input()];
+/// let mut st = FormState::new();
+/// let mut driver = Driver::headless(40, 6).expect("a sink attaches");
+/// driver.frame(|cx| {
+///     let area = cx.area();
+///     let resp = form(cx, area, &mut st, &labels, &mut texts);
+///     // Rule 4: a `Response` back, and nothing has happened on a frame with no input.
+///     assert!(!resp.changed);
+/// });
+/// let frame = driver.inspect();
+/// // Three fields, three hit entries, three ring entries — and **one** tab stop, because a form is
+/// // a `Group` and that is what `nav::cursor` is for (spec §3).
+/// assert_eq!(frame.hits().len(), 3);
+/// assert_eq!(frame.ring().len(), 3);
+/// assert_eq!(frame.stop_count(), 1);
+/// ```
+#[track_caller]
+pub fn form(
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    st: &mut FormState,
+    labels: &[&str],
+    texts: &mut [Text],
+) -> Response {
+    form_with(cx, area, st, labels, texts, &FormOpts::default())
+}
+
+/// [`form`], with the options spelled out.
+#[track_caller]
+pub fn form_with(
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    st: &mut FormState,
+    labels: &[&str],
+    texts: &mut [Text],
+    opts: &FormOpts,
+) -> Response {
+    form_into(&mut Direct, cx, area, st, labels, texts, opts)
+}
+
+/// **[`form`], drawing through an [`Ink`] so a counter can see every cell.**
+///
+/// The entry point a gate takes; [`form`] is this with [`Direct`].
+#[track_caller]
+pub fn form_into<I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    st: &mut FormState,
+    labels: &[&str],
+    texts: &mut [Text],
+    opts: &FormOpts,
+) -> Response {
+    // **The id, taken outside every closure** (ADR 0027), and it is also the base every row's id is
+    // keyed from — see [`field_keyed`].
+    let id = cx.id();
+    let mut resp = Response::inert(id, area);
+    if area.is_empty() {
+        return resp;
+    }
+    let n = labels.len().min(texts.len());
+    let row_h = opts.rows.max(1);
+    let shown = n.min(usize::from(area.h / row_h));
+
+    let label_w = match opts.label_w {
+        0 => labels[..shown]
+            .iter()
+            .map(|l| width(l))
+            .max()
+            .unwrap_or(0)
+            .min(area.w / 2),
+        w => w.min(area.w),
+    };
+
+    let pad = cx.theme().paint(opts.pad);
+    let (rows, tail) = rect::split_at_v(
+        area,
+        row_h.saturating_mul(u16::try_from(shown).unwrap_or(u16::MAX)),
+    );
+
+    // **The body, and it is one closure so that the two scope arms cannot become two drawings.**
+    let draw = |cx: &mut Ctx<'_, '_>, ink: &mut I, texts: &mut [Text]| -> bool {
+        let mut changed = false;
+        for i in 0..shown {
+            let row = Rect::new(
+                rows.x,
+                rows.y + i32::from(row_h) * i32::try_from(i).unwrap_or(0),
+                rows.w,
+                row_h,
+            );
+            let (label, rest) = rect::split_at_h(row, label_w);
+            let (gap, entry) = rect::split_at_h(rest, opts.gap);
+            crate::text::fit_into(
+                ink,
+                cx,
+                label,
+                labels[i],
+                &crate::text::FitOpts {
+                    justify: Justify::Start,
+                    role: opts.label,
+                    pad: opts.pad,
+                },
+            );
+            // A label column taller than one row, and the gap between it and the field, are the
+            // form's own cells: §2's rule is that the owner of a rectangle writes all of it.
+            crate::text::pad_rows(ink, cx, rect::shrink(label, 0, 1, 0, 0), pad);
+            crate::text::pad_rows(ink, cx, gap, pad);
+            let fid = form_row_id(id, i);
+            changed |= field_keyed(ink, cx, fid, entry, &mut texts[i], &opts.field).changed;
+        }
+        changed
+    };
+    resp.changed = match opts.group {
+        // The scope's id is the form's own: `scope` roots no identity of its own (spec §4), and it
+        // is what makes the after-the-body moment deliver this form's declined keys to this form.
+        true => cx.scope(id, ScopeKind::Group, |cx| draw(cx, ink, texts)),
+        false => draw(cx, ink, texts),
+    };
+    crate::text::pad_rows(ink, cx, tail, pad);
+
+    // **The keyboard, after the body**, which is the only moment a container can have one: a field
+    // that declined a key ends the level's turn at the queue, and `Ctx::scope` resumes it when the
+    // routing target moves outward. Ungrouped there is no scope, `next_key` answers `None`, and this
+    // loop does not run — see [`FormOpts::group`].
+    // **The cursor is carried through the loop and not read once before it.** `Ctx::next_key` can
+    // answer more than one key in a frame — the queue closes on a *decline*, not on a take — and a
+    // `cur` computed once would compute the second arrow from the position the first one left
+    // behind: two `Down`s in one batch would move one row. `collection`'s own drain loop rebuilds
+    // its `Cursor` inside the loop for the same reason.
+    let mut at = focused_row(cx, id, shown);
+    while let Some(k) = cx.next_key(id) {
+        let cur = Cursor {
+            at,
+            len: shown,
+            page: shown.max(1),
+        };
+        match nav::cursor(cx, id, cur, &mut st.ahead, &k, &labels[..shown]) {
+            Some(to) => {
+                // **The row's id is arithmetic and not a lookup**, which is the whole reason
+                // `field_keyed` exists: a container cannot ask what id a row it has already drawn
+                // would have.
+                at = to;
+                cx.focus(form_row_id(id, to));
+                resp.changed = true;
+            }
+            None => cx.decline(k),
+        }
+    }
+    resp
+}
+
+/// **A form's row id, derived from the form's own.**
+///
+/// `Id::keyed(form, row)`, which is ADR 0027's rule — a component's children hang from its own id —
+/// and it is **public** because an application has a use for it that nothing else does: spec §8's
+/// *nothing holds the focus until an application says so* (architecture issue 25). A program that
+/// opens on a form and wants the keyboard in its first field has to name that field, and
+/// [`Ctx::id`](vitui_runtime::Ctx::id) mints from `Location::caller()` — there is no other way to
+/// ask.
+///
+/// It does not weaken ADR 0013's *identity comes from the call site and may never be persisted*: the
+/// `form` argument is a [`Response::id`] read back from the frame that just drew, so the identity is
+/// still the call site's and this is arithmetic over it.
+///
+/// ```
+/// use vitui_components::edit::Text;
+/// use vitui_components::input::{FormState, form, form_row_id};
+/// use vitui_runtime::ctx::Driver;
+///
+/// let labels = ["name", "email"];
+/// let mut texts = [Text::input(), Text::input()];
+/// let mut st = FormState::new();
+/// let mut driver = Driver::headless(30, 4).expect("a sink attaches");
+/// driver.frame(|cx| {
+///     let resp = form(cx, cx.area(), &mut st, &labels, &mut texts);
+///     // The application seats the keyboard, because nothing else will.
+///     if cx.focused().is_none() {
+///         cx.focus(form_row_id(resp.id, 0));
+///     }
+/// });
+/// assert!(driver.inspect().focused().is_some());
+/// ```
+pub fn form_row_id(form: Id, row: usize) -> Id {
+    Id::keyed(form, u64::try_from(row).unwrap_or(u64::MAX))
+}
+
+/// **Which row holds the keyboard**, or `0` when the form does not.
+///
+/// Read off the ring rather than stored: the focus is the runtime's and a second copy of it here is
+/// a second thing to be wrong. `0` for *nobody*, because a cursor has to be somewhere and the first
+/// row is where `Tab` would land.
+fn focused_row(cx: &Ctx<'_, '_>, id: Id, shown: usize) -> usize {
+    (0..shown)
+        .find(|&i| cx.is_focused(form_row_id(id, i)))
+        .unwrap_or(0)
+}
+
 /// **Every spelling of `field`, of `select` and of `slider` that is refused, kept runnable.**
 pub mod defective {
     /// **How many regions the widget declares.**
@@ -2699,7 +3047,36 @@ pub mod defective {
         opts: &super::FieldOpts,
         regions: Regions,
     ) -> vitui_runtime::Response {
-        super::draw_with(ink, cx, area, st, opts, regions)
+        let id = cx.id();
+        super::draw_with(ink, cx, id, area, st, opts, regions)
+    }
+
+    // ── `form`'s one refused spelling ────────────────────────────────────────────────────────────
+
+    /// **A form whose labels are collected every frame**, which is what a slice of records costs.
+    ///
+    /// [`crate::nav::cursor`] takes `&[&str]`. A form written over a slice of *records* — a label
+    /// and a [`crate::edit::Text`] in one struct, which reads better and is the shape a reviewer
+    /// expects — cannot hand it one without building it, and a `Vec<&str>` a frame is **one
+    /// allocation a frame** against a budget of zero (spec §20).
+    ///
+    /// The two arms differ by the one line below, and the picture is **identical** either way —
+    /// which is why the allocation window is the only instrument that can tell them apart, exactly
+    /// as it was for `crate::media::player`'s chapter list and for `crate::structure::rule`'s
+    /// caption.
+    #[track_caller]
+    pub fn form_collecting_labels<I: crate::ink::Ink>(
+        ink: &mut I,
+        cx: &mut vitui_runtime::Ctx<'_, '_>,
+        area: vitui_runtime::Rect,
+        st: &mut super::FormState,
+        labels: &[&str],
+        texts: &mut [crate::edit::Text],
+        opts: &super::FormOpts,
+    ) -> vitui_runtime::Response {
+        // **The one line.** Everything else is the shipped component.
+        let collected: Vec<&str> = labels.to_vec();
+        super::form_into(ink, cx, area, st, &collected, texts, opts)
     }
 
     // ── `slider`'s two refused spellings ─────────────────────────────────────────────────────────
@@ -4748,5 +5125,488 @@ mod toggle_tests {
                 "{kind:?}: a settled toggle changes cells — {changed:?}"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod form_tests {
+    use super::*;
+    use crate::counters::Tally;
+    use crate::edit::Text;
+    use vitui_runtime::Density;
+    use vitui_runtime::ctx::Driver;
+    use vitui_runtime::keys::{Chord, Code};
+
+    /// The form every measurement below is taken over. Six labelled fields, and the widest label is
+    /// what the label column derives from.
+    const LABELS: [&str; 6] = ["name", "email", "role", "team", "location", "pronouns"];
+
+    fn texts() -> [Text; 6] {
+        [
+            Text::input(),
+            Text::input(),
+            Text::input(),
+            Text::input(),
+            Text::input(),
+            Text::input(),
+        ]
+    }
+
+    /// **One frame of the form, from one call site**, seating the focus where asked.
+    ///
+    /// `form` is `#[track_caller]`, so a test that wrote the call twice would draw **two** forms:
+    /// the second frame mints a different id, every row's id is keyed from it, and the id the first
+    /// frame focused would not have drawn. ADR 0027's own defect, and components ticket 33 met it
+    /// with a slider.
+    fn frame(
+        driver: &mut Driver,
+        st: &mut FormState,
+        texts: &mut [Text],
+        area: Rect,
+        opts: &FormOpts,
+    ) -> Id {
+        let mut id = None;
+        driver.frame(|cx| id = Some(form_with(cx, area, st, &LABELS, texts, opts).id));
+        id.expect("a frame ran")
+    }
+
+    /// **§2 over a container: every cell of the rectangle, exactly once**, at every size, at both
+    /// scope arms, and at every entry height.
+    ///
+    /// The interesting sizes are the ones where the entries do **not** divide the height: what is
+    /// left is the form's own tail, and leaving it out is the stale-tail axis on a screen with no
+    /// list on it.
+    #[test]
+    fn a_form_writes_every_cell_of_its_rectangle_exactly_once() {
+        for (w, h) in [(1, 1), (12, 1), (40, 7), (40, 6), (30, 20), (9, 5), (80, 3)] {
+            for rows in [1u16, 2, 3] {
+                for group in [true, false] {
+                    for label_w in [0u16, 3, 200] {
+                        let opts = FormOpts {
+                            rows,
+                            group,
+                            label_w,
+                            ..FormOpts::default()
+                        };
+                        let mut st = FormState::new();
+                        let mut fields = texts();
+                        // **Two cells of margin on every side**, because a component drawn at the
+                        // screen's own edge is clipped by the screen and a verb that runs past its
+                        // rectangle costs nothing a counter can see. `pagination` was writing 5
+                        // cells into a 4-cell strip under a sweep that had none.
+                        let mut driver =
+                            Driver::headless(w + 4, h + 4).expect("a sink cannot fail to attach");
+                        let mut tally = Tally::new();
+                        driver.frame(|cx| {
+                            form_into(
+                                &mut tally,
+                                cx,
+                                Rect::new(2, 2, w, h),
+                                &mut st,
+                                &LABELS,
+                                &mut fields,
+                                &opts,
+                            );
+                        });
+                        let cells = u64::from(w) * u64::from(h);
+                        assert_eq!(
+                            tally.writes(),
+                            tally.distinct(),
+                            "{w}x{h} rows={rows} group={group} label_w={label_w}: {} cells twice",
+                            tally.writes() - tally.distinct()
+                        );
+                        assert_eq!(
+                            tally.distinct(),
+                            cells,
+                            "{w}x{h} rows={rows} group={group} label_w={label_w}: not covered"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// **A field declines a cursor key it could not act on**, which is what makes a container above
+    /// it able to hear one at all.
+    ///
+    /// The defect components ticket 35 found in code that was already green, and it is components
+    /// ticket 20's *declared and consumed nothing* on the keyboard axis. §11's one flag makes
+    /// `input` and `textarea` one component, so `field` reads `Up`/`Down` as a caret row step — and
+    /// a one-row `input` has no row to step to. It consumed the key anyway, and what that cost is
+    /// invisible on the field: a `form` is a `Group` whose `nav::cursor` **never saw an arrow**, on
+    /// a screen that rendered perfectly.
+    ///
+    /// Both directions, because a field that declined *every* arrow would be a textarea nobody can
+    /// move the caret down inside.
+    #[test]
+    fn a_field_declines_a_cursor_key_it_could_not_act_on() {
+        /// One frame, **from one call site**, drawing a field of `h` rows inside a scope that can
+        /// hear what the field hands back. Answers the field's id and how many keys reached the
+        /// level above — and the one call site is the whole reason this is a function: written
+        /// twice, the second frame mints a different id and the planted focus reaches nobody.
+        fn frame(driver: &mut Driver, st: &mut Text, h: u16) -> (Id, usize) {
+            let sink = Id::named("outer");
+            let (mut id, mut heard) = (None, 0);
+            driver.frame(|cx| {
+                cx.scope(sink, ScopeKind::Group, |cx| {
+                    id = Some(field(cx, Rect::new(0, 0, 20, h), st).id);
+                });
+                while let Some(k) = cx.next_key(sink) {
+                    heard += 1;
+                    cx.decline(k);
+                }
+            });
+            (id.expect("a frame ran"), heard)
+        }
+
+        // A one-row input: `Down` has nowhere to go, so the level above hears it.
+        let mut one = Text::input();
+        one.insert(20, "hello");
+        let mut driver = Driver::headless(20, 4).expect("a sink cannot fail to attach");
+        let (id, _) = frame(&mut driver, &mut one, 1);
+        driver.plant(None, Some(id), None);
+        driver.post_key(crate::keys::press(Chord::new(Code::Down)));
+        assert_eq!(
+            frame(&mut driver, &mut one, 1).1,
+            1,
+            "a one-row input swallowed a `Down` it could not act on, which is what makes every \
+             container above it deaf"
+        );
+
+        // A textarea with somewhere to go keeps it — the same line, the other answer.
+        let mut many = Text::textarea();
+        many.insert(20, "one\ntwo\nthree");
+        // The caret is placed by a **gesture**, which is §11's rule and the only way to place one:
+        // row 0, column 0, so there is a row below it.
+        many.click(20, 0, 0, false);
+        let mut driver = Driver::headless(20, 4).expect("a sink cannot fail to attach");
+        let (id, _) = frame(&mut driver, &mut many, 3);
+        driver.plant(None, Some(id), None);
+        driver.post_key(crate::keys::press(Chord::new(Code::Down)));
+        assert_eq!(
+            frame(&mut driver, &mut many, 3).1,
+            0,
+            "a textarea handed back a `Down` that moved its caret"
+        );
+
+        // And at the bottom of that same textarea it hands it back, because the answer is the
+        // caret's own position rather than a flag on the kind.
+        many.click(20, 2, 0, false);
+        driver.plant(None, Some(id), None);
+        driver.post_key(crate::keys::press(Chord::new(Code::Down)));
+        assert_eq!(frame(&mut driver, &mut many, 3).1, 1);
+    }
+
+    /// **Criterion 4: a form introduces no mechanism `field`, `nav::cursor` and the ring do not
+    /// already have** — and the strongest form of that is a `size_of`.
+    ///
+    /// [`FormState`] is exactly the one thing `nav::cursor` cannot borrow from the ring: the buffer
+    /// that has to survive a frame. No cursor (the cursor is the focus), no selection, no per-row
+    /// slot, no geometry. A field added here would move this number.
+    #[test]
+    fn a_form_adds_nothing_to_what_nav_cursor_already_needs() {
+        assert_eq!(size_of::<FormState>(), size_of::<crate::nav::TypeAhead>());
+        // And the cursor really is read back rather than kept: a fresh state and a state that has
+        // been driven around the form are the same value once the buffer has lapsed.
+        assert_eq!(FormState::new(), FormState::default());
+    }
+
+    /// **Criterion 4, the other half: the three names §18's R3 gives, read out of the source.**
+    ///
+    /// A scan for absences alone goes green when the section is deleted, so both halves run — the
+    /// three calls that must be there and the mechanisms that must not. The needles are the ones
+    /// [`crate::composed`] runs over the whole Tier 2 table; what is here is the join between them
+    /// and [`FORM_IS`], so that a fourth clause cannot arrive in one of the two places alone.
+    #[test]
+    fn a_form_is_the_three_things_r3_says_it_is() {
+        assert_eq!(FORM_IS.len(), 3);
+        let source = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/input.rs"))
+            .expect("this file is here");
+        let section = crate::composed::section(
+            &source,
+            "// `form` — §18's R3 example: `field` + `nav::cursor` + the focus ring the draw builds",
+        );
+        assert!(!section.is_empty());
+        for used in [
+            "field_keyed(",
+            "nav::cursor(",
+            "ScopeKind::Group",
+            "cx.is_focused(",
+        ] {
+            assert!(
+                crate::dense::declares(section, used),
+                "a form no longer reaches `{used}`"
+            );
+        }
+        for minted in [
+            "struct FormCursor",
+            "CollState",
+            "Selection",
+            "cx.interact(",
+            "nav::step(",
+            "keys::text(",
+        ] {
+            assert!(
+                !crate::dense::declares(section, minted),
+                "a form mints `{minted}`, and §18's R3 is *no new mechanism*"
+            );
+        }
+    }
+
+    /// **A form is one tab stop and its fields are every ring entry — and ungrouped it is the other
+    /// way round, with the arrows dead.**
+    ///
+    /// Spec §3: *`nav::cursor`'s placement is the decision, not its contents.* Both arms are
+    /// measured because the difference is not cosmetic: a container receives the keys its children
+    /// hand back **only** through a scope's after-the-body moment, and `ScopeKind` has three arms of
+    /// which the other two are a modal and a code editor. So *no group* is not *a form without a
+    /// group scope* — it is a form whose arrow keys reach nothing at all.
+    #[test]
+    fn a_grouped_form_is_one_tab_stop_and_an_ungrouped_one_is_every_field() {
+        let area = Rect::new(0, 0, 40, 6);
+        let mut counts = Vec::new();
+        for group in [true, false] {
+            let opts = FormOpts {
+                group,
+                ..FormOpts::default()
+            };
+            let mut st = FormState::new();
+            let mut fields = texts();
+            let mut driver = Driver::headless(40, 6).expect("a sink cannot fail to attach");
+            let id = frame(&mut driver, &mut st, &mut fields, area, &opts);
+            let f = driver.inspect();
+            counts.push((f.ring().len(), f.stop_count(), f.tab_walk().count()));
+
+            // The focus starts on the first row, and `Down` moves it — or does not.
+            driver.plant(None, Some(Id::keyed(id, 0)), None);
+            driver.post_key(crate::keys::press(Chord::new(Code::Down)));
+            frame(&mut driver, &mut st, &mut fields, area, &opts);
+            let moved = driver.inspect().focused() == Some(Id::keyed(id, 1));
+            assert_eq!(
+                moved, group,
+                "group={group}: `Down` moved the focus to row 1 == {moved}, and it must be {group}"
+            );
+        }
+        // Six ring entries either way; one tab stop grouped and six ungrouped, and the walk is the
+        // stops.
+        assert_eq!(counts, vec![(6, 1, 1), (6, 6, 6)]);
+    }
+
+    /// **Two arrows in one batch move two rows**, which is what carrying the cursor through the
+    /// drain loop buys.
+    ///
+    /// `Ctx::next_key` closes the level's queue on a **decline**, not on a take, so a form can be
+    /// handed several keys in one frame — a terminal folds an ordinary run into one batch, which is
+    /// `route::batch_len`'s whole job. A `Cursor` read once before the loop computes the second
+    /// arrow from the position the first one left behind, and two `Down`s move **one** row on a
+    /// screen where nothing else is wrong.
+    #[test]
+    fn two_arrows_in_one_batch_move_two_rows() {
+        let area = Rect::new(0, 0, 40, 6);
+        let opts = FormOpts::default();
+        let mut st = FormState::new();
+        let mut fields = texts();
+        let mut driver = Driver::headless(40, 6).expect("a sink cannot fail to attach");
+        let id = frame(&mut driver, &mut st, &mut fields, area, &opts);
+
+        driver.plant(None, Some(form_row_id(id, 0)), None);
+        driver.post_key(crate::keys::press(Chord::new(Code::Down)));
+        driver.post_key(crate::keys::press(Chord::new(Code::Down)));
+        frame(&mut driver, &mut st, &mut fields, area, &opts);
+        assert_eq!(
+            driver.inspect().focused(),
+            Some(form_row_id(id, 2)),
+            "two `Down`s in one batch moved one row, which is a `Cursor` read once before the drain \
+             loop"
+        );
+    }
+
+    /// **Criterion 5: the walk repeats no id, and reaches every stop unless a trap is standing** —
+    /// §21's refinement 3, run over a form, which is what ticket 35 asks for.
+    ///
+    /// The existing instrument (`tests/gates.rs`) runs it over a fixture of bare `interact` calls.
+    /// This one runs it over the component §18 names as R3's own example, which is the population
+    /// the obligation is about — and the ungrouped arm is the one that makes it say something, since
+    /// a grouped form is one stop and *reaches every stop* is nearly free at one.
+    #[test]
+    fn the_walk_over_a_form_repeats_no_id_and_reaches_every_stop_unless_a_trap_is_standing() {
+        let area = Rect::new(0, 0, 40, 6);
+        let opts = FormOpts {
+            group: false,
+            ..FormOpts::default()
+        };
+        let mut st = FormState::new();
+        let mut fields = texts();
+        let mut driver = Driver::headless(40, 6).expect("a sink cannot fail to attach");
+        frame(&mut driver, &mut st, &mut fields, area, &opts);
+
+        let f = driver.inspect();
+        let walk: Vec<Id> = f.tab_walk().collect();
+        let stops: Vec<Id> = f.stop_ids().collect();
+        let traps: Vec<Id> = f.trap_scopes().collect();
+        let mut seen = walk.clone();
+        seen.sort_by_key(|id| id.raw());
+        let before = seen.len();
+        seen.dedup();
+        assert_eq!(before - seen.len(), 0, "the walk repeats an id");
+        assert!(traps.is_empty(), "no trap is standing");
+        assert_eq!(walk.len(), stops.len(), "{} of {}", walk.len(), stops.len());
+        assert_eq!(walk.len(), 6);
+
+        // **The exception, named rather than excused.** A modal over the form is a `Trap`, and the
+        // walk correctly stops inside it — with `Frame::trap_scopes` as the only thing that can say
+        // so.
+        let mut st = FormState::new();
+        let mut fields = texts();
+        let mut driver = Driver::headless(40, 8).expect("a sink cannot fail to attach");
+        driver.frame(|cx| {
+            form_with(cx, area, &mut st, &LABELS, &mut fields, &opts);
+            cx.scope(Id::named("confirm"), ScopeKind::Trap, |cx| {
+                let ok = Id::named("ok");
+                let _ = cx.interact(ok, Rect::new(0, 6, 10, 1), Interest::FOCUS);
+                cx.focus(ok);
+            });
+        });
+        // The second frame is the one the trap stands on: a trap that stood *last* frame is what
+        // refuses delivery outside itself.
+        driver.frame(|cx| {
+            form_with(cx, area, &mut st, &LABELS, &mut fields, &opts);
+            cx.scope(Id::named("confirm"), ScopeKind::Trap, |cx| {
+                let ok = Id::named("ok");
+                let _ = cx.interact(ok, Rect::new(0, 6, 10, 1), Interest::FOCUS);
+            });
+        });
+        let f = driver.inspect();
+        let walk = f.tab_walk().count();
+        let stops = f.stop_ids().count();
+        assert_eq!(f.trap_scopes().count(), 1, "the trap names itself");
+        assert!(
+            walk < stops,
+            "the walk reached {walk} of {stops} stops with a trap standing, which is the whole \
+             exception §21 refuses to loosen the gate for"
+        );
+        assert_eq!((walk, stops), (1, 7));
+    }
+
+    /// **Criterion 6: a chord pressed into every focusable in a form types nothing.**
+    ///
+    /// §21's row 5, over a real form rather than over the seven **sinks** `crate::keys` stands it on
+    /// — which is what that module's own note says it is waiting for: *none of the seven exists in
+    /// this crate*, and one of the seven is `form`. Every field is focused in turn, `Ctrl+S` is
+    /// pressed into it, and the two halves are one statement: nothing lands in the buffer **and** the
+    /// key reaches the application.
+    #[test]
+    fn a_chord_pressed_into_every_focusable_in_a_form_types_nothing() {
+        let area = Rect::new(0, 0, 40, 6);
+        let opts = FormOpts::default();
+        let mut st = FormState::new();
+        let mut fields = texts();
+        let mut driver = Driver::headless(40, 6).expect("a sink cannot fail to attach");
+        let id = frame(&mut driver, &mut st, &mut fields, area, &opts);
+
+        let mut reached = 0;
+        for row in 0..LABELS.len() {
+            driver.plant(None, Some(Id::keyed(id, row as u64)), None);
+            driver.post_key(crate::keys::press(Chord::key('s').ctrl()));
+            frame(&mut driver, &mut st, &mut fields, area, &opts);
+            reached += driver.unhandled().len();
+        }
+        assert_eq!(
+            reached,
+            LABELS.len(),
+            "a chord did not reach the application"
+        );
+        for (i, t) in fields.iter().enumerate() {
+            assert!(
+                t.text().is_empty(),
+                "row {i} holds {:?} after six accelerators",
+                t.text()
+            );
+        }
+
+        // And the same drive with a **letter** does type, so the gate above is not measuring a form
+        // that has stopped accepting anything.
+        driver.plant(None, Some(Id::keyed(id, 0)), None);
+        driver.post_key(crate::keys::press(Chord::key('s')));
+        frame(&mut driver, &mut st, &mut fields, area, &opts);
+        assert_eq!(fields[0].text(), "s");
+    }
+
+    /// **Criterion 7: `Compact` against `Cosy` on the same form** — both counts reported, neither
+    /// writes a cell twice, and the widget count that falls off the bottom is stated.
+    ///
+    /// Density is theme data and it changes rectangles, and [`crate::frame::block`] is where that
+    /// lands (spec §3) — so the form is drawn inside a panel, which is the only way a density can
+    /// reach it at all. What falls off the bottom is `LABELS.len()` minus the hit entries the frame
+    /// declared, which is a **count of drawn fields** rather than an inference from a height.
+    #[test]
+    fn the_same_form_stands_fewer_fields_at_cosy_and_neither_writes_a_cell_twice() {
+        let measure = |density: Density| -> (u64, u64, usize) {
+            let mut driver = crate::runner::driver_at(30, 8, density);
+            let mut st = FormState::new();
+            let mut fields = texts();
+            let mut tally = Tally::new();
+            driver.frame(|cx| {
+                let area = cx.area();
+                let interior = crate::frame::block_into(
+                    &mut tally,
+                    cx,
+                    area,
+                    &crate::frame::BlockOpts {
+                        title: " who ",
+                        ..crate::frame::BlockOpts::default()
+                    },
+                );
+                form_into(
+                    &mut tally,
+                    cx,
+                    interior,
+                    &mut st,
+                    &LABELS,
+                    &mut fields,
+                    &FormOpts::default(),
+                );
+            });
+            (
+                tally.writes(),
+                tally.distinct(),
+                driver.inspect().hits().len(),
+            )
+        };
+
+        let (cw, cd, compact) = measure(Density::Compact);
+        let (yw, yd, cosy) = measure(Density::Cosy);
+        assert_eq!(cw, cd, "Compact wrote {} cells twice", cw - cd);
+        assert_eq!(yw, yd, "Cosy wrote {} cells twice", yw - yd);
+        assert_eq!((cw, yw), (240, 240), "both densities cover the same screen");
+        // **The number that is stated rather than hidden.** One cell of padding against two, on both
+        // edges, is two rows of interior — and two rows of a one-row entry is two fields.
+        assert_eq!((compact, cosy), (4, 2));
+        assert_eq!(LABELS.len() - cosy, 4);
+        assert_eq!(compact - cosy, 2, "two rows of padding is two fields");
+    }
+
+    /// **Two forms on one screen are two sets of ids and merge nothing** — ADR 0027, on a component
+    /// whose children's ids are its own arithmetic.
+    ///
+    /// This is the half `field_keyed` makes possible and dangerous in the same move: every row's id
+    /// is `Id::keyed(form_id, row)`, so a form that forgot `#[track_caller]` would give two forms
+    /// one base and **twelve widgets six ids**, with the second form's fields inert on a screen that
+    /// renders perfectly.
+    #[test]
+    fn two_forms_on_one_screen_are_two_sets_of_ids_and_merge_nothing() {
+        let mut st = (FormState::new(), FormState::new());
+        let mut a = texts();
+        let mut b = texts();
+        let mut driver = Driver::headless(40, 12).expect("a sink cannot fail to attach");
+        let mut ids = (None, None);
+        driver.frame(|cx| {
+            ids.0 = Some(form(cx, Rect::new(0, 0, 40, 6), &mut st.0, &LABELS, &mut a).id);
+            ids.1 = Some(form(cx, Rect::new(0, 6, 40, 6), &mut st.1, &LABELS, &mut b).id);
+        });
+        assert_ne!(ids.0, ids.1, "two forms are one form");
+        let f = driver.inspect();
+        assert_eq!(f.hits().len(), 12, "twelve fields, twelve regions");
+        assert_eq!(f.ids().merges(), 0);
     }
 }
