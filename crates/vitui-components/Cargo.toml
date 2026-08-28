@@ -37,6 +37,13 @@ vitui-runtime.workspace = true
 # a crate that cannot name the engine. See that file's header.
 [dev-dependencies]
 vitui-alloc-probe.workspace = true
+# **Dev only, and the crate line is untouched.** `vitui-bench` is this workspace's own round-robin
+# minimum-of-N harness, `publish = false`, and the engine and the runtime both take it in exactly
+# this place for exactly this reason: a *report* — a number a human reads — needs an instrument, and
+# `examples/gallery_numbers.rs` owes the one figure components 39's `t` criterion states in
+# nanoseconds. It is not in the shipped graph, so what a dependent of `vitui-components` pulls in is
+# unchanged, and `cargo deny`'s view of it does not move.
+vitui-bench.workspace = true
 
 [lints]
 workspace = true

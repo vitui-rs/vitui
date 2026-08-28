@@ -482,6 +482,24 @@ const GOLDEN_NUMBERS: &str = "crates/vitui-components/examples/golden_numbers.rs
 /// it to find out whether the three scenes have a subject.
 const INPUT: &str = "crates/vitui-components/src/input.rs";
 
+/// **The assembled gallery**, which is O2's evidence and the screen rows 7 and 8 are measured on.
+/// The library crate and not `crates/vitui-apps/examples/gallery.rs`, for the reason its own header
+/// gives: a screen only an application can reach is a screen no `cargo test` can measure.
+const GALLERY: &str = "crates/vitui-components/src/gallery.rs";
+
+/// See [`GALLERY`].
+const GALLERY_NUMBERS: &str = "crates/vitui-components/examples/gallery_numbers.rs";
+
+/// **The pty gate**, which is the one instrument on this register that is not a `cargo` invocation:
+/// a test has no terminal to leave in a state.
+const PANIC_GATE: &str = "scripts/gallery-panic-gate.sh";
+
+/// Where the standing budget counts run from a crate that cannot name the engine.
+const BUDGET_TESTS: &str = "crates/vitui-components/tests/budget.rs";
+
+/// Where the five obligations are queries over the freeze.
+const OBLIGATIONS: &str = "crates/vitui-components/src/obligations.rs";
+
 /// How many rows of [`REGISTER`] are spec §21's own table. **Thirty-two, and it is closed** — a
 /// thirty-third would be a spec change.
 pub const SPEC_ROWS: usize = 32;
@@ -561,7 +579,7 @@ pub const SPEC_ROWS: usize = 32;
 /// it. Row 30's own instrument compares two lists of *ids*, which is the most a query over the
 /// freeze can ask; the chord-for-chord equality needs a value with a machine in it, and
 /// `crate::contract::Contract::live` is that machine — it runs the shipped component.
-pub const EVALUATED: usize = 202;
+pub const EVALUATED: usize = 208;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
 #[expect(
@@ -571,7 +589,7 @@ pub const EVALUATED: usize = 202;
               array is read at compile time by nothing and at run time by tests, so the copy the \
               lint is warning about is one a test makes once"
 )]
-pub const REGISTER: [Row; 218] = [
+pub const REGISTER: [Row; 223] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -1354,7 +1372,7 @@ pub const REGISTER: [Row; 218] = [
             by: &[
                 Instrument::Unit {
                     file: "crates/vitui-components/src/obligations.rs",
-                    name: "three_of_the_five_obligations_are_met_and_they_are_o1_o3_and_o4",
+                    name: "five_of_the_six_obligations_are_met_and_the_one_left_is_o5",
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/obligations.rs",
@@ -1681,21 +1699,47 @@ pub const REGISTER: [Row; 218] = [
         kind: Kind::Count,
         owner: "C09, C10, C11",
         section: "spec §16",
-        standing: Standing::Unreachable {
-            needs: "`ColorDepth`. **The repertoire half is measured here in full** — glyph pairs \
-                    0 / 0 / 36 of 190, every ASCII collapse inside the box family, and the \
-                    within-component cross-family gate at all three rungs — because a `GlyphSet` \
-                    is nameable through the runtime's re-export. The colour half is not: \
-                    `Theme::resolve` takes a `ColorDepth`, `crates/vitui-runtime/src/line.rs` \
-                    files it `reachable_as: None`, and the only tier a crate whose dependency list \
-                    is `vitui-runtime` and nothing else can hold is the one a theme arrives already \
-                    resolved for. So the role column, the distinctions-lost column and the traffic \
-                    light at sixteen colours are measured in the runtime, which owns the mechanism \
-                    and may name both axes: `examples/theme_numbers.rs` prints them",
-            inverted_by: "runtime architecture issue 22",
+        // **Inverted by components 39, and the `Barrier` it carried had decayed into the near-miss
+        // runtime architecture issue 22 warned about.** The row read `Unreachable { needs:
+        // "`ColorDepth`" }` and named issue 22 as its inverter — *the issue that lifted the
+        // barrier*. `crates/vitui-runtime/src/line.rs` files `ColorDepth` as
+        // `reachable_as: Some("vitui_runtime::ColorDepth")`, so both axes are values this crate can
+        // hold and `Theme::resolve` is a call it can make: **a citation that still passes while
+        // meaning the opposite**, which is exactly what that issue's own header says a `Barrier`
+        // invites.
+        //
+        // **The nine cells are taken over the assembled gallery**, which is the half neither the
+        // runtime's `theme_numbers` nor its `glyph_numbers` can do: those own the mechanism and
+        // measure it over the palette, and this one measures what a human is looking at.
+        //
+        // **And the colour half is measured on the theme rather than on the screen, which is the
+        // finding.** `Theme::resolve` returns the **same paint** for all thirteen roles at all four
+        // depths — asserted, not described — because quantisation is the engine's and happens before
+        // the mirror. So the screen's own paint count reads ten in all nine cells and would read ten
+        // on a monochrome terminal; the axis is `roles_differ_on_wire` and `Theme::shows`. That is
+        // ADR 0018 working rather than a hole: a component is handed the palette's colour whatever
+        // the terminal can show.
+        //
+        // **The criterion's own sentence does not reproduce.** *`Danger`, `Warn` and `Ok` all
+        // quantise to bright white at sixteen colours* is true of **eight of the fourteen** shipped
+        // schemes and of **fourteen of fourteen** at `ColorDepth::None` — so it is the right claim
+        // about the wrong rung, asserted as measured on this map's own discipline.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "the_matrix_is_nine_cells_and_the_two_axes_move_in_different_columns",
+                },
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "the_traffic_light_is_read_on_the_wire_and_a_paint_count_cannot_see_it",
+                },
+                Instrument::Report {
+                    file: GALLERY_NUMBERS,
+                },
+            ],
         },
     },
-    // ── components ticket 06's two ───────────────────────────────────────────────────────────────
     Row {
         number: 46,
         on_spec_table: false,
@@ -7396,6 +7440,233 @@ pub const REGISTER: [Row; 218] = [
             ],
         },
     },
+    Row {
+        number: 219,
+        on_spec_table: false,
+        gate: "O2's two equalities — nothing shown is absent from the freeze, and everything \
+               `built` has a panel",
+        kind: Kind::Equality,
+        owner: "C10, C11",
+        section: "spec §17",
+        // **The fourth of the six obligation queries to turn**, and filling
+        // `crate::obligations::PANELS` is the whole of what it took — which is what *the evidence is
+        // an argument, not a file read* was for: neither query changed.
+        //
+        // **Two lists and not one read twice.** `PANELS` is written out and `crate::gallery::PANELS`
+        // is the table the screen is drawn from; `panel_ids` derives the second from the second, and
+        // the equality is between a claim and a thing that draws. That is `crate::doc`'s arrangement
+        // for O1 and `crate::contract`'s for O4, for their reason.
+        //
+        // **The direction neither equality can see is the application's**, so there is a negative
+        // scan beside them: `crates/vitui-apps/examples/gallery.rs` may not spell `Panel {`, a
+        // second `PANELS`, or any component's own call. An application free to list its own panels
+        // drifts from the freeze where no equality over the table is looking.
+        //
+        // **And the direction neither of the three can see is an empty body**, so the third
+        // instrument photographs each panel alone and counts cells **inside the interior**:
+        // `panel_into` writes the frame and the title whatever the body does, so a count over the
+        // tile is a count of the gallery's own drawing.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "the_written_list_and_the_table_agree",
+                },
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "both_halves_of_o2_are_met_over_the_twenty_eight_built_rows",
+                },
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "every_panel_names_a_built_row_and_the_order_is_the_freezes",
+                },
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "every_panel_draws_at_least_one_cell_of_its_own_interior",
+                },
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "the_application_draws_the_table_and_mints_no_panel_of_its_own",
+                },
+                Instrument::Unit {
+                    file: OBLIGATIONS,
+                    name: "five_of_the_six_obligations_are_met_and_the_one_left_is_o5",
+                },
+                Instrument::Unit {
+                    file: OBLIGATIONS,
+                    name: "o2_nothing_shown_fails_loudly",
+                },
+                Instrument::Unit {
+                    file: OBLIGATIONS,
+                    name: "o2_everything_built_fails_loudly",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 220,
+        on_spec_table: false,
+        gate: "the gallery's tiles tile its grid exactly, and every tile is its own widget",
+        kind: Kind::Count,
+        owner: "C01, C04",
+        section: "spec §2, §4",
+        // **Two rules of this map meeting on the one screen where twenty-eight components do.**
+        //
+        // The partition half is arithmetic swept from 20x8 to 119x29 rather than asserted at one
+        // size, because the spelling that fails is the one that is right wherever the width happens
+        // to divide: `defective::tiles_by_multiplication` puts tile `k` at `k * (w / n)` and leaves
+        // the columns past `n * (w / n)` to nobody. Watched losing the last column at 100 into three
+        // and watched **agreeing** at 99 into three, which is why the sweep is a sweep.
+        //
+        // The identity half is ADR 0027 and components 30's `player::chrome` defect in the loop that
+        // would have produced it: one call to `panel_into` is one `Location::caller()`, so
+        // twenty-eight tiles from one loop are twenty-eight widgets under one `Id` — and
+        // `Ctx::interact` makes a merged claim **inert**, so every panel but the first stops hearing
+        // the pointer on a screen that renders perfectly. `Ctx::with_key` around each tile is the
+        // fix and `defective::tiles_under_one_id` is watched merging two of three.
+        //
+        // **The clear-once rule is here rather than in a fourth row**, because it is the same
+        // sentence about the same rectangle from the other side: a screen whose gaps are never
+        // painted is not the same screen, and `crate::app::Clears` is a value the caller owns.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "the_tiles_tile_the_grid_exactly_at_every_size",
+                },
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "tiles_by_multiplication_leave_the_remainder_to_nobody",
+                },
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "no_tile_shares_an_id_with_another",
+                },
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "the_screen_clears_once_and_again_only_on_a_resize",
+                },
+                Instrument::Report {
+                    file: GALLERY_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 221,
+        on_spec_table: false,
+        gate: "the gallery gives the terminal back **before** a panic prints, under a real pty",
+        kind: Kind::Invariant,
+        owner: "C11",
+        section: "spec §21",
+        // **The mechanism is the engine's and what this row adds is that it happens in this
+        // binary.** `crates/vitui-engine/src/shutdown.rs` restores first and then lets the default
+        // hook print, idempotent under one atomic; engine ticket 22 built it and gated it over a
+        // recorder. Two ways for an application to lose it are invisible to any in-process test: the
+        // process never goes through `Screen::drop` or the hook at all, and the epilogue is written
+        // *after* the backtrace — which puts the backtrace on a page the terminal is about to
+        // discard, at the one moment a developer needs it.
+        //
+        // **So the gate is an order on captured bytes from a process that really panicked**, and it
+        // is the one instrument on this register that is not a `cargo` invocation: a `cargo test`
+        // has no terminal to leave in a state. `scripts/gallery-panic-gate.sh` takes a pty with
+        // `script(1)` — whose two spellings are not compatible, which is why it probes for both —
+        // and compares two byte offsets. It runs in the `idle` CI job, beside the two gates that are
+        // already shell.
+        //
+        // **A presence is not the gate**, and the unit instrument beside the script is what says so:
+        // it reads the script and asserts that it compares offsets rather than greps for the
+        // epilogue. A capture where the backtrace came first contains both strings.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "the_panic_gate_runs_this_binary_and_checks_an_order",
+                },
+                Instrument::Report { file: PANIC_GATE },
+            ],
+        },
+    },
+    Row {
+        number: 222,
+        on_spec_table: false,
+        gate: "zero allocations on a steady frame of the assembled gallery, as a total",
+        kind: Kind::Count,
+        owner: "C01, C11",
+        section: "spec §20",
+        // **The budget measured in the gallery and not only in isolated harnesses**, which is §20's
+        // own criterion and the one thing twenty-seven other allocation gates in this workspace
+        // cannot answer between them: each prices one component.
+        //
+        // **Every page**, because the six panels that keep a memo are not all on page one and a
+        // window over one page prices twelve of the twenty-eight. The warm-up is two identical
+        // frames on the shape the window prices — components 22 measured what warming on the wrong
+        // shape costs, **1 over 12**, which is amortised zero and exactly what `Allocations`'s
+        // missing `mean` refuses.
+        //
+        // **It found one, and it is components 30's `player::chrome` finding a second time**: the two
+        // preview drawers spelled their row labels with `format!`, so page three paid **4
+        // allocations a frame, 200 over 50**, while every other page read zero and the screen
+        // rendered perfectly. `gallery::ROWS` is eight literals now. The gallery's own chrome is
+        // two reused `String`s rewritten with `write!`, so the total covers the whole frame rather
+        // than only the tiles.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: BUDGET_TESTS,
+                    name: "a_steady_frame_of_the_gallery_allocates_nothing_as_a_total",
+                },
+                Instrument::Report {
+                    file: GALLERY_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 223,
+        on_spec_table: false,
+        gate: "the keyboard alone reaches every panel — the pages partition the table at every size",
+        kind: Kind::Count,
+        owner: "C10, C11",
+        section: "spec §17, §21",
+        // **A count and not a walk**, because *the walk keys cannot be printable characters* is O4's
+        // finding rather than this ticket's: a focused `field` consumes every text-bearing key and a
+        // focused `collection` eats one into its type-ahead buffer, so `Ctrl+N`/`Ctrl+P` are chords
+        // and `Bind::ignores` is why a chord passes through. This gallery has a `field`, a `form`,
+        // three collections and a picker on it, all one `Tab` away.
+        //
+        // What is asserted is that the pages **partition** the twenty-eight in the freeze's order at
+        // five sizes, that the walk is a cycle, and that a named panel is one `go_to` away — which
+        // is what makes the screen navigable by somebody who knows what they are looking for. The
+        // walk itself is register rows 34 and 88 and was already green; it is cited there rather
+        // than rebuilt.
+        //
+        // **A resize is the one event that changes the page count without going through a key**, and
+        // it is the case a per-size sweep over fresh galleries cannot reach: `next_page` wraps
+        // against the size it is handed, `pages()` shrinks when the terminal grows, and an index past
+        // the end yields an empty range rather than a clamp — a title and a status bar reading *0
+        // panels · page 4/1* over a grid nobody writes, standing until the next keystroke.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "the_pages_reach_every_panel_at_every_size",
+                },
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "every_panel_can_be_gone_to_by_name",
+                },
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "no_size_panics_and_every_key_is_pressable_at_every_size",
+                },
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "a_resize_that_shrinks_the_page_count_does_not_blank_the_screen",
+                },
+            ],
+        },
+    },
 ];
 /// **The compile-outcome pair row 31 names, and its positive twin.**
 ///
@@ -7675,7 +7946,7 @@ mod tests {
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn a_hundred_and_ninety_six_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn two_hundred_and_eight_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -7719,8 +7990,8 @@ mod tests {
         );
         assert_eq!(
             unreachable,
-            vec![1, 2, 21, 28, 33, 45, 161],
-            "the seven that cannot be written from a crate whose dependency list is \
+            vec![1, 2, 21, 28, 33, 161],
+            "the six that cannot be written from a crate whose dependency list is \
              `vitui-runtime` and nothing else. **Row 161 is components 29's**, and it is row 1's \
              shape one seam further out: not a count the engine keeps private, but the *bytes* it \
              wrote — `Driver::headless` moves a `Vec` into the engine and `Output`, `Clock` and \
@@ -7738,7 +8009,7 @@ mod tests {
              domain and needs no component to be run against, and its row had been citing spec §13 \
              and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 218);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 223);
     }
 
     /// **The split, not the total.**
@@ -7749,10 +8020,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_a_hundred_and_eighty_six_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_a_hundred_and_ninety_one_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 186);
+        assert_eq!(REGISTER.len() - on_table, 191);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -7882,10 +8153,11 @@ mod tests {
             .collect();
         assert_eq!(
             rows.len(),
-            7,
+            8,
             "rows 32 and 36, ticket 23's row 82, ticket 25's row 87, ticket 30's two — 163 and \
-             165 — and ticket 33's row 190, which the needle caught on the first run because it \
-             was spelled to be caught"
+             165 — ticket 33's row 190, which the needle caught on the first run because it was \
+             spelled to be caught, and ticket 39's row 222, which is the first one whose subject is \
+             a whole screen rather than one component"
         );
         assert!(
             rows.iter().any(|r| r.gate.contains("total")),
@@ -8149,6 +8421,7 @@ mod tests {
                 "dense_numbers.rs".to_string(),
                 "doc_numbers.rs".to_string(),
                 "field_numbers.rs".to_string(),
+                "gallery_numbers.rs".to_string(),
                 "gates_numbers.rs".to_string(),
                 "glyph_numbers.rs".to_string(),
                 "golden_numbers.rs".to_string(),

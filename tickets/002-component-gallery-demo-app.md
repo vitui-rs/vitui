@@ -1,5 +1,9 @@
 # The component gallery: one runnable demo app carrying the whole v1 set, themes on `t`
 
+**Resolved 2026-08-28** by `.scratch/vitui-components-impl/issues/39-o2-the-gallery.md`, ADR 0046. See
+the Progress entry at the bottom for what shipped, what was found and the three figures that did not
+reproduce.
+
 ## Goal
 
 A single binary the user runs to see every shipped component at once, drive it from the
@@ -156,3 +160,44 @@ whose own blockers are all resolved, and components 40 and 41 are measured on th
   `spinner`**, which O2's second equality handles by being written over `built`.
   Not resolved, and deliberately so: `tickets/002` is the requirement and components 39 is the
   implementation slice, which is unblocked and at that backlog's frontier.
+
+- 2026-08-28 — **resolved.** `cargo run -p vitui-apps --example gallery` is the binary; the screen,
+  the panel table and the twenty-eight drawings are `vitui_components::gallery`'s, because spec §21
+  names two defects to be measured *on the assembled gallery* and both are components tickets whose
+  gate is `cargo test` — *a screen only an application can draw is a screen no gate can measure*.
+  O2 is green in both halves; components register 218 → **223 rows, 208 evaluated**. ADR 0046.
+  Every acceptance criterion above is met, and three of them are met differently from how they were
+  written:
+  - **Twenty-eight panels, not twenty-nine.** `spinner` is the one unbuilt row and O2's second
+    equality is over `built`, so the population moves on its own the day it ships. The ticket already
+    said not to paper over the difference.
+  - **The wrapper list did not have to move.** The gallery names no crossterm at all —
+    `Driver::attach` owns raw mode, the alternate screen, the input and the restoration — so
+    `deny.toml`'s `{ name = "crossterm", wrappers = ["vitui-engine"] }` is unchanged, and a gate
+    asserts that it still reads exactly that because the gallery is the reason.
+  - **`t` is bound beside `Ctrl+T`, and that is O4's finding rather than a compromise.** A focused
+    `field` consumes every text-bearing key; this screen has a `field`, a `form`, three collections
+    and a picker on it, all one `Tab` away.
+
+  **The three figures that did not reproduce**, all asserted as measured:
+  - *`Danger`, `Warn` and `Ok` all quantise to bright white at sixteen colours* is true of **8 of the
+    14** shipped schemes and of **14 of 14** at `ColorDepth::None` — the right claim about the wrong
+    rung.
+  - *`Theme::…resolve()` including all ten distinctions is 291 ns* — what `t` presses is ~**70 ns**,
+    and `with_glyphs` before `resolve` is ~**550 ns**, because a declared repertoire is a real input
+    to the ten distinction bits.
+  - The degradation matrix's colour axis **is not observable on the screen at all**: `Theme::resolve`
+    returns the same `Paint` for all thirteen roles at all four depths, because quantisation is the
+    engine's and happens before the mirror. The repertoire axis is 58 / 82 / 110 clusters read off
+    the surface; the colour axis is 66 / 9 / 0 collapsed role pairs and 3 / 2 / 0 distinctions lost,
+    read off the theme. The paint count reads ten in all nine cells and is printed beside them.
+
+  **The budget holds in the gallery**: ~390 µs at 300×80 against the 1 ms full-screen class, ~79 µs at
+  100×30 against the 100 µs typical frame, `writes == distinct` and `merges == 0` at every size, and
+  **zero allocations on every page** — which found two preview drawers spelling their row labels with
+  `format!`, 4 a frame on page three and zero on every other page.
+
+  **What is deliberately not done**: register rows 7 and 8 stay red. This ticket's own two predictions
+  are components 40 and 41, and the screen they are measured on now exists with both numbers printed
+  — 10 252 unwritten cells of 24 000 at 300×80, and a swap that keeps 0 of 13 748 paints, 64.6% of
+  clusters under a rung change and 99.9% under a tier change.

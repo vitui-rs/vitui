@@ -113,16 +113,100 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 38 of 45 tickets resolved (the last on 2026-08-28). `INVENTORY` is spec
+- **`vitui-components` has started**: 39 of 45 tickets resolved (the last on 2026-08-28). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
-  answerable by the machine from here on. **O1 is met since ticket 36, O3 since 37 and O4 since 38**
-  and the other two are `Unmet`, each watched panicking, because a query with no evidence must fail loudly rather than pass: O4
+  answerable by the machine from here on. **O1 is met since ticket 36, O3 since 37, O4 since 38 and
+  both halves of O2 since 39**, and the one left — O5, the one §17 says is worth more than the other
+  four together — is `Unmet` and watched panicking, because a query with no evidence must fail loudly rather than pass: O4
   itself first returned **`Met` over 29 rows with no evidence at all**, since *an equality between two
   things that do not exist holds*. **Building the freeze contradicted four figures in the closed map** — the built count
   (19/10, not ADR 0033's thirteen-unbuilt), the count of empty families (five, not §17's two), §1's
   layer rule against §6's own composition, and the `layer` column being uncheckable without stated
   edges. All four are asserted as measured rather than bent to fit.
+- **O2 is green — the gallery is twenty-eight panels, and the screen is a value in the library
+  because two of §21's gates are measured on it** (components ticket 39, 2026-08-28; ADR 0046).
+  `crates/vitui-components/src/gallery.rs` is the screen — `PANELS`, twenty-eight rows over the
+  freeze's `built` column in the freeze's own order, each with the function that draws the shipped
+  component — and `crates/vitui-apps/examples/gallery.rs` is the loop, the keys and the reports. This
+  is also `tickets/002`, the user's own requirement, closed with it.
+  **Where it lives is forced rather than chosen.** §21 names two defects to be measured *on the
+  assembled gallery* — the sentinel and the palette swap, register rows 7 and 8 — both are components
+  tickets, and a components gate is `cargo test`: **a screen only an application can draw is a screen
+  no gate can measure**. The direction that opens — an application listing its own panels — is closed
+  by a negative scan the application cannot satisfy by deleting anything.
+  **Row 45's barrier had decayed into the near-miss runtime issue 22 warned about**: it read
+  `Unreachable { needs: "ColorDepth" }` and named **the issue that lifted the barrier** as its own
+  inverter, so the citation had been passing while meaning the opposite. Unreachable is 7 → **6**.
+  **The colour axis of §16's matrix is not observable on a screen at all, and that is the finding.**
+  `Theme::resolve` returns the **same `Paint`** for all thirteen roles at all four depths — measured —
+  because quantisation is the engine's and happens before the mirror, which is ADR 0018 working rather
+  than a hole. So the repertoire axis is **58 / 82 / 110** clusters read off the surface, the colour
+  axis is **66 / 9 / 0** collapsed role pairs of 78 and **3 / 2 / 0** distinctions lost of 10 read off
+  the theme, and the screen's own paint count reads **ten in all nine cells** — a column that moves on
+  neither axis, printed beside them because *a counter on the wrong side of the question is not a weak
+  gate, it is a green one*. **On the surface it is a zero**: a colour-depth change moves 10 cells at
+  300x80 and 5 at 100x30 and **0 of them on any panel**, the movers being the two chrome rows printing
+  the depth's own name — and that number had to exclude **both** chrome rows rather than one, because
+  at 100x30 the status bar is elided before it reaches the depth and excluding the heading alone read
+  0 there and 5 at 300x80. *One size agreeing with a law the other breaks is how a gate over one size
+  stays green.* The matrix also needed the **whole gallery** rather than one page: read on
+  page one alone the repertoire axis reports `Extended == Unicode`, true of that page and false of the
+  screen, because `plot` is the one braille construction and it is on page two.
+  **Three figures do not reproduce.** *`Danger`, `Warn` and `Ok` all quantise to bright white at
+  sixteen colours* is true of **8 of the 14** shipped schemes and of **14 of 14** at
+  `ColorDepth::None` — the right claim about the wrong rung. `t` costs **~70 ns** against the
+  criterion's 291, and `with_glyphs` before `resolve` costs **~550**, because a declared repertoire is
+  a real input to the ten distinction bits. Both are asserted as measured; the palette was
+  deliberately not swapped to make the old sentence true.
+  **`'f` costs the table one field**, and it is components 26's answer to the same borrow: two of the
+  twenty-eight own an overlay and take `&'f mut` of what their popup body captures, a `fn` pointer's
+  elided lifetimes are fresh and unrelated, and tying the bag's borrow to `'f` makes the *first*
+  panel's borrow last the frame — so the two arrive as a pair of `Option`s a panel **takes**, where a
+  second take panics because a panel drawn twice is two widgets under one id.
+  **The wrapper-list criterion is met by the exception being unnecessary**: the gallery names no
+  crossterm — `Driver::attach` owns raw mode, the alternate screen, the input and the restoration —
+  and a gate asserts `deny.toml`'s line still reads exactly
+  `{ name = "crossterm", wrappers = ["vitui-engine"] }`, because the gallery is the reason it did not
+  move.
+  **The budget is measured in the gallery**: **~390 µs at 300x80** against the 1 ms full-screen class
+  and **~79 µs at 100x30** against the 100 µs typical frame, `writes == distinct` and `merges == 0` at
+  every size, and **zero allocations on every page**. Three of §20's four over-budget
+  single-component screens are on it, which is what makes those two sentences consistent: the budget
+  is per class. The allocation window found one defect — two preview drawers spelling their row labels
+  with `format!`, **4 a frame on page three and zero on every other page** — which is components 30's
+  `player::chrome` finding a second time.
+  **A review then found six more, and three are a finding rather than a fix.** A **resize** is the one
+  event that changes the page count without going through a key, and an index past the end yields an
+  empty range rather than a clamp — *0 panels · page 4/1* over a grid nobody writes, standing until the
+  next keystroke. `changed > 0` was the weak gate this module's own header warns about, on the axis the
+  module is about; the reading is `changed_on_a_panel`, and it had to exclude **both** chrome rows,
+  because at 100x30 the status bar is elided before it reaches the depth and excluding the heading
+  alone read 0 there and 5 at 300x80. And the pty gate's needle was an **ERE in which `?` is a
+  quantifier**, so `'\[?1049l'` is *optional bracket then `1049l`* and matched any capture containing
+  that substring — the gate whose whole subject is byte-exactness. Three more were smaller: `shape`
+  never answered the queued work, the clear bypassed the caller's ink (so `Ctrl+O`'s counters were
+  blind to `w × h` writes on the one frame a reader turns them on for), and the gate sat in the `idle`
+  CI job whose cache has only ever held release artifacts of the engine. **And one was in
+  `crates/vitui-apps/src/lib.rs`'s own table**: the gallery's `uses` column listed `gallery::PANELS`,
+  which `crate::gallery`'s scan forbids that file from spelling — a column documenting an application
+  doing exactly what a gate one crate over refuses, unchecked for fifteen applications.
+  **Four things the gates caught while being written**: the tiles are laid out by boundary arithmetic
+  and not by multiplication (which leaves the column past `n * (w / n)` to nobody and is
+  indistinguishable at every width that divides — swept 20x8 to 119x29); each tile is keyed with
+  `Ctx::with_key`, because one call to `panel_into` in one loop is one `Location::caller()`; the pty
+  gate compares two byte **offsets** rather than looking for the epilogue, because a capture where the
+  backtrace came first contains both strings; and a file here may not spell `GlyphSet::`, so the
+  repertoire axis goes through `chart::raster::RUNGS` — the third caller that const was made public
+  for. Register 218 → **223 rows, 208 evaluated**.
+  **Rows 7 and 8 stay red on purpose**: `gallery::shape` and `gallery::swap` print both numbers as
+  measured here — 10 252 unwritten cells of 24 000 at 300x80 on a **steady** frame, and a swap that
+  keeps 0 of 13 748 paints, 64.6% of clusters under a rung change and 99.9% under a tier change — so
+  components 40 and 41 start from a figure taken on this screen. Reading one axis for the other is how
+  a swap gate goes green. **`unwritten` is a steady frame's**, and it has to be: `crate::app::Clears`
+  writes every cell on the first frame and on a resize, so *cells nobody ever wrote* is zero on any
+  screen that clears and says nothing about any component.
+
 - **O4 is green — thirteen keyboard contracts as declared data, and *registered* is what the machine
   answers** (components ticket 38, 2026-08-28; ADR 0045). `crate::contract` is the value:
   a `Contract` per component that reads a key, a `Bind` list, and a `live` function pointer that
@@ -1304,8 +1388,8 @@ Read these before working, in this order:
    authority. An `architecture.md` beside a spec is the superseded proposal, kept only as the record
    of what was argued.
 2. `CONTEXT.md` — the glossary. Use its terms in code, comments, tickets and commit messages.
-3. `docs/adr/` — 45 decisions that are hard to reverse and surprising without context. 0001–0011 and
-   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0045 the components.
+3. `docs/adr/` — 46 decisions that are hard to reverse and surprising without context. 0001–0011 and
+   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0046 the components.
 4. The impl backlog `README.md` for the layer being worked on — it holds the phase order, the
    blocking edges, and the defects that shaped both.
 
@@ -1324,6 +1408,9 @@ crates/vitui-engine       cells, surfaces, layers, compositing, damage, serializ
 crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key maps, theming,
                           overlays, the data contract — no scene tree, no reactivity
 crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (28 of 29 built)
+                          └ and `gallery`, the assembled screen: 28 panels as a value the
+                            application iterates, which is where O2's two equalities and §21's two
+                            still-red rows are measured (ticket 39)
                           └ every built one carries a doc page with a compiled example (O1, ticket 36)
                           └ and, for the thirteen that read a key, a declared keyboard contract whose
                             help is rendered from it and whose other half is a sweep that runs the
@@ -1337,9 +1424,9 @@ crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers 
                             unnameable across the crate line; runtime issue 22 re-exported it and
                             components issue 17 deleted the stand-in
 crates/vitui              facade re-export — engine, runtime, components
-crates/vitui-apps         the applications, one file each in `examples/` — 14: `counter`, `triage`,
+crates/vitui-apps         the applications, one file each in `examples/` — 15: `counter`, `triage`,
                           `latency`, `ledger`, `explorer`, `reader`, `settings`, `compose`, `console`,
-                          `theatre`, `browse`, `mixer`, `vitals`, `roster`. **A component ticket ships one**: the surface's
+                          `theatre`, `browse`, `mixer`, `vitals`, `roster`, `gallery`. **A component ticket ships one**: the surface's
                           only consumer, and four times now the thing that found the defect its gates
                           could not
                           └ a workspace MEMBER, so CI builds them: a consumer nobody builds is a
@@ -1370,8 +1457,8 @@ fuzz/                     two libFuzzer targets and the committed corpus that is
                           └ a detached workspace: cargo-fuzz needs nightly and libfuzzer-sys,
                             which the engine's dependency policy will not have. That is a loophole,
                             not a permission — its own `deny.toml`, its own CI invocation.
-scripts/                  the three gates and one report that cannot be a `cargo test`: idle,
-                          observer, lint rung, steady state
+scripts/                  the four gates and one report that cannot be a `cargo test`: idle,
+                          observer, lint rung, the gallery's panic-under-a-pty, steady state
 ```
 
 ## Commands
@@ -1399,6 +1486,9 @@ cargo run -p vitui-apps --example vitals    # the six Tier 2 rows; g steps the g
 cargo run -p vitui-apps --example vitals -- --probe
 cargo run -p vitui-apps --example roster    # the three Tier 2 composites; Ctrl+G takes the arrows away
 cargo run -p vitui-apps --example roster -- --probe
+cargo run -p vitui-apps --example gallery   # every built component on one screen; t is the key
+cargo run -p vitui-apps --example gallery -- --probe    # the budget, measured in the gallery
+cargo run -p vitui-apps --example gallery -- --matrix   # §16's nine cells, as counts
 (cd conform && cargo run --example tmux)    # the one conformance soak that is headless
 (cd conform && cargo run --example kitty)   # a window, but no automation grant and no config file
 ```
@@ -1414,10 +1504,12 @@ lives in examples that print a report:
 cargo run --release --example budget -p vitui-engine     # asserts the gates, prints the numbers
 cargo run --release --example layout_numbers -p vitui-runtime   # one of sixteen *_numbers reports
 cargo run --example contract_numbers -p vitui-components   # O4: what each component declares and answers
+cargo run --release --example gallery_numbers -p vitui-components   # O2: the screen, the matrix, what `t` costs
 scripts/idle-gate.sh 30       # 0.00 user / 0.00 sys over 30 s; thirty is a floor, not a preference
 scripts/observer-gate.sh      # the debug observer is absent from a release binary
 scripts/steady-report.sh      # 60 fps for 30 s against 5% of a core
 scripts/lint-rung-gate.sh     # the clippy.toml rung fires in an application and not from a dep
+scripts/gallery-panic-gate.sh # the gallery restores the terminal before a panic prints, under a pty
 n=1 cargo test -p vitui-engine golden        # regenerate the golden frames; review the git diff
 VITUI_BLESS=1 cargo test -p vitui-components golden   # the components' 33 screens; same, and refused in CI
 ```

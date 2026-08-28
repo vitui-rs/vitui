@@ -43,9 +43,10 @@
 //!   is the claim that turns out to be false when it is false, and a scan for absences alone goes
 //!   green when the whole section is deleted.
 //! - [`obligations`] — §17's five obligations as queries over the freeze, each returning a count or
-//!   an equality. **Three of the six are green — O1 since components ticket 36, O3 since 37 and O4
-//!   since 38 — and the other three say so out loud** rather than returning green over an empty
-//!   population.
+//!   an equality. **Five of the six are green — O1 since components ticket 36, O3 since 37, O4 since
+//!   38 and both halves of O2 since 39 — and the one left says so out loud** rather than returning
+//!   green over an empty population. It is O5, which §17 says is worth more than the other four
+//!   together.
 //! - [`doc`] — **O1's evidence as a value**: a documentation page per built component, located by
 //!   the freeze's own `families` column rather than listed, with a scan that opens each file and
 //!   reports what is in it. It is the value [`obligations::DOC_TESTED`] is compared against, because
@@ -63,6 +64,17 @@
 //!   subtracting that all thirteen contracts register ten chords they have never heard of. It found
 //!   four chord leaks in code that was already green, the sharpest of which answered `Ctrl+Left`
 //!   with a cluster.
+//! - [`gallery`] — **O2's evidence as a value**: one screen carrying every built row of the freeze,
+//!   twenty-eight panels in the freeze's own order, each with the function that draws the shipped
+//!   component. The application (`crates/vitui-apps/examples/gallery.rs`) iterates the table and
+//!   mints no panel of its own, which is the direction neither equality over the table can see. It
+//!   lives here rather than in the application because §21 names two defects to be measured *on the
+//!   assembled gallery* — the sentinel and the palette swap, register rows 7 and 8 — and both are
+//!   components tickets whose gate is `cargo test`. Its own findings are that **`ColorDepth` had been
+//!   reachable since runtime issue 22** while register row 45 filed §16's nine-cell matrix as
+//!   unreachable and named that very issue as its inverter, and that **the colour axis is not
+//!   observable on a canvas at all**: `Theme::resolve` returns the same paint for all thirteen roles
+//!   at all four depths, because quantisation is the engine's and happens before the mirror.
 //! - [`gates`] — §21's register: **a hundred and twenty-one gates as rows, a hundred and one of
 //!   them evaluated**,
 //!   six pinned red with their failing sets, six unreachable across the crate line with what
@@ -375,6 +387,7 @@ pub mod edit;
 pub mod forest;
 pub mod form;
 pub mod frame;
+pub mod gallery;
 pub mod gates;
 pub mod glyphs;
 pub mod golden;

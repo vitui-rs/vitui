@@ -1029,6 +1029,89 @@ fn the_three_tier_two_composites_allocate_nothing_and_the_record_shaped_form_all
     );
 }
 
+/// **The assembled gallery allocates nothing on a steady frame, as a total.**
+///
+/// Components ticket 39. Every other allocation gate in this file prices one component or one
+/// composite; this one prices **twenty-eight of them at once**, which is the criterion §20 states as
+/// *the performance budget holds in the gallery, not only in isolated harnesses*.
+///
+/// # Two things had to be written around, and both are the screen rather than the budget
+///
+/// **The status line is the caller's `String` and is passed in by reference.** `Gallery::ui_into`
+/// takes the note as a `&str`, so the loop below hands it a `&'static str` and the frame path
+/// formats nothing it did not already have — an application that cloned its status text per frame
+/// would land in this number, which is why the application destructures instead.
+///
+/// **The window is warmed on the shape it prices.** Six of the twenty-eight keep a memo — the two
+/// charts, the sparkline, the wrap index, the flatten index and the preview — and every one of them
+/// takes its allocation on the first frame that needs it. Components 22 measured what warming on the
+/// wrong shape costs: **1 over 12**, which is amortised zero and exactly what `Allocations`'s
+/// missing `mean` exists to refuse.
+///
+/// **The chrome is staged, not formatted.** The heading and the status bar's left segment are two
+/// `String`s the gallery keeps and rewrites with `write!` after `clear()`, which is what makes the
+/// total below cover the *whole* frame rather than only the tiles: a `format!` per frame is two
+/// allocations, and a gate that excluded the chrome would be a gate on a screen nobody draws.
+#[test]
+fn a_steady_frame_of_the_gallery_allocates_nothing_as_a_total() {
+    use vitui_alloc_probe::count_allocations;
+    use vitui_components::counters::Allocations;
+    use vitui_components::gallery::{Gallery, Sink};
+    use vitui_components::ink::Direct;
+    use vitui_components::runner::driver_at;
+    use vitui_runtime::Density;
+    use vitui_runtime::work::Worker;
+
+    let (w, h) = (100u16, 30u16);
+    let mut driver = driver_at(w, h, Density::default());
+    let mut gallery = Gallery::new(Worker::queueing());
+    driver.set_theme(*gallery.theme());
+    let one = |driver: &mut Driver, gallery: &mut Gallery| {
+        gallery.bag.answer_queued();
+        let mut sink: Sink<'_> = &mut Direct;
+        driver.frame(|cx| gallery.ui_into(&mut sink, cx, "steady"));
+    };
+    // Warmed with the identical workload, twice, before the window opens.
+    one(&mut driver, &mut gallery);
+    one(&mut driver, &mut gallery);
+
+    const FRAMES: u32 = 50;
+    let (_, total) = count_allocations(|| {
+        for _ in 0..FRAMES {
+            one(&mut driver, &mut gallery);
+        }
+    });
+    let measured = Allocations::over(FRAMES, total as u64);
+    assert_eq!(
+        measured.total(),
+        0,
+        "twenty-eight components on one screen allocated {} times over {} frames. A mean would \
+         have reported 0 for any total below {}",
+        measured.total(),
+        measured.frames(),
+        measured.frames()
+    );
+
+    // **And every page**, because the panels that keep a memo are not all on page one and a window
+    // over one page prices twelve of the twenty-eight.
+    for _ in 0..vitui_components::gallery::pages(w, h) {
+        gallery.next_page(w, h);
+        one(&mut driver, &mut gallery);
+        one(&mut driver, &mut gallery);
+        let (_, total) = count_allocations(|| {
+            for _ in 0..FRAMES {
+                one(&mut driver, &mut gallery);
+            }
+        });
+        assert_eq!(
+            Allocations::over(FRAMES, total as u64).total(),
+            0,
+            "page {} of the gallery allocates on a steady frame",
+            gallery.paging(w, h).0 + 1
+        );
+    }
+}
+
 /// The top row of `area`, which is the shape a horizontal slider is drawn in.
 fn top_row(area: vitui_runtime::Rect) -> vitui_runtime::Rect {
     vitui_runtime::layout::rect::split_at_v(area, 1).0

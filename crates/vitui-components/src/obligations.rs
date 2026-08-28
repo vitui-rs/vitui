@@ -4,13 +4,16 @@
 //! > Every documentation and verification obligation is a query over it, not a sentence in a
 //! > document. (ADR 0033)
 //!
-//! # Two of the six still cannot run, and that is the load-bearing half of this file
+//! # One of the six still cannot run, and that is the load-bearing half of this file
 //!
-//! **O1 is green since components ticket 36, O3 since 37 and O4 since 38**, the first three of the
-//! six queries to turn. A gallery panel is still a thing a later ticket builds, and **a query over
-//! an obligation nobody has met yet is the exact shape that returns green by accident**:
+//! **O1 is green since components ticket 36, O3 since 37, O4 since 38 and O2 — both halves — since
+//! 39**, five of the six queries. Only O5 is left, and it is the one §17 says is worth more than
+//! the other four together. **A query over an obligation nobody has met yet is the exact shape that
+//! returns green by accident**, and three of the six had it:
 //!
-//! - *every panel in the gallery is in the freeze* over an empty gallery is **vacuously true**;
+//! - *every panel in the gallery is in the freeze* over an empty gallery is **vacuously true** —
+//!   which is what [`PANELS`] read until ticket 39, and the reason the query is written over the
+//!   panel list rather than over the freeze;
 //! - *every component has at least one scene per declared axis* over an empty scene list, written
 //!   as a loop over scenes rather than over components, is **vacuously true**;
 //! - *goldens == constructions* written as `for g in goldens` is **vacuously true** — which is why
@@ -33,17 +36,23 @@
 //! [`Verdict::assert_met`] panics with the failing set and the ticket that inverts it. Each of the
 //! five is watched panicking by a `#[should_panic]` test below, because **a gate nobody has watched
 //! fail is not a gate** — §21's own three-for-three finding, from the other direction.
-//! `tests::not_one_of_the_five_obligations_is_met` writes the number down, so the first one to turn
-//! green is a deliberate edit here rather than a silent change of colour.
+//! `tests::five_of_the_six_obligations_are_met_and_the_one_left_is_o5` writes the number down, so
+//! each one that turns is a deliberate edit here rather than a silent change of colour. **Four have
+//! turned and each cost that edit**; what changes when one does is the arm it is watched failing on
+//! — a `Met` verdict cannot be watched panicking, so the `#[should_panic]` moves from *the evidence
+//! is empty* to *the evidence is one row wrong*, and for O2 that is one arm per direction.
 //!
 //! # The evidence is an argument, not a file read
 //!
 //! Every query takes what it is checking against as a slice, and this crate shipped each of those
 //! slices **empty with the ticket that fills it named**. That is what keeps the five pure functions
-//! over the freeze: when ticket 39 builds the gallery, [`PANELS`] stops being empty and `o2` starts
-//! answering a real question with no change to the query.
+//! over the freeze: ticket 39 built the gallery, [`PANELS`] stopped being empty, and `o2` started
+//! answering a real question **with no change to either query**.
 //!
-//! **[`DOC_TESTED`] is the first one to be filled, and filling it needed a second value beside it.**
+//! **[`DOC_TESTED`] was the first one to be filled, and filling it needed a second value beside
+//! it.** [`PANELS`] is the fourth and it needed the same thing, for the same reason and with the
+//! same shape: [`crate::gallery::panel_ids`] derives the list from the table the screen is drawn
+//! from.
 //! A written-out evidence list is a claim about twenty-eight files, so [`crate::doc`] opens each of
 //! them and derives the same list; `crate::doc::tests::the_written_list_and_the_scan_agree` is the
 //! comparison. Two lists a test compares is the arrangement [`KEYBOARD_DOCUMENTED`] and
@@ -180,10 +189,47 @@ pub const DOC_TESTED: &[&str] = &[
 
 /// The ids the gallery binary shows a panel for. O2's evidence.
 ///
-/// Empty, and ticket 39 fills it. **The gallery is a gate rather than a demo** (§21): every defect
-/// on the map that survived every gate then in force was invisible on the screen of the ticket that
-/// owned the mechanism and visible on the screen where the components meet.
-pub const PANELS: &[&str] = &[];
+/// **Twenty-eight, filled by components ticket 39.** The gallery is a gate rather than a demo
+/// (§21): every defect on the map that survived every gate then in force was invisible on the
+/// screen of the ticket that owned the mechanism and visible on the screen where the components
+/// meet.
+///
+/// Written out, for [`DOC_TESTED`]'s reason — a `const fn` over the freeze would make the
+/// population and the evidence one expression, and an equality between two things derived from each
+/// other holds. What holds it honest is [`crate::gallery::panel_ids`], which derives the same list
+/// from the panel table the screen is drawn from, joined by
+/// `crate::gallery::tests::the_written_list_and_the_table_agree`. `spinner` is absent, and that is
+/// [`o2_everything_built_has_a_panel`]'s population rather than an omission here.
+pub const PANELS: &[&str] = &[
+    "text",
+    "panel",
+    "chip",
+    "button",
+    "field",
+    "collection",
+    "table",
+    "tree",
+    "select",
+    "overlay",
+    "scroll_area",
+    "scrollbar",
+    "sticky",
+    "collapsible",
+    "chart",
+    "plot",
+    "checkbox",
+    "radio",
+    "switch",
+    "meter",
+    "sparkline",
+    "rule",
+    "status_bar",
+    "pagination",
+    "form",
+    "slider",
+    "file_picker",
+    "file_preview_pane",
+];
 
 /// How many golden screens each id has. O3's evidence.
 ///
@@ -615,11 +661,11 @@ mod tests {
         );
     }
 
-    /// **Two of the five are met, and the number is written down.**
+    /// **Five of the six are met, and the number is written down.**
     ///
     /// The runtime `register.rs`'s arrangement, one crate up: a list that says how many are green makes
-    /// the next change a deliberate edit rather than a quiet one. Today the answer is **two of
-    /// six** queries — O2 is two equalities — and every one of the other four names the ticket that
+    /// the next change a deliberate edit rather than a quiet one. Today the answer is **five of
+    /// six** queries — O2 is two equalities — and the one that is not names the ticket that
     /// inverts it.
     ///
     /// **O1 was the first**, and components ticket 36 was the deliberate edit this test was written
@@ -629,8 +675,13 @@ mod tests {
     /// with the equalities in `crates/vitui-components/tests/golden.rs`. **O4 is the third**, and
     /// components ticket 38 is its edit — thirteen contracts, and the equality that matters is one
     /// level down in `crate::contract`, chord for chord against a sweep that runs the component.
+    /// **O2 is the fourth, in both halves at once**, and components ticket 39 is its edit — the
+    /// twenty-eight panels of `crate::gallery`, whose table the application iterates and whose ids
+    /// [`crate::gallery::panel_ids`] derives so that the two lists are two sources rather than one
+    /// read twice. **O5 is the only one left**, and it is the one worth more than the other four
+    /// together.
     #[test]
-    fn three_of_the_five_obligations_are_met_and_they_are_o1_o3_and_o4() {
+    fn five_of_the_six_obligations_are_met_and_the_one_left_is_o5() {
         let all = [
             ("O1", o1(DOC_TESTED)),
             ("O2a", o2_nothing_shown_is_absent_from_the_freeze(PANELS)),
@@ -646,16 +697,13 @@ mod tests {
             .collect();
         assert_eq!(
             met,
-            vec!["O1", "O3", "O4"],
+            vec!["O1", "O2a", "O2b", "O3", "O4"],
             "an obligation has changed colour. That is the point of the backlog and it is also a \
              deliberate edit to this test, to this module's header and to the ticket that inverted \
              it — the number is here so a green one cannot arrive unremarked"
         );
 
-        for (name, verdict) in all
-            .into_iter()
-            .filter(|(n, _)| *n != "O1" && *n != "O3" && *n != "O4")
-        {
+        for (name, verdict) in all.into_iter().filter(|(_, v)| !v.met()) {
             let Verdict::Unmet {
                 over,
                 failing,
@@ -690,21 +738,23 @@ mod tests {
         // twenty-nine.
         assert_eq!(o1(DOC_TESTED), Verdict::Met { over: 28 }, "O1");
         assert_eq!(DOC_TESTED.len(), 28);
-        // The two halves of O2 differ in population, which is exactly ADR 0033's point that they do
-        // not substitute for each other. The first is over the gallery and is **empty**, so it is
-        // the vacuity refusal firing; the second is over the twenty-eight built rows — twenty-five
-        // until ticket 35, and it is the one obligation whose population *grows* every time a
-        // component ships, which is what makes it a check on drift rather than on effort.
+        // **The two halves of O2 differ in population, and that is exactly ADR 0033's point that
+        // they do not substitute for each other** — so both are asserted from the other side now,
+        // and the two numbers are different on purpose. The first is over the **gallery** and reads
+        // 28 because that is how many panels there are; the second is over the twenty-eight
+        // **built rows** and reads 28 because every one of them has a panel. The day `spinner`
+        // ships they are 28 and 29 until its panel arrives, which is the drift this pair is for.
         assert_eq!(
-            unmet(o2_nothing_shown_is_absent_from_the_freeze(PANELS)),
-            (0, 0),
+            o2_nothing_shown_is_absent_from_the_freeze(PANELS),
+            Verdict::Met { over: 28 },
             "O2a"
         );
         assert_eq!(
-            unmet(o2_everything_built_has_a_panel(PANELS)),
-            (28, 28),
+            o2_everything_built_has_a_panel(PANELS),
+            Verdict::Met { over: 28 },
             "O2b"
         );
+        assert_eq!(PANELS.len(), 28);
         // **O3 is `Met` over the same twenty-eight built rows**, so it is asserted from the other
         // side too. See `o3` for why the population is `built`: `spinner` has no component to draw,
         // and a row nothing on this backlog can invert is a row that reads red for ever.
@@ -796,19 +846,30 @@ mod tests {
         o1(&one_short).assert_met("O1");
     }
 
-    /// See [`o1_fails_loudly`]. This is the vacuity arm: zero of zero, and it still panics.
+    /// See [`o1_fails_loudly`]. **O2's first half has turned, so it is watched failing over the
+    /// shipped list with a panel added that the freeze has never heard of** — which is the drift
+    /// this half exists to catch, and the direction the second half cannot see at all.
+    ///
+    /// The vacuity arm it used to be — zero of zero, panicking because the gallery did not exist —
+    /// is kept in `an_obligation_asked_about_nothing_is_unmet_and_not_met`, over `&[]`. A `Met`
+    /// verdict cannot be watched panicking, and the refusal is still the constructor's.
     #[test]
-    #[should_panic(expected = "O2 (nothing shown is absent from the freeze) is unmet: 0 of 0")]
+    #[should_panic(expected = "O2 (nothing shown is absent from the freeze) is unmet: 1 of 29")]
     fn o2_nothing_shown_fails_loudly() {
-        o2_nothing_shown_is_absent_from_the_freeze(PANELS)
+        let mut shown: Vec<&str> = PANELS.to_vec();
+        shown.push("gauge");
+        o2_nothing_shown_is_absent_from_the_freeze(&shown)
             .assert_met("O2 (nothing shown is absent from the freeze)");
     }
 
-    /// See [`o1_fails_loudly`].
+    /// See [`o1_fails_loudly`]. **O2's second half has turned, so it is watched failing over the
+    /// shipped list with a panel taken away** — the other direction, and the one a gallery that
+    /// quietly stopped drawing a component would fail.
     #[test]
-    #[should_panic(expected = "O2 (everything built has a panel) is unmet: 28 of 28")]
+    #[should_panic(expected = "O2 (everything built has a panel) is unmet: 1 of 28")]
     fn o2_everything_built_fails_loudly() {
-        o2_everything_built_has_a_panel(PANELS).assert_met("O2 (everything built has a panel)");
+        let one_short: Vec<&str> = PANELS.iter().copied().skip(1).collect();
+        o2_everything_built_has_a_panel(&one_short).assert_met("O2 (everything built has a panel)");
     }
 
     /// See [`o1_fails_loudly`]. **O3 has turned, so it is watched failing over the shipped list

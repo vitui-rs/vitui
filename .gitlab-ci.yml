@@ -188,6 +188,22 @@ test:
     # lints a copy of the template with one `std::thread::sleep` in it and requires that to fail,
     # because a clean result on its own passes for any reason including the fragment being inert.
     - scripts/lint-rung-gate.sh
+    # **Components register row 221, and it is in *this* job rather than `idle` for two reasons that
+    # are both about this job's cache and this job's image.** It is the one instrument on that
+    # register which is not a `cargo` invocation: a `cargo test` has no terminal to leave in a state,
+    # so *the gallery gives the terminal back before a panic prints* is checked by driving the shipped
+    # binary under a real pty and comparing two byte offsets.
+    #
+    # `idle` was the obvious home — it is already two shell gates — and it is the wrong one. Its two
+    # scripts build `--release`, and nothing under its cache prefix has ever built a dev profile or
+    # any crate above the engine, so the same line there is a cold whole-workspace debug compile
+    # inside a 10-minute timeout. Here the debug artifacts are already standing from
+    # `cargo test --workspace` four lines up, and `script(1)` is proven present by the line above
+    # that one using it.
+    #
+    # The script fails naming what it could not use if `script` is missing, which is the right
+    # failure and still a failure — a gate that skipped itself is `compare/run.sh` again.
+    - scripts/gallery-panic-gate.sh
     # **`conform/`'s gate, folded in rather than added as a sixth job** — the same runner-slot
     # decision the note above these jobs makes for the observer gate and the lint rung, and the one
     # that note says the *next* gate would have to make.

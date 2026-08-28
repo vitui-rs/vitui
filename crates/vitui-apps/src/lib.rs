@@ -76,7 +76,7 @@ pub struct App {
 /// and the reason is that there is nothing to port: what it demonstrates is *one component and one
 /// `Mode`*, and no other library's tutorial has an equivalent because no other library makes the
 /// claim.
-pub const APPS: [App; 14] = [
+pub const APPS: [App; 15] = [
     App {
         name: "counter",
         what: "A bordered panel, a centred value, and Left/Right/q. The smallest program anybody \
@@ -459,6 +459,43 @@ pub const APPS: [App; 14] = [
         ],
         after: None,
     },
+    App {
+        name: "gallery",
+        what: "**Every built component on one screen**, which is obligation O2 — twenty-eight panels, \
+               one per `built` row of the freeze, in the freeze's own order. It is the thinnest \
+               application in this directory on purpose: the screen, the panel table and the \
+               twenty-eight drawings are `vitui_components::gallery`'s, because spec §21 names two \
+               defects to be measured *on the assembled gallery* and both are components tickets \
+               whose gate is `cargo test`. This file iterates the table and mints no panel of its \
+               own, and a source scan in the library crate says so from the other side. `t` is the \
+               key to press — it re-imports and re-resolves the whole theme on a live frame, which is \
+               the test of *degradation is resolved at construction* — and `Ctrl+T` is the spelling \
+               that still arrives when a focused `field` has eaten the `t`. `Ctrl+G` and `Ctrl+L` \
+               walk §16's nine cells, and `Ctrl+L` is where a human watches the traffic light go \
+               monochrome. `--probe` prints the budget measured in the gallery and `--matrix` the \
+               nine cells; `--panic` exists for `scripts/gallery-panic-gate.sh` and for nothing else",
+        uses: &[
+            "gallery::Gallery",
+            "gallery::Sink",
+            "gallery::grid",
+            "gallery::pages",
+            "gallery::matrix",
+            "gallery::traffic_light",
+            "gallery::shape",
+            "counters::Tally",
+            "ink::Direct",
+            "ink::Ink",
+            "ctx::Driver::attach",
+            "ctx::Driver::set_theme",
+            "ctx::Driver::unhandled",
+            "ctx::Driver::wait",
+            "ctx::Driver::wake",
+            "work::Worker::hire",
+            "gallery::rung_word",
+            "gallery::tier_word",
+        ],
+        after: None,
+    },
 ];
 
 #[cfg(test)]
@@ -469,6 +506,63 @@ mod tests {
 
     fn examples_dir() -> PathBuf {
         PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/examples"))
+    }
+
+    /// **Every name in a `uses` column is a name its own file actually spells.**
+    ///
+    /// Nothing checked this column until components ticket 39, and the review that found it out
+    /// found the sharp instance: the gallery's row listed `gallery::PANELS`, which
+    /// `vitui_components::gallery`'s own scan **forbids** that file from spelling — so the column
+    /// documented an application doing exactly what a gate one crate over refuses. A stale row here
+    /// is worse than a missing one, because the column is what somebody choosing what to read reads.
+    ///
+    /// The needle is the **last segment**, because a `uses` entry names the item where it is defined
+    /// (`ctx::Driver::attach`) and a file spells it where it is called (`Driver::attach`), and a
+    /// crate that re-exports at the root would make the module prefix a fiction either way.
+    ///
+    /// **Two exceptions, each named and each with its reason** — §21's rule, and a list rather than a
+    /// count so that a third has to arrive as an argument. Both are `compose`'s, and both are types
+    /// the application genuinely exercises without ever writing the name: `edit::Caret` arrives from
+    /// `Text::caret()` and `edit::Ring` from the undo verbs, and a row that dropped them would say
+    /// the application does not touch the two mechanisms components 24's whole ticket is about.
+    #[test]
+    fn every_name_in_a_uses_column_is_spelled_by_its_own_file() {
+        const REACHED_WITHOUT_BEING_NAMED: [(&str, &str); 2] =
+            [("compose", "edit::Caret"), ("compose", "edit::Ring")];
+        let mut missing = Vec::new();
+        let mut excepted = 0usize;
+        for app in APPS {
+            let path = examples_dir().join(format!("{}.rs", app.name));
+            let source = std::fs::read_to_string(&path).expect("a readable example");
+            for entry in app.uses {
+                let last = entry.rsplit("::").next().expect("rsplit yields one");
+                if source.contains(last) {
+                    continue;
+                }
+                if REACHED_WITHOUT_BEING_NAMED.contains(&(app.name, *entry)) {
+                    excepted += 1;
+                    continue;
+                }
+                missing.push(format!("{}: {entry}", app.name));
+            }
+        }
+        assert_eq!(missing, Vec::<String>::new());
+        assert_eq!(
+            excepted,
+            REACHED_WITHOUT_BEING_NAMED.len(),
+            "a named exception is no longer needed. Strike the row rather than keep counting to two \
+             — a stated exception that has stopped applying is the shape this test exists to catch"
+        );
+
+        // **The other direction**, or a scan whose needle has stopped matching reports every column
+        // clean. `Sink` is in the gallery's column and in its source; `PANELS` is in neither now.
+        let gallery =
+            std::fs::read_to_string(examples_dir().join("gallery.rs")).expect("a readable example");
+        assert!(gallery.contains("Sink"));
+        assert!(
+            !gallery.contains("PANELS"),
+            "the gallery names the panel table, which `vitui_components::gallery` forbids it"
+        );
     }
 
     /// **Every loop reads `Driver::unhandled` from the frame that has just drawn, and not before
@@ -520,10 +614,10 @@ mod tests {
             checked += 1;
         }
         assert_eq!(
-            checked, 12,
+            checked, 13,
             "triage, ledger, explorer, reader, settings, compose, console, theatre, browse, mixer, \
-             vitals and roster open the window; counter and latency read their keys through a \
-             `KeyMap` instead"
+             vitals, roster and gallery open the window; counter and latency read their keys \
+             through a `KeyMap` instead"
         );
 
         // **The other directions**, or a scanner that has stopped finding `driver.frame(` reports
