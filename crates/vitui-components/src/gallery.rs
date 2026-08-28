@@ -66,6 +66,7 @@
 
 use std::fmt::Write as _;
 
+use vitui_runtime::ctx::Driver;
 use vitui_runtime::layout::{Constraint, rect};
 use vitui_runtime::work::{Cancel, Task, Worker};
 use vitui_runtime::{ColorDepth, Ctx, Density, GlyphSet, Rect, Role, Theme, Themes};
@@ -677,6 +678,24 @@ impl Gallery {
         (self.page.min(of.saturating_sub(1)), of)
     }
 
+    /// **What decides every cell of this screen, as one number.**
+    ///
+    /// The page, the scheme, the repertoire and the colour depth. It is what [`Clears::relaid_into`]
+    /// compares, and it is a *value* rather than the runtime's `theme_changed` flag because a value
+    /// that moved is a fact and a flag is a report of one. Density is the input it cannot carry —
+    /// it is theme data and it changes rectangles (spec §3) — and [`Gallery::ui_into`] ORs the flag
+    /// in for exactly that.
+    fn screen_key(&self) -> u64 {
+        let rung = RUNGS.iter().position(|r| *r == self.rung).unwrap_or(0) as u64;
+        let tier = match self.tier {
+            ColorDepth::None => 0,
+            ColorDepth::Ansi16 => 1,
+            ColorDepth::Indexed256 => 2,
+            ColorDepth::TrueColor => 3,
+        };
+        (self.page as u64) << 8 | (self.themes.selected() as u64) << 4 | rung << 2 | tier
+    }
+
     /// How many times the screen has been cleared. `crate::app::Clears`'s own count, forwarded so
     /// that *once, and then never again until the size changes* is checkable from outside.
     pub fn cleared(&self) -> u32 {
@@ -800,16 +819,28 @@ impl Gallery {
         // ends up correct either way.
         let _ = self.bag.land_here();
 
-        // **The screen clears once, on its first frame and on a resize** (spec §2, ADR 0026).
-        // Clearing every frame is 9 024 cells on a screen that is not moving; clearing never leaves
-        // whatever the shell had there showing through the gaps.
-        // **Through the caller's ink, not through `Direct`.** The clear is `w * h` writes and it is
-        // the application's `Ctrl+O` counters that would otherwise be blind to them — on exactly the
-        // frame a reader turns the counters on to look at. What it costs is stated rather than
-        // discovered: [`shape`] measures a **steady** frame on a fresh recorder for this reason, so
-        // `Shape::unwritten` is *cells no verb wrote this frame* and not *cells nobody ever wrote*,
-        // which over a screen that clears once is zero by construction.
-        let _ = self.clears.frame_into(ink, cx);
+        // **The screen is repainted when what decides every cell of it changes** — its size, its
+        // page, or its theme (spec §2, ADR 0026).
+        //
+        // A resize is `Clears`'s own trigger and it is not the only one here: this screen pages
+        // twenty-eight panels through twelve tiles, so `Ctrl+N` puts a **different component in the
+        // same rectangle**, and §2's second half is not met — 525 cells of 3 000 at 100x30 are
+        // written by nobody, and a cell nobody writes keeps what was already there. On `Ctrl+N` that
+        // was a `radio` panel with a `collection`'s rows still inside it.
+        //
+        // **This is not the partition rule and does not stand in for it.** It fires on the
+        // transition frame only, so a steady frame is untouched and the cells nobody writes are
+        // still nobody's — register row 7, components 40's to invert. What it closes is the
+        // *sequence* half, which is the half a caller owns.
+        //
+        // The theme is in the key rather than read from `Ctx::theme_changed`, because a value that
+        // moved is a fact and a flag is a report of one — and the density, which changes rectangles
+        // and is theme data (spec §3), is the one input the key cannot carry, so the flag is ORed in
+        // for it.
+        let relaid = self.clears.relaid_into(ink, cx, self.screen_key());
+        if !relaid && cx.theme_changed() {
+            crate::text::pad_rows(ink, cx, whole, cx.theme().paint(Role::Body));
+        }
 
         let (title, rest) = rect::split_at_v(whole, 1);
         let (grid_rows, status) = rect::split_at_v(rest, rest.h.saturating_sub(1));
@@ -1691,14 +1722,26 @@ pub fn swap(w: u16, h: u16, change: Change) -> Swap {
     let mut driver = crate::runner::driver_at(w, h, Density::default());
     let mut gallery = Gallery::new(Worker::queueing());
     driver.set_theme(*gallery.theme());
-    let mut before = crate::runner::Pen::new(w, h);
-    for _ in 0..3 {
+    // **One surface, carried across the change, which is what a terminal is.**
+    //
+    // This function rendered the *after* picture onto a **fresh** `Pen` for one commit, and every
+    // gate over it was green while `Ctrl+N` put the previous page inside the new page's frames on a
+    // real screen. A recorder that starts blank cannot see residue — which is
+    // `crate::golden`'s own note about a multi-frame shot, in as many words — and residue is the
+    // entire subject of register rows 7 and 8. Read on one carried surface the number is there
+    // immediately: 525 cells of 3 000 keep the old palette at 100x30, and it is the *same* 525 that
+    // `Shape::unwritten` counts.
+    let mut pen = crate::runner::Pen::new(w, h);
+    let frame = |gallery: &mut Gallery, driver: &mut Driver, pen: &mut crate::runner::Pen| {
         gallery.bag.answer_queued();
-        before.end_frame();
-        let mut sink: Sink<'_> = &mut before;
+        pen.end_frame();
+        let mut sink: Sink<'_> = pen;
         driver.frame(|cx| gallery.ui_into(&mut sink, cx, ""));
+    };
+    for _ in 0..3 {
+        frame(&mut gallery, &mut driver, &mut pen);
     }
-    let first = before.into_canvas();
+    let before: Vec<Option<(String, String)>> = read(&pen, w, h);
 
     match change {
         Change::Scheme => gallery.next_theme(),
@@ -1706,44 +1749,36 @@ pub fn swap(w: u16, h: u16, change: Change) -> Swap {
         Change::Tier => gallery.next_tier(),
     }
     driver.set_theme(*gallery.theme());
-    let mut after = crate::runner::Pen::new(w, h);
-    for _ in 0..2 {
-        gallery.bag.answer_queued();
-        after.end_frame();
-        let mut sink: Sink<'_> = &mut after;
-        driver.frame(|cx| gallery.ui_into(&mut sink, cx, ""));
-    }
-    let second = after.into_canvas();
+    frame(&mut gallery, &mut driver, &mut pen);
+    let after = read(&pen, w, h);
 
     let mut changed = 0;
     let mut changed_on_a_panel = 0;
     let mut kept = 0;
     let mut written = 0;
-    for y in 0..h {
-        for x in 0..w {
-            match (first.get(x, y), second.get(x, y)) {
-                (Some(a), Some(b)) => {
-                    written += 1;
-                    // **What *keeping the old theme* means depends on which key was pressed**, and
-                    // reading one axis for the other is how a swap gate goes green: a scheme change
-                    // moves paints and not clusters, and a rung change moves clusters and not
-                    // paints. Compared on the pair, a rung change reports every cell stale.
-                    let stale = match change {
-                        Change::Scheme | Change::Tier => a.paint == b.paint,
-                        Change::Rung => a.cluster == b.cluster,
-                    };
-                    if stale {
-                        kept += 1;
-                    } else {
-                        changed += 1;
-                        if y > 0 && y + 1 < h {
-                            changed_on_a_panel += 1;
-                        }
+    for (i, (a, b)) in before.iter().zip(after.iter()).enumerate() {
+        let y = (i / usize::from(w)) as u16;
+        match (a, b) {
+            (Some(a), Some(b)) => {
+                written += 1;
+                // **What *keeping the old theme* means depends on which key was pressed**, and
+                // reading one axis for the other is how a swap gate goes green: a scheme change
+                // moves paints and not clusters, and a rung change moves clusters and not paints.
+                let stale = match change {
+                    Change::Scheme | Change::Tier => a.1 == b.1,
+                    Change::Rung => a.0 == b.0,
+                };
+                if stale {
+                    kept += 1;
+                } else {
+                    changed += 1;
+                    if y > 0 && y + 1 < h {
+                        changed_on_a_panel += 1;
                     }
                 }
-                (_, Some(_)) => written += 1,
-                _ => {}
             }
+            (_, Some(_)) => written += 1,
+            _ => {}
         }
     }
     Swap {
@@ -1753,6 +1788,21 @@ pub fn swap(w: u16, h: u16, change: Change) -> Swap {
         written,
         changed_on_a_panel,
     }
+}
+
+/// Every cell of a recorded surface as `(cluster, paint)`, or `None` where nobody has written.
+fn read(pen: &crate::runner::Pen, w: u16, h: u16) -> Vec<Option<(String, String)>> {
+    let mut out = Vec::with_capacity(usize::from(w) * usize::from(h));
+    for y in 0..h {
+        for x in 0..w {
+            out.push(
+                pen.canvas()
+                    .get(x, y)
+                    .map(|c| (c.cluster.clone(), format!("{:?}", c.paint))),
+            );
+        }
+    }
+    out
 }
 
 /// **The spellings this module refuses, kept runnable so a gate can watch each one fail.**
@@ -2435,25 +2485,63 @@ mod tests {
         );
     }
 
-    /// **The screen clears once and no frame after it does.**
+    /// **The screen clears once, and again only when what decides every cell of it moves.**
     ///
     /// `crate::app::Clears` is the mechanism and the gallery is a caller of it; what this asserts is
     /// that the caller passes it a `Ctx` once a frame rather than at start-up, because the other half
     /// of the rule is *and on a resize*.
     #[test]
-    fn the_screen_clears_once_and_again_only_on_a_resize() {
+    fn the_screen_clears_once_and_again_when_its_layout_or_its_theme_moves() {
         let (w, h) = (60u16, 16u16);
         let mut driver = crate::runner::driver_at(w, h, Density::default());
         let mut gallery = Gallery::new(Worker::queueing());
         driver.set_theme(*gallery.theme());
-        let mut cleared = 0;
-        for _ in 0..4 {
+        let step = |gallery: &mut Gallery, driver: &mut vitui_runtime::ctx::Driver| -> bool {
             let before = gallery.cleared();
             let mut sink: Sink<'_> = &mut Direct;
             driver.frame(|cx| gallery.ui_into(&mut sink, cx, ""));
-            cleared += usize::from(gallery.cleared() != before);
+            gallery.cleared() != before
+        };
+        let mut cleared = 0;
+        for _ in 0..4 {
+            cleared += usize::from(step(&mut gallery, &mut driver));
         }
         assert_eq!(cleared, 1, "the gallery clears more than once at one size");
+
+        // **And again on a page change and on a theme change**, which are the two other things that
+        // decide every cell of this screen — see `Clears::relaid_into`. Steady frames in between are
+        // untouched, which is what keeps register row 7's subject intact.
+        gallery.next_page(w, h);
+        assert!(
+            step(&mut gallery, &mut driver),
+            "a page change did not repaint"
+        );
+        assert!(
+            !step(&mut gallery, &mut driver),
+            "the page repaints every frame"
+        );
+        gallery.next_theme();
+        driver.set_theme(*gallery.theme());
+        assert!(
+            step(&mut gallery, &mut driver),
+            "a theme change did not repaint"
+        );
+        assert!(
+            !step(&mut gallery, &mut driver),
+            "the theme repaints every frame"
+        );
+        gallery.next_rung();
+        driver.set_theme(*gallery.theme());
+        assert!(
+            step(&mut gallery, &mut driver),
+            "a rung change did not repaint"
+        );
+        gallery.next_tier();
+        driver.set_theme(*gallery.theme());
+        assert!(
+            step(&mut gallery, &mut driver),
+            "a depth change did not repaint"
+        );
     }
 
     /// **No size panics, and every key is pressable at every size.**
@@ -2498,6 +2586,84 @@ mod tests {
                     "at {w}x{h} the panels drawn and the room for them disagree"
                 );
             }
+        }
+    }
+
+    /// **A carried surface after a change equals a fresh surface of what it changed to.**
+    ///
+    /// The equality residue means, and the one this module shipped without. A page change puts a
+    /// **different component in the same rectangle**, and §2's second half is not met on this screen
+    /// — 525 cells of 3 000 at 100x30 are written by nobody — so `Ctrl+N` left the previous page
+    /// inside the new page's frames: a `radio` panel with a `collection`'s rows in it, on a screen
+    /// whose every gate was green.
+    ///
+    /// **The reason every gate was green is the instrument, and it is the shape this crate keeps
+    /// meeting**: [`swap`] rendered the *after* picture onto a **fresh** [`crate::runner::Pen`], and
+    /// a recorder that starts blank cannot see residue. `crate::golden`'s multi-frame note says so in
+    /// as many words about its own surface. Both now carry one.
+    #[test]
+    fn a_carried_surface_after_a_change_equals_a_fresh_one() {
+        let (w, h) = (100u16, 30u16);
+        let fresh = |steps: usize, theme: usize| {
+            let mut driver = crate::runner::driver_at(w, h, Density::default());
+            let mut gallery = Gallery::new(Worker::queueing());
+            for _ in 0..steps {
+                gallery.next_page(w, h);
+            }
+            for _ in 0..theme {
+                gallery.next_theme();
+            }
+            driver.set_theme(*gallery.theme());
+            let mut pen = crate::runner::Pen::new(w, h);
+            for _ in 0..3 {
+                gallery.bag.answer_queued();
+                pen.end_frame();
+                let mut sink: Sink<'_> = &mut pen;
+                driver.frame(|cx| gallery.ui_into(&mut sink, cx, ""));
+            }
+            pen.into_canvas()
+        };
+
+        // The carried arm: page 1, then walk to the page or theme under test, on one surface.
+        let carried = |steps: usize, theme: usize| {
+            let mut driver = crate::runner::driver_at(w, h, Density::default());
+            let mut gallery = Gallery::new(Worker::queueing());
+            driver.set_theme(*gallery.theme());
+            let mut pen = crate::runner::Pen::new(w, h);
+            let go = |gallery: &mut Gallery,
+                      driver: &mut vitui_runtime::ctx::Driver,
+                      pen: &mut crate::runner::Pen| {
+                gallery.bag.answer_queued();
+                pen.end_frame();
+                let mut sink: Sink<'_> = pen;
+                driver.frame(|cx| gallery.ui_into(&mut sink, cx, ""));
+            };
+            for _ in 0..3 {
+                go(&mut gallery, &mut driver, &mut pen);
+            }
+            for _ in 0..steps {
+                gallery.next_page(w, h);
+                go(&mut gallery, &mut driver, &mut pen);
+            }
+            for _ in 0..theme {
+                gallery.next_theme();
+                driver.set_theme(*gallery.theme());
+                go(&mut gallery, &mut driver, &mut pen);
+            }
+            // Two more, so the arm is compared at rest rather than one frame after the change.
+            for _ in 0..2 {
+                go(&mut gallery, &mut driver, &mut pen);
+            }
+            pen.into_canvas()
+        };
+
+        for (steps, theme) in [(1usize, 0usize), (2, 0), (0, 1), (1, 1)] {
+            let diff = carried(steps, theme).diff(&fresh(steps, theme));
+            assert!(
+                diff.clean(),
+                "after {steps} page change(s) and {theme} theme change(s) the carried surface keeps \
+                 what the previous screen wrote: {diff:?}"
+            );
         }
     }
 

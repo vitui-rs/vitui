@@ -61,7 +61,15 @@ use crate::text::pad_rows;
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub struct Clears {
     seen: Option<(u16, u16)>,
+    /// The caller's own key for *what the whole screen is showing*. See [`Clears::relaid_into`].
+    key: u64,
     cleared: u32,
+}
+
+/// The screen's size, which is the pair every clear keys on.
+fn size_of_screen(cx: &Ctx<'_, '_>) -> (u16, u16) {
+    let screen = cx.area();
+    (screen.w, screen.h)
 }
 
 impl Clears {
@@ -69,6 +77,7 @@ impl Clears {
     pub const fn new() -> Clears {
         Clears {
             seen: None,
+            key: 0,
             cleared: 0,
         }
     }
@@ -95,12 +104,51 @@ impl Clears {
     /// The cost is `h` verbs instead of one, on a frame that happens **twice in an application's
     /// life** — its first, and each resize.
     pub fn frame_into<I: Ink>(&mut self, ink: &mut I, cx: &mut Ctx<'_, '_>) -> bool {
+        let size = size_of_screen(cx);
+        // **The key is left alone rather than reset to zero**, so the two verbs do not fight when a
+        // caller uses both: written as `relaid_into(ink, cx, 0)` this one clears every time it
+        // follows a keyed call, which is the double-write defect arriving through the API.
+        self.clear_if(self.seen != Some(size), ink, cx)
+    }
+
+    /// **[`Clears::frame_into`], plus the caller's own key for what the whole screen is showing.**
+    ///
+    /// A resize is not the only thing that decides every cell of a screen. **An application that
+    /// puts different content in the same rectangles has a second one**, and the runtime cannot know
+    /// what it is: a page of panels, a tab, a route. `key` is that fact as a number, and a clear
+    /// happens when it moves for the same reason a resize causes one — *a screen whose cells are not
+    /// all repainted after what decides them changed is not the same screen*.
+    ///
+    /// # This is a defect that shipped, and the reason it shipped is worth the paragraph
+    ///
+    /// `crate::gallery` pages twenty-eight panels through twelve tiles, and on `Ctrl+N` the screen
+    /// showed **the previous page inside the new page's frames** — a `radio` panel with a
+    /// `collection`'s rows in it — because §2's second half is not met on that screen: 525 cells of
+    /// 3 000 at 100x30 are written by nobody, and a cell nobody writes keeps what was already there.
+    ///
+    /// **Every gate on that screen was green**, and the reason is one every instrument in this crate
+    /// is built to avoid and this one fell into anyway: the *after* picture was rendered onto a
+    /// **fresh** [`crate::runner::Pen`]. A recorder that starts blank cannot see residue, which is
+    /// exactly what `crate::golden`'s multi-frame note says in as many words. Read on one carried
+    /// surface the number is there immediately.
+    ///
+    /// **It is not a substitute for the partition rule.** Steady frames are untouched — this fires
+    /// only on the transition — so the cells nobody writes are still nobody's, which is register
+    /// row 7 and components 40's to invert. What this closes is the *sequence* half, which is the
+    /// half a caller owns and the half no per-frame count can state.
+    pub fn relaid_into<I: Ink>(&mut self, ink: &mut I, cx: &mut Ctx<'_, '_>, key: u64) -> bool {
+        let moved = self.seen != Some(size_of_screen(cx)) || self.key != key;
+        self.key = key;
+        self.clear_if(moved, ink, cx)
+    }
+
+    /// The one place that writes, so the two public verbs cannot differ about what a clear is.
+    fn clear_if<I: Ink>(&mut self, moved: bool, ink: &mut I, cx: &mut Ctx<'_, '_>) -> bool {
         let screen = cx.area();
-        let size = (screen.w, screen.h);
-        if self.seen == Some(size) {
+        self.seen = Some((screen.w, screen.h));
+        if !moved {
             return false;
         }
-        self.seen = Some(size);
         self.cleared += 1;
         let body = cx.theme().paint(Role::Body);
         pad_rows(ink, cx, screen, body);
@@ -110,6 +158,39 @@ impl Clears {
     /// **How many times it has cleared.** One per size the application has been shown at.
     pub fn cleared(self) -> u32 {
         self.cleared
+    }
+
+    /// The key the last clear was taken at. `0` for a caller that does not use one.
+    ///
+    /// ```
+    /// use vitui_components::app::Clears;
+    /// use vitui_components::ink::Direct;
+    /// use vitui_runtime::ctx::Driver;
+    ///
+    /// let mut driver = Driver::headless(40, 10).expect("a sink attaches");
+    /// let mut clears = Clears::new();
+    /// // The same key over and over is one clear, exactly as the size alone would be.
+    /// for _ in 0..4 {
+    ///     driver.frame(|cx| {
+    ///         clears.relaid_into(&mut Direct, cx, 7);
+    ///     });
+    /// }
+    /// assert_eq!(clears.cleared(), 1);
+    /// assert_eq!(clears.key(), 7);
+    /// // A key that moves is a second clear.
+    /// driver.frame(|cx| {
+    ///     assert!(clears.relaid_into(&mut Direct, cx, 8));
+    /// });
+    /// // And `frame_into`, which keys on the size alone, leaves the key alone — so the two verbs
+    /// // do not fight when a caller uses both. Written as `relaid_into(.., 0)` this line clears.
+    /// driver.frame(|cx| {
+    ///     assert!(!clears.frame_into(&mut Direct, cx));
+    /// });
+    /// assert_eq!(clears.cleared(), 2);
+    /// assert_eq!(clears.key(), 8);
+    /// ```
+    pub const fn key(self) -> u64 {
+        self.key
     }
 
     /// The size the last clear was taken at, or `None` before the first frame.
@@ -141,6 +222,19 @@ pub mod defective {
     /// clear.
     pub fn never<I: Ink>(_: &mut I, _: &mut Ctx<'_, '_>) -> bool {
         false
+    }
+
+    /// **A `Clears` keyed on the size alone**, which is what [`Clears::frame_into`] is — correct for
+    /// an application whose screen is decided by its size and wrong for one that puts different
+    /// content in the same rectangles.
+    ///
+    /// It is not a mistake in `frame_into`; it is the fourth spelling, and it is the one
+    /// `crate::gallery` shipped with. Its failing set on that screen is **286 cells over 12 rows,
+    /// first at (34, 6)** after one `Ctrl+N` — the previous page still standing inside the new
+    /// page's frames, on a screen whose every gate was green because the *after* picture was
+    /// recorded onto a fresh surface.
+    pub fn deaf_to_the_key<I: Ink>(state: &mut Clears, ink: &mut I, cx: &mut Ctx<'_, '_>) -> bool {
+        state.frame_into(ink, cx)
     }
 
     /// **A `Clears` that keys on nothing**, so it clears once and then never again — including

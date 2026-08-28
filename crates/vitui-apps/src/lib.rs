@@ -76,7 +76,7 @@ pub struct App {
 /// and the reason is that there is nothing to port: what it demonstrates is *one component and one
 /// `Mode`*, and no other library's tutorial has an equivalent because no other library makes the
 /// claim.
-pub const APPS: [App; 15] = [
+pub const APPS: [App; 16] = [
     App {
         name: "counter",
         what: "A bordered panel, a centred value, and Left/Right/q. The smallest program anybody \
@@ -493,6 +493,26 @@ pub const APPS: [App; 15] = [
             "work::Worker::hire",
             "gallery::rung_word",
             "gallery::tier_word",
+        ],
+        after: None,
+    },
+    App {
+        name: "caps",
+        what: "**What this terminal answered, and nothing else.** It draws no frame: attach, read \
+               `Capabilities::report`, detach, print — so nothing it prints can be a consequence of \
+               anything a component did. It is here because every gate in this workspace is \
+               headless, and none of them can answer the one question a person holding a broken \
+               screen has: *what did my terminal claim, and what did the engine decide because of \
+               it.* Read `legacy_sgr` first — the engine writes truecolour as the ITU-T colon form \
+               `SGR 38:2::r:g:b`, and a parser that only handles the semicolon form can abandon the \
+               sequence and emit the remainder **as text**, which puts runs of `:` and digits on the \
+               screen and pushes everything after them sideways. Three terminals are in the quirk \
+               table for exactly that, recognised by their environment because it is not a thing a \
+               terminal will admit to; `VITUI_FORCE_LEGACY_SGR=1` settles it in one run",
+        uses: &[
+            "ctx::Driver::attach",
+            "ctx::Driver::env",
+            "ctx::Caps::report",
         ],
         after: None,
     },

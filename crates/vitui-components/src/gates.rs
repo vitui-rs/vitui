@@ -7528,6 +7528,21 @@ pub const REGISTER: [Row; 223] = [
         // **The clear-once rule is here rather than in a fourth row**, because it is the same
         // sentence about the same rectangle from the other side: a screen whose gaps are never
         // painted is not the same screen, and `crate::app::Clears` is a value the caller owns.
+        //
+        // **And it grew a second trigger, because a resize is not the only thing that decides every
+        // cell of a screen.** This one pages twenty-eight panels through twelve tiles, so `Ctrl+N`
+        // puts a different component in the same rectangle — and with §2's second half unmet on the
+        // screen (525 cells of 3 000 at 100x30 written by nobody) it left **286 cells over 12 rows**
+        // of the previous page standing inside the new page's frames: a `radio` panel with a
+        // `collection`'s rows in it. `Clears::relaid_into` takes the caller's own key beside the
+        // size.
+        //
+        // **Every gate here was green while that shipped, and the reason is the instrument rather
+        // than the gate.** `gallery::swap` rendered the *after* picture onto a **fresh** `Pen`, and a
+        // recorder that starts blank cannot see residue — which is `crate::golden`'s own note about
+        // its multi-frame surface, in as many words. The equality that catches it is *a carried
+        // surface after a change equals a fresh surface of what it changed to*, and both arms are
+        // watched failing on the spelling that shipped.
         standing: Standing::Evaluated {
             by: &[
                 Instrument::Unit {
@@ -7544,7 +7559,11 @@ pub const REGISTER: [Row; 223] = [
                 },
                 Instrument::Unit {
                     file: GALLERY,
-                    name: "the_screen_clears_once_and_again_only_on_a_resize",
+                    name: "the_screen_clears_once_and_again_when_its_layout_or_its_theme_moves",
+                },
+                Instrument::Unit {
+                    file: GALLERY,
+                    name: "a_carried_surface_after_a_change_equals_a_fresh_one",
                 },
                 Instrument::Report {
                     file: GALLERY_NUMBERS,
