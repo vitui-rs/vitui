@@ -1,5 +1,14 @@
 # Design the component model, and re-examine the crate split before anything is implemented
 
+**Status: resolved — 2026-08-28.** Both halves are answered; this file is a record, not open work.
+The ticket was map-shaped, as it predicted, and the two maps it opened have both been reached:
+`.scratch/vitui-runtime-architecture/` (2026-08-19, R16 → `spec.md`, ADRs 0012–0021) and
+`.scratch/vitui-components-architecture/` (C12 → `spec.md`, ADRs 0026–0033 and 0035–0045). **The
+specs are the authority; where this ticket's proposed answers disagree with them, they are wrong** —
+one of them is (the data contract, see A below). Nothing here is a work item, and nothing here is
+for a dispatched agent to re-derive: the component library is 28 of 29 built with 14 applications
+standing on it.
+
 ## Goal
 
 Decide **what a component is** in `vitui`, and **which crate each piece of the answer lives in**,
@@ -27,47 +36,104 @@ efforts that get their own maps.
 
 ## Acceptance criteria
 
+**All of A and B are answered by the two architecture specs this ticket produced.** Each box cites
+where, so a reader arriving cold reads the answer rather than re-deriving it. `RS §n` is
+`.scratch/vitui-runtime-architecture/spec.md`, `CS §n` is
+`.scratch/vitui-components-architecture/spec.md`.
+
 **A — the component model**
 
-- [ ] A one-sentence definition of a component, and a table running every candidate through it:
+- [x] A one-sentence definition of a component, and a table running every candidate through it:
       `text`, `fill`, `border`, `bar`, `plot`, `input`, `toggle`, `scrollbar`, `list`, `table`,
       `tree`, `panel`, `split`, `tabs`, `window`, `popup`, `modal`, `form`, `chart`, `picker`,
       `layout`, `grid`, `row`, `cell`, `gradient`, `scroll`.
-- [ ] **Is a component a function or a trait?** Decided, with the consequence stated. This is the
+      **CS §1** is the shape, **CS §17** the twenty-nine-row freeze, **CS §18** the coverage
+      argument — and §18 is stronger than this box asked for: the candidate list above is 26 names,
+      the survey's union catalogue is ~430 entries across 15 families, and §18 accounts for the
+      residue by naming a mechanism for every entry rather than by calling it small. `INVENTORY`
+      is that freeze as a value a test iterates (components 35).
+- [x] **Is a component a function or a trait?** Decided, with the consequence stated. This is the
       fork: a measure pass forces a trait with two methods and reintroduces a walked structure, which
       is exactly what ticket 05's *the clip stack is the call stack* deleted.
-- [ ] **Intrinsic sizing: yes or no.** If no, state what layout can and cannot express. If yes, state
+      **A function** — **RS §2**. The trait form was *built* rather than argued away, and the
+      record matters: same rectangles at **1.03x**, 0 allocations against 2 once it takes the
+      caller's buffers. It died of drift and of the dry run, not of cost (RS §12).
+- [x] **Intrinsic sizing: yes or no.** If no, state what layout can and cannot express. If yes, state
       what it costs in the component signature.
-- [ ] **Identity** — where a name that survives between frames comes from. Six mechanisms need one and
+      **No** — **RS §12**, exit (a). The mechanism is a *sizing function* beside the component,
+      taking the same `&data` plus the extent it is about to be given. It takes no draw context, so
+      it cannot draw, cannot claim an identity and cannot route, which is the whole of what makes it
+      a function rather than a method. Sizing a dialog to its contents is 569 ns.
+- [x] **Identity** — where a name that survives between frames comes from. Six mechanisms need one and
       nothing decides it: focus routing, hit-testing, interest declaration, memo invalidation, overlay
       ownership, scroll association. Immediate mode has no mount.
-- [ ] **The data contract** (`Rows` or whatever it is called) — the shape a collection component
+      **Call site plus key, via `#[track_caller]`** — **RS §5**, **CS §4**, ADR 0027. Two
+      consequences this ticket could not have predicted and every later one meets: a toggle that
+      swaps *which function* draws a widget swaps the widget, and a component taking its id inside a
+      private body one frame down gets the *body's* line, because the attribute propagates only
+      through functions that carry it.
+- [x] **The data contract** (`Rows` or whatever it is called) — the shape a collection component
       demands of application data. It would be the runtime's first trait; the engine has none.
-- [ ] **The two-phase overlay protocol**, concretely: how an overlay request is expressed during the
+      **There is no trait** — **RS §14**, **ADR 0019**. This overturns the proposal logged below on
+      2026-08-17: `Rows` does not exist. `Revision`, `Versioned<T>` and `Memo<T>` ship as plain
+      types. The case that was supposed to justify the trait is the one that removed it — `len()`
+      becomes a second source of truth the moment a view is filtered, and what makes a revision bump
+      unforgettable is `Drop` on a guard rather than a promise to report a number.
+- [x] **The two-phase overlay protocol**, concretely: how an overlay request is expressed during the
       draw and satisfied after it, and how it is linked to its owner across passes.
-- [ ] The component library's own vocabulary, added to `CONTEXT.md`. `cell`, `layer`, `surface`,
+      **RS §10**, **CS §12**, ADR 0017 (its arena half partially superseded by ADR 0034). The
+      request is made during the draw and satisfied after it; the two `Ctx` lifetimes are what carry
+      the link, and `'f` is the mechanism rather than an annotation — deleting it compiles and
+      deletes the protocol, which is why `overlay::OWED_SENTENCE` is checked as a scan of the
+      runtime's own file.
+- [x] The component library's own vocabulary, added to `CONTEXT.md`. `cell`, `layer`, `surface`,
       `view`, `run`, `frame` and `damage` are the engine's and cannot be reused — a table needs other
       words for its units.
+      Done, and `CONTEXT.md` now carries sections of its own for drawing, the loop, layout and
+      sizing, scrolling, overlays, data, threads, the terminal and verification.
 
 **B — the crate split**
 
-- [ ] Each crate's responsibility restated, or the split changed, with the reason written down.
-- [ ] **Does reactivity belong in `vitui-runtime`?** The map settled that reactivity must be
+- [x] Each crate's responsibility restated, or the split changed, with the reason written down.
+      **RS §4.** Five modules were proposed as crates during the map: **four refused, one accepted —
+      and the accepted one has since been deleted**, so the shipped answer is that none of the five
+      is a crate. `crate::line::MODULES` is that table as a value.
+- [x] **Does reactivity belong in `vitui-runtime`?** The map settled that reactivity must be
       replaceable without touching the engine, and ticket 12 proved it by building a TEA runtime and a
       signals runtime on one unmodified seam. If a *specific* reactivity ships inside `vitui-runtime`,
       "replaceable" means "fork the crate", which is not what was decided.
-- [ ] **Does layout want to be its own crate?** It is a pure function library over integer
+      **No** — **RS §18**, ADR 0020. Tested by building the thing and then deleting it:
+      `vitui-signals` shipped 2026-08-24 and was removed 2026-08-25 (components architecture issue
+      24) on **re-measured** numbers — three drivers of one screen within 0.21% of each other, 0 of
+      24 000 cells differing, the signal layer's whole per-frame work 3.60 ns. The memo it wrapped
+      (`vitui_runtime::data::Memo`) stays. Reopen issue 24 rather than restoring it.
+- [x] **Does layout want to be its own crate?** It is a pure function library over integer
       rectangles with no dependency on anything else in the workspace, and it is independently useful.
       Argue it either way, but argue it.
-- [ ] **Can `vitui-components` stay reactivity-agnostic?** It can if a component is a function over
+      **Refused, and the premise was wrong** — **RS §4**: layout needs `vitui_engine::Rect` and ADR
+      0005's exports, so it is not dependency-free, and `vitui-layout` is three crates doing two
+      crates' work. It stays a module (`layout`, `layout::text`), RS §11.
+- [x] **Can `vitui-components` stay reactivity-agnostic?** It can if a component is a function over
       `(&mut Ctx, Rect, &Data, &State)`. It cannot if it binds to a runtime trait — which is question
       A's fork arriving in the crate graph.
-- [ ] The **dependency policy** restated per crate, and `deny.toml` updated to match. The current
+      **Yes**, and it is checked rather than claimed: **CS §0's C6** and **CS §19** — this crate
+      names `vitui-runtime` and nothing else, enforced by `deny.toml` and gated from a crate that
+      cannot name the engine (`crates/vitui-components/tests/crate_line.rs`).
+- [x] The **dependency policy** restated per crate, and `deny.toml` updated to match. The current
       policy says `vitui-runtime: no dependencies` and `vitui-components: case by case`; if the split
       changes, both sentences need rewriting, and "case by case" needs a precedent rather than a
       shrug.
-- [ ] Confirmation that nothing in the answer moves the **engine's** boundary. If something does,
+      Both sentences were rewritten. `deny.toml` carries the per-crate policy in its own header and
+      enforces the engine ban through `[bans] deny` with `wrappers`, and *that mechanism bans a
+      crate's presence in the graph* — the finding that forced `vitui-signals` to be detached before
+      it could be deleted. `[bans] allow` was refused with a number: 38 crates.
+- [x] Confirmation that nothing in the answer moves the **engine's** boundary. If something does,
       that is a finding and it goes back to the engine map rather than being absorbed quietly.
+      Confirmed, and the procedure was exercised twice. The engine's own five reopened questions are
+      `.scratch/vitui-engine-architecture/issues/19`-`23`, filed rather than absorbed; and the one
+      collision this split produced — `vitui_engine::Rect` unnameable across the crate line, which
+      made CS §3's *returns the rectangle it did not write* unwritable as Rust — went back as
+      **runtime architecture issue 22** and was answered with a rule in both directions, not a list.
 
 **C — the loose end this uncovered**
 
@@ -175,3 +241,20 @@ this design sits on is written down rather than remembered.
     are buildable today with no engine change.
   - New tickets: runtime R17 (scrolling), R18 (async work); components C13–C16 (scroll area,
     collapsible, media boundary, file preview exemplar). v1 inventory is now 33 components.
+
+- 2026-08-19 — **both maps reached.** The runtime's by R16, the components' by C12. Every box in A
+  and B is answered by one of the two specs; the boxes above carry the section that answers each.
+- 2026-08-28 — **closed as a record.** The unticked boxes were the live hazard rather than the
+  prose: `tickets/` is the surface `dispatch` consumes, the frontier is the lowest-numbered
+  unblocked unclaimed file, and this was it — thirteen open boxes inviting an agent to re-derive a
+  data contract that ADR 0019 killed on measurements. Deleting the file was considered and
+  refused: both maps cite it by path on their line 4 as where they were opened, and a citation to
+  a file that does not exist is a defect this repo has already paid for once.
+  **One proposal from 2026-08-17 was overturned** and it is the one worth carrying forward: the
+  data contract is **not** a trait. `Rows` was proposed here, built as a trait on the runtime map,
+  and removed — the two methods that justified it both fail when run (ADR 0019). The other five
+  proposals held: a component is a function, no intrinsic sizing, identity is call site plus key,
+  overlays are requested during the draw and satisfied after it, reactivity is above the runtime,
+  and layout stays a module.
+  **What this ticket did not settle, and did not claim to:** the layout algorithm (its own
+  non-goal), and the v1 inventory it last logged as 33 components, which the freeze settled at 29.
