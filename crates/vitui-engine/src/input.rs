@@ -1844,6 +1844,35 @@ impl Queue {
         self.lock().events.pop_front()
     }
 
+    /// Throw away what the user did, and keep what the terminal became.
+    ///
+    /// **The one caller is [`Screen::resume`](crate::Screen::resume)**, and it is there because of a
+    /// consequence of this engine's shape that no verb can undo: the reader is a thread parked in a
+    /// blocking `read` on standard input, and nothing in safe Rust cancels one. So while a
+    /// `Screen` is suspended the reader is *still there*, and whatever reaches the terminal reaches
+    /// it. A process that suspended itself is stopped and so is its reader; one that handed the
+    /// terminal to a child and kept running is competing with that child for every byte.
+    ///
+    /// What this decides is the half that is decidable: **those bytes are not this application's
+    /// input.** Delivered on the far side of a resume they are the editor's session replayed as
+    /// keystrokes, hundreds of them, acted on by a screen that has just repainted.
+    ///
+    /// **A resize is kept, and that is not a nicety.** `Screen::next_event` is what applies one to
+    /// the surfaces; the authoritative size is already stored by the input thread, and `present`
+    /// refuses to composite while the two disagree. Dropping the event would leave that disagreement
+    /// standing with nothing left to resolve it — a frame owed for ever, which is a hang. Focus is
+    /// kept for the weaker version of the same reason: it is a level the terminal is in rather than
+    /// something somebody typed.
+    pub(crate) fn drop_what_the_user_typed(&self) {
+        let mut inner = self.lock();
+        inner.events.retain(|event| {
+            matches!(
+                event,
+                Event::Resize(..) | Event::FocusGained | Event::FocusLost
+            )
+        });
+    }
+
     /// What the parser could not make sense of, as of the last read.
     pub(crate) fn diagnostics(&self) -> InputDiagnostics {
         self.lock().diagnostics.clone()

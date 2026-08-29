@@ -18,7 +18,8 @@ honest. It said 1.85 here for three releases after let-chains moved it.
 
 - **`vitui-engine` is implementation-complete**: all 26 tickets of `.scratch/vitui-engine-impl/`
   resolved, all 27 entries of the verification register wired with none pinned red, ~30k lines.
-  Production readiness added a 28th, `conform/`, which spec §14 had no way to state — and that
+  Production readiness added a 28th, `conform/`, and a **29th** — *the terminal leaves and comes
+  back* — both of which spec §14 had no way to state. The 28th — and that
   instrument has already earned its keep four times: `quirks.rs`'s fourth entry (tmux accepts SGR 53,
   stores it, and never forwards it); production ticket 10, which found `attrs_dropped` populated,
   printed and read by nothing — now wired at `quant::Quantiser::attrs`, where one field narrows the
@@ -35,6 +36,51 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   asked three families what they do with a cluster printed over one half of a double-width glyph, all
   three blank the orphaned half themselves, and *they disagree about what it wears*, which is what
   made the engine's own repair mandatory rather than merely tidy.
+- **The terminal may leave and come back, and Ctrl-Z is not a signal** (engine production ticket 07,
+  2026-08-29; ADR 0052; register entry **29**; spec §7 gains a section and §15 loses its terminal
+  lifecycle entry). Three cases wearing one name get **three different answers**: `Screen::suspend`
+  and `Screen::resume` for a terminal given up on purpose, a **`Wake::Quit`** from the input thread
+  for one that went away, and a fresh `attach` for one that was *replaced*.
+  **The engine installs no signal handler and cannot** — `sigaction` is unreachable from safe Rust and
+  the dependency policy has no crate that supplies it — and that is not the constraint it looks like:
+  raw mode is `cfmakeraw`, which clears `ISIG`, **measured through a pty with crossterm 0.29**, so
+  `0x1a` arrives as `Ctrl+z` and no `SIGTSTP` is generated while a `Screen` is attached. The gesture
+  §15 filed as fog is a key event on the app thread.
+  **The ticket's own sentence was right about the bytes and wrong about the state.** A resume owes
+  five things no existing verb supplies, and each is a screen that looks perfect while something is
+  dead: the full repaint (a blank page — re-entering the alt screen is a *cleared* one, so the mirror
+  may not be trusted for a cell), `Mailbox::reopen` (a fresh render thread reads `quit` **before its
+  first take** and exits, so every later `present` reports `submitted: true` and writes nothing for
+  ever), `Actuators::renegotiated` (the negotiation restores the declared *floor*, so an application
+  that had raised the mouse comes back with `handed` claiming 1003 against a terminal at 1000 — a dead
+  mouse on a perfect screen), an owed frame against a renderer `wait` believes is busy (a blank
+  screen that heals when the user presses a key), and **`Perf::observe_again`** — a suspend must stop
+  the overrun detector, because the iteration `wait` opened stays open for as long as the editor
+  runs, and `Watch`'s stop flag is *sticky* behind the `Arc` every observer holds, so a plain second
+  `observe` spawns a thread that returns on its first poll and the session runs on undetected.
+  **Case 2 was the process not being told.** `write_frame` discards the error and the frame path has
+  no `Result` (ADR 0022), so the input thread's channel closing — which, because `Tty::open` requires
+  *both* ends to be a terminal, is the pty's far side and nothing else — is now a `Wake::Quit`.
+  **And `attach` a second time in one process is gated for the first time**: it is not obvious that it
+  works, because `crate::shutdown`'s panic hook is process-global and holds its site in a `static`.
+  **Two gates could not be watched failing by deleting a call**, because `warnings = "deny"` turns an
+  unused `pub(crate)` method into a build failure and *the arm was not checked* looks exactly like
+  *the arm passed*; both were re-run against an emptied body. A third was **vacuous on the
+  deterministic clock** — `free` is only lowered by a render thread leaving, and `Clock::Manual` has
+  none — and moved to `Clock::System` with its pre-condition asserted.
+  **The reader does not stop, and nothing here can make it** — a review's finding, and the reason the
+  supported shape is *suspend, **stop the process**, resume*: the input thread is parked in a blocking
+  `read` that safe Rust cannot cancel, so `SIGTSTP` stopping every thread is what vacates stdin. An
+  application that suspends and keeps *running* to spawn an editor competes with it for every byte.
+  What is decidable is decided — a resume **drops what the user typed** and keeps what the terminal
+  *became*, because `next_event` is the only thing that applies a resize and `present` refuses to
+  composite while the surfaces and the atomic disagree, so eating that event is a frame owed for ever.
+  **Two of the same review's findings were gates of mine that could not fail**: one read its baseline
+  *after* the call it was measuring and compared a value with itself, and `observe_again` cleared a
+  sticky flag while the old observer was still asleep — a **long-lived** leaked thread where the
+  spelling it replaced leaked a short-lived one. `Watch` carries a monotone generation now.
+  **No `Driver::suspend` yet**, so no application can suspend: filed as runtime architecture issue 35,
+  the third instance of *an engine verb behind `Driver`'s private field* after issues 23 and 30.
 - **`vitui-runtime` is implementation-complete**: all 21 tickets resolved, the last (20, the headroom
   ledger) on 2026-08-24. 05, 12, 15 and 16 landed together on 2026-08-23 and 06, 13 and 14 on
   2026-08-24, then 21 and 17 together, then 18 and 19, then 20; all built in parallel worktrees and
@@ -1775,8 +1821,9 @@ Read these before working, in this order:
    authority. An `architecture.md` beside a spec is the superseded proposal, kept only as the record
    of what was argued.
 2. `CONTEXT.md` — the glossary. Use its terms in code, comments, tickets and commit messages.
-3. `docs/adr/` — 51 decisions that are hard to reverse and surprising without context. 0001–0011 and
-   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0051 the components.
+3. `docs/adr/` — 52 decisions that are hard to reverse and surprising without context. 0001–0011,
+   0022–0025 and 0052 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0051 the
+   components.
 4. The impl backlog `README.md` for the layer being worked on — it holds the phase order, the
    blocking edges, and the defects that shaped both.
 
@@ -2052,12 +2099,17 @@ behind the engine: several of its tickets name single engine tickets and ran bes
 backlog is the components' 43 sliced tickets, and the engine's production-readiness backlog
 un-pauses now that a consumer exists — see the note below.
 
-**The production-readiness backlog is paused as of 2026-08-23**, with 04, 07, 08 and 09 marked so in
-their own files and the reason in `.scratch/vitui-engine-production/README.md`: nothing above the
-engine can draw a screen yet, and those tickets get sharper once a real consumer exists rather than
-harder. **08 is superseded** — the runtime is the caller it wanted, and a better one, so the small
-engine-only application it specifies does not get built. Work returns there when the runtime can put
-a frame on a terminal.
+**The production-readiness backlog un-paused on 2026-08-29** and is where the active work is:
+`.scratch/vitui-engine-production/`. It was paused on 2026-08-23 because nothing above the engine
+could draw a screen, and eighteen applications is what ended that. **07 is resolved** (the terminal
+leaves and comes back — see the bullet above). **04, 08 and 09 are what is left**, and 04 is the
+frontier: stages 3 and 5, and stage 4's second VT lineage. **08 is superseded** — the runtime is the
+caller it wanted, and a better one, so the small engine-only application it specifies does not get
+built — and **09 is blocked by 04**.
+
+What 04 needs that nothing else on this map does is a **live terminal and a window server**: an
+AppleScript automation grant for the Terminal.app arm, and a real tty answering CPR for the width
+questions. Its committed fixtures are the gate and the live arms are soaks (`conform/README.md`).
 
 `tickets/` at the repo root is a **separate** surface — the hand-written backlog the `dispatch` skill
 consumes — and holds the two items that need the finished library. Do not migrate one into the other.

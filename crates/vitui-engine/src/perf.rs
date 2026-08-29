@@ -492,9 +492,12 @@ impl Perf {
     pub(crate) fn observe(&self, restore: fn()) {
         let watch = Arc::clone(&self.watch);
         let poll = poll_for(stall_limit(self.threshold.get()));
+        // **Captured here, on the thread that spawns**, so that a thread which never gets scheduled
+        // before the next `stop_observing` still leaves with a generation it cannot match.
+        let generation = watch.generation();
         let _ = std::thread::Builder::new()
             .name(String::from("vitui-observer"))
-            .spawn(move || observe(&watch, restore, poll));
+            .spawn(move || observe(&watch, restore, poll, generation));
     }
 
     /// This session is over; the observer has nothing left to watch.
@@ -515,6 +518,36 @@ impl Perf {
             self.watch.left();
             self.watch.stop();
         }
+    }
+
+    /// This session is back; watch it again.
+    ///
+    /// The counterpart of [`stop_observing`](Perf::stop_observing), and it is a **verb of its own
+    /// rather than a second `observe`** for the reason [`Watch::watch_again`] states: the stop flag
+    /// lives behind the `Arc` the observer holds, so it outlives the thread that read it.
+    ///
+    /// A suspend really does have to stop the detector rather than leave it running — the iteration
+    /// `wait` opened stays open for as long as somebody else has the terminal, and a user in their
+    /// editor is not a frozen interface. What this puts right is that it has to come **back**.
+    pub(crate) fn observe_again(&self, restore: fn()) {
+        #[cfg(debug_assertions)]
+        {
+            self.watch.watch_again();
+            self.observe(restore);
+        }
+        #[cfg(not(debug_assertions))]
+        let _ = restore;
+    }
+
+    /// Whether the detector is still watching this session, for the gate that says a resume brings
+    /// it back.
+    ///
+    /// A door rather than an inference, because the alternative is unwatchable: an observer that
+    /// never comes back does nothing at all, and *does nothing* is what a healthy one looks like
+    /// from outside for every run in which nothing stalls.
+    #[cfg(all(test, debug_assertions))]
+    pub(crate) fn is_watching(&self) -> bool {
+        !self.watch.stopped()
     }
 
     /// The observer's half, for the tests that drive both halves from one thread.
@@ -650,6 +683,18 @@ pub(crate) struct Watch {
     reason: Mutex<Option<&'static str>>,
     /// Whether the session is over.
     stop: AtomicBool,
+    /// **Which observer is the current one**, and it is what retires the previous one.
+    ///
+    /// A single `stop` flag cannot do that job, and the reason is a race rather than a subtlety.
+    /// `observe` sleeps for up to one poll — 1 to 100 ms — before it reads the flag, so a
+    /// suspend and a resume completed inside one poll interval leave the old observer waking to a
+    /// flag that has already been cleared. It goes on polling for ever, beside the new one: a
+    /// long-lived leaked thread rather than the short-lived one a bare re-`observe` would have
+    /// leaked, which is worse in the direction that matters.
+    ///
+    /// So each observer captures this at spawn and leaves when it stops matching, whatever `stop`
+    /// says. Monotone: `stop_observing` bumps it, and only [`Perf::observe`] ever reads it back.
+    generation: AtomicU64,
 }
 
 #[cfg(debug_assertions)]
@@ -661,6 +706,7 @@ impl Watch {
             limit: AtomicU64::new(nanos(limit)),
             reason: Mutex::new(None),
             stop: AtomicBool::new(false),
+            generation: AtomicU64::new(0),
         }
     }
 
@@ -684,7 +730,32 @@ impl Watch {
     }
 
     fn stop(&self) {
+        // **The bump first, then the flag.** An observer that is mid-poll must find a generation it
+        // does not match whichever of the two it reads, and the one it reads first is the flag.
+        self.generation.fetch_add(1, Ordering::Relaxed);
         self.stop.store(true, Ordering::Relaxed);
+    }
+
+    /// The generation an observer spawned now belongs to.
+    fn generation(&self) -> u64 {
+        self.generation.load(Ordering::Relaxed)
+    }
+
+    /// Watch again, for a session that is coming back.
+    ///
+    /// **The flag is what the observer thread reads to know it has nothing left to watch**, and it
+    /// is shared through the `Arc` every observer holds — so it is sticky by design and a second
+    /// `Perf::observe` on a stopped watch spawns a thread that returns on its first poll. Which is
+    /// why [`Screen::resume`](crate::Screen::resume) cannot simply call `observe` again: it would
+    /// leave a resumed session with no detector at all, silently, and leak one short-lived thread
+    /// per resume for the appearance of one.
+    fn watch_again(&self) {
+        self.stop.store(false, Ordering::Relaxed);
+    }
+
+    /// Whether an observer of this generation is still the current one.
+    fn is_current(&self, generation: u64) -> bool {
+        self.generation() == generation
     }
 
     fn stopped(&self) -> bool {
@@ -729,10 +800,14 @@ fn nanos(d: Duration) -> u64 {
 /// It never touches the app thread and never takes a lock the app thread holds on the frame path —
 /// the reason mutex is only written when a permit is created or dropped.
 #[cfg(debug_assertions)]
-fn observe(watch: &Watch, restore: fn(), poll: Duration) {
+fn observe(watch: &Watch, restore: fn(), poll: Duration, generation: u64) {
     loop {
         std::thread::sleep(poll);
-        if watch.stopped() {
+        // **Two conditions and not one, and the second is what a suspend needs.** `stop` alone is a
+        // flag `Screen::resume` clears, and this thread reads it after sleeping for up to a poll —
+        // so a suspend and a resume inside one interval would leave this observer alive beside the
+        // one the resume spawned, polling for ever, both of them able to abort the process.
+        if watch.stopped() || !watch.is_current(generation) {
             return;
         }
         if let Some((inside, reason)) = watch.stalled(Instant::now()) {
@@ -740,7 +815,7 @@ fn observe(watch: &Watch, restore: fn(), poll: Duration) {
             // thread and the decision above is three loads wide, so a session that ended between the
             // first check and this one must not end the process: aborting a program that is already
             // on its way out would turn a clean exit into a crash report.
-            if watch.stopped() {
+            if watch.stopped() || !watch.is_current(generation) {
                 return;
             }
             // **The order is the sanction.** Restoring and continuing is broken — a returning app
@@ -1057,6 +1132,82 @@ mod tests {
         ));
         std::thread::sleep(TIGHT * 4);
         assert!(perf.would_overrun());
+    }
+
+    /// **The observer a suspend retired is not the one a resume spawned**, and a flag cannot say
+    /// so.
+    ///
+    /// `Screen::suspend` stops the detector — the iteration `wait` opened stays open for as long as
+    /// somebody else has the terminal — and `Screen::resume` starts it again. Between the two, the
+    /// previous observer is asleep for up to one poll and has not read anything: if the only signal
+    /// were `stop`, it would wake to a flag the resume had already cleared and go on polling for
+    /// ever, beside the observer the resume spawned. **Two live observers, both able to abort the
+    /// process**, and `Perf::is_watching` reads the flag rather than the thread count, so nothing
+    /// would notice.
+    ///
+    /// The generation is monotone and is bumped by the stop, so the old one cannot match whichever
+    /// of the two values it reads first.
+    #[test]
+    fn an_observer_from_before_a_suspend_is_not_the_one_a_resume_spawned() {
+        let perf = detector(Recorder::default());
+        let watch = perf.watch_handle();
+        let before = watch.generation();
+        assert!(watch.is_current(before), "the one `observe` just captured");
+
+        perf.stop_observing();
+        assert!(
+            !watch.is_current(before),
+            "the stop left the sleeping observer able to match, so the resume below makes two"
+        );
+
+        watch.watch_again();
+        assert!(
+            !watch.is_current(before),
+            "clearing the flag brought the retired observer back"
+        );
+        assert!(
+            watch.is_current(watch.generation()),
+            "and the new one is current"
+        );
+    }
+
+    /// **And the loop honours it**, which the test above cannot say on its own: a generation nothing
+    /// reads is a field.
+    ///
+    /// The watch is deliberately **not** stopped, so the only thing that can end this loop is the
+    /// stale generation.
+    ///
+    /// **A flag and a deadline rather than a `join` or a `recv`.** A loop that ignored the
+    /// generation would never return, so a join would hang the suite and *a hang is worse than a
+    /// failure*; and a blocking receive here would be a real entry in
+    /// `crate::gates::every_blocking_receive_in_the_crate_is_outside_the_app_threads_loop`'s
+    /// allowance list, bought for a test — which is the gate's own subject, from the wrong side. It
+    /// is the same spin `the_restoration_stops_the_renderer_before_the_terminal_is_given_back` uses.
+    #[test]
+    fn an_observer_whose_generation_is_stale_leaves_a_session_that_is_still_running() {
+        let watch = Arc::new(Watch::new(TIGHT));
+        let stale = watch.generation();
+        // Bumped by something that is not a stop, so `stopped()` stays false and the generation is
+        // the only reason left to leave.
+        watch.generation.fetch_add(1, Ordering::Relaxed);
+        assert!(!watch.stopped());
+
+        let left = Arc::new(AtomicBool::new(false));
+        let watched = Arc::clone(&watch);
+        let reports = Arc::clone(&left);
+        std::thread::spawn(move || {
+            super::observe(&watched, || {}, POLL_FLOOR, stale);
+            reports.store(true, Ordering::Relaxed);
+        });
+        let deadline = Instant::now() + Duration::from_secs(20);
+        while !left.load(Ordering::Relaxed) && Instant::now() < deadline {
+            std::hint::spin_loop();
+        }
+        assert!(
+            left.load(Ordering::Relaxed),
+            "an observer that is no longer the current one polls for ever, beside the one that \
+             replaced it"
+        );
     }
 
     #[test]

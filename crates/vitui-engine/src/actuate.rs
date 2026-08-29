@@ -226,6 +226,26 @@ impl Actuators {
         self.set_cursor(caret, size);
     }
 
+    /// The startup negotiation has been written a second time, so the terminal is back in the
+    /// state [`new`](Actuators::new) describes.
+    ///
+    /// **Only the *handed* half moves, and that is the whole of it.** What the caller asked for —
+    /// the raised mouse level, the caret it put somewhere — is unchanged and still wanted; what the
+    /// terminal has been told is now the negotiation's own baseline again, because
+    /// [`negotiation`] sets the mouse to the floor and hides the caret. So the next frame's
+    /// [`pending`](Actuators::pending) re-emits exactly the difference between the two, which is
+    /// what a frame after a resume has to carry.
+    ///
+    /// Without it, an application that had raised the mouse to `Motion` and placed a caret comes
+    /// back from a suspend with `handed` still claiming both — and the terminal, which left the alt
+    /// screen and re-entered it, has neither. The screen would repaint perfectly and the mouse
+    /// would be dead.
+    pub(crate) fn renegotiated(&mut self) {
+        self.handed = self.floor;
+        self.handed_caret = None;
+        self.handed_shape = CursorShape::Terminal;
+    }
+
     /// The current mouse level, for the epilogue that has to put it back.
     pub(crate) fn mouse(&self) -> MouseMode {
         self.handed

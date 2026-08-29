@@ -80,7 +80,16 @@ pub enum Wake {
     /// has arrived — or the frame clock has released a frame it was holding. See the module
     /// documentation for why those two share a variant.
     Deadline,
-    /// [`WakeHandle::quit`](crate::WakeHandle::quit) was called. **Never paced.**
+    /// [`WakeHandle::quit`](crate::WakeHandle::quit) was called, **or the terminal went away**.
+    /// Never paced.
+    ///
+    /// The second reason is not a second variant, and that is a decision rather than an economy
+    /// (spec §7): when the input thread's read end closes, the terminal this process was drawing on
+    /// is gone. Every write after that is discarded — the frame path has no `Result` in it — so
+    /// `present` would go on answering `submitted: true` for ever while an application parked in
+    /// [`Screen::wait`](crate::Screen::wait) waited on a keyboard that cannot send another byte. An
+    /// application that handles quit already does the right thing here, and one that does not was
+    /// going to hang either way.
     Quit,
 }
 
@@ -113,7 +122,7 @@ pub(crate) const INPUT: u32 = 1 << 0;
 /// Somebody called `post`.
 const POSTED: u32 = 1 << 1;
 /// Somebody called `quit`.
-const QUIT: u32 = 1 << 2;
+pub(crate) const QUIT: u32 = 1 << 2;
 
 /// Everything the wake source holds, under its one lock.
 ///
@@ -351,6 +360,21 @@ impl WakeSource {
         self.ready.notify_all();
     }
 
+    /// A render thread exists again, after [`renderer_gone`](WakeSource::renderer_gone) said one
+    /// did not.
+    ///
+    /// The one caller is [`Screen::resume`](crate::Screen::resume). `renderer_gone` leaves `free`
+    /// false on purpose — a dead renderer must not look like one that can take a packet — and a
+    /// suspended session reaches that state deliberately rather than by a panic, so the flag has to
+    /// be put back or the first owed frame after a resume waits for a renderer that is standing
+    /// there free.
+    pub(crate) fn renderer_back(&self) {
+        let mut state = self.lock();
+        state.free = true;
+        drop(state);
+        self.ready.notify_one();
+    }
+
     /// The raised flags, for the test that says `post` and `quit` are recorded separately.
     #[cfg(test)]
     pub(crate) fn pending(&self) -> u32 {
@@ -371,6 +395,16 @@ impl WakeSource {
     #[cfg(test)]
     pub(crate) fn owes_a_frame(&self) -> bool {
         self.lock().owed
+    }
+
+    /// Whether the renderer can take a packet, for the gate that says a resumed session can be
+    /// woken by the frame it owes.
+    ///
+    /// The pair is the unit: `owed` alone does not release [`wait`](WakeSource::wait) and neither
+    /// does `free`, so a gate reading one of them is a gate that passes on half a mechanism.
+    #[cfg(test)]
+    pub(crate) fn renderer_is_free(&self) -> bool {
+        self.lock().free
     }
 
     /// A poisoned wake source is a thread that panicked inside a critical section that runs no

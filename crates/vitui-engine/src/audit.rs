@@ -981,6 +981,14 @@ pub const SURFACE: &[Item] = &[
                 origin: Origin::Spec12,
             },
             Verb {
+                name: "resume",
+                recv: Recv::RefMut,
+                origin: Origin::Added {
+                    by: "production 07",
+                    why: "§12 has no verb for the terminal leaving and coming back, and §15 filed it as fog; the epilogue and the negotiation both already existed and only the question of when they run was open",
+                },
+            },
+            Verb {
                 name: "set_cursor",
                 recv: Recv::RefMut,
                 origin: Origin::Spec12,
@@ -999,6 +1007,14 @@ pub const SURFACE: &[Item] = &[
                 name: "size",
                 recv: Recv::Ref,
                 origin: Origin::Spec12,
+            },
+            Verb {
+                name: "suspend",
+                recv: Recv::RefMut,
+                origin: Origin::Added {
+                    by: "production 07",
+                    why: "the other half of `resume`, and two verbs rather than one taking a closure because `no_public_verb_takes_a_closure_or_an_iterator` is a gate",
+                },
             },
             Verb {
                 name: "wait",
@@ -1561,7 +1577,14 @@ pub const NEGATIVE_CASES: usize = 37;
 /// Forty-six since architecture ticket 21: `LinkId`'s twin and `Screen::link`'s own example both
 /// named items that no longer exist, and what replaced them is one more path inside the crate
 /// root's existing twin rather than a fence of its own.
-pub const RUNNABLE_EXAMPLES: usize = 46;
+///
+/// **Forty-seven since production ticket 07**, and it is the one place `Screen::suspend` and
+/// `Screen::resume` are compiled as a caller would write them — three lines with somebody else
+/// holding the terminal in between. It has no negative twin because the pair refuses nothing a
+/// compile outcome can express: the closure form the two verbs replace is already held out by
+/// `no_public_verb_takes_a_closure_or_an_iterator`, which is a gate over the whole surface rather
+/// than a fence beside one item.
+pub const RUNNABLE_EXAMPLES: usize = 47;
 
 #[cfg(test)]
 mod tests {
@@ -2039,21 +2062,35 @@ mod tests {
         assert_eq!(free, ["graphemes", "width_of"]);
     }
 
-    /// **Every item §12's block does not list names the implementation ticket that added it.**
+    /// **Every item §12's block does not list names the ticket that added it.**
     ///
-    /// Nine types and thirty-five functions, and the point of the count is that it is a count: a
+    /// Nine types and thirty-seven functions, and the point of the count is that it is a count: a
     /// tenth type arriving without a ticket beside it fails, and a tenth type arriving *with* one is
     /// ordinary work that shows up in the diff of this file.
+    ///
+    /// # Two backlogs, and the second one is why this reads a prefix list rather than one prefix
+    ///
+    /// It said `impl NN` and nothing else until production ticket 07, which is the first item on
+    /// this surface added after the implementation backlog closed. **The gate was widened rather
+    /// than the citation bent**: `Screen::suspend` really does come from
+    /// `.scratch/vitui-engine-production/issues/07`, and writing `impl 07` there would have sent a
+    /// reader to a resolved ticket about something else. That is the same repair the runtime's
+    /// register made for its entry 40, one crate over, for the same reason — a destination gate that
+    /// admits only one backlog is a gate that asks the next ticket to lie about where it came from.
     #[test]
     fn everything_outside_spec_12s_block_names_the_ticket_that_added_it() {
+        /// The backlogs an item may have come from, longest-lived first.
+        const BACKLOGS: [&str; 2] = ["impl ", "production "];
+        let cited = |by: &str| BACKLOGS.iter().any(|prefix| by.starts_with(prefix));
         let mut types = 0;
         let mut verbs = 0;
         for item in SURFACE {
             if let Origin::Added { by, why } = item.origin {
                 types += 1;
                 assert!(
-                    by.starts_with("impl "),
-                    "`{}` names `{by}` rather than an implementation ticket",
+                    cited(by),
+                    "`{}` names `{by}`, which is neither an implementation ticket nor a \
+                     production one",
                     item.name
                 );
                 assert!(
@@ -2066,8 +2103,9 @@ mod tests {
                 if let Origin::Added { by, why } = verb.origin {
                     verbs += 1;
                     assert!(
-                        by.starts_with("impl "),
-                        "`{}::{}` names `{by}` rather than an implementation ticket",
+                        cited(by),
+                        "`{}::{}` names `{by}`, which is neither an implementation ticket nor a \
+                         production one",
                         item.name,
                         verb.name
                     );
@@ -2080,24 +2118,27 @@ mod tests {
                 }
             }
         }
-        assert_eq!((types, verbs), (9, 35), "the audit's own numbers moved");
+        assert_eq!((types, verbs), (9, 37), "the audit's own numbers moved");
     }
 
     /// **The counts, as the audit recorded them.**
     ///
-    /// Forty-nine types and one hundred and four functions, against §12's *twenty-one public types
+    /// Forty-nine types and one hundred and six functions, against §12's *twenty-one public types
     /// and about sixty-three functions* — a sentence its own block never agreed with. The
     /// arithmetic is stated so that a reader can check it rather than trust it: 41 − 1 + 9 = 49.
     ///
     /// It was one hundred and five until architecture ticket 21 deleted `Screen::link`; the type
-    /// count did not move, because `LinkId` left the listing and `Link<'a>` joined it.
+    /// count did not move, because `LinkId` left the listing and `Link<'a>` joined it. **Production
+    /// ticket 07 took it to one hundred and six** with `Screen::suspend` and `Screen::resume`, and
+    /// the type count did not move there either: the pair is two verbs on a type that was already
+    /// listed, and neither of them returns anything.
     #[test]
     fn the_counts_are_the_ones_the_audit_recorded() {
         let types = SURFACE.iter().filter(|i| i.kind != Kind::Function).count();
         let functions = SURFACE.iter().map(|i| i.verbs.len()).sum::<usize>()
             + SURFACE.iter().filter(|i| i.kind == Kind::Function).count();
         assert_eq!(types, 49, "the public type count moved");
-        assert_eq!(functions, 104, "the public function count moved");
+        assert_eq!(functions, 106, "the public function count moved");
         let added = SURFACE
             .iter()
             .filter(|i| i.kind != Kind::Function)

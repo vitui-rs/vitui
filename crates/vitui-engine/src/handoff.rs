@@ -396,6 +396,38 @@ impl Mailbox {
         self.free.notify_one();
     }
 
+    /// Undo [`quit`](Mailbox::quit), for a session that is coming back.
+    ///
+    /// **The one caller is [`Screen::resume`](crate::Screen::resume)**, and it is the reason `quit`
+    /// is a `bool` rather than a one-way atomic: a suspended session joined its render thread the
+    /// way `Screen::drop` does, and the mailbox it left behind says *nobody is coming for a packet
+    /// ever again*. A fresh render thread on a mailbox in that state exits before it takes a frame.
+    ///
+    /// # The packet in the slot is returned to the pool here, and not counted as superseded
+    ///
+    /// *The last frame is not flushed on quit* (spec §7), so a suspend that raced a submit leaves
+    /// a packet nobody wrote. It goes back on the free list directly rather than through the
+    /// supersede path, because [`superseded`](Mailbox::superseded) is register entry #9's counter
+    /// and its property is **zero, for ever** — a frame that was composed to be thrown away. This
+    /// one was composed to be *written*, and the terminal left before it could be. Counting it
+    /// there would put a number in the one place that may not have one, for an event that is not
+    /// what the entry is about.
+    ///
+    /// Discarding it is right rather than merely convenient: the next thing the terminal is told is
+    /// [`Screen::resume`]'s repaint of every cell, so a frame from before the alt screen was left
+    /// is a frame with nothing left to say.
+    pub(crate) fn reopen(&self) {
+        let mut shared = self.lock();
+        if let Some(stale) = shared.slot.take() {
+            shared.free.push(stale);
+            #[cfg(test)]
+            shared.remember_returned();
+        }
+        shared.ready = true;
+        shared.quit = false;
+        shared.gone = false;
+    }
+
     /// Register entry #9's counter: how many packets a submit dropped on the floor.
     ///
     /// `cfg(test)` because nothing in a release build reads it: the counters are gate instruments,

@@ -95,6 +95,35 @@ pub(crate) fn run(wiring: Wiring) {
             wakes.input();
         }
     }
+
+    // **The terminal is gone, and this is the only place in the process that can know.**
+    //
+    // The channel closes when detection's blocking `read` on standard input returned `Ok(0)` or an
+    // error, and `Tty::open` refuses to hand a reader over unless *both* ends are a terminal — so
+    // an end-of-file here is not a redirect and not an empty file. It is the pty's far side
+    // closing: the ssh connection dropped, the terminal window was closed, the multiplexer detached.
+    //
+    // **An error counts as the same thing, and that is deliberate rather than sloppy.** A closed pty
+    // master presents as end-of-file on macOS and as `EIO` on Linux, so a quit that fired only on
+    // `Ok(0)` would answer this question correctly on one of the two platforms this workspace
+    // builds for. The way to get a spurious one is to put this process's reader in a **background**
+    // process group — where a `read` on the controlling terminal raises `SIGTTIN`, and an orphaned
+    // or ignoring group gets `EIO` back — and that is reachable only by handing the terminal to a
+    // child that takes the foreground while this process keeps running, which is the case
+    // `Screen::suspend` documents that it does not support, for the reason stated there: nothing in
+    // safe Rust cancels the blocking `read` this thread is fed by.
+    //
+    // What the process would otherwise do is worse than a crash and looks like nothing at all.
+    // Every write fails and is discarded — the frame path has no `Result` in it (ADR 0022) — so
+    // `present` goes on answering `submitted: true` for ever, and an application parked in
+    // `Screen::wait` waits on a keyboard that cannot send another byte. **A hang is worse than a
+    // failure**, and this is the flag that makes it a failure, exactly as `Mailbox::gone` is for the
+    // render thread.
+    //
+    // `Wake::Quit` rather than a fifth spelling invented here, and it is the same argument
+    // `WakeSource::renderer_gone` makes one file over: an application that handles quit already does
+    // the right thing, and one that does not was going to hang either way.
+    wakes.quit();
 }
 
 /// One read's worth: parse it, publish the diagnostics if they moved, and say whether anything
@@ -184,8 +213,8 @@ mod tests {
         assert_eq!(codes(&queue).len(), 2);
         assert_eq!(
             wakes.pending(),
-            crate::clock::INPUT,
-            "one post, not one per event"
+            crate::clock::INPUT | crate::clock::QUIT,
+            "one post, not one per event — and the quit `drive`'s closed channel always ends on"
         );
     }
 
@@ -216,7 +245,7 @@ mod tests {
             Some(Event::Resize(120, 40)) => {}
             other => panic!("expected the resize first, got {other:?}"),
         }
-        assert_eq!(wakes.pending(), crate::clock::INPUT);
+        assert_eq!(wakes.pending(), crate::clock::INPUT | crate::clock::QUIT);
     }
 
     /// A read that changes nothing about the size produces no resize at all, which is what keeps
@@ -255,9 +284,73 @@ mod tests {
         assert_eq!(codes(&queue).len(), 0);
         assert_eq!(
             wakes.pending(),
-            0,
-            "nothing happened, so nothing was posted"
+            crate::clock::QUIT,
+            "nothing happened, so nothing was posted — and the channel then closed, which is not \
+             nothing"
         );
+    }
+
+    /// **The terminal went away, and the application is told.**
+    ///
+    /// `Tty::open` hands a reader over only when standard input *and* standard output are both a
+    /// terminal, so the channel closing is the pty's far side closing — the connection dropped, the
+    /// window was closed, the multiplexer detached. Every write after that is discarded by
+    /// `write_frame` and `present` goes on answering `submitted: true`, so without this the
+    /// application parks in `Screen::wait` on a keyboard that cannot send another byte and nothing
+    /// anywhere says so.
+    #[test]
+    fn the_channel_closing_is_a_quit_because_the_terminal_is_the_thing_that_closed_it() {
+        let (_, wakes, _) = drive(&[], b"", unchanged);
+        assert_eq!(
+            wakes.pending() & crate::clock::QUIT,
+            crate::clock::QUIT,
+            "a reader whose channel is gone left the app thread parked with nothing coming"
+        );
+    }
+
+    /// **And the negative twin, which is the half that makes the one above mean anything.** A loop
+    /// that raised `QUIT` on every read would pass the test above and end every session at the
+    /// first keystroke.
+    #[test]
+    fn a_read_that_arrives_while_the_terminal_is_still_there_is_not_a_quit() {
+        let (tx, rx): (Sender<Vec<u8>>, _) = channel();
+        let queue = Arc::new(Queue::new());
+        let wakes = Arc::new(WakeSource::new());
+        let size = Arc::new(TerminalSize::new(STARTED_AT));
+        let (heard, told) = channel();
+        let loop_queue = Arc::clone(&queue);
+        let loop_wakes = Arc::clone(&wakes);
+        let loop_size = Arc::clone(&size);
+        // Spawned rather than driven, because the property is about a channel that is **open**, and
+        // `run` does not return while one is.
+        let thread = std::thread::spawn(move || {
+            run(Wiring {
+                reads: rx,
+                type_ahead: Vec::new(),
+                queue: loop_queue,
+                wakes: loop_wakes,
+                size: loop_size,
+                paste_limit: 1 << 20,
+                measure: unchanged,
+            });
+            let _ = heard.send(());
+        });
+        tx.send(b"a".to_vec()).expect("the receiver is alive");
+        // The keystroke has to have been parsed before the flags are read, or this asserts about a
+        // loop that has not run yet — which passes for the wrong reason. The queue is what says so.
+        while queue.diagnostics().unrecognised() == 0 && codes(&queue).is_empty() {
+            std::thread::yield_now();
+        }
+        assert_eq!(
+            wakes.pending() & crate::clock::QUIT,
+            0,
+            "a terminal that is still connected does not end the session"
+        );
+        drop(tx);
+        told.recv()
+            .expect("the loop returns when the channel closes");
+        thread.join().expect("the loop does not panic");
+        assert_eq!(wakes.pending() & crate::clock::QUIT, crate::clock::QUIT);
     }
 
     #[test]

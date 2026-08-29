@@ -4873,6 +4873,13 @@ const EXIT_MODE: &str = "VITUI_SHUTDOWN_EXIT";
 /// What the panicking child says, so that the parent can find it in the stream.
 const CHILD_PANIC: &str = "the child is going down on purpose";
 
+/// What the **suspended** child says while somebody else has the terminal.
+///
+/// It stands for the editor, the pager or the shell prompt that is the whole reason the pair of
+/// verbs exists — and it is a string in the same stream as the escape sequences, so *the terminal
+/// was given back before this and taken again after it* is two comparisons of byte offsets.
+const CHILD_BETWEEN: &str = "somebody else has the terminal now";
+
 /// Everything the epilogue has to give back, as bytes, in the order [`crate::actuate::restoration`]
 /// writes them.
 ///
@@ -4977,6 +4984,24 @@ fn exit_through(mode: &str) {
             }
             assert!(out_of_main(screen).is_err());
         }
+        // **The exit that is not one.** The terminal is given back, somebody else uses it, and
+        // then it is taken again — the whole of production ticket 07's first case, in the one
+        // instrument that can see the order the bytes went out in.
+        "suspend" => {
+            screen.suspend();
+            // What the other program would have written. It is on this child's stdout and so is
+            // every escape sequence around it, which is what makes *between the two* a byte offset
+            // rather than an impression.
+            println!("{CHILD_BETWEEN}");
+            screen.resume();
+            // The frame after a resume, which has to be the whole screen: the terminal left the
+            // alternate screen and came back to a blank one, and the mirror on the other side of
+            // that has to have stopped believing anything.
+            assert!(
+                screen.present().submitted,
+                "the frame after a resume wrote nothing, so the screen came back blank"
+            );
+        }
         // And the one that is not a return at all.
         "panic" => panic!("{CHILD_PANIC}"),
         other => unreachable!("no such exit: {other}"),
@@ -5067,10 +5092,805 @@ fn assert_restored_exactly_once(out: &str) {
     );
 }
 
+/// **The terminal is given back, somebody else uses it, and it is taken again** — production
+/// ticket 07's first case, asserted as an order on bytes from a process that really did it.
+///
+/// The property is four offsets in one stream, and every one of them is load-bearing:
+///
+/// 1. the prologue, once, at the start — the session entered the alternate screen;
+/// 2. the **whole** epilogue, in one piece, before the other program's line — the input modes, the
+///    kitty flags, the caret, auto-wrap and the alternate screen, in [`crate::actuate::restoration`]'s
+///    own order, which is the same string [`EPILOGUE`] holds for all three exits;
+/// 3. the prologue **again**, after that line and not before it;
+/// 4. and the epilogue again at the end, because the child returned normally and the guard on the
+///    type is what restores.
+///
+/// So the alternate screen is entered exactly twice and left exactly twice, and the middle pair
+/// brackets a line written by something that is not this engine. **A suspend that wrote the epilogue
+/// and never left the alternate screen** would pass any test that only looked for the mode resets;
+/// **a resume that forgot the negotiation** would leave the second half of the session drawing onto
+/// the user's shell; and either would look perfect from inside the process.
+///
+/// A child process rather than an in-process case, for the reason the section above states: stdout
+/// and stderr are two handles on one open file, so what the parent reads back is write order.
+#[test]
+fn a_suspend_gives_the_terminal_back_and_a_resume_takes_it_again() {
+    if std::env::var(EXIT_MODE).is_ok() {
+        return exit_through("suspend");
+    }
+    let out = child_output(
+        "gates::a_suspend_gives_the_terminal_back_and_a_resume_takes_it_again",
+        "suspend",
+    );
+
+    assert_eq!(
+        out.matches("\x1b[?1049h").count(),
+        2,
+        "the alternate screen was entered {} times rather than twice — once by `attach` and once \
+         by `resume`: {}",
+        out.matches("\x1b[?1049h").count(),
+        escaped(&out)
+    );
+    assert_eq!(
+        out.matches(EPILOGUE).count(),
+        2,
+        "the epilogue is on the wire {} times rather than twice — once by `suspend` and once by \
+         the guard on the way out. A count and not a `contains`, because a suspend that gave back \
+         half of what it took would still contain one: {}",
+        out.matches(EPILOGUE).count(),
+        escaped(&out)
+    );
+
+    let handed_back = out.find(EPILOGUE).expect("asserted just above");
+    let between = out
+        .find(CHILD_BETWEEN)
+        .unwrap_or_else(|| panic!("the child never suspended: {}", escaped(&out)));
+    let taken_again = out
+        .match_indices("\x1b[?1049h")
+        .nth(1)
+        .expect("asserted just above")
+        .0;
+
+    assert!(
+        handed_back < between,
+        "the other program wrote at byte {between} and the terminal was not given back until \
+         {handed_back} — so it wrote onto the alternate screen, over a frame, and its output \
+         vanished with the page: {}",
+        escaped(&out)
+    );
+    assert!(
+        between < taken_again,
+        "the alternate screen was re-entered at byte {taken_again}, before the other program \
+         wrote at {between} — so the session took the terminal back while somebody else was still \
+         using it: {}",
+        escaped(&out)
+    );
+}
+
 /// Escapes made visible, because a failure message full of raw `ESC` reprograms the reader's own
 /// terminal instead of telling them anything.
 fn escaped(out: &str) -> String {
     out.replace('\x1b', "^[")
+}
+
+// ---------------------------------------------------------------------------------------------
+// The terminal leaves and comes back: suspend, resume, and the two cases neither of them is for.
+//
+// Production ticket 07, and spec §7's *the terminal leaves*. The three cases §15 filed as fog are
+// not the same shape and only one of them is a pair of verbs:
+//
+//   1. **The application gives the terminal up on purpose** — Ctrl-Z, or an editor in the same
+//      window. `Screen::suspend` and `Screen::resume`, and the gates below.
+//   2. **The terminal goes away underneath the process.** Nothing here can run: the descriptor is
+//      gone. What the engine owes is to *say so*, and that is `crate::reader`'s quit.
+//   3. **A different terminal on the same process.** `Capabilities` is immutable for the life of a
+//      `Screen` (§10), so the answer is a fresh `attach` on a dropped one — which is gated below,
+//      because *supported* is a claim nobody had checked.
+// ---------------------------------------------------------------------------------------------
+
+/// **Gate, equality: a suspend leaves the terminal exactly as `attach` found it, and a resume puts
+/// every one of those things back.**
+///
+/// Read off the terminal model rather than off the byte stream, which is what makes it an equality
+/// over *state* rather than a search for substrings: the alternate screen, auto-wrap, the caret, the
+/// kitty flag stack and the three input modes are five independent facts, and a suspend that gave
+/// back four of them is a suspend that broke somebody's shell in a way they will blame on their
+/// shell.
+///
+/// **The mouse level is the one that cannot be read off the negotiation**, and it is why
+/// `Actuators::renegotiated` exists. The application raised it to `Motion` before suspending; the
+/// negotiation the resume writes sets the declared *floor*, `Buttons`. So the terminal comes back at
+/// 1000 and the application still wants 1003 — and the frame after the resume is what carries the
+/// difference. A resume that told the actuators nothing would leave `handed` claiming 1003 against a
+/// terminal at 1000, and the mouse would be dead on a screen that repainted perfectly.
+#[test]
+fn a_suspend_leaves_the_terminal_as_attach_found_it_and_a_resume_puts_it_back() {
+    let mut h = Harness::declaring(
+        40,
+        4,
+        every_input_protocol(),
+        crate::input::InputConfig {
+            mouse: crate::input::MouseMode::Buttons,
+            focus: true,
+            paste: true,
+            ..crate::input::InputConfig::default()
+        },
+    );
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, 40, 4), true);
+    h.screen
+        .layers()
+        .view(id)
+        .unwrap()
+        .text(0, 0, "on the alternate screen", Style::new());
+    // Raised above the declared floor, and a caret put somewhere: the two things the terminal is
+    // told that the negotiation does not say.
+    h.screen.set_mouse(crate::input::MouseMode::Motion);
+    h.screen.set_cursor(Some(crate::actuate::Cursor {
+        x: 7,
+        y: 1,
+        shape: crate::actuate::CursorShape::Terminal,
+    }));
+    h.present();
+
+    let running = vec![1003, 1004, 1006, 2004];
+    assert_eq!(h.terminal().modes(), running);
+    assert!(h.terminal().alt_screen());
+    assert!(!h.terminal().autowrap(), "auto-wrap is off for the session");
+    assert_eq!(h.terminal().kitty().len(), 1, "one push, at the prologue");
+    assert_eq!(h.terminal().caret(), Some((7, 1)));
+
+    h.screen.suspend();
+    h.catch_up();
+    assert!(
+        !h.terminal().alt_screen(),
+        "the user's shell is behind the alternate screen and the suspend left it there"
+    );
+    assert!(
+        h.terminal().autowrap(),
+        "a shell whose line editor cannot wrap is a shell that overwrites its own prompt"
+    );
+    assert_eq!(
+        h.terminal().modes(),
+        Vec::<u32>::new(),
+        "a mode this session set and did not reset goes on being set in the shell that outlives it"
+    );
+    assert!(
+        h.terminal().kitty().is_empty(),
+        "kitty flags left pushed eat keystrokes in the shell until somebody runs `reset`"
+    );
+    assert_eq!(
+        h.terminal().caret(),
+        Some((7, 1)),
+        "the cursor is shown again — where it is does not matter, that it is visible does"
+    );
+
+    h.screen.resume();
+    h.catch_up();
+    assert!(h.terminal().alt_screen());
+    assert!(!h.terminal().autowrap());
+    assert_eq!(h.terminal().kitty().len(), 1, "pushed again, not twice");
+    assert_eq!(
+        h.terminal().caret(),
+        None,
+        "the negotiation hides the caret, because nothing has asked for one yet"
+    );
+    assert_eq!(
+        h.terminal().modes(),
+        vec![1000, 1004, 1006, 2004],
+        "the negotiation sets the declared floor and not the level the application had raised"
+    );
+
+    // And the frame after the resume is what closes the gap between the two.
+    h.present();
+    assert_eq!(
+        h.terminal().modes(),
+        running,
+        "the application still wants `Motion` and the terminal was told `Buttons`"
+    );
+    assert_eq!(
+        h.terminal().caret(),
+        Some((7, 1)),
+        "and the caret it still has a position for"
+    );
+}
+
+/// **Gate, equality: the frame after a resume is the frame after an attach.**
+///
+/// A resume enters the alternate screen again, which is a **blank page**. So the mirror on the other
+/// side of it knows nothing, every cell is owed, and the frame that follows has to be the whole
+/// screen — the same full repaint a resize schedules, and for a reason that is one step stronger: a
+/// resize keeps the terminal's cells and a resume does not.
+///
+/// The equality is against the *birth* frame of an identical session rather than against a number,
+/// because a byte count is a property of the content and the birth frame is the same content. What
+/// it catches is the one-line failure: a resume that puts the modes back and forgets
+/// `Surface::mark_all` and `repaint` leaves the equality filter suppressing every cell that matches
+/// a mirror describing a page the terminal has thrown away, and the screen comes back **blank**
+/// while every counter in the engine says the frame was fine.
+#[test]
+fn the_frame_after_a_resume_is_the_frame_after_an_attach() {
+    fn painted(h: &mut Harness) {
+        let id = h
+            .screen
+            .layers()
+            .add_content(0, Rect::new(0, 0, 40, 4), true);
+        let mut view = h.screen.layers().view(id).unwrap();
+        for y in 0..4 {
+            view.text(0, y, "every cell of this row is written here", Style::new());
+        }
+    }
+
+    let birth = {
+        let mut h = Harness::new(40, 4);
+        painted(&mut h);
+        h.present();
+        h.bytes_written()
+    };
+
+    let mut h = Harness::new(40, 4);
+    painted(&mut h);
+    h.present();
+    let before = h.bytes_written();
+    assert_eq!(before, birth, "the same content, so the same birth frame");
+    // Steady: nothing damaged, nothing written. This is the number the resume has to *not* produce.
+    assert!(!h.screen.present().submitted);
+    assert_eq!(h.bytes_written(), before, "a steady frame writes nothing");
+
+    h.screen.suspend();
+    h.screen.resume();
+    let handover = h.bytes_written();
+    h.catch_up();
+    assert!(h.screen.present().submitted, "the whole screen is owed");
+    h.catch_up();
+    assert_eq!(
+        h.bytes_written() - handover,
+        birth,
+        "the frame after a resume wrote {} bytes where the birth frame wrote {birth} — the mirror \
+         is still describing a page the terminal discarded",
+        h.bytes_written() - handover
+    );
+}
+
+/// **Gate, count: nothing goes out while the terminal belongs to somebody else, and the frame is
+/// deferred rather than lost.**
+///
+/// On the deterministic clock the renderer is inline and `present` writes on the calling thread, so
+/// a frame between the two verbs would go straight onto whatever has the terminal — the editor the
+/// suspend was for, or the user's shell. The damage is untouched, so the drawing survives to the
+/// repaint the resume schedules: what a caller loses by drawing at the wrong moment is a frame, not
+/// their content.
+#[test]
+fn nothing_goes_out_while_the_terminal_belongs_to_somebody_else() {
+    let mut h = Harness::new(40, 4);
+    let id = h
+        .screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, 40, 4), true);
+    h.present();
+
+    h.screen.suspend();
+    let handed_back = h.bytes_written();
+    h.screen
+        .layers()
+        .view(id)
+        .unwrap()
+        .text(0, 0, "drawn while suspended", Style::new());
+    for _ in 0..8 {
+        let presented = h.screen.present();
+        assert!(!presented.submitted, "a frame went out to somebody else");
+        assert!(
+            !presented.discarded_for_resize,
+            "this is not a resize and must not be reported as one"
+        );
+    }
+    assert_eq!(
+        h.bytes_written(),
+        handed_back,
+        "eight frames were written into a terminal this session had given back"
+    );
+
+    h.screen.resume();
+    h.catch_up();
+    // `present` is the round trip: it asserts the replayed screen equals the composited frame, cell
+    // for cell. What is added here is that the frame is not the blank one — an equality between two
+    // empty screens holds.
+    h.present();
+    assert_ne!(
+        h.terminal().cell(0, 0),
+        crate::cell::Cell::BLANK,
+        "the damage a suspended frame kept did not reach the screen the resume repainted"
+    );
+}
+
+/// **Gate: suspending twice is suspending once, and resuming a screen nobody suspended does
+/// nothing.**
+///
+/// The verbs are reachable from an application's key handler, which is a place where *did I already
+/// do this* is genuinely hard to know — a `Ctrl+Z` arriving twice, a resume on a wake that raced
+/// one. Idempotence is what makes them safe there, and the failure it prevents is not symmetrical: a
+/// second suspend would join a render thread that is not running, and a second resume would spawn a
+/// **second** one onto one mailbox.
+#[test]
+fn the_two_verbs_are_idempotent_because_a_key_handler_is_where_they_are_called_from() {
+    let mut h = Harness::new(20, 2);
+    h.screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, 20, 2), true);
+    h.present();
+
+    // **The snapshot before the call, which the first draft of this took after it** — and then
+    // compared a value with itself, so the assertion held by construction and the guard it is about
+    // could be deleted with every test still green. The `suspend` arm below had it the right way
+    // round, which is what made the slip invisible on a read.
+    let untouched = h.bytes_written();
+    h.screen.resume();
+    assert_eq!(
+        h.bytes_written(),
+        untouched,
+        "a screen that is not suspended took the terminal back: a whole negotiation went out, and \
+         the second kitty push it carries is one the epilogue pops once"
+    );
+
+    h.screen.suspend();
+    let once = h.bytes_written();
+    assert!(once > untouched, "the epilogue went out");
+    h.screen.suspend();
+    h.screen.suspend();
+    assert_eq!(
+        h.bytes_written(),
+        once,
+        "the epilogue went out three times for one suspend"
+    );
+
+    h.screen.resume();
+    let back = h.bytes_written();
+    h.screen.resume();
+    assert_eq!(
+        h.bytes_written(),
+        back,
+        "the negotiation went out twice for one resume, which pushes a second kitty flag entry the \
+         epilogue will only pop once"
+    );
+}
+
+/// **Gate, equality: a resume asks the terminal nothing, so the capabilities are the ones `attach`
+/// answered with.**
+///
+/// This is §10's *sampled once and immutable for the life of the `Screen`* said on the one path that
+/// looks as though it might be an exception — the terminal really did leave and come back. It is not
+/// one, and the reason is that the pair of verbs is for a terminal that is **the same terminal**: a
+/// process that suspends itself is `fg`'d back into the window it left.
+///
+/// The case that is not covered by this is a *different* terminal, and its answer is one door along:
+/// a fresh `attach` on a dropped `Screen`. See
+/// [`a_second_attach_in_one_process_is_a_working_screen`].
+#[test]
+fn a_resume_asks_the_terminal_nothing_and_the_capabilities_do_not_move() {
+    let mut h = Harness::truecolor(20, 2);
+    let before = h.screen.capabilities().clone();
+    let quiet = h.bytes_written();
+    h.screen.suspend();
+    h.screen.resume();
+    assert_eq!(
+        h.screen.capabilities(),
+        &before,
+        "a resume re-detected, and a component would see a tier change between two frames"
+    );
+    // And the negotiation is the only thing on the wire: no query batch, no sentinel, no wait.
+    let wrote = h.bytes_written() - quiet;
+    let expected =
+        crate::actuate::restoration(&crate::input::InputConfig::default(), &before, false).len()
+            + crate::actuate::negotiation(&crate::input::InputConfig::default(), &before).len();
+    assert_eq!(
+        wrote, expected,
+        "the handover wrote {wrote} bytes where the epilogue and the negotiation are {expected} — \
+         a resume that queried would spend a round trip and up to 250 ms of ceiling on it"
+    );
+}
+
+/// **Gate: `attach` a second time in one process, which is what a terminal that was *replaced*
+/// costs.**
+///
+/// §10's answer to a reconnected `ssh` session or a multiplexer client attaching from somewhere else
+/// is *drop the `Screen` and attach again* — and until this ran, nothing had checked that a process
+/// could. It is not obvious that it can: `crate::shutdown` installs a **process-global** panic hook
+/// and holds the site it restores through in a `static`, so a second session arms a second site over
+/// the first, and the first `Screen`'s `Drop` disarms one of them. `disarm` is written to leave the
+/// current one alone, and this is that property from the outside.
+///
+/// What it costs is the whole of the session: the layers, their cells, the interned clusters and the
+/// mirror all go with the `Screen`. On a real terminal it also costs a detection round trip —
+/// `crate::detect::CEILING` is 250 ms and `quirks.rs` records force-flush limits as low as 150 ms —
+/// which is why this is the answer to a terminal being *replaced* and not to one leaving for a
+/// moment.
+#[test]
+fn a_second_attach_in_one_process_is_a_working_screen() {
+    fn session() -> usize {
+        let mut h = Harness::new(20, 2);
+        let id = h
+            .screen
+            .layers()
+            .add_content(0, Rect::new(0, 0, 20, 2), true);
+        h.screen
+            .layers()
+            .view(id)
+            .unwrap()
+            .text(0, 0, "a whole session", Style::new());
+        h.present();
+        assert!(h.terminal().alt_screen());
+        h.bytes_written()
+    }
+    let first = session();
+    let second = session();
+    assert_eq!(
+        first, second,
+        "the second session in this process wrote a different frame from the first"
+    );
+}
+
+/// **Gate: a resumed session writes frames again, from a render thread that did not exist when it
+/// was suspended.**
+///
+/// The threaded path, and the one gate here that is not about bytes on a terminal. A suspend joins
+/// the render thread the way `Screen::drop` does — which sets `Mailbox::quit`, and *that flag is
+/// what a fresh render thread reads before it takes its first packet*. Spawned onto a mailbox in
+/// that state it returns immediately, and then every `present` for the rest of the session composes
+/// a frame, submits it into a slot nobody empties, and the screen never changes again while
+/// `Presented::submitted` says `true`.
+///
+/// So `Mailbox::reopen` is the subject, and the gate is the frame that arrives after the resume
+/// having been written by somebody. It is waited for rather than slept on.
+#[test]
+fn a_resumed_session_writes_frames_from_a_render_thread_that_did_not_exist_before() {
+    let recorder = crate::testing::Recorder::new();
+    let recording = recorder.handle();
+    let (mut screen, _wake) = crate::engine::Engine::new(crate::engine::Config {
+        size: (20, 2),
+        output: crate::engine::Output::Sink(Box::new(recorder)),
+        clock: crate::engine::Clock::System,
+        max_frame_rate: f32::INFINITY,
+        overrides: Overrides::default(),
+        overrun_threshold: None,
+        overrun_report: None,
+        input: crate::input::InputConfig::default(),
+    })
+    .attach()
+    .expect("attaching to a sink cannot fail");
+    let id = screen.layers().add_content(0, Rect::new(0, 0, 20, 2), true);
+    screen
+        .layers()
+        .view(id)
+        .unwrap()
+        .text(0, 0, "before", Style::new());
+    while !screen.present().submitted {
+        screen.wait_for_renderer();
+    }
+    screen.wait_for_renderer();
+
+    screen.suspend();
+    screen.resume();
+    // **After the resume and not before the suspend**, and the first draft had it the other way —
+    // which made the gate green with `Mailbox::reopen` deleted, because the epilogue and the
+    // negotiation are bytes too. What has to grow is what a *frame* wrote.
+    let before = recording.lock().unwrap().bytes.len();
+
+    screen
+        .layers()
+        .view(id)
+        .unwrap()
+        .text(0, 0, "after ", Style::new());
+    while !screen.present().submitted {
+        screen.wait_for_renderer();
+    }
+    // **Both, and neither alone is enough** — which the gate had to be wrong twice to establish.
+    // `wait_for_renderer` returns when the render thread has *taken* the packet, because the take is
+    // what frees the renderer and not the write (spec §7), so a byte count read after it alone is a
+    // race. And a `drop` alone is a different race in the other direction: it sets `quit`, and
+    // `Mailbox::take` checks quit before the slot, so a render thread that had not yet reached its
+    // first take exits without writing the packet standing in it. The take first, then the join.
+    screen.wait_for_renderer();
+    drop(screen);
+
+    let wrote = recording.lock().unwrap().bytes[before..].to_vec();
+    assert!(
+        wrote.windows(6).any(|w| w == b"after "),
+        "the frame after the resume was composed, submitted and written by nobody — the mailbox \
+         still said `quit`, the new render thread read it and left, and `Presented::submitted` said \
+         `true` the whole time: {}",
+        escaped(&String::from_utf8_lossy(&wrote))
+    );
+}
+
+/// **Gate: a resumed session owes a frame, and the renderer is free to take it.**
+///
+/// The pair is the unit and reading one of them is reading half a mechanism: `Screen::wait` releases
+/// on *owed **and** free*, and a resume arrives with both of them wrong. `owed` is false because a
+/// suspended `present` refuses without recording a debt, and `free` is false because the render
+/// thread that left set it so on its way out — `WakeSource::renderer_gone` cancels the debt rather
+/// than releasing it, which is right for a renderer that is not coming back and wrong for one that
+/// is being replaced.
+///
+/// **The failure it prevents is a blank screen that heals when the user presses a key.** After a
+/// resume every cell is owed, and an application whose next line is `wait()` has nothing to be woken
+/// by: no input, no deadline, no post. It parks on a terminal it has just re-entered the alternate
+/// screen of — which is a *cleared* page — and stays there until something unrelated happens.
+///
+/// Asserted through the two flags rather than by calling `wait`, because a `wait` that does not
+/// return hangs the suite, and **a hang is worse than a failure**.
+///
+/// **On the threaded clock, and that is not a preference either.** `free` is only ever lowered by a
+/// render thread leaving, and the deterministic clock has no render thread to leave — so the same
+/// gate on a `Harness` asserts `free` against a flag nothing has touched since `attach`, and passes
+/// with `WakeSource::renderer_back` deleted. That was the first draft of it.
+#[test]
+fn a_resumed_session_owes_a_frame_and_can_be_woken_to_draw_it() {
+    let (mut screen, _wake) = crate::engine::Engine::new(crate::engine::Config {
+        size: (20, 2),
+        output: crate::engine::Output::Sink(Box::new(crate::testing::Recorder::new())),
+        clock: crate::engine::Clock::System,
+        max_frame_rate: f32::INFINITY,
+        overrides: Overrides::default(),
+        overrun_threshold: None,
+        overrun_report: None,
+        input: crate::input::InputConfig::default(),
+    })
+    .attach()
+    .expect("attaching to a sink cannot fail");
+    screen.layers().add_content(0, Rect::new(0, 0, 20, 2), true);
+    while !screen.present().submitted {
+        screen.wait_for_renderer();
+    }
+    screen.wait_for_renderer();
+    assert!(!screen.owes_a_frame(), "a frame that went out owes nothing");
+
+    screen.suspend();
+    assert!(
+        !screen.renderer_is_free(),
+        "the render thread that left is what makes the second assertion below a question"
+    );
+    screen.resume();
+    assert!(
+        screen.owes_a_frame(),
+        "the screen came back blank and nothing asked for the frame that fills it"
+    );
+    assert!(
+        screen.renderer_is_free(),
+        "the debt is recorded against a renderer `wait` believes is busy, so it releases nothing"
+    );
+}
+
+/// **Gate: a resume delivers none of what was typed at the editor, and every resize the terminal
+/// made.**
+///
+/// The engine cannot stop reading standard input during a suspension, and that is a fact about its
+/// shape rather than an oversight: the reader is a thread parked in a blocking `read`, and nothing in
+/// safe Rust cancels one. A process that suspends *itself* is stopped and so is its reader; one that
+/// hands the terminal to a child and keeps running competes with that child for every byte. **What is
+/// decidable is what happens to the bytes it did take**, and delivering them is the worse answer by a
+/// long way: an editor's whole session arrives as hundreds of `Event::Key`s, acted on by an
+/// application that has just repainted and believes it has the keyboard.
+///
+/// **The resize is the arm that makes this a filter rather than a `clear`, and dropping it is a
+/// hang.** The authoritative size is stored by the input thread and `Screen::next_event` is the only
+/// thing that applies it to the surfaces; `present` refuses to composite while the two disagree and
+/// owes a frame each time. Throw the event away and that disagreement has nothing left to resolve
+/// it.
+#[test]
+fn a_resume_delivers_no_keystroke_from_the_suspension_and_every_resize() {
+    use crate::input::{Event, Key, KeyCode, Mods};
+
+    let mut h = Harness::new(20, 2);
+    h.screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, 20, 2), true);
+    h.present();
+
+    let typed = |c: char| {
+        Event::Key(Key {
+            code: KeyCode::Char(c),
+            mods: Mods::NONE,
+            kind: crate::input::KeyKind::Press,
+            text: crate::input::KeyText::EMPTY,
+            at: std::time::Instant::now(),
+        })
+    };
+
+    h.screen.suspend();
+    // What the editor was told, arriving at a reader that never stopped.
+    for c in "wq".chars() {
+        h.screen.inject(typed(c));
+    }
+    h.screen.inject(Event::Resize(40, 6));
+    h.screen.inject(typed('!'));
+    h.screen.resume();
+
+    let delivered: Vec<Event> = std::iter::from_fn(|| h.screen.next_event()).collect();
+    assert_eq!(
+        delivered,
+        vec![Event::Resize(40, 6)],
+        "the resume delivered the editor's session as keystrokes, or ate the resize"
+    );
+
+    // And the twin, without which the assertion above is met by a queue that drops everything: the
+    // same three events with no suspension around them are all delivered, in order.
+    let mut h = Harness::new(20, 2);
+    h.screen
+        .layers()
+        .add_content(0, Rect::new(0, 0, 20, 2), true);
+    h.present();
+    h.screen.inject(typed('a'));
+    h.screen.inject(Event::Resize(40, 6));
+    h.screen.inject(typed('b'));
+    let delivered: Vec<Event> = std::iter::from_fn(|| h.screen.next_event()).collect();
+    assert_eq!(delivered.len(), 3, "an ordinary session lost a keystroke");
+}
+
+/// **Gate: a session whose render thread panicked stays suspended rather than panicking again.**
+///
+/// The one arm of the pair that is not about a healthy terminal, and it exists because both verbs
+/// reach for the renderer's sink — which a panicked render thread took with it. `suspend` has
+/// nothing to write the epilogue through, and `resume` has nothing to write the negotiation through
+/// *and* nothing to hand to `spawn_render_thread`, which would panic on the app thread with a
+/// message about the deterministic clock.
+///
+/// Answering with silence is right rather than merely safe: the terminal has already been given back
+/// by the panic hook — that is what `crate::shutdown` is for, and it runs on whichever thread
+/// panicked — and a `Wake::Quit` is on its way. §12's refusal 7 already says a dead renderer is
+/// indistinguishable from a permanently busy one through this surface, so *the frames stop* is the
+/// answer the surface already gives.
+#[test]
+fn a_session_whose_renderer_panicked_stays_suspended() {
+    /// A sink that dies on the first write **after it is armed**, which is the only way to reach a
+    /// render thread's unwind from a test: `Screen` exposes no door onto the thread, and a `quit`
+    /// makes it exit cleanly.
+    ///
+    /// **Armed, and not simply fatal.** `attach` writes the prologue through this sink on the app
+    /// thread, before a second thread exists — so a sink that panicked on every write would kill the
+    /// test rather than the renderer, and then panic a second time inside `Screen::drop`'s epilogue
+    /// while already unwinding, which aborts the process outright. That was the first draft, and it
+    /// is worth the comment: *the one write this gate must survive is the one it is not about.*
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    struct Poison(Arc<AtomicBool>);
+
+    impl std::io::Write for Poison {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            assert!(
+                !self.0.load(Ordering::Relaxed),
+                "the render thread's sink is going down on purpose"
+            );
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    let armed = Arc::new(AtomicBool::new(false));
+
+    let (mut screen, _wake) = crate::engine::Engine::new(crate::engine::Config {
+        size: (20, 2),
+        output: crate::engine::Output::Sink(Box::new(Poison(Arc::clone(&armed)))),
+        clock: crate::engine::Clock::System,
+        max_frame_rate: f32::INFINITY,
+        overrides: Overrides::default(),
+        overrun_threshold: None,
+        overrun_report: None,
+        input: crate::input::InputConfig::default(),
+    })
+    .attach()
+    .expect("attaching to a sink cannot fail");
+    screen.layers().add_content(0, Rect::new(0, 0, 20, 2), true);
+    // Armed after the prologue and before the first frame, so what dies is the render thread.
+    armed.store(true, Ordering::Relaxed);
+    assert!(screen.present().submitted);
+
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    while !screen.renderer_is_gone() && std::time::Instant::now() < deadline {
+        std::hint::spin_loop();
+    }
+    assert!(
+        screen.renderer_is_gone(),
+        "the sink was supposed to poison it"
+    );
+
+    // Neither of these may panic, and neither has anywhere to write.
+    screen.suspend();
+    screen.resume();
+    assert!(
+        !screen.present().submitted,
+        "a session with no renderer went on reporting frames"
+    );
+}
+
+/// **Gate: the overrun detector stops for the suspension and comes back for the session.**
+///
+/// Both halves are defects if they are missing, and they fail in opposite directions.
+///
+/// **It has to stop.** `Perf`'s in-loop detector aborts the process when the app thread's iteration
+/// stays open past the threshold, and the iteration `wait` opened is still open for as long as
+/// somebody else has the terminal. A user in their editor is not a frozen interface, and a debug
+/// build that killed the process for it would be unusable.
+///
+/// **And it has to come back**, which is the half that is invisible. The stop flag lives behind the
+/// `Arc` every observer thread holds, so it is sticky: a plain second `Perf::observe` spawns a
+/// thread that reads it on its first poll and returns. A resumed session would then have no
+/// detector at all for the rest of its life, in exactly the builds that exist to have one — and
+/// nothing would say so, because *does nothing* is what a healthy detector looks like from outside
+/// on every run where nothing stalls.
+///
+/// `debug_assertions` because the observer is absent from a release binary altogether, which is
+/// register entry #18 and what `scripts/observer-gate.sh` reads a binary to check.
+#[cfg(debug_assertions)]
+#[test]
+fn the_overrun_detector_stops_for_the_suspension_and_comes_back_for_the_session() {
+    let (mut screen, _wake) = crate::engine::Engine::new(crate::engine::Config {
+        size: (20, 2),
+        output: crate::engine::Output::Sink(Box::new(crate::testing::Recorder::new())),
+        // The threaded clock, under which `attach` spawns the observer: `Manual` has no loop to
+        // watch and spawns none, so the same gate on a `Harness` would assert about a detector that
+        // never existed.
+        clock: crate::engine::Clock::System,
+        max_frame_rate: f32::INFINITY,
+        overrides: Overrides::default(),
+        overrun_threshold: None,
+        overrun_report: None,
+        input: crate::input::InputConfig::default(),
+    })
+    .attach()
+    .expect("attaching to a sink cannot fail");
+    assert!(
+        screen.detector_is_watching(),
+        "`attach` spawns it on this clock, and the two assertions below are about nothing otherwise"
+    );
+
+    screen.suspend();
+    assert!(
+        !screen.detector_is_watching(),
+        "the iteration `wait` opened is open for as long as the editor runs, and the detector would \
+         abort the process for it"
+    );
+
+    screen.resume();
+    assert!(
+        screen.detector_is_watching(),
+        "the session came back without its detector — silently, because a detector that does \
+         nothing is what a healthy one looks like"
+    );
+}
+
+/// **Gate: `Ctrl+Z` is a key and never a signal, which is what makes the pair of verbs the
+/// application's business and not a signal handler's.**
+///
+/// Raw mode is `cfmakeraw`, which clears `ISIG` — measured on this machine on 2026-08-29 through a
+/// pty, with crossterm 0.29's `enable_raw_mode`: `ISIG` is true before and false after. So for as
+/// long as a `Screen` is attached, the byte `0x1a` reaches this parser and **no `SIGTSTP` is
+/// generated at all**. What an application does about Ctrl-Z is therefore three lines on the app
+/// thread — suspend, stop, resume — with no handler, no `libc` and no `unsafe` anywhere, which is
+/// the only shape available to a crate that forbids all three.
+///
+/// The half that is gateable in this crate is the one below: the byte is a key. The `termios` half
+/// is not, and cannot be — `Tty::open` panics under `cfg(test)`, so no gate here ever puts a real
+/// terminal into raw mode. It is stated in spec §7 with the measurement beside it instead.
+#[test]
+fn ctrl_z_is_a_key_and_not_a_signal() {
+    let mut parser = crate::input::parse::Parser::new(1 << 20);
+    let mut seen = Vec::new();
+    parser.feed(b"\x1a", std::time::Instant::now(), &mut |event| {
+        seen.push(event);
+    });
+    match seen.as_slice() {
+        [crate::input::Event::Key(key)] => {
+            assert_eq!(key.code, crate::input::KeyCode::Char('z'));
+            assert!(key.mods.contains(crate::input::Mods::CTRL));
+        }
+        other => panic!("`0x1a` parsed to {other:?} rather than to one `Ctrl+z`"),
+    }
 }
 
 /// **The render thread is joined; the input thread is not** (spec §7).

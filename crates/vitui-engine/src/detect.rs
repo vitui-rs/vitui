@@ -561,6 +561,27 @@ impl Tty {
         crossterm::terminal::size().ok()
     }
 
+    /// Give the terminal's line discipline back, without giving up the session.
+    ///
+    /// **The other half of [`Screen::suspend`](crate::Screen::suspend), and the half that is not a
+    /// byte.** Raw mode is a `termios` call rather than an escape sequence, which is why it is here
+    /// and not in [`crate::actuate`] — the same boundary this type's `Drop` draws for the two
+    /// things detection took.
+    ///
+    /// A job-control shell saves and restores a stopped job's terminal modes on its own, so a
+    /// process that suspends itself and is `fg`'d back would come out of it correct without this.
+    /// It is unconditional anyway, for the other caller: an application that suspends to run an
+    /// editor in the same terminal is not stopped by anybody and has no shell to do it for them.
+    pub(crate) fn leave_raw() {
+        let _ = crossterm::terminal::disable_raw_mode();
+    }
+
+    /// Take it again on the way back. Idempotent, like its opposite, and for the same reason: a
+    /// shell may already have done it.
+    pub(crate) fn enter_raw() {
+        let _ = crossterm::terminal::enable_raw_mode();
+    }
+
     /// Hand the channel and everything still unread to the input thread.
     ///
     /// **Once, and after detection.** The `Tty` keeps its `Drop` — raw mode and mode 2027 are what

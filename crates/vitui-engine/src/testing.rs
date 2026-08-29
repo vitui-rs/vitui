@@ -701,6 +701,25 @@ impl Harness {
         self.recording.lock().unwrap().bytes.clone()
     }
 
+    /// Replay everything written since the last replay, without presenting a frame.
+    ///
+    /// **For the bytes that are not a frame**, which until production ticket 07 were only the
+    /// prologue — written once, by `attach`, and replayed by [`build`](Harness::build) for the same
+    /// reason. `Screen::suspend` and `Screen::resume` write two more such batches, and a model that
+    /// only ever saw frames could not be asked what the terminal is in the middle of one.
+    ///
+    /// It deliberately does **not** run the round trip's equality: between a suspend and a resume
+    /// there is no frame to compare against, and the composited frame the screen still holds
+    /// describes a page the terminal has left.
+    pub(crate) fn catch_up(&mut self) {
+        let fresh = {
+            let r = self.recording.lock().unwrap();
+            r.bytes[self.replayed..].to_vec()
+        };
+        self.replayed += fresh.len();
+        self.term.feed(&fresh, self.screen.tables_mut());
+    }
+
     /// Bytes the **frames** have written, which is the session's total less the prologue.
     pub(crate) fn bytes_written(&self) -> usize {
         self.recording.lock().unwrap().bytes.len() - self.prologue.0

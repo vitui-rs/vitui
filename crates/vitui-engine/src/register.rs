@@ -1,4 +1,4 @@
-//! Spec §14's register: twenty-seven properties, each one either wired or pinned red — and one
+//! Spec §14's register: twenty-seven properties, each one either wired or pinned red — and two
 //! more that §14 could not have had.
 //!
 //! > **A gate is a count, a ratio, an equality or a compile outcome. A timing is a report, and is a
@@ -35,7 +35,7 @@
 //! ticket that lights it (`.scratch/vitui-engine-impl/issues/`). The two are different numbering
 //! schemes and confusing them sends a reader to the wrong document.
 //!
-//! # Entry 28, and why the list is no longer exactly §14's
+//! # Entries 28 and 29, and why the list is no longer exactly §14's
 //!
 //! Entries 1–27 are §14's table. **Entry 28 is not**, and it is here rather than in a document
 //! because of what it is about: §14 could enumerate twenty-seven properties of the engine and had
@@ -47,8 +47,15 @@
 //!
 //! A register whose whole purpose is that *a property which quietly never arrives is
 //! indistinguishable from one that was decided against* cannot answer that by staying at
-//! twenty-seven. The count test below therefore asserts the split rather than the total, so a
-//! twenty-ninth entry has to say which side of the line it is on.
+//! twenty-seven. The count test below therefore asserts the split rather than the total, so an
+//! entry arriving later has to say which side of the line it is on.
+//!
+//! **Entry 29 is the second, and it arrived the same way.** §14's twenty-seven are properties of a
+//! *frame* — what is damaged, what is packed, what reaches the wire. Production ticket 07's subject
+//! is a property of the **session**: what the terminal is left in during the stretches when this
+//! process is not drawing on it, which is every one of Ctrl-Z, an editor in the same window, a
+//! dropped connection and a terminal that was replaced. No entry above can be false while a shell
+//! is left in the alternate screen with the kitty flags pushed, because no frame is involved.
 
 /// What a register entry costs when it disagrees with the code.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -151,7 +158,7 @@ pub struct Entry {
 }
 
 /// Spec §14's register, entry for entry.
-pub const REGISTER: [Entry; 28] = [
+pub const REGISTER: [Entry; 29] = [
     Entry {
         number: 1,
         property: "No damage structure under-reports",
@@ -645,6 +652,16 @@ pub const REGISTER: [Entry; 28] = [
             at: "`conform/` — a detached workspace, `SCENES.md` normative,                  `cargo run --example ghostty`, `--example tmux` and `--example kitty` the instruments, one committed and                  regenerated `REPORT-<arm>.md` per arm — one file for four arms would delete the                  rows of whichever ran first, and a missing row reads as a win — `FINDINGS.md` written by hand and dated. **The first instrument in                  this repository that asks a terminal rather than our model of one.** Every other                  entry above is checked by code that lives in this crate: `roundtrip` replays the                  serializer's bytes through `term_model` and `testing` asserts a three-way                  agreement between the frame, `serial::Mirror` and `TermModel` — **two of those                  three are this engine's own code**, which is arch 20's finding and the reason                  this row exists. Scene 01 is the eleven attribute bits of the style word, one per                  row, because `attrs_dropped` is the field with **no query**: the eleven facts are                  in the capability set precisely because nothing can ask a terminal for them, and                  a screen dump is the only thing that can. Ghostty 1.3.1 agreed 11/11 on                  2026-08-23. **Production ticket 05 added the second family and it disagreed**:                  scene 01 through tmux 3.7c into Ghostty is 10/11, because tmux accepts SGR 53,                  stores it in the cell, hands it back to `capture-pane` and never puts it on the                  wire. That is the fourth `quirks.rs` entry and the first this repository                  gathered rather than inherited, and it took three captures of one scene to                  attribute — Ghostty direct, tmux's own grid, and tmux forwarded through Ghostty.                  All three are committed to `conform/fixtures/` where                  `cargo test` compares them with no emulator, no window server and no automation                  grant in the loop — the same trade `fuzz/` makes, the committed corpus being the                  gate and the live run the soak. **It reports; it does not block**, and here that                  is stronger than in `compare/`: the run needs a macOS automation grant a fresh                  runner cannot have, and the `vt` dump format it reads is undocumented, found by                  probing `+validate-config`. A worsening result arrives as a review-visible diff                  in a committed report. **The instrument's own second defect was in the                  instrument**, which is the pattern this row should be read for: the parser read                  one capture format as the other, and tmux writes any two-digit attribute code as                  `code/10 : code%10`, so overline arrived as `5:3` and was reported as *blink* —                  an attribute tmux never rendered. `parse` takes a `Dialect` now, and it has no                  default. **What it cannot see is written down beside it**: a                  grid-to-text dump emits a double-width glyph with no padding cell, so *what is at                  column 3* is not a question it can be asked — and scene 04 is what turned arch                  20's question into one it can, by putting ASCII sentinels either side and                  comparing the row as **text**. Four arms agree that every family blanks the                  orphaned half of a bisected pair itself, in both directions, with no clip to                  consult, which closed arch 20 on 2026-08-23; and they **disagree about what the                  blanked cell wears** — kitty keeps the orphan's background, Ghostty and tmux                  blank to the SGR state in force — which is what made the engine's own repair                  mandatory rather than merely tidy. Scene 04 is also the first scene here that                  does not drive the engine and cannot, so wiring that answer took no measurement                  away from it, where ticket 10 took the `--through-tmux` arm's overline row. **The third family made that sentence grow a fourth kind of non-number.** kitty 0.48.2 came to the same scene over `kitten @ get-text --ansi` — a remote-control socket, so no grant, no clipboard and no z-order, and the first *emulator* arm that can be handed a size — and disagreed on two rows while being unable to ask a third. Conceal and overline come back bare, and no dump could have earned either: *not stored* and *not serialised* look identical in a capture. kitty's shipped `Cursor` repr carries neither attribute and its exported constants say so a second time, so SGR has nothing to set and paint has nothing to consult — the fifth `quirks.rs` entry, two bits where tmux's is one, and the first whose evidence is a binary rather than a screen. The third row is what the entry is worth: kitty renders a dotted underline and writes it into a capture as `CSI 4 : m`, which ECMA-48 reads as single, so a row compared anyway would have earned a third bit for a misbehaviour that is not happening. `compare/`'s three non-numbers have no word for a fact about the **instrument**, so an arm now declares such rows *before* the run with the reason, and one that agrees anyway is reported `STALE` and counted as a failure — an excuse that cannot outlive what earned it",
         },
     },
+    Entry {
+        number: 29,
+        property: "The terminal leaves and comes back",
+        kind: Kind::Gate,
+        qualifier: "equality over terminal state, and a byte order from a child process",
+        source: "production 07",
+        state: State::Wired {
+            at: "`crate::gates::a_suspend_leaves_the_terminal_as_attach_found_it_and_a_resume_puts_it_back`                  for the state equality, read off `TermModel` — five independent facts, because a                  suspend that gave back four of them breaks a shell in a way its user blames on                  their shell;                  `crate::gates::a_suspend_gives_the_terminal_back_and_a_resume_takes_it_again` for                  the order, in the same child-process-with-one-open-file shape entry #15 uses,                  because *the terminal was given back before somebody else wrote and taken again                  after* is two comparisons of byte offsets and nothing inside the process can make                  them; `the_frame_after_a_resume_is_the_frame_after_an_attach` for the repaint, an                  equality against the birth frame of an identical session rather than against a                  number; `nothing_goes_out_while_the_terminal_belongs_to_somebody_else`;                  `a_resumed_session_writes_frames_from_a_render_thread_that_did_not_exist_before`                  and `a_resumed_session_owes_a_frame_and_can_be_woken_to_draw_it`, both on the                  threaded clock because the deterministic one has no render thread to leave and                  both assertions go vacuous on it;                  `the_overrun_detector_stops_for_the_suspension_and_comes_back_for_the_session`,                  whose second half is invisible from both ends, because a detector that does                  nothing is what a healthy one looks like; `a_resume_delivers_no_keystroke_from_the_suspension_and_every_resize`, with its twin, for the                  half of the reader problem that is decidable — the other half is that nothing in                  safe Rust cancels a blocking `read`, so a suspension does not vacate stdin and the                  supported shape is *suspend, stop the process, resume*;                  `crate::perf`'s `an_observer_from_before_a_suspend_is_not_the_one_a_resume_spawned`                  and `an_observer_whose_generation_is_stale_leaves_a_session_that_is_still_running`,                  because a sticky flag cannot retire an observer that is asleep;                  `a_session_whose_renderer_panicked_stays_suspended`, whose sink dies on the write **after** it is                  armed because the one write it must survive is the prologue, which is the one it is                  not about; `a_second_attach_in_one_process_is_a_working_screen`,                  which is §10's answer to a terminal that was *replaced* and which nothing had                  checked was possible; `crate::reader`'s                  `the_channel_closing_is_a_quit_because_the_terminal_is_the_thing_that_closed_it`                  with its negative twin, for the case no verb can serve. **Not §14's, and it could                  not have been**: §14 enumerates properties of a frame, and this is a property of                  the *session* — what the terminal is left in while this process is not drawing on                  it. §15 filed it as fog and production ticket 07 is where the three cases got                  three different answers: a pair of verbs, a `Wake::Quit`, and a fresh `attach`.                  The one thing that is **not** gated here is the `termios` half — `Tty::open` panics                  under `cfg(test)`, so no gate in this crate ever puts a real terminal into raw                  mode — and it is a measurement in spec §7 instead: crossterm 0.29's raw mode is                  `cfmakeraw`, which clears `ISIG`, measured through a pty on 2026-08-29",
+        },
+    },
 ];
 
 /// How many entries are wired, and how many are pinned red.
@@ -707,8 +724,12 @@ mod tests {
     #[test]
     fn every_entry_of_spec_14s_register_is_present_exactly_once() {
         const FROM_SPEC_14: usize = 27;
-        assert_eq!(REGISTER.len(), FROM_SPEC_14 + 1);
-        let mut seen = [false; 29];
+        // **Two, and each says which side of the line it is on.** 28 is the conformance suite and
+        // 29 is the session's lifecycle; both are properties §14 had no way to state, and both were
+        // added by the production backlog rather than by an implementation ticket.
+        const ADDED_HERE: usize = 2;
+        assert_eq!(REGISTER.len(), FROM_SPEC_14 + ADDED_HERE);
+        let mut seen = [false; 30];
         for e in REGISTER {
             let n = e.number as usize;
             assert!(
@@ -725,6 +746,12 @@ mod tests {
             REGISTER[FROM_SPEC_14].source, "arch 20",
             "entry 28 is the conformance suite, and it exists because arch 20 found that every \
              instrument in this crate is checked against code in this crate"
+        );
+        assert_eq!(
+            REGISTER[FROM_SPEC_14 + 1].source,
+            "production 07",
+            "entry 29 is what the terminal is left in while this process is not drawing on it, \
+             which is a property of the session and not of a frame"
         );
     }
 

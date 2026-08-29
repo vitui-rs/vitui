@@ -569,6 +569,7 @@ impl Engine {
             shutdown,
             caps,
             repaint: false,
+            suspended: false,
             tty,
             #[cfg(test)]
             sweeps: 0,
@@ -927,6 +928,14 @@ pub struct Screen {
     /// last recorded any. Cleared when a packet carrying it is actually submitted — an idle
     /// `present` submits nothing and must not consume it.
     repaint: bool,
+    /// Whether [`Screen::suspend`] has given the terminal back and [`Screen::resume`] has not taken
+    /// it again.
+    ///
+    /// **It gates `present` rather than only making the two verbs idempotent**, and that is the
+    /// half worth stating: on the deterministic path the renderer is inline, so a `present` between
+    /// the two would write a frame straight into a terminal this session has just left the alternate
+    /// screen of — over somebody else's shell, or over the editor the suspend was for.
+    suspended: bool,
     /// The pty detection read its answers from, held rather than dropped so that **one thread ever
     /// reads this file descriptor**. The input thread has adopted its channel; what is left here is
     /// the `Drop` that gives back raw mode and mode 2027. `None` whenever there is no terminal.
@@ -1507,6 +1516,186 @@ impl Screen {
         Permit::mint(&self.perf, reason)
     }
 
+    /// **Give the terminal back without ending the session**, for as long as somebody else needs it.
+    ///
+    /// The epilogue [`Screen::drop`] writes goes out — the input modes, the kitty flags, the caret,
+    /// auto-wrap and the alternate screen, in that order — and raw mode goes with it. The `Screen`
+    /// stays alive and holds everything it held: the layers, their cells, the capabilities, the
+    /// registered deadlines and the caller's own mouse level and caret. [`resume`](Screen::resume)
+    /// takes it all back.
+    ///
+    /// # What this is for, and the one case it is not for
+    ///
+    /// Two callers, and they are the same three lines:
+    ///
+    /// - **Ctrl-Z.** In raw mode `ISIG` is off, so a `Ctrl+Z` is a key event and not a signal —
+    ///   which means the ordinary gesture is the application's, on the app thread, with no signal
+    ///   handler anywhere. Suspend, stop the process, and the line after the stop is where it comes
+    ///   back: `resume`.
+    /// - **Running something else in the same terminal.** An editor, a pager, a `git commit` — and
+    ///   this one comes with a condition, stated below, because the input thread does not stop.
+    ///
+    /// # The reader does not stop, and nothing here can make it
+    ///
+    /// The thread that reads the terminal is parked in a blocking `read` on standard input, and
+    /// **nothing in safe Rust cancels one**. So the supported shape is *suspend, stop the process,
+    /// resume*: a `SIGTSTP` stops every thread of the process, the reader included, and the terminal
+    /// belongs to whoever has the foreground until the process is continued.
+    ///
+    /// An application that suspends and keeps **running** — to spawn a child in the same terminal —
+    /// is competing with that child for every byte the user types, and the kernel gives each byte to
+    /// whichever reader it schedules. That is not something this pair can fix; what it does instead
+    /// is refuse to make it worse. [`resume`](Screen::resume) throws away everything the reader took
+    /// during the suspension, so the editor's session does not arrive as several hundred
+    /// `Event::Key`s afterwards. **A child that needs the keyboard needs its own standard input, or
+    /// this process needs to be stopped while it runs.**
+    ///
+    /// **It is not a recovery from a terminal that left on its own.** A `SIGTSTP` from outside the
+    /// process stops it where it stands with no chance to write anything, and a connection that
+    /// drops takes the descriptor with it. Neither is reachable from here, because neither leaves
+    /// anywhere to run. See the crate's `attach` for what a session does instead.
+    ///
+    /// # The render thread is joined, and that is the ordering rather than an implementation detail
+    ///
+    /// The same ordering [`Screen::drop`] states and for the same reason: the render thread owns
+    /// the write direction, and an epilogue written while a frame is in flight interleaves with it.
+    /// So a suspend costs a join, `resume` costs a spawn, and a `present` in between answers
+    /// `submitted: false` with the damage kept — the frame it would have written is one the
+    /// terminal is no longer looking at.
+    ///
+    /// Twice in a row is once: a screen that is already suspended has nothing to give back. And a
+    /// screen **dropped** while suspended still writes the epilogue on its way out, through
+    /// the restoration's one atomic — which is a second epilogue into a terminal that already
+    /// has its modes back. Every byte of it is a no-op there, and the alternative is a `Drop` that
+    /// decides for itself whether the terminal is owed anything, which is the decision that atomic
+    /// exists to take away from it.
+    ///
+    /// ```
+    /// use vitui_engine::{Config, Engine, Output};
+    ///
+    /// let (mut screen, _wake) = Engine::new(Config {
+    ///     output: Output::Sink(Box::new(Vec::new())),
+    ///     ..Default::default()
+    /// })
+    /// .attach()
+    /// .unwrap();
+    ///
+    /// screen.suspend();
+    /// // Somebody else has the terminal here: a stopped process, or a child that took over.
+    /// screen.resume();
+    /// // The next `present` writes every cell.
+    /// assert!(screen.present().submitted);
+    /// ```
+    pub fn suspend(&mut self) {
+        if self.suspended {
+            return;
+        }
+        self.suspended = true;
+        // First, and before a byte: everything below is finite, and a debug build has another
+        // thread watching this one. The same first line `Screen::drop` has, for the same reason —
+        // a join and an epilogue are not instant, and there is no iteration in progress to stall.
+        self.perf.stop_observing();
+        self.reclaim_renderer();
+        // **The level the terminal was last told, not the floor the negotiation set.** An
+        // application that raised the mouse has to have *that* level reset, which is
+        // `crate::shutdown::Site`'s own correction arriving on the path that is not a shutdown.
+        let mouse_on = self.actuators.mouse() != MouseMode::Off;
+        let bytes = crate::actuate::restoration(&self.input_config, &self.caps, mouse_on);
+        // **No renderer means no sink**, and that is the render thread having panicked: the site's
+        // hook has already given the terminal back and a `Wake::Quit` is on its way to the
+        // application. There is nothing here to write through and nothing left to write.
+        if let Some(renderer) = self.renderer.as_mut() {
+            write_frame(&mut *renderer.sink, &bytes);
+        }
+        if self.tty.is_some() {
+            Tty::leave_raw();
+        }
+    }
+
+    /// **Take the terminal back**, and repaint every cell of it.
+    ///
+    /// The startup negotiation goes out again — the alternate screen, auto-wrap off, the caret
+    /// hidden, the kitty flags pushed and whatever input modes this session declared — raw mode
+    /// comes back, and the next [`present`](Screen::present) writes the whole screen against a
+    /// mirror that knows nothing.
+    ///
+    /// # What is *not* done, and it is the answer to a question rather than an omission
+    ///
+    /// **The terminal is not asked anything.** [`Capabilities`](crate::Capabilities) is sampled once
+    /// and is immutable for the life of the `Screen` (spec §10), so a resume re-declares and never
+    /// re-detects. That is right for the two cases this pair is for — the terminal a suspend gave
+    /// back is the terminal a resume takes, byte for byte — and it is *wrong* for a terminal that
+    /// was replaced underneath the process. A reconnected `ssh` session or a `tmux` client attaching
+    /// from somewhere else may be a different program with a different capability set, and the only
+    /// honest answer to that is a fresh [`Engine::attach`](crate::Engine::attach) on a dropped
+    /// `Screen` — which is supported, costs a detection round trip, and loses every layer.
+    ///
+    /// **The size is not re-sampled either**, for the reason [`Screen::next_event`] gives: the
+    /// authoritative size belongs to the input thread, and the app thread agreeing with it is how a
+    /// second resize gets the *older* size put back. A terminal that changed size while somebody
+    /// else had it reaches the application as an `Event::Resize` on the next read, exactly as one
+    /// that changed size while this session had it does.
+    ///
+    /// Twice in a row is once: a screen that is not suspended has nothing to take back. And a
+    /// session whose **render thread panicked** stays suspended: the sink went with the thread, so
+    /// there is nothing to write the negotiation through and nothing to hand a packet to. That is
+    /// the same answer `suspend` gives to the same question from the other side, and it is not a new
+    /// failure mode — a dead renderer is already indistinguishable from a permanently busy one
+    /// through this surface (§12's refusal 7), the terminal has already been given back by the panic
+    /// hook, and a `Wake::Quit` is on its way to the application.
+    pub fn resume(&mut self) {
+        if !self.suspended {
+            return;
+        }
+        if self.renderer.is_none() {
+            return;
+        }
+        self.suspended = false;
+        // **What arrived while somebody else had the terminal is not this application's input**, and
+        // dropping it is the half of the reader problem that is decidable. See
+        // `crate::input::Queue::drop_what_the_user_typed` for the half that is not: the reader is
+        // parked in a blocking `read` that nothing in safe Rust can cancel, so it is still there
+        // during a suspension and still takes what the terminal gives it.
+        self.input.drop_what_the_user_typed();
+        if self.tty.is_some() {
+            Tty::enter_raw();
+        }
+        self.begin_session();
+        // The terminal is in the state the negotiation leaves it in, which is not the state this
+        // side believes it is in. See `Actuators::renegotiated`.
+        self.actuators.renegotiated();
+        // **The three lines `resize` uses, less the reallocation**, and they are the same three
+        // because the situation is the same one: nothing on the terminal is known, so every cell is
+        // owed and the mirror may not be trusted for any of them. The surfaces keep their size and
+        // their cells — a resume is not a reflow — so the frame surface is the one that was already
+        // there, with all of it damaged.
+        self.frame.damage_mut().mark_all();
+        self.repaint = true;
+        self.layers.forget_damage();
+        // And then the handoff, in the order `attach` builds it: the mailbox first, because a render
+        // thread spawned onto a mailbox that still says *quit* exits before it takes a frame.
+        self.mailbox.reopen();
+        self.wakes.renderer_back();
+        self.spawn_render_thread();
+        // **And then ask for the frame, because nothing else is going to.** Every cell is owed and
+        // the application is about to park in `wait` — where a screen with no input, no deadline and
+        // no post is a screen that stays blank until the user presses a key to find out why. The
+        // debt is the same one a coalesced frame records, and it needs `renderer_back` above it:
+        // `wait` releases on *owed and free*, and the render thread that left set `free` to false on
+        // its way out.
+        self.wakes.owe_frame();
+        // **And the detector, which `suspend` had to stop and which does not come back on its own.**
+        // The stop flag lives behind the `Arc` every observer holds, so a plain second `observe`
+        // spawns a thread that returns on its first poll — leaving a resumed session with no
+        // overrun detection for the rest of its life, in exactly the debug builds that exist to
+        // have it. Under the same two conditions `attach` spawns the first one: a debug build, and
+        // a clock with a loop to watch.
+        if self.clock == Clock::System {
+            self.perf
+                .observe_again(crate::shutdown::restore_current as fn());
+        }
+    }
+
     /// Composite the damaged rectangles, pack them, serialise them, and write once.
     ///
     /// The only exit. Damage is marked by the drawing verbs and cleared here, and neither is
@@ -1529,6 +1718,14 @@ impl Screen {
 
     /// Everything `present` does except end the iteration.
     fn compose_and_submit(&mut self) -> Presented {
+        // **Nothing goes out while somebody else has the terminal**, and it is the first thing
+        // asked because it is the only one of these that is not about a frame's shape. The damage is
+        // untouched, so this is a frame deferred rather than lost — and `resume` damages everything
+        // anyway, so what it defers is a frame that would have been rewritten cell for cell a moment
+        // later. `discarded_for_resize` is false: this is not one.
+        if self.suspended {
+            return self.not_submitted(false);
+        }
         // **Sampled here and re-checked at submit** (spec §2's sixth invariant). One load, and what
         // it buys is that a frame composited at 300x80 is never written into a terminal that became
         // 120x40 while it was being composited — which wraps and scrolls, and is worse than a
@@ -1918,6 +2115,18 @@ impl Screen {
     #[cfg(test)]
     pub(crate) fn owes_a_frame(&self) -> bool {
         self.wakes.owes_a_frame()
+    }
+
+    /// Whether the in-loop overrun detector is still watching this session.
+    #[cfg(all(test, debug_assertions))]
+    pub(crate) fn detector_is_watching(&self) -> bool {
+        self.perf.is_watching()
+    }
+
+    /// Whether the renderer can take a packet, for the pair `wait` releases on.
+    #[cfg(test)]
+    pub(crate) fn renderer_is_free(&self) -> bool {
+        self.wakes.renderer_is_free()
     }
 
     /// The earliest instant at which the frame clock would allow another frame.
