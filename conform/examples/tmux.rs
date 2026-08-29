@@ -49,13 +49,13 @@ mod common;
 
 use std::path::Path;
 use std::process::Command;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use common::{
-    Arm, Excluded, SCENES, header, publish, save_if_asked, scene, scene_argv, section, trailer,
-    wait_for_quiescence,
+    AnswersCpr, Arm, Excluded, SCENES, clear_handshake, header, publish, save_if_asked, scene,
+    scene_argv, section, trailer, wait_for_quiescence,
 };
-use vitui_conform::{Dialect, parse};
+use vitui_conform::Dialect;
 
 /// The pane size this arm asks for.
 ///
@@ -117,11 +117,11 @@ fn drive() -> Result<(), String> {
     let mut arm: Option<Arm> = None;
 
     for which in SCENES {
-        let (this, dump, bytes, size) = one_scene(which)?;
+        let (this, captured, bytes, size) = one_scene(which)?;
         if arm.is_none() {
             report.push_str(&header(&this, &bytes));
         }
-        let (text, a, f) = section(&this, which, &dump, &size);
+        let (text, a, f) = section(&this, which, &captured, &size);
         sections.push_str(&text);
         asked += a;
         failures += f;
@@ -134,12 +134,12 @@ fn drive() -> Result<(), String> {
     publish(&arm, &report, asked, failures)
 }
 
-fn one_scene(which: &str) -> Result<(Arm, vitui_conform::Dump, Vec<u8>, String), String> {
+fn one_scene(which: &str) -> Result<(Arm, common::Capture, Vec<u8>, String), String> {
     // `new-session` takes a shell command line, so the shared argv is joined here — see
     // `common::scene_argv`, where the launchers' disagreement about that is written down.
     let command = scene_argv(which)?.join(" ");
     let ready = std::env::temp_dir().join(format!("conform-ready-{}-{which}", std::process::id()));
-    let _ = std::fs::remove_file(&ready);
+    clear_handshake(&ready);
 
     // Named for this process, so two runs cannot meet. `-L` is a socket name under tmux's own
     // directory rather than a path, which keeps the permissions tmux chose for it.
@@ -180,7 +180,7 @@ fn one_scene(which: &str) -> Result<(Arm, vitui_conform::Dump, Vec<u8>, String),
     // that leaves a server behind is a run that needs a human before the next one can start. This is
     // *our* socket, so `kill-server` cannot reach the user's own tmux.
     let _ = tmux(&socket, &["kill-server"]);
-    let _ = std::fs::remove_file(&ready);
+    clear_handshake(&ready);
     outcome
 }
 
@@ -191,7 +191,7 @@ fn capture_and_compare(
     version: &str,
     ready: &Path,
     launched: Instant,
-) -> Result<(Arm, vitui_conform::Dump, Vec<u8>, String), String> {
+) -> Result<(Arm, common::Capture, Vec<u8>, String), String> {
     // Insisted on before the wait, not after: a scene that never started leaves the readiness timeout
     // to explain it, and "the scene never reported a presented frame" is twenty seconds spent saying
     // something this line says at once.
@@ -221,21 +221,22 @@ fn capture_and_compare(
         );
     }
 
-    let started = Instant::now();
-    let bytes = tmux_bytes(socket, &["capture-pane", "-p", "-e", "-t", SESSION])?;
-    let capture_elapsed = started.elapsed();
-    save_if_asked(which, &bytes)?;
-
     // **`TmuxCapturePane` and not `Ecma48`, and the difference is a whole attribute.** tmux writes
     // any attribute code of two digits as `code/10 : code%10`, so overline arrives as `5:3` — which
     // read as ECMA-48 is *blink*, an attribute tmux never rendered and the instrument would have
     // invented. See the parser's module docs and `FINDINGS.md`.
-    let dump = parse(
-        &bytes,
-        common::rows_expected(which),
-        Dialect::TmuxCapturePane,
-    )
-    .map_err(|e| format!("the capture is not a screen: {e}"))?;
+    //
+    // **`capture-pane` is not run for scene 05**, and that is `common::capture`'s decision rather
+    // than this arm's: tmux answers `CSI 6n` on the pane's own pty, in band, so its grid is never
+    // re-serialised for that scene and this dialect never applies to it.
+    let mut capture_elapsed = Duration::ZERO;
+    let (captured, bytes) = common::capture(which, ready, Dialect::TmuxCapturePane, || {
+        let started = Instant::now();
+        let bytes = tmux_bytes(socket, &["capture-pane", "-p", "-e", "-t", SESSION])?;
+        capture_elapsed = started.elapsed();
+        Ok(bytes)
+    })?;
+    save_if_asked(which, &bytes)?;
 
     let default_terminal = tmux(socket, &["show-options", "-gv", "default-terminal"])
         .unwrap_or_else(|_| "unknown".into());
@@ -248,6 +249,12 @@ fn capture_and_compare(
                    own grid, so the engine's bytes were parsed and stored by tmux and handed back by \
                    tmux. A legitimate target — tmux is in spec §10's tier-1 list — and never a proxy \
                    for the terminal it is running inside",
+        answers_cpr: AnswersCpr {
+            who: "tmux",
+            why: "tmux answers `CSI 6n` from its own grid, on the pane's pty. The emulator behind \
+                  it never sees the question, exactly as it never sees the bytes `capture-pane` \
+                  hands back, so this scene and the two above it have the same subject for once",
+        },
         not_compared: NOT_COMPARED,
         notes: vec![
             format!(
@@ -261,19 +268,29 @@ fn capture_and_compare(
                  `~/.tmux.conf`. `default-terminal` was `{}`",
                 default_terminal.trim()
             ),
-            format!(
-                "**Launch to capture:** {} ms, of which `capture-pane` itself was {} ms — reported, \
-                 never gated. Headless: no window server, no automation grant, no focus taken",
-                launched.elapsed().as_millis(),
-                capture_elapsed.as_millis()
-            ),
+            match which {
+                "05" => format!(
+                    "**Launch to answer:** {} ms — reported, never gated. **This scene is not \
+                     captured:** tmux answers in band on the pane's own pty, so `capture-pane` is \
+                     out of the path and this arm's whole job was to have launched the scene at a \
+                     size it chose",
+                    launched.elapsed().as_millis()
+                ),
+                _ => format!(
+                    "**Launch to capture:** {} ms, of which `capture-pane` itself was {} ms — \
+                     reported, never gated. Headless: no window server, no automation grant, no \
+                     focus taken",
+                    launched.elapsed().as_millis(),
+                    capture_elapsed.as_millis()
+                ),
+            },
             "**Trailing blanks:** `capture-pane` trims the default-styled ones the engine painted, \
              where Ghostty's `vt` dump keeps them. It does **not** trim a *styled* blank, so an \
              attribute leaking past its label is still counted as the disagreement it is"
                 .to_string(),
         ],
     };
-    Ok((arm, dump, bytes, size))
+    Ok((arm, captured, bytes, size))
 }
 
 /// What tmux says its version is. Asked of the binary that is about to run, never assumed.

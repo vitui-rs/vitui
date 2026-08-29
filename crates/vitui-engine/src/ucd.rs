@@ -16,6 +16,14 @@
 //! `CHA`-after-non-ASCII rule bounds the disagreement instead. See
 //! `.scratch/vitui-engine-architecture/research/02-grapheme-clustering-and-width.md`.
 //!
+//! **Those three figures are a survey in a research document and not a measurement of ours**, and
+//! two of them were checked on 2026-08-29 and did not reproduce: `conform/`'s scene 05 asks a
+//! terminal what a cluster is worth with `CSI 6n`, and Ghostty 1.3.1, kitty 0.48.2 and tmux 3.7c
+//! all widen VS16 correctly and all answer **2** for a ZWJ family. The decision is unchanged —
+//! following the terminal was never the alternative, and a terminal that agrees today is not a
+//! promise — but the evidence for the disagreement is older than the terminals it names. See
+//! `conform/FINDINGS.md`, 2026-08-29.
+//!
 //! Three answers are policy rather than standard, and each is pinned by name in [`tests`]:
 //! ambiguous width (UAX #11 class `A`) is **narrow**; a cluster's width is its base's width,
 //! **never the sum** of its code points; and **VS15 does not change a width**, only a

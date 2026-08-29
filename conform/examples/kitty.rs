@@ -74,10 +74,10 @@ use std::process::{Child, Command};
 use std::time::{Duration, Instant};
 
 use common::{
-    Arm, Excluded, SCENES, header, publish, rows_expected, save_if_asked, scene, scene_argv,
-    section, trailer, wait_for_quiescence,
+    AnswersCpr, Arm, Excluded, SCENES, clear_handshake, header, publish, save_if_asked, scene,
+    scene_argv, section, trailer, wait_for_quiescence,
 };
-use vitui_conform::{Dialect, parse};
+use vitui_conform::Dialect;
 
 /// Where kitty is, absolutely.
 ///
@@ -177,11 +177,11 @@ fn drive() -> Result<(), String> {
     let mut arm: Option<Arm> = None;
 
     for which in SCENES {
-        let (this, dump, bytes, size) = one_scene(which)?;
+        let (this, captured, bytes, size) = one_scene(which)?;
         if arm.is_none() {
             report.push_str(&header(&this, &bytes));
         }
-        let (text, a, f) = section(&this, which, &dump, &size);
+        let (text, a, f) = section(&this, which, &captured, &size);
         sections.push_str(&text);
         asked += a;
         failures += f;
@@ -194,13 +194,13 @@ fn drive() -> Result<(), String> {
     publish(&arm, &report, asked, failures)
 }
 
-fn one_scene(which: &str) -> Result<(Arm, vitui_conform::Dump, Vec<u8>, String), String> {
+fn one_scene(which: &str) -> Result<(Arm, common::Capture, Vec<u8>, String), String> {
     // **An argv and not a command line.** kitty execs what it is given; handed one string it looks
     // for a file whose name ends in `--scene 01`, finds none, and says nothing — which arrives here
     // as the readiness timeout twenty seconds later, blaming the scene for the launcher.
     let command = scene_argv(which)?;
     let ready = std::env::temp_dir().join(format!("conform-ready-{}-{which}", std::process::id()));
-    let _ = std::fs::remove_file(&ready);
+    clear_handshake(&ready);
 
     // Named for this process, so two runs cannot meet — and **refused if it already exists**, which
     // is this arm's equivalent of the Ghostty arm insisting the set difference is exactly one
@@ -263,7 +263,7 @@ fn one_scene(which: &str) -> Result<(Arm, vitui_conform::Dump, Vec<u8>, String),
     // that leaves a window open — and a socket behind it — is a run that needs a human before the
     // next one can start.
     drop(instance);
-    let _ = std::fs::remove_file(&ready);
+    clear_handshake(&ready);
     outcome
 }
 
@@ -274,7 +274,7 @@ fn capture_and_compare(
     version: &str,
     ready: &Path,
     launched: Instant,
-) -> Result<(Arm, vitui_conform::Dump, Vec<u8>, String), String> {
+) -> Result<(Arm, common::Capture, Vec<u8>, String), String> {
     wait_for_socket(socket)?;
 
     // Insisted on before the wait for the same reason the tmux arm counts panes first: a scene that
@@ -290,18 +290,23 @@ fn capture_and_compare(
 
     let size = wait_for_quiescence(ready)?;
 
-    let started = Instant::now();
-    let bytes = capture(socket)?;
-    let capture_elapsed = started.elapsed();
-    save_if_asked(which, &bytes)?;
-
     // **`Ecma48`, and that was probed rather than assumed.** kitty re-serialises its own grid, which
     // is what tmux does too and tmux needed a dialect of its own — so this was checked with a raw
     // `printf` control probe before the arm was written. Every construct kitty emits means what
     // ECMA-48 says: `CSI m` per row, `22;1` for bold, `4:2`/`4:3`, and the colon colour forms. See
     // the parser's module docs.
-    let dump = parse(&bytes, rows_expected(which), Dialect::Ecma48)
-        .map_err(|e| format!("the capture is not a screen: {e}"))?;
+    //
+    // **`get-text` is not called for scene 05**, and that is `common::capture`'s decision rather
+    // than this arm's: the terminal answers that scene in band on the scene's own tty, so the
+    // remote-control socket is not in its path.
+    let mut capture_elapsed = Duration::ZERO;
+    let (captured, bytes) = common::capture(which, ready, Dialect::Ecma48, || {
+        let started = Instant::now();
+        let bytes = capture(socket)?;
+        capture_elapsed = started.elapsed();
+        Ok(bytes)
+    })?;
+    save_if_asked(which, &bytes)?;
 
     let arm = Arm {
         title: "kitty",
@@ -311,6 +316,13 @@ fn capture_and_compare(
                    same kind of evidence as the Ghostty arm's and gathered over a remote-control \
                    socket rather than an AppleScript surface, so no automation grant and no window \
                    z-order is in the loop",
+        answers_cpr: AnswersCpr {
+            who: "kitty",
+            why: "kitty is an endpoint, so nothing sits between the scene's tty and it. It is also \
+                  the arm where the two channels are most obviously different instruments: the \
+                  photograph goes through a serialiser with a string for `4:2` and none for `4:4`, \
+                  and a cursor report goes through none",
+        },
         not_compared: NOT_COMPARED,
         notes: vec![
             format!(
@@ -326,12 +338,21 @@ fn capture_and_compare(
              /dev/null` equivalent, for free. `-o remember_window_size=no` is the other half: \
              without it kitty restores the size of the last window the user dragged"
                 .to_string(),
-            format!(
-                "**Launch to capture:** {} ms, of which `get-text` itself was {} ms — reported, \
-                 never gated. No automation consent dialog, no clipboard, no z-order",
-                launched.elapsed().as_millis(),
-                capture_elapsed.as_millis()
-            ),
+            match which {
+                "05" => format!(
+                    "**Launch to answer:** {} ms — reported, never gated. **This scene is not \
+                     photographed:** the terminal answers `CSI 6n` in band on the scene's own tty, \
+                     so `get-text` and the socket under it are out of the path and this arm's whole \
+                     job was to have launched the scene",
+                    launched.elapsed().as_millis()
+                ),
+                _ => format!(
+                    "**Launch to capture:** {} ms, of which `get-text` itself was {} ms — reported, \
+                     never gated. No automation consent dialog, no clipboard, no z-order",
+                    launched.elapsed().as_millis(),
+                    capture_elapsed.as_millis()
+                ),
+            },
             "**Trailing blanks: kept, and that is the opposite of the tmux arm.** Every row the \
              engine painted comes back at its full width, so the check that an attribute stopped \
              where its label did has real padding to look at here. kitty closes each label with an \
@@ -351,7 +372,7 @@ fn capture_and_compare(
                 .to_string(),
         ],
     };
-    Ok((arm, dump, bytes, size))
+    Ok((arm, captured, bytes, size))
 }
 
 /// Block until kitty has created its control socket, or say that it never did.

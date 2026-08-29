@@ -31,8 +31,10 @@ use std::fmt::Write as _;
 use std::path::Path;
 use std::time::{Duration, Instant};
 
-use vitui_conform::{Attrs, Colour, Dump, Style, Underline, default_colours};
-use vitui_engine::{Clock, Config, Engine, Rect, Style as EngineStyle, Wake};
+use vitui_conform::{
+    Attrs, Colour, Dialect, Dump, Reply, Style, Underline, cursor_reports, default_colours, parse,
+};
+use vitui_engine::{Clock, Config, Engine, Rect, Style as EngineStyle, Wake, width_of};
 
 /// How long to wait for the scene to present a frame and then stand still.
 pub const READY_TIMEOUT: Duration = Duration::from_secs(20);
@@ -44,6 +46,26 @@ pub const READY_TIMEOUT: Duration = Duration::from_secs(20);
 /// one cycle and an echoed keystroke is gone within one cycle. The driver still waits
 /// [`QUIESCENT`] before it captures, which is five of these.
 pub const REPAINT: Duration = Duration::from_millis(100);
+
+/// How many consecutive empty reads scene 05 takes as *this is not a terminal* rather than as the
+/// read timeout it configured.
+///
+/// **Not a second deadline.** See the use — on a real tty this many empty reads cannot happen
+/// inside [`ANSWER_TIMEOUT`], so reaching it is evidence about the descriptor and never about how
+/// long the terminal took.
+const EMPTY_READS: usize = 64;
+
+/// How long scene 05 waits for the terminal to answer its batch.
+///
+/// **It must be shorter than [`READY_TIMEOUT`], and that is an invariant rather than a preference**:
+/// the scene writes its stamp *after* the answers, so a scene that waited longer than the driver
+/// would be given up on while it was still listening — and the driver would report *the scene never
+/// presented a frame*, which is the readiness timeout blaming the scene for a terminal that was
+/// merely slow.
+///
+/// It is a ceiling and not a settle time. The read stops on the sentinel's reply, which is an
+/// observed condition; this is only what happens when there is not going to be one.
+pub const ANSWER_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// How long the scene's stamp must stay unchanged before the screen counts as settled.
 ///
@@ -59,7 +81,7 @@ pub const QUIESCENT: Duration = Duration::from_millis(500);
 /// The rule is `SCENES.md`'s and it is the same one that gives each arm its own file: a scene whose
 /// section is missing reads as a win, and that is the single easiest way for this directory to
 /// become dishonest. There is deliberately no flag to run one.
-pub const SCENES: &[&str] = &["01", "04"];
+pub const SCENES: &[&str] = &["01", "04", "05"];
 
 /// One row of scene 01: an attribute, the label under it, and what the dump must say.
 pub struct Case {
@@ -279,11 +301,177 @@ pub fn scene04() -> [Pair; 6] {
     ]
 }
 
+/// One row of scene 05: a cluster, and what is done with the number the terminal answers.
+pub struct Glyph {
+    /// The row's identity in the report.
+    pub label: &'static str,
+    /// The cluster the scene writes, once, at column 1 of one row.
+    pub cluster: &'static str,
+    /// The advance this row is **compared** against, hand-written here, or `None` to survey it.
+    ///
+    /// # Why three rows carry a number and twelve do not
+    ///
+    /// The engine's own tables are **authoritative by decision**: `ucd.rs` says so in as many words,
+    /// and spec §8's `CHA`-after-non-ASCII rule is what bounds the disagreement instead of following
+    /// it. So a terminal that answers 6 for a ZWJ family emoji is not misbehaving in any sense this
+    /// repository acts on — there is no mechanism that would read such a `quirks.rs` row — and a
+    /// `FAILED` there would be this instrument inventing a defect.
+    ///
+    /// What is still a defect is the *instrument* not working, and that is what the three compared
+    /// rows are for. They are hand-written and **not** asked of the engine: a row that took its
+    /// expectation from `width_of` would be checking the engine against itself, which is the
+    /// arrangement `conform/` exists to break.
+    pub compared: Option<u16>,
+    /// What the row is asking, in one clause, for the report.
+    pub asks: &'static str,
+}
+
+/// Scene 05 — what does this emulator think this cluster is worth.
+///
+/// # The one measurement in this directory with none of our tables in the loop
+///
+/// Every other scene reads a *dump*, and scene 02 is kept for establishing what a dump cannot say: a
+/// grid-to-text capture emits no padding cell for a double-width glyph, so *how many columns did
+/// that take* is not a question it can answer. Deriving it would need a width table, and a width
+/// table is the thing under test.
+///
+/// A cursor report can answer it. The scene homes the cursor to column 1, writes one cluster, and
+/// asks `CSI 6n`; the column that comes back is the **emulator's** UAX #11 verdict, reached by the
+/// emulator's tables and reported by the emulator.
+///
+/// # It is a survey and not a comparison, and that is a decision rather than a shortfall
+///
+/// `ucd.rs`'s module docs already say the engine does not follow the terminal here — *our tables are
+/// authoritative*, with three named policies and spec §8's `CHA`-after-non-ASCII rule bounding what
+/// a disagreement can cost. What that paragraph cites for the disagreement is a **survey of 23
+/// terminals in a research document**. This scene is the first thing in this repository to observe
+/// any of it, on the families §10 puts in tier 1.
+pub fn scene05() -> [Glyph; 15] {
+    [
+        Glyph {
+            label: "ascii",
+            cluster: "A",
+            compared: Some(1),
+            asks: "the control. A terminal that disagrees here is not answering about widths at \
+                   all, and every other row of this table is about the instrument rather than \
+                   about the emulator",
+        },
+        Glyph {
+            label: "ascii-pair",
+            cluster: "AB",
+            compared: Some(2),
+            asks: "**the control the control needs.** A probe that reported a constant would pass \
+                   the row above; two columns is what proves the number moves with what was \
+                   written",
+        },
+        Glyph {
+            label: "cjk",
+            cluster: "漢",
+            compared: Some(2),
+            asks: "UAX #11 `W`, unambiguous, and the one wide verdict no terminal in spec §10's \
+                   tier 1 is known to differ on. Compared rather than surveyed because a terminal \
+                   that answers 1 here is one this engine's `CHA` rule could not bound",
+        },
+        Glyph {
+            label: "hangul",
+            cluster: "가",
+            compared: None,
+            asks: "wide by the same class as the row above, reached through a different block",
+        },
+        Glyph {
+            label: "fullwidth",
+            cluster: "Ａ",
+            compared: None,
+            asks: "U+FF21, UAX #11 `F` — the class that is wide for being a fullwidth *form* rather \
+                   than for being East Asian",
+        },
+        Glyph {
+            label: "ambiguous",
+            cluster: "☂",
+            compared: None,
+            asks: "**UAX #11 class `A`, and the engine's answer is a policy rather than a \
+                   standard**: `ucd.rs` pins ambiguous width as *narrow* by name. This is the row \
+                   where a terminal running with an East Asian locale is entitled to disagree",
+        },
+        Glyph {
+            label: "combining",
+            cluster: "e\u{301}",
+            compared: None,
+            asks: "*a cluster's width is its base's width, never the sum of its code points* — the \
+                   second of `ucd.rs`'s three pinned policies. Windows Terminal is recorded in that \
+                   file as drawing a combining mark at width 1 of its own",
+        },
+        Glyph {
+            label: "zero-width",
+            cluster: "\u{200B}",
+            compared: None,
+            asks: "a cluster the cursor may not move for at all. The one row whose interesting \
+                   answer is that nothing happened, which is also the one an instrument reading a \
+                   missing reply would report by accident",
+        },
+        Glyph {
+            label: "emoji",
+            cluster: "\u{1F44D}",
+            compared: None,
+            asks: "`Emoji_Presentation`, one scalar, no selector — the emoji case with nothing else \
+                   in it",
+        },
+        Glyph {
+            label: "vs16",
+            cluster: "\u{2764}\u{FE0F}",
+            compared: None,
+            asks: "**the headline of `ucd.rs`'s survey**: *only 7 of 23 surveyed widen a VS16 emoji \
+                   correctly*. A default-text scalar plus U+FE0F, which forces emoji presentation \
+                   and with it two columns",
+        },
+        Glyph {
+            label: "vs15",
+            cluster: "\u{2764}\u{FE0E}",
+            compared: None,
+            asks: "the third pinned policy: **VS15 does not change a width**, only a presentation. \
+                   The same base as the row above with the other selector, so the two rows read \
+                   together are what say whether a terminal has selectors at all",
+        },
+        Glyph {
+            label: "zwj-family",
+            cluster: "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}",
+            compared: None,
+            asks: "the second named disagreement in `ucd.rs`: *kitty sums a ZWJ family emoji to 6 \
+                   where the answer is 2*. Three emoji joined by two ZWJs, one cluster",
+        },
+        Glyph {
+            label: "flag",
+            cluster: "\u{1F1EF}\u{1F1F5}",
+            compared: None,
+            asks: "two regional indicators, which the engine counts as a pair rather than as two \
+                   clusters — the one place `cluster_width` looks past the base",
+        },
+        Glyph {
+            label: "skin-tone",
+            cluster: "\u{1F44D}\u{1F3FD}",
+            compared: None,
+            asks: "a base and a modifier, where the modifier is itself an emoji scalar. The row \
+                   above answers whether a terminal joins; this one answers whether it modifies",
+        },
+        Glyph {
+            label: "keycap",
+            cluster: "1\u{FE0F}\u{20E3}",
+            compared: None,
+            asks: "an ASCII base carried into emoji presentation by a selector and a combining \
+                   enclosing keycap — the sequence whose base is one column on its own",
+        },
+    ]
+}
+
 /// How many rows the scene declares, which is what the parser refuses a short capture against.
 pub fn rows_expected(which: &str) -> usize {
     match which {
         "01" => scene01().len(),
         "04" => scene04().len(),
+        // **Not a missing arm.** Scene 05's capture is not a screen: the terminal answers in band,
+        // and the refusal that stands where a short screen's does is `cursor_reports`' own. See
+        // [`capture`].
+        "05" => panic!("scene 05 is not photographed — see `capture`"),
         other => panic!("no such scene: {other}"),
     }
 }
@@ -333,6 +521,7 @@ pub fn scene(which: Option<&str>) {
     match which {
         Some("01") => scene01_frames(&ready),
         Some("04") => scene04_bytes(&ready),
+        Some("05") => scene05_cpr(&ready),
         other => panic!("no such scene: {other:?} — see SCENES"),
     }
 }
@@ -465,6 +654,180 @@ fn scene04_bytes(ready: &str) {
     }
 }
 
+/// Scene 05: ask the terminal what each cluster is worth, write down what it said, and hold a
+/// readable table up until the arm shuts the terminal down.
+///
+/// # This is the only scene whose answer does not come back through a photograph
+///
+/// The other two are pictures, and an arm's whole job is to take one. This one asks a question the
+/// terminal answers **in band**, on the same tty the scene is writing to — so the arm launches it
+/// and nothing else, and the capture surface, the window server and the automation grant are all
+/// out of the path. That is worth saying twice, because it is the property that would let this
+/// scene run on an arm whose capture surface carries no style at all.
+///
+/// # The batch, and why the sentinel is not a timeout
+///
+/// One write: for each cluster, home the cursor to column 1 of one row, erase, write the cluster,
+/// ask `CSI 6n`. Then `CSI c` behind all of them. A terminal cannot answer the device-attributes
+/// query before it has processed everything ahead of it, so the read stops on an **observed**
+/// condition rather than on a delay tuned until it passed. `detect.rs` is where that shape comes
+/// from; its code is `pub(crate)` and this is a different crate, so what is reused is the design.
+///
+/// # It writes what arrived and judges none of it
+///
+/// The bytes go to `<ready>.cpr` exactly as they came, and the driver is what refuses them. A scene
+/// that decided whether its own answers were good enough would be the half with no gate over it
+/// judging the half that has one — where `cursor_reports` is ordinary library code with ordinary
+/// tests over committed fixtures.
+fn scene05_cpr(ready: &str) {
+    use std::io::{Read as _, Write as _};
+
+    let glyphs = scene05();
+
+    // **Raw and unechoed, or the answers are not readable and are also on the screen.** In cooked
+    // mode the reply sits in the line discipline until a newline that will never come, and the
+    // echo paints it into the picture. `min 0 time 5` is a half-second read timeout — VMIN 0, so a
+    // read returns empty rather than blocking for ever on a terminal that answers nothing.
+    //
+    // **Never restored.** The terminal this runs in was created by the arm and is destroyed by it,
+    // so there is no session to hand back; and the repaint below addresses every row absolutely, so
+    // nothing depends on a newline meaning two things.
+    if !stty(&["raw", "-echo", "min", "0", "time", "5"]) {
+        // **Nothing below can work, and every observable would blame the terminal.** In cooked mode
+        // the reply sits in the line discipline until a newline that never comes, so the read times
+        // out, the batch has no sentinel, and the driver reports *the terminal answered nothing* —
+        // about a terminal that was never asked in a way it could answer.
+        //
+        // So the answers file is deliberately **not created**, which is the one refusal the driver
+        // can attribute: it names this line. Same shape as the Ghostty arm resolving `tmux`'s path
+        // in the process that has the developer's `PATH` — a refusal belongs where the cause is
+        // visible. The stamp is still written, or the driver would time out instead and say the
+        // scene never started, which is the vaguer of the two.
+        let _ = std::fs::write(ready, "1 cpr\n");
+        loop {
+            std::thread::sleep(REPAINT);
+        }
+    }
+
+    let mut batch = String::new();
+    // Hidden, so the cursor the report is about is not also a glyph in the picture.
+    batch.push_str("\u{1b}[?25l");
+    for glyph in &glyphs {
+        // **Row 1, because it is the one row every terminal has.** Two live runs of scene 01 on this
+        // machine were handed 156x45 and 72x24, and a scratch row chosen for looking tidy is a row
+        // a short window does not have. `EL` and not `ED`, for the reason scene 04 records: tmux
+        // pushes a cleared screen into the pane's history.
+        let _ = write!(&mut batch, "\u{1b}[1;1H\u{1b}[2K{}\u{1b}[6n", glyph.cluster);
+    }
+    // The sentinel. Everything after its reply belongs to some other question.
+    batch.push_str("\u{1b}[c");
+    {
+        let mut out = std::io::stdout();
+        let _ = out.write_all(batch.as_bytes());
+        let _ = out.flush();
+    }
+
+    let mut replies: Vec<u8> = Vec::new();
+    let deadline = Instant::now() + ANSWER_TIMEOUT;
+    let mut stdin = std::io::stdin();
+    let mut chunk = [0u8; 256];
+    let mut empty = 0usize;
+    while Instant::now() < deadline {
+        match stdin.read(&mut chunk) {
+            // **An empty read is the configured timeout, and it is also what EOF looks like.** With
+            // `VMIN 0 VTIME 5` a real tty takes half a second to produce one, so a run of them
+            // costs more than [`ANSWER_TIMEOUT`] and this bound can only be reached by reads that
+            // returned at once — which is a descriptor that is not the terminal. Without it that
+            // case spins at 100% of a core until the deadline, which is a defect this repository
+            // has already met once under a different name.
+            Ok(0) => {
+                empty += 1;
+                if empty > EMPTY_READS {
+                    break;
+                }
+            }
+            Ok(n) => {
+                empty = 0;
+                replies.extend_from_slice(&chunk[..n]);
+            }
+            // A signal arriving mid-read is not the terminal declining to answer, and treating it
+            // as one would surface downstream as `NoSentinel` — the instrument blaming the
+            // emulator for its own interruption.
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(_) => break,
+        }
+        // Stop on the sentinel's own reply and on nothing else. `cursor_reports` is the one that
+        // knows what a finished batch looks like, and it is the half with tests over it.
+        match cursor_reports(&replies, glyphs.len()) {
+            Err(
+                vitui_conform::CprError::NoSentinel | vitui_conform::CprError::UnterminatedReply,
+            ) => {}
+            _ => break,
+        }
+    }
+    let _ = std::fs::write(answers_at(Path::new(ready)), &replies);
+
+    // What a person looking at the window sees. Compared by nothing — the driver reads the file
+    // above — and here because a window that goes blank after asking its questions is a window
+    // nobody can tell from one that never asked them.
+    let seen = cursor_reports(&replies, glyphs.len()).unwrap_or_default();
+    let mut screen = String::new();
+    screen.push_str("\u{1b}[?25l");
+    let _ = write!(
+        &mut screen,
+        "\u{1b}[1;1H\u{1b}[2Kscene 05 — what this terminal says each cluster is worth"
+    );
+    for (r, glyph) in glyphs.iter().enumerate() {
+        let advance = match seen.get(r) {
+            Some(reply) => format!("{}", reply.column.saturating_sub(1)),
+            None => "no reply".to_string(),
+        };
+        let _ = write!(
+            &mut screen,
+            "\u{1b}[{};1H\u{1b}[2K{:<12} {} -> {advance}",
+            r + 3,
+            glyph.label,
+            glyph.cluster
+        );
+    }
+    let _ = write!(&mut screen, "\u{1b}[{};1H\u{1b}[2K", glyphs.len() + 4);
+
+    // The stamp is written after the answers are on disk, so a driver that saw quiescence is a
+    // driver whose file exists. It never moves: the measurement happened once, and there is no
+    // frame counter because there are no frames.
+    let _ = std::fs::write(ready, "1 cpr\n");
+
+    loop {
+        let mut out = std::io::stdout();
+        let _ = out.write_all(screen.as_bytes());
+        let _ = out.flush();
+        std::thread::sleep(REPAINT);
+    }
+}
+
+/// Put this process's controlling terminal into the mode the batch needs, and say whether it worked.
+///
+/// `/dev/tty` and not stdin: a scene launched by an arm has its tty as all three descriptors, and
+/// naming the device says which one is meant rather than depending on that staying true.
+///
+/// **Two spellings, because the flag that names the device is not portable and the tmux arm is the
+/// one that could run somewhere other than this machine.** BSD `stty` — macOS's — takes `-f`; GNU
+/// coreutils takes `-F` and rejects `-f`. Tried in that order rather than detected, because the
+/// answer is one process exit status and a `uname` would be a second thing to be wrong about.
+#[must_use]
+fn stty(args: &[&str]) -> bool {
+    ["-f", "-F"].iter().any(|flag| {
+        std::process::Command::new("stty")
+            .args([flag, "/dev/tty"])
+            .args(args)
+            // The failing spelling prints a usage message, and this scene's stderr is the terminal
+            // being measured.
+            .stderr(std::process::Stdio::null())
+            .status()
+            .is_ok_and(|s| s.success())
+    })
+}
+
 /// Block until the scene has presented *and stopped changing*, or give up loudly.
 ///
 /// **This replaces the fixed delay** — the mechanism by which a capture races the paint, and a raced
@@ -522,6 +885,91 @@ pub fn wait_for_quiescence(ready: &Path) -> Result<String, String> {
     })
 }
 
+// ── The capture, which is not always a photograph ────────────────────────────────────────────────
+
+/// What an arm brought back for one scene.
+///
+/// **Two variants because scene 05 is not a picture.** Scenes 01 and 04 are photographs, parsed as
+/// a screen; scene 05's answers come back in band on the scene's own tty, so the arm's capture
+/// surface is not in its path at all. Keeping that in one enum rather than in three arms is what
+/// stops the third arm being the one that forgets.
+pub enum Capture {
+    /// A photograph of the terminal's screen, parsed with the arm's dialect.
+    Screen(Dump),
+    /// The terminal's own answers to `CSI 6n`, read by the scene and written where the driver can
+    /// find them.
+    Replies(Vec<Reply>),
+}
+
+/// Where scene 05's answers land, derived from the readiness file rather than passed separately.
+///
+/// **Derived and not a second environment variable**, because the arms disagree about how they pass
+/// one — tmux takes `-e`, kitty takes `.env`, AppleScript takes a list inside a string literal — and
+/// a scene reached by three launchers that each had to be taught a second name is a scene one of
+/// them would be launched without.
+#[must_use]
+pub fn answers_at(ready: &Path) -> std::path::PathBuf {
+    // Not `with_extension`: the ready file's name ends in `-05`, and `with_extension` would replace
+    // nothing there while replacing `-3.7c`-shaped tails elsewhere if the name ever changed.
+    ready.with_file_name(format!(
+        "{}.cpr",
+        ready.file_name().unwrap_or_default().to_string_lossy()
+    ))
+}
+
+/// Remove both halves of one scene's handshake, before a run and after it.
+///
+/// **Both, and that is the point of the function.** The arms deleted the readiness file and left the
+/// answers beside it, and the two names share a process id — so a run whose scene never got as far
+/// as asking could read a **previous** run's answers and report them as its own. That is the
+/// accident this scene's four refusals exist to prevent, arriving underneath all four of them: the
+/// batch would be well formed, the count right, the rows one, and the measurement somebody else's.
+pub fn clear_handshake(ready: &Path) {
+    let _ = std::fs::remove_file(ready);
+    let _ = std::fs::remove_file(answers_at(ready));
+}
+
+/// Bring back whatever this scene's answer is, and refuse anything that is not one.
+///
+/// `photograph` is the arm's own capture mechanism and is **not called for scene 05** — see
+/// [`Capture`]. Returns the capture and the bytes it was made of, because an arm still owes those
+/// to [`save_if_asked`] and to [`header`]: a fixture is the evidence, whichever channel it came
+/// through.
+///
+/// # Errors
+///
+/// The photograph failing, a screen with fewer rows than the scene declared, or a batch of cursor
+/// reports that is not one — see [`vitui_conform::CprError`], whose four arms say four different
+/// things about what went wrong.
+pub fn capture(
+    which: &str,
+    ready: &Path,
+    dialect: Dialect,
+    photograph: impl FnOnce() -> Result<Vec<u8>, String>,
+) -> Result<(Capture, Vec<u8>), String> {
+    if which == "05" {
+        let at = answers_at(ready).display().to_string();
+        // A missing file is the scene never having got as far as writing one, and it is refused
+        // here rather than read as an empty batch — which is `screen -X hardcopy`'s zero bytes
+        // wearing this scene's clothes.
+        let bytes = std::fs::read(&at).map_err(|e| {
+            format!(
+                "the scene wrote no answers to {at}: {e} — it writes that file even when the \
+                     terminal answered nothing, so a missing one is the scene never having got as \
+                     far as asking, and the way that happens is `stty` failing to put the tty into \
+                     raw mode"
+            )
+        })?;
+        let replies = cursor_reports(&bytes, scene05().len())
+            .map_err(|e| format!("the answers are not a batch: {e}"))?;
+        return Ok((Capture::Replies(replies), bytes));
+    }
+    let bytes = photograph()?;
+    let dump = parse(&bytes, rows_expected(which), dialect)
+        .map_err(|e| format!("the capture is not a screen: {e}"))?;
+    Ok((Capture::Screen(dump), bytes))
+}
+
 // ── The report ───────────────────────────────────────────────────────────────────────────────────
 
 /// What one arm has to say about itself, so a row can say where it came from.
@@ -539,6 +987,8 @@ pub struct Arm {
     pub mechanism: &'static str,
     /// What this arm's rows are evidence *about*.
     pub measures: &'static str,
+    /// Which terminal answers `CSI 6n` for this arm, and it is **not always the one named above**.
+    pub answers_cpr: AnswersCpr,
     /// Scene rows this arm does not compare, by label, each with why and the reason in words.
     ///
     /// **Declared in advance, never inferred from the observation**, or the instrument would be
@@ -562,6 +1012,24 @@ impl Arm {
             .find(|(row, ..)| *row == label)
             .map(|(_, kind, why)| (*kind, *why))
     }
+}
+
+/// Who answers a cursor report for one arm, and why it is not simply that arm's title.
+///
+/// **Two fields because one of them is a table heading and the other is a paragraph.** Scene 05's
+/// answers come back in band on the scene's own tty, so they come from the *innermost* terminal in
+/// the path and a capture surface further out cannot change that. For the arm that runs the engine
+/// inside tmux inside Ghostty, the photograph measures what tmux **forwards** and the cursor
+/// reports measure **tmux** — the same subject as the plain tmux arm, and a column headed *Ghostty*
+/// over those numbers would be the dishonesty `SCENES.md` opens by naming.
+///
+/// The rows are still printed, because they are real answers about a real terminal. What needed
+/// fixing was the heading, and [`AnswersCpr::who`] is what heads them.
+pub struct AnswersCpr {
+    /// The terminal, short enough to head a column.
+    pub who: &'static str,
+    /// Why it is that terminal and not this arm's title, in one clause.
+    pub why: &'static str,
 }
 
 /// Why a row of the scene is printed without being compared.
@@ -754,11 +1222,12 @@ pub fn header(arm: &Arm, bytes: &[u8]) -> String {
 
 /// One scene's section of one arm's report: the text, how many rows were asked, and how many
 /// disagreed.
-pub fn section(arm: &Arm, which: &str, dump: &Dump, size: &str) -> (String, usize, usize) {
-    match which {
-        "01" => section01(arm, dump, size),
-        "04" => section04(arm, dump, size),
-        other => panic!("no such scene: {other}"),
+pub fn section(arm: &Arm, which: &str, capture: &Capture, size: &str) -> (String, usize, usize) {
+    match (which, capture) {
+        ("01", Capture::Screen(dump)) => section01(arm, dump, size),
+        ("04", Capture::Screen(dump)) => section04(arm, dump, size),
+        ("05", Capture::Replies(replies)) => section05(arm, replies),
+        (other, _) => panic!("no such scene, or the wrong kind of capture for it: {other}"),
     }
 }
 
@@ -879,6 +1348,148 @@ fn section04(arm: &Arm, dump: &Dump, size: &str) -> (String, usize, usize) {
         let _ = writeln!(out, "{}", not_in_the_denominator(unanswerable, pairs.len()));
     }
     (out, asked, failures)
+}
+
+/// Scene 05's section: three rows compared, twelve surveyed, and the difference is a decision.
+fn section05(arm: &Arm, replies: &[Reply]) -> (String, usize, usize) {
+    let glyphs = scene05();
+    let advance = |i: usize| replies.get(i).map(|r| r.column.saturating_sub(1));
+
+    let mut out = String::new();
+    let _ = writeln!(
+        out,
+        "## Scene 05 — what does this emulator think this cluster is worth\n"
+    );
+    let _ = writeln!(
+        out,
+        "**Answered by: {}** — {}.\n\nThis is the only scene here whose answer does not come back \
+         through a photograph. The scene homes the cursor to column 1, writes one cluster, and asks \
+         `CSI 6n`; the column that comes back is the **emulator's own UAX #11 verdict**, reached by \
+         the emulator's tables and reported by the emulator, with nothing of this repository's in \
+         the path. A `CSI c` behind the batch is the sentinel, so the read stops on an observed \
+         condition rather than on a delay.\n",
+        arm.answers_cpr.who, arm.answers_cpr.why
+    );
+    let _ = writeln!(
+        out,
+        "Because the answers arrive in band on the scene's own tty, they come from the **innermost** \
+         terminal in the path — which is why the line above names a terminal rather than repeating \
+         this arm's title. A capture surface further out cannot change who answered.\n"
+    );
+
+    // ── The three the instrument is held to ──
+    let _ = writeln!(out, "### The three rows that are compared\n");
+    let _ = writeln!(
+        out,
+        "Hand-written expectations, and deliberately **not** asked of the engine: a row that took \
+         its number from `width_of` would be checking the engine against itself, which is the \
+         arrangement this directory exists to break. They are here to say the probe is measuring an \
+         advance at all — a report that answered a constant would pass the first of them.\n"
+    );
+    let _ = writeln!(
+        out,
+        "| row | asks | declared here | {} | |",
+        arm.answers_cpr.who
+    );
+    let _ = writeln!(out, "|---|---|---|---|---|");
+
+    let (mut failures, mut unanswerable, mut compared) = (0usize, 0usize, 0usize);
+    for (i, glyph) in glyphs.iter().enumerate() {
+        let Some(want) = glyph.compared else { continue };
+        compared += 1;
+        let seen = advance(i);
+        let (mark, observed) = mark_of(
+            arm,
+            glyph.label,
+            seen == Some(want),
+            &match seen {
+                Some(n) => format!("{n}"),
+                None => "no reply".to_string(),
+            },
+            &mut failures,
+            &mut unanswerable,
+        );
+        let _ = writeln!(
+            out,
+            "| {} | {} | {want} | {observed} | {mark} |",
+            glyph.label, glyph.asks
+        );
+    }
+    let asked = compared - unanswerable;
+    let _ = writeln!(out, "\n**{}/{asked} agreed.**\n", asked - failures);
+    if unanswerable > 0 {
+        let _ = writeln!(out, "{}", not_in_the_denominator(unanswerable, compared));
+    }
+
+    // ── The survey, which is the deliverable ──
+    let _ = writeln!(out, "### The survey\n");
+    let _ = writeln!(
+        out,
+        "**Reported, never failed, and no row here earns a `quirks.rs` entry.** The engine's \
+         tables are authoritative *by decision*: `ucd.rs` says so in as many words, pins three \
+         answers as policy rather than standard — ambiguous width is narrow, a cluster's width is \
+         its base's and never the sum, VS15 changes a presentation and not a width — and spec §8's \
+         `CHA`-after-non-ASCII rule is what **bounds** a disagreement instead of following it. So a \
+         terminal that answers differently below is not misbehaving in any sense this repository \
+         acts on, there is no mechanism that would read such a quirk row, and a `FAILED` here would \
+         be the instrument inventing a defect.\n"
+    );
+    let _ = writeln!(
+        out,
+        "What the paragraph in `ucd.rs` cites for the disagreement is a **survey of 23 terminals in \
+         a research document**. This table is the first thing in this repository to observe any of \
+         it.\n"
+    );
+    let _ = writeln!(
+        out,
+        "| cluster | code points | asks | the engine | {} | |",
+        arm.answers_cpr.who
+    );
+    let _ = writeln!(out, "|---|---|---|---|---|---|");
+
+    let (mut same, mut surveyed) = (0usize, 0usize);
+    for (i, glyph) in glyphs.iter().enumerate() {
+        if glyph.compared.is_some() {
+            continue;
+        }
+        surveyed += 1;
+        let ours = width_of(glyph.cluster);
+        let seen = advance(i);
+        let agrees = seen == Some(ours);
+        same += usize::from(agrees);
+        let _ = writeln!(
+            out,
+            "| `{}` | {} | {} | {ours} | {} | {} |",
+            glyph.cluster,
+            code_points(glyph.cluster),
+            glyph.asks,
+            match seen {
+                Some(n) => format!("{n}"),
+                None => "no reply".to_string(),
+            },
+            match agrees {
+                true => "\u{2713}",
+                false => "**differs**",
+            }
+        );
+    }
+    let _ = writeln!(
+        out,
+        "\n**{same} of {surveyed} agree with the engine's tables.** That number is a fact about \
+         this terminal and about the disagreement's size; it is not a score and it is not a \
+         denominator anything is held to.\n"
+    );
+
+    (out, asked, failures)
+}
+
+/// A cluster's scalars, spelled the way a reader would search for them.
+fn code_points(cluster: &str) -> String {
+    cluster
+        .chars()
+        .map(|c| format!("U+{:04X}", c as u32))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// The report cell for one row, and the two counters it moves.
@@ -1095,7 +1706,11 @@ pub fn save_if_asked(which: &str, bytes: &[u8]) -> Result<(), String> {
     let Ok(prefix) = std::env::var("CONFORM_SAVE_CAPTURE") else {
         return Ok(());
     };
-    let to = format!("{prefix}-scene{which}-{}.vt", scene_tag(which));
+    let to = format!(
+        "{prefix}-scene{which}-{}.{}",
+        scene_tag(which),
+        scene_ext(which)
+    );
     if std::fs::exists(&to).unwrap_or(false) {
         eprintln!(
             "{to} already exists and was left alone — a capture is evidence and is never \
@@ -1114,6 +1729,20 @@ fn scene_tag(which: &str) -> &'static str {
     match which {
         "01" => "attrs",
         "04" => "pairs",
+        "05" => "widths",
         other => panic!("no such scene: {other}"),
+    }
+}
+
+/// The extension that says which channel a fixture came through.
+///
+/// **Not decoration.** A `.vt` is a screen and reads through [`vitui_conform::parse`]; a `.cpr` is
+/// a terminal's own answers and reads through [`cursor_reports`]. Handing either to the other
+/// produces a refusal rather than a wrong number, and naming them apart is what stops a reader
+/// having to find that out.
+fn scene_ext(which: &str) -> &'static str {
+    match which {
+        "05" => "cpr",
+        _ => "vt",
     }
 }

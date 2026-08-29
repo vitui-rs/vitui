@@ -804,3 +804,224 @@ fn the_scene_04_captures_are_short_screens_when_a_row_is_missing() {
         "six rows, because the parser drops the empty ones below the payload after counting them"
     );
 }
+
+// ── Scene 05, the terminal's own answer to `CSI 6n` ──────────────────────────────────────────────
+//
+// **These bytes are not a screen and the refusals are not the dump's.** A capture that raced the
+// paint is a *short* screen; a cursor report that never came is *no reply at all*, and an
+// instrument that read a missing reply as a width would report a number no terminal ever said. So
+// the first tests written here are the four ways [`cursor_reports`] refuses, in the same order the
+// dump parser's were.
+//
+// The hand-written byte strings below are legitimate where a hand-written *screen* would not be: a
+// cursor report's grammar is ECMA-48's and not any terminal's, and what is being asserted is that
+// an absent, short or unterminated one is refused. What a terminal actually answers is the
+// fixtures' job, below.
+
+#[test]
+fn a_terminal_that_never_answered_is_refused_and_never_a_width() {
+    // The scene 05 shape of `screen -X hardcopy`'s zero-byte file: read permissively, a run with no
+    // replies has no rows to disagree, and an empty survey prints as a clean one.
+    assert_eq!(
+        cursor_reports(b"", 3),
+        Err(CprError::NoSentinel),
+        "no sentinel and no replies is a terminal that answered nothing at all"
+    );
+    assert_eq!(
+        cursor_reports(b"\x1b[?62;c", 3),
+        Err(CprError::Count {
+            expected: 3,
+            found: 0
+        }),
+        "the sentinel arrived, so the terminal was alive and answered no cursor report"
+    );
+}
+
+#[test]
+fn a_short_batch_is_refused_rather_than_padded() {
+    let bytes = b"\x1b[1;2R\x1b[1;3R\x1b[?62;c";
+    assert_eq!(
+        cursor_reports(bytes, 5),
+        Err(CprError::Count {
+            expected: 5,
+            found: 2
+        })
+    );
+    let err = cursor_reports(bytes, 5).unwrap_err();
+    assert!(
+        err.to_string().contains('5') && err.to_string().contains('2'),
+        "both numbers, because \"short\" without them is not actionable"
+    );
+}
+
+#[test]
+fn a_reply_that_arrives_after_the_sentinel_is_not_counted() {
+    // The sentinel is what says the terminal has finished with the batch. A reply after it is a
+    // reply to something else — a stray keystroke's answer, or the next run's — and counting it
+    // would let a batch that lost a reply be made up to length by a stranger's.
+    assert_eq!(
+        cursor_reports(b"\x1b[1;2R\x1b[?62;c\x1b[1;9R", 2),
+        Err(CprError::Count {
+            expected: 2,
+            found: 1
+        })
+    );
+}
+
+#[test]
+fn every_reply_must_be_on_the_row_the_scene_wrote() {
+    // The scene homes the cursor to the same row before each cluster, so two replies on two rows
+    // means the screen scrolled or a cluster wrapped — and a column measured on a row the scene did
+    // not write is not a measurement of anything.
+    assert_eq!(
+        cursor_reports(b"\x1b[1;2R\x1b[4;3R\x1b[?62;c", 2),
+        Err(CprError::RowMoved { first: 1, then: 4 })
+    );
+}
+
+#[test]
+fn a_truncated_reply_is_refused() {
+    assert_eq!(
+        cursor_reports(b"\x1b[1;2R\x1b[1;", 2),
+        Err(CprError::UnterminatedReply)
+    );
+}
+
+#[test]
+fn a_batch_of_none_is_a_batch_and_not_a_panic() {
+    // A caller asking for no clusters is a caller with nothing to measure, and a sentinel with
+    // nothing behind it is what such a run answers with. It reaches the row check with no rows,
+    // which is a legitimate empty batch rather than the one accident this reader exists to refuse.
+    assert_eq!(cursor_reports(b"\x1b[?62;c", 0), Ok(Vec::new()));
+}
+
+#[test]
+fn the_column_is_taken_as_the_terminal_reported_it() {
+    // One column and no arithmetic: the subtraction that turns a reported column into an advance is
+    // the caller's, and it is one line in the report rather than a table in the instrument.
+    let got = cursor_reports(b"\x1b[1;2R\x1b[1;3R\x1b[1;1R\x1b[?62;1;6c", 3).unwrap();
+    assert_eq!(
+        got,
+        vec![
+            Reply { row: 1, column: 2 },
+            Reply { row: 1, column: 3 },
+            Reply { row: 1, column: 1 },
+        ]
+    );
+}
+
+// ── Scene 05, over the captures four terminals actually sent ─────────────────────────────────────
+
+const GHOSTTY_WIDTHS: &[u8] = include_bytes!("../fixtures/ghostty-1.3.1-scene05-widths.cpr");
+const KITTY_WIDTHS: &[u8] = include_bytes!("../fixtures/kitty-0.48.2-scene05-widths.cpr");
+const TMUX_WIDTHS: &[u8] = include_bytes!("../fixtures/tmux-3.7c-scene05-widths.cpr");
+const VIA_TMUX_WIDTHS: &[u8] =
+    include_bytes!("../fixtures/ghostty-1.3.1-via-tmux-3.7c-scene05-widths.cpr");
+
+/// Scene 05's corpus, in order, with the advance every arm reported for it on 2026-08-29.
+///
+/// **Hand-written here and not read out of `width_of`.** This half of the crate has never heard of
+/// the engine, which is the arrangement that makes it a gate rather than a mirror — so what these
+/// numbers are is *what four terminals said*, and the engine agreeing with all fifteen is a
+/// separate sentence in the reports.
+const OBSERVED: &[(&str, u16)] = &[
+    ("ascii", 1),
+    ("ascii-pair", 2),
+    ("cjk", 2),
+    ("hangul", 2),
+    ("fullwidth", 2),
+    ("ambiguous", 1),
+    ("combining", 1),
+    ("zero-width", 0),
+    ("emoji", 2),
+    ("vs16", 2),
+    ("vs15", 1),
+    ("zwj-family", 2),
+    ("flag", 2),
+    ("skin-tone", 2),
+    ("keycap", 2),
+];
+
+#[test]
+fn four_terminals_answered_the_same_fifteen_widths() {
+    for (bytes, who) in [
+        (GHOSTTY_WIDTHS, "Ghostty 1.3.1"),
+        (KITTY_WIDTHS, "kitty 0.48.2"),
+        (TMUX_WIDTHS, "tmux 3.7c"),
+        (VIA_TMUX_WIDTHS, "tmux 3.7c under Ghostty"),
+    ] {
+        let replies = cursor_reports(bytes, OBSERVED.len())
+            .unwrap_or_else(|e| panic!("{who}'s capture is not a batch: {e}"));
+        for (reply, (label, advance)) in replies.iter().zip(OBSERVED) {
+            assert_eq!(
+                reply.column - 1,
+                *advance,
+                "{who} moved the cursor differently for {label}"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_cursor_report_never_leaves_the_innermost_terminal() {
+    // **The evidence for the sentence the through-tmux arm's scene-05 heading makes.** That arm's
+    // photograph is the only instrument here that can see what tmux *forwards* to a terminal
+    // downstream of it; its cursor reports never get that far, because tmux answers `CSI 6n` from
+    // its own grid on the pane's pty. Byte-identical, device attributes included — where the two
+    // arms' *screen* captures are two different serialisations of two different grids.
+    assert_eq!(
+        TMUX_WIDTHS, VIA_TMUX_WIDTHS,
+        "the same terminal answered both, so the same bytes came back"
+    );
+}
+
+#[test]
+fn the_three_families_are_three_terminals_and_the_sentinel_says_so() {
+    // The four captures above carry the same fifteen answers, so nothing in them distinguishes the
+    // terminals — which is exactly the shape of a fixture accidentally copied from another arm. The
+    // device-attributes reply is what separates them, and it is in the same bytes for free.
+    let da1 = |bytes: &[u8]| {
+        let text = String::from_utf8_lossy(bytes).to_string();
+        let at = text
+            .rfind("\x1b[?")
+            .expect("every arm answered the sentinel");
+        text[at..].to_string()
+    };
+    assert_eq!(da1(GHOSTTY_WIDTHS), "\x1b[?62;22;52c", "Ghostty 1.3.1");
+    assert_eq!(
+        da1(KITTY_WIDTHS),
+        "\x1b[?62;52;c",
+        "kitty 0.48.2, whose reply carries an empty parameter"
+    );
+    assert_eq!(
+        da1(TMUX_WIDTHS),
+        "\x1b[?1;2;4c",
+        "tmux 3.7c answers as a VT100 with AVO"
+    );
+    assert_ne!(
+        da1(GHOSTTY_WIDTHS),
+        da1(TMUX_WIDTHS),
+        "two arms whose sentinels agreed would be one arm's capture under two names"
+    );
+}
+
+#[test]
+fn the_two_channels_are_not_interchangeable() {
+    // A `.vt` is a screen and a `.cpr` is a terminal's own answers. Handing either to the other's
+    // reader is refused rather than answered wrongly, which is why the fixtures are named apart.
+    //
+    // The **named** error and not `is_err`, because the two refusals have to be refusals for the
+    // right reason: a screen carries no sentinel, and a batch of replies carries no printable
+    // content at all. An `is_err` here would go on passing if either reader started refusing
+    // everything.
+    assert_eq!(
+        cursor_reports(SCENE01, OBSERVED.len()),
+        Err(CprError::NoSentinel),
+        "a screen has no device-attributes reply in it"
+    );
+    assert_eq!(
+        parse(TMUX_WIDTHS, OBSERVED.len(), Dialect::Ecma48),
+        Err(DumpError::Empty),
+        "a batch of cursor reports has no cells in it"
+    );
+}

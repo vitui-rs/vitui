@@ -52,10 +52,10 @@ use std::process::Command;
 use std::time::{Duration, Instant, SystemTime};
 
 use common::{
-    Arm, Excluded, SCENES, header, publish, save_if_asked, scene, scene_argv, section, trailer,
-    wait_for_quiescence,
+    AnswersCpr, Arm, Excluded, SCENES, clear_handshake, header, publish, save_if_asked, scene,
+    scene_argv, section, trailer, wait_for_quiescence,
 };
-use vitui_conform::{Dialect, parse};
+use vitui_conform::Dialect;
 
 /// What stands between the engine and Ghostty in the window this photographs.
 ///
@@ -104,6 +104,36 @@ impl Through {
                               here that can see it: `capture-pane` and tmux's redraw path are \
                               different code, and `attrs_dropped` is about what is rendered"
             }
+        }
+    }
+
+    /// Which terminal answers `CSI 6n` for this variant, and the two answers are **different
+    /// subjects**.
+    ///
+    /// Scene 05's answers come back in band on the scene's own tty, so they come from the innermost
+    /// terminal in the path — and for the tmux variant that is tmux, not the Ghostty window it is
+    /// drawn in. This is where the two axes come apart: the *photograph* sees what tmux forwarded
+    /// to Ghostty, which is the only thing this variant exists to see, and the *cursor report*
+    /// never leaves tmux and duplicates the plain tmux arm's subject exactly.
+    ///
+    /// Printed rather than excluded, because the rows are real answers about a real terminal. What
+    /// would be dishonest is the heading over them, and this is the field that stops it saying
+    /// Ghostty.
+    fn answers_cpr(&self) -> AnswersCpr {
+        match self {
+            Self::Nothing => AnswersCpr {
+                who: "Ghostty",
+                why: "Ghostty is an endpoint, so nothing sits between the scene's tty and it",
+            },
+            Self::Tmux(_) => AnswersCpr {
+                who: "tmux",
+                why: "**not Ghostty, and this is where the arm's two halves come apart.** A cursor \
+                      report is answered by the innermost terminal, so it never leaves tmux — \
+                      where this arm's *photograph* is the only instrument in this directory that \
+                      can see what tmux forwarded onward. These rows duplicate the plain tmux \
+                      arm's exactly, and the column is headed with who answered rather than with \
+                      this arm's title",
+            },
         }
     }
 
@@ -237,11 +267,11 @@ fn drive_all(through: &Through) -> Result<(), String> {
     let mut arm: Option<Arm> = None;
 
     for which in SCENES {
-        let (this, dump, bytes, size) = drive(through, which)?;
+        let (this, captured, bytes, size) = drive(through, which)?;
         if arm.is_none() {
             report.push_str(&header(&this, &bytes));
         }
-        let (text, a, f) = section(&this, which, &dump, &size);
+        let (text, a, f) = section(&this, which, &captured, &size);
         sections.push_str(&text);
         asked += a;
         failures += f;
@@ -257,9 +287,9 @@ fn drive_all(through: &Through) -> Result<(), String> {
 fn drive(
     through: &Through,
     which: &str,
-) -> Result<(Arm, vitui_conform::Dump, Vec<u8>, String), String> {
+) -> Result<(Arm, common::Capture, Vec<u8>, String), String> {
     let ready = std::env::temp_dir().join(format!("conform-ready-{}-{which}", std::process::id()));
-    let _ = std::fs::remove_file(&ready);
+    clear_handshake(&ready);
     let command = through.command(&ready, which)?;
 
     let was = terminal_ids()?;
@@ -286,7 +316,7 @@ fn drive(
         r#"tell application "Ghostty" to close terminal id "{terminal}""#
     ));
     through.cleanup();
-    let _ = std::fs::remove_file(&ready);
+    clear_handshake(&ready);
     outcome
 }
 
@@ -297,19 +327,43 @@ fn capture_and_compare(
     terminal: &str,
     ready: &Path,
     launched: Instant,
-) -> Result<(Arm, vitui_conform::Dump, Vec<u8>, String), String> {
+) -> Result<(Arm, common::Capture, Vec<u8>, String), String> {
     let size = wait_for_quiescence(ready)?;
-    let (bytes, capture_elapsed) = capture(terminal)?;
+    // **The window is not photographed for scene 05**, and that is `common::capture`'s decision
+    // rather than this arm's: the terminal answers `CSI 6n` in band on the scene's own tty, so the
+    // **capture** — the `write_screen_file` action, the undocumented `vt` writer and the hunt for
+    // the file it left in a fresh temp directory — is out of its path entirely.
+    //
+    // **The automation grant is not**, and saying so was wrong the first time this comment was
+    // written. This arm opens its window with `osascript`, addresses it by set difference over
+    // `terminal_ids`, and closes it with `osascript` — three Apple Events before any scene runs. It
+    // is the *capture surface* that scene 05 does without, and for an arm that could launch a
+    // terminal some other way that is the whole of the requirement. Ghostty is not that arm.
+    let mut capture_elapsed = Duration::ZERO;
+    let (captured, bytes) = common::capture(which, ready, Dialect::Ecma48, || {
+        let (bytes, elapsed) = capture(terminal)?;
+        capture_elapsed = elapsed;
+        Ok(bytes)
+    })?;
     save_if_asked(which, &bytes)?;
-    let dump = parse(&bytes, common::rows_expected(which), Dialect::Ecma48)
-        .map_err(|e| format!("the capture is not a screen: {e}"))?;
     let mut notes = vec![
-        format!(
-            "**Launch to capture:** {} ms, of which the capture round trip alone was {} ms — \
-             reported, never gated. It is AppleScript round trips and a window opening",
-            launched.elapsed().as_millis(),
-            capture_elapsed.as_millis()
-        ),
+        match which {
+            "05" => format!(
+                "**Launch to answer:** {} ms — reported, never gated. **This scene is not \
+                 photographed:** the terminal answers `CSI 6n` in band on the scene's own tty, so \
+                 the `write_screen_file` action and the undocumented `vt` writer are out of its \
+                 path. **The automation grant is not** — this arm still opens, addresses and closes \
+                 its window over AppleScript, which is three Apple Events before the scene runs. \
+                 What scene 05 does without is the *capture surface*",
+                launched.elapsed().as_millis()
+            ),
+            _ => format!(
+                "**Launch to capture:** {} ms, of which the capture round trip alone was {} ms — \
+                 reported, never gated. It is AppleScript round trips and a window opening",
+                launched.elapsed().as_millis(),
+                capture_elapsed.as_millis()
+            ),
+        },
         "**Geometry:** not ours to set. `surface configuration` offers a font size and no rows \
          or columns, so the scene draws at the top left of whatever it is given"
             .to_string(),
@@ -321,10 +375,11 @@ fn capture_and_compare(
             .unwrap_or_else(|_| "unknown".into()),
         mechanism: "`write_screen_file:…,vt`",
         measures: through.measures(),
+        answers_cpr: through.answers_cpr(),
         not_compared: through.not_compared(),
         notes,
     };
-    Ok((arm, dump, bytes, size))
+    Ok((arm, captured, bytes, size))
 }
 
 /// Ask Ghostty to write its screen out, and find the file it wrote.

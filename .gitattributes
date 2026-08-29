@@ -14,3 +14,7 @@
 # `fuzz/corpus/` is the same claim for the same reason: the committed corpus is the gate, and a
 # corpus entry whose bytes were adjusted on the way into the index is testing something else.
 fuzz/corpus/** -text
+
+# A cursor report is not text either, and for the reason above. `.cpr` is the scene-05 channel:
+# the terminal's own answers, read by `cursor_reports` rather than by the dump parser.
+*.cpr -text

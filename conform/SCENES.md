@@ -17,7 +17,15 @@ conclusion and wrote its own list for the same reason.
 | **Ghostty** | Ghostty | its own screen dump, over an AppleScript surface. Needs a window server and a macOS automation grant |
 | **Ghostty-via-tmux** | **what tmux forwards** | the engine into tmux into Ghostty, photographing Ghostty. Ghostty alone agrees 11/11, so a disagreement here is tmux's. **The only arm that can see this**, because `capture-pane` and tmux's redraw path are different code and `attrs_dropped` is about what is rendered |
 | **kitty** | kitty | `kitten @ get-text --ansi` over a unix socket. No automation grant, no clipboard, no z-order — and **the only *emulator* arm that can be handed a size**, in cells, which Ghostty's AppleScript surface cannot do |
-| **Terminal.app** | Terminal.app | plain text only, so glyph-grid scenes and nothing else. Not built |
+| **Terminal.app** | Terminal.app | plain text only, so glyph-grid scenes and nothing else. Not built — **and scene 05 changes what that sentence excludes**, because a cursor report needs no capture surface at all |
+
+**Scene 05 is answered by a different party than the rows above it**, and only one arm is affected.
+Its answers come back **in band**, on the scene's own tty, so they come from the **innermost**
+terminal in the path and a capture surface further out cannot change that. For every arm but one
+that is the same terminal the photograph measures. For **Ghostty-via-tmux** it is not: the
+photograph sees what tmux *forwards*, and the cursor reports never leave tmux — the two fixtures are
+**byte-identical** to the plain tmux arm's, device attributes included, which `tests.rs` asserts.
+Each report heads that scene's columns with **who answered** rather than with the arm's title.
 
 A row that does not say which of these it came from is not a result. **The tmux pair is why that
 sentence needed a fourth row**: *tmux* and *what tmux does to a terminal downstream of it* gave
@@ -208,3 +216,84 @@ Any size. Emit a truecolor colour as `38:2::r:g:b` and again as `38;2;r;g;b`, an
 This is the scene that answers [arch 23](../.scratch/vitui-engine-architecture/issues/23-the-two-sgr-spellings-and-which-one-is-the-default.md)'s
 third question for one terminal at a time. Both emulators tested normalise to semicolons on output,
 which is what makes the comparison meaningful — agreement on the output is evidence about the parse.
+
+## 05 — what does this emulator think this cluster is worth
+
+Fifteen clusters, one row, one column, and no picture at all. Written at column 1 with `CSI 6n`
+behind each one and `CSI c` behind the batch; the column that comes back is the advance plus one.
+
+**This is the only scene here whose answer does not come back through a photograph**, and that is
+the property worth stating first. Scene 02 exists to be unable to answer *what is at column 3*: a
+grid-to-text dump emits no padding cell for a double-width glyph, so recovering a column from it
+would need a width table, and a width table is the thing under test. A cursor report has no such
+problem — the number is the **emulator's own UAX #11 verdict**, reached by the emulator's tables and
+reported by the emulator, with nothing of this repository's in the path.
+
+The consequence is larger than the scene: **the capture surface is out of the path entirely**, so
+this is the one scene an arm can answer having done nothing but launch the scene — and the one an arm
+whose capture surface carries **no style at all** could still answer in full.
+
+What that does *not* say is that an arm needs nothing else. Whatever an arm required in order to open
+a terminal it still requires: the Ghostty arm opens, addresses and closes its window over AppleScript,
+so its automation grant is in the path for every scene including this one. The claim is about the
+capture and about nothing else, and the difference decides which arms this scene unblocks.
+
+### Three rows are compared and twelve are surveyed, and that split is a decision
+
+`ucd.rs` says in as many words that the engine's tables are **authoritative**: it pins three answers
+as policy rather than standard — ambiguous width is narrow, a cluster's width is its base's and
+never the sum of its code points, VS15 changes a presentation and not a width — and spec §8's
+`CHA`-after-non-ASCII rule is what **bounds** a disagreement instead of following it.
+
+So a terminal that answers differently is not misbehaving in any sense this repository acts on.
+There is no mechanism that would read such a `quirks.rs` row, and an entry nothing reads is this
+backlog's own recurring defect. **A `FAILED` in the survey would be the instrument inventing one.**
+
+What *is* still a defect is the instrument not working, and three rows are held to that: `ascii`,
+`ascii-pair` and `cjk`. Their expectations are **hand-written in the scene** and deliberately not
+asked of `width_of` — a row that took its number from the engine would be checking the engine
+against itself. `ascii-pair` is there because a probe that answered a constant would pass `ascii`.
+
+### The refusals, and they are not the dump's
+
+A capture that raced the paint is a *short screen*. A cursor report that never came is **no reply at
+all**, and an instrument that read a missing reply as a width would report a number no terminal ever
+said — `screen -X hardcopy`'s zero bytes wearing this scene's clothes. `cursor_reports` therefore
+refuses four ways, and they say four different things:
+
+- **no sentinel** — nothing says the terminal finished with the batch. This is what a read that gave
+  up early looks like.
+- **a count that is not the scene's** — including *the sentinel arrived and no cursor report did*,
+  which is a terminal that does not implement DSR and is a different fact from the one above.
+- **a reply after the sentinel is not counted**, or a batch that lost an answer could be made up to
+  length by a stranger's.
+- **a row that moved** — the scene writes every cluster on one row, so two rows means the screen
+  scrolled or a cluster wrapped, and no column in that batch is a width.
+
+### What it found, on four arms, 2026-08-29
+
+**Fifteen for fifteen on all four, and the twelve surveyed rows agree with the engine's tables
+everywhere.** The corpus is not a soft one: it carries the VS16 and VS15 pair, a ZWJ family, a
+regional-indicator flag, a skin-tone modifier, a keycap sequence, a combining acute, a zero-advance
+cluster and UAX #11's ambiguous class.
+
+Two of the rows were chosen because `ucd.rs` names them as disagreements, and **neither
+reproduces**:
+
+| `ucd.rs` says | measured here |
+|---|---|
+| *only 7 of 23 surveyed widen a VS16 emoji correctly* | Ghostty 1.3.1, kitty 0.48.2 and tmux 3.7c all widen it |
+| *kitty sums a ZWJ family emoji to 6 where the answer is 2* | kitty 0.48.2 answers **2** |
+
+That paragraph cites a **survey in a research document**, and this is the first thing in this
+repository to observe any of it. The kitty row was checked a second time with a raw `printf` control
+probe with no vitui code anywhere in its path, because *run the control before the instrument* is
+what the kitty arm's conceal row came out of — and because an instrument reporting that a recorded
+disagreement has gone away is the one result most worth doubting. The control agreed on all seven
+clusters it was given.
+
+**Nothing here changes the decision.** The engine's tables stay authoritative and §8's rule stays
+the bound; what moved is that the cited evidence for the disagreement is now known to be stale on
+the three families §10 puts in tier 1, at the versions on this machine. The right reading is
+`FINDINGS.md`'s: **the survey needs an arm that disagrees**, and the two candidates are a terminal
+of a different VT lineage and a locale this suite does not set.

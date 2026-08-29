@@ -15,17 +15,18 @@ that arrangement cannot catch:
 This directory is the missing fourth party. It is
 [production ticket 04](../.scratch/vitui-engine-production/issues/04-the-conformance-harness.md).
 
-## Status: stages 0, 1, 2, two scenes and three emulator families
+## Status: stages 0, 1, 2, 3, three scenes and three emulator families
 
-**Four arms, four committed reports, three emulator families, two `quirks.rs` entries and one closed
-architecture ticket came out of them.** Thirty-four tests, no emulator in the loop for any of them.
+**Four arms, four committed reports, three emulator families, two `quirks.rs` entries, one closed
+architecture ticket and one stale citation came out of them.** Forty-four tests, no emulator in the
+loop for any of them.
 
-| arm | scene 01 | scene 04 | what its rows are about |
-|---|---|---|---|
-| `cargo run --example ghostty` | **11/11** | **6/6** | Ghostty 1.3.1's own cell state |
-| `cargo run --example tmux` | **10/10**, one `by design` | **6/6** | what tmux 3.7c *stores* — `capture-pane` re-serialises tmux's grid |
-| `cargo run --example ghostty -- --through-tmux` | **10/10**, one `by design` | **6/6** | what tmux 3.7c *forwards*, read through Ghostty |
-| `cargo run --example kitty` | **8/8**, one `cannot ask`, two `by design` | **6/6** | kitty 0.48.2's own cell state |
+| arm | scene 01 | scene 04 | scene 05 | what its rows are about |
+|---|---|---|---|---|
+| `cargo run --example ghostty` | **11/11** | **6/6** | **3/3**, and 12 of 12 surveyed | Ghostty 1.3.1's own cell state |
+| `cargo run --example tmux` | **10/10**, one `by design` | **6/6** | **3/3**, and 12 of 12 surveyed | what tmux 3.7c *stores* — `capture-pane` re-serialises tmux's grid |
+| `cargo run --example ghostty -- --through-tmux` | **10/10**, one `by design` | **6/6** | **3/3**, and 12 of 12 surveyed — **tmux's, not Ghostty's** | what tmux 3.7c *forwards*, read through Ghostty |
+| `cargo run --example kitty` | **8/8**, one `cannot ask`, two `by design` | **6/6** | **3/3**, and 12 of 12 surveyed | kitty 0.48.2's own cell state |
 
 **An arm runs every scene or it is not a run**, and one report per arm holds a section for each —
 same rule, same reason, as one file per arm: a section that is missing reads as a win. There is
@@ -42,6 +43,27 @@ It is also the only scene that does **not** drive the engine, and it cannot: the
 bisected pair before it serialises anything, so an engine-driven scene could photograph only the
 repair. That is why wiring the answer took no measurement away from it, where the `--through-tmux`
 arm's overline row lost its.
+
+**Scene 05 is the only one whose answer does not come back through a photograph**, and that is worth
+as much as its numbers. It writes fifteen clusters at column 1 with `CSI 6n` behind each and `CSI c`
+behind the batch; the column that comes back is the **emulator's own UAX #11 verdict**, with none of
+this repository's tables in the path. **The capture surface is out of it entirely** — Ghostty's
+`write_screen_file` and its undocumented `vt` writer, kitty's remote-control socket, `capture-pane` —
+so the arm launches the scene and does nothing else. Whatever an arm needed in order to *open* a
+terminal it still needs: the Ghostty arm's automation grant is in the path here as much as anywhere,
+and the claim is about the capture and about nothing else. It is why the scene-05 column above is
+headed by **who answered** rather than by the arm, and why the `--through-tmux` row says tmux: a
+cursor report never leaves the innermost terminal, and that arm's two fixtures are byte-identical to
+the plain tmux arm's.
+
+Three of its fifteen rows are compared against hand-written numbers and twelve are **surveyed**. The
+survey never fails, because `ucd.rs` decides that the engine's tables are authoritative and §8's
+`CHA`-after-non-ASCII rule bounds the disagreement rather than following it — so a `FAILED` there
+would be the instrument inventing a defect. **What it found is that the two disagreements `ucd.rs`
+cites do not reproduce**: all three families widen a VS16 emoji, and kitty 0.48.2 answers 2 for a ZWJ
+family where that paragraph records 6. The citation is a survey in a research document; this is the
+first thing here to look. `ucd.rs` now says so, the decision is untouched, and `FINDINGS.md` records
+what the survey needs next — an arm that disagrees.
 
 tmux's one disagreement was overline, and it took three arms to attribute: tmux accepts SGR 53, stores
 it, hands it back when asked, and never puts it on the wire. kitty's two are conceal and overline, and
@@ -102,18 +124,23 @@ because it could be the software or it could be the drift. An arm brings four th
 itself, **including the rows its capture format cannot ask**, declared before the run.
 
 `CONFORM_SAVE_CAPTURE=<prefix>` writes the raw bytes out, one file per scene —
-`fixtures/kitty-0.48.2` becomes `fixtures/kitty-0.48.2-scene04-pairs.vt`. It is **opt-in and never
+`fixtures/kitty-0.48.2` becomes `fixtures/kitty-0.48.2-scene04-pairs.vt`. **The extension says which
+channel it came through**: a `.vt` is a screen and reads through `parse`, a `.cpr` is a terminal's own
+answers and reads through `cursor_reports`, and handing either to the other produces a refusal rather
+than a wrong number — which `tests.rs` asserts by name. It is **opt-in and never
 automatic**: a driver that rewrote its own fixtures on every run would turn the gate into a mirror.
 **And it will not overwrite one.** *A capture is never regenerated to make something pass* was a
 sentence in three files; it is a branch now. An existing fixture is left alone and said so on stderr
 rather than failing the run — adding a scene means running an arm whose other scenes are already
 captured.
 
-Stage 3 (CPR and the width questions) is open, and **smaller than it was**: what it was named for was
-attacking architecture ticket 20, and scene 04's sentinels did that without a CPR reader. What remains
-there is the width questions proper. Stage 5 (mode 2026) is open. Stage 4 has three emulator
-families now — Ghostty, kitty and, as a target rather than an emulator, tmux — and what it still owes
-is a second **VT lineage**: Terminal.app, glyph-grid scenes only, not built. See
+Stage 3 (CPR and the width questions) landed 2026-08-29 as scene 05. Stage 5 (mode 2026) is open.
+Stage 4 has three emulator families now — Ghostty, kitty and, as a target rather than an emulator, tmux — and what it still owes
+is a second **VT lineage**: Terminal.app, not built — and **scene 05 changes what that arm would be
+limited to.** Ticket 04 records it as glyph-grid scenes only, because its `sdef` says `contents` is
+`type="text" access="r"` with no styled variant. That is a fact about the *capture surface*, and
+scene 05 has no capture surface in its path — so such an arm could answer scene 05 in full, scene 04
+as text, and only scene 01 not at all. See
 [ticket 04](../.scratch/vitui-engine-production/issues/04-the-conformance-harness.md).
 
 ## Why it reports and never gates
@@ -163,11 +190,15 @@ form — the missing row hiding inside a green one.
 | `kitty-0.48.2-scene04-pairs.vt` | the same scene as kitty holds it: the same four text rows, and the blanked half wearing **the orphan's own background**. The one row on which the three families differ, and the reason the engine may not delegate the repair |
 | `tmux-3.7c-scene04-pairs.vt` | the same scene as tmux's own grid holds it — agreeing with Ghostty on all five |
 | `ghostty-1.3.1-via-tmux-3.7c-scene04-pairs.vt` | the same scene **through** tmux into Ghostty, agreeing with both. It is also the arm that found the probe's own defect: `CSI 2 J` pushed the picture into tmux's history and the capture came back with the scene on it twice |
+| `ghostty-1.3.1-scene05-widths.cpr` | scene 05 as Ghostty answered it — fifteen `CSI 6n` replies and the device-attributes sentinel behind them. **Not a screen**: these are the terminal's own answers, and the file is what a width measurement with none of our tables in it looks like |
+| `kitty-0.48.2-scene05-widths.cpr` | the same fifteen as kitty answered them, including **2** for a ZWJ family emoji where `ucd.rs` records kitty summing it to 6 |
+| `tmux-3.7c-scene05-widths.cpr` | the same fifteen as tmux answered them, and a `?1;2;4c` sentinel — a VT100 with AVO |
+| `ghostty-1.3.1-via-tmux-3.7c-scene05-widths.cpr` | **byte-identical to the file above**, which is the evidence that a cursor report never leaves the innermost terminal. The two arms' *screen* captures are two serialisations of two grids; their reply captures are one terminal answering twice |
 
 Raw bytes, as captured. Do not regenerate them to make a test pass: they are evidence, and a fixture
 that moves because the code moved is not evidence of anything. `save_if_asked` now refuses to.
 
-**`.gitattributes` marks `*.vt` as `-text`, and that line is load-bearing.** Without it,
+**`.gitattributes` marks `*.vt` and `*.cpr` as `-text`, and that line is load-bearing.** Without it,
 `core.autocrlf = input` rewrote CRLF to LF inside the Ghostty capture on the way into the index —
 1949 bytes became 1926, twenty-three carriage returns disappeared, and every test still passed
 because the parser skips CR the way a terminal does. A test now asserts the twenty-three are there.
@@ -185,9 +216,16 @@ break.
 
 Written down because a limit nobody wrote down becomes a claim.
 
-- **Which column a glyph is in.** Both capture formats emit a double-width glyph with no padding
-  cell and no continuation marker, so architecture ticket 20 is not answerable by any dump. It waits
-  on production ticket 06's ASCII sentinels or on CPR. See `FINDINGS.md`.
+- **Which column a glyph is in, *from a dump*.** Both capture formats emit a double-width glyph
+  with no padding cell and no continuation marker, so architecture ticket 20 was not answerable by
+  any dump — production ticket 06's ASCII sentinels are what settled it. **Scene 05 lifts the
+  general form of this limit and lifts it only there**: a cursor report gives the emulator's own
+  column with no width table in the path, but it can only ever answer *what did that cluster
+  advance*, never *what is at column 3*. See `FINDINGS.md`.
+- **A width the terminal renders but does not advance for.** A cursor report is the emulator's
+  arithmetic and not its glyph cache, so a terminal that advances two columns and paints one is a
+  terminal this scene calls correct — the same gap as the `vt` dump's *recorded, not drawn*, one
+  axis over.
 - **Curly and dashed underlines as per-bit rows.** They light two of the three underline bits each;
   the committed fixtures cover them instead.
 - **Which of two capture formats it is holding.** It cannot work that out and does not try:
@@ -205,6 +243,10 @@ Written down because a limit nobody wrote down becomes a claim.
 - **What the pixels look like.** The `vt` dump is Ghostty's own cell state re-serialised, so it says
   what the terminal *recorded*, not what it *drew*. A terminal that stores an attribute and renders
   nothing agrees here and disagrees on screen.
+- **A disagreement, so far.** Four arms answered scene 05 identically, so its table has no spread
+  in it and fifteen ticks cannot distinguish *the terminals agree* from *the questions are easy*.
+  The corpus is not the soft part — a different VT lineage and a locale this suite does not set are
+  what it is missing, and `FINDINGS.md` names both.
 - **Anything about timing.** Mode 2026 is stage 5, and the expectation is already recorded: the
   AppleScript round trip's jitter is the same order as Alacritty's 150 ms force-flush limit, so the
   sub-200 ms end may be unanswerable on this machine.

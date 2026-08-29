@@ -3,6 +3,145 @@
 Hand-written and dated, because a number and what it means are two different artefacts with two
 different lifetimes. `REPORT.md` is generated; this is not.
 
+## 2026-08-29 — stage 3, and the two disagreements `ucd.rs` cites do not reproduce
+
+Scene 05 asks the terminal itself what a cluster is worth: fifteen clusters written at column 1,
+`CSI 6n` behind each, `CSI c` behind the batch. **Four arms answered fifteen for fifteen, and the
+twelve surveyed rows agree with the engine's tables everywhere.**
+
+That headline is the least interesting sentence here. Five other things came out of the run.
+
+### The claim the scene was built around is stale, and it was a citation rather than a measurement
+
+`crates/vitui-engine/src/ucd.rs`'s module docs are where *our tables are authoritative* is decided,
+and the paragraph supports it with two named disagreements. Both were in the corpus on purpose:
+
+| `ucd.rs` says | measured 2026-08-29 |
+|---|---|
+| *only 7 of 23 surveyed widen a VS16 emoji correctly* | Ghostty 1.3.1, kitty 0.48.2 and tmux 3.7c all widen `U+2764 U+FE0F` to 2 |
+| *kitty sums a ZWJ family emoji to 6 where the answer is 2* | kitty 0.48.2 answers **2** |
+
+The sentence cites
+`.scratch/vitui-engine-architecture/research/02-grapheme-clustering-and-width.md` — **a survey in a
+research document**, gathered from other people's write-ups and never observed here. This is the
+first instrument in this repository to look, and on the three families §10 puts in tier 1, at the
+versions on this machine, there is nothing left of either disagreement.
+
+**Nothing about the decision moves.** The engine's tables stay authoritative, §8's
+`CHA`-after-non-ASCII rule stays the bound, and a terminal agreeing is not a reason to start
+following one. What moves is the *evidence*: the paragraph now cites a survey with a date on it and
+says which half of it this directory has been able to check.
+
+It is also this backlog's opening shape for the eighth time, with the sign reversed. A false MSRV,
+a round trip agreeing with itself, a mask nothing read, a predicate no gate ran, a committed report
+nobody re-ran — and now **a citation nobody re-measured**, which was load-bearing not for a silence
+but for a paragraph's rhetoric.
+
+### An agreement is the one result worth doubting, so the control was run twice
+
+An instrument reporting that a recorded disagreement has gone away is indistinguishable, from the
+outside, from an instrument that is not measuring anything. So the kitty ZWJ row was taken again
+with a raw `printf` control probe — a shell script with literal UTF-8 in it, `stty raw -echo`, `dd`,
+and **no vitui code anywhere in its path**. Seven clusters, and it agreed with the arm on all seven:
+`A` 1, `漢` 2, the ZWJ family **2**, VS16 2, the flag 2, VS15 1, `U+200B` **0**.
+
+*Run the control before the instrument* is the discipline the kitty arm's conceal row came out of,
+and it is what separates *the terminal does not do it* from *the instrument cannot see it*. Here it
+separated *the disagreement is gone* from *the probe is answering a constant*.
+
+**The control's own first run was wrong, and its defect is worth the paragraph.** It built its
+clusters with `printf '\U1F468\U200D…'`, and macOS `/bin/sh` is bash 3.2, whose `printf` does not
+implement `\U` — so the terminal was handed the literal 33-character string and answered column 34.
+A control that produces a plausible-looking wrong number is worse than no control, and what made it
+loud was that 34 is not a width. The clusters are literal UTF-8 in the file now.
+
+### A cursor report never leaves the innermost terminal, and one arm's two halves came apart
+
+The Ghostty-via-tmux arm exists to see what tmux **forwards** — `capture-pane` and tmux's redraw
+path are different code, which is how `quirks.rs`'s fourth entry was attributed. Scene 05 cannot use
+that: tmux answers `CSI 6n` from its own grid on the pane's pty, and the question never reaches
+Ghostty.
+
+The two fixtures are **byte-identical**, device attributes included:
+`tmux-3.7c-scene05-widths.cpr` and `ghostty-1.3.1-via-tmux-3.7c-scene05-widths.cpr`. `tests.rs`
+asserts it, which turns the sentence into a gate.
+
+So the arm's two channels have **two different subjects for one scene**, and the fix is a heading
+rather than an exclusion: the rows are real answers about a real terminal, and what would have been
+dishonest is a column headed *Ghostty* over them. `Arm::answers_cpr` is what heads them, and it is
+two fields because one of them is a table column and the other is a paragraph.
+
+This is *not* a sixth kind of non-number. `cannot ask` would have been wrong — the question was
+asked and answered — and declaring the rows would have made every one of them `STALE`, since a row
+excluded that agrees anyway counts as a failure. The rule held; it was the label that was missing.
+
+### The scene needs no capture surface at all, and that is a fact about stage 4
+
+Every other scene here is a picture, and an arm's whole job is to take one. This one's answers arrive
+in band, so the **capture surface** is out of its path — Ghostty's `write_screen_file` and its
+undocumented `vt` writer, kitty's remote-control socket, `capture-pane`. The arm launches the scene
+and does nothing else.
+
+**Not everything an arm needs, and the first draft of this paragraph said otherwise.** Whatever it
+took to open a terminal it still takes: the Ghostty arm opens, addresses and closes its window over
+AppleScript, so its automation grant is in the path for this scene as much as for the other two. The
+claim is about the capture, and stating it wider was the report claiming more than was measured —
+which is what this directory is for.
+
+**That changes what Terminal.app's arm is blocked on.** Ticket 04 records it as *plain text only, so
+glyph-grid scenes and nothing else*, read out of its own `sdef`: `contents` and `history` are
+`type="text" access="r"` and no styled variant exists. That is a fact about the **capture surface**,
+and scene 05 has no capture surface in it — so a Terminal.app arm could answer scene 05 **in full**,
+scene 04 as text, and only scene 01 not at all. Recorded here rather than acted on; stage 4 is where
+it lands.
+
+### A review found four, and the sharpest was a published claim rather than code
+
+**A stale answers file could have been read as this run's measurement.** The three arms deleted the
+readiness file before and after a run and left `<ready>.cpr` beside it; both names carry the process
+id, so a run whose scene never got as far as asking could have found a **previous** run's answers
+under its own name. That is the accident this scene's four refusals exist to prevent, arriving
+underneath all four of them — the batch well formed, the count right, the rows one, and the
+measurement somebody else's. `common::clear_handshake` removes both halves now, and it is one
+function so that the fourth arm cannot be the one that forgets.
+
+**The comment and the report note overclaimed what scene 05 does without.** Both said the automation
+grant was out of the path, and for the Ghostty arm that is false: it opens its window with
+`osascript`, addresses it by set difference over `terminal_ids`, and closes it with `osascript` —
+three Apple Events before the scene runs. What scene 05 does without is the **capture surface**, and
+that is the whole of what unblocks a Terminal.app arm anyway. A committed report claiming more than
+was measured is the failure this directory exists to prevent, so it is worth more than the two code
+defects beside it.
+
+Two smaller ones. `cursor_reports` indexed `replies[0]` after its count check, so a caller asking for
+none — a legitimate request, satisfied by a sentinel with nothing behind it — panicked on a
+well-formed capture. And the scene's read loop treated an interrupted read as the terminal declining
+to answer, which would have surfaced as `NoSentinel`: the instrument blaming the emulator for its own
+interruption, one line away from the paragraph warning against exactly that. Its empty-read case also
+spun at 100% of a core for the whole deadline on a descriptor that is not a terminal, which is a
+defect this repository has already met once under a different name.
+
+### The survey needs an arm that disagrees, and there are two candidates
+
+Four arms with identical answers is a survey with no spread in it, and a table of fifteen ticks
+cannot tell *the terminals agree* from *the scene is asking easy questions*. The corpus is not soft —
+it carries both variation selectors, a ZWJ family, a regional-indicator pair, a skin-tone modifier, a
+keycap sequence, a combining acute, a zero-advance cluster and UAX #11's ambiguous class — so what is
+missing is a party rather than a row.
+
+Two candidates, in order of what they would cost:
+
+1. **A different VT lineage.** Terminal.app is on every Mac, is a different lineage, and by the
+   paragraph above can answer this scene in full. It is also the arm most likely to disagree: the
+   three families measured here are all recent and all implement UAX #29 clustering.
+2. **A locale.** `ambiguous` is the one row where a terminal is *entitled* to disagree — UAX #11
+   class `A` is width 2 under an East Asian locale and the engine pins it narrow **by policy**. This
+   suite sets no locale, so all four arms were asked the question in the configuration least likely
+   to produce the answer the policy exists to overrule.
+
+Neither is a defect in what shipped. They are what the second reading of this table needs, and
+writing them down is what stops fifteen ticks being read as a result they are not.
+
 ## 2026-08-28 — the sixth quirk entry, and it came from a screenshot rather than from this directory
 
 **JetBrains' IDE terminal mis-parses the colon form of SGR 38/48**, and it is the sixth row of

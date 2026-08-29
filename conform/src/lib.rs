@@ -631,5 +631,183 @@ pub fn default_colours(bytes: &[u8]) -> (Option<Colour>, Option<Colour>) {
     (read("10"), read("11"))
 }
 
+// ── Scene 05: the terminal's own answer to `CSI 6n`, which is not a screen ───────────────────────
+
+/// One `CSI r ; c R` the terminal sent back, exactly as it reported it.
+///
+/// **No arithmetic.** The scene homes the cursor to column 1, writes one cluster and asks; the
+/// advance is `column - 1`, and that subtraction is the caller's one line rather than a step inside
+/// the instrument. What this type carries is what arrived.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Reply {
+    /// The row the terminal says the cursor is on, one-based.
+    pub row: u16,
+    /// The column the terminal says the cursor is on, one-based.
+    pub column: u16,
+}
+
+/// Why a batch of cursor reports is not a measurement.
+///
+/// **The refusals come first here for the reason they came first for the dump**, and the shape of
+/// the accident is the same one ticket 04 predicted: a missing answer that reads as agreement.
+/// `screen -X hardcopy` exits 0 and writes a zero-byte file; a terminal that does not implement DSR
+/// answers nothing at all, and a survey with no rows in it prints as a clean survey.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum CprError {
+    /// No device-attributes reply, so nothing says the terminal finished with the batch.
+    ///
+    /// **This is the one that separates *slow* from *silent*.** A read that stopped early has some
+    /// replies and no sentinel; a terminal that does not answer DSR has the sentinel and no
+    /// replies. Reported as different errors because they have different causes and only one of
+    /// them is a fact about the terminal.
+    NoSentinel,
+    /// Fewer — or more — cursor reports before the sentinel than the scene asked for.
+    Count {
+        /// How many clusters the scene probed.
+        expected: usize,
+        /// How many answers arrived before the sentinel.
+        found: usize,
+    },
+    /// Two replies name two different rows.
+    ///
+    /// The scene homes the cursor to one row before every cluster, so this is a screen that
+    /// scrolled or a cluster that wrapped — and a column measured on a row the scene did not write
+    /// is not a measurement of anything.
+    RowMoved {
+        /// The row the first reply named.
+        first: u16,
+        /// The row that disagreed with it.
+        then: u16,
+    },
+    /// A `CSI` began and the bytes ran out before it ended.
+    UnterminatedReply,
+}
+
+impl fmt::Display for CprError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NoSentinel => write!(
+                f,
+                "no device-attributes reply, so nothing says the terminal finished with the batch \
+                 — the read gave up before the answers arrived, or they never will"
+            ),
+            Self::Count { expected, found } => write!(
+                f,
+                "the scene probed {expected} clusters and {found} cursor reports came back before \
+                 the sentinel — a batch that lost an answer cannot say which cluster the rest \
+                 belong to"
+            ),
+            Self::RowMoved { first, then } => write!(
+                f,
+                "the replies name row {first} and then row {then}; the scene writes every cluster \
+                 on one row, so the screen scrolled or a cluster wrapped and no column here is a \
+                 width"
+            ),
+            Self::UnterminatedReply => {
+                write!(
+                    f,
+                    "a control sequence began and the bytes ran out before it ended"
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for CprError {}
+
+/// The terminal's answers to a batch of `CSI 6n`, refused unless there are exactly `expected` of
+/// them on one row with a device-attributes reply behind them.
+///
+/// # This is the one instrument here with none of the engine's tables in the loop
+///
+/// Every other comparison in this directory reads a *dump*, which is a terminal re-serialising its
+/// own grid — and a grid-to-text dump emits no padding cell for a double-width glyph, so *how many
+/// columns did that cluster take* is not a question it can answer at all (see the module docs, and
+/// `SCENES.md`'s scene 02, which is kept for being unable to answer it).
+///
+/// A cursor report can. Print a cluster at a known column, ask, and the number that comes back is
+/// **the emulator's own UAX #11 verdict**, arrived at by the emulator's tables and reported by the
+/// emulator. Nothing in this repository is in that path.
+///
+/// # The sentinel, and why it is not a timeout
+///
+/// The batch ends with `CSI c`, whose reply the terminal cannot send before it has processed
+/// everything ahead of it. So the read stops on an **observed** condition rather than on a delay
+/// tuned until it passed — the same discipline as the scene's quiescence handshake, and the shape
+/// `detect.rs` established one crate over.
+///
+/// # Errors
+///
+/// [`CprError`], and the four of them say four different things. See the type.
+pub fn cursor_reports(bytes: &[u8], expected: usize) -> Result<Vec<Reply>, CprError> {
+    let mut replies: Vec<Reply> = Vec::new();
+    let mut sentinel = false;
+    let mut i = 0;
+
+    while i < bytes.len() {
+        if bytes[i] != 0x1b {
+            i += 1;
+            continue;
+        }
+        // `ESC` `[` then parameter and intermediate bytes, then one final byte in `@`..=`~`.
+        let Some(b'[') = bytes.get(i + 1) else {
+            i += 1;
+            continue;
+        };
+        let mut end = i + 2;
+        while end < bytes.len() && !(0x40..=0x7e).contains(&bytes[end]) {
+            end += 1;
+        }
+        if end == bytes.len() {
+            return Err(CprError::UnterminatedReply);
+        }
+        let body = &bytes[i + 2..end];
+        match bytes[end] {
+            // The device-attributes reply. Everything after it belongs to some other question.
+            b'c' => {
+                sentinel = true;
+                break;
+            }
+            b'R' if !body.starts_with(b"?") => {
+                let text = String::from_utf8_lossy(body);
+                let mut parts = text.split(';');
+                let row = parts.next().and_then(|p| p.parse().ok());
+                let column = parts.next().and_then(|p| p.parse().ok());
+                if let (Some(row), Some(column)) = (row, column) {
+                    replies.push(Reply { row, column });
+                }
+            }
+            _ => {}
+        }
+        i = end + 1;
+    }
+
+    if !sentinel {
+        return Err(CprError::NoSentinel);
+    }
+    if replies.len() != expected {
+        return Err(CprError::Count {
+            expected,
+            found: replies.len(),
+        });
+    }
+    // Checked after the count, because a batch that lost a reply is the more likely cause of a row
+    // that moved and is the more useful thing to be told.
+    //
+    // `first` and not `replies[0]`: a caller may legitimately ask for none — and a sentinel with no
+    // replies behind it satisfies the count above, so an index here panics on a capture that is
+    // otherwise perfectly well formed.
+    let Some(first) = replies.first().map(|r| r.row) else {
+        return Ok(replies);
+    };
+    if let Some(moved) = replies.iter().find(|r| r.row != first) {
+        return Err(CprError::RowMoved {
+            first,
+            then: moved.row,
+        });
+    }
+    Ok(replies)
+}
+
 #[cfg(test)]
 mod tests;
