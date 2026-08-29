@@ -320,6 +320,11 @@ pub struct Raster {
     bits: Vec<u8>,
     owner: Vec<u8>,
     touched: u64,
+    /// **Cells the build painted**, which is the work `touched` cannot see.
+    ///
+    /// See [`Raster::painted`]. It is a field beside `touched` and not derived from it because the
+    /// two answer different questions and the defect this counter exists for moves only one of them.
+    painted: u64,
     shared: u32,
     /// **Per sub-column, the topmost sub-row a bar reaches**, reused across folds and across series.
     ///
@@ -340,6 +345,7 @@ impl Raster {
             bits: Vec::new(),
             owner: Vec::new(),
             touched: 0,
+            painted: 0,
             shared: 0,
             tops: Vec::new(),
         }
@@ -382,6 +388,18 @@ impl Raster {
         self.touched
     }
 
+    /// **Cells the build painted.** The edit's cost as a count on the axis `touched` is blind to.
+    ///
+    /// `touched` is *points the build looked at* and it was **2 000 000 both ways** across the
+    /// reduce — the prefix-per-point spelling visited each point exactly once and then did
+    /// `O(subh)` work inside the visit. None of spec §20's nine counters expresses work that
+    /// produces no output, and the picture never differed, so the whole of **952.61 ms against
+    /// 2.72** was invisible to every gate in this workspace. This is the counter that sees it, and
+    /// [`crate::volume`] is what reads it.
+    pub fn painted(&self) -> u64 {
+        self.painted
+    }
+
     /// **Cells two or more series reached.** The number the braille/quadrant colour trade is decided
     /// on: a braille cell has one `Paint` for all eight dots and a quadrant carries a foreground and
     /// a background, so the third rung buys resolution and pays here.
@@ -414,6 +432,7 @@ impl Raster {
     }
 
     fn put(&mut self, cx: u16, cy: u16, bit: u8, series: u8) {
+        self.painted += 1;
         let i = usize::from(cy) * usize::from(self.w) + usize::from(cx);
         self.bits[i] |= 1 << bit;
         let o = self.owner[i];
@@ -450,6 +469,7 @@ impl Raster {
         self.geom = g;
         self.dom = dom;
         self.touched = 0;
+        self.painted = 0;
         self.shared = 0;
         if w == 0 || h == 0 {
             return;
@@ -763,23 +783,40 @@ impl Default for PlotState {
     }
 }
 
-#[cfg(test)]
-mod reduce_tests {
-    use super::{Domain, Geom, Kind, Raster, Reach, geom};
-    use vitui_runtime::theme::GlyphSet;
+/// **The two spellings of the fold that draw the right picture and do too much work**, kept
+/// runnable because [`crate::volume`]'s whole subject is a cost no output counter can see.
+///
+/// Each is watched failing O6 in `crate::volume::tests`, and the two fail *different halves of it*,
+/// which is why there are two rather than one:
+///
+/// - [`defective::naive_bars`] is **linear with a constant of `subh`**, so its growth relation is
+///   the shipped fold's — ten, at volumes a decade apart — and what disqualifies it is the
+///   per-point ceiling. It is the defect that actually shipped.
+/// - [`defective::domain_per_point`] is **quadratic**, so it is what the relation itself is watched
+///   failing on. A per-input ceiling alone would be met by any constant chosen large enough; a
+///   relation alone is blind to a constant. O6 is both, and these are the two arms that say so.
+pub mod defective {
+    use super::{Domain, Geom, Kind, Raster};
 
-    /// The spelling this module shipped until the reduce: **the whole prefix, once a point.**
+    /// **The spelling this module shipped until the reduce: the whole prefix, once a point.**
     ///
-    /// Kept as a test-only twin rather than deleted, because the claim being made is an *equality*
-    /// between two implementations and an equality needs both sides. It is the old inner loop
-    /// verbatim.
-    fn naive_bars(r: &mut Raster, w: u16, h: u16, g: Geom, dom: Domain, series: &[Vec<f32>]) {
+    /// Kept because the claim being made about the reduce is an *equality* between two
+    /// implementations and an equality needs both sides — `reduce_tests` is that half — and because
+    /// the claim O6 makes about it is a **cost**, which needs it to be runnable from a gate.
+    ///
+    /// It is the old inner loop verbatim: **952.61 ms against 2.72 ms** on two million values,
+    /// 476.3 ns a point against 1.4, and *the same raster*, cell for cell and owner for owner.
+    pub fn naive_bars(r: &mut Raster, w: u16, h: u16, g: Geom, dom: Domain, series: &[Vec<f32>]) {
         r.resize(w, h);
         r.kind = Kind::Bars;
         r.geom = g;
         r.dom = dom;
         r.touched = 0;
+        r.painted = 0;
         r.shared = 0;
+        if w == 0 || h == 0 {
+            return;
+        }
         let subw = u32::from(w) * u32::from(g.sx);
         let subh = u32::from(h) * u32::from(g.sy);
         let span = (dom.y1 - dom.y0).max(f32::EPSILON);
@@ -810,6 +847,57 @@ mod reduce_tests {
             }
         }
     }
+
+    /// **The domain recomputed from the whole series at every point.**
+    ///
+    /// The shipped chain asks [`super::domain_of`] once and memoises it on the data's revision
+    /// ([`super::PlotState::range`]); this asks it inside the point loop, which is the shape a
+    /// caller writes when the domain is a local rather than a memo. It draws **the identical
+    /// raster** — the domain of a series does not depend on which point of it you are standing on —
+    /// so every counter this crate has, `touched` and `painted` included, reads exactly what the
+    /// shipped fold reads.
+    ///
+    /// What separates it is the reads it makes of the data, which is what `scanned` counts. `n`
+    /// points times `n` values is `O(n^2)`: at volumes a decade apart the growth relation is **a
+    /// hundred against ten**, and it is the only arm on this map that fails that half of O6.
+    ///
+    /// Returns the reads rather than storing them, because a raster has no field for a cost its own
+    /// build did not pay and inventing one would put the defect's bookkeeping in the shipped type.
+    pub fn domain_per_point(
+        r: &mut Raster,
+        w: u16,
+        h: u16,
+        kind: Kind,
+        g: Geom,
+        series: &[Vec<f32>],
+    ) -> u64 {
+        let mut scanned = 0u64;
+        let mut dom = Domain { y0: 0.0, y1: 1.0 };
+        for s in series {
+            for _ in 0..s.len() {
+                dom = super::domain_of(series, super::Range::Whole);
+                scanned += series.iter().map(|t| t.len() as u64).sum::<u64>();
+            }
+        }
+        r.build(
+            w,
+            h,
+            kind,
+            g,
+            dom,
+            series,
+            super::Reach::Mapped,
+            (0, usize::MAX),
+        );
+        scanned
+    }
+}
+
+#[cfg(test)]
+mod reduce_tests {
+    use super::defective::naive_bars;
+    use super::{Domain, Kind, Raster, Reach, geom};
+    use vitui_runtime::theme::GlyphSet;
 
     /// **The reduce paints the same raster, cell for cell, owner for owner.**
     ///

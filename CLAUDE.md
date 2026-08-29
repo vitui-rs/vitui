@@ -117,12 +117,12 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 43 of 46 tickets resolved (the last on 2026-08-28) — the three left are 44 (O6), 45 (O7) and 46 (`spinner` and the playhead). `INVENTORY` is spec
-  §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
+- **`vitui-components` has started**: 44 of 46 tickets resolved (the last on 2026-08-29) — the two left are 45 (O7) and 46 (`spinner` and the playhead). `INVENTORY` is spec
+  §17's twenty-nine-row freeze **as a value a test iterates**, with the documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
-  answerable by the machine from here on. **O1 is met since ticket 36, O3 since 37, O4 since 38 and
-  both halves of O2 since 39**, and the one left — O5, the one §17 says is worth more than the other
-  four together — is `Unmet` and watched panicking, because a query with no evidence must fail loudly rather than pass: O4
+  answerable by the machine from here on. **O1 is met since ticket 36, O3 since 37, O4 since 38,
+  both halves of O2 since 39 and O6 since 44**, and the one left — O5, the one §17 says is worth more
+  than the other four together — is `Unmet` and watched panicking, because a query with no evidence must fail loudly rather than pass: O4
   itself first returned **`Met` over 29 rows with no evidence at all**, since *an equality between two
   things that do not exist holds*. **Building the freeze contradicted four figures in the closed map** — the built count
   (19/10, not ADR 0033's thirteen-unbuilt), the count of empty families (five, not §17's two), §1's
@@ -211,6 +211,53 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   a steady frame's**, and it has to be: `crate::app::Clears` writes every cell on the first frame and
   on a resize, so *cells nobody ever wrote* is zero on any screen that clears and says nothing about
   any component.
+
+- **O6 is green — a growth relation *and* a per-input ceiling, over a population of seven the
+  freeze derives** (components ticket 44, 2026-08-29; ADR 0049). `crate::volume` is the sixth
+  obligation and its instrument; register **226 → 229 rows, 216 evaluated**; row 30's gate is now
+  *O1-O6* and `examples/gates_numbers.rs` prints all seven verdicts, which until this ticket took
+  six files to read.
+  **The hole it closes is one sentence**: *this crate can prove a frame's **output** is flat in the
+  data volume and it cannot prove its **work** is.* `chart`'s rasteriser painted the whole column
+  prefix for every point — **952.61 ms against 2.72**, 476.3 ns a point against 1.4 — and every gate
+  in this workspace was green on it. The round trip compares a replayed screen against the frame that
+  produced it and **both spellings produce the identical frame**; the flat-in-n gates are all
+  *output* counters; and `Raster::touched` was **right** at 2 000 000 both ways, because the cost was
+  `O(subh)` *inside* a visit it counts as one. It was found by a user pressing `+` on `latency`.
+  **The population is derived and it answered seven where the ticket's own parenthesis named six.**
+  `Layer::L2` is already the column that says *it costs its visible window and never the data
+  volume*, and `crate::memos` already answers *which rows fold on the edit* — a `Spelling::Folded`
+  memo is a value keyed on a data revision. That reaches **`sparkline`**: `chart`'s body with the
+  chrome deleted (components 34), folding a million points through the same `Raster`. *Derived, so a
+  component added later joins without anyone remembering*, and it shipped ten tickets after the
+  sentence that missed it. The comparison is an **ordered list** and not a subset, because O6 is the
+  one obligation of the seven whose population can go quietly *smaller*.
+  **Neither criterion would do on its own, and that is measured rather than argued.** `O(subh)` a
+  point is `O(n)` with `subh` in front of it, so the defect that **actually shipped** grows by
+  **10.26 / 10.02** a decade — the shipped fold's own figures — and fails only the ceiling, by
+  twenty-five times; and under a ceiling raised until it admits the quadratic arm, the relation still
+  refuses that one at **94.47 / 99.41**. **Both are counts and neither is a clock**, which is the
+  runtime's scene 19 one crate down: a step count is the same number on every machine. 16.7 ms lives
+  in `examples/volume_numbers.rs` as a denominator and never as a pass mark.
+  **A virtualised row's ceiling has no `n` in it at all** — `per_input == 0.0`, which is `Layer::L2`'s
+  own sentence as arithmetic — and the seven read **80 / 80 / 720 / 80 / 1 009 600 / 1 989 690 /
+  1 000 800** steps at a million, **0.0% / 2.6% / 2.4% / 2.5% / 8.4% / 25.2% / 8.6%** of the budget.
+  The fixture is outside every bracket, because a figure that included `"a".repeat(1_000_000)` is a
+  figure about a `String`.
+  **Two of the ticket's own figures were checked and one does not reproduce.** Its table comes back
+  at **2 787.67 µs against 2 720.00** with `touched` exactly 2 000 000; its *8.5 ms of 16.7 at 1M*
+  does not — one series of a million is **1.42 ms**, which is **8.5% of 16.7 ms**. The
+  eight-point-five is a percentage that has been read as milliseconds, and the headroom is 11.7x
+  rather than 1.96x. No budget was moved and no downsampling was reached for.
+  **Building the seven defect arms found that `collect::defective::whole_content` existed for one
+  caller of three.** `table` and `tree` *are* `collection` plus a rectangle split and a flatten
+  index, so they inherit **the single most expensive mistake available above this runtime** — and
+  neither could be asked to make it, because `table_with` and `tree_with` both called
+  `collection_into`, which hardcodes `Shape::Virtualised`. And **two counters were added to shipped
+  types, each the counter its own defect was invisible to**: `Raster::painted` beside `touched`, and
+  `edit::step_left_counted` with `step_left` forwarding to it — one loop and not two, because a
+  counted copy of a walk is a copy. `CONTEXT.md` gains **Work counter** and **Per-input ceiling**
+  beside the **Slope** it already had.
 
 - **A command palette is a composition with no new mechanism, and the caller's index R5 names is the
   wrong one at keystroke rate** (components ticket 43, 2026-08-28; map decision **C30**). It is a
@@ -1630,8 +1677,8 @@ Read these before working, in this order:
    authority. An `architecture.md` beside a spec is the superseded proposal, kept only as the record
    of what was argued.
 2. `CONTEXT.md` — the glossary. Use its terms in code, comments, tickets and commit messages.
-3. `docs/adr/` — 48 decisions that are hard to reverse and surprising without context. 0001–0011 and
-   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0048 the components.
+3. `docs/adr/` — 49 decisions that are hard to reverse and surprising without context. 0001–0011 and
+   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0049 the components.
 4. The impl backlog `README.md` for the layer being worked on — it holds the phase order, the
    blocking edges, and the defects that shaped both.
 
@@ -1758,6 +1805,7 @@ cargo run --release --example budget -p vitui-engine     # asserts the gates, pr
 cargo run --release --example layout_numbers -p vitui-runtime   # one of sixteen *_numbers reports
 cargo run --example contract_numbers -p vitui-components   # O4: what each component declares and answers
 cargo run --release --example gallery_numbers -p vitui-components   # O2: the screen, the matrix, what `t` costs
+cargo run --release --example volume_numbers -p vitui-components    # O6: the seven rows at a million, and 16.7 ms as a denominator
 scripts/idle-gate.sh 30       # 0.00 user / 0.00 sys over 30 s; thirty is a floor, not a preference
 scripts/observer-gate.sh      # the debug observer is absent from a release binary
 scripts/steady-report.sh      # 60 fps for 30 s against 5% of a core

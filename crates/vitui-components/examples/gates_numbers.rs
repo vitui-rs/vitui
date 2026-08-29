@@ -131,6 +131,8 @@ fn main() {
     );
     print!("{}", table());
 
+    obligations();
+
     println!("\nred and pinned, each with the set it is pinned on:");
     for row in REGISTER {
         if let Standing::Red {
@@ -251,4 +253,58 @@ fn wrap(text: &str, width: usize) -> Vec<String> {
         out.push(line);
     }
     out
+}
+
+/// **The seven queries §17's obligations are, in one place.**
+///
+/// Row 30 of the register is *O1-O6 as queries over `INVENTORY`*, and until components ticket 44
+/// each of them printed only in its own ticket's report — `doc_numbers` for O1, `gallery_numbers`
+/// for O2, `golden_numbers` for O3, `contract_numbers` for O4, `scene_numbers` for O5 and
+/// `volume_numbers` for O6. A reader who wanted *where do the obligations stand* had six files to
+/// open, which is the shape §17 wrote the freeze to end.
+///
+/// Seven lines, not six files. The per-obligation reports keep their own evidence; this is the
+/// roll-up beside the register row that owns it.
+fn obligations() {
+    use vitui_components::obligations::{
+        AXIS_SCENES, DOC_TESTED, GOLDENS, KEYBOARD_DOCUMENTED, KEYBOARD_REGISTERED, PANELS,
+        VOLUME_MEASURED, Verdict, o1, o2_everything_built_has_a_panel,
+        o2_nothing_shown_is_absent_from_the_freeze, o3, o4, o5, o6,
+    };
+
+    println!("\nthe obligations, as queries over the freeze (register row 30)");
+    let all = [
+        ("O1  a page with a compiled example", o1(DOC_TESTED)),
+        (
+            "O2a nothing shown is absent from it",
+            o2_nothing_shown_is_absent_from_the_freeze(PANELS),
+        ),
+        (
+            "O2b everything built has a panel  ",
+            o2_everything_built_has_a_panel(PANELS),
+        ),
+        ("O3  a golden per construction     ", o3(GOLDENS)),
+        (
+            "O4  documented == registered      ",
+            o4(KEYBOARD_DOCUMENTED, KEYBOARD_REGISTERED),
+        ),
+        ("O5  a scene per declared axis     ", o5(AXIS_SCENES)),
+        ("O6  60 Hz at a million inputs     ", o6(VOLUME_MEASURED)),
+    ];
+    for (name, verdict) in all {
+        match verdict {
+            Verdict::Met { over } => println!("  {name}  met over {over}"),
+            Verdict::Unmet {
+                over,
+                failing,
+                inverted_by,
+                ..
+            } => println!("  {name}  UNMET {failing} of {over}, inverted by `{inverted_by}`"),
+        }
+    }
+    println!(
+        "\n          O5 is the one left, and §17 says it is worth more than the other four\n\
+         \x20         together. O6 is the sixth, stated after the map closed, and the only one\n\
+         \x20         whose population is derived rather than written out."
+    );
 }

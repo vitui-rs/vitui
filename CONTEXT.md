@@ -775,6 +775,20 @@ across two sizes of one scene, and by nothing else: a quadratic duplicate scan c
 1.19x and walks straight through a 100 µs gate, while the same defect at 200 → 800 widgets is 9.2x
 against 3.96x. Most quadratics on this map have been slopes.
 
+**Work counter** — a counter of steps a component takes **inside** a visit, as against the nine
+counters that count what a frame puts on the wire. Every output counter is blind to work that
+produces no output, and one defect on this map was entirely that: a bar fold painted the whole column
+prefix once a point, `952.61 ms against 2.72`, drew the identical picture, and was counted as one
+visit per point by the counter that exists to price the fold. `Raster::painted` beside
+`Raster::touched` is the shape — the pair, never either alone.
+
+**Per-input ceiling** — a bound on a work counter of the form `fixed + per_input * n`, gated beside a
+**slope** and not instead of it. A slope is blind to a constant and a ceiling is met by any constant
+chosen large enough, so a cost that grows with a data volume is held to both: the defect above is
+*linear*, so its slope is the correct fold's, and what disqualifies it is twenty-five times the
+ceiling. A component whose cost is its **visible window and never the data volume** has a ceiling
+with no `n` in it at all.
+
 **Attribution window** — the span an allocation or timing assertion is taken over, and *whose* work
 it can be trusted to describe. The allocation probe is process-global: it counts allocations, not
 allocations by the app thread, so a window overlapping a worker attributes the worker's growth to the

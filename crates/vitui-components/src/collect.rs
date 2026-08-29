@@ -940,9 +940,57 @@ pub(crate) fn collection_chorded<I, F, R>(
     st: &mut CollState,
     opts: &CollOpts,
     rows: Rows,
+    find: F,
+    row: R,
+    first: Refusal<'_>,
+) -> Response
+where
+    I: Ink,
+    F: FnMut(&str, Range<usize>) -> Option<usize>,
+    R: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, usize, Face),
+{
+    collection_shaped(
+        ink,
+        cx,
+        area,
+        st,
+        opts,
+        rows,
+        find,
+        row,
+        first,
+        Shape::Virtualised,
+    )
+}
+
+/// **[`collection_chorded`], with which rows the body iterates as a parameter.**
+///
+/// The one line between [`collection`] and [`defective::whole_content`], threaded so that the two
+/// components built *on* `collection` can express it too. [`table_with`] and [`tree_with`] call
+/// this rather than the two public entry points, and their own [`Shape`] field is what a reviewer's
+/// diff between the shipped build and the refused one is.
+///
+/// **The arm existed for one caller of three**, which is what [`crate::volume`] found: `table` and
+/// `tree` *are* `collection` plus a rectangle split and a flatten index, so the single most
+/// expensive mistake available above this runtime was expressible on one of the three components
+/// that can make it.
+#[track_caller]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "`collection_chorded`'s nine plus the row shape. Splitting it would put the defect in \
+              a second function where a reviewer's diff could not be one field"
+)]
+pub(crate) fn collection_shaped<I, F, R>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    st: &mut CollState,
+    opts: &CollOpts,
+    rows: Rows,
     mut find: F,
     mut row: R,
     first: Refusal<'_>,
+    shape: Shape,
 ) -> Response
 where
     I: Ink,
@@ -959,7 +1007,7 @@ where
         &mut find,
         &mut row,
         first,
-        Shape::Virtualised,
+        shape,
         Reveal::WhenAsked,
     )
 }
@@ -972,9 +1020,10 @@ where
 /// **887–889×** for a million rows. Choosing the wrong one is *the single most expensive mistake
 /// available above this runtime*, and it is expensive because **both compile and both look right on
 /// a thousand rows**.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum Shape {
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub(crate) enum Shape {
     /// Ask [`Ctx::visible_rows`](vitui_runtime::Ctx::visible_rows) which rows can be reached.
+    #[default]
     Virtualised,
     /// Iterate the content and let the clip decide. The defect.
     WholeContent,
@@ -1608,6 +1657,103 @@ pub mod defective {
         });
     }
 
+    // ── the row shape, on the two components built on `collection` ────────────────────────
+
+    /// **The table that iterates its whole content and lets the clip reject the rest.**
+    ///
+    /// [`whole_content`] on the component built on it, and it is [`super::table`] with one field of
+    /// `TableShape` changed. `table` *is* `collection` plus a rectangle split, so it inherits the
+    /// single most expensive mistake available above this runtime — and until [`crate::volume`]
+    /// asked for it, the arm existed for one caller of three.
+    ///
+    /// What it writes is what the shipped build writes: the engine reports a fully clipped verb as
+    /// zero columns, so `writes`, `distinct` and the picture are identical. What moves is the rows
+    /// the body iterated, and it moves by the data volume.
+    #[track_caller]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "`table_into`'s nine exactly, because a defective arm that took a different \
+                  signature would be a different function rather than the same one with one value \
+                  changed"
+    )]
+    pub fn table_whole_content<I, F, C>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Rect,
+        st: &mut TableState,
+        opts: &TableOpts,
+        cols: &[Column],
+        rows: Rows,
+        find: F,
+        cell: C,
+    ) -> Response
+    where
+        I: Ink,
+        F: FnMut(&str, Range<usize>) -> Option<usize>,
+        C: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, Cell, Face),
+    {
+        table_with(
+            ink,
+            cx,
+            area,
+            st,
+            opts,
+            cols,
+            rows,
+            find,
+            cell,
+            TableShape {
+                rows: Shape::WholeContent,
+                ..TableShape::default()
+            },
+        )
+    }
+
+    /// **The tree that iterates its whole flatten index and lets the clip reject the rest.**
+    ///
+    /// See [`table_whole_content`]; this is the same one field on the other component built on
+    /// [`super::collection`]. It is separate from [`unclamped_indent`] because the two are about
+    /// different quantities — that one makes a row's cost proportional to its **depth** and this
+    /// one makes the frame's cost proportional to the **volume** — and a tree can be wrong in
+    /// either direction without being wrong in the other.
+    #[track_caller]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "`tree_into`'s eight exactly, because a defective arm that took a different \
+                  signature would be a different function rather than the same one with one value \
+                  changed"
+    )]
+    pub fn tree_whole_content<I, F, R>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Rect,
+        st: &mut TreeState,
+        opts: &TreeOpts,
+        index: &Order,
+        find: F,
+        row: R,
+    ) -> Response
+    where
+        I: Ink,
+        F: FnMut(&str, Range<usize>) -> Option<usize>,
+        R: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, Node, Face),
+    {
+        tree_with(
+            ink,
+            cx,
+            area,
+            st,
+            opts,
+            index,
+            find,
+            row,
+            TreeShape {
+                rows: Shape::WholeContent,
+                ..TreeShape::default()
+            },
+        )
+    }
+
     // ── `tree`'s one ─────────────────────────────────────────────────────────────────────────────
 
     /// **The tree whose indent is the depth, and the depth is data.**
@@ -1654,6 +1800,7 @@ pub mod defective {
             row,
             TreeShape {
                 indent: Indent::Unclamped,
+                ..TreeShape::default()
             },
         )
     }
@@ -2996,6 +3143,11 @@ where
 /// [`defective`] exists for.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 struct TableShape {
+    /// **Which rows the body iterates**, which is [`Shape`] and belongs here for its own reason: a
+    /// table *is* a collection plus a rectangle split, so the one mistake `collection` has an arm
+    /// for is a mistake a table can make too — and until [`crate::volume`] asked, it could not be
+    /// written down on this side.
+    rows: Shape,
     /// How the scrolling band reaches the surface.
     band: BandShape,
     /// Whether the column window is asked for.
@@ -3113,7 +3265,7 @@ where
         area
     };
 
-    collection_into(
+    collection_shaped(
         ink,
         cx,
         body,
@@ -3183,6 +3335,8 @@ where
             }
             in_band(ink, cx, right_x, solved.right_w, solved.right, 0, &mut draw);
         },
+        &mut no_refusal,
+        shape.rows,
     )
 }
 
@@ -3516,6 +3670,9 @@ where
 /// the refused one is a single line — [`TableShape`]'s arrangement one component over.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 struct TreeShape {
+    /// **Which rows the body iterates.** See [`TableShape::rows`]: a tree is a collection plus a
+    /// flatten index, and it inherits the same one-line mistake.
+    rows: Shape,
     /// Whether the indent is clamped to the rectangle.
     indent: Indent,
 }
@@ -3584,7 +3741,7 @@ where
         }
     };
 
-    let resp = collection_chorded(
+    let resp = collection_shaped(
         ink,
         cx,
         area,
@@ -3666,6 +3823,7 @@ where
             );
         },
         &mut refuse,
+        shape.rows,
     );
 
     // **The pointer half, and it reads `collection`'s edge rather than keeping one.** A press on the
@@ -6220,8 +6378,12 @@ mod tests {
         let solve_at = body
             .find("solve_columns(area.w, cols)")
             .expect("it is there");
+        // **`collection_shaped` and not `collection_into`**, which is where the row loop went when
+        // components 44 threaded the one field `whole_content` is: `table` *is* `collection` plus a
+        // rectangle split, so the mistake `collection` has an arm for is a mistake a table can make
+        // too, and until O6 asked there was no way to write it down on this side.
         let rows_at = body
-            .find("collection_into(")
+            .find("collection_shaped(")
             .expect("the row loop is there");
         assert!(
             solve_at < rows_at,

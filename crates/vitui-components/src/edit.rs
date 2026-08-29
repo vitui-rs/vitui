@@ -427,9 +427,27 @@ pub fn boundaries(text: &str) -> Vec<usize> {
 /// boundary *before* an offset can only be found by segmenting forward from one already known, **and
 /// which one you have decides the complexity.** With no index the only one you have is byte 0.
 pub fn step_left(text: &str, caret: Caret, from: Caret) -> Caret {
+    step_left_counted(text, caret, from, &mut 0)
+}
+
+/// **[`step_left`], with the clusters it walked counted.**
+///
+/// The runtime's scene 19 arrangement one crate down — `chunked.get(i, &mut hops)` — and it is here
+/// for that scene's reason: *a step count is the same number on every machine*, where the
+/// microseconds §11 states are three orders apart between a debug binary and a release one and
+/// would be three different orders somewhere else. [`crate::volume`] is what reads it, and
+/// [`defective::blind_left`] is the arm it separates: **one `Left` at the end of a pasted megabyte
+/// is one cluster from the row start and a million from byte 0**, which is the whole of §11's
+/// complexity argument as a count rather than as a clock.
+///
+/// `step_left` forwards to it with a throwaway, so there is one loop and not two — a counted copy
+/// of a walk is a copy, and this crate has already found what a second transcription of one drawing
+/// costs.
+pub fn step_left_counted(text: &str, caret: Caret, from: Caret, steps: &mut u64) -> Caret {
     let mut at = from;
     let mut prev = at;
     while at.byte < caret.byte {
+        *steps += 1;
         let Some(cluster) = step(&text[at.byte..]) else {
             break;
         };
@@ -1180,7 +1198,7 @@ impl Text {
 /// one family over, the naive splice restart is the one a reader of §10 writes, and the memo keyed
 /// on the revision is the key a reader of `CONTEXT.md`'s **Memo** paragraph writes.
 pub mod defective {
-    use super::{Caret, Index, Text, WrapKind, step, step_left, step_right};
+    use super::{Caret, Index, Text, WrapKind, step, step_right};
     use vitui_runtime::layout::text::width;
 
     /// **The deleted API, built anyway so a gate can watch it fail.** §11's *put the caret at byte
@@ -1209,7 +1227,17 @@ pub mod defective {
     /// Correct, and **3 161.68 µs at the end of a pasted megabyte against 0.327**. §11's whole
     /// complexity argument, as the arm that does the work.
     pub fn blind_left(text: &str, caret: Caret) -> Caret {
-        step_left(text, caret, Caret::HOME)
+        blind_left_counted(text, caret, &mut 0)
+    }
+
+    /// **[`blind_left`], with the clusters it walked counted.** See
+    /// [`super::step_left_counted`], whose twin this is.
+    ///
+    /// O6 reads this arm and the shipped one over the same buffer at the same three volumes, and
+    /// the two numbers are *the same claim §11 makes about the two microsecond figures*: the walk
+    /// from byte 0 is the buffer and the walk from the row start is a row.
+    pub fn blind_left_counted(text: &str, caret: Caret, steps: &mut u64) -> Caret {
+        super::step_left_counted(text, caret, Caret::HOME, steps)
     }
 
     /// **The splice restarted at the edit's own row.** Gate 3's defect.

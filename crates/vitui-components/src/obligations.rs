@@ -1,15 +1,15 @@
-//! Spec §17's five obligations as **queries over [`crate::INVENTORY`]**, each returning a count or
-//! an equality.
+//! Spec §17's five obligations and the sixth stated after the map closed, as **queries over
+//! [`crate::INVENTORY`]**, each returning a count or an equality.
 //!
 //! > Every documentation and verification obligation is a query over it, not a sentence in a
 //! > document. (ADR 0033)
 //!
-//! # One of the six still cannot run, and that is the load-bearing half of this file
+//! # One of the seven still cannot run, and that is the load-bearing half of this file
 //!
-//! **O1 is green since components ticket 36, O3 since 37, O4 since 38 and O2 — both halves — since
-//! 39**, five of the six queries. Only O5 is left, and it is the one §17 says is worth more than
-//! the other four together. **A query over an obligation nobody has met yet is the exact shape that
-//! returns green by accident**, and three of the six had it:
+//! **O1 is green since components ticket 36, O3 since 37, O4 since 38, O2 — both halves — since 39
+//! and O6 since 44**, six of the seven queries. Only O5 is left, and it is the one §17 says is
+//! worth more than the other four together. **A query over an obligation nobody has met yet is the
+//! exact shape that returns green by accident**, and three of the six had it:
 //!
 //! - *every panel in the gallery is in the freeze* over an empty gallery is **vacuously true** —
 //!   which is what [`PANELS`] read until ticket 39, and the reason the query is written over the
@@ -21,7 +21,14 @@
 //!   all twenty-nine: a row nothing on this backlog can draw a screen for reads **red** for ever,
 //!   which is the same failure in mirror image.
 //!
-//! Three of the five have that shape, and §21 has already been bitten by the neighbouring version
+//! **O6 is the one whose population is derived rather than written out**, and it is the only one of
+//! the seven that could go quietly *smaller*: [`o6`] reads the freeze's `Layer::L2` column and the
+//! memo census, so a component that stops declaring either leaves the population without leaving a
+//! failing set. That is why [`crate::volume::COVERED`] is compared against the derivation as an
+//! **ordered list** rather than as a subset — a row that leaves the population is a failing test in
+//! `crate::volume` before it is a smaller `over` here.
+//!
+//! Three of the seven have that shape, and §21 has already been bitten by the neighbouring version
 //! of it twice: the gallery's theme-swap gate asserted `changed > 0` — *the theme changed and not
 //! one cell moved* — and **one cell of 4 800 satisfies it** while 3 583 carried the old palette;
 //! every prototype reported `allocs / n` with n between 40 and 200, so **a frame allocating on n−1
@@ -34,10 +41,10 @@
 //! # How they fail loudly
 //!
 //! [`Verdict::assert_met`] panics with the failing set and the ticket that inverts it. Each of the
-//! five is watched panicking by a `#[should_panic]` test below, because **a gate nobody has watched
+//! seven is watched panicking by a `#[should_panic]` test below, because **a gate nobody has watched
 //! fail is not a gate** — §21's own three-for-three finding, from the other direction.
-//! `tests::five_of_the_six_obligations_are_met_and_the_one_left_is_o5` writes the number down, so
-//! each one that turns is a deliberate edit here rather than a silent change of colour. **Four have
+//! `tests::six_of_the_seven_obligations_are_met_and_the_one_left_is_o5` writes the number down, so
+//! each one that turns is a deliberate edit here rather than a silent change of colour. **Five have
 //! turned and each cost that edit**; what changes when one does is the arm it is watched failing on
 //! — a `Met` verdict cannot be watched panicking, so the `#[should_panic]` moves from *the evidence
 //! is empty* to *the evidence is one row wrong*, and for O2 that is one arm per direction.
@@ -45,13 +52,13 @@
 //! # The evidence is an argument, not a file read
 //!
 //! Every query takes what it is checking against as a slice, and this crate shipped each of those
-//! slices **empty with the ticket that fills it named**. That is what keeps the five pure functions
+//! slices **empty with the ticket that fills it named**. That is what keeps the queries pure functions
 //! over the freeze: ticket 39 built the gallery, [`PANELS`] stopped being empty, and `o2` started
 //! answering a real question **with no change to either query**.
 //!
 //! **[`DOC_TESTED`] was the first one to be filled, and filling it needed a second value beside
-//! it.** [`PANELS`] is the fourth and it needed the same thing, for the same reason and with the
-//! same shape: [`crate::gallery::panel_ids`] derives the list from the table the screen is drawn
+//! it.** [`PANELS`] is the fourth and [`VOLUME_MEASURED`] is the fifth, and each needed the same
+//! thing, for the same reason and with the same shape: [`crate::gallery::panel_ids`] derives the list from the table the screen is drawn
 //! from.
 //! A written-out evidence list is a claim about twenty-eight files, so [`crate::doc`] opens each of
 //! them and derives the same list; `crate::doc::tests::the_written_list_and_the_scan_agree` is the
@@ -90,7 +97,7 @@ impl Verdict {
     ///
     /// **An empty population is `Unmet`, whatever the failing count says.** A query asked about
     /// nothing has not been answered, and the arithmetic that says otherwise — zero failures out of
-    /// zero — is exactly how three of the five would read green today.
+    /// zero — is exactly how three of them would read green today.
     pub const fn of(
         over: usize,
         failing: usize,
@@ -426,6 +433,27 @@ pub const AXIS_SCENES: &[(&str, Axis)] = &[
     ("scroll_area", Axis::Wheeled),
 ];
 
+/// **The ids whose data-volume cost has been measured and answers both of O6's bounds.** O6's
+/// evidence.
+///
+/// Seven, and components ticket 44 filled it. Written out for [`DOC_TESTED`]'s reason: a `const fn`
+/// over [`crate::volume::COVERED`] would make the population and the evidence one expression, and
+/// an equality between two things derived from each other holds. What holds it honest is
+/// [`crate::volume::met`], which **runs the shipped component** at ten thousand, a hundred thousand
+/// and a million inputs and answers with a step count;
+/// `crate::volume::tests::every_covered_row_holds_both_bounds_at_a_million` is the comparison.
+///
+/// The order is [`crate::volume::population`]'s, which is [`INVENTORY`]'s.
+pub const VOLUME_MEASURED: &[&str] = &[
+    "field",
+    "collection",
+    "table",
+    "tree",
+    "chart",
+    "plot",
+    "sparkline",
+];
+
 /// **O1 — a rustdoc page with a compiled example, for every component.**
 ///
 /// The count is *components with 0 doc-tests == 0*. O1 and O2 do not substitute for each other: O1
@@ -615,6 +643,46 @@ pub fn o5(scenes: &[(&str, Axis)]) -> Verdict {
     )
 }
 
+/// **O6 — every component that takes a data volume holds sixty hertz at a million inputs.**
+///
+/// The sixth obligation, stated after the map closed (components ticket 44) and filed here rather
+/// than in an architecture issue because the instrument is buildable without reopening anything.
+/// [`crate::volume`] is that instrument and this is the query.
+///
+/// # The population is derived and it is not `built`
+///
+/// [`o1`] and [`o3`] are over `built` because a page or a screen for a function that does not exist
+/// is not a thing anybody can write. This one is over *rows that take a volume*, read off
+/// [`INVENTORY`]'s [`Layer::L2`](crate::inventory::Layer::L2) column and off the memo census —
+/// and every one of the seven it reaches happens to be built, so the two readings do not disagree
+/// today. If they ever do, this population is the right one anyway: `Layer::L2` is a claim about a
+/// component's **construction**, and a row that has declared it and not shipped it has made a claim
+/// nothing is measuring.
+///
+/// # What "holds" means, and why it is two numbers
+///
+/// A growth relation and a per-input ceiling, both counts. **The defect this obligation exists for
+/// passes the relation** — the whole column prefix painted once a point is `O(subh)` inside a visit,
+/// which is linear with `subh` in front of it — and **a ceiling alone is met by any constant chosen
+/// large enough**, which is §21's first refinement by name. `crate::volume` carries an arm for each
+/// half and `crate::volume::tests::neither_criterion_would_do_on_its_own` is where that is measured
+/// rather than argued.
+pub fn o6(measured: &[&str]) -> Verdict {
+    let takes_a_volume = crate::volume::population();
+    let failing = takes_a_volume
+        .iter()
+        .filter(|id| !measured.contains(*id))
+        .count();
+    Verdict::of(
+        takes_a_volume.len(),
+        failing,
+        "components that take a data volume have no measured cost, so this crate can prove a \
+         frame's output is flat in the volume and not its work — which is how a fold at 476 ns a \
+         point shipped past every gate here",
+        "components 44",
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -661,12 +729,12 @@ mod tests {
         );
     }
 
-    /// **Five of the six are met, and the number is written down.**
+    /// **Six of the seven are met, and the number is written down.**
     ///
-    /// The runtime `register.rs`'s arrangement, one crate up: a list that says how many are green makes
-    /// the next change a deliberate edit rather than a quiet one. Today the answer is **five of
-    /// six** queries — O2 is two equalities — and the one that is not names the ticket that
-    /// inverts it.
+    /// The runtime `register.rs`'s arrangement, one crate up: a list that says how many are green
+    /// makes the next change a deliberate edit rather than a quiet one. Today the answer is **six of
+    /// seven** queries — six obligations, of which O2 is two equalities — and the one that is not
+    /// names the ticket that inverts it.
     ///
     /// **O1 was the first**, and components ticket 36 was the deliberate edit this test was written
     /// to force: it stood at zero for thirty-five tickets, twenty-five of which shipped a component
@@ -678,10 +746,12 @@ mod tests {
     /// **O2 is the fourth, in both halves at once**, and components ticket 39 is its edit — the
     /// twenty-eight panels of `crate::gallery`, whose table the application iterates and whose ids
     /// [`crate::gallery::panel_ids`] derives so that the two lists are two sources rather than one
-    /// read twice. **O5 is the only one left**, and it is the one worth more than the other four
-    /// together.
+    /// read twice. **O6 is the fifth**, and components ticket 44 is its edit — seven rows that take
+    /// a data volume, each measured at a million inputs by an instrument that runs the shipped
+    /// component and counts its steps. **O5 is the only one left**, and it is the one worth more
+    /// than the other four together.
     #[test]
-    fn five_of_the_six_obligations_are_met_and_the_one_left_is_o5() {
+    fn six_of_the_seven_obligations_are_met_and_the_one_left_is_o5() {
         let all = [
             ("O1", o1(DOC_TESTED)),
             ("O2a", o2_nothing_shown_is_absent_from_the_freeze(PANELS)),
@@ -689,6 +759,7 @@ mod tests {
             ("O3", o3(GOLDENS)),
             ("O4", o4(KEYBOARD_DOCUMENTED, KEYBOARD_REGISTERED)),
             ("O5", o5(AXIS_SCENES)),
+            ("O6", o6(VOLUME_MEASURED)),
         ];
         let met: Vec<&str> = all
             .iter()
@@ -697,7 +768,7 @@ mod tests {
             .collect();
         assert_eq!(
             met,
-            vec!["O1", "O2a", "O2b", "O3", "O4"],
+            vec!["O1", "O2a", "O2b", "O3", "O4", "O6"],
             "an obligation has changed colour. That is the point of the backlog and it is also a \
              deliberate edit to this test, to this module's header and to the ticket that inverted \
              it — the number is here so a green one cannot arrive unremarked"
@@ -779,6 +850,14 @@ mod tests {
         // left empty on purpose while they were red. A query that moves is a query that is
         // measuring something.
         assert_eq!(unmet(o5(AXIS_SCENES)), (34, 14), "O5");
+        // **O6 is `Met` over the seven rows that take a volume**, so it is asserted from the other
+        // side too. The population is derived rather than written out — the `Layer::L2` column plus
+        // the rows that keep a memo keyed on a data revision — and it answered **seven** where
+        // ticket 44's own parenthesis named six: `sparkline` is `chart`'s body with the chrome
+        // deleted and folds the same million points through the same `Raster`. A query whose
+        // population moves without an edit here is a query that is measuring something.
+        assert_eq!(o6(VOLUME_MEASURED), Verdict::Met { over: 7 }, "O6");
+        assert_eq!(VOLUME_MEASURED.len(), 7);
 
         // **The construction sum, both ways round.** Over the whole freeze it is 35 — 29 rows plus
         // `chart`, `meter` and `sparkline` at 2, `plot` at 3 and `spinner` at 2 — and over the rows
@@ -839,6 +918,12 @@ mod tests {
         assert!(!o4(&["field"], &[]).met());
         assert!(!o4(&[], &["field"]).met());
         assert!(o4(&["field"], &["field"]).met());
+        // **O6's vacuity arm is the one that cannot happen from this side**, and it is asserted
+        // anyway: its population is derived from the freeze, so an empty one would mean no row of
+        // the freeze takes a data volume at all. What *can* happen is evidence going missing, and
+        // that is the arm below and `o6_fails_loudly`.
+        assert!(!o6(&[]).met());
+        assert!(o6(VOLUME_MEASURED).met());
     }
 
     /// **The five, each watched failing.** A gate nobody has watched fail is not a gate.
@@ -928,8 +1013,25 @@ mod tests {
         o5(AXIS_SCENES).assert_met("O5");
     }
 
+    /// See [`o1_fails_loudly`]. **O6 is met, so it is watched failing over the shipped list with
+    /// one id struck** — the arm that matters now, which is that the query still notices a
+    /// component whose data-volume cost has stopped being measured.
+    ///
+    /// `chart` is the row it is taken from, because `chart` is the reason the obligation exists: a
+    /// fold at 476 ns a point that every gate in this workspace was green on.
+    #[test]
+    #[should_panic(expected = "O6 is unmet: 1 of 7")]
+    fn o6_fails_loudly() {
+        let short: Vec<&str> = VOLUME_MEASURED
+            .iter()
+            .copied()
+            .filter(|id| *id != "chart")
+            .collect();
+        o6(&short).assert_met("O6");
+    }
+
     /// **A met verdict does not panic**, which is the other direction of `assert_met` and the
-    /// reason the six `should_panic` tests above are evidence rather than decoration.
+    /// reason the seven `should_panic` tests above are evidence rather than decoration.
     #[test]
     fn a_met_obligation_is_silent() {
         Verdict::of(1, 0, "-", "components 00").assert_met("a met obligation");

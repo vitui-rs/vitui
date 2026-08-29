@@ -42,11 +42,19 @@
 //!   mint, with a scan that opens the file and answers both halves. *Composed of proved mechanisms*
 //!   is the claim that turns out to be false when it is false, and a scan for absences alone goes
 //!   green when the whole section is deleted.
-//! - [`obligations`] — §17's five obligations as queries over the freeze, each returning a count or
-//!   an equality. **Five of the six are green — O1 since components ticket 36, O3 since 37, O4 since
-//!   38 and both halves of O2 since 39 — and the one left says so out loud** rather than returning
-//!   green over an empty population. It is O5, which §17 says is worth more than the other four
-//!   together.
+//! - [`obligations`] — §17's five obligations and the sixth stated after the map closed, as queries
+//!   over the freeze, each returning a count or an equality. **Six of the seven are green — O1 since
+//!   components ticket 36, O3 since 37, O4 since 38, both halves of O2 since 39 and O6 since 44 —
+//!   and the one left says so out loud** rather than returning green over an empty population. It is
+//!   O5, which §17 says is worth more than the other four together.
+//! - [`volume`] — **O6's evidence and its instrument**: *every component that takes a data volume
+//!   holds sixty hertz at a million inputs*, gated as a growth relation **and** a per-input ceiling,
+//!   both counts. It exists because this crate could prove a frame's **output** was flat in the data
+//!   volume and could not prove its **work** was: `chart`'s rasteriser painted the whole column
+//!   prefix for every point, **952.61 ms against 2.72**, drew the identical picture, and was counted
+//!   as one visit a point by the counter that exists to price the fold. Its population is the one
+//!   obligation's that is **derived** rather than written out, and the derivation answered **seven**
+//!   where the ticket that asked for it named six.
 //! - [`doc`] — **O1's evidence as a value**: a documentation page per built component, located by
 //!   the freeze's own `families` column rather than listed, with a scan that opens each file and
 //!   reports what is in it. It is the value [`obligations::DOC_TESTED`] is compared against, because
@@ -417,6 +425,7 @@ pub mod runner;
 pub mod scenes;
 pub mod series;
 pub mod state;
+pub mod volume;
 pub mod wheel;
 
 // **One module per family, and the family is the module** (spec §19). The tree follows the survey's

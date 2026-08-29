@@ -504,6 +504,13 @@ const BUDGET_TESTS: &str = "crates/vitui-components/tests/budget.rs";
 /// Where the five obligations are queries over the freeze.
 const OBLIGATIONS: &str = "crates/vitui-components/src/obligations.rs";
 
+/// **O6's own file** — the seventh query, the seven covered rows, the two bounds and the seven
+/// deliberate defects. Components ticket 44.
+const VOLUME: &str = "crates/vitui-components/src/volume.rs";
+
+/// Ticket 44's report, which is where the clock and its 16.7 ms denominator live.
+const VOLUME_NUMBERS: &str = "crates/vitui-components/examples/volume_numbers.rs";
+
 /// How many rows of [`REGISTER`] are spec §21's own table. **Thirty-two, and it is closed** — a
 /// thirty-third would be a spec change.
 pub const SPEC_ROWS: usize = 32;
@@ -593,7 +600,7 @@ pub const SPEC_ROWS: usize = 32;
 /// it. Row 30's own instrument compares two lists of *ids*, which is the most a query over the
 /// freeze can ask; the chord-for-chord equality needs a value with a machine in it, and
 /// `crate::contract::Contract::live` is that machine — it runs the shipped component.
-pub const EVALUATED: usize = 213;
+pub const EVALUATED: usize = 216;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
 #[expect(
@@ -603,7 +610,7 @@ pub const EVALUATED: usize = 213;
               array is read at compile time by nothing and at run time by tests, so the copy the \
               lint is warning about is one a test makes once"
 )]
-pub const REGISTER: [Row; 226] = [
+pub const REGISTER: [Row; 229] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -1440,12 +1447,15 @@ pub const REGISTER: [Row; 226] = [
     Row {
         number: 30,
         on_spec_table: true,
-        gate: "O1-O5, as queries over `INVENTORY`",
+        gate: "O1-O6, as queries over `INVENTORY`",
         kind: Kind::Count,
         owner: "C10",
         section: "spec §17",
-        // **Three of the six are green: O1 since components ticket 36, O3 since 37 and O4 since
-        // 38.** O4's population is the **union of the two lists** — thirteen of twenty-nine — and
+        // **Four of the seven are green: O1 since components ticket 36, O3 since 37, O4 since 38
+        // and O6 since 44.** O6 is the sixth obligation, stated after the map closed, and it is
+        // the one query of the seven whose **population is derived** rather than written out —
+        // `crate::volume::population` reads the freeze's `Layer::L2` column and the memo census, and
+        // it answered seven where the ticket's own parenthesis named six. O4's population is the **union of the two lists** — thirteen of twenty-nine — and
         // not the freeze, because sixteen rows read no key at all and *every component appears in
         // both lists* is not the obligation. Its own three halves are rows 216, 217 and 218; the
         // roll-up to ids that this row can ask over the freeze would be satisfied by a component
@@ -1473,7 +1483,7 @@ pub const REGISTER: [Row; 226] = [
             by: &[
                 Instrument::Unit {
                     file: "crates/vitui-components/src/obligations.rs",
-                    name: "five_of_the_six_obligations_are_met_and_the_one_left_is_o5",
+                    name: "six_of_the_seven_obligations_are_met_and_the_one_left_is_o5",
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/obligations.rs",
@@ -7591,7 +7601,7 @@ pub const REGISTER: [Row; 226] = [
                 },
                 Instrument::Unit {
                     file: OBLIGATIONS,
-                    name: "five_of_the_six_obligations_are_met_and_the_one_left_is_o5",
+                    name: "six_of_the_seven_obligations_are_met_and_the_one_left_is_o5",
                 },
                 Instrument::Unit {
                     file: OBLIGATIONS,
@@ -7906,6 +7916,141 @@ pub const REGISTER: [Row; 226] = [
             ],
         },
     },
+    Row {
+        number: 227,
+        on_spec_table: false,
+        gate: "every component that takes a data volume is inside a growth relation and a \
+               per-input ceiling at a million inputs",
+        kind: Kind::Relation,
+        owner: "C11",
+        section: "spec §17, §20, §21",
+        // **The hole this closes, stated once: this crate can prove a frame's *output* is flat in
+        // the data volume and it could not prove its *work* was.** `chart`'s rasteriser painted the
+        // whole column prefix for every point — 952.61 ms against 2.72, 476.3 ns a point against
+        // 1.4 — and every gate here was green on it. The round trip compares a replayed screen
+        // against the frame that produced it and both spellings produce the identical frame; the
+        // flat-in-n gates are all **output** counters; `Raster::touched` was right at 2 000 000 both
+        // ways, because the cost was `O(subh)` *inside* a visit it counts as one.
+        //
+        // **Two numbers, and neither implies the other.** A growth relation `work(n) / work(n / 10)
+        // <= 12`, and a ceiling `work(n) <= fixed + per_input * n`. The relation alone reads the
+        // defect that shipped as healthy, because `O(subh)` a point is linear; the ceiling alone is
+        // met by any constant chosen large enough, which is §21's first refinement by name.
+        //
+        // **Both are counts and neither is a clock**, which is the runtime's scene 19 one crate
+        // down: a step count is the same number on every machine, where the microseconds are three
+        // orders apart between a debug binary and a release one. `examples/volume_numbers.rs` is
+        // where the clock and its 16.7 ms denominator live, as a report.
+        //
+        // **A virtualised row's ceiling has no `n` in it at all**, which is `Layer::L2`'s own
+        // sentence — *it costs its visible window and never the data volume* — as arithmetic rather
+        // than as a rounding of it.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: VOLUME,
+                    name: "every_covered_row_holds_both_bounds_at_a_million",
+                },
+                Instrument::Unit {
+                    file: VOLUME,
+                    name: "the_seven_shipped_arms_cost_what_they_cost",
+                },
+                Instrument::Unit {
+                    file: VOLUME,
+                    name: "a_virtualised_rows_ceiling_has_no_n_in_it_and_a_folding_rows_does",
+                },
+                Instrument::Report {
+                    file: VOLUME_NUMBERS,
+                },
+            ],
+        },
+    },
+    Row {
+        number: 228,
+        on_spec_table: false,
+        gate: "every covered row is watched failing on a deliberate superlinearity, and each half \
+               of the pair is watched failing separately",
+        kind: Kind::Count,
+        owner: "C11",
+        section: "spec §21",
+        // **A gate nobody has watched fail is not a gate**, and for O6 that is seven arms rather
+        // than one: *every other covered component owes an equivalent deliberate superlinearity, or
+        // the gate is a claim about a defect nobody has expressed*.
+        //
+        // Six of the seven are §21's *the instrument separates a correct build from a defective
+        // one*; `chart`'s is the defect that actually shipped, kept runnable since the reduce.
+        //
+        // **Building the four row-shape arms found that `whole_content` existed for one caller of
+        // three.** `table` and `tree` *are* `collection` plus a rectangle split and a flatten index,
+        // so they inherit **the single most expensive mistake available above this runtime** — and
+        // neither could be asked to make it, because `table_with` and `tree_with` both called
+        // `collection_into`, which hardcodes the shape. `collect::defective::table_whole_content`
+        // and `tree_whole_content` are that arm on the other two, one field each.
+        //
+        // **And the pair is watched failing from both ends**, which is what makes it a pair rather
+        // than a belt and braces: `naive_bars` is *inside* the relation at ten a decade and fails
+        // only the ceiling, and `domain_per_point` is inside a ceiling raised until it admits the
+        // arm and fails only the relation, at a hundred a decade.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: VOLUME,
+                    name: "every_covered_row_is_watched_failing_on_a_deliberate_defect",
+                },
+                Instrument::Unit {
+                    file: VOLUME,
+                    name: "neither_criterion_would_do_on_its_own",
+                },
+                Instrument::Unit {
+                    file: VOLUME,
+                    name: "an_arm_that_did_no_work_does_not_hold",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 229,
+        on_spec_table: false,
+        gate: "O6's population is derived from the freeze, and the derivation is what says which \
+               components it covers",
+        kind: Kind::Equality,
+        owner: "C11",
+        section: "spec §17, ADR 0033",
+        // **A query over `INVENTORY`, not a hand-written list** — ADR 0033's rule on the one
+        // obligation whose population is not `built`. *Rows that take a volume* is
+        // `Layer::L2`, which is already the column that says **it costs its visible window and
+        // never the data volume**, plus the rows that fold on the edit — which
+        // `crate::memos` already answers, because a `Spelling::Folded` memo is a value keyed on a
+        // data revision and that is what folding on the edit is.
+        //
+        // **It answered seven where ticket 44's own parenthesis named six**, and that is the
+        // criterion working rather than failing: `sparkline` holds `PlotState`'s two folded memos as
+        // well — it is `chart`'s body with the chrome deleted (components 34) and it folds a million
+        // points through the same `Raster`. *Derived, so a component added later joins without
+        // anyone remembering*, and `sparkline` shipped ten tickets after the sentence that missed
+        // it.
+        //
+        // **The comparison is against an ordered list and not a subset**, because this is the one
+        // obligation of the seven that can go quietly *smaller*: a row that stops declaring
+        // `Layer::L2` leaves the population without leaving a failing set, and an ordered equality
+        // is what fails first.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: VOLUME,
+                    name: "the_covered_rows_are_the_derived_population_in_the_freezes_order",
+                },
+                Instrument::Unit {
+                    file: VOLUME,
+                    name: "the_derivation_reaches_sparkline_and_a_written_out_six_would_not_have",
+                },
+                Instrument::Unit {
+                    file: VOLUME,
+                    name: "every_volume_set_is_a_decade_apart",
+                },
+            ],
+        },
+    },
 ];
 /// **The compile-outcome pair row 31 names, and its positive twin.**
 ///
@@ -8185,7 +8330,7 @@ mod tests {
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn two_hundred_and_thirteen_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn two_hundred_and_sixteen_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -8259,7 +8404,7 @@ mod tests {
              domain and needs no component to be run against, and its row had been citing spec §13 \
              and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 226);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 229);
     }
 
     /// **The split, not the total.**
@@ -8270,10 +8415,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_a_hundred_and_ninety_four_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_a_hundred_and_ninety_seven_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 194);
+        assert_eq!(REGISTER.len() - on_table, 197);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,
@@ -8691,6 +8836,7 @@ mod tests {
                 "table_numbers.rs".to_string(),
                 "tier_two_numbers.rs".to_string(),
                 "tree_numbers.rs".to_string(),
+                "volume_numbers.rs".to_string(),
                 "wheel_numbers.rs".to_string()
             ],
             "the count on this lineage was 0 against the runtime's 19"
