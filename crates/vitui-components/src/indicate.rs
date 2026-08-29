@@ -30,9 +30,12 @@
 //! from, and `tests::the_two_prefix_runs_are_one_ladder_and_two_spellings` sweeps the two runs
 //! against each other at every eighth.
 
-use vitui_runtime::{Ctx, Glyph, Rect, Response, Role};
+use std::time::{Duration, Instant};
 
-use crate::chart::raster::{KeyMode, Kind, PlotState, Range, Reach, geom};
+use vitui_runtime::anim::Steps;
+use vitui_runtime::{Ctx, Glyph, GlyphSet, Rect, Response, Role};
+
+use crate::chart::raster::{KeyMode, Kind, PlotState, RUNGS, Range, Reach, geom};
 use crate::chart::{Body, SERIES_RGB, Series, body_into, series_paint};
 use crate::ink::{Direct, Ink};
 use crate::scroll::{Orient, stripe};
@@ -381,6 +384,391 @@ pub fn sparkline_into<I: Ink>(
     Response::inert(id, area)
 }
 
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+// `spinner` — the twenty-ninth row: an anchor, a ladder of its own, and no clock
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+
+/// **The spinner's frame set at each of the three rungs**, in [`RUNGS`]'s order.
+///
+/// It is the component's own table and not a [`Glyph`], and that is §16's rule working rather than
+/// a hole. A `Glyph` is *one lookup with no spelling blank* — one meaning with one spelling per
+/// rung; a spinner needs an **ordered set of `n` spellings that differ from each other**, which is
+/// not one lookup and not `n` of them either: cycling `ArrowUp`, `ArrowDown`, `ArrowLeft`,
+/// `ArrowRight` at a reader is telling them nothing four times. So the ladder lives here, exactly as
+/// [`crate::chart::raster::RUNGS`] is `chart`'s and [`crate::media::sub_rows`] is the picture's.
+///
+/// # Three ladders, and the middle one is components ticket 46's correction to the prototype
+///
+/// Components ticket 42 measured `4 / 10 / 10` with the braille spinner at **`Unicode | Extended`**,
+/// and that puts braille at the wrong rung: the engine's own `GlyphSet` says `Unicode` is *Unicode a
+/// normal text font covers* and `Extended` is *braille, block elements, emoji, powerline*. A
+/// terminal that promised the middle rung and got braille renders tofu, which is the one failure the
+/// ladder exists to prevent.
+///
+/// So the middle rung is the **quadrant blocks**, which are block elements and are a four-position
+/// orbit — a different construction from the ASCII rotating line rather than a re-spelling of it —
+/// and braille stays at the top. The counts are `4 / 4 / 10` and the **ladders** are three distinct
+/// tables, which is what [`constructions`] counts and what makes `spinner`'s row a **3**. That is
+/// `plot`'s shape one family over and not `meter`'s: braille is what a spinner spends its 256 states
+/// a cell on, so `Extended != Unicode` here where a horizontal bar's ladder has them equal.
+pub const LADDERS: [&[&str]; 3] = [
+    // `|/-\`, and the backslash is one reason this is a table and none of the twenty `Glyph`
+    // meanings. Two states a cell, so a rotating line is what ASCII has.
+    &["|", "/", "-", "\\"],
+    // U+2596..U+259D, the quadrant blocks: an orbiting dot. Four positions, block elements, and
+    // nothing here is braille.
+    &["\u{2596}", "\u{2598}", "\u{259D}", "\u{2597}"],
+    // The ten-frame braille spinner. Eight dots rotating in pairs, which is what 256 states a cell
+    // buys and what neither rung below can spell.
+    &[
+        "\u{280b}", "\u{2819}", "\u{2839}", "\u{2838}", "\u{283c}", "\u{2834}", "\u{2826}",
+        "\u{2827}", "\u{2807}", "\u{280f}",
+    ],
+];
+
+/// **The ladder at a declared repertoire.**
+///
+/// The rung is found by position in [`RUNGS`] rather than by naming a `GlyphSet` variant, because a
+/// component file in this crate may not spell one —
+/// `crate::gates::tests::no_component_here_names_a_glyph_set_and_none_has_a_private_missing_table`
+/// is the scan, and `RUNGS` is the public const that exists so a caller that needs to name a rung
+/// has one place to do it from.
+#[must_use]
+pub fn ladder(set: GlyphSet) -> &'static [&'static str] {
+    let rung = RUNGS
+        .iter()
+        .position(|r| *r == set)
+        .unwrap_or(RUNGS.len() - 1);
+    LADDERS[rung]
+}
+
+/// **How many distinct ladders there are: three.** [`crate::INVENTORY`]'s `constructions` for
+/// `spinner`, derived from the shipped table rather than asserted in a comment.
+///
+/// `chart`, `plot`, `meter` and `sparkline` each derive theirs the same way, and until components
+/// ticket 46 shipped this table `spinner`'s was the one literal in that column that nothing
+/// checked — so a ladder changing shape would have moved no number anywhere.
+#[must_use]
+pub fn constructions() -> usize {
+    let mut seen: Vec<&'static [&'static str]> = Vec::new();
+    for set in RUNGS {
+        let l = ladder(set);
+        if !seen.contains(&l) {
+            seen.push(l);
+        }
+    }
+    seen.len()
+}
+
+/// **What a spinner keeps across frames: an anchor, and nothing a clock has to move.**
+///
+/// # Stored state may be an anchor, never a phase
+///
+/// Spec §8 refused `Collapsing` and `Expanding` because *a transition state has to be stored, which
+/// means the machine can be found halfway between two states with no clock running*. Read as *a
+/// component may not store anything a clock moves* that would forbid a spinner, and it is not that
+/// rule — [`crate::disclose::Collapse`] is the proof, since it stores a `Tween` across frames.
+///
+/// What separates the two is what the stored thing **is**:
+///
+/// - an **anchor** is a value the current state is recoverable from at any `now`. There is no state
+///   *between* two states, because the state **is** a function of `now`, so a machine that has been
+///   asleep for an hour computes the same answer as one that has been drawing at sixty hertz;
+/// - a **phase** is only meaningful relative to a frame that already ran, and a machine holding one
+///   *can* be found halfway with no clock running — which is §8's sentence exactly.
+///
+/// A spinner asks for **strictly less** than the collapsible already ships: [`ANCHOR_BYTES`] against
+/// [`crate::disclose::TWEEN_BYTES`], with no target, no `from` and nothing to land on. Components
+/// ticket 42 is the prototype and ADR 0051 is the decision.
+///
+/// # And the clock is the frame's
+///
+/// The anchor is the component's; the **clock** is not. `Ctx::now` is the frame's own sampled
+/// instant, and every component drawn from it agrees about what time it is —
+/// `tests::no_component_body_in_this_crate_samples_its_own_clock` is the scan that says no body here
+/// reaches for `Instant::now()` instead. The refusal is a measurement rather than a taste:
+/// `Driver::pin_clock` is the entire test regime of this workspace, and a component that samples its
+/// own clock is invisible to it, so *every screen it appears on* loses the ability to advance time.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct SpinState {
+    /// The anchor. `None` when it is not spinning — **which is also how it stops**: there is nothing
+    /// to land on and no tween to run out, so a stopped spinner asks for nothing on the very next
+    /// frame.
+    steps: Option<Steps>,
+}
+
+/// **What the anchor costs**, which is one `Instant` and one `Duration`.
+///
+/// Quoted against [`crate::disclose::TWEEN_BYTES`] by
+/// `tests::the_anchor_is_smaller_than_the_tween_the_collapsible_already_ships`. The niche pays for
+/// the `Option`, so the field costs what the anchor does.
+pub const ANCHOR_BYTES: usize = size_of::<Option<Steps>>();
+
+impl SpinState {
+    /// A stopped spinner.
+    #[must_use]
+    pub const fn new() -> SpinState {
+        SpinState { steps: None }
+    }
+
+    /// **Start spinning at `now`, one ladder frame every `per`.**
+    ///
+    /// A zero `per` is **static and asks for nothing**, which is §8's own arrangement one component
+    /// over: `Collapse::set` takes a `Duration` and a zero one steps rather than tweening. There is
+    /// no theme bit to read instead — `Distinction` has ten entries and none of them is *motion is
+    /// visible*, `Fade` being about whether a run of intermediate colours survives quantisation — so
+    /// **the motion switch is the caller's `Duration`**, exactly as the collapsible's is.
+    pub const fn start(&mut self, now: Instant, per: Duration) {
+        self.steps = if per.is_zero() {
+            None
+        } else {
+            Some(Steps::new(now, per))
+        };
+    }
+
+    /// Stop. **Nothing lands and nothing runs out**, so the next frame asks for nothing.
+    pub const fn stop(&mut self) {
+        self.steps = None;
+    }
+
+    /// Whether it is spinning.
+    #[must_use]
+    pub const fn spinning(&self) -> bool {
+        self.steps.is_some()
+    }
+
+    /// **Which ladder frame is showing at the frame's `now`.**
+    #[must_use]
+    pub fn index(&self, now: Instant, frames: usize) -> usize {
+        let n = frames.max(1) as u64;
+        self.steps.map_or(0, |s| s.cycle(now, n)) as usize
+    }
+
+    /// **When it wants the next frame**, `None` when it wants none.
+    ///
+    /// From the **anchor** and never from `now`, which is what keeps a screen that woke late on the
+    /// grid it started on: `Steps::next_at` is the closed form and `vitui_runtime::anim` measures
+    /// what the other spelling costs — 352 steps in thirty seconds against 375.
+    #[must_use]
+    pub fn wake(&self, now: Instant) -> Option<Instant> {
+        self.steps.map(|s| s.next_at(now))
+    }
+}
+
+/// [`spinner`]'s options.
+///
+/// Spec §1's rule 3: a `Default` struct, never a required builder.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct SpinOpts {
+    /// The role the ladder frame is drawn in.
+    pub mark: Role,
+    /// The role the label beside it is drawn in.
+    pub label: Role,
+}
+
+impl Default for SpinOpts {
+    fn default() -> SpinOpts {
+        SpinOpts {
+            mark: Role::Title,
+            label: Role::Body,
+        }
+    }
+}
+
+/// **A one-cell ladder frame that advances on the frame's clock, and a label beside it.**
+///
+/// **Hostile axes:** none.
+///
+/// The twenty-ninth row of spec §17's freeze and the last to be built. It declares no region — a
+/// spinner is a pure drawer, as [`crate::text::text`] with no interest is — and it **partitions its
+/// rectangle**: the mark, the label, the pad, and a run for every row below the first.
+///
+/// # It owns an anchor and it does not own a clock
+///
+/// [`SpinState`] is the anchor and `Ctx::now` is the clock. See [`SpinState`] for the rule and what
+/// it costs; ADR 0051 for the decision and the measurement that refuses the other arm.
+///
+/// # It asks only if the draw put a cell on the screen
+///
+/// *Undrawn* is already answered by the caller culling — the same mechanism a closed
+/// [`crate::disclose::collapsible`] and an off-viewport row use, since the body is not called. A
+/// **clipped** spinner is the case that is not the same: it runs, writes nothing, and can still ask.
+/// Both screens look identical and one of them keeps the terminal awake, so the rule is one line and
+/// [`defective::spinner_asking_always_into`] is the arm it replaced.
+///
+/// ```
+/// use std::time::Duration;
+/// use vitui_components::indicate::{SpinState, spinner};
+/// use vitui_runtime::Rect;
+/// use vitui_runtime::ctx::Driver;
+///
+/// let mut driver = Driver::headless(24, 1).expect("a sink attaches");
+/// let mut st = SpinState::new();
+/// driver.frame(|cx| {
+///     // The anchor is the frame's `now`, which is the only clock a component may read.
+///     st.start(cx.now(), Duration::from_millis(80));
+///     let resp = spinner(cx, Rect::new(0, 0, 24, 1), &st, "indexing");
+///     assert_eq!(resp.rect.w, 24);
+/// });
+/// assert!(st.spinning());
+/// // Stopping is the whole of it: nothing lands, so the next frame asks for nothing.
+/// st.stop();
+/// assert!(!st.spinning());
+/// ```
+#[track_caller]
+pub fn spinner(cx: &mut Ctx<'_, '_>, area: Rect, st: &SpinState, label: &str) -> Response {
+    spinner_with(cx, area, st, label, &SpinOpts::default())
+}
+
+/// [`spinner`], with the options spelled out.
+#[track_caller]
+pub fn spinner_with(
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    st: &SpinState,
+    label: &str,
+    opts: &SpinOpts,
+) -> Response {
+    spinner_into(&mut Direct, cx, area, st, label, opts)
+}
+
+/// **[`spinner`], drawing through an [`Ink`] so a counter can see every cell.**
+///
+/// `#[track_caller]` all the way up, and here it is load-bearing twice over: `Ctx::id` mints from
+/// `Location::caller()`, so two spinners at two call sites are two widgets; and the runaway a
+/// spinning screen produces is blamed on the **application's** line rather than on this file, which
+/// is `vitui_runtime::anim`'s own note about the attribute running in the right direction.
+#[track_caller]
+pub fn spinner_into<I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    st: &SpinState,
+    label: &str,
+    opts: &SpinOpts,
+) -> Response {
+    ask_into(ink, cx, area, st, label, opts, Ask::WhenWritten)
+}
+
+/// **When a spinner asks for its next frame.** The shipped rule and the arm it replaced.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+enum Ask {
+    /// **The rule.** Ask only if the draw put a cell on the screen.
+    #[default]
+    WhenWritten,
+    /// Ask whenever the anchor says it is spinning, written or not. [`defective`]'s.
+    Always,
+    /// Ask through `Ctx::deadline`, which names no widget. [`defective`]'s.
+    WithoutTheId,
+}
+
+/// The one body all three arms share, so the negative cases are one field away from the shipped one
+/// rather than a second implementation.
+#[track_caller]
+fn ask_into<I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    st: &SpinState,
+    label: &str,
+    opts: &SpinOpts,
+    ask: Ask,
+) -> Response {
+    let id = cx.id();
+    let now = cx.now();
+    let asked = |cx: &mut Ctx<'_, '_>, written: bool| {
+        let wants = match ask {
+            Ask::WhenWritten => written,
+            Ask::Always | Ask::WithoutTheId => true,
+        };
+        if !wants {
+            return;
+        }
+        let Some(at) = st.wake(now) else { return };
+        match ask {
+            // **`deadline_for` and not `deadline`**, because the id buys the census: twelve
+            // spinners on a screen asked through `Ctx::deadline` answer `Id::ROOT` twelve times,
+            // and a screen that is awake cannot then be asked which widget is keeping it awake.
+            Ask::WhenWritten | Ask::Always => cx.deadline_for(id, at),
+            Ask::WithoutTheId => cx.deadline(at),
+        }
+    };
+
+    if area.is_empty() {
+        asked(cx, false);
+        return Response::inert(id, area);
+    }
+
+    let frames = ladder(cx.theme().glyphs());
+    let mark = if st.spinning() {
+        frames[st.index(now, frames.len())]
+    } else {
+        // Stopped, and it is still one cell: a blank would make the row jump the frame the work
+        // finishes, and `Glyph`'s own rule is *no spelling blank*.
+        frames[0]
+    };
+
+    let theme = cx.theme();
+    let (mark_paint, label_paint) = (theme.paint(opts.mark), theme.paint(opts.label));
+
+    // **The rectangle is a partition** (spec §2): the mark, the label padded to what is left, and a
+    // run for every row below the first.
+    let mut written = u32::from(ink.text(cx, area.x, area.y, mark, mark_paint));
+    if area.w > 1 {
+        written += u32::from(ink.pad_to(cx, area.x + 1, area.y, label, area.w - 1, label_paint));
+    }
+    for row in 1..i32::from(area.h) {
+        written += u32::from(ink.run(cx, area.x, area.y + row, " ", area.w, label_paint));
+    }
+
+    asked(cx, written > 0);
+    Response::inert(id, area)
+}
+
+/// **The two spellings a spinner may not have, kept runnable rather than described.**
+///
+/// Both draw the identical picture, which is the whole reason they are here: the difference between
+/// each of them and the shipped body is invisible on the rendered surface and visible only in what
+/// the frame **asks for**.
+pub mod defective {
+    use super::{Ask, Ink, Rect, Response, SpinOpts, SpinState, ask_into};
+    use vitui_runtime::Ctx;
+
+    /// **Asks whether or not the draw wrote a cell.**
+    ///
+    /// A clipped spinner runs, writes nothing and — on this arm — still registers a deadline, so a
+    /// screen stays awake for a widget the clip took away. The shipped rule is *ask only if the draw
+    /// put a cell on the screen*; the two screens are cell for cell identical.
+    #[track_caller]
+    pub fn spinner_asking_always_into<I: Ink>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Rect,
+        st: &SpinState,
+        label: &str,
+        opts: &SpinOpts,
+    ) -> Response {
+        ask_into(ink, cx, area, st, label, opts, Ask::Always)
+    }
+
+    /// **Asks through `Ctx::deadline`, which names no widget.**
+    ///
+    /// The attribution is the same either way — both spellings record the caller's line — so what
+    /// this arm loses is the **census**: `WakeLedger::asked_by` answers zero for the spinner's own
+    /// id, and a screen with twelve spinners cannot be asked which one is spinning.
+    #[track_caller]
+    pub fn spinner_asking_without_its_id_into<I: Ink>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Rect,
+        st: &SpinState,
+        label: &str,
+        opts: &SpinOpts,
+    ) -> Response {
+        ask_into(ink, cx, area, st, label, opts, Ask::WithoutTheId)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -392,6 +780,441 @@ mod tests {
     use vitui_runtime::ColorDepth;
     use vitui_runtime::ctx::Driver;
     use vitui_runtime::theme::{CATPPUCCIN_MOCHA, Density, Theme};
+
+    /// **Criterion 1: `spinner` is three constructions, and the number is derived.**
+    ///
+    /// Components ticket 42 left `constructions: 2` as an *argument* — every other
+    /// multi-construction row asserts `row.constructions == distinct(...)` against a shipped table
+    /// and `spinner`'s table was on a branch, so nothing in the tree would have noticed the ladder
+    /// changing shape. This is that derivation, and running it moved the number.
+    #[test]
+    fn a_spinner_is_three_constructions_and_the_ladder_is_its_own() {
+        let counts: Vec<usize> = RUNGS.iter().map(|&set| ladder(set).len()).collect();
+        assert_eq!(counts, vec![4, 4, 10], "the frame counts, rung by rung");
+        assert_eq!(constructions(), 3);
+        let row = INVENTORY
+            .iter()
+            .find(|c| c.id == "spinner")
+            .expect("the freeze has a `spinner`");
+        assert_eq!(row.constructions as usize, constructions());
+        assert_eq!(row.tier, Tier::Three);
+        // **The column stays empty, and that is the other half of *the ladder is its own*.** A
+        // `Glyph` is one lookup; a ladder is `n` spellings that differ from each other.
+        assert!(row.glyphs.is_empty());
+
+        // **The count alone does not decide it, and that is why `constructions` compares the
+        // tables.** Two of the three rungs have four frames and they are two different ladders —
+        // read off the counts the answer would be 2, which is exactly the number ticket 42
+        // reported.
+        let by_count: std::collections::BTreeSet<usize> = counts.iter().copied().collect();
+        assert_eq!(by_count.len(), 2, "the reading that gives the wrong answer");
+
+        // **Every spelling is one cell and no spelling is blank** — §16's two rules, true of all
+        // three ladders and deciding none of them.
+        for &set in &RUNGS {
+            let l = ladder(set);
+            for frame in l {
+                assert_eq!(
+                    vitui_runtime::layout::text::width(frame),
+                    1,
+                    "`{frame}` is not one cell"
+                );
+                assert!(!frame.trim().is_empty(), "a blank spelling");
+            }
+            let distinct: std::collections::BTreeSet<&&str> = l.iter().collect();
+            assert_eq!(distinct.len(), l.len(), "a ladder repeats a frame");
+        }
+
+        // **And braille is at the top rung and nowhere below it**, which is ticket 42's correction:
+        // the engine's `GlyphSet` says `Unicode` is *Unicode a normal text font covers*, so a
+        // braille frame there is tofu on a terminal that kept its promise.
+        let braille = |l: &[&str]| {
+            l.iter()
+                .any(|f| f.chars().any(|c| ('\u{2800}'..='\u{28ff}').contains(&c)))
+        };
+        assert!(!braille(ladder(RUNGS[0])));
+        assert!(!braille(ladder(RUNGS[1])));
+        assert!(braille(ladder(RUNGS[2])));
+    }
+
+    /// **The anchor is smaller than the tween the collapsible already ships.**
+    ///
+    /// What makes *a component may own an anchor* a statement about a mechanism already in the
+    /// crate rather than a new permission: `spinner` asks for less in bytes **and** in kind — no
+    /// target, no `from`, and nothing to land on.
+    #[test]
+    fn the_anchor_is_smaller_than_the_tween_the_collapsible_already_ships() {
+        // Through a `let`, so clippy sees a comparison of two values rather than of two constants.
+        let (spinner, collapsible) = (ANCHOR_BYTES, crate::disclose::TWEEN_BYTES);
+        assert_eq!(
+            spinner, 32,
+            "an `Instant` and a `Duration`, and the niche pays for the Option"
+        );
+        assert_eq!(
+            collapsible, 40,
+            "the tween slot the collapsible carries as a field"
+        );
+        assert!(spinner < collapsible, "{spinner} against {collapsible}");
+    }
+
+    /// **A stopped spinner asks for nothing on the next frame, and a zero period never asked.**
+    ///
+    /// The half `collapsible` cannot have: a tween has somewhere to land, so §8's *frames to quiet*
+    /// is a cadence. A spinner has no transient at all, so it is a **count**, and the count is one.
+    #[test]
+    fn a_stopped_spinner_is_quiet_at_once_and_a_zero_period_never_asked() {
+        let now = Instant::now();
+        let mut st = SpinState::new();
+        st.start(now, Duration::from_millis(80));
+        assert!(st.spinning());
+        assert!(st.wake(now).is_some());
+        st.stop();
+        assert_eq!(st.wake(now), None, "one frame to quiet, and no transient");
+
+        let mut zero = SpinState::new();
+        zero.start(now, Duration::ZERO);
+        assert!(!zero.spinning(), "a zero `Duration` is static");
+        assert_eq!(zero.wake(now), None);
+        // And it is still one cell, because `Glyph`'s own rule is *no spelling blank* and a row
+        // that lost a cell the moment the work finished would jump.
+        assert_eq!(zero.index(now, 10), 0);
+    }
+
+    /// **The anchor answers the same question the same way, however long the screen was asleep.**
+    ///
+    /// *The state is a function of `now`*, which is the whole of the rule — and the next step is on
+    /// the anchor's grid rather than `now + per`, which is what a screen that woke late keeps.
+    #[test]
+    fn the_answer_is_a_function_of_now_and_the_grid_is_the_anchors() {
+        let now = Instant::now();
+        let mut st = SpinState::new();
+        st.start(now, Duration::from_millis(80));
+        assert_eq!(st.index(now, 10), 0);
+        assert_eq!(st.index(now + Duration::from_millis(240), 10), 3);
+        // Asleep for an hour, and the answer is the same one a screen drawing at sixty hertz has.
+        let hour = now + Duration::from_secs(3_600);
+        assert_eq!(st.index(hour, 10), st.index(hour, 10));
+        assert_eq!(st.index(hour, 4), (3_600_000 / 80) % 4);
+        // Late by 15 ms, and the next step is still on the grid the anchor set.
+        assert_eq!(
+            st.wake(now + Duration::from_millis(95)),
+            Some(now + Duration::from_millis(160))
+        );
+    }
+
+    /// **A clipped spinner writes nothing and asks for nothing, and the defective arm asks anyway.**
+    ///
+    /// The first of the two rules ticket 46 gates, and the reason it needs a runnable arm rather
+    /// than a paragraph: **the two screens are cell for cell identical**. What separates them is one
+    /// deadline, so a comparison of pictures reports them the same and only the ledger disagrees.
+    ///
+    /// *Undrawn* is deliberately not the subject. A caller that culls never calls the body, which is
+    /// the same mechanism a closed `collapsible` and an off-viewport row use, so it is already
+    /// answered and answering it again here would be measuring the harness.
+    #[test]
+    fn a_clipped_spinner_asks_for_nothing_and_the_defective_arm_asks_anyway() {
+        let per = Duration::from_millis(80);
+        // A rectangle with no cells in it: the component runs and every verb is a no-op.
+        let clipped = Rect::new(0, 0, 0, 1);
+        let visible = Rect::new(0, 0, 12, 1);
+
+        let asks = |area: Rect, defective: bool| -> (usize, u64) {
+            let mut driver = Driver::headless(12, 1).expect("a sink cannot fail to attach");
+            let mut st = SpinState::new();
+            let mut pen = Pen::over(Canvas::new(12, 1));
+            let mut id = None;
+            driver.frame(|cx| {
+                st.start(cx.now(), per);
+                let resp = if defective {
+                    defective::spinner_asking_always_into(
+                        &mut pen,
+                        cx,
+                        area,
+                        &st,
+                        "working",
+                        &SpinOpts::default(),
+                    )
+                } else {
+                    spinner_into(&mut pen, cx, area, &st, "working", &SpinOpts::default())
+                };
+                id = Some(resp.id);
+            });
+            let wakes = driver.inspect().wakes();
+            (wakes.line_count(), wakes.asked_by(id.expect("a response")))
+        };
+
+        // Visible: both arms ask, once, and the id is on the ask.
+        assert_eq!(asks(visible, false), (1, 1), "a visible spinner asks");
+        assert_eq!(asks(visible, true), (1, 1));
+        // Clipped: the shipped rule is silent and the defective arm keeps the terminal awake.
+        assert_eq!(
+            asks(clipped, false),
+            (0, 0),
+            "a clipped spinner wrote no cell and asked for a frame"
+        );
+        assert_eq!(
+            asks(clipped, true),
+            (1, 1),
+            "the negative arm no longer asks, so the rule is gated against nothing"
+        );
+
+        // **And the two clipped screens are the same picture**, which is why the rule cannot be
+        // read off a surface.
+        let shot = |defective: bool| {
+            let mut driver = Driver::headless(12, 1).expect("a sink cannot fail to attach");
+            let mut st = SpinState::new();
+            let mut pen = Pen::over(Canvas::new(12, 1));
+            driver.frame(|cx| {
+                st.start(cx.now(), per);
+                if defective {
+                    defective::spinner_asking_always_into(
+                        &mut pen,
+                        cx,
+                        clipped,
+                        &st,
+                        "working",
+                        &SpinOpts::default(),
+                    );
+                } else {
+                    spinner_into(&mut pen, cx, clipped, &st, "working", &SpinOpts::default());
+                }
+            });
+            pen.into_canvas()
+        };
+        assert_eq!(shot(false).diff(&shot(true)).cells, 0);
+    }
+
+    /// **The ask names the widget, and the defective arm names nobody.**
+    ///
+    /// The second rule. `Ctx::deadline` and `Ctx::deadline_for` attribute **the same way** — both
+    /// record the caller's line — so what the id buys is the *census*, and a screen with three
+    /// spinners on it is where the difference is visible: `asked_by` answers per widget, and three
+    /// asks through `deadline` leave the census empty while every line is attributed correctly.
+    #[test]
+    fn three_spinners_name_three_widgets_and_the_defective_arm_names_none() {
+        let per = Duration::from_millis(80);
+        let census = |defective: bool| -> (usize, usize, u64) {
+            let mut driver = Driver::headless(30, 3).expect("a sink cannot fail to attach");
+            let mut st = SpinState::new();
+            let mut pen = Pen::over(Canvas::new(30, 3));
+            let mut first = None;
+            driver.frame(|cx| {
+                st.start(cx.now(), per);
+                for row in 0..3 {
+                    let area = Rect::new(0, row, 30, 1);
+                    // **Keyed**, because one call in one loop is one `Location::caller()` — the trap
+                    // `Ctx::id` documents, and the one `crate::gallery` meets per tile.
+                    let resp = cx.with_key(u64::try_from(row).unwrap_or(0), |cx| {
+                        if defective {
+                            defective::spinner_asking_without_its_id_into(
+                                &mut pen,
+                                cx,
+                                area,
+                                &st,
+                                "working",
+                                &SpinOpts::default(),
+                            )
+                        } else {
+                            spinner_into(&mut pen, cx, area, &st, "working", &SpinOpts::default())
+                        }
+                    });
+                    if row == 0 {
+                        first = Some(resp.id);
+                    }
+                }
+            });
+            let wakes = driver.inspect().wakes();
+            (
+                wakes.census_len(),
+                wakes.line_count(),
+                wakes.asked_by(first.expect("a response")),
+            )
+        };
+
+        // Three widgets, one line — the line is the caller's own call site, which is one line
+        // inside one loop, and the ids are three because the loop keys them.
+        assert_eq!(census(false), (3, 1, 1));
+        // The defective arm attributes the same line and names nobody at all.
+        assert_eq!(
+            census(true),
+            (0, 1, 0),
+            "the negative arm names a widget, so the census is gated against nothing"
+        );
+    }
+
+    /// **A spinner writes every cell of the rectangle it was handed** (spec §2), at every size from
+    /// 1x1 to 17x5.
+    #[test]
+    fn a_spinner_partitions_every_rectangle_it_is_handed() {
+        let per = Duration::from_millis(80);
+        for w in 1..=17u16 {
+            for h in 1..=5u16 {
+                let mut driver = Driver::headless(w, h).expect("a sink cannot fail to attach");
+                let mut st = SpinState::new();
+                let mut tally = Tally::new();
+                driver.frame(|cx| {
+                    st.start(cx.now(), per);
+                    spinner_into(
+                        &mut tally,
+                        cx,
+                        Rect::new(0, 0, w, h),
+                        &st,
+                        "indexing the workspace",
+                        &SpinOpts::default(),
+                    );
+                });
+                let cells = u64::from(w) * u64::from(h);
+                assert_eq!(tally.writes(), cells, "{w}x{h}: writes");
+                assert_eq!(tally.distinct(), cells, "{w}x{h}: a cell written twice");
+            }
+        }
+    }
+
+    /// **No component body in this crate samples its own clock.**
+    ///
+    /// The scan ticket 46 owes, and it is `crate::order`'s arrangement: an absence has no
+    /// expression, so what keeps it true is a source scan rather than a type. The rule is *the clock
+    /// is the frame's* — `Ctx::now` — and the edit that would break it is somebody reaching for
+    /// `Instant::now()` because it is in scope in every crate.
+    ///
+    /// # The population is a **function**, not a file, and that is what makes it a join
+    ///
+    /// Fifty-six library-half `Instant::now()` calls live in this crate's *instruments* — every one
+    /// of them a `let started = Instant::now()` in a timing report or an event fixture's timestamp —
+    /// and six of those are inside `collect.rs`, which is a component module. A scan by **file**
+    /// would therefore have to carry a growing exception list, and an exception list that grows is
+    /// the shape this crate keeps finding defects behind.
+    ///
+    /// What separates a report from a draw is the **`Ctx`**: a function that takes one is drawing a
+    /// frame and has the frame's clock in its hand, and a function that does not is a report and may
+    /// read the machine's. So the scan walks each component module's library half, finds every `fn`
+    /// item, and reports the ones that both name a `Ctx` in their signature and spell
+    /// `Instant::now()` in their body. Watched in both directions over fixtures, because a scan
+    /// whose needle has quietly stopped matching reports every module clean.
+    #[test]
+    fn no_component_body_in_this_crate_samples_its_own_clock() {
+        let root = std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/src"));
+        let mut modules: Vec<String> = crate::INVENTORY
+            .iter()
+            .filter_map(|c| c.module())
+            .map(|m| format!("{m}.rs"))
+            .collect();
+        modules.sort_unstable();
+        modules.dedup();
+        assert_eq!(modules.len(), 10, "the modules the freeze homes a row in");
+        // **The media family is the stated exception, and it is two files.** `crate::media` is *no
+        // row of the freeze at all* — §14's own *no v1 component* — so a population derived from
+        // the freeze's `families` column reaches none of its six drawers, and the chrome under it
+        // is not at a family module's top level either. A rule about what draws that skipped seven
+        // drawers because a column has no row for them is a rule with a hole in it, which is
+        // `crate::order`'s own recorded defect met from the other side.
+        modules.push("media.rs".to_owned());
+        modules.push("media/player.rs".to_owned());
+        assert_eq!(
+            modules.len(),
+            12,
+            "ten homing modules and the media family's two"
+        );
+
+        let mut sampling = Vec::new();
+        for m in &modules {
+            let source =
+                std::fs::read_to_string(root.join(m)).unwrap_or_else(|e| panic!("{m}: {e}"));
+            for name in clock_samplers(&source) {
+                sampling.push(format!("{m}: {name}"));
+            }
+        }
+        assert_eq!(
+            sampling,
+            Vec::<String>::new(),
+            "a component body reads `Instant::now()`. The clock is the frame's — `Ctx::now` — and \
+             a component that samples its own is invisible to `Driver::pin_clock`, which is the \
+             entire test regime of this workspace: every screen it appears on loses the ability to \
+             advance time"
+        );
+
+        // **Both directions**, or a scan that has stopped finding `fn` reports every module clean.
+        let hostile =
+            "pub fn spin_into(cx: &mut Ctx<'_, '_>) {\n    let now = Instant::now();\n}\n";
+        assert_eq!(clock_samplers(hostile), vec!["spin_into".to_owned()]);
+        // A report takes no `Ctx` and may read the machine's clock — which is what fifty-six calls
+        // in this crate's instruments are.
+        let report =
+            "pub fn cost(rounds: u32) -> u128 {\n    let started = Instant::now();\n    0\n}\n";
+        assert!(clock_samplers(report).is_empty());
+        // A drawing function that does not sample is not reported either.
+        let shipped = "pub fn draw(cx: &mut Ctx<'_, '_>) {\n    let now = cx.now();\n}\n";
+        assert!(clock_samplers(shipped).is_empty());
+        // And a commented mention is not a call, which is `crate::dense::declares`'s own rule.
+        let quoted =
+            "pub fn draw(cx: &mut Ctx<'_, '_>) {\n    // never Instant::now()\n    let _ = 1;\n}\n";
+        assert!(clock_samplers(quoted).is_empty());
+    }
+
+    /// Whether a line names a `Ctx`, which is what separates a draw from a report.
+    fn names_a_ctx(line: &str) -> bool {
+        line.contains("Ctx<") || line.contains("&mut Ctx")
+    }
+
+    /// The `fn` items of `source`'s library half that take a `Ctx` **and** spell `Instant::now()`.
+    ///
+    /// A function ends where the next one begins, which is enough here: the population is top-level
+    /// items in a crate that runs `cargo fmt`, so a nested `fn` is attributed to its parent — and
+    /// attributing a nested sampler to the body it is nested in is the answer this scan wants
+    /// anyway.
+    fn clock_samplers(source: &str) -> Vec<String> {
+        let library = source
+            .split_once("\n#[cfg(test)]\n")
+            .map_or(source, |(head, _)| head);
+        let mut out = Vec::new();
+        let mut open: Option<(String, bool, bool)> = None;
+        for line in library.lines() {
+            let trimmed = line.trim_start();
+            if let Some(rest) = trimmed
+                .strip_prefix("pub fn ")
+                .or_else(|| trimmed.strip_prefix("fn "))
+                .or_else(|| trimmed.strip_prefix("pub(crate) fn "))
+            {
+                if let Some((name, ctx, sampled)) = open.take()
+                    && ctx
+                    && sampled
+                {
+                    out.push(name);
+                }
+                let name: String = rest
+                    .chars()
+                    .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+                    .collect();
+                // **The declaration line is read, not skipped.** A one-line signature carries the
+                // `Ctx` on the same line as the `fn`, so a scan that opened the item and moved on
+                // reported every such body clean — which the hostile fixture below is watched
+                // catching.
+                open = Some((name, names_a_ctx(line), false));
+                continue;
+            }
+            let Some((_, ctx, sampled)) = open.as_mut() else {
+                continue;
+            };
+            if trimmed.starts_with("//") {
+                continue;
+            }
+            // The signature may span lines, so `Ctx` is looked for in the whole body: a function
+            // that mentions one is a function that has a frame in its hand.
+            if names_a_ctx(line) {
+                *ctx = true;
+            }
+            if line.contains("Instant::now()") {
+                *sampled = true;
+            }
+        }
+        if let Some((name, ctx, sampled)) = open
+            && ctx
+            && sampled
+        {
+            out.push(name);
+        }
+        out
+    }
 
     /// A tally over one frame of `f`, on a `w` by `h` sink.
     fn tallied(w: u16, h: u16, f: impl FnOnce(&mut Tally, &mut Ctx<'_, '_>)) -> Tally {

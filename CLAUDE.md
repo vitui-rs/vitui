@@ -117,8 +117,8 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 45 of 46 tickets resolved (the last on 2026-08-29) — the one
-  left is 46 (`spinner` and the playhead). `INVENTORY` is spec
+- **`vitui-components` is implementation-complete**: all 46 tickets resolved, the last on
+  2026-08-29. `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
   answerable by the machine from here on. **O1 is met since ticket 36, O3 since 37, O4 since 38,
@@ -213,6 +213,56 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   a steady frame's**, and it has to be: `crate::app::Clears` writes every cell on the first frame and
   on a resize, so *cells nobody ever wrote* is zero on any screen that clears and says nothing about
   any component.
+
+- **`spinner` is the twenty-ninth component and the freeze is complete, and the permission is
+  narrower than the question: a component may own an *anchor* and may not own a *clock*** (components
+  ticket 46, 2026-08-29; ADR 0051). `crate::indicate` homes the last row of §17's freeze,
+  `media::player::chrome_playing_into` is the seventh part of the video player's chrome
+  (`SHIPPED` 6 → **7**, and `Needs::Clock` has no row), and register is **231 → 233 rows, 220
+  evaluated**.
+  **The rule is not granted here.** *Stored state may be an anchor, never a phase* is what §8 and §9
+  were already obeying — `disclose::Collapse` stores a `Tween` across frames — and a spinner asks for
+  strictly less: **32 B against 40**, with no target, no `from` and nothing to land on. What is
+  refused is the clock, on a measurement: **`Driver::pin_clock` is the entire test regime of this
+  workspace and a self-sampling component is invisible to it**, so every screen it appears on loses
+  the ability to advance time.
+  **The scan that keeps it true has a *function* for a population and not a file, and that is the
+  load-bearing half.** Fifty-six library-half `Instant::now()` calls live in this crate's instruments
+  and **six of them are inside `collect.rs`, which is a component module** — so a scan by file would
+  have carried a growing exception list, the shape this crate keeps finding defects behind. What
+  separates a report from a draw is the **`Ctx`**.
+  **`constructions` is 3, not ticket 42's 2, and the correction is the rung boundary rather than the
+  count.** The prototype put the braille spinner at `Unicode | Extended`; the engine's own `GlyphSet`
+  says `Unicode` is *Unicode a normal text font covers* and braille is `Extended`, so a terminal that
+  kept the middle promise would have rendered **tofu** — the one failure a ladder exists to prevent.
+  The middle rung is the **quadrant blocks**, an orbiting dot rather than a re-spelling of the ASCII
+  rotating line, so the frames are `4 / 4 / 10` over **three distinct tables**. *A count is not a
+  ladder*: read off the counts the answer is 2, which is exactly what the prototype reported, and
+  `crate::indicate::constructions` is the derivation that says so — the one every other
+  multi-construction row already had.
+  **Both rules are gated with runnable negative arms because neither is visible on a surface.** A
+  clipped spinner and a clipped `Ask::Always` one are **0 cells apart** and one keeps the terminal
+  awake — `(lines, asked_by)` `(0, 0)` against `(1, 1)`; three spinners name **3 widgets** through
+  `deadline_for` and **0** through `deadline`, while both spellings attribute the same one line,
+  which is `#[track_caller]` running outward.
+  **The playhead's cadence reproduces and is sensitive to one thing**: `NextCellChange` is **60**
+  wakes over a two-hour run on a sixty-column bar whatever the nominal interval is, and `EveryFrame`
+  is **431 991** at 16 667 µs and 432 017 at 16 666 — its count is a property of the *nominal
+  interval* rather than of the run, which is the finding from its other side, and the ratio is
+  **7 199×**. The reading had to be a **delta**: `WakeLedger`'s counters are cumulative and never
+  reset, which is ticket 42's own recorded trap arriving in this ticket's instrument. And one seam is
+  recorded rather than changed — `chrome` returns the **track's** response so a caller can `scrub`
+  it, and the ask carries the **chrome's** id, so an application cannot name the widget keeping its
+  screen awake and only the census can.
+  **The four populations that read the `built` column moved to twenty-nine with no edit to any of
+  them** — O1's pages, O2's panels, O3's goldens and O7's applications — which is what those queries
+  were written for, and `owed == buildable == 36` for the first time. Two numbers moved because the
+  panel count did: the gallery's `LeftAlone` remainder is **5 315** cells at 300x80 against 2 956,
+  because twenty-nine panels need a wider grid than twenty-eight. **And the report sweep found five
+  `*_numbers.rs` files that had been panicking since components 41** — ticket 20's finding for the
+  fourth time.
+  **The application is `pipeline`**, and `c` is the key: both cadences draw the identical screen and
+  the wake counter is the only thing that separates them.
 
 - **O7 is green — a join by import path, over a population read out of the source, and it was owed
   three rows rather than the two its ticket named** (components ticket 45, 2026-08-29; ADR 0050).
@@ -371,7 +421,7 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   `.scratch/vitui-components-impl/research/42-a-component-that-owns-a-clock.md`, and it opens exactly
   one implementation ticket, **46**. §22's *mechanisms named with an owner and not prototyped* loses
   its first row and `spinner` leaves §17's at-risk tier; the row stays `built: false` until 46 lands,
-  so the crate is still 28 of 29.
+  so the crate was 28 of 29 until ticket 46 landed it.
   **The rule is not a permission granted here.** *Stored state may be an anchor, never a phase* — an
   anchor is a value the current state is recoverable from at any `now`, so there is no state
   *between* two states; a phase is only meaningful relative to a frame that already ran, which is §8's
@@ -1725,8 +1775,8 @@ Read these before working, in this order:
    authority. An `architecture.md` beside a spec is the superseded proposal, kept only as the record
    of what was argued.
 2. `CONTEXT.md` — the glossary. Use its terms in code, comments, tickets and commit messages.
-3. `docs/adr/` — 50 decisions that are hard to reverse and surprising without context. 0001–0011 and
-   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0050 the components.
+3. `docs/adr/` — 51 decisions that are hard to reverse and surprising without context. 0001–0011 and
+   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0051 the components.
 4. The impl backlog `README.md` for the layer being worked on — it holds the phase order, the
    blocking edges, and the defects that shaped both.
 
@@ -1744,10 +1794,10 @@ crates/vitui-engine       cells, surfaces, layers, compositing, damage, serializ
                           └ crossterm behind a seam: raw mode, input, capability detection
 crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key maps, theming,
                           overlays, the data contract — no scene tree, no reactivity
-crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers (28 of 29 built —
-                          the one left is `spinner`, whose mechanism is prototyped since ticket 42
-                          and sliced as ticket 46: a component may own an anchor and not a clock)
-                          └ and `gallery`, the assembled screen: 28 panels as a value the
+crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers — **29 of 29 built**
+                          since ticket 46, whose last row was `spinner`: a component may own an
+                          *anchor* and may not own a *clock*, and `Ctx::now` is the only clock
+                          └ and `gallery`, the assembled screen: 29 panels as a value the
                             application iterates, which is where O2's two equalities are measured
                             (ticket 39), and §21's row 7 — every cell of the rectangle written at
                             least once, green since ticket 40, and row 8 — no cell keeps the
@@ -1761,7 +1811,7 @@ crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers 
                           └ and, for the thirteen that read a key, a declared keyboard contract whose
                             help is rendered from it and whose other half is a sweep that runs the
                             component (O4, ticket 38)
-                          └ and a golden screen per construction under `tests/golden/` — 33 of them,
+                          └ and a golden screen per construction under `tests/golden/` — 36 of them,
                             in the engine's format, blessed with `VITUI_BLESS=1` (O3, ticket 37)
                           └ plus `media`, which is **no row of the freeze at all** — §14's own *no
                             v1 component*, so the family ships and `MEMBERS` is empty
@@ -1770,9 +1820,10 @@ crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers 
                             unnameable across the crate line; runtime issue 22 re-exported it and
                             components issue 17 deleted the stand-in
 crates/vitui              facade re-export — engine, runtime, components
-crates/vitui-apps         the applications, one file each in `examples/` — 17: `counter`, `triage`,
+crates/vitui-apps         the applications, one file each in `examples/` — 18: `counter`, `triage`,
                           `latency`, `ledger`, `explorer`, `reader`, `settings`, `compose`, `console`,
-                          `theatre`, `browse`, `mixer`, `vitals`, `roster`, `gallery`, `sheet`, `caps`.
+                          `theatre`, `browse`, `mixer`, `vitals`, `roster`, `gallery`, `sheet`,
+                          `pipeline`, `caps`.
                           **A component ticket ships one, and since ticket 45 that is obligation O7
                           rather than a habit** — `vitui_components::consumer` joins the freeze
                           against the import paths here, and it was owed three rows when it was built
@@ -1846,6 +1897,8 @@ cargo run -p vitui-apps --example roster    # the three Tier 2 composites; Ctrl+
 cargo run -p vitui-apps --example roster -- --probe
 cargo run -p vitui-apps --example sheet     # the caller owns the offset; t is the tail, on tiny.csv
 cargo run -p vitui-apps --example sheet -- --probe
+cargo run -p vitui-apps --example pipeline  # the anchor; c swaps the cadence, 60 wakes against 431 991
+cargo run -p vitui-apps --example pipeline -- --probe
 cargo run -p vitui-apps --example gallery   # every built component on one screen; t is the key
 cargo run -p vitui-apps --example gallery -- --probe    # the budget, measured in the gallery
 cargo run -p vitui-apps --example gallery -- --matrix   # §16's nine cells, as counts

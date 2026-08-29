@@ -198,6 +198,7 @@ pub const DOC_TESTED: &[&str] = &[
     "pagination",
     "form",
     "slider",
+    "spinner",
     "file_picker",
     "file_preview_pane",
 ];
@@ -242,6 +243,7 @@ pub const PANELS: &[&str] = &[
     "pagination",
     "form",
     "slider",
+    "spinner",
     "file_picker",
     "file_preview_pane",
 ];
@@ -287,6 +289,7 @@ pub const GOLDENS: &[(&str, u8)] = &[
     ("pagination", 1),
     ("form", 1),
     ("slider", 1),
+    ("spinner", 3),
     ("file_picker", 1),
     ("file_preview_pane", 1),
 ];
@@ -730,6 +733,7 @@ pub const APPLIED: &[&str] = &[
     "pagination",
     "form",
     "slider",
+    "spinner",
     "file_picker",
     "file_preview_pane",
 ];
@@ -970,8 +974,8 @@ mod tests {
         // **O1 is `Met` over the twenty-eight built rows**, so it has no failing set to report and
         // is asserted from the other side. See `o1` for why the population is `built` and not all
         // twenty-nine.
-        assert_eq!(o1(DOC_TESTED), Verdict::Met { over: 28 }, "O1");
-        assert_eq!(DOC_TESTED.len(), 28);
+        assert_eq!(o1(DOC_TESTED), Verdict::Met { over: 29 }, "O1");
+        assert_eq!(DOC_TESTED.len(), 29);
         // **The two halves of O2 differ in population, and that is exactly ADR 0033's point that
         // they do not substitute for each other** — so both are asserted from the other side now,
         // and the two numbers are different on purpose. The first is over the **gallery** and reads
@@ -980,19 +984,19 @@ mod tests {
         // ships they are 28 and 29 until its panel arrives, which is the drift this pair is for.
         assert_eq!(
             o2_nothing_shown_is_absent_from_the_freeze(PANELS),
-            Verdict::Met { over: 28 },
+            Verdict::Met { over: 29 },
             "O2a"
         );
         assert_eq!(
             o2_everything_built_has_a_panel(PANELS),
-            Verdict::Met { over: 28 },
+            Verdict::Met { over: 29 },
             "O2b"
         );
-        assert_eq!(PANELS.len(), 28);
+        assert_eq!(PANELS.len(), 29);
         // **O3 is `Met` over the same twenty-eight built rows**, so it is asserted from the other
         // side too. See `o3` for why the population is `built`: `spinner` has no component to draw,
         // and a row nothing on this backlog can invert is a row that reads red for ever.
-        assert_eq!(o3(GOLDENS), Verdict::Met { over: 28 }, "O3");
+        assert_eq!(o3(GOLDENS), Verdict::Met { over: 29 }, "O3");
         // **O4's population was 0 for thirty-seven tickets, and that was a finding rather than an
         // oversight.** Written over `INVENTORY` it returned `Met` over twenty-nine, because two
         // empty lists agree about every row — the one query of the six that read green, and the
@@ -1029,46 +1033,51 @@ mod tests {
         // for — and unlike O1's and O3's, this population is read out of the source rather than off
         // the `built` column that lied for two tickets.
         let declared = crate::consumer::declared(read);
-        assert_eq!(declared.len(), 28);
+        assert_eq!(declared.len(), 29);
         assert_eq!(
             o7_nothing_exercised_is_absent_from_the_freeze(APPLIED),
-            Verdict::Met { over: 28 },
+            Verdict::Met { over: 29 },
             "O7a"
         );
         assert_eq!(
             o7_everything_declared_has_an_application(&declared, APPLIED),
-            Verdict::Met { over: 28 },
+            Verdict::Met { over: 29 },
             "O7b"
         );
-        assert_eq!(APPLIED.len(), 28);
+        assert_eq!(APPLIED.len(), 29);
 
-        // **The construction sum, both ways round.** Over the whole freeze it is 35 — 29 rows plus
-        // `chart`, `meter` and `sparkline` at 2, `plot` at 3 and `spinner` at 2 — and over the rows
-        // that have a component to draw it is **33**, which is what `GOLDENS` adds up to and what
-        // `crate::golden::SCREENS` holds.
+        // **The construction sum, both ways round.** Over the whole freeze it is 36 — 29 rows plus
+        // `chart`, `meter` and `sparkline` at 2 and `plot` and `spinner` at 3 — and over the rows
+        // that have a component to draw it is **the same 36**, which is what `GOLDENS` adds up to
+        // and what `crate::golden::SCREENS` holds.
         //
-        // **It was 34 until components 42**, and the row that moved is the unbuilt one: `spinner`'s
-        // `constructions` was §17's 1 on the grounds that every spelling is one cell and no spelling
-        // is blank, and the prototype found that both are true of its ladder and neither decides it.
-        // What decides it is the frame **count**, and an ASCII rotation has four positions where the
-        // braille spinner has ten — `4 / 10 / 10`, two distinct ladders. **The two sums are the pair
-        // that says the correction is in the right place**: `owed` moved and `buildable` did not,
-        // because a construction of a component nobody has written is owed and not buildable.
+        // **It was 34, then 35, and the row that moved both times is the last one built.** §17 gave
+        // `spinner` a 1 on the grounds that every spelling is one cell and no spelling is blank;
+        // ticket 42 found both true of its ladder and neither deciding it and read 2 off the frame
+        // counts; ticket 46 shipped the table and the derivation, and the answer is 3 — because a
+        // count is not a ladder, and two rungs with four frames each can be two different tables.
         //
-        // **35 is a literal here and every other multi-construction row is derived**, which is the
-        // one thing wrong with it: `chart`, `plot`, `meter` and `sparkline` each assert
-        // `row.constructions == distinct(...)` against a shipped table, and `spinner`'s table is the
-        // prototype's and lives on a branch. Components 46 ships the ladder and owes the derivation
-        // with it; until then nothing here would notice the ladder changing shape.
+        // **Every one of them is derived now, and components ticket 46 is where the last literal
+        // went.** `chart`, `plot`, `meter` and `sparkline` each assert `row.constructions ==
+        // distinct(...)` against a shipped table; `spinner`'s table was the prototype's and lived
+        // on a branch, so nothing here would have noticed its ladder changing shape.
+        // `crate::indicate::constructions` is that derivation, and running it moved the number:
+        // **2 became 3**, because ticket 42's ladder put the braille spinner at the `Unicode` rung
+        // and the engine's own `GlyphSet` says braille is `Extended`. The middle rung is the
+        // quadrant blocks, so the three ladders are three distinct tables.
         let owed: u32 = INVENTORY.iter().map(|c| u32::from(c.constructions)).sum();
-        assert_eq!(owed, 35);
+        assert_eq!(owed, 36);
         let buildable: u32 = INVENTORY
             .iter()
             .filter(|c| c.built)
             .map(|c| u32::from(c.constructions))
             .sum();
-        assert_eq!(buildable, 33);
-        assert_eq!(GOLDENS.iter().map(|(_, n)| u32::from(*n)).sum::<u32>(), 33);
+        assert_eq!(buildable, 36);
+        assert_eq!(GOLDENS.iter().map(|(_, n)| u32::from(*n)).sum::<u32>(), 36);
+        // **The two sums are equal for the first time**, and that is what a complete freeze looks
+        // like from here: every row is built, so nothing is owed that is not buildable. It was
+        // 35 against 33 until components ticket 46.
+        assert_eq!(owed, buildable);
     }
 
     /// **Vacuous truth is refused in the constructor, and this is where that is asserted.**
@@ -1132,7 +1141,7 @@ mod tests {
     /// notice a page that stops carrying an example, and a `Met` verdict cannot be watched
     /// panicking.
     #[test]
-    #[should_panic(expected = "O1 is unmet: 1 of 28")]
+    #[should_panic(expected = "O1 is unmet: 1 of 29")]
     fn o1_fails_loudly() {
         let one_short: Vec<&str> = DOC_TESTED.iter().copied().skip(1).collect();
         o1(&one_short).assert_met("O1");
@@ -1146,7 +1155,7 @@ mod tests {
     /// is kept in `an_obligation_asked_about_nothing_is_unmet_and_not_met`, over `&[]`. A `Met`
     /// verdict cannot be watched panicking, and the refusal is still the constructor's.
     #[test]
-    #[should_panic(expected = "O2 (nothing shown is absent from the freeze) is unmet: 1 of 29")]
+    #[should_panic(expected = "O2 (nothing shown is absent from the freeze) is unmet: 1 of 30")]
     fn o2_nothing_shown_fails_loudly() {
         let mut shown: Vec<&str> = PANELS.to_vec();
         shown.push("gauge");
@@ -1158,7 +1167,7 @@ mod tests {
     /// shipped list with a panel taken away** — the other direction, and the one a gallery that
     /// quietly stopped drawing a component would fail.
     #[test]
-    #[should_panic(expected = "O2 (everything built has a panel) is unmet: 1 of 28")]
+    #[should_panic(expected = "O2 (everything built has a panel) is unmet: 1 of 29")]
     fn o2_everything_built_fails_loudly() {
         let one_short: Vec<&str> = PANELS.iter().copied().skip(1).collect();
         o2_everything_built_has_a_panel(&one_short).assert_met("O2 (everything built has a panel)");
@@ -1170,7 +1179,7 @@ mod tests {
     /// row at three constructions can lose one and still have two: a query comparing against
     /// *non-zero* would not see it.
     #[test]
-    #[should_panic(expected = "O3 is unmet: 1 of 28")]
+    #[should_panic(expected = "O3 is unmet: 1 of 29")]
     fn o3_fails_loudly() {
         let short: Vec<(&str, u8)> = GOLDENS
             .iter()
@@ -1227,7 +1236,7 @@ mod tests {
     /// list with an id added that the freeze has never heard of** — the drift this half exists to
     /// catch, and the direction the second half cannot see at all.
     #[test]
-    #[should_panic(expected = "O7 (nothing exercised is absent from the freeze) is unmet: 1 of 29")]
+    #[should_panic(expected = "O7 (nothing exercised is absent from the freeze) is unmet: 1 of 30")]
     fn o7_nothing_exercised_fails_loudly() {
         let mut applied: Vec<&str> = APPLIED.to_vec();
         applied.push("gauge");
@@ -1243,7 +1252,7 @@ mod tests {
     /// obligation was owed when it was built: it had no application at all, and its popup has no
     /// keyboard, which is the kind of thing only a person pressing keys finds.
     #[test]
-    #[should_panic(expected = "O7 is unmet: 1 of 28")]
+    #[should_panic(expected = "O7 is unmet: 1 of 29")]
     fn o7_everything_declared_fails_loudly() {
         let short: Vec<&str> = APPLIED
             .iter()

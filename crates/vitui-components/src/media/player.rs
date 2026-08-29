@@ -35,6 +35,8 @@
 //! where only some frames are tall enough to draw the chapter list, the total is the defect and the
 //! integer mean is **0**.
 
+use std::time::{Duration, Instant};
+
 use vitui_runtime::layout::rect;
 use vitui_runtime::{Ctx, Glyph, Id, Interest, Rect, Response, Role};
 
@@ -52,9 +54,18 @@ pub enum Needs {
     /// component that wraps it — the thumb, the keyboard, the step, the orientation — is `slider`,
     /// components ticket 33.
     DragCapture,
-    /// A component that owns a clock and re-registers a deadline while it runs. `collapsible` and
-    /// `scroll_area` both refused a stored transition state; `spinner` is Tier 3 for the same
-    /// reason, and so is this. Components ticket 42.
+    /// A component that owns a clock and re-registers a deadline while it runs.
+    ///
+    /// **Nothing is waiting on this any more.** Components ticket 42 prototyped it and ticket 46
+    /// built it, and the permission is narrower than the row's own wording: a component may own an
+    /// **anchor** and may not own a **clock**. [`Playhead`] is the anchor and `Ctx::now` is the
+    /// clock, so *playhead advance* is a [`Needs::Nothing`] row since ticket 46 and this variant
+    /// records what it was waiting for rather than what still is.
+    ///
+    /// It is kept rather than struck for [`PARTS`]'s own reason: the column is the survey's verdict
+    /// with the thing it was waiting for beside it, and a variant deleted the day its last row
+    /// moved is a table that cannot say what it used to say. `tests::the_parts_table_is_the_surveys
+    /// _verdict_with_a_column_added` asserts no row carries it.
     Clock,
     /// The engine's out-of-band graphics, survey §6.1. Not on this map at all.
     Passthrough,
@@ -104,8 +115,10 @@ pub const PARTS: [Part; 10] = [
         needs: Needs::DragCapture,
     },
     Part {
+        // **The seventh to ship, and components ticket 46 is where it did.** `chrome_playing_into`
+        // is the row: an anchor, `Ctx::now`, and an ask that fires when the drawn column moves.
         name: "playhead advance",
-        needs: Needs::Clock,
+        needs: Needs::Nothing,
     },
     Part {
         name: "the picture",
@@ -113,9 +126,14 @@ pub const PARTS: [Part; 10] = [
     },
 ];
 
-/// **How many of [`PARTS`] ship here. Six.** §14's headline as a count over the table above rather
+/// **How many of [`PARTS`] ship here. Seven.** §14's headline as a count over the table above rather
 /// than as a number in a sentence.
-pub const SHIPPED: usize = 6;
+///
+/// It was **six** until components ticket 46, and the seventh is *playhead advance* — the one row of
+/// the ten whose [`Needs`] was [`Needs::Clock`] and the only mechanism in this family that is not
+/// drag capture. What is left is the two `slider` rows, which are `crate::input`'s and ship as a
+/// component rather than as chrome, and the picture, which is survey §6.1's and not on this map.
+pub const SHIPPED: usize = 7;
 
 // ── the mechanism ────────────────────────────────────────────────────────────────────────────────
 
@@ -288,6 +306,234 @@ pub fn chrome_into<I: Ink>(
 ) -> Response {
     let id = cx.id();
     draw_chrome(ink, cx, area, id, p, census, Marks::Field)
+}
+
+// ── the playhead: the seventh part, and the one that owns an anchor ──────────────────────────────
+
+/// **When a playhead asks for its next frame.**
+///
+/// The two arms are not two optimisations of one thing: **only an anchored playhead can compute the
+/// first**, because the instant the drawn column next moves is a function of `(anchor, duration,
+/// width)`. A component with no anchor has nothing to project from and reaches for the frame rate,
+/// which is the second arm and is what it costs.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum Cadence {
+    /// **The rule.** The instant the drawn column would move, computed from the anchor.
+    #[default]
+    NextCellChange,
+    /// The frame rate, because that is what a component with no anchor can reach for.
+    EveryFrame,
+}
+
+/// **What a playhead keeps across frames: an anchor and nothing else.**
+///
+/// `(when, where)` — the moment the run began and the position it began at. Every other fact is
+/// recoverable from it: where it is now, whether it has run out, when the drawn column next moves,
+/// and when the last frame of the run will be.
+///
+/// # It is the spinner's opposite on two axes, and both decide something
+///
+/// - **It lands.** [`crate::indicate::spinner`] cycles for ever and has no target, so it has no
+///   transient at all and is quiet on the frame after it stops. A playhead runs out at `1.0`, and
+///   the instant it does is [`Playhead::ends_at`] — arithmetic on the anchor, computable before it
+///   gets there.
+/// - **Its visible state changes far more slowly than a frame.** A spinner's step is chosen so a
+///   person sees motion, so it is ~80 ms. A playhead's step is **the width of one track column**,
+///   which over a two-hour film on a sixty-column bar is two minutes — and that is
+///   [`Cadence`]'s whole subject.
+///
+/// # A scrub is a re-anchor and there is nowhere else for it to be
+///
+/// [`scrub`] answers `Some(0.0..=1.0)` from `Response::local` over `Response::rect` and nothing
+/// else. It carries no time and must not, because it is a *position* — so the seam is
+/// [`Playhead::seek`], which is one assignment: the anchor moves to `(now, where the pointer is)`
+/// and everything downstream is recomputed from it. **No stored velocity, no was-I-scrubbing-last-
+/// frame, and no second clock**, and [`Playhead::ends_at`] moves with it for free.
+#[derive(Clone, Copy, PartialEq, Debug, Default)]
+pub struct Playhead {
+    /// `Some((t0, p0))` while it runs. The anchor, and the only cross-frame fact there is.
+    anchor: Option<(Instant, f32)>,
+    /// The cadence it asks on.
+    pub cadence: Cadence,
+}
+
+/// What the anchor costs. Quoted against [`crate::indicate::ANCHOR_BYTES`], which is the spinner's.
+pub const PLAYHEAD_BYTES: usize = size_of::<Option<(Instant, f32)>>();
+
+impl Playhead {
+    /// A paused playhead.
+    #[must_use]
+    pub const fn paused() -> Playhead {
+        Playhead {
+            anchor: None,
+            cadence: Cadence::NextCellChange,
+        }
+    }
+
+    /// **Start running from `from`, at `now`.**
+    pub const fn play(&mut self, now: Instant, from: f32) {
+        self.anchor = Some((now, from));
+    }
+
+    /// Whether it is running.
+    #[must_use]
+    pub const fn running(&self) -> bool {
+        self.anchor.is_some()
+    }
+
+    /// **Pause**, resolving the position into the caller's [`Player`] on the way out.
+    pub fn pause(&mut self, now: Instant, p: &mut Player) {
+        p.position = self.position(now, p);
+        self.anchor = None;
+        p.playing = false;
+    }
+
+    /// **Where it is at `now`.** Clamped at `1.0`, which is where it lands.
+    #[must_use]
+    pub fn position(&self, now: Instant, p: &Player) -> f32 {
+        let Some((t0, p0)) = self.anchor else {
+            return p.position;
+        };
+        if p.duration_s <= 0.0 {
+            return p0;
+        }
+        let elapsed = now.saturating_duration_since(t0).as_secs_f32();
+        (p0 + elapsed / p.duration_s).clamp(0.0, 1.0)
+    }
+
+    /// **A scrub is a re-anchor.** See [`Playhead`]'s header: one assignment and no second fact.
+    pub const fn seek(&mut self, now: Instant, to: f32) {
+        if self.anchor.is_some() {
+            self.anchor = Some((now, to));
+        }
+    }
+
+    /// **When the last frame of this run is** — the instant the position reaches `1.0`.
+    ///
+    /// A spinner has no answer to this question, which is why *frames to quiet* is a count here and
+    /// a cadence in spec §8.
+    #[must_use]
+    pub fn ends_at(&self, p: &Player) -> Option<Instant> {
+        let (t0, p0) = self.anchor?;
+        if p.duration_s <= 0.0 {
+            return None;
+        }
+        let left = (1.0 - p0).max(0.0) * p.duration_s;
+        Some(t0 + Duration::from_secs_f32(left))
+    }
+
+    /// **When the drawn column next moves**, on a track `w` columns wide.
+    ///
+    /// The whole of [`Cadence::NextCellChange`]: `1 / w` of the position is one column, so the next
+    /// change is the anchor plus `(k + 1) / w` of the duration, where `k` is the column the position
+    /// is in now. It never answers a moment in the past and never one past the end.
+    #[must_use]
+    pub fn next_cell_change(&self, now: Instant, p: &Player, w: u16) -> Option<Instant> {
+        let (t0, p0) = self.anchor?;
+        if p.duration_s <= 0.0 || w == 0 {
+            return None;
+        }
+        let at = self.position(now, p);
+        if at >= 1.0 {
+            return None;
+        }
+        let cell = (at * f32::from(w)).floor();
+        let next = ((cell + 1.0) / f32::from(w)).min(1.0);
+        let secs = (next - p0) * p.duration_s;
+        if secs <= 0.0 {
+            return Some(now);
+        }
+        Some(t0 + Duration::from_secs_f32(secs))
+    }
+
+    /// **What it asks for at `now`**, `None` when it wants nothing.
+    ///
+    /// `frame_dt` is what [`Cadence::EveryFrame`] reaches for, and it is a **nominal** interval —
+    /// the arm has nothing better, which is half of why it is the wrong arm: `vitui_runtime::anim`
+    /// measures a nominal `dt` at 16.9% slow over three seconds, and the shortfall is a *rate*.
+    #[must_use]
+    pub fn wake(&self, now: Instant, p: &Player, w: u16, frame_dt: Duration) -> Option<Instant> {
+        self.anchor?;
+        if self.position(now, p) >= 1.0 {
+            // It has landed. Nothing to ask for, and this is the frame that says so.
+            return None;
+        }
+        match self.cadence {
+            Cadence::NextCellChange => self.next_cell_change(now, p, w),
+            Cadence::EveryFrame => Some(now + frame_dt),
+        }
+    }
+
+    /// **How many wakes a whole run costs at this cadence.** The four-orders-of-magnitude figure.
+    #[must_use]
+    pub fn wakes_over_a_run(&self, p: &Player, w: u16, frame_dt: Duration) -> u64 {
+        match self.cadence {
+            Cadence::NextCellChange => u64::from(w),
+            Cadence::EveryFrame => {
+                let dt = frame_dt.as_secs_f64();
+                if dt <= 0.0 {
+                    0
+                } else {
+                    (f64::from(p.duration_s) / dt) as u64
+                }
+            }
+        }
+    }
+}
+
+/// **Advance the chrome's playhead, draw, take the scrub, and ask for the frame that will move the
+/// drawn column.**
+///
+/// [`chrome`] draws what the [`Player`] says and moves nothing, which is what [`Needs::Clock`] was
+/// waiting for. This is that row, and it is four lines around the same body:
+///
+/// 1. the position comes from the **anchor** before anything is drawn, so everything on the frame
+///    agrees about where the playhead is;
+/// 2. the chrome draws, and returns the **track's** response — which is the one place the track's
+///    width lives, so the cadence and the grab read the same number [`scrub`] was resolved against;
+/// 3. a held pointer is a **re-anchor** — [`Playhead::seek`] — and not a second stored fact;
+/// 4. the ask goes through `Ctx::deadline_for` under the **chrome's** id, because a playhead is a
+///    part of the chrome and the widget that wants the frame is the chrome.
+///
+/// It asks only when the drawn column will move, which is [`Cadence`]'s subject and the reason the
+/// anchor is not merely tidy: over a two-hour film on a sixty-column bar it is **60 wakes against
+/// 431 991**, and only an anchored playhead can compute the first.
+///
+/// The return value is [`chrome`]'s — the track's response — so a caller that wants the grab for
+/// something else still has it.
+#[track_caller]
+pub fn chrome_playing_into<I: Ink>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    p: &mut Player,
+    head: &mut Playhead,
+    census: &mut Census,
+    frame_dt: Duration,
+) -> Response {
+    let id = cx.id();
+    let now = cx.now();
+    if head.running() {
+        p.position = head.position(now, p);
+        p.playing = true;
+    }
+    let track = draw_chrome(ink, cx, area, id, p, census, Marks::Field);
+    // **A scrub is a re-anchor**, applied on the frame that produced it: read after the draw,
+    // because that is when the grab has an answer, and before the ask, because the ask projects
+    // from the anchor.
+    if let Some(to) = scrub(&track) {
+        p.position = to;
+        head.seek(now, to);
+    }
+    if head.running() && p.position >= 1.0 {
+        // It landed, and this is the frame that says so: the anchor goes, so nothing asks. One
+        // frame to quiet, and there is no transient to run out.
+        head.pause(now, p);
+    }
+    if let Some(at) = head.wake(now, p, track.rect.w, frame_dt) {
+        cx.deadline_for(id, at);
+    }
+    track
 }
 
 /// Where the chapter marks the track draws come from. See [`defective`].
@@ -667,6 +913,7 @@ pub mod defective {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runner::{Canvas, Pen};
     use vitui_runtime::ctx::Driver;
     use vitui_runtime::{Button, Buttons, Id, Mods, Mouse, MouseKind, Rect};
 
@@ -711,9 +958,9 @@ mod tests {
         )
     }
 
-    /// **Six of ten, counted over the table rather than stated.**
+    /// **Seven of ten, counted over the table rather than stated.**
     #[test]
-    fn six_parts_ship_and_the_other_four_each_name_what_they_wait_for() {
+    fn seven_parts_ship_and_the_other_three_each_name_what_they_wait_for() {
         let shipped = PARTS.iter().filter(|p| p.needs == Needs::Nothing).count();
         assert_eq!(shipped, SHIPPED);
         assert_eq!(PARTS.len(), 10);
@@ -725,14 +972,262 @@ mod tests {
             .collect();
         assert_eq!(
             waiting,
-            vec![
-                Needs::DragCapture,
-                Needs::DragCapture,
-                Needs::Clock,
-                Needs::Passthrough
-            ],
-            "the four that do not ship, and the two drag-capture rows are `slider`'s"
+            vec![Needs::DragCapture, Needs::DragCapture, Needs::Passthrough],
+            "the three that do not ship, and the two drag-capture rows are `slider`'s"
         );
+        // **`Needs::Clock` has no row and the variant stays**, which is the table saying what it
+        // used to say. Components ticket 46 built the playhead, so the column moved and the
+        // vocabulary did not: a variant deleted the day its last row moved is a table that cannot
+        // record what a part was waiting for.
+        assert!(
+            !PARTS.iter().any(|p| p.needs == Needs::Clock),
+            "a part is waiting on a clock again, and ticket 46 settled that a component may own an \
+             anchor and may not own a clock"
+        );
+    }
+
+    /// **It lands, and the landing frame is the frame that stops asking.**
+    ///
+    /// *Frames to quiet* is **1** for the playhead and 1 for the spinner, for opposite reasons: a
+    /// spinner has nothing to land on, and a playhead's landing instant is arithmetic on the anchor.
+    /// Neither is a cadence — spec §8's *14 frames to quiet* is one wearing a count's clothes, 12 at
+    /// sixty hertz and 24 at a hundred and twenty — because neither has a transient to run out.
+    #[test]
+    fn a_playhead_lands_and_the_landing_frame_asks_for_nothing() {
+        let now = Instant::now();
+        let p = player();
+        let dt = Duration::from_millis(16);
+        let mut head = Playhead::paused();
+        assert_eq!(
+            head.wake(now, &p, 60, dt),
+            None,
+            "a paused playhead asks nothing"
+        );
+        head.play(now, 0.0);
+        assert!(head.wake(now, &p, 60, dt).is_some());
+
+        let end = head.ends_at(&p).expect("a running playhead lands");
+        assert_eq!(end, now + Duration::from_secs_f32(p.duration_s));
+        assert_eq!(head.position(end, &p), 1.0);
+        assert_eq!(
+            head.wake(end, &p, 60, dt),
+            None,
+            "the landing frame asks for nothing"
+        );
+    }
+
+    /// **The cadence figure: 60 wakes against 431 991 over one two-hour run.**
+    ///
+    /// The number the anchor buys, and it is a **consequence** of the anchor rather than an
+    /// optimisation available to either other arm: the instant the drawn column next moves is a
+    /// function of `(anchor, duration, width)`, so a component that samples its own clock has a
+    /// `now` nobody else on the screen agrees with and one that accumulates has nothing to project
+    /// from at all.
+    #[test]
+    fn only_an_anchored_playhead_can_ask_when_the_column_moves() {
+        let two_hours = Player::new(7_200.0, vec!["one".into()], Vec::new());
+        // **60 Hz to the nearest whole microsecond**, and the spelling is load-bearing on this arm
+        // and on no other: 16 666 µs answers 432 017 and 16 667 answers 431 991, because the
+        // every-frame arm's count is a property of the *nominal* interval rather than of the run.
+        // The cell-change arm answers 60 whatever is written here, which is the finding from its
+        // other side.
+        let dt = Duration::from_micros(16_667);
+        let cell = Playhead {
+            anchor: None,
+            cadence: Cadence::NextCellChange,
+        };
+        let every = Playhead {
+            anchor: None,
+            cadence: Cadence::EveryFrame,
+        };
+        let (a, b) = (
+            cell.wakes_over_a_run(&two_hours, 60, dt),
+            every.wakes_over_a_run(&two_hours, 60, dt),
+        );
+        assert_eq!(
+            a, 60,
+            "one wake a column, and the bar is sixty columns wide"
+        );
+        assert_eq!(b, 431_991);
+        assert_eq!(b / a, 7_199, "the ratio, which is the whole of the finding");
+
+        // **And the next change really is a column away**, on a run rather than in the arithmetic:
+        // over a ten-second film on a ten-column bar every wake advances the drawn column by one.
+        let short = Player::new(10.0, vec!["one".into()], Vec::new());
+        let now = Instant::now();
+        let mut head = Playhead::paused();
+        head.play(now, 0.0);
+        let column = |at: Instant| (head.position(at, &short) * 10.0).floor() as i32;
+        let mut at = now;
+        for expected in 1..10 {
+            at = head
+                .next_cell_change(at, &short, 10)
+                .expect("it has not landed");
+            assert_eq!(column(at), expected, "the wake that moves the column");
+        }
+    }
+
+    /// **A scrub is a re-anchor and nothing else.**
+    ///
+    /// One assignment: no stored velocity, no *was I scrubbing last frame*, no second clock — and
+    /// `ends_at` moves with it for free, which is asserted rather than claimed. It is [`scrub`]'s
+    /// own deliverable one axis over: the grab carries a *position* and must not carry a time.
+    #[test]
+    fn a_scrub_is_a_re_anchor_and_the_landing_moves_with_it() {
+        let now = Instant::now();
+        let p = player();
+        let mut head = Playhead::paused();
+        head.play(now, 0.0);
+        let ends = head.ends_at(&p).expect("running");
+
+        // Halfway through, dragged back to the start: the landing is a whole duration away again.
+        let half = now + Duration::from_secs_f32(p.duration_s / 2.0);
+        assert!((head.position(half, &p) - 0.5).abs() < 1e-3);
+        head.seek(half, 0.0);
+        let after = head.ends_at(&p).expect("still running");
+        assert!(after > ends, "the landing did not move with the anchor");
+        assert!((head.position(half, &p) - 0.0).abs() < 1e-6);
+
+        // **A paused playhead is not re-anchored by a scrub**, because there is no anchor to move:
+        // seeking a paused player is the caller's `Player::position`, which is the field the chrome
+        // draws from either way.
+        let mut paused = Playhead::paused();
+        paused.seek(now, 0.5);
+        assert!(!paused.running());
+    }
+
+    /// **The chrome advances its own playhead, asks under its own id, and takes the scrub back into
+    /// the anchor.**
+    ///
+    /// The seventh part of [`PARTS`] as a frame rather than as arithmetic. The ask carries the
+    /// **chrome's** id and not one of the playhead's own, because a playhead is a part of the
+    /// chrome and the widget that wants the frame is the chrome — the prototype asked through
+    /// `Ctx::deadline` in its first cut, and the census then named two widgets on a screen with
+    /// three.
+    #[test]
+    fn the_chrome_advances_the_playhead_and_asks_under_its_own_id() {
+        let dt = Duration::from_millis(16);
+        let mut p = player();
+        let mut head = Playhead::paused();
+        let mut driver = Driver::headless(60, 10).expect("a sink cannot fail to attach");
+        let mut pen = Pen::over(Canvas::new(60, 10));
+
+        // Frame one: paused. Nothing moves and nothing is asked.
+        let mut id = None;
+        driver.frame(|cx| {
+            let track = chrome_playing_into(
+                &mut pen,
+                cx,
+                cx.area(),
+                &mut p,
+                &mut head,
+                &mut Census::default(),
+                dt,
+            );
+            id = Some(track.id);
+        });
+        assert_eq!(driver.inspect().wakes().line_count(), 0);
+
+        // **The reading is a delta and never the total**, which is the trap components ticket 42
+        // recorded against itself: `WakeLedger::line_count` and `asked_by` are **cumulative and
+        // never reset**, so by the second frame every call site on the screen has registered and a
+        // total is saturated — a playhead that never lands would measure exactly what a landed one
+        // does.
+        // It is the **sum over the ledger's lines** rather than `asked_by`, and that is a fact
+        // about this seam worth one sentence: `chrome` returns the **track's** response so a caller
+        // can hand it to `scrub`, and the ask carries the **chrome's** id — so an application
+        // cannot name the widget that is keeping its screen awake, and only the census can.
+        // `asked_by(track.id)` is asserted at zero below for exactly that reason.
+        let asks = |driver: &Driver| {
+            driver
+                .inspect()
+                .wakes()
+                .lines()
+                .map(|l| u64::from(l.asks))
+                .sum::<u64>()
+        };
+
+        // Frame two: playing, on a pinned clock so the advance is a number rather than a race.
+        let t0 = driver.env().now();
+        let before = asks(&driver);
+        head.play(t0, 0.0);
+        driver.frame(|cx| {
+            chrome_playing_into(
+                &mut pen,
+                cx,
+                cx.area(),
+                &mut p,
+                &mut head,
+                &mut Census::default(),
+                dt,
+            );
+        });
+        assert_eq!(asks(&driver) - before, 1, "a running playhead asks once");
+        let wakes = driver.inspect().wakes();
+        assert_eq!(
+            wakes.census_len(),
+            1,
+            "and the ask names the chrome, which is the widget that wants the frame"
+        );
+        assert_eq!(
+            wakes.asked_by(id.expect("a response")),
+            0,
+            "the ask carries the track's id, so the census names a part rather than the widget"
+        );
+
+        // Frame three: a quarter of the way in, and the position is the anchor's.
+        driver.advance(Duration::from_secs_f32(p.duration_s / 4.0));
+        driver.frame(|cx| {
+            chrome_playing_into(
+                &mut pen,
+                cx,
+                cx.area(),
+                &mut p,
+                &mut head,
+                &mut Census::default(),
+                dt,
+            );
+        });
+        assert!((p.position - 0.25).abs() < 1e-2, "position {}", p.position);
+        assert!(p.playing);
+
+        // And past the end it lands: the anchor goes, the position is exactly 1.0, and the frame
+        // that says so asks for nothing.
+        driver.advance(Duration::from_secs_f32(p.duration_s));
+        let before = asks(&driver);
+        driver.frame(|cx| {
+            chrome_playing_into(
+                &mut pen,
+                cx,
+                cx.area(),
+                &mut p,
+                &mut head,
+                &mut Census::default(),
+                dt,
+            );
+        });
+        assert!(!head.running(), "it did not land");
+        assert_eq!(p.position, 1.0);
+        assert!(!p.playing);
+        assert_eq!(
+            asks(&driver) - before,
+            0,
+            "the landing frame asked for another"
+        );
+        // One frame to quiet, and the frame after it is quiet too.
+        let before = asks(&driver);
+        driver.frame(|cx| {
+            chrome_playing_into(
+                &mut pen,
+                cx,
+                cx.area(),
+                &mut p,
+                &mut head,
+                &mut Census::default(),
+                dt,
+            );
+        });
+        assert_eq!(asks(&driver) - before, 0);
     }
 
     /// **The grab reads two fields and there is no third.**

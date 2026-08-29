@@ -1,0 +1,12 @@
+scene: spinner-ascii  frame: 0  size: 20x1  tier: truecolor/ascii
+
+glyph
+  0 \working············
+
+style
+  0 abbbbbbbbbbbbbbbbbbb
+
+legend
+  a  Title  (1 cell)
+  b  Body  (19 cells)
+  ·  a blank cell, U+0020

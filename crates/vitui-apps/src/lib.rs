@@ -95,7 +95,7 @@ pub struct App {
 /// and the reason is that there is nothing to port: what it demonstrates is *one component and one
 /// `Mode`*, and no other library's tutorial has an equivalent because no other library makes the
 /// claim.
-pub const APPS: [App; 17] = [
+pub const APPS: [App; 18] = [
     App {
         name: "counter",
         what: "A bordered panel, a centred value, and Left/Right/q. The smallest program anybody \
@@ -561,6 +561,43 @@ pub const APPS: [App; 17] = [
         after: None,
     },
     App {
+        name: "pipeline",
+        what: "A build pipeline whose four spinners and one playhead are the two things on this \
+               map that own an **anchor**. `c` is the one to press: it swaps *ask when the drawn \
+               column moves* for *ask every frame*, both arms draw the identical screen, and the \
+               wake counter is the only thing that separates them — 60 against 431 991 over a \
+               two-hour run, which is 7 199x and is a consequence of the anchor rather than an \
+               optimisation. `x` clips the third spinner to nothing and the screen does not change \
+               while the counter does, which is the rule that has no picture; `g` steps the ladder \
+               and the middle rung is the quadrant orbit, because braille is `Extended`",
+        uses: &[
+            "indicate::spinner_into",
+            "indicate::SpinState",
+            "indicate::SpinOpts",
+            "media::player::chrome_playing_into",
+            "media::player::Playhead",
+            "media::player::Cadence",
+            "media::player::Player",
+            "media::player::Chapter",
+            "media::player::scrub",
+            "media::Census",
+            "structure::panel_into",
+            "text::fit_into",
+            "counters::Tally",
+            "ink::Direct",
+            "ink::Ink",
+            "chart::raster::RUNGS",
+            "layout::rect::split_at_v",
+            "ctx::Ctx::now",
+            "ctx::Ctx::with_key",
+            "theme::Themes::set_glyphs",
+            "ctx::Driver::set_theme",
+            "ctx::Driver::unhandled",
+            "ctx::Driver::wait",
+        ],
+        after: None,
+    },
+    App {
         name: "caps",
         what: "**What this terminal answered, and nothing else.** It draws no frame: attach, read \
                `Capabilities::report`, detach, print — so nothing it prints can be a consequence of \
@@ -734,8 +771,8 @@ mod tests {
              column is documenting something that is no longer there"
         );
         assert_eq!(
-            checked, 49,
-            "**forty-nine (application, component) pairs**, and the number is here for the reason \
+            checked, 51,
+            "**fifty-one (application, component) pairs**, and the number is here for the reason \
              every count on this map is: a scan whose needle has quietly stopped matching reports \
              every column clean, and two empty lists agree about everything. It moves when an \
              application draws one more component, which is a deliberate edit"
@@ -791,10 +828,10 @@ mod tests {
             checked += 1;
         }
         assert_eq!(
-            checked, 14,
+            checked, 15,
             "triage, ledger, explorer, reader, settings, compose, console, theatre, browse, mixer, \
-             vitals, roster, gallery and sheet open the window; counter and latency read their \
-             keys through a `KeyMap` instead"
+             vitals, roster, gallery, sheet and pipeline open the window; counter and latency read \
+             their keys through a `KeyMap` instead"
         );
 
         // **The other directions**, or a scanner that has stopped finding `driver.frame(` reports

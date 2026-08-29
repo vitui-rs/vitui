@@ -298,8 +298,10 @@ fn o5() {
     );
     assert_eq!(
         stands,
-        vec![3, 4, 5, 6, 26, 29],
-        "the four axis columns, and the assembled gallery since components 40"
+        vec![3, 4, 5, 6, 26, 27, 29],
+        "the four axis columns, and **both** galleries — scene 26 since components 40 and scene 27 \
+         since 41, which carry the same `STANDS_THE_GALLERY`. It read six for five tickets while \
+         the answer was seven, because `cargo test` does not run an example"
     );
     assert!(!component.declares(Axis::Narrow));
 }

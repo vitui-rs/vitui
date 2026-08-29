@@ -92,12 +92,14 @@ fn scene_list() {
         );
     }
     assert_eq!(
-        evaluated, 3,
-        "both stand on `tree` since components 17, and the assembled gallery since components 40"
+        evaluated, 4,
+        "both stand on `tree` since components 17, and both galleries since components 40 and 41. \
+         **It read 3 for five tickets while the answer was 4** — `cargo test` does not run an \
+         example"
     );
     assert_eq!(
         SCENES.iter().filter(|s| s.stands.contains(&"tree")).count(),
-        3
+        4
     );
     println!(
         "\n  Both were pinned red on one fact — `tree` was not declared — and components ticket 17\n  \

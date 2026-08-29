@@ -586,24 +586,24 @@ mod tests {
             "{owed:?} are declared in this crate and no application in `{EXAMPLES}` exercises them. \
              **A component ticket ships an application** — see `vitui_apps`'s header"
         );
-        // **The population and the one row outside it.** `spinner` is the row no ticket has built,
-        // and it is absent from the population rather than red inside it — a query stuck red is
-        // `Verdict::of`'s vacuity failure in mirror image.
+        // **The population is every row of the freeze**, and it got there by itself: it was
+        // twenty-eight with `spinner` outside it until components ticket 46 declared one, and
+        // nothing here was edited to let it in. *A query whose population moves without an edit is a
+        // query that is measuring something.*
         let population: Vec<&str> = coverage
             .iter()
             .filter(|c| c.declared)
             .map(|c| c.id)
             .collect();
-        assert_eq!(population.len(), 28);
+        assert_eq!(population.len(), 29);
         assert_eq!(
             coverage
                 .iter()
                 .filter(|c| !c.declared)
                 .map(|c| c.id)
                 .collect::<Vec<_>>(),
-            vec!["spinner"],
-            "the rows this crate does not declare. Components 46 ships `spinner`, and the \
-             population moves with it rather than with an edit here"
+            Vec::<&str>::new(),
+            "a row of the freeze is not declared in the module that homes it"
         );
         assert_eq!(population, declared(read));
     }

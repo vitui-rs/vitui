@@ -941,6 +941,31 @@ pub const SCREENS: &[Screen] = &[
         size: (20, 1),
         shoot: shots::slider,
     },
+    // **Three, and it is the only row of the twenty-nine whose every rung is a different screen.**
+    // `plot`'s three are three rasters; `spinner`'s are three ladders, and the middle one is
+    // components ticket 46's correction to the prototype — braille is `Extended` by the engine's own
+    // `GlyphSet`, so the `Unicode` rung is the quadrant blocks.
+    Screen {
+        id: "spinner",
+        scene: "spinner-ascii",
+        rung: Rung::Ascii,
+        size: (20, 1),
+        shoot: shots::spinner,
+    },
+    Screen {
+        id: "spinner",
+        scene: "spinner-unicode",
+        rung: Rung::Unicode,
+        size: (20, 1),
+        shoot: shots::spinner,
+    },
+    Screen {
+        id: "spinner",
+        scene: "spinner-extended",
+        rung: Rung::Extended,
+        size: (20, 1),
+        shoot: shots::spinner,
+    },
     Screen {
         id: "file_picker",
         scene: "file_picker",
@@ -1123,7 +1148,10 @@ mod shots {
         file_picker_into, file_preview_pane_into,
     };
     use crate::frame::face_paint;
-    use crate::indicate::{MeterOpts, SparkOpts, meter_into, sparkline_into};
+    use crate::gallery::SPIN_PER;
+    use crate::indicate::{
+        MeterOpts, SparkOpts, SpinOpts, SpinState, meter_into, sparkline_into, spinner_into,
+    };
     use crate::ink::Ink;
     use crate::input::{
         ButtonOpts, FieldOpts, FormOpts, FormState, SelectOpts, SelectState, SliderOpts, Toggle,
@@ -1535,6 +1563,25 @@ mod shots {
                 &mut texts,
                 &opts,
             );
+        });
+    }
+
+    /// **The clock is pinned, or the ladder frame is whatever the run happened to land on.**
+    ///
+    /// A spinner's index is a function of `now`, so a golden of one is a golden of a *moment* — and
+    /// the only screen in this table whose picture would otherwise change between two runs of the
+    /// same binary. `Driver::pin_clock` is what makes it a picture; the anchor is the pinned instant
+    /// and the frame is drawn three steps later, so the shot is `LADDERS[rung][3 % len]` at every
+    /// rung and the three files differ because the ladders do.
+    pub fn spinner(pen: &mut Pen, driver: &mut Driver) {
+        let mut st = SpinState::new();
+        let anchor = driver.env().now();
+        driver.pin_clock(anchor);
+        st.start(anchor, SPIN_PER);
+        driver.advance(SPIN_PER * 3);
+        driver.frame(|cx| {
+            let opts = SpinOpts::default();
+            let _ = spinner_into(pen, cx, Rect::new(0, 0, 20, 1), &st, "working", &opts);
         });
     }
 

@@ -1408,7 +1408,7 @@ const PINS_SCENE_26: &[Instrument] = &[
 /// `crate::gallery::panel_ids()` in `tests::the_gallery_scene_stands_up_every_panel_on_the_screen` —
 /// two lists a test compares, which is this crate's arrangement wherever one of them has to be a
 /// literal (`crate::doc`'s for O1, `crate::contract`'s for O4).
-const STANDS_THE_GALLERY: [&str; 28] = [
+const STANDS_THE_GALLERY: [&str; 29] = [
     "text",
     "panel",
     "chip",
@@ -1435,6 +1435,7 @@ const STANDS_THE_GALLERY: [&str; 28] = [
     "pagination",
     "form",
     "slider",
+    "spinner",
     "file_picker",
     "file_preview_pane",
 ];
@@ -3114,7 +3115,11 @@ mod tests {
             crate::gallery::panel_ids(),
             "the scene claims a component the screen does not draw, or misses one it does"
         );
-        assert_eq!(scene.stands.len(), 28, "every built row of the freeze");
+        assert_eq!(
+            scene.stands.len(),
+            29,
+            "every built row of the freeze, which since components ticket 46 is every row of it"
+        );
     }
 
     /// **`scenes_for` enumerates from the component's side**, which is criterion 2's shape.

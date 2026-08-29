@@ -222,7 +222,23 @@ fn the_rungs_that_change_the_picture_change_it_by_this_much() {
         "the planes stopped under-counting, so the note above has gone stale"
     );
 
-    // **Ascii against the rung each row is drawn at, over all thirty-three screens**: this crate's
+    // **`spinner` is the other row whose three rungs are three pictures, and it is the only one
+    // where all three differ from each other.** `plot`'s ASCII arm is a different raster; a
+    // spinner's three ladders are three tables, so each pair differs in exactly the one cell the
+    // mark is on — which is the smallest a construction difference can be and still be one.
+    for (a, b) in [
+        ("spinner-ascii", "spinner-unicode"),
+        ("spinner-unicode", "spinner-extended"),
+        ("spinner-ascii", "spinner-extended"),
+    ] {
+        let (l, r) = (screen(a), screen(b));
+        let (_, left) = golden::shot(l, at(l.rung));
+        let (_, right) = golden::shot(r, at(r.rung));
+        let d = left.diff(&right);
+        assert_eq!((d.cells, d.rows), (1, 1), "{a} against {b}");
+    }
+
+    // **Ascii against the rung each row is drawn at, over all thirty-six screens**: this crate's
     // whole glyph axis as one number.
     let (mut cells, mut rows) = (0usize, 0usize);
     for s in SCREENS {
@@ -234,7 +250,7 @@ fn the_rungs_that_change_the_picture_change_it_by_this_much() {
     }
     assert_eq!(
         (cells, rows),
-        (399, 55),
+        (401, 57),
         "the crate, Ascii against its own rungs"
     );
 }

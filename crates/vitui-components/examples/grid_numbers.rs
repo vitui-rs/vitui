@@ -88,9 +88,10 @@ fn scene_list() {
     }
     assert_eq!(
         (red, stood),
-        (0, 3),
-        "both stand on `table` since components 15, and the assembled gallery is the third since \
-         components 40 stood scene 26 up"
+        (0, 4),
+        "both stand on `table` since components 15, and the two galleries are the third and fourth \
+         since components 40 and 41 stood scenes 26 and 27 up. **It read 3 for five tickets while \
+         the answer was 4** — `cargo test` does not run an example"
     );
     println!(
         "\n  Both stood up when components 15 declared `table` and rewrote `grid::draw_into` to \
@@ -427,8 +428,9 @@ fn o5() {
     println!("  `scenes_for(\"table\")` answers {stands:?}");
     assert_eq!(
         stands,
-        vec![7, 26, 31],
-        "and the assembled gallery, which claims no axis pair at all"
+        vec![7, 26, 27, 31],
+        "and **both** galleries, which claim no axis pair at all — scene 26 since components 40 and \
+         scene 27 since 41, carrying the same `STANDS_THE_GALLERY`"
     );
     println!(
         "\n  O5 did not move, and that is correct: §21's row 7 already claimed \

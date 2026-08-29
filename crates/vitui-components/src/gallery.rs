@@ -119,7 +119,9 @@ use crate::files::{
     file_picker_into, file_preview_pane_into,
 };
 use crate::frame::face_paint;
-use crate::indicate::{MeterOpts, SparkOpts, meter_into, sparkline_into};
+use crate::indicate::{
+    MeterOpts, SparkOpts, SpinOpts, SpinState, meter_into, sparkline_into, spinner_into,
+};
 use crate::ink::Ink;
 use crate::input::{
     ButtonOpts, FieldOpts, FormOpts, FormState, SelectOpts, SelectState, SliderOpts, Toggle,
@@ -246,8 +248,9 @@ pub struct Panel {
 
 /// **The panels, one per built row of the freeze, in the freeze's own order.**
 ///
-/// Twenty-eight. `spinner` is the twenty-ninth row and has none — see this module's header and
-/// [`crate::obligations::o2_everything_built_has_a_panel`], whose population is `built`.
+/// **Twenty-nine, which is every row of the freeze** since components ticket 46 built `spinner` —
+/// the population [`crate::obligations::o2_everything_built_has_a_panel`] asks about is `built`, and
+/// it moved by itself the moment that column flipped.
 pub const PANELS: &[Panel] = &[
     Panel {
         id: "text",
@@ -380,6 +383,11 @@ pub const PANELS: &[Panel] = &[
         draw: draws::slider,
     },
     Panel {
+        id: "spinner",
+        title: "spinner",
+        draw: draws::spinner,
+    },
+    Panel {
         id: "file_picker",
         title: "file_picker",
         draw: draws::file_picker,
@@ -462,7 +470,16 @@ pub enum Keying {
     DataAndTier,
 }
 
-/// **Everything the twenty-eight panels keep between frames.**
+/// **How long one ladder frame of the gallery's spinner lasts.**
+///
+/// Eighty milliseconds is what a person reads as motion, and it is the figure
+/// `vitui_runtime::anim::Steps`'s own documentation uses. On this screen it is also what makes the
+/// spinner panel a **steady** frame under a pinned clock: nothing here advances time, so the ladder
+/// index does not move and `crate::gallery::shape` and `crate::gallery::swap` measure a screen
+/// rather than a cadence.
+pub const SPIN_PER: std::time::Duration = std::time::Duration::from_millis(80);
+
+/// **Everything the twenty-nine panels keep between frames.**
 ///
 /// One value the caller owns, because the runtime has no retained structure (ADR 0012): what
 /// survives a frame is what the application holds.
@@ -488,6 +505,7 @@ pub struct Bag {
     switch: bool,
     meter: f32,
     slider: f32,
+    spin: SpinState,
     pager: CollState,
     form: FormState,
     form_texts: [Text; 3],
@@ -535,6 +553,10 @@ impl Bag {
             switch: true,
             meter: 0.625,
             slider: 0.4,
+            // **Anchored at the epoch the caller hands it**, which is `Bag::new`'s and not a frame's
+            // — a spinner's state is a function of `now`, so the panel's first frame computes the
+            // same ladder index whatever frame it happens to be.
+            spin: SpinState::new(),
             pager: CollState::new(),
             form: FormState::new(),
             form_texts: [Text::input(), Text::input(), Text::input()],
@@ -1830,6 +1852,22 @@ mod draws {
         let _ = meter_into(ink, cx, r, b.meter, &MeterOpts::default());
     }
 
+    pub fn spinner(
+        b: &mut Bag,
+        _o: &mut Owners<'_>,
+        ink: &mut Sink<'_>,
+        cx: &mut Ctx<'_, '_>,
+        r: Rect,
+    ) {
+        // **Started from the frame's own clock**, which is the only clock a component may read —
+        // and started on every frame rather than once, because a `Steps` re-anchored at `now` and a
+        // `Steps` anchored an hour ago answer the same question at the same `now`. What that costs
+        // is the ladder index being the same on every frame of a *pinned* clock, which is what a
+        // golden and a swap gate both want.
+        b.spin.start(cx.now(), SPIN_PER);
+        let _ = spinner_into(ink, cx, r, &b.spin, "working", &SpinOpts::default());
+    }
+
     pub fn sparkline(
         b: &mut Bag,
         _o: &mut Owners<'_>,
@@ -2699,35 +2737,35 @@ mod tests {
     #[test]
     fn the_written_list_and_the_table_agree() {
         assert_eq!(crate::obligations::PANELS.to_vec(), panel_ids());
-        assert_eq!(PANELS.len(), 28);
+        assert_eq!(PANELS.len(), 29);
         // And no id twice, which a written list cannot check about itself: two panels for one row
         // satisfies both halves of O2 and shows twenty-seven components.
         let unique: BTreeSet<&str> = PANELS.iter().map(|p| p.id).collect();
         assert_eq!(unique.len(), PANELS.len());
     }
 
-    /// **O2, both halves, over the twenty-eight built rows.**
+    /// **O2, both halves, over the twenty-nine built rows — which is every row of the freeze.**
     ///
     /// The queries are `crate::obligations`'s and are unchanged by this ticket — filling [`PANELS`]
     /// is the whole of what turning them green took, which is what *the evidence is an argument, not
     /// a file read* was for.
     #[test]
-    fn both_halves_of_o2_are_met_over_the_twenty_eight_built_rows() {
+    fn both_halves_of_o2_are_met_over_the_twenty_nine_built_rows() {
         use crate::obligations::{
             self, Verdict, o2_everything_built_has_a_panel,
             o2_nothing_shown_is_absent_from_the_freeze,
         };
         assert_eq!(
             o2_nothing_shown_is_absent_from_the_freeze(obligations::PANELS),
-            Verdict::Met { over: 28 }
+            Verdict::Met { over: 29 }
         );
         assert_eq!(
             o2_everything_built_has_a_panel(obligations::PANELS),
-            Verdict::Met { over: 28 }
+            Verdict::Met { over: 29 }
         );
     }
 
-    /// **The join, in both directions, and the one row that has no panel.**
+    /// **The join, in both directions, and there is no longer a row without a panel.**
     ///
     /// The freeze's order is the panel order, so the join is a zip rather than a search: a panel that
     /// drifted out of order would still satisfy both halves of O2 and would put `chart`'s drawing
@@ -2740,12 +2778,15 @@ mod tests {
             .map(|c| c.id)
             .collect();
         assert_eq!(built, panel_ids());
+        // **Zero, and it was `["spinner"]` until components ticket 46.** The direction this still
+        // watches is a row arriving unbuilt — a thirtieth component — with the panel table already
+        // naming it, which is the drift `o2_everything_built_has_a_panel` cannot see from its side.
         let unbuilt: Vec<&str> = crate::INVENTORY
             .iter()
             .filter(|c| !c.built)
             .map(|c| c.id)
             .collect();
-        assert_eq!(unbuilt, vec!["spinner"]);
+        assert_eq!(unbuilt, Vec::<&str>::new());
         // The title is the id, so a reader looking at the screen and a gate reading the table are
         // looking at the same word.
         for panel in PANELS {
@@ -2919,7 +2960,9 @@ mod tests {
                 panel.id
             );
         }
-        assert!(!gallery.go_to("spinner", w, h));
+        // A name the freeze has never heard of. `spinner` was the other arm here until components
+        // ticket 46 built it, and it is above now — the sweep is over `PANELS`, so the negative
+        // case had to become one nothing can turn.
         assert!(!gallery.go_to("gauge", w, h));
     }
 
@@ -3428,15 +3471,22 @@ mod tests {
     /// See [`no_cell_of_the_assembled_gallery_is_written_by_nobody`]. **The spelling it replaced,
     /// watched leaving its exact set behind — three drawings and the grid's own slack.**
     ///
-    /// [`Remainder::LeftAlone`] is one line and draws through the same twenty-eight call sites, so
+    /// [`Remainder::LeftAlone`] is one line and draws through the same twenty-nine call sites, so
     /// this is the register's failing set attributed to the tile each cell is in rather than a total:
     ///
     /// | at 300x80 | cells | who owns it |
     /// |---|---|---|
-    /// | `panel` | **294** | `Frame::interior` — a `block` returns the rectangle it did not write |
-    /// | `scrollbar` | **630** | this module's own narrowing: a bar is three columns of a wider tile |
-    /// | `collapsible` | **432** | `Disclosure::used` — every row below the section is the caller's |
-    /// | two slots with no panel | **1 600** | the grid's: twenty-eight panels in a six-by-five grid |
+    /// | `panel` | **245** | `Frame::interior` — a `block` returns the rectangle it did not write |
+    /// | `scrollbar` | **532** | this module's own narrowing: a bar is three columns of a wider tile |
+    /// | `collapsible` | **410** | `Disclosure::used` — every row below the section is the caller's |
+    /// | six slots with no panel | **4 128** | the grid's: twenty-nine panels in a seven-by-five grid |
+    ///
+    /// **Every figure moved when components ticket 46 added the twenty-ninth panel, and none of them
+    /// moved because a component changed.** A page holds `cols * rows` tiles and twenty-nine panels
+    /// need a wider grid than twenty-eight, so every tile is smaller and every remainder with it —
+    /// which is why these are asserted as measured rather than carried forward. The **shape** is the
+    /// finding and it is unchanged: three drawings that hand a rectangle back and a grid whose last
+    /// row is not full.
     ///
     /// **At 100x30 it is 145 and all of it is the scrollbar's**, because a page of twelve fills the
     /// grid exactly and `collapsible` is on page two — one size agreeing with a law the other breaks
@@ -3470,16 +3520,20 @@ mod tests {
         assert_eq!(
             attribute(300, 80),
             vec![
-                ("panel", 294),
-                ("scrollbar", 630),
-                ("collapsible", 432),
-                ("a slot with no panel", 800),
-                ("a slot with no panel", 800),
+                ("panel", 245),
+                ("scrollbar", 532),
+                ("collapsible", 410),
+                ("a slot with no panel", 688),
+                ("a slot with no panel", 688),
+                ("a slot with no panel", 688),
+                ("a slot with no panel", 688),
+                ("a slot with no panel", 688),
+                ("a slot with no panel", 688),
             ]
         );
         assert_eq!(attribute(100, 30), vec![("scrollbar", 145)]);
         // And the total is the surface's, so no cell of the set is outside the grid.
-        assert_eq!(shape_as(300, 80, 3, Remainder::LeftAlone).unwritten, 2_956);
+        assert_eq!(shape_as(300, 80, 3, Remainder::LeftAlone).unwritten, 5_315);
         assert_eq!(shape_as(100, 30, 3, Remainder::LeftAlone).unwritten, 145);
     }
 

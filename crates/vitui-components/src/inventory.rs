@@ -337,6 +337,14 @@ pub const MOVED: &[Moved] = &[
               the draw builds — with a state exactly as big as the type-ahead buffer `nav::cursor` \
               cannot borrow from the ring",
     },
+    Moved {
+        id: "spinner",
+        why: "ticket 46 built it, and it is the one row here that was genuinely at risk rather than \
+              merely mis-tiered: §17 froze it at Tier 3 for an unmeasured mechanism, ticket 42 \
+              measured it, and the permission is narrower than the question — a component may own \
+              an **anchor** and may not own a **clock**. `SpinState` is `Option<Steps>` and 32 B, \
+              against the 40 B tween slot `disclose::Collapse` already carries as a field",
+    },
 ];
 
 /// One stated edge of the L0..L5 graph: `of` is built on `on`.
@@ -1000,14 +1008,14 @@ pub const INVENTORY: &[Component] = &[
     Component {
         id: "spinner",
         tier: Tier::Three,
-        // **The last unbuilt row, and it is no longer at risk.** Its mechanism — *a component that
-        // owns a clock* — was §17's at-risk column and §22's *named with an owner and not
-        // prototyped*; components ticket 42 prototyped it and the answer holds. The rule it lands on
-        // is *stored state may be an anchor, never a phase*, which is what §8 and §9 were already
-        // obeying rather than a permission granted here: `Steps` is 32 B against the 40 B tween slot
-        // `disclose::Collapse` already carries as a field. What is left is a component, and it is
-        // ticket 46. See `.scratch/vitui-components-impl/research/42-a-component-that-owns-a-clock.md`.
-        built: false,
+        // **The last row of the freeze to be built, and it left Tier 3's at-risk column before it
+        // left the unbuilt column.** Its mechanism — *a component that owns a clock* — was §17's
+        // at-risk entry and §22's *named with an owner and not prototyped*; components ticket 42
+        // prototyped it and ticket 46 shipped it. The rule it lands on is *stored state may be an
+        // anchor, never a phase*, which is what §8 and §9 were already obeying rather than a
+        // permission granted here: `SpinState` is 32 B against the 40 B tween slot
+        // `disclose::Collapse` already carries as a field. See `MOVED` and ADR 0051.
+        built: true,
         layer: Layer::L1,
         families: &[Family::F5Indicators],
         // **Empty, and it stays empty for a reason rather than for want of a table.** A `Glyph` is
@@ -1017,21 +1025,24 @@ pub const INVENTORY: &[Component] = &[
         // nothing four times. So the ladder is the component's own table, exactly as
         // `chart::raster::RUNGS` is `chart`'s and `crate::media::sub_rows` is the picture's.
         glyphs: &[],
-        // **2, corrected by ticket 42 from §17's 1 — and it is an argument here, not yet a
-        // derivation.** §16's rule points at 1 on the grounds that every spelling is exactly one
-        // cell and no spelling is blank; both are true of the prototype's ladder and *neither
-        // decides it*. What decides it is whether the frame **count** moves with the rung, and it
-        // does, necessarily: an ASCII rotation has four positions (`|/-\`) and there is no
-        // printable-ASCII cycle of ten that reads as one, while the braille spinner is ten. So the
-        // ladders are `4 / 10 / 10`, `Extended == Unicode` is why it is two and not three, and it is
-        // the shape `crate::media::sub_rows` reports as `1 / 2 / 2` one family over.
+        // **3, and it is derived rather than argued — which is what ticket 46 owed and 42 could
+        // not.** §16's rule points at 1 on the grounds that every spelling is exactly one cell and
+        // no spelling is blank; both are true of the shipped ladder and *neither decides it*. What
+        // decides it is whether the rung changes what is **built**, and
+        // `crate::indicate::constructions` counts the distinct ladders of
+        // `crate::indicate::LADDERS` — asserted against this number by
+        // `crate::indicate::tests::a_spinner_is_three_constructions_and_the_ladder_is_its_own`, the
+        // way `chart`, `plot`, `meter` and `sparkline` each assert theirs against a shipped table.
         //
-        // **Every other multi-construction row derives this number and this one cannot yet.**
-        // `chart` and `plot` assert `constructions == distinct(Kind)` against a real table
-        // (`chart::raster`), `meter` and `sparkline` likewise; `spinner`'s table is the prototype's
-        // and lives on a branch, so `2` is a literal until ticket 46 ships the ladder and the
-        // derivation with it. That obligation is written into 46 rather than left here.
-        constructions: 2,
+        // **It was 2 in ticket 42 and the correction is the rung boundary, not the count.** The
+        // prototype put the braille spinner at `Unicode | Extended`, and the engine's own
+        // `GlyphSet` says `Unicode` is *Unicode a normal text font covers* while `Extended` is
+        // *braille, block elements, emoji, powerline* — so a terminal that promised the middle rung
+        // would have rendered tofu, which is the one failure a ladder exists to prevent. The middle
+        // rung is the quadrant blocks, a four-position orbit rather than a re-spelling of the ASCII
+        // rotating line, so the three ladders are three distinct tables. That is `plot`'s shape and
+        // not `meter`'s: braille is what a spinner spends 256 states a cell on.
+        constructions: 3,
         can_shrink: false,
         owns_offset: false,
         scrolled: false,
@@ -1220,6 +1231,7 @@ mod tests {
                 "status_bar",
                 "pagination",
                 "form",
+                "spinner",
             ])
         );
         for m in MOVED {
@@ -1233,10 +1245,16 @@ mod tests {
         // which would put the built count at sixteen — the Tier 1 count exactly, and it could not
         // be reached even at nineteen without contradicting §17's own three sentences about
         // `slider`, `file_picker` and `file_preview_pane`. Recorded here rather than resolved by
-        // bending a column: ticket 34 built six of Tier 2's nine and ticket 35 the other three, so
-        // the number that reproduces from the freeze is twenty-eight — every row but `spinner`,
-        // whose mechanism is *a component that owns a clock* and is prototyped nowhere on the map.
-        assert_eq!(INVENTORY.iter().filter(|c| c.built).count(), 28);
+        // bending a column: ticket 34 built six of Tier 2's nine and ticket 35 the other three, and
+        // ticket 46 built `spinner`, the one row that was genuinely at risk rather than merely
+        // mis-tiered. **So the number that reproduces from the freeze is twenty-nine, which is
+        // every row of it** — and this assertion and `INVENTORY.len()` are the same number for the
+        // first time.
+        assert_eq!(INVENTORY.iter().filter(|c| c.built).count(), 29);
+        assert_eq!(
+            INVENTORY.iter().filter(|c| c.built).count(),
+            INVENTORY.len()
+        );
     }
 
     /// **Every `built` row is declared in the module that homes it — and this is the gate components
@@ -1292,8 +1310,10 @@ mod tests {
             checked += 1;
         }
         assert_eq!(
-            checked, 28,
-            "twenty-eight built rows, and every one of them checked"
+            checked, 29,
+            "**twenty-nine built rows**, and every one of them checked — the freeze is complete \
+             since components ticket 46, so this count and `INVENTORY.len()` are the same number \
+             for the first time"
         );
 
         // **Both spellings are accepted, watched.** A join that took only the parenthesis is a join
@@ -1334,7 +1354,20 @@ mod tests {
             declared_but_not_built.is_empty(),
             "{declared_but_not_built:?} are declared and the `built` column says they are not"
         );
-        assert_eq!(INVENTORY.iter().filter(|c| !c.built).count(), 1);
+        // **Zero, and it was one until components ticket 46.** The reverse arm is not decoration
+        // now that it can no longer fire from this side: what it is watching is a row arriving
+        // `built: false` — a thirtieth component, or a row struck back — with a declaration already
+        // in the tree. That is the direction ticket 35 tripped, declaring its three components
+        // before moving their column.
+        assert_eq!(INVENTORY.iter().filter(|c| !c.built).count(), 0);
+        assert!(
+            crate::dense::declares(
+                "pub fn nothing_declares_this(cx: &mut Ctx) {}",
+                "pub fn nothing_declares_this("
+            ),
+            "the needle the reverse arm runs on no longer matches anything, so an undeclared row \
+             and a declared one would read the same"
+        );
     }
 
     /// **The DAG: an edge from a lower layer to a higher one is refused.**
@@ -1427,14 +1460,21 @@ mod tests {
         assert_eq!(row("meter").constructions, 2, "meter");
         assert_eq!(row("plot").constructions, 3, "plot");
 
-        // **Exactly one row earns the third rung**, which is §13's measurement: Unicode against
-        // Extended is 0 cells different in the chart pane and 882 in the plot pane.
+        // **Two rows earn the third rung, and they earn it for the same reason.** §13's
+        // measurement is `plot`'s: Unicode against Extended is 0 cells different in the chart pane
+        // and 882 in the plot pane, because braille is 256 states a cell where block elements are
+        // 8. `spinner` is components ticket 46's and the same sentence — ten braille frames where
+        // the quadrant blocks give four — which is why it is `plot`'s shape and not `meter`'s,
+        // whose horizontal ladder gets nothing from the top rung and reads `1 / 8 / 8`.
+        //
+        // Both are **derived**: `chart::raster::geom` for `plot`, `crate::indicate::constructions`
+        // for `spinner`, each asserted against this column in the module that owns the table.
         let three: Vec<&str> = INVENTORY
             .iter()
             .filter(|c| c.constructions == 3)
             .map(|c| c.id)
             .collect();
-        assert_eq!(three, vec!["plot"]);
+        assert_eq!(three, vec!["plot", "spinner"]);
     }
 
     /// **The four hostile axes are columns, and every one of them is set somewhere.**

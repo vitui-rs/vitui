@@ -48,7 +48,7 @@
 //! # Why the axes are a line and not a paragraph
 //!
 //! O1's fifth criterion is *every component's page states its hostile axes, so a reader knows which
-//! of the four apply before they hit one* — and **thirteen of the twenty-eight built components
+//! of the four apply before they hit one* — and **fourteen of the twenty-nine built components
 //! declare none at all**, so a page that simply mentions the axes it has is silent on nearly half
 //! the freeze, and silence is indistinguishable from a page that forgot. That is the vacuity
 //! [`crate::obligations::Verdict::of`] refuses one file over, arriving on the documentation axis.
@@ -457,7 +457,11 @@ mod tests {
     #[test]
     fn every_built_component_carries_a_page_with_a_compiled_example() {
         let pages = pages();
-        assert_eq!(pages.len(), 28, "the built population");
+        assert_eq!(
+            pages.len(),
+            29,
+            "the built population, which is every row of the freeze"
+        );
         let axes: Vec<Vec<&str>> = pages.iter().map(Page::axis_words).collect();
         let found = survey(read);
         let bad: Vec<&Found> = found
@@ -500,9 +504,11 @@ mod tests {
         assert_eq!(stated_axes(&one), Some(vec!["narrow".to_string()]));
         assert_eq!(stated_axes("**Summary.** No line at all.\n"), None);
         assert_ne!(stated_axes(&none), stated_axes(&one));
-        // Thirteen of the twenty-eight, which is the number that makes the equality
-        // load-bearing.
-        assert_eq!(pages().iter().filter(|p| p.axes.is_empty()).count(), 13);
+        // Fourteen of the twenty-nine, which is the number that makes the equality load-bearing: a
+        // page that merely mentions the axes it has is silent on nearly half the freeze, and
+        // silence is indistinguishable from a page that forgot. `spinner` is the fourteenth — it
+        // declares none of the four, which is the freeze's own reading and not this page's.
+        assert_eq!(pages().iter().filter(|p| p.axes.is_empty()).count(), 14);
     }
 
     /// **The written list and the scan agree**, which is what stops either from being a claim.

@@ -604,6 +604,13 @@ pub const SPEC_ROWS: usize = 32;
 /// instrument the rule's *other* half has always been read off, and the stricter of the two, since a
 /// verb that skips the caller's `Ink` makes it larger rather than smaller.
 ///
+/// **Components ticket 46 moved it from two hundred and eighteen to two hundred and twenty**, and
+/// neither of the two is an inversion: rows 232 and 233 are the twenty-ninth component's — *stored
+/// state may be an anchor, never a phase*, and the playhead's cadence beside it. It is the last row
+/// of §17's freeze to be built, so **every row of that table is `built` from here on** and the four
+/// populations that read the column — O1's, O2's, O3's and O7's — moved to twenty-nine with no edit
+/// to any of them.
+///
 /// **Components ticket 45 moved it from two hundred and sixteen to two hundred and eighteen**, and
 /// neither of the two is an inversion: rows 230 and 231 are O7's — *every component this crate
 /// declares is exercised by an application*, and the `uses` column agreeing with the scan that
@@ -615,7 +622,7 @@ pub const SPEC_ROWS: usize = 32;
 /// it. Row 30's own instrument compares two lists of *ids*, which is the most a query over the
 /// freeze can ask; the chord-for-chord equality needs a value with a machine in it, and
 /// `crate::contract::Contract::live` is that machine — it runs the shipped component.
-pub const EVALUATED: usize = 218;
+pub const EVALUATED: usize = 220;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
 #[expect(
@@ -625,7 +632,7 @@ pub const EVALUATED: usize = 218;
               array is read at compile time by nothing and at run time by tests, so the copy the \
               lint is warning about is one a test makes once"
 )]
-pub const REGISTER: [Row; 231] = [
+pub const REGISTER: [Row; 233] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -5792,7 +5799,7 @@ pub const REGISTER: [Row; 231] = [
             by: &[
                 Instrument::Unit {
                     file: PLAYER,
-                    name: "six_parts_ship_and_the_other_four_each_name_what_they_wait_for",
+                    name: "seven_parts_ship_and_the_other_three_each_name_what_they_wait_for",
                 },
                 Instrument::Unit {
                     file: PLAYER,
@@ -7608,7 +7615,7 @@ pub const REGISTER: [Row; 231] = [
                 },
                 Instrument::Unit {
                     file: GALLERY,
-                    name: "both_halves_of_o2_are_met_over_the_twenty_eight_built_rows",
+                    name: "both_halves_of_o2_are_met_over_the_twenty_nine_built_rows",
                 },
                 Instrument::Unit {
                     file: GALLERY,
@@ -8166,6 +8173,96 @@ pub const REGISTER: [Row; 231] = [
             ],
         },
     },
+    Row {
+        number: 232,
+        on_spec_table: false,
+        gate: "stored state may be an anchor, never a phase: a spinner asks only when the draw put \
+               a cell on the screen, and the ask names the widget",
+        kind: Kind::Count,
+        owner: "C11",
+        section: "spec §17, §8, ADR 0051",
+        // **The twenty-ninth row of the freeze, and the two rules its own ticket owes.** Spec §8
+        // refused a stored transition state, and read as *a component may not store anything a
+        // clock moves* that forbids a spinner; the rule is narrower and `disclose::Collapse` is the
+        // proof, since it stores a `Tween` across frames. What separates them is what the stored
+        // thing **is**: an anchor is a value the state is recoverable from at any `now`, and a
+        // phase is only meaningful relative to a frame that already ran.
+        //
+        // **Both rules are gated with a runnable negative arm, because neither is visible on the
+        // rendered surface.** A clipped spinner and a clipped `Ask::Always` spinner are cell for
+        // cell identical and one of them keeps the terminal awake; a `Ctx::deadline` and a
+        // `Ctx::deadline_for` attribute the same line and only one of them names a widget, so a
+        // screen with three spinners is where the census can tell them apart — 3 widgets against 0.
+        //
+        // **And the clock is the frame's**, which is a scan rather than a type: `Instant::now()`
+        // appears in no function of a component module that takes a `Ctx`. The population is a
+        // *function* and not a file, because fifty-six library-half calls live in this crate's
+        // instruments — six of them inside `collect.rs`, which is a component module — and a scan by
+        // file would have carried a growing exception list.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: INDICATE,
+                    name: "a_clipped_spinner_asks_for_nothing_and_the_defective_arm_asks_anyway",
+                },
+                Instrument::Unit {
+                    file: INDICATE,
+                    name: "three_spinners_name_three_widgets_and_the_defective_arm_names_none",
+                },
+                Instrument::Unit {
+                    file: INDICATE,
+                    name: "no_component_body_in_this_crate_samples_its_own_clock",
+                },
+                Instrument::Unit {
+                    file: INDICATE,
+                    name: "a_stopped_spinner_is_quiet_at_once_and_a_zero_period_never_asked",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 233,
+        on_spec_table: false,
+        gate: "a playhead's cadence is the drawn column and not the frame: 60 wakes against 431 991 \
+               over a two-hour run",
+        kind: Kind::Ratio,
+        owner: "C11",
+        section: "spec §14, ADR 0051",
+        // **The seventh part of the video player's chrome**, and the one row of `PARTS` whose
+        // `Needs` was `Clock`. It is the spinner's opposite on two axes and both decide something:
+        // it **lands**, so the instant it goes quiet is arithmetic on the anchor; and its visible
+        // state changes far more slowly than a frame, because its step is the width of one track
+        // column — two minutes over a two-hour film on a sixty-column bar.
+        //
+        // **The ratio is a consequence of the anchor rather than an optimisation.** The instant the
+        // drawn column next moves is a function of `(anchor, duration, width)`: a component that
+        // samples its own clock has a `now` nobody else on the screen agrees with, and one that
+        // accumulates has nothing to project from at all. Both arms draw the identical screen, so
+        // the wake counter is the only thing that separates them.
+        //
+        // **A scrub is a re-anchor and nothing else** — one assignment, no stored velocity and no
+        // second clock — and `ends_at` moves with it, which is asserted rather than claimed.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: PLAYER,
+                    name: "only_an_anchored_playhead_can_ask_when_the_column_moves",
+                },
+                Instrument::Unit {
+                    file: PLAYER,
+                    name: "a_playhead_lands_and_the_landing_frame_asks_for_nothing",
+                },
+                Instrument::Unit {
+                    file: PLAYER,
+                    name: "a_scrub_is_a_re_anchor_and_the_landing_moves_with_it",
+                },
+                Instrument::Unit {
+                    file: PLAYER,
+                    name: "the_chrome_advances_the_playhead_and_asks_under_its_own_id",
+                },
+            ],
+        },
+    },
 ];
 /// **The compile-outcome pair row 31 names, and its positive twin.**
 ///
@@ -8445,7 +8542,7 @@ mod tests {
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn two_hundred_and_eighteen_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn two_hundred_and_twenty_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -8519,7 +8616,7 @@ mod tests {
              domain and needs no component to be run against, and its row had been citing spec §13 \
              and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 231);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 233);
     }
 
     /// **The split, not the total.**
@@ -8530,10 +8627,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_a_hundred_and_ninety_nine_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_two_hundred_and_one_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 199);
+        assert_eq!(REGISTER.len() - on_table, 201);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,

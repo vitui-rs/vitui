@@ -307,10 +307,16 @@ fn scene_list() {
         "both scenes were pinned red for one ticket and components 24 stood them up, together with \
          the corpus scene they run over"
     );
-    // **Three since components 40**, which stood the assembled gallery up: one screen carrying
-    // every built row of the freeze answers `scenes_for` for all twenty-eight of them, through
-    // `stands` and never through `covers`.
-    assert_eq!(scenes_for("field").count(), 3);
+    // **Four since components 41.** Components 40 stood the assembled gallery up and 41 stood the
+    // palette-swap gallery up beside it, and scenes 26 and 27 both carry `STANDS_THE_GALLERY` — so
+    // one screen carrying every built row of the freeze answers `scenes_for` **twice** for each of
+    // them, through `stands` and never through `covers`.
+    //
+    // **This number was 3 for five tickets while the answer was 4**, and nothing said so: components
+    // ticket 20's finding for the fourth time — `cargo test` does not run an example, so an
+    // `assert!` here is compiled by `cargo clippy --all-targets` and evaluated by nobody. Found by
+    // components 46 running all thirty of them.
+    assert_eq!(scenes_for("field").count(), 4);
     println!(
         "  `scenes_for(\"field\")` answers {} scenes, and `crate::document::standing()` is {:?}\n",
         scenes_for("field").count(),
