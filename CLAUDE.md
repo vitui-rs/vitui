@@ -117,7 +117,7 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 41 of 45 tickets resolved (the last on 2026-08-28). `INVENTORY` is spec
+- **`vitui-components` has started**: 43 of 46 tickets resolved (the last on 2026-08-28) — the three left are 44 (O6), 45 (O7) and 46 (`spinner` and the playhead). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the five documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
   answerable by the machine from here on. **O1 is met since ticket 36, O3 since 37, O4 since 38 and
@@ -211,6 +211,63 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   a steady frame's**, and it has to be: `crate::app::Clears` writes every cell on the first frame and
   on a resize, so *cells nobody ever wrote* is zero on any screen that clears and says nothing about
   any component.
+
+- **A command palette is a composition with no new mechanism, and the caller's index R5 names is the
+  wrong one at keystroke rate** (components ticket 43, 2026-08-28; map decision **C30**). It is a
+  **prototype ticket** — the code is on `prototype/c18-command-palette` as `crates/proto-c18-palette`
+  and never merges, the write-up is
+  `.scratch/vitui-components-impl/research/43-the-command-palette.md`, and it opens **no**
+  implementation ticket and ships nothing: a palette is a *composition*, which is what R3 means.
+  §18's exemplar count moves from **ten of twelve to eleven** and `pty` is the one left; §22 loses its
+  `command palette` row.
+  **R3 holds as a count** — eleven mechanisms, `new: false` on every one — and the crate depends on
+  `vitui-runtime` and `vitui-components` and nothing else, which is what makes *a caller can assemble
+  it* a fact rather than a claim.
+  **The finding is R5's.** A filter's removal is a *scattered* subset, so `Order::permute` refuses it
+  outright (the length moved, measured rather than read off the assertion) and it reconciles like a
+  splice — as `runs` splices rather than one. `runs` grows **linearly with the corpus**, 161 / 1 608 /
+  16 072 / 160 714, and every `Vec::splice` memmoves the tail, so *built on the edit and **spliced***
+  is `O(n × runs)` against a rescan's `O(n)`: **0.36× at a thousand candidates and 48.47× at a
+  million**, crossing between ten and thirty thousand. Not a new mechanism — both spellings are the
+  caller's `order` and the palette draws identically over either — so it is a **correction to R5's
+  wording**, right for the edits R5 was written about and wrong for the one edited at keystroke rate.
+  Half a typing session cannot be spliced at all (a `Backspace` widens the match set and a splice has
+  nothing to put rows back in from, **9 of 18**), and **one keystroke over a million candidates is
+  ≈2 900 µs even in the winning spelling** — §15's `Worker`, recorded and not built.
+  **The seat is what lets a field and a collection share one rectangle**, and the two refusals fail in
+  opposite directions: unscoped types **9 of 9** and reads **0** arrows, because `Ctx::decline` closes
+  the queue at the field's level and only a `ScopeKind::Group`'s after-the-body moment reopens it;
+  list-seated reads the arrows and types **0 of 9**, because a focused collection eats every letter
+  into its type-ahead — so its query never narrows and its list is all **312** rows for ever. **All
+  three declare the same barrier, the same one trap, the same 3 stops and the same 4 regions**: a seat
+  decides what a key *does* and the frame has no column for it. The scope wraps the **field alone**,
+  because a scope around both would move the drain to after the list had drawn and the arrow would
+  land a frame late.
+  **Four obligations §18 has no column for**, each with a runnable arm and each drawing a *perfect
+  screen* when it is missing: reset the cursor (the revision clears the selection and **clamps** the
+  cursor, and a palette's cursor is the one position it has); keep it in view (**0 of 40** frames off
+  screen against **30 of 40**, because `collection` reveals only a cursor it moved itself); key the
+  children (**3 regions and a press that lands against 2 and a press that does nothing**, the two
+  screens **0 cells apart of 2 436**); and say `CollState::reconciled` (**3 selected rows kept against
+  0** — ADR 0031's third of three, the two lines that did the work undone by the line nobody wrote).
+  **The identity one is components 30's `chrome` finding from the opposite end**: `#[track_caller]`
+  **forwards the container's caller location to every `#[track_caller]` function it calls**, so a
+  `collection_into` called directly from the palette's body mints the id `cx.id()` minted at the top of
+  it — and with the group scope open that id is already claimed, so the merge makes the list inert.
+  **The field escaped it by accident**, being drawn inside the scope's closure, and *a repair that is
+  a closure is a repair invisible in a diff*.
+  **Only the splicing spelling follows the cursor onto its own command** (row 70 = cand 560 → row 20 =
+  cand 560); the other three leave it on a row that now names something else. **`Rows::of` carries
+  `Revision::UNKNOWN`, and UNKNOWN never matches** — right for the caller `order.rs` was written
+  about, and *a filter is a caller with no order that permutes one every keystroke*. And **no policy
+  carries the cursor**: `reconcile_splice` moves the spans, `reconcile_position` moves one position,
+  and joining them is the caller's — three calls a splice.
+  **The frame is flat** — 2 436 writes, 2 436 distinct, 152 verbs, 4 regions and 3 stops at 1 000,
+  100 000 and 1 000 000 candidates, **0 allocations over 64 steady frames** — after the fixture's own
+  `format!` per row was caught spending **24 a frame**, which is `player::chrome`'s finding a third
+  time and the first in a *fixture*. **Two arrangements and one palette**, because an overlay body
+  takes no ink (`Ctx::overlay`'s body is `move |cx|` and a `&mut I` is not `'f`): components 37's
+  finding, third instance, and `'f` cost the screen two annotations.
 
 - **`spinner`'s mechanism is prototyped and the answer is narrower than the question: a component
   may own an *anchor* and may not own a *clock*** (components ticket 42, 2026-08-28; map decision
