@@ -117,11 +117,13 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   describes the body queue, ADR 0017 is *partially superseded* through its `status:` field with its
   body untouched, and the gate is the marginal equality — one more overlay standing is exactly one
   more allocation a frame.
-- **`vitui-components` has started**: 44 of 46 tickets resolved (the last on 2026-08-29) — the two left are 45 (O7) and 46 (`spinner` and the playhead). `INVENTORY` is spec
+- **`vitui-components` has started**: 45 of 46 tickets resolved (the last on 2026-08-29) — the one
+  left is 46 (`spinner` and the playhead). `INVENTORY` is spec
   §17's twenty-nine-row freeze **as a value a test iterates**, with the documentation and
   verification obligations as functions over it — so *which components must this gate run against* is
   answerable by the machine from here on. **O1 is met since ticket 36, O3 since 37, O4 since 38,
-  both halves of O2 since 39 and O6 since 44**, and the one left — O5, the one §17 says is worth more
+  both halves of O2 since 39, O6 since 44 and both halves of O7 since 45**, and the one left — O5,
+  the one §17 says is worth more
   than the other four together — is `Unmet` and watched panicking, because a query with no evidence must fail loudly rather than pass: O4
   itself first returned **`Met` over 29 rows with no evidence at all**, since *an equality between two
   things that do not exist holds*. **Building the freeze contradicted four figures in the closed map** — the built count
@@ -211,6 +213,52 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   a steady frame's**, and it has to be: `crate::app::Clears` writes every cell on the first frame and
   on a resize, so *cells nobody ever wrote* is zero on any screen that clears and says nothing about
   any component.
+
+- **O7 is green — a join by import path, over a population read out of the source, and it was owed
+  three rows rather than the two its ticket named** (components ticket 45, 2026-08-29; ADR 0050).
+  `crate::consumer` is the seventh obligation's instrument, `crates/vitui-apps/examples/sheet.rs` is
+  the application that closed it, register **229 → 231 rows, 218 evaluated**, and
+  `examples/gates_numbers.rs` prints nine verdicts of which **eight are met** — O5 is the one left.
+  **The hole is one sentence**: `crates/vitui-apps` carried the claim *this crate is checked by being
+  a consumer* and there was nothing that made it true of any particular component. The argument is
+  four defects with four different reasons and one shape — *a gate exercises the component where its
+  author put it, and an application puts it somewhere else* — and **three of the four were found by a
+  person running the thing**: `counter` found that no loop could be written at all and that nothing
+  holds the focus until an application says so, `latency` found `chart`'s rasteriser painting the
+  whole column prefix for every point, and `ledger` found a table drawing its header one column into
+  a border.
+  **The two rows this ticket named had an application before it ran** (`settings` draws `chip` and
+  `button`), so the reading was taken again. What was owed is **`scrollbar`, `sticky` and
+  `file_picker`**, and the first two are the finding inside the number: spec §9 states them as the
+  pieces *underneath* `scroll_area`, and **nothing in this workspace had ever called either from
+  outside the component that homes them** — both `built: true` with no consumer but their own
+  author's file, which is exactly what O7 exists to find.
+  **`sheet` is the case `scroll_area` is not**: three `sticky` bands and a corner, two `scrollbar`s, a
+  `file_picker`, and the offset as a field of `App` — **3 600 writes over 3 600 distinct at 120x30**,
+  188 verbs, 5 regions, 2 tab stops. It makes visible the four things `scroll_area` does for nothing —
+  the clamp, the tail, the wheel and the reveal — and **the reveal is the one it cannot buy back**,
+  because `Ctx::request_into_view` addresses the widget that owns the offset and here there is no
+  widget. `t` is the key and it needs `tiny.csv`: **a sheet larger than the viewport has no tail**, and
+  §2 assigns the remainder to whoever owns the rectangle. Its picker reproduces **components
+  architecture issue 23** by being pressed — an open picker has no keyboard at all, so a file can be
+  opened with `Enter` and chosen only with a mouse, on a screen that renders perfectly.
+  **The join is by path and both false positives were already in the tree**: `keys.rs` declares a
+  `pub fn text(` that is no component and `gates::table()` prints the register, and `keys.rs`'s own
+  `(cx` suffix is a heuristic rather than a join. An import is a `(module, item)` pair,
+  `Component::module` homes every row, and both are watched **not** counting in both directions. Two
+  facts make the reading sound: an unused import is a build failure here, so **an import is proof of
+  use**; and a `use` is a *statement* and not a line, which is runtime issue 22's finding.
+  **Three rows share one machine and the exception is named, counted and necessary**: `checkbox`,
+  `radio` and `switch` have no `_with` and no `_into` of their own, so **`toggle_into` with
+  `Toggle::Radio` *is* `radio`'s ink spelling** and an application that counts its own cells has no
+  other way to draw one.
+  **The population is read out of the source**, which is components 33's finding as a population — the
+  `built` column read `true` for `slider` through two tickets with no `slider` anywhere in the crate —
+  so `spinner` is **outside** the population rather than red inside it, and 46 takes it to twenty-nine
+  with no edit. **`App::uses` stays and stops being load-bearing**: both directions over **49**
+  `(application, component)` pairs, with the count asserted because two empty lists agree about
+  everything, and the reverse arm skipping the shared machine because one path for three rows cannot
+  say *this entry implies this component*.
 
 - **O6 is green — a growth relation *and* a per-input ceiling, over a population of seven the
   freeze derives** (components ticket 44, 2026-08-29; ADR 0049). `crate::volume` is the sixth
@@ -1677,8 +1725,8 @@ Read these before working, in this order:
    authority. An `architecture.md` beside a spec is the superseded proposal, kept only as the record
    of what was argued.
 2. `CONTEXT.md` — the glossary. Use its terms in code, comments, tickets and commit messages.
-3. `docs/adr/` — 49 decisions that are hard to reverse and surprising without context. 0001–0011 and
-   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0049 the components.
+3. `docs/adr/` — 50 decisions that are hard to reverse and surprising without context. 0001–0011 and
+   0022–0025 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0050 the components.
 4. The impl backlog `README.md` for the layer being worked on — it holds the phase order, the
    blocking edges, and the defects that shaped both.
 
@@ -1705,6 +1753,10 @@ crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers 
                             least once, green since ticket 40, and row 8 — no cell keeps the
                             previous palette a frame after a swap, green since ticket 41, measured
                             against a second gallery played at the destination theme
+                          └ every declared one is exercised by an application in `vitui-apps`
+                            (O7, ticket 45) — the join is by import path, because `keys.rs` declares
+                            a `pub fn text(` that is no component and `gates::table()` prints the
+                            register
                           └ every built one carries a doc page with a compiled example (O1, ticket 36)
                           └ and, for the thirteen that read a key, a declared keyboard contract whose
                             help is rendered from it and whose other half is a sweep that runs the
@@ -1718,16 +1770,23 @@ crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers 
                             unnameable across the crate line; runtime issue 22 re-exported it and
                             components issue 17 deleted the stand-in
 crates/vitui              facade re-export — engine, runtime, components
-crates/vitui-apps         the applications, one file each in `examples/` — 16: `counter`, `triage`,
+crates/vitui-apps         the applications, one file each in `examples/` — 17: `counter`, `triage`,
                           `latency`, `ledger`, `explorer`, `reader`, `settings`, `compose`, `console`,
-                          `theatre`, `browse`, `mixer`, `vitals`, `roster`, `gallery`, `caps`. **A component ticket ships one**: the surface's
+                          `theatre`, `browse`, `mixer`, `vitals`, `roster`, `gallery`, `sheet`, `caps`.
+                          **A component ticket ships one, and since ticket 45 that is obligation O7
+                          rather than a habit** — `vitui_components::consumer` joins the freeze
+                          against the import paths here, and it was owed three rows when it was built
+                          └ `sheet` is what closed them: `scrollbar`, `sticky` and `file_picker`, the
+                            first two being the pieces §9 states *underneath* `scroll_area`, which
+                            nothing in this workspace had called from outside the component that
+                            homes them
                           └ `caps` is the odd one and draws no frame: attach, read
                             `Capabilities::report`, detach, print. Every gate here is headless, so
                             none of them can answer *what did my terminal claim* — which is the
                             question a person holding a broken screen has, and the one that produced
                             `quirks.rs`'s sixth entry
-                          only consumer, and four times now the thing that found the defect its gates
-                          could not
+                          The surface's only consumer, and four times now the thing that found the
+                          defect its gates could not
                           └ a workspace MEMBER, so CI builds them: a consumer nobody builds is a
                             consumer nobody checks (`compare/run.sh` is the precedent). Depends on
                             runtime + components and NOT on the `vitui` facade — the facade
@@ -1785,6 +1844,8 @@ cargo run -p vitui-apps --example vitals    # the six Tier 2 rows; g steps the g
 cargo run -p vitui-apps --example vitals -- --probe
 cargo run -p vitui-apps --example roster    # the three Tier 2 composites; Ctrl+G takes the arrows away
 cargo run -p vitui-apps --example roster -- --probe
+cargo run -p vitui-apps --example sheet     # the caller owns the offset; t is the tail, on tiny.csv
+cargo run -p vitui-apps --example sheet -- --probe
 cargo run -p vitui-apps --example gallery   # every built component on one screen; t is the key
 cargo run -p vitui-apps --example gallery -- --probe    # the budget, measured in the gallery
 cargo run -p vitui-apps --example gallery -- --matrix   # §16's nine cells, as counts

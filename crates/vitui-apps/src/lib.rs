@@ -38,6 +38,25 @@
 //! application saying the component surface is not finished. The scanner below is unaffected either
 //! way: it looks for the crate name, and neither re-export puts that in a source file.
 //!
+//! # A component ticket ships an application
+//!
+//! **That is the rule, and until components ticket 45 it was a claim about this crate and about no
+//! component in it.** Obligation O7 is the join —
+//! [`vitui_components::obligations::o7_everything_declared_has_an_application`] over
+//! [`vitui_components::consumer`] — and the argument for it is that every application written so
+//! far has found something no gate could see, at coordinates the gates never use: `counter` found
+//! that no loop could be written at all and that nothing holds the focus until an application says
+//! so, `latency` found `chart`'s rasteriser painting the whole column prefix for every point, and
+//! `ledger` found a table drawing its header one column into the border. Four defects, four
+//! different reasons, one shape — **a gate exercises the component where its author put it, and an
+//! application puts it somewhere else** — and three of the four were found by a person running the
+//! thing.
+//!
+//! It is not enforced from this side. The join reads the **import paths** in `examples/` and the
+//! declarations in each component's home module, and it lives one crate down because that is where
+//! the freeze is; what lives here is `tests::the_uses_column_agrees_with_the_scan`, which stops
+//! the prose column below from being the thing anybody relies on.
+//!
 //! # There is nothing to call in this library
 //!
 //! [`APPS`] is the list, and the tests below are the only thing that reads it. An application is a
@@ -76,7 +95,7 @@ pub struct App {
 /// and the reason is that there is nothing to port: what it demonstrates is *one component and one
 /// `Mode`*, and no other library's tutorial has an equivalent because no other library makes the
 /// claim.
-pub const APPS: [App; 16] = [
+pub const APPS: [App; 17] = [
     App {
         name: "counter",
         what: "A bordered panel, a centred value, and Left/Right/q. The smallest program anybody \
@@ -501,6 +520,47 @@ pub const APPS: [App; 16] = [
         after: None,
     },
     App {
+        name: "sheet",
+        what: "A spreadsheet viewer whose offset belongs to the application. Three `sticky` bands \
+               and a corner, two `scrollbar`s and a `file_picker` along the top — the pieces spec \
+               §9 states *underneath* `scroll_area`, assembled by a caller for the first time \
+               anywhere in this workspace. `t` is the one to press, on `tiny.csv`: it stops the \
+               screen writing the cells past the end of the document, which is §2's partition rule \
+               arriving as the application's own because there is no component here to own the \
+               rectangle. The grid is a tab stop that reads no key, so every keystroke falls \
+               through to `Driver::unhandled`",
+        uses: &[
+            "scroll::sticky",
+            "scroll::Shares",
+            "scroll::scrollbar_into",
+            "scroll::ScrollbarOpts",
+            "scroll::BarOpts",
+            "scroll::Orient",
+            "scroll::Span",
+            "files::file_picker_into",
+            "files::PickerState",
+            "files::PickerBody",
+            "files::PickerOpts",
+            "files::Entry",
+            "files::Preview",
+            "structure::panel_into",
+            "text::fit_into",
+            "counters::Tally",
+            "ink::Direct",
+            "ink::Ink",
+            "layout::rect::split_at_v",
+            "ctx::Ctx::scrollable",
+            "ctx::Ctx::scroll_scope",
+            "ctx::Ctx::with_id",
+            "ctx::Ctx::focused",
+            "work::Worker::hire",
+            "work::Task",
+            "ctx::Driver::unhandled",
+            "ctx::Driver::wait",
+        ],
+        after: None,
+    },
+    App {
         name: "caps",
         what: "**What this terminal answered, and nothing else.** It draws no frame: attach, read \
                `Capabilities::report`, detach, print — so nothing it prints can be a consequence of \
@@ -589,6 +649,99 @@ mod tests {
         );
     }
 
+    /// **`App::uses` stops being load-bearing: it agrees with the scan.**
+    ///
+    /// The column is a hand-written list of strings, and a list a human maintains is exactly what
+    /// obligation O7's register replaces — it would go stale in the direction that reads as green.
+    /// `every_name_in_a_uses_column_is_spelled_by_its_own_file` already stops a row naming something
+    /// its file does not contain; this is the *component* half, and it runs in both directions
+    /// against [`vitui_components::consumer::coverage`], which joins import paths against the
+    /// spellings each component's home module declares.
+    ///
+    /// # The reverse direction skips the shared machine, and that is precise rather than lenient
+    ///
+    /// `input::toggle_into` is `checkbox`'s, `radio`'s **and** `switch`'s third spelling — one
+    /// `uses` entry for three rows — so *this entry implies this component* cannot be read off it.
+    /// What the scan uses to tell them apart is the `Toggle` variant the file spells, which a
+    /// column of paths has no way to say. So the reverse arm is over each row's **own** three
+    /// spellings, and the forward arm accepts either.
+    #[test]
+    fn the_uses_column_agrees_with_the_scan() {
+        use vitui_components::consumer::{SHARED, coverage, spellings};
+        use vitui_components::inventory::INVENTORY;
+
+        let root = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."));
+        let read = |relative: &str| {
+            let path = root.join(relative);
+            std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
+        };
+        let names: Vec<String> = APPS.iter().map(|a| a.name.to_owned()).collect();
+        let coverage = coverage(read, &names);
+
+        // Every spelling a `uses` entry could name this component by, module-qualified: the row's
+        // own three, and — for the three rows of `SHARED` — the machine's two beside them.
+        let paths = |id: &str| -> (Vec<String>, Vec<String>) {
+            let c = INVENTORY
+                .iter()
+                .find(|c| c.id == id)
+                .unwrap_or_else(|| panic!("`{id}` is not a row"));
+            let module = c.module().expect("homed");
+            let source = read(&format!("crates/vitui-components/src/{module}.rs"));
+            let own: Vec<String> = spellings(&source, id)
+                .into_iter()
+                .map(|s| format!("{module}::{s}"))
+                .collect();
+            let shared = SHARED.iter().filter(|s| s.id == id).flat_map(|s| {
+                [
+                    format!("{module}::{}_with", s.machine),
+                    format!("{module}::{}_into", s.machine),
+                ]
+            });
+            (own.clone(), own.into_iter().chain(shared).collect())
+        };
+
+        let mut forward = Vec::new();
+        let mut reverse = Vec::new();
+        let mut checked = 0usize;
+        for row in &coverage {
+            let (own, named) = paths(row.id);
+            for app in APPS {
+                let uses: Vec<&str> = app.uses.to_vec();
+                let exercised = row.apps.iter().any(|a| a == app.name);
+                let claims_any = named.iter().any(|p| uses.contains(&p.as_str()));
+                let claims_own = own.iter().any(|p| uses.contains(&p.as_str()));
+                if exercised {
+                    checked += 1;
+                    if !claims_any {
+                        forward.push(format!("{}: {}", app.name, row.id));
+                    }
+                }
+                if claims_own && !exercised {
+                    reverse.push(format!("{}: {}", app.name, row.id));
+                }
+            }
+        }
+        assert_eq!(
+            forward,
+            Vec::<String>::new(),
+            "the scan says these applications exercise these components and the `uses` column does \
+             not name them"
+        );
+        assert_eq!(
+            reverse,
+            Vec::<String>::new(),
+            "the `uses` column names these components and the scan does not see them, so the \
+             column is documenting something that is no longer there"
+        );
+        assert_eq!(
+            checked, 49,
+            "**forty-nine (application, component) pairs**, and the number is here for the reason \
+             every count on this map is: a scan whose needle has quietly stopped matching reports \
+             every column clean, and two empty lists agree about everything. It moves when an \
+             application draws one more component, which is a deliberate edit"
+        );
+    }
+
     /// **Every loop reads `Driver::unhandled` from the frame that has just drawn, and not before
     /// it.**
     ///
@@ -638,10 +791,10 @@ mod tests {
             checked += 1;
         }
         assert_eq!(
-            checked, 13,
+            checked, 14,
             "triage, ledger, explorer, reader, settings, compose, console, theatre, browse, mixer, \
-             vitals, roster and gallery open the window; counter and latency read their keys \
-             through a `KeyMap` instead"
+             vitals, roster, gallery and sheet open the window; counter and latency read their \
+             keys through a `KeyMap` instead"
         );
 
         // **The other directions**, or a scanner that has stopped finding `driver.frame(` reports

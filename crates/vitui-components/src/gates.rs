@@ -511,6 +511,15 @@ const VOLUME: &str = "crates/vitui-components/src/volume.rs";
 /// Ticket 44's report, which is where the clock and its 16.7 ms denominator live.
 const VOLUME_NUMBERS: &str = "crates/vitui-components/examples/volume_numbers.rs";
 
+/// **O7's own file** — the join between the freeze and `crates/vitui-apps/examples/`, by import
+/// path. Components ticket 45.
+const CONSUMER: &str = "crates/vitui-components/src/consumer.rs";
+
+/// **The applications' own list**, which is where the `uses` column and the scan are compared. It
+/// is another crate's file, and that is the point: O7 is the one obligation whose evidence is not in
+/// this crate at all.
+const APPS: &str = "crates/vitui-apps/src/lib.rs";
+
 /// How many rows of [`REGISTER`] are spec §21's own table. **Thirty-two, and it is closed** — a
 /// thirty-third would be a spec change.
 pub const SPEC_ROWS: usize = 32;
@@ -595,12 +604,18 @@ pub const SPEC_ROWS: usize = 32;
 /// instrument the rule's *other* half has always been read off, and the stricter of the two, since a
 /// verb that skips the caller's `Ink` makes it larger rather than smaller.
 ///
+/// **Components ticket 45 moved it from two hundred and sixteen to two hundred and eighteen**, and
+/// neither of the two is an inversion: rows 230 and 231 are O7's — *every component this crate
+/// declares is exercised by an application*, and the `uses` column agreeing with the scan that
+/// answers it. It is the seventh obligation and the one whose **evidence is in another crate**,
+/// which is why the second row's instruments live in `crates/vitui-apps/src/lib.rs`.
+///
 /// **Components ticket 38 moved it from a hundred and ninety-nine to two hundred and two**, and
 /// none of the three is an inversion either: rows 216, 217 and 218 are O4's, at the level O4 means
 /// it. Row 30's own instrument compares two lists of *ids*, which is the most a query over the
 /// freeze can ask; the chord-for-chord equality needs a value with a machine in it, and
 /// `crate::contract::Contract::live` is that machine — it runs the shipped component.
-pub const EVALUATED: usize = 216;
+pub const EVALUATED: usize = 218;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
 #[expect(
@@ -610,7 +625,7 @@ pub const EVALUATED: usize = 216;
               array is read at compile time by nothing and at run time by tests, so the copy the \
               lint is warning about is one a test makes once"
 )]
-pub const REGISTER: [Row; 229] = [
+pub const REGISTER: [Row; 231] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -1447,12 +1462,20 @@ pub const REGISTER: [Row; 229] = [
     Row {
         number: 30,
         on_spec_table: true,
-        gate: "O1-O6, as queries over `INVENTORY`",
+        gate: "O1-O7, as queries over `INVENTORY`",
         kind: Kind::Count,
         owner: "C10",
         section: "spec §17",
-        // **Four of the seven are green: O1 since components ticket 36, O3 since 37, O4 since 38
-        // and O6 since 44.** O6 is the sixth obligation, stated after the map closed, and it is
+        // **Six of the seven are green: O1 since components ticket 36, O3 since 37, O4 since 38,
+        // O2 since 39, O6 since 44 and O7 since 45.** O7 is the seventh, stated after the map
+        // closed like O6 and filed on the implementation backlog for O6's reason — the instrument
+        // is buildable without reopening anything — and it is the one query whose **evidence is in
+        // another crate**: `crate::consumer` joins the freeze against the import paths in
+        // `crates/vitui-apps/examples/`, because *a gate exercises the component where its author
+        // put it, and an application puts it somewhere else*. Its population is neither `built` nor
+        // derived but **read out of the source**, which is components 33's finding as a population:
+        // the `built` column read `true` for `slider` through two tickets with no `slider` anywhere
+        // in the crate. O6 is the sixth obligation, stated after the map closed, and it is
         // the one query of the seven whose **population is derived** rather than written out —
         // `crate::volume::population` reads the freeze's `Layer::L2` column and the memo census, and
         // it answered seven where the ticket's own parenthesis named six. O4's population is the **union of the two lists** — thirteen of twenty-nine — and
@@ -1483,7 +1506,7 @@ pub const REGISTER: [Row; 229] = [
             by: &[
                 Instrument::Unit {
                     file: "crates/vitui-components/src/obligations.rs",
-                    name: "six_of_the_seven_obligations_are_met_and_the_one_left_is_o5",
+                    name: "eight_of_the_nine_obligation_queries_are_met_and_the_one_left_is_o5",
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/obligations.rs",
@@ -7601,7 +7624,7 @@ pub const REGISTER: [Row; 229] = [
                 },
                 Instrument::Unit {
                     file: OBLIGATIONS,
-                    name: "six_of_the_seven_obligations_are_met_and_the_one_left_is_o5",
+                    name: "eight_of_the_nine_obligation_queries_are_met_and_the_one_left_is_o5",
                 },
                 Instrument::Unit {
                     file: OBLIGATIONS,
@@ -8051,6 +8074,98 @@ pub const REGISTER: [Row; 229] = [
             ],
         },
     },
+    Row {
+        number: 230,
+        on_spec_table: false,
+        gate: "every component this crate declares is exercised by an application, and nothing an \
+               application exercises is absent from the freeze",
+        kind: Kind::Equality,
+        owner: "C11",
+        section: "spec §17, ADR 0050",
+        // **O7, and the argument for it is four defects rather than a preference.** `counter` found
+        // that no loop could be written at all and that nothing holds the focus until an
+        // application says so; `latency` found `chart`'s rasteriser painting the whole column
+        // prefix for every point, 952.61 ms against 2.72 at a million; `ledger` found a table
+        // drawing its header one column into the border when handed a panel's interior. Every gate
+        // in this crate was green on all four, for four different reasons and with one shape: *a
+        // gate exercises the component where its author put it, and an application puts it
+        // somewhere else*. Three of the four were found by a person running the thing.
+        //
+        // **Two equalities, the way O2 has two**, and the first is the one that catches the
+        // inventory drifting from what ships — the direction the second cannot see at all.
+        //
+        // **The join is by path and a bare-name scan is wrong twice over**, with both false
+        // positives already in the tree: `keys.rs` declares a `pub fn text(` that is not the `text`
+        // component and `gates::table()` prints this register. An import is a `(module, item)`
+        // pair, the freeze homes every row through `Component::module`, and `keys::text` and
+        // `text::text` never meet. Both are watched **not** counting.
+        //
+        // **`App::uses` stays and stops being load-bearing.** It is a hand-written column, which is
+        // what this register exists to replace; row 231 is the test that makes it agree with the
+        // scan rather than be trusted.
+        //
+        // It was owed **three** rows when it was built — `scrollbar`, `sticky` and `file_picker` —
+        // and `crates/vitui-apps/examples/sheet.rs` is what closed them: two of the three are what
+        // a caller assembles when it owns the offset itself, which is precisely the case
+        // `scroll_area` is not, and until that file nothing in this workspace had called either
+        // from outside the component that homes them.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: CONSUMER,
+                    name: "every_declared_component_is_exercised_by_an_application",
+                },
+                Instrument::Unit {
+                    file: CONSUMER,
+                    name: "the_two_bare_name_collisions_already_in_the_tree_do_not_count",
+                },
+                Instrument::Unit {
+                    file: CONSUMER,
+                    name: "the_shared_machine_counts_only_with_the_kind_that_names_the_row",
+                },
+                Instrument::Unit {
+                    file: OBLIGATIONS,
+                    name: "the_written_list_and_the_scan_agree_about_o7",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 231,
+        on_spec_table: false,
+        gate: "the `uses` column of every application agrees with the scan, in both directions",
+        kind: Kind::Equality,
+        owner: "C11",
+        section: "spec §17, ADR 0050",
+        // **A list a human maintains is exactly what this register exists to replace**, and this
+        // column would go stale in the direction that reads as green: it is what somebody choosing
+        // what to open reads. Components 39's review found the sharp instance — the gallery's row
+        // listed `gallery::PANELS`, which `crate::gallery`'s own scan **forbids** that file from
+        // spelling, so the column documented an application doing exactly what a gate one crate
+        // over refuses, unchecked for fifteen applications.
+        //
+        // **The reverse arm skips the shared machine and that is precision rather than leniency.**
+        // `input::toggle_into` is `checkbox`'s, `radio`'s and `switch`'s third spelling at once —
+        // one path for three rows — so *this entry implies this component* cannot be read off it.
+        // What separates them is the `Toggle` variant the file spells, which a column of paths has
+        // no way to say.
+        //
+        // Forty-nine `(application, component)` pairs, counted, because two empty lists agree about
+        // everything — O4's finding, and the reason `Verdict::of` refuses vacuity in its
+        // constructor.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: APPS,
+                    name: "the_uses_column_agrees_with_the_scan",
+                },
+                Instrument::Unit {
+                    file: APPS,
+                    name: "every_name_in_a_uses_column_is_spelled_by_its_own_file",
+                },
+            ],
+        },
+    },
 ];
 /// **The compile-outcome pair row 31 names, and its positive twin.**
 ///
@@ -8330,7 +8445,7 @@ mod tests {
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn two_hundred_and_sixteen_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn two_hundred_and_eighteen_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -8404,7 +8519,7 @@ mod tests {
              domain and needs no component to be run against, and its row had been citing spec §13 \
              and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 229);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 231);
     }
 
     /// **The split, not the total.**
@@ -8415,10 +8530,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_a_hundred_and_ninety_seven_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_a_hundred_and_ninety_nine_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 197);
+        assert_eq!(REGISTER.len() - on_table, 199);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,

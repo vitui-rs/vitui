@@ -397,6 +397,7 @@ pub mod app;
 pub mod area;
 pub mod clusters;
 pub mod composed;
+pub mod consumer;
 pub mod contract;
 pub mod counters;
 pub mod dense;

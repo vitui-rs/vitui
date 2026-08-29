@@ -255,23 +255,31 @@ fn wrap(text: &str, width: usize) -> Vec<String> {
     out
 }
 
-/// **The seven queries §17's obligations are, in one place.**
+/// **The nine queries §17's obligations are, in one place.**
 ///
-/// Row 30 of the register is *O1-O6 as queries over `INVENTORY`*, and until components ticket 44
+/// Row 30 of the register is *O1-O7 as queries over `INVENTORY`*, and until components ticket 44
 /// each of them printed only in its own ticket's report — `doc_numbers` for O1, `gallery_numbers`
 /// for O2, `golden_numbers` for O3, `contract_numbers` for O4, `scene_numbers` for O5 and
 /// `volume_numbers` for O6. A reader who wanted *where do the obligations stand* had six files to
 /// open, which is the shape §17 wrote the freeze to end.
 ///
-/// Seven lines, not six files. The per-obligation reports keep their own evidence; this is the
-/// roll-up beside the register row that owns it.
+/// Nine lines, not seven files. The per-obligation reports keep their own evidence; this is the
+/// roll-up beside the register row that owns it. **O7's evidence is in another crate** —
+/// `crates/vitui-apps/examples/` — which is what makes it the one line here nothing in
+/// `vitui-components` could have produced on its own.
 fn obligations() {
     use vitui_components::obligations::{
-        AXIS_SCENES, DOC_TESTED, GOLDENS, KEYBOARD_DOCUMENTED, KEYBOARD_REGISTERED, PANELS,
-        VOLUME_MEASURED, Verdict, o1, o2_everything_built_has_a_panel,
+        APPLIED, AXIS_SCENES, DOC_TESTED, GOLDENS, KEYBOARD_DOCUMENTED, KEYBOARD_REGISTERED,
+        PANELS, VOLUME_MEASURED, Verdict, o1, o2_everything_built_has_a_panel,
         o2_nothing_shown_is_absent_from_the_freeze, o3, o4, o5, o6,
+        o7_everything_declared_has_an_application, o7_nothing_exercised_is_absent_from_the_freeze,
     };
 
+    let declared = vitui_components::consumer::declared(|relative| {
+        let path =
+            std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../..")).join(relative);
+        std::fs::read_to_string(&path).unwrap_or_default()
+    });
     println!("\nthe obligations, as queries over the freeze (register row 30)");
     let all = [
         ("O1  a page with a compiled example", o1(DOC_TESTED)),
@@ -290,6 +298,14 @@ fn obligations() {
         ),
         ("O5  a scene per declared axis     ", o5(AXIS_SCENES)),
         ("O6  60 Hz at a million inputs     ", o6(VOLUME_MEASURED)),
+        (
+            "O7a nothing applied is absent     ",
+            o7_nothing_exercised_is_absent_from_the_freeze(APPLIED),
+        ),
+        (
+            "O7b everything declared is in one ",
+            o7_everything_declared_has_an_application(&declared, APPLIED),
+        ),
     ];
     for (name, verdict) in all {
         match verdict {
@@ -304,7 +320,8 @@ fn obligations() {
     }
     println!(
         "\n          O5 is the one left, and §17 says it is worth more than the other four\n\
-         \x20         together. O6 is the sixth, stated after the map closed, and the only one\n\
-         \x20         whose population is derived rather than written out."
+         \x20         together. O6 is the sixth and O7 the seventh, both stated after the map\n\
+         \x20         closed; O6's population is derived from the freeze and O7's is read out of\n\
+         \x20         the source, because the `built` column is a claim and it has been wrong."
     );
 }

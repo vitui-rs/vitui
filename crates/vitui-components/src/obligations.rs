@@ -1,4 +1,4 @@
-//! Spec §17's five obligations and the sixth stated after the map closed, as **queries over
+//! Spec §17's five obligations and the two stated after the map closed, as **queries over
 //! [`crate::INVENTORY`]**, each returning a count or an equality.
 //!
 //! > Every documentation and verification obligation is a query over it, not a sentence in a
@@ -6,10 +6,11 @@
 //!
 //! # One of the seven still cannot run, and that is the load-bearing half of this file
 //!
-//! **O1 is green since components ticket 36, O3 since 37, O4 since 38, O2 — both halves — since 39
-//! and O6 since 44**, six of the seven queries. Only O5 is left, and it is the one §17 says is
-//! worth more than the other four together. **A query over an obligation nobody has met yet is the
-//! exact shape that returns green by accident**, and three of the six had it:
+//! **O1 is green since components ticket 36, O3 since 37, O4 since 38, O2 — both halves — since 39,
+//! O6 since 44 and O7 — both halves — since 45**, eight of the nine queries. Only O5 is left, and
+//! it is the one §17 says is worth more than the other four together. **A query over an obligation
+//! nobody has met yet is the exact shape that returns green by accident**, and three of them had
+//! it:
 //!
 //! - *every panel in the gallery is in the freeze* over an empty gallery is **vacuously true** —
 //!   which is what [`PANELS`] read until ticket 39, and the reason the query is written over the
@@ -20,6 +21,12 @@
 //!   [`o3`] iterates the freeze and not the evidence, and why its population is `built` rather than
 //!   all twenty-nine: a row nothing on this backlog can draw a screen for reads **red** for ever,
 //!   which is the same failure in mirror image.
+//!
+//! **O7's population is read out of the source rather than off a column**, and that is the one place
+//! the seven differ about what *the freeze says* means: [`o1`] and [`o3`] trust `built`, and
+//! components ticket 33 found that column reading `built: true` for `slider` through two tickets
+//! with no `slider` anywhere in the crate. [`crate::consumer::declared`] opens each row's home
+//! module instead.
 //!
 //! **O6 is the one whose population is derived rather than written out**, and it is the only one of
 //! the seven that could go quietly *smaller*: [`o6`] reads the freeze's `Layer::L2` column and the
@@ -41,13 +48,14 @@
 //! # How they fail loudly
 //!
 //! [`Verdict::assert_met`] panics with the failing set and the ticket that inverts it. Each of the
-//! seven is watched panicking by a `#[should_panic]` test below, because **a gate nobody has watched
+//! nine is watched panicking by a `#[should_panic]` test below, because **a gate nobody has watched
 //! fail is not a gate** — §21's own three-for-three finding, from the other direction.
-//! `tests::six_of_the_seven_obligations_are_met_and_the_one_left_is_o5` writes the number down, so
+//! `tests::eight_of_the_nine_obligation_queries_are_met_and_the_one_left_is_o5` writes the number
+//! down, so
 //! each one that turns is a deliberate edit here rather than a silent change of colour. **Five have
 //! turned and each cost that edit**; what changes when one does is the arm it is watched failing on
 //! — a `Met` verdict cannot be watched panicking, so the `#[should_panic]` moves from *the evidence
-//! is empty* to *the evidence is one row wrong*, and for O2 that is one arm per direction.
+//! is empty* to *the evidence is one row wrong*, and for O2 and O7 that is one arm per direction.
 //!
 //! # The evidence is an argument, not a file read
 //!
@@ -57,8 +65,8 @@
 //! answering a real question **with no change to either query**.
 //!
 //! **[`DOC_TESTED`] was the first one to be filled, and filling it needed a second value beside
-//! it.** [`PANELS`] is the fourth and [`VOLUME_MEASURED`] is the fifth, and each needed the same
-//! thing, for the same reason and with the same shape: [`crate::gallery::panel_ids`] derives the list from the table the screen is drawn
+//! it.** [`PANELS`] is the fourth, [`VOLUME_MEASURED`] the fifth and [`APPLIED`] the sixth, and each
+//! needed the same thing, for the same reason and with the same shape: [`crate::gallery::panel_ids`] derives the list from the table the screen is drawn
 //! from.
 //! A written-out evidence list is a claim about twenty-eight files, so [`crate::doc`] opens each of
 //! them and derives the same list; `crate::doc::tests::the_written_list_and_the_scan_agree` is the
@@ -683,9 +691,155 @@ pub fn o6(measured: &[&str]) -> Verdict {
     )
 }
 
+/// **The ids at least one application in `crates/vitui-apps/examples/` exercises.** O7's evidence.
+///
+/// Twenty-eight, and components ticket 45 filled it. Written out for [`DOC_TESTED`]'s reason: a
+/// `const fn` over [`crate::consumer::applied`] would make the population and the evidence one
+/// expression, and an equality between two things derived from each other holds. What holds it
+/// honest is [`crate::consumer::coverage`], which opens every application in the directory and
+/// joins its **import paths** against the spellings each row's home module declares;
+/// `tests::the_written_list_and_the_scan_agree_about_o7` is the comparison.
+///
+/// The order is [`INVENTORY`]'s, so a row added to the freeze in the middle is a failing test here
+/// rather than a tidy append. `spinner` is absent, and that is [`o7_everything_declared_has_an_application`]'s
+/// population rather than an omission here.
+pub const APPLIED: &[&str] = &[
+    "text",
+    "panel",
+    "chip",
+    "button",
+    "field",
+    "collection",
+    "table",
+    "tree",
+    "select",
+    "overlay",
+    "scroll_area",
+    "scrollbar",
+    "sticky",
+    "collapsible",
+    "chart",
+    "plot",
+    "checkbox",
+    "radio",
+    "switch",
+    "meter",
+    "sparkline",
+    "rule",
+    "status_bar",
+    "pagination",
+    "form",
+    "slider",
+    "file_picker",
+    "file_preview_pane",
+];
+
+/// **O7, first equality — nothing an application exercises is absent from the freeze.**
+///
+/// [`o2_nothing_shown_is_absent_from_the_freeze`]'s direction, one instrument over, and it is here
+/// for that half's reason: it is the equality that catches the **inventory** drifting from what
+/// ships, which the second half cannot see at all. The population is the evidence, so an empty
+/// [`APPLIED`] is `Unmet` over zero rather than `Met` over zero.
+pub fn o7_nothing_exercised_is_absent_from_the_freeze(applied: &[&str]) -> Verdict {
+    let failing = applied
+        .iter()
+        .filter(|id| !INVENTORY.iter().any(|c| c.id == **id))
+        .count();
+    Verdict::of(
+        applied.len(),
+        failing,
+        "no application exercises anything the freeze has heard of, so there is nothing for the \
+         inventory to have drifted from — which is the vacuous green this equality is written to \
+         refuse",
+        "components 45",
+    )
+}
+
+/// **O7, second equality — every component this crate declares is exercised by an application.**
+///
+/// > **A gate exercises the component where its author put it, and an application puts it somewhere
+/// > else.** (components ticket 45)
+///
+/// Four defects argue it and three of the four were found by a person running the thing:
+/// `counter` found that no loop could be written at all and that nothing holds the focus until an
+/// application says so, `latency` found `chart`'s rasteriser painting the whole column prefix for
+/// every point — 952.61 ms against 2.72 at a million — and `ledger` found a table drawing its header
+/// one column into the border. Every gate in this crate was green on all four.
+///
+/// # The population is `declared` and not `built`, and that is the finding
+///
+/// [`o1`] and [`o3`] are over `built`, because a page or a screen for a function that does not exist
+/// is not a thing anybody can write, and the reading is the same one here — with the column
+/// replaced by the source it claims. **`built` is a claim**: components ticket 33 found `slider`'s
+/// row reading `built: true` for two tickets with no `slider` anywhere in the crate, and the two
+/// joins that look as though they should have caught it were each blind for a stated reason. So the
+/// population arrives as a slice from [`crate::consumer::declared`], which opens each row's home
+/// module and looks for the declaration.
+///
+/// It **moves**: the day `spinner` ships, the population is twenty-nine and this query asks about
+/// twenty-nine with no edit here.
+pub fn o7_everything_declared_has_an_application(declared: &[&str], applied: &[&str]) -> Verdict {
+    let failing = declared.iter().filter(|id| !applied.contains(*id)).count();
+    Verdict::of(
+        declared.len(),
+        failing,
+        "components this crate declares are in no application, so nothing exercises them anywhere \
+         but where their own author put them — which is how four defects every gate here was green \
+         on reached a person running the thing",
+        "components 45",
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
+
+    /// A source, by a path relative to the workspace root. [`crate::doc`]'s and
+    /// [`crate::consumer`]'s arrangement: the scan takes the reader, so its hostile arms are one
+    /// call away.
+    fn read(relative: &str) -> String {
+        let path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../..")).join(relative);
+        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
+    }
+
+    /// The applications on disk, in name order. See [`crate::consumer`].
+    fn applications() -> Vec<String> {
+        let dir = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
+            .join(crate::consumer::EXAMPLES);
+        let mut out: Vec<String> = std::fs::read_dir(&dir)
+            .unwrap_or_else(|e| panic!("{}: {e}", dir.display()))
+            .map(|entry| entry.expect("a readable entry").path())
+            .filter(|p| p.extension().is_some_and(|e| e == "rs"))
+            .map(|p| {
+                p.file_stem()
+                    .expect("a .rs file has a stem")
+                    .to_str()
+                    .expect("a utf-8 file name")
+                    .to_owned()
+            })
+            .collect();
+        out.sort();
+        out
+    }
+
+    /// **The written-out evidence and the scan are two sources, and this is the comparison.**
+    ///
+    /// `crate::doc::tests::the_written_list_and_the_scan_agree` for O1, and
+    /// `crate::gallery::tests::the_written_list_and_the_table_agree` for O2. Here the second source
+    /// is [`crate::consumer::applied`], which opens every application in the directory and joins its
+    /// import paths against the spellings each row's home module declares — so a component that
+    /// stops being drawn anywhere is a failing test rather than a list nobody edited.
+    #[test]
+    fn the_written_list_and_the_scan_agree_about_o7() {
+        assert_eq!(
+            APPLIED.to_vec(),
+            crate::consumer::applied(read, &applications()),
+            "`APPLIED` and the scan disagree about which components an application exercises. \
+             Neither is the authority on its own: the scan is what moves when an application is \
+             written, and the list is what a reader audits"
+        );
+    }
 
     /// **The wheel gate's subjects are counted here and nowhere else.** Register row 129, and the
     /// second half of components ticket 20's criterion 6.
@@ -751,7 +905,8 @@ mod tests {
     /// component and counts its steps. **O5 is the only one left**, and it is the one worth more
     /// than the other four together.
     #[test]
-    fn six_of_the_seven_obligations_are_met_and_the_one_left_is_o5() {
+    fn eight_of_the_nine_obligation_queries_are_met_and_the_one_left_is_o5() {
+        let declared = crate::consumer::declared(read);
         let all = [
             ("O1", o1(DOC_TESTED)),
             ("O2a", o2_nothing_shown_is_absent_from_the_freeze(PANELS)),
@@ -760,6 +915,14 @@ mod tests {
             ("O4", o4(KEYBOARD_DOCUMENTED, KEYBOARD_REGISTERED)),
             ("O5", o5(AXIS_SCENES)),
             ("O6", o6(VOLUME_MEASURED)),
+            (
+                "O7a",
+                o7_nothing_exercised_is_absent_from_the_freeze(APPLIED),
+            ),
+            (
+                "O7b",
+                o7_everything_declared_has_an_application(&declared, APPLIED),
+            ),
         ];
         let met: Vec<&str> = all
             .iter()
@@ -768,7 +931,7 @@ mod tests {
             .collect();
         assert_eq!(
             met,
-            vec!["O1", "O2a", "O2b", "O3", "O4", "O6"],
+            vec!["O1", "O2a", "O2b", "O3", "O4", "O6", "O7a", "O7b"],
             "an obligation has changed colour. That is the point of the backlog and it is also a \
              deliberate edit to this test, to this module's header and to the ticket that inverted \
              it — the number is here so a green one cannot arrive unremarked"
@@ -858,6 +1021,26 @@ mod tests {
         // population moves without an edit here is a query that is measuring something.
         assert_eq!(o6(VOLUME_MEASURED), Verdict::Met { over: 7 }, "O6");
         assert_eq!(VOLUME_MEASURED.len(), 7);
+        // **O7 is two equalities and both are `Met`, so both are asserted from the other side** —
+        // O2's arrangement, and for O2's reason: the first is over the **evidence** and reads 28
+        // because that is how many rows an application exercises, the second is over the
+        // **declared** rows and reads 28 because every one of them is in one. The day `spinner`
+        // ships they are 28 and 29 until its application arrives, which is the drift this pair is
+        // for — and unlike O1's and O3's, this population is read out of the source rather than off
+        // the `built` column that lied for two tickets.
+        let declared = crate::consumer::declared(read);
+        assert_eq!(declared.len(), 28);
+        assert_eq!(
+            o7_nothing_exercised_is_absent_from_the_freeze(APPLIED),
+            Verdict::Met { over: 28 },
+            "O7a"
+        );
+        assert_eq!(
+            o7_everything_declared_has_an_application(&declared, APPLIED),
+            Verdict::Met { over: 28 },
+            "O7b"
+        );
+        assert_eq!(APPLIED.len(), 28);
 
         // **The construction sum, both ways round.** Over the whole freeze it is 35 — 29 rows plus
         // `chart`, `meter` and `sparkline` at 2, `plot` at 3 and `spinner` at 2 — and over the rows
@@ -924,6 +1107,16 @@ mod tests {
         // that is the arm below and `o6_fails_loudly`.
         assert!(!o6(&[]).met());
         assert!(o6(VOLUME_MEASURED).met());
+        // **O7's two, and the first is the arm that needs the constructor.** *Nothing an
+        // application exercises is absent from the freeze* over an empty evidence list is zero
+        // failures out of zero, which is the same arithmetic that reported `allocs / n == 0` for a
+        // frame allocating on n−1 of n frames.
+        assert!(!o7_nothing_exercised_is_absent_from_the_freeze(&[]).met());
+        assert!(o7_nothing_exercised_is_absent_from_the_freeze(&["text", "panel"]).met());
+        assert!(!o7_nothing_exercised_is_absent_from_the_freeze(&["gauge"]).met());
+        assert!(!o7_everything_declared_has_an_application(&[], &[]).met());
+        assert!(!o7_everything_declared_has_an_application(&["text"], &[]).met());
+        assert!(o7_everything_declared_has_an_application(&["text"], &["text"]).met());
     }
 
     /// **The five, each watched failing.** A gate nobody has watched fail is not a gate.
@@ -1028,6 +1221,37 @@ mod tests {
             .filter(|id| *id != "chart")
             .collect();
         o6(&short).assert_met("O6");
+    }
+
+    /// See [`o1_fails_loudly`]. **O7's first half is met, so it is watched failing over the shipped
+    /// list with an id added that the freeze has never heard of** — the drift this half exists to
+    /// catch, and the direction the second half cannot see at all.
+    #[test]
+    #[should_panic(expected = "O7 (nothing exercised is absent from the freeze) is unmet: 1 of 29")]
+    fn o7_nothing_exercised_fails_loudly() {
+        let mut applied: Vec<&str> = APPLIED.to_vec();
+        applied.push("gauge");
+        o7_nothing_exercised_is_absent_from_the_freeze(&applied)
+            .assert_met("O7 (nothing exercised is absent from the freeze)");
+    }
+
+    /// See [`o1_fails_loudly`]. **O7's second half is met, so it is watched failing over the shipped
+    /// list with one id struck** — the arm that matters now, which is that the query still notices a
+    /// component every application has quietly stopped drawing.
+    ///
+    /// `file_picker` is the row it is taken from, because `file_picker` is one of the three this
+    /// obligation was owed when it was built: it had no application at all, and its popup has no
+    /// keyboard, which is the kind of thing only a person pressing keys finds.
+    #[test]
+    #[should_panic(expected = "O7 is unmet: 1 of 28")]
+    fn o7_everything_declared_fails_loudly() {
+        let short: Vec<&str> = APPLIED
+            .iter()
+            .copied()
+            .filter(|id| *id != "file_picker")
+            .collect();
+        o7_everything_declared_has_an_application(&crate::consumer::declared(read), &short)
+            .assert_met("O7");
     }
 
     /// **A met verdict does not panic**, which is the other direction of `assert_met` and the

@@ -759,6 +759,21 @@ and is asserted nowhere is not a gate, however often it is quoted.
 negative cases were, for a while, kept honest only by a `size_of` line in a benchmark, which nobody
 had decided and `cargo test` compiled by accident.
 
+**Consumer gate** — a gate whose subject is not code in the crate under test, but a program written
+*against its surface* and built by CI. Every application in `crates/vitui-apps/examples/` is one, and
+they are not a substitute for the crate's own gates: they catch a different class, because **a gate
+exercises the component where its author put it and an application puts it somewhere else**. Four
+defects on this map were reachable only this way — a loop that could not be written at all, a focus
+nothing seats, a fold at 476 ns a point that every output counter called correct, and a table drawing
+its header one column into a border — and three of the four were found by a person running the thing.
+Obligation O7 is the join that makes *every component has one* a query rather than a claim.
+
+**Path join** — matching a name through the module it is declared in rather than by the name alone.
+The freeze homes each component through its first family's module, and an application names one by
+its **import path**, so `keys::text` and `text::text` are different pairs and no suffix heuristic is
+needed to tell them apart. A bare-name scan on this map has been wrong at least twice with the false
+positives already in the tree.
+
 **Pair** — how a compile outcome is written: a ```` ```compile_fail ```` block and an ordinary block
 in the same rustdoc, differing in exactly the hostile line. Neither half is a gate alone. Deleting the
 hostile line is caught by the first half; renaming the item it protects is caught only by the second,
