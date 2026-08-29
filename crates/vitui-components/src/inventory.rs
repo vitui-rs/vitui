@@ -1010,18 +1010,27 @@ pub const INVENTORY: &[Component] = &[
         built: false,
         layer: Layer::L1,
         families: &[Family::F5Indicators],
-        // **Empty, and measured rather than deferred.** A `Glyph` is one lookup with no spelling
+        // **Empty, and it stays empty for a reason rather than for want of a table.** A `Glyph` is
+        // one lookup with no spelling
         // blank; a spinner needs an ordered set of n spellings that differ *from each other*, which
         // is not one lookup and not n of them — cycling the four arrows at a reader tells them
         // nothing four times. So the ladder is the component's own table, exactly as
         // `chart::raster::RUNGS` is `chart`'s and `crate::media::sub_rows` is the picture's.
         glyphs: &[],
-        // **2, corrected by ticket 42 from §17's 1.** §16's rule points at 1 on the grounds that
-        // every spelling is exactly one cell and no spelling is blank — both are true of the
-        // measured ladder and *neither decides it*. What decides it is whether the frame count moves
-        // with the rung, and it is `4 / 10 / 10` at Ascii / Unicode / Extended: two distinct
-        // ladders, with `Extended == Unicode` being why it is two and not three. The same shape
-        // `crate::media::sub_rows` reports as `1 / 2 / 2` one family over.
+        // **2, corrected by ticket 42 from §17's 1 — and it is an argument here, not yet a
+        // derivation.** §16's rule points at 1 on the grounds that every spelling is exactly one
+        // cell and no spelling is blank; both are true of the prototype's ladder and *neither
+        // decides it*. What decides it is whether the frame **count** moves with the rung, and it
+        // does, necessarily: an ASCII rotation has four positions (`|/-\`) and there is no
+        // printable-ASCII cycle of ten that reads as one, while the braille spinner is ten. So the
+        // ladders are `4 / 10 / 10`, `Extended == Unicode` is why it is two and not three, and it is
+        // the shape `crate::media::sub_rows` reports as `1 / 2 / 2` one family over.
+        //
+        // **Every other multi-construction row derives this number and this one cannot yet.**
+        // `chart` and `plot` assert `constructions == distinct(Kind)` against a real table
+        // (`chart::raster`), `meter` and `sparkline` likewise; `spinner`'s table is the prototype's
+        // and lives on a branch, so `2` is a literal until ticket 46 ships the ladder and the
+        // derivation with it. That obligation is written into 46 rather than left here.
         constructions: 2,
         can_shrink: false,
         owns_offset: false,

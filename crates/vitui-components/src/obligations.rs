@@ -787,11 +787,17 @@ mod tests {
         //
         // **It was 34 until components 42**, and the row that moved is the unbuilt one: `spinner`'s
         // `constructions` was §17's 1 on the grounds that every spelling is one cell and no spelling
-        // is blank, and the prototype found that both are true of the measured ladder and neither
-        // decides it. The frame count moves with the rung — `4 / 10 / 10` — so it is two distinct
-        // ladders. **The two sums are the pair that says the correction is in the right place**:
-        // `owed` moved and `buildable` did not, because a construction of a component nobody has
-        // written is owed and not buildable.
+        // is blank, and the prototype found that both are true of its ladder and neither decides it.
+        // What decides it is the frame **count**, and an ASCII rotation has four positions where the
+        // braille spinner has ten — `4 / 10 / 10`, two distinct ladders. **The two sums are the pair
+        // that says the correction is in the right place**: `owed` moved and `buildable` did not,
+        // because a construction of a component nobody has written is owed and not buildable.
+        //
+        // **35 is a literal here and every other multi-construction row is derived**, which is the
+        // one thing wrong with it: `chart`, `plot`, `meter` and `sparkline` each assert
+        // `row.constructions == distinct(...)` against a shipped table, and `spinner`'s table is the
+        // prototype's and lives on a branch. Components 46 ships the ladder and owes the derivation
+        // with it; until then nothing here would notice the ladder changing shape.
         let owed: u32 = INVENTORY.iter().map(|c| u32::from(c.constructions)).sum();
         assert_eq!(owed, 35);
         let buildable: u32 = INVENTORY

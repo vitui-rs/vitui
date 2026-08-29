@@ -228,8 +228,9 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   and nothing to land on.
   **The refusal of the other arm is a count, and the control is what makes it one.** Three arms on
   one screen with a tweening `collapsible` beside them: eight advances of a pinned clock move the
-  anchored spinner through **8** ladder frames, the accumulating one through **2** and the
-  self-sampling one through **0**, while the tween reads `[0, 2, 5, 6, 6, 6, 6, 6]` in all three.
+  anchored spinner through **8** distinct ladder frames, the accumulating one through **2** and the
+  self-sampling one through **1** — it never leaves the frame it started on — while the tween reads
+  `[0, 2, 5, 6, 6, 6, 6, 6]` in all three.
   ***`Driver::pin_clock` is the entire test regime of this workspace and a self-sampling component is
   invisible to it*** — every screen it appears on loses the ability to advance time, not only its own
   gates. §22's *120 Hz configured, 99.7 fps achieved* reproduces exactly at **37 anchored steps
@@ -242,12 +243,22 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   moves is a function of `(anchor, duration, width)` and **only an anchored playhead can compute it**.
   A scrub is a re-anchor and nothing else, which is components 30's `Response::local` from the time
   axis.
-  **Two numbers nobody had.** A spinner **marks 2 812 cells to change 1** — the engine's refused
+  **Two numbers nobody had.** **The frame a spinner asks for marks 2 812 cells and 1 of them
+  changes**, the spinner's own rectangle being 20 of the 2 812 — so what the figure prices is the
+  *request* and not the drawing, and it is the engine's refused
   write-time equality filter (`surface.rs`: `clear`-then-draw defeats it), collapsed at pack time one
   crate down, so *marked* and *on the wire* are two figures and no crate above the engine can read
   the second. And *not visible* is **two questions**: undrawn is the same answer **and the same
   mechanism** as an off-viewport section — the body is not called — while a **clipped** spinner runs,
   writes nothing and can still ask, which is one line of rule over two screens that look identical.
+  **Three of the prototype's own readings were wrong first.** *Frames to quiet* broke on the ledger's
+  **cumulative** line count, so it could not fail — a spinner nobody stops measured `lines 4 → 4`
+  exactly as a stopped one did — and it reads `WakeLedger::asked_by` per widget now, with the
+  never-stopped arm answering `None`; the playhead asked through `Ctx::deadline`, so the census named
+  2 widgets rather than 3 and the attribution criterion held for one of two call sites; and the
+  headline 2 812 was held by `assert!(marked > 2_000)` while being quoted exactly in five documents.
+  `CONTEXT.md` gains **Time anchor**, **Phase** and **Frame's `now`**, because the rule coins a term
+  the glossary already spends on an overlay's rectangle.
   **The allocation window had to be counted per frame**, components 22's warming finding from a third
   side: a 200-frame window reads `1 / 0 / 0` across the arms — a counter separating them in the
   direction that approves the two defects — and the one is `Driver::headless`'s undrained output
@@ -255,10 +266,14 @@ honest. It said 1.85 here for three releases after let-chains moved it.
   arms. Over six thousand frames the doubling arrives 4 / 1 / 2 in arm order, which is **the only
   wire signal reachable from a crate above the engine and an accident of a leak rather than an
   instrument** — recorded, gated nowhere.
-  **Two corrections to the freeze, both measured.** `constructions` for `spinner` is **2** and not
+  **Two corrections to the freeze.** `constructions` for `spinner` is **2** and not
   §17's 1 — the ladder is `4 / 10 / 10` frames at Ascii / Unicode / Extended, and §16's *every
   spelling one cell, no spelling blank* is true of it and **decides nothing**; what decides it is
-  whether the frame count moves with the rung. That takes `obligations`' construction sum **34 → 35**
+  whether the frame **count** moves with the rung, and an ASCII rotation has four positions where the
+  braille spinner has ten. **It is an argument and not yet a derivation**, which is the honest form:
+  every other multi-construction row asserts `constructions == distinct(...)` against a shipped
+  table, and `spinner`'s table is the prototype's and on a branch — so 2 is a literal until ticket 46
+  ships the ladder, and 46 carries that obligation. It takes `obligations`' construction sum **34 → 35**
   while `buildable` stays 33, and *the pair is what says the correction is in the right place*. And
   `glyphs: &[]` is **right**: a `Glyph` is one lookup with no spelling blank, a ladder is an ordered
   set of `n` spellings that differ *from each other*, so it is the component's own table exactly as

@@ -303,6 +303,26 @@ lets go. It is the fifth thing that can wake the app thread and it has no **wake
 arrives as a deadline, because what deferred it was the clock. Nothing is ever owed when nothing was
 damaged, which is what keeps an idle application at zero wakeups.
 
+**Time anchor** — a moment a component stores so that the current value of something moving is a
+*function of the frame's `now`* rather than something the component has been keeping up to date.
+`anim::Steps` is a moment and a period, `anim::Tween` two moments and two ends; in both, a machine
+that has been asleep for an hour computes what one drawing at sixty hertz does. **Distinct from an
+overlay's *anchor***, which is a rectangle a popup is placed against (see Overlays) — the two senses
+share the word and nothing else, and the word is right in both.
+
+**Phase** — where something moving has got to, expressed as a value rather than as a moment. It is
+only meaningful relative to a frame that already ran, so a machine holding one can be found halfway
+between two states with no clock running. **Stored state may be a time anchor, never a phase** — the
+rule `collapsible`'s refusal of a transition state was already about, stated by components ticket 42
+after the alternative was measured: a phase accumulated from a nominal interval is 16.9% slow over
+three seconds at 120 Hz configured against 99.7 fps achieved, and the shortfall is a rate, so it is
+wrong by more the longer it runs.
+
+**Frame's `now`** — the moment a frame was sampled at, once, so that everything drawn from it agrees.
+A component reads it and never the machine's clock: one that samples its own is invisible to a pinned
+clock, which is what every gate in this workspace makes time move with, and it disagrees with every
+other animating thing on the screen.
+
 **Event** — what happened: a key, a mouse action, a paste, a resize, focus arriving or leaving.
 Distinct from a wake, which is only the reason the thread looked. An event is owned outright, carries
 the moment the input thread read it, and says nothing about which widget it concerns.
