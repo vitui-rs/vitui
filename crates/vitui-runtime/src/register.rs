@@ -1,4 +1,4 @@
-//! Spec §20's register: fifteen gates as a table, and the twenty-four more the backlog wrote.
+//! Spec §20's register: fifteen gates as a table, and the twenty-nine more the backlog wrote.
 //!
 //! > **A gate is a count, a ratio, an equality or a compile outcome. A timing is a report, and a
 //! > gate only at cliff granularity, with the headroom written next to the number.**
@@ -8,7 +8,7 @@
 //! *this* crate's: **a property that quietly never arrives is indistinguishable from one that was
 //! decided against**, so every gate is here and every one of them is in exactly one of two states —
 //! [`State::Wired`], naming the instruments that run it, or [`State::Red`], naming the
-//! implementation ticket that inverts it. **Forty-two wired, none red.** Ticket 19 left this
+//! implementation ticket that inverts it. **Forty-four wired, none red.** Ticket 19 left this
 //! register at thirty-eight and one — entry 12, the dense frame, which was *measured* in two places
 //! and *gated* in neither — and ticket 20 built the gate rather than reworded the row. What made
 //! that possible is that the red row named the missing instrument precisely enough to build it: a
@@ -239,7 +239,7 @@ pub const SPEC_ROWS: usize = 15;
 /// stated from two sides, and twenty-four survive deduplication against §20's fifteen. A row is
 /// here when it is a gate somebody can break; a bullet that restates a neighbour is not a second
 /// row.
-pub const REGISTER: [Entry; 43] = [
+pub const REGISTER: [Entry; 44] = [
     // ── spec §20's table, in its order ───────────────────────────────────────────────────────────
     Entry {
         number: 1,
@@ -1242,6 +1242,32 @@ pub const REGISTER: [Entry; 43] = [
             ],
         },
     },
+    Entry {
+        number: 44,
+        on_spec_table: false,
+        property: "The press is published as an edge beside the level, and holding the button does \
+                   not repeat it",
+        kind: Kind::Gate,
+        qualifier: "equality \u{2014} between *the four frames one press produces* and *the two \
+                    bools each of them publishes*, as a sequence. It is a property of the \
+                    mechanism and not of the data: there is one widget, one press and one release, \
+                    and nothing varies but which frame each bool falls on. **The held frame is \
+                    what the row is for** \u{2014} `pressed` is `grab == Some(id)` and so is true \
+                    from the press until the release, while `press_began` is `Awarded::pressed`, \
+                    set once in the `Down` arm. A component that applied a gesture on the level \
+                    ran it once a frame for as long as the button was down, which a **plain** \
+                    click hides completely: `Gesture::Plain(at)` is idempotent, so the lead, the \
+                    anchor and the one selected row are the same however many times it runs, and \
+                    only a ctrl-click flickers. That is why the reconstruction this row deletes \
+                    survived four component tickets",
+        source: "issue 29",
+        state: State::Wired {
+            by: &[Instrument::Unit {
+                file: "crates/vitui-runtime/src/ctx.rs",
+                name: "the_press_is_published_as_an_edge_and_holding_does_not_repeat_it",
+            }],
+        },
+    },
 ];
 
 /// How many `compile_fail` fences the crate carries.
@@ -1605,22 +1631,24 @@ mod tests {
         assert_eq!(seen, expected, "the numbers are not 1..={}", REGISTER.len());
     }
 
-    /// **Forty-two wired, none red.**
+    /// **Forty-four wired, none red.**
     ///
     /// This register was thirty-eight and one from ticket 19 until ticket 20 built the gate entry
     /// 12 was red for the absence of; forty since architecture issue 23 — the first row here whose
     /// source is an *architecture* issue rather than an implementation ticket, because the backlog
     /// was closed when the gap was found — forty-one since issue 25, which is the second and
     /// arrived the same way, forty-two since issue 26, which is the third: a defect three
-    /// tickets one layer up found before this register had a row that could — and
-    /// **forty-three since issue 28**, the fourth, and the first of the four this register could not
-    /// have had a row for at all: the key it compares against was unbuildable outside the engine
-    /// until that ticket put `KeyText::of` on the engine's surface. Saying *how many* is
+    /// tickets one layer up found before this register had a row that could — forty-three since
+    /// issue 28, the fourth, and the first of them this register could not have had a row for at
+    /// all, the key it compares against having been unbuildable outside the engine until that
+    /// ticket put `KeyText::of` on the engine's surface — and **forty-four since issue 29**, the
+    /// fifth, which is the one that *deletes* a store one layer up rather than gating a sign: the
+    /// press had an edge all along and published only the level. Saying *how many* is
     /// what stops a red row arriving unremarked, and it
     /// has the second job the engine's has: **a register at all-green says so**, so the next red row
     /// is a deliberate edit to this number rather than a quiet one.
     #[test]
-    fn forty_three_are_wired_and_none_are_red() {
+    fn forty_four_are_wired_and_none_are_red() {
         let red: Vec<u8> = REGISTER
             .iter()
             .filter(|e| matches!(e.state, State::Red { .. }))
@@ -1633,7 +1661,7 @@ mod tests {
              documentation, and in the module comment above — the count is the thing that stops it \
              arriving unremarked"
         );
-        assert_eq!(REGISTER.len() - red.len(), 43);
+        assert_eq!(REGISTER.len() - red.len(), 44);
     }
 
     /// **The split, not the total.**
@@ -1648,9 +1676,9 @@ mod tests {
         assert_eq!(on_table, SPEC_ROWS, "spec §20's table is fifteen rows");
         assert_eq!(
             REGISTER.len() - on_table,
-            28,
-            "the backlog's gates, deduplicated against §20's fifteen, plus issues 23's, 25's, 26's \
-             and 28's"
+            29,
+            "the backlog's gates, deduplicated against §20's fifteen, plus issues 23's, 25's, \
+             26's, 28's and 29's"
         );
         // And §20's fifteen come first, so the table reads in the spec's order.
         for (index, entry) in REGISTER.iter().enumerate() {

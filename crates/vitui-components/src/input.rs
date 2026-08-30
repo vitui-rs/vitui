@@ -1746,14 +1746,14 @@ fn popup_body(
                 },
                 &mut mine,
             );
-            // **A click on a row is a choice**, and it is the collection's own press edge rather than a
-            // second hit entry per row: §5's *one hit entry per collection* is what keeps the closed
-            // popup at `crate::popup::CLOSED_DECLARES` and not thirteen entries more.
+            // **A click on a row is a choice**, and it is the collection's own response rather
+            // than a second hit entry per row: §5's *one hit entry per collection* is what keeps
+            // the closed popup at `crate::popup::CLOSED_DECLARES` and not thirteen entries more.
             //
             // The **edge** and not `Response::clicked`: a row selects on the press, so by the time a
             // click has completed the collection has already moved its cursor and a release-driven
             // choice arrives a frame late.
-            if list.press_edge() {
+            if list_resp.press_began {
                 answer = Some(list.sel.lead);
             }
             // **The popup takes the keyboard from its owner, exactly once.** `if cx.is_focused(owner)`

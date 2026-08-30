@@ -32,7 +32,7 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   a real terminal rather than our model of one, and the source of `quirks.rs`'s later entries.
 - **`vitui-runtime` — implementation-complete.** 21 tickets. `data`, `layout`, `theme` (fourteen
   schemes), `keys`, `ctx`, `id`, `route`, `focus`, `sizing`, `work`, `anim`, `overlay`, `scroll`.
-  Register 43 entries and the 20-scene list, both green. The component-facing crate line is *built*
+  Register 44 entries and the 20-scene list, both green. The component-facing crate line is *built*
   rather than counted: `crates/vitui-components/tests/crate_line.rs` cannot name the engine.
 - **`vitui-components` — implementation-complete.** All 46 tickets; spec §17's freeze is **29 of 29
   built**, as a value (`INVENTORY`) that tests iterate, with the documentation and verification
@@ -67,6 +67,13 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   issue 17) after runtime issue 22 made engine names reachable *by rule* — `crate::line` gates that
   every engine type the surface names is reachable, **and so is every type needed to construct one**.
   A name a consumer can write but not build is a barrier wearing a re-export's clothes.
+- **The press is published as an edge beside the level** (runtime architecture 29, resolved
+  2026-08-30). `Response::pressed` is the grab — true on every frame from the press until the
+  release — and `Response::press_began` is the frame the button went down. A gesture that means
+  *select what is under the pointer the moment it lands* reads the edge; a plain click cannot tell
+  the two apart, because `Gesture::Plain` is idempotent, and only a ctrl-click flickers. There is no
+  `CollState::press_edge()` any more and nothing keeps a `pressing` bool: the readers hold the
+  `Response`.
 - **Nothing holds the focus until an application seats it** (issue 25): `if cx.focused().is_none()`
   inside the draw. A runtime that seats the first stop was refused.
 - **`Driver::unhandled` is read *after* the frame**, never before — it is a window onto the same
@@ -111,9 +118,9 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   exactly, which an overlay bar cannot satisfy.
 
 **Open questions — do not "fix" code to match one sentence of a spec without resolving the ticket.**
-Nine stand open, every one of them filed by the layer above the one it lands in.
+Eight stand open, every one of them filed by the layer above the one it lands in.
 
-- **Runtime architecture 29** — `Response` publishes the press as a level and never as an edge. **31** —
+- **Runtime architecture 31** —
   `Ctx::with_key` inside a scroll scope clips the whole window away, and it is what pins register
   row 112 red. **33** — a scroll-into-view is a two-frame gesture and nothing asks for the second
   frame. **34** — a picture cannot ask what the terminal will show: no colour-pair question and no

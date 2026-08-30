@@ -7,13 +7,17 @@
 //! # It exists for a disagreement, not for a state machine
 //!
 //! The `PressState` `architecture.md` §3 named **was built and its field was never read.**
-//! `Response` already carries `hovered`, `pressed`, `released`, `clicked`, `double_clicked` and
-//! `long_pressed`, all six resolved by the runtime from the index that has just drawn, and there is
-//! no cross-frame fact left for a component to keep. So the type is not here, and its absence is
-//! gated by path rather than remembered — [`WhyThereIsNoPressState`], and
-//! `tests::no_source_file_in_this_crate_declares_a_press_state` for the private spelling that a
-//! `compile_fail` cannot see. **If a cross-frame fact is later found, it is a finding and gets its
-//! own ticket**; a field nobody reads is what this ticket removed.
+//! `Response` already carries `hovered`, `pressed`, `press_began`, `released`, `clicked`,
+//! `double_clicked` and `long_pressed`, all seven resolved by the runtime from the index that has
+//! just drawn, and there is no cross-frame fact left for a component to keep. **`press_began` is
+//! the seventh, and it arrived by deleting two** (runtime architecture 29): `collection` was
+//! keeping a copy of last frame's `pressed` to reconstruct the edge the runtime already had, which
+//! is the cross-frame fact this argument said did not exist — a finding, and it got its own
+//! ticket. So the type is not here, and its absence is gated by path rather than remembered —
+//! [`WhyThereIsNoPressState`], and `tests::no_source_file_in_this_crate_declares_a_press_state`
+//! for the private spelling that a `compile_fail` cannot see. **If a cross-frame fact is later
+//! found, it is a finding and gets its own ticket**; a field nobody reads is what this ticket
+//! removed.
 //!
 //! # What the disagreement is, exactly
 //!
@@ -395,9 +399,9 @@ pub fn resting(paint: Chip, frames: u32) -> Resting {
 ///     let chip = Rect::new(2, 0, 8, 1);
 ///     let id = cx.id();
 ///     let resp = cx.interact(id, chip, Interest::CLICK.with(Interest::HOVER));
-///     // Six pointer facts on the response and no seventh anywhere: the helper reads them and
+///     // Seven pointer facts on the response and no eighth anywhere: the helper reads them and
 ///     // keeps nothing.
-///     assert!(!(resp.hovered || resp.pressed || resp.released));
+///     assert!(!(resp.hovered || resp.pressed || resp.press_began || resp.released));
 ///     assert!(!(resp.clicked || resp.double_clicked || resp.long_pressed));
 ///     let faces = Faces { rest: Role::Dim, ..Faces::default() };
 ///     assert_eq!(press(cx, chip, &resp, &faces), Role::Dim);
@@ -686,9 +690,9 @@ mod tests {
         assert_eq!(
             offenders,
             Vec::<String>::new(),
-            "`PressState` was built once and its field was never read: `Response` carries all six \
-             pointer facts and there is no cross-frame fact left. If one has been found, that is a \
-             finding and gets its own ticket rather than a field nobody reads"
+            "`PressState` was built once and its field was never read: `Response` carries all \
+             seven pointer facts and there is no cross-frame fact left. If one has been found, \
+             that is a finding and gets its own ticket rather than a field nobody reads"
         );
         // **The other direction, through the same predicate**, because a scan that has quietly
         // stopped scanning reports zero as loudly as a clean crate does.

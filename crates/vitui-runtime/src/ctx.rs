@@ -197,8 +197,15 @@ pub struct Response {
     pub rect: Rect,
     /// The pointer is inside it.
     pub hovered: bool,
-    /// A button is down on it.
+    /// A button is down on it. **A level**, true on every frame from the press until the release.
     pub pressed: bool,
+    /// A button went down on it **this frame**. The edge [`pressed`](Response::pressed) is not.
+    ///
+    /// Every other pointer fact here is an edge; the level is the odd one, and it is the one a
+    /// component wants when the gesture is *select what is under the pointer the moment it lands*.
+    /// Applying a gesture on the level runs it once a frame for as long as the button is held —
+    /// idempotent for a plain click, a flicker for a ctrl-click.
+    pub press_began: bool,
     /// A button came up on it this frame.
     pub released: bool,
     /// Pressed and released without leaving.
@@ -236,6 +243,7 @@ impl Response {
             rect,
             hovered: false,
             pressed: false,
+            press_began: false,
             released: false,
             clicked: false,
             double_clicked: false,
@@ -2261,6 +2269,11 @@ impl<'f, 'v> Ctx<'f, 'v> {
             // a click.
             hovered: self.frame.hover_guess == Some(id),
             pressed: self.frame.grab == Some(id),
+            // **The edge, published beside the level.** `Awarded::pressed` is set once, in the
+            // `Down` arm, and lands on the same frame the grab first reads back as `pressed` —
+            // which is what makes `press_began` exactly *the frame the button went down*, with no
+            // copy of last frame's level kept anywhere to derive it.
+            press_began: is(a.pressed),
             released: is(a.released),
             clicked: a.clicked.is_some_and(|(who, _)| who == id),
             double_clicked: a.clicked.is_some_and(|(who, d)| who == id && d),
@@ -4956,6 +4969,67 @@ mod pointer_tests {
             clicked = Some(r.clicked);
         });
         assert_eq!(clicked, Some(true), "the click reached its widget");
+    }
+
+    /// **The press is published as an edge beside the level.**
+    ///
+    /// `pressed` is the grab — true on every frame from the press until the release — and
+    /// `press_began` is `Awarded::pressed`, which is set once, in the `Down` arm. A component that
+    /// wants *the frame the button went down* had to keep a copy of last frame's level and compare;
+    /// `crate::collect::CollState` carried a private `pressing` bool for exactly that. See runtime
+    /// architecture issue 29.
+    ///
+    /// **The level is not a substitute**, and a plain click hides it: applying a gesture on the
+    /// level runs it once a frame for as long as the button is held, which is idempotent for a
+    /// plain click and a flicker for a ctrl-click.
+    ///
+    /// **Watched failing** with `press_began: self.frame.grab == Some(id)` — the level in the
+    /// edge's place — on the held frame and nowhere else:
+    /// `[(false, false), (false, false), (true, true), (true, true)]`. The fourth frame is the only
+    /// one that can tell them apart, which is why the sequence runs one frame past the press.
+    #[test]
+    fn the_press_is_published_as_an_edge_and_holding_does_not_repeat_it() {
+        let mut d = driver();
+        let button = Id::from_raw(1);
+        let mut seen: Vec<(bool, bool)> = Vec::new();
+
+        // Frame one: the widget draws, the pointer has never been reported.
+        d.frame(|cx| {
+            let r = cx.interact(button, Rect::new(10, 5, 6, 1), Interest::CLICK);
+            seen.push((r.pressed, r.press_began));
+        });
+
+        // The press arrives. The frame that processes it awards at `end`, so its own draw still
+        // sees nothing — both halves are delivered on the frame after.
+        d.post_mouse(down(12, 5));
+        for _ in 0..3 {
+            d.frame(|cx| {
+                let r = cx.interact(button, Rect::new(10, 5, 6, 1), Interest::CLICK);
+                seen.push((r.pressed, r.press_began));
+            });
+        }
+
+        assert_eq!(
+            seen,
+            vec![(false, false), (false, false), (true, true), (true, false),],
+            "the level stays down while the button is held and the edge is one frame"
+        );
+
+        // And the release takes the level away without ever re-raising the edge.
+        d.post_mouse(up(12, 5));
+        let mut after = Vec::new();
+        for _ in 0..2 {
+            d.frame(|cx| {
+                let r = cx.interact(button, Rect::new(10, 5, 6, 1), Interest::CLICK);
+                after.push((r.pressed, r.released, r.press_began));
+            });
+        }
+        assert_eq!(
+            after,
+            vec![(true, false, false), (false, true, false)],
+            "the grab is taken at `end`, so the level survives the draw that processes the \
+             release — and the edge belongs to the press alone"
+        );
     }
 
     /// **`begin`'s guess never produces a wrong click.** A pointer that moves between two widgets

@@ -629,23 +629,6 @@ pub struct CollState {
     /// after clearing. A public field would make *the revision was left behind* an ordinary
     /// assignment, and leaving it behind is the whole failure §10 is about.
     rev: Revision,
-    /// **Whether the pointer was already down on this collection last frame.**
-    ///
-    /// The rising edge of [`Response::pressed`], which the runtime does not publish: `pressed` is
-    /// `grab == Some(id)` and so is *true every frame the button is held*, while the edge lives in
-    /// the accumulator and is never surfaced. One bool here turns the level back into the edge.
-    ///
-    /// **Private and not a slot per row**, so ADR 0028's rule is untouched: this is one fact about
-    /// the collection, not a fact about a row.
-    pressing: bool,
-    /// **Whether this frame was the rising edge of the press.** Published, not duplicated.
-    ///
-    /// A container built on this component that has a gesture of its own on the press —
-    /// [`tree`]'s click on a chevron is the one — needs the same edge, and the two ways to get it
-    /// are to read it here or to keep a second `pressing` bool beside this one. The second is the
-    /// shape ADR 0028 refuses one axis over: two stores of one fact, which disagree the first time
-    /// one of them is updated in a branch the other is not.
-    edge: bool,
 }
 
 impl Default for CollState {
@@ -660,8 +643,6 @@ impl Default for CollState {
             // guarded on `is_known()`, so a collection over a caller with no order at all is never
             // told its positions went stale.
             rev: Revision::UNKNOWN,
-            pressing: false,
-            edge: false,
         }
     }
 }
@@ -686,16 +667,6 @@ impl CollState {
     /// nobody explained.
     pub const fn reconciled(&mut self, rows: Rows) {
         self.rev = rows.rev;
-    }
-
-    /// **Whether the frame just drawn was the rising edge of a press on this collection.**
-    ///
-    /// `Response::pressed` is a *level* — true every frame the button is held — and the runtime does
-    /// not publish the edge (runtime architecture issue 29). [`collection`] reconstructs it to stop
-    /// a ctrl-click re-toggling for as long as the user leans on the button; this is that same one
-    /// fact, read rather than kept twice.
-    pub const fn press_edge(&self) -> bool {
-        self.edge
     }
 
     /// The largest offset `len` rows admit in a viewport `h` rows tall. *Content minus viewport*,
@@ -1147,13 +1118,13 @@ where
     // It also costs a gesture the component is supposed to have: a range cannot be drag-selected
     // if the selection does not begin until the button comes up.
     //
-    // The edge is reconstructed here rather than read, because `Response::pressed` is a level —
-    // applied every frame it is held, `from_click` would re-toggle a ctrl-click for as long as the
-    // user leans on the button. See runtime architecture issue 29.
-    let press_edge = resp.pressed && !st.pressing;
-    st.pressing = resp.pressed;
-    st.edge = press_edge;
-    if press_edge && let Some(at) = over {
+    // **The edge and not the level.** `Response::pressed` is `grab == Some(id)`, true every frame
+    // the button is held, so `from_click` on it would re-toggle a ctrl-click for as long as the
+    // user leans on the button. `press_began` is the runtime's own `Awarded::pressed`, set once —
+    // read, and not reconstructed from a copy of last frame's level kept here (runtime 29).
+    if resp.press_began
+        && let Some(at) = over
+    {
         apply(opts.mode, &mut st.sel, len, from_click(resp.mods, at));
         resp.changed = true;
     }
@@ -3538,9 +3509,10 @@ impl Default for TreeOpts {
 /// `tree_with` calls `collection_chorded`, which is [`collection`] with one parameter. There is
 /// **no second selection store**, **no second scan cursor** — the row's [`Face`] arrives from
 /// `collection`'s own lockstep [`Scan`] — **no second [`Mode`]**, **no second offset** and **no
-/// second press edge** ([`CollState::press_edge`]). The row axis, the wheel, the keyboard, the
-/// type-ahead, the reveal, the tail below the content and the revision check are all `collection`'s,
-/// reached by calling it. What this function adds is two verbs a row and a one-slot request.
+/// second press edge** — both read `Response::press_began`. The row axis, the wheel, the
+/// keyboard, the type-ahead, the reveal, the tail below the content and the revision check are all
+/// `collection`'s, reached by calling it. What this function adds is two verbs a row and a one-slot
+/// request.
 ///
 /// # The `+` is two verbs a row: the indent run and the chevron cell
 ///
@@ -3835,7 +3807,7 @@ where
     // before `collection` sees it — the pointer's version of `Refusal`, and there is no shape for
     // it: `Response::local` is computed inside `declare`, so there is nothing to refuse until the
     // hit entry exists.
-    if coll.press_edge()
+    if resp.press_began
         && let Some((lx, ly)) = resp.local
         && let Ok(i) = usize::try_from(coll.offset + ly)
         && let Some(e) = index.at(i)
@@ -4099,10 +4071,8 @@ pub fn pagination_into<I: Ink>(
         .local
         .filter(|(_, ly)| *ly == 0)
         .and_then(|(lx, _)| page_at(lx, st.offset, strip.w, caps, cell, len, shown));
-    let press_edge = resp.pressed && !st.pressing;
-    st.pressing = resp.pressed;
-    st.edge = press_edge;
-    if press_edge {
+    // **The edge, read from the response** — `collection`'s own reading, one axis over.
+    if resp.press_began {
         // **`from_click` and not a `Gesture` written here**, which is the pointer half of *no second
         // navigation model*: `from_click` and `from_key` are two readings of one vocabulary (§5),
         // and at `Mode::Options` `apply` collapses ctrl and shift onto `select_only` in one arm. A
@@ -5188,10 +5158,17 @@ mod tests {
     /// **nothing on the press and the row selected on the release**, which is what a user reports
     /// as *it works on key-up*.
     ///
-    /// The other half is why the edge is reconstructed rather than read: `Response::pressed` is
+    /// The other half is why the edge is read and not the level: `Response::pressed` is
     /// `grab == Some(id)`, true for **every frame the button is held**, so applying on the level
     /// would re-run `from_click` all the way down — and a ctrl-click, which toggles, would flicker
     /// for as long as the user leaned on the button. Both directions are asserted here.
+    ///
+    /// **A press and a release cannot share a frame**, so the sequences below are the whole space:
+    /// `route::edge_of` calls both `MouseKind::Down` and `MouseKind::Up` a *closing* edge and
+    /// `route::batch_len` stops at the first of them (ADR 0016). Until runtime architecture 29
+    /// this crate reconstructed the edge as `resp.pressed && !st.pressing`, which would have been
+    /// blind to a press and a release in one batch; the batch split is why that was never a case
+    /// rather than a second gate.
     #[test]
     fn a_row_selects_on_the_press_and_holding_does_not_select_it_twice() {
         use vitui_runtime::{Button, Buttons, Mods, Mouse, MouseKind};
@@ -5265,7 +5242,7 @@ mod tests {
         // and one selected row, and running it on every frame of a held button leaves exactly the
         // same three facts, so a plain click cannot tell the level from the edge. A ctrl-click
         // *toggles*, so on the level it flickers: selected, not selected, selected, once a frame
-        // for as long as the button is down. Watched failing with `press_edge = resp.pressed`.
+        // for as long as the button is down. Watched failing with the level in place of the edge.
         let (_, applied) = run(
             &[
                 None,
@@ -6253,9 +6230,9 @@ mod tests {
 
     /// **Criterion: a press on the chevron asks, and a press anywhere else selects.**
     ///
-    /// The tree reads [`CollState::press_edge`] rather than keeping a second `pressing` bool, which
-    /// is the one fact `collection` already reconstructs — `Response::pressed` is a level, so a
-    /// component that read it raw would re-ask for as long as the user leaned on the button.
+    /// The tree reads `Response::press_began` — the same edge `collection` applies its own
+    /// gesture on, and neither keeps a bool for it. `Response::pressed` is a level, so a component
+    /// that read it raw would re-ask for as long as the user leaned on the button.
     #[test]
     fn a_press_on_the_chevron_asks_and_a_press_on_the_label_does_not() {
         use vitui_runtime::{Button, Buttons, Mods, Mouse, MouseKind};

@@ -4261,7 +4261,7 @@ pub const REGISTER: [Row; 233] = [
         // position-keyed id would hand the row's target to whatever slid into its place. Watched
         // over a real fold, with two trees on one screen for ADR 0027's half.
         //
-        // The pointer half reads `CollState::press_edge` rather than keeping a second `pressing`
+        // The pointer half reads `Response::press_began` rather than keeping a second `pressing`
         // bool — `Response::pressed` is a level, so a component reading it raw would re-ask for as
         // long as the user leaned on the button.
         standing: Standing::Evaluated {
