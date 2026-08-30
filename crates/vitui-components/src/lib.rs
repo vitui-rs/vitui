@@ -261,7 +261,7 @@
 //!   *up to 7 of 69* is the figure at **45.6%** of the reachable range and 14 at its end; and the
 //!   wrong pairing's microseconds are another screen's, so the gate is the mechanism — **100 000
 //!   rows iterated against 69**. It also found the two defects on this page that are not remembered
-//!   numbers: [`area::SCROLL_SCOPE_TRANSLATES_THE_WRONG_WAY`], and the instrument's own — a `Pen`
+//!   numbers: [`area::SETTLED_SCROLL_SCOPE_SIGN`], and the instrument's own — a `Pen`
 //!   recording a verb where it was *called* rather than where it landed.
 //! - [`forest`] — **the tree's screen**: 300×80 at **depth 59 999**, where the one defect on this
 //!   map that only a *scene* can see is stood up. An unclamped indent asks for **9 599 840 cells

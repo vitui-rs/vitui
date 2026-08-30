@@ -492,6 +492,6 @@ fn what_does_not_reproduce(pairing_us: f64) {
          bands as one. The repair is\n  `vitui_runtime::Ctx::origin` — runtime architecture issue \
          32 — and it struck one of the two\n  grounds `crate::frame` refused a closure-taking \
          `block` on. The other one stands.",
-        area::SCROLL_SCOPE_TRANSLATES_THE_WRONG_WAY
+        area::SETTLED_SCROLL_SCOPE_SIGN
     );
 }

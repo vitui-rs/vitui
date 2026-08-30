@@ -53,8 +53,8 @@
 //!    [`crate::listing`]'s reason: a scrolled context is a content coordinate system, so a body
 //!    drawn at content coordinates writes far outside a [`Canvas`] sixty-nine rows tall. Until
 //!    components ticket 19 it could not go through [`Ctx::scroll_scope`] either — see
-//!    [`SCROLL_SCOPE_TRANSLATES_THE_WRONG_WAY`], which is now the record of a settled sign rather
-//!    than a live workaround.
+//!    [`SETTLED_SCROLL_SCOPE_SIGN`], which is the record of a settled sign rather than a live
+//!    workaround.
 //! 3. **The two-areas scene goes through [`Pen`]**, because re-damage is a relation between two
 //!    frames and only a surface that survives one can hold it — `Pen::over`, ticket 07's
 //!    arrangement, and the reason the arms are played over four frames rather than one. Components
@@ -438,27 +438,30 @@ pub const LAST_ROW_IN_CELLS: u64 = 999_999;
 /// content is unreachable, on a screen that looks perfectly healthy.
 pub const LAST_ROW_IN_ROWS: u64 = 799_999;
 
-/// **`Ctx::scroll_scope` translated the content the wrong way, and this screen used to work around
-/// it.**
+/// **The sign `Ctx::scroll_scope` translates a scrolled window by, and the defect it was.**
 ///
-/// Filed as runtime architecture issue 26. At offset 5 in a six-row viewport the scope reports
-/// `visible_rows() == -5..1` and a write at content row 5 lands **0 cells** while one at content
-/// row 0 lands five: `Ctx::scroll_scope` hands `+offset` to `View::scrolled`, and the engine's
-/// documented convention is the other sign — *a viewport scrolled `n` rows down is
-/// `scrolled(0, -n)`* (`crates/vitui-engine/src/view.rs`).
+/// Filed as runtime architecture issue 26 and **resolved 2026-08-30**. As filed: at offset 5 in a
+/// six-row viewport the scope reported `visible_rows() == -5..1`, a write at content row 5 landed
+/// **0 cells** and one at content row 0 landed five, because `Ctx::scroll_scope` handed `+offset`
+/// to `View::scrolled` where the engine's documented convention is the other sign — *a viewport
+/// scrolled `n` rows down is `scrolled(0, -n)`* (`crates/vitui-engine/src/view.rs`).
 ///
-/// **It is invisible at offset 0**, which is every offset the runtime's own tests and
-/// [`crate::listing`]'s three volumes use, and it is why this ticket is the first thing in the
-/// workspace to meet it: nothing above the runtime had scrolled a `scroll_scope` yet.
+/// **It was invisible at offset 0**, which was every offset the runtime's own tests and
+/// [`crate::listing`]'s three volumes used, and that is why this screen was the first thing in the
+/// workspace to meet it: nothing above the runtime had scrolled a `scroll_scope` yet. Three
+/// components tickets then found it independently, from three directions.
 ///
 /// **The workaround is gone, and components ticket 19 is what took it out.** While it stood,
 /// [`draw_into`] applied the offset itself inside a `Ctx::child` of the same rectangle — on **both**
-/// arms, so it was on the side of neither. The sign was settled by components 12 and this screen
-/// now draws through [`crate::scroll::scroll_area`], whose scope does the translation;
-/// `tests::a_scrolled_scope_translates_the_content_the_right_way` is the inverted reproduction that
-/// keeps it settled.
-pub const SCROLL_SCOPE_TRANSLATES_THE_WRONG_WAY: &str =
-    "runtime architecture issue 26 (settled by components 12)";
+/// arms, so it was on the side of neither. Components 12 settled the sign and this screen now draws
+/// through [`crate::scroll::scroll_area`], whose scope does the translation;
+/// `tests::a_scrolled_scope_translates_the_content_the_right_way` is that same reproduction
+/// inverted, and it is what keeps the sign settled from this side. The gate that would have caught
+/// it grew one layer down, where it belongs: row 42 of the runtime's own register, the first scroll
+/// row there that draws a cell. That register is a private module, so it is named here by file —
+/// `crates/vitui-runtime/src/register.rs` — and not by a path a consumer could write.
+pub const SETTLED_SCROLL_SCOPE_SIGN: &str =
+    "runtime architecture issue 26, resolved (sign settled by components 12)";
 
 /// The offsets the equality is swept over. Every one of them is reachable in **both** builds, which
 /// is what makes the comparison a comparison: at an offset only one of them admits, the two frames
@@ -1838,12 +1841,15 @@ mod tests {
         }
     }
 
-    /// **The runtime defect this screen works around, reproduced so the workaround cannot outlive
-    /// it.**
+    /// **The runtime defect this screen used to work around, inverted: the same three measurements
+    /// asserting the settled answer instead of the defect.**
     ///
-    /// [`SCROLL_SCOPE_TRANSLATES_THE_WRONG_WAY`]. The day `Ctx::scroll_scope` hands `-offset` to
-    /// `View::scrolled` this test fails, which is the point: a substitution nobody is watching is a
-    /// substitution that becomes the design.
+    /// [`SETTLED_SCROLL_SCOPE_SIGN`]. `Ctx::scroll_scope` hands `-offset` to `View::scrolled`
+    /// today and this test passes *because* it does; the day it goes back to `+offset` the test
+    /// fails, which is the point and was the point in both directions. It was written the other way
+    /// round while the workaround stood, so that a substitution nobody is watching could not become
+    /// the design — components 12 settled the sign, components 19 took the workaround out, and the
+    /// measurement stayed.
     #[test]
     fn a_scrolled_scope_translates_the_content_the_right_way() {
         use vitui_runtime::ctx::Driver;
@@ -1872,8 +1878,8 @@ mod tests {
             seen.0,
             5..11,
             "`visible_rows` inside a scope at offset 5 answers with the content rows the viewport \
-             is over. It read `-5..1` when components ticket 18 filed \
-             {SCROLL_SCOPE_TRANSLATES_THE_WRONG_WAY}, and components ticket 12 settled the sign"
+             is over. It read `-5..1` when components ticket 18 filed it — \
+             {SETTLED_SCROLL_SCOPE_SIGN}"
         );
         assert_eq!(
             seen.1, 5,
