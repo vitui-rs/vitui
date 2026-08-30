@@ -60,7 +60,7 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-use crate::actuate::{Actuators, Cursor};
+use crate::actuate::{Actuators, Cursor, Page};
 use crate::caps::{Capabilities, Env, Ground, Overrides, assemble};
 use crate::clock::{FrameClock, Wake, WakeSource};
 use crate::damage::Run;
@@ -473,9 +473,16 @@ impl Engine {
         // already overruled — and a terminal that says it speaks no escape sequences would answer
         // no DA1 either, which would turn a legitimate `TERM=dumb` into `AttachError::NoAnswer`.
         // The pty is still opened, because size and the single reader are not escape sequences.
-        let detected = match tty.as_mut() {
-            Some(tty) if !env.term_is_dumb() => detect(tty, CEILING)?,
-            _ => crate::caps::Detected::default(),
+        //
+        // **Whether the batch went out is also whether the alternate screen is already ours**
+        // (production ticket 12): `detect::batch`'s first bytes are `?1049h`, so on every path that
+        // asks the terminal anything the page is switched before the first question and the
+        // negotiation below has no `?1049h` left to write. On every path that asks nothing —
+        // `TERM=dumb`, a non-tty, a caller-supplied sink — the negotiation is still the first thing
+        // on the wire and still enters the page itself.
+        let (detected, page) = match tty.as_mut() {
+            Some(tty) if !env.term_is_dumb() => (detect(tty, CEILING)?, Page::Ours),
+            _ => (crate::caps::Detected::default(), Page::Users),
         };
         let quirks = Quirks::lookup(detected.version.as_deref(), &env);
         let caps = declared
@@ -523,6 +530,14 @@ impl Engine {
             Arc::clone(&mailbox),
         );
         crate::shutdown::arm(&shutdown);
+        // **And the page stops being the `Tty`'s the instant something better owns it.** Between
+        // `detect::batch`'s `?1049h` and this line the only thing that could give the alternate
+        // screen back was `Tty::drop`; from here the site does it from any thread and under a panic,
+        // and leaving both in place would write `?1049l` twice — the second onto the user's restored
+        // shell, where mode 1049 off is a cursor restore they did not ask for.
+        if let Some(tty) = tty.as_mut() {
+            tty.page_is_the_sessions();
+        }
         let renderer = Renderer {
             serializer: Serializer::new(w, h),
             size: (w, h),
@@ -584,7 +599,7 @@ impl Engine {
         // [`Tables::key`](crate::tables::Tables::key).
         let hyperlinks = screen.caps.hyperlinks;
         screen.layers.tables_mut().set_links_in_key(hyperlinks);
-        screen.begin_session();
+        screen.begin_session(page);
         // **Last, and after every byte of setup has gone out.** Raw mode, the query batch and the
         // prologue are the one place the engine both writes and reads, and they are finished before
         // a second thread exists.
@@ -1039,9 +1054,11 @@ impl Screen {
     ///
     /// # The alt screen, and why auto-wrap is switched off *inside* it
     ///
-    /// §8 says *for the lifetime of the alt screen*, and this is where that lifetime begins:
-    /// `?1049h` is the first thing on the wire and every mode after it is set on the page this
-    /// session owns. The restoration is the same list backwards, ending with `?1049l` — see
+    /// §8 says *for the lifetime of the alt screen*, and every mode below is set on the page this
+    /// session owns. **Which of two writes opened that page is [`Page`]'s question and not this
+    /// one's** (production ticket 12): `?1049h` is the first thing on the wire either way, and on a
+    /// real terminal the thing it is the first of is `crate::detect::batch` rather than the bytes
+    /// here. The restoration is the same list backwards, ending with `?1049l` — see
     /// [`crate::actuate::restoration`] and [`crate::shutdown`], which is what makes it happen under
     /// a panic as well as under this type's `Drop`.
     ///
@@ -1051,8 +1068,8 @@ impl Screen {
     /// serializer is priced on the assumption that nothing wrapped (impl 13), and a serializer that
     /// assumed it without asking for it would be right on most terminals and silently wrong on
     /// one.
-    fn begin_session(&mut self) {
-        let bytes = crate::actuate::negotiation(&self.input_config, &self.caps);
+    fn begin_session(&mut self, page: Page) {
+        let bytes = crate::actuate::negotiation(&self.input_config, &self.caps, page);
         let sink = &mut self.inline_renderer_mut().sink;
         write_frame(&mut **sink, &bytes);
     }
@@ -1660,7 +1677,11 @@ impl Screen {
         if self.tty.is_some() {
             Tty::enter_raw();
         }
-        self.begin_session();
+        // **`Page::Users`, and it is the same two words `attach` reasons about from the other
+        // side.** A suspend wrote the epilogue, whose last bytes are `?1049l`, so the terminal is on
+        // the user's own page and nothing has asked it anything since — a resume re-declares and
+        // never re-detects, so there is no capability batch here to have entered the page first.
+        self.begin_session(Page::Users);
         // The terminal is in the state the negotiation leaves it in, which is not the state this
         // side believes it is in. See `Actuators::renegotiated`.
         self.actuators.renegotiated();

@@ -9,6 +9,15 @@ byte budget and the damage model, and **not one of them contains a CJK glyph, an
 mode 2026** — the four things this directory exists to ask about. The last of those is scene 06. `compare/` reached the same
 conclusion and wrote its own list for the same reason.
 
+**One scene was considered and declined**, and it is recorded here rather than left as a gap: *does
+anything the engine sends reach the user's own page*, the property behind production ticket 12's
+defect. It is mechanically possible — a marker before `attach`, a marker after the detach, and a row
+equality on a text screen, which is the one thing every capture surface here can read. It is declined
+because four of the five arms consume the probe silently, so four of its five rows would be green
+whether or not the engine is defective, and the one arm that discriminates discriminates on a
+*consequence* of the byte order rather than on the byte order. The property is stated where it can
+fail on the edit instead: `scripts/page-order-gate.sh`, over a real pty. See `FINDINGS.md`.
+
 ## What each arm actually measures
 
 | arm | measures | |

@@ -1042,12 +1042,17 @@ fn print_what_is_red() {
             .filter(|e| matches!(e.state, State::Red { .. }))
             .count();
     if red == 0 {
+        // **The count comes off the register rather than out of a sentence.** It read
+        // "twenty-eight" for as long as there were twenty-eight, and then for two entries longer —
+        // which is a line about a number that a change to the number does not touch, and this file
+        // is where every gated figure is supposed to have exactly one home.
         println!(
-            "red on purpose: nothing. All twelve scenes and all twenty-eight register entries are \
+            "red on purpose: nothing. All twelve scenes and all {} register entries are \
              wired,\n                as of impl 26, which ran the comparative suite (#27) — the \
              last red row.\n                What is *not* covered is a different list and is not \
              this one: the impl\n                backlog's \"Deliberately not sliced\" is where §15's \
-             fog is written down."
+             fog is written down.",
+            register::REGISTER.len()
         );
         return;
     }

@@ -119,6 +119,46 @@ It is not fixed here, and deliberately. The obvious repair is to send the batch 
 instead of before, and that is an attach-ordering decision with its own consequences — `negotiation`
 is built from `caps`, so the two cannot simply swap. **Production ticket 12** is where it goes.
 
+#### Fixed 2026-08-30, and the scene that would have watched it is **declined** with the reason
+
+Production ticket 12 took the third option: neither function moved, and `detect::batch`'s own first
+bytes are now `?1049h`. `actuate::Page` tells the negotiation the page is already ours, so mode 1049
+is entered exactly once — a second `?1049h` on a terminal without xterm's *already on the alternate
+buffer* guard would save the cursor again and hand the shell back at the alternate screen's origin.
+Every artefact now lands on a page that is cleared on the way in, painted over by the first frame,
+and discarded by `?1049l` on the way out.
+
+**Terminal.app is also the arm that proves the mitigation works**, and the proof is in the capture
+above rather than in a new run. The artefact reached the primary screen *because* `?1049h` afterwards
+switched away from it — a terminal that ignored mode 1049 would have left the artefact on the page the
+frames were then drawn over, and the capture would look different. So this arm implements the page
+switch and prints the probe, which is exactly the pair the fix needs.
+
+The ticket asked for a scene here that watches it, **or the reason there is not one**. This is the
+reason, and it is two parts.
+
+*It is mechanically possible.* The judgement would be a row equality on a text screen — the scene
+prints one marker, attaches, detaches, prints a second, and every arm's capture surface can read
+whether the second line follows the first. That is the one thing even the surface with no style at
+all can answer, which is why the ticket named it.
+
+*And it would be four fifths a gate that cannot fail.* An arm runs every scene or it is not a run, and
+on Ghostty, kitty, tmux and Ghostty-via-tmux the probe is consumed silently — those four rows are
+green with the defect present and green with it absent, which is this workspace's named defect class
+rather than a control. Only Terminal.app discriminates, and what it would discriminate on is a
+**consequence** of the byte order rather than the byte order itself.
+
+So the property went where it can be stated as a property. `scripts/page-order-gate.sh` runs the
+`caps` application under `script(1)` — a real pty, which no test in the engine can have, because
+`Tty::open` panics under `cfg(test)` — and asserts that the first escape sequence on the wire is
+`?1049h`, entered once and left once. With the defect reintroduced it fails naming the number: **277
+bytes reached the user's own page**, which is the whole capability batch. That is one instrument, one
+run, no emulator, and it fails on the edit rather than on the emulator's reaction to it.
+
+**What this directory keeps is the finding**, which is the part it was uniquely able to supply: no
+instrument inside the engine could have represented a terminal that prints what it cannot parse, and
+a control probe on a fourth VT lineage is what found one.
+
 ### The user's shell profile was in the measurement path, and it is in three arms' still
 
 `do script` runs the command in a **login shell**, so the user's profile has already run when the

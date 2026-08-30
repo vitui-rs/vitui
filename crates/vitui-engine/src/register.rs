@@ -158,7 +158,7 @@ pub struct Entry {
 }
 
 /// Spec §14's register, entry for entry.
-pub const REGISTER: [Entry; 29] = [
+pub const REGISTER: [Entry; 30] = [
     Entry {
         number: 1,
         property: "No damage structure under-reports",
@@ -662,6 +662,16 @@ pub const REGISTER: [Entry; 29] = [
             at: "`crate::gates::a_suspend_leaves_the_terminal_as_attach_found_it_and_a_resume_puts_it_back`                  for the state equality, read off `TermModel` — five independent facts, because a                  suspend that gave back four of them breaks a shell in a way its user blames on                  their shell;                  `crate::gates::a_suspend_gives_the_terminal_back_and_a_resume_takes_it_again` for                  the order, in the same child-process-with-one-open-file shape entry #15 uses,                  because *the terminal was given back before somebody else wrote and taken again                  after* is two comparisons of byte offsets and nothing inside the process can make                  them; `the_frame_after_a_resume_is_the_frame_after_an_attach` for the repaint, an                  equality against the birth frame of an identical session rather than against a                  number; `nothing_goes_out_while_the_terminal_belongs_to_somebody_else`;                  `a_resumed_session_writes_frames_from_a_render_thread_that_did_not_exist_before`                  and `a_resumed_session_owes_a_frame_and_can_be_woken_to_draw_it`, both on the                  threaded clock because the deterministic one has no render thread to leave and                  both assertions go vacuous on it;                  `the_overrun_detector_stops_for_the_suspension_and_comes_back_for_the_session`,                  whose second half is invisible from both ends, because a detector that does                  nothing is what a healthy one looks like; `a_resume_delivers_no_keystroke_from_the_suspension_and_every_resize`, with its twin, for the                  half of the reader problem that is decidable — the other half is that nothing in                  safe Rust cancels a blocking `read`, so a suspension does not vacate stdin and the                  supported shape is *suspend, stop the process, resume*;                  `crate::perf`'s `an_observer_from_before_a_suspend_is_not_the_one_a_resume_spawned`                  and `an_observer_whose_generation_is_stale_leaves_a_session_that_is_still_running`,                  because a sticky flag cannot retire an observer that is asleep;                  `a_session_whose_renderer_panicked_stays_suspended`, whose sink dies on the write **after** it is                  armed because the one write it must survive is the prologue, which is the one it is                  not about; `a_second_attach_in_one_process_is_a_working_screen`,                  which is §10's answer to a terminal that was *replaced* and which nothing had                  checked was possible; `crate::reader`'s                  `the_channel_closing_is_a_quit_because_the_terminal_is_the_thing_that_closed_it`                  with its negative twin, for the case no verb can serve. **Not §14's, and it could                  not have been**: §14 enumerates properties of a frame, and this is a property of                  the *session* — what the terminal is left in while this process is not drawing on                  it. §15 filed it as fog and production ticket 07 is where the three cases got                  three different answers: a pair of verbs, a `Wake::Quit`, and a fresh `attach`.                  The one thing that is **not** gated here is the `termios` half — `Tty::open` panics                  under `cfg(test)`, so no gate in this crate ever puts a real terminal into raw                  mode — and it is a measurement in spec §7 instead: crossterm 0.29's raw mode is                  `cfmakeraw`, which clears `ISIG`, measured through a pty on 2026-08-29",
         },
     },
+    Entry {
+        number: 30,
+        property: "Nothing this engine sends reaches the user's own page",
+        kind: Kind::Gate,
+        qualifier: "a count, twice: the offset of `?1049h` and how many there are",
+        source: "production 12",
+        state: State::Wired {
+            at: "`crate::gates::nothing_reaches_the_users_own_page`, over the two functions that                  are the whole of what goes out before a frame exists — `crate::detect::batch` and                  `crate::actuate::negotiation`. The count is at offset **zero** of the batch, which                  is *the number of bytes this engine sends to the user's own screen*, and it is one                  over the concatenation, because `?1049h` twice on a terminal without xterm's                  already-on-the-alternate-buffer guard restores the shell's cursor to the alternate                  screen's origin; and the `Page::Ours` arm opens with `ED 2`, because the batch's questions go out after `?1049h` cleared the page and a cell no layer covers is never damaged and never written. **Not §14's, and no instrument in this crate could have stated                  it**: `roundtrip.rs` replays the serializer's bytes through `term_model.rs`, and a                  terminal model that ignores a sequence it does not implement is a *correct* model,                  so a terminal that **prints** one instead is unrepresentable here. `conform/`'s                  Terminal.app 2.15 arm found it — the first defect that directory has found in the                  engine's output rather than in a quirk table, an instrument or a document — and                  production ticket 12 is where it was decided. **And a second home, on a real pty**: `scripts/page-order-gate.sh` runs `vitui-apps`' `caps` under `script(1)` and asserts four things over the bytes that actually went out — the first escape sequence is `?1049h`, entered once, left once, and `?7l` present, which is `actuate::negotiation` and is what stops the middle two from being true of the capability batch alone after a failed detection. That is the path no test in this workspace can take, because `Tty::open` panics under `cfg(test)` and detection never fires; with the defect reintroduced it names the number, **277 bytes on the user's own page**. What stays ungated is one arm of the same refusal: the page `Tty::drop` gives back when an `attach` ends in `AttachError::NoAnswer` after the batch entered it needs a terminal that answers nothing. It is reasoned in `crate::detect` and was driven once by hand over a `pty.fork()` that never answers, on 2026-08-30: `?1049h`, the batch, the sentinel, then `?2027l` `?1049l` and only then the failure message — entered once, left once, mode before page",
+        },
+    },
 ];
 
 /// How many entries are wired, and how many are pinned red.
@@ -724,12 +734,15 @@ mod tests {
     #[test]
     fn every_entry_of_spec_14s_register_is_present_exactly_once() {
         const FROM_SPEC_14: usize = 27;
-        // **Two, and each says which side of the line it is on.** 28 is the conformance suite and
-        // 29 is the session's lifecycle; both are properties §14 had no way to state, and both were
-        // added by the production backlog rather than by an implementation ticket.
-        const ADDED_HERE: usize = 2;
+        // **Three, and each says which side of the line it is on.** 28 is the conformance suite, 29
+        // is the session's lifecycle and 30 is what the user's own page is allowed to see; all three
+        // are properties §14 had no way to state, and all three were added by the production backlog
+        // rather than by an implementation ticket. 30 is the sharpest case of it: §14's every
+        // instrument is a statement about a *frame*, and this is a statement about the bytes that go
+        // out before there is one.
+        const ADDED_HERE: usize = 3;
         assert_eq!(REGISTER.len(), FROM_SPEC_14 + ADDED_HERE);
-        let mut seen = [false; 30];
+        let mut seen = [false; 31];
         for e in REGISTER {
             let n = e.number as usize;
             assert!(

@@ -204,6 +204,18 @@ test:
     # The script fails naming what it could not use if `script` is missing, which is the right
     # failure and still a failure — a gate that skipped itself is `compare/run.sh` again.
     - scripts/gallery-panic-gate.sh
+    # **Register entry #30 on a real pty, and this job is where the pty gates live.** The in-crate
+    # half — `crate::gates::nothing_reaches_the_users_own_page` — runs under `cargo test` above and
+    # counts `?1049h` over the two functions that produce the bytes. It cannot run the path those
+    # bytes take: `Tty::open` panics under `cfg(test)`, so no test here ever reaches a terminal and
+    # `attach`'s actual write order on a tty is unreachable from inside the crate.
+    #
+    # This is that path, and the shape is the one the line eighty above already relies on. The
+    # numbers are the same ones too: with production ticket 12's defect reintroduced the script names
+    # **277 bytes on the user's own page** — the same 277-byte query batch that comment describes
+    # landing on a developer's screen, which is a coincidence worth noticing rather than a citation.
+    # Debug artifacts for `vitui-apps` are already standing from `cargo clippy --all-targets`.
+    - scripts/page-order-gate.sh
     # **`conform/`'s gate, folded in rather than added as a sixth job** — the same runner-slot
     # decision the note above these jobs makes for the observer gate and the lint rung, and the one
     # that note says the *next* gate would have to make.

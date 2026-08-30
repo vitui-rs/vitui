@@ -383,6 +383,22 @@ pub(crate) fn write_visibility(out: &mut Vec<u8>, show: bool) {
 /// reachable from a headless test where the mouse's are not.
 const MODE_DECTCEM: u32 = 25;
 
+/// Whose page the negotiation is about to be written onto.
+///
+/// **Production ticket 12's whole decision, as two words.** The alternate screen is entered exactly
+/// once per session and the only question is *by whom*: by [`crate::detect::batch`], ahead of the
+/// first capability question, whenever there is a terminal to ask; and by [`negotiation`] itself
+/// when there is not — a caller-supplied sink, a non-tty, `TERM=dumb`, and
+/// [`Screen::resume`](crate::Screen::resume), which gave the page back and is taking it again.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum Page {
+    /// Still the user's own screen: the negotiation's first bytes are `?1049h`.
+    Users,
+    /// Already ours, because the capability batch entered it. The negotiation adds no second
+    /// `?1049h`, and the count is a gate — see `crate::gates::nothing_reaches_the_users_own_page`.
+    Ours,
+}
+
 /// What goes out once, at `attach`, after raw mode and the capability batch and before the render
 /// thread exists.
 ///
@@ -411,13 +427,45 @@ const MODE_DECTCEM: u32 = 25;
 /// [`InputDiagnostics`](crate::InputDiagnostics) as an unrecognised sequence per resize, and the
 /// mode has no DECRQM answer in §10's batch to tell whether it took. That is a detection axis, a
 /// parser arm and a `Capabilities` field, and none of the three is this ticket's.
-pub(crate) fn negotiation(config: &InputConfig, caps: &Capabilities) -> Vec<u8> {
+pub(crate) fn negotiation(config: &InputConfig, caps: &Capabilities, page: Page) -> Vec<u8> {
     let mut out = Vec::with_capacity(64);
     // **First, because everything after it is a mode set on the page this enters.** The alt screen
     // is what makes a full-screen application a full-screen application: the user's scrollback is
     // untouched, and leaving it puts their shell back exactly as they left it rather than eight
     // hundred lines further down.
-    out.extend_from_slice(ENTER_ALT_SCREEN);
+    //
+    // **And it is written here only when nobody has entered it yet** (production ticket 12). On a
+    // real terminal the page is already ours — [`crate::detect::batch`] enters it ahead of the first
+    // question, because a terminal that *prints* a sequence it does not implement would otherwise
+    // leave the probe's text on the user's shell screen, where nothing this engine does afterwards
+    // can reach it. `?1049h` twice is not free: a terminal without xterm's *already on the alternate
+    // buffer* guard would save the cursor a second time, and give the user's shell back at the wrong
+    // one.
+    if page == Page::Users {
+        out.extend_from_slice(ENTER_ALT_SCREEN);
+    } else {
+        // **And when the batch opened it, the page is erased**, because `?1049h` clears the
+        // alternate screen on the way in and the batch's questions go out *after* that clear. On a
+        // terminal that prints what it cannot parse, what is sitting at the home position is the
+        // artefact rather than blank — and nothing else here would remove it. The mirror starts
+        // `Cell::UNKNOWN` everywhere, so a cell **no layer covers** is never damaged and never
+        // written, and an application whose layers do not tile the screen would keep the artefact in
+        // its gaps for the whole session.
+        //
+        // **This is not the erase production ticket 12 refused**, and the difference is which page.
+        // What was refused is `CSI 2 J` on the *primary* screen, as a substitute for switching pages
+        // — it destroys the user's scrollback view and the engine cannot know how many cells to
+        // repair because it cannot know which sequences a terminal will print. This is our own page,
+        // switched to eight bytes earlier, where there is no scrollback and the whole point is that
+        // the extent does not have to be known.
+        //
+        // The one terminal it costs anything on is one that implements neither mode 1049 **nor** the
+        // sequences in the batch: it is on its own page, it printed the artefacts there, and this
+        // clears it. Stated rather than hidden — it is about to be painted over by the first frame
+        // regardless, spec §15 puts inline rendering out of scope, and Terminal.app 2.15, which is
+        // the terminal this whole ticket is about, demonstrably implements 1049.
+        out.extend_from_slice(ERASE_PAGE);
+    }
     // Auto-wrap off, once, for the lifetime of the session (spec §8). Every `shortest` move in the
     // serializer is priced on the assumption that nothing wrapped.
     out.extend_from_slice(DISABLE_AUTO_WRAP);
@@ -514,6 +562,13 @@ pub(crate) const ENABLE_AUTO_WRAP: &[u8] = b"\x1b[?7h";
 /// targets has it and there is no query for it in §10's probe set, so it goes out unconditionally —
 /// the same reasoning [`MODE_DECTCEM`] is written unconditionally for.
 pub(crate) const ENTER_ALT_SCREEN: &[u8] = b"\x1b[?1049h";
+/// `ED 2` — erase the whole page, cursor left where it is.
+///
+/// Written once, on the arm where [`crate::detect::batch`] opened the page and then printed
+/// questions onto it (production ticket 12). Four bytes, on our own screen, and the serializer needs
+/// nothing from it: the mirror is `Cell::UNKNOWN` at birth, so this makes the terminal *more* like
+/// what the mirror will conservatively assume rather than less.
+pub(crate) const ERASE_PAGE: &[u8] = b"\x1b[2J";
 /// Mode 1049 off: the user's own screen, their scrollback and their cursor, back.
 pub(crate) const LEAVE_ALT_SCREEN: &[u8] = b"\x1b[?1049l";
 
@@ -730,7 +785,7 @@ mod tests {
     #[test]
     fn an_application_that_declared_nothing_asks_for_nothing() {
         let caps = Capabilities::with_input(true, true, true, true, KITTY_ALL);
-        let out = negotiation(&InputConfig::default(), &caps);
+        let out = negotiation(&InputConfig::default(), &caps, Page::Users);
         let seen = text(&out);
         assert!(!seen.contains("1000"), "{seen}");
         assert!(!seen.contains("1004"), "focus reporting is opt-in: {seen}");
@@ -745,7 +800,7 @@ mod tests {
     #[test]
     fn the_kitty_flags_go_as_one_set() {
         let partial = Capabilities::with_input(false, false, false, false, 0b0_0011);
-        let seen = text(&negotiation(&InputConfig::default(), &partial));
+        let seen = text(&negotiation(&InputConfig::default(), &partial, Page::Users));
         assert!(
             seen.contains(&format!("^[[>{KITTY_ALL}u")),
             "the whole stack, not the two that stuck: {seen}"
@@ -756,7 +811,7 @@ mod tests {
     #[test]
     fn a_terminal_with_no_kitty_protocol_is_not_pushed_to() {
         let caps = Capabilities::with_input(false, false, false, false, 0);
-        let seen = text(&negotiation(&InputConfig::default(), &caps));
+        let seen = text(&negotiation(&InputConfig::default(), &caps, Page::Users));
         assert!(!seen.contains('u'), "{seen}");
     }
 
@@ -770,7 +825,7 @@ mod tests {
             paste: true,
             ..InputConfig::default()
         };
-        let prologue = text(&negotiation(&config, &caps));
+        let prologue = text(&negotiation(&config, &caps, Page::Users));
         assert_eq!(
             prologue,
             format!("^[[?1049h^[[?7l^[[?25l^[[>{KITTY_ALL}u^[[?1006h^[[?1000h^[[?1004h^[[?2004h"),
@@ -785,6 +840,44 @@ mod tests {
         );
     }
 
+    /// **The page is entered once per session and the negotiation is not always who does it.**
+    ///
+    /// Production ticket 12: on a real terminal `crate::detect::batch` has already switched the page
+    /// before the first question went out, so a `?1049h` here would be a second one. What that arm
+    /// writes instead is `ED 2`, because the questions went out *after* `?1049h` cleared the page and
+    /// a terminal that prints one has left it on our own screen. The epilogue is unchanged either
+    /// way — what a session leaves is a page it is on, however it got there.
+    #[test]
+    fn a_page_that_is_already_ours_is_not_entered_twice() {
+        let caps = Capabilities::with_input(true, true, true, true, KITTY_ALL);
+        let config = InputConfig {
+            mouse: MouseMode::Buttons,
+            focus: true,
+            paste: true,
+            ..InputConfig::default()
+        };
+        let ours = text(&negotiation(&config, &caps, Page::Ours));
+        assert!(
+            !ours.contains("1049"),
+            "the batch entered the page and the negotiation entered it again: {ours}"
+        );
+        assert!(
+            ours.starts_with("^[[2J"),
+            "the batch printed its questions onto the page after `?1049h` cleared it, so the page \
+             is erased once and nothing else will do it: {ours}"
+        );
+        let users = text(&negotiation(&config, &caps, Page::Users));
+        assert_eq!(
+            users,
+            format!("^[[?1049h{}", &ours["^[[2J".len()..]),
+            "the two arms differ by exactly one opening move — `?1049h` on a page nobody has \
+             touched, `ED 2` on one the batch has — and by nothing else"
+        );
+        // And the restoration does not ask, because there is nothing to ask: a session on the
+        // alternate screen leaves it, and which of the two wrote the `h` is not a fact it needs.
+        assert!(text(&restoration(&config, &caps, true)).ends_with("^[[?1049l"));
+    }
+
     /// A declared mode the terminal cannot do is not asked for, and is not restored either.
     #[test]
     fn a_declaration_the_terminal_cannot_honour_reaches_the_wire_nowhere() {
@@ -795,7 +888,10 @@ mod tests {
             paste: true,
             ..InputConfig::default()
         };
-        assert_eq!(text(&negotiation(&config, &caps)), "^[[?1049h^[[?7l^[[?25l");
+        assert_eq!(
+            text(&negotiation(&config, &caps, Page::Users)),
+            "^[[?1049h^[[?7l^[[?25l"
+        );
         assert_eq!(
             text(&restoration(&config, &caps, false)),
             "^[[?25h^[[?7h^[[?1049l"

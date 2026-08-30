@@ -45,15 +45,63 @@ pub(crate) const CEILING: Duration = Duration::from_millis(250);
 const ESC: u8 = 0x1b;
 const BEL: u8 = 0x07;
 
-/// Every query, in one write, with the sentinel last.
+/// Every query, in one write, on the alternate screen, with the sentinel last.
 ///
 /// Order is not decorative. The two `CSI ? u` reads sit either side of the push so that the second
 /// says **what stuck** rather than what was asked for — the difference between four honest booleans
 /// and a `KeyboardTier` that lies about tmux — and the pop puts the terminal back before the
 /// application ever sees it. Mode 2027 is *requested* before it is asked about, because the question
 /// is whether the request took.
+///
+/// # `?1049h` first, and it is a question's answer rather than a tidiness
+///
+/// **Production ticket 12.** A terminal is not obliged to *ignore* a sequence it does not implement,
+/// and Terminal.app 2.15 does not: it prints the XTGETTCAP payload as `+q524742` and the final byte
+/// of each DECRQM as a `p`, so the batch below left eight visible artefacts on the user's shell
+/// screen — where `?1049h` afterwards switches away from a page that already has them, and `?1049l`
+/// on the way out restores that page unchanged. The artefact sat on the line the prompt was on for
+/// the rest of the session, in **every** application, and no gate in this crate could ever have seen
+/// it: `term_model.rs` ignores what it does not implement, which is what the standard asks a
+/// terminal to do, so *a terminal that prints instead* is not a thing any instrument here can be.
+/// `conform/`'s Terminal.app arm found it, and it is the first defect that directory has found in
+/// the engine's own output.
+///
+/// So the page is switched **before the first question**, and every artefact lands on a page that is
+/// discarded: `?1049l` on the way out restores a primary screen this session never wrote to.
+///
+/// **The artefacts are on the *alternate* screen in the meantime, and that half had to be made true
+/// rather than assumed** — the ticket asked for both halves to be checked and the second one was
+/// false as first written. `?1049h` clears the page on the way in, but the questions go out *after*
+/// that clear, so what sits at the home position is the artefact and not blank. Nothing else would
+/// have removed it: the mirror starts unknown everywhere, and a cell **no layer covers** is never
+/// damaged by a verb and therefore never written, so an application whose layers do not tile the
+/// screen would have kept the artefact in its gaps for the whole session. So
+/// [`crate::actuate::negotiation`]'s `Page::Ours` arm writes `ED 2` — four bytes, on the page this
+/// batch opened, which is **not** the erase this ticket refused: that one was `CSI 2 J` on the
+/// *primary* screen as a substitute for switching pages.
+///
+/// Two consequences, both stated rather than assumed:
+///
+/// - **A terminal with no alternate screen is probed on its only page**, which is the defect with the
+///   mitigation removed. It is not made worse than it was — `?1049h` is ignored by exactly the
+///   terminals that would have ignored it in [`crate::actuate::negotiation`] a moment later — and
+///   spec §15 puts inline, non-alt-screen rendering out of scope, so there is no second rendering
+///   mode for such a terminal to fall back to. The engine owns a screen or it does not run.
+/// - **The page is now owed back before there is a `Screen` to owe it**, which is why [`Tty`]'s
+///   `Drop` gives it back and why `attach` takes that debt off it the moment
+///   [`crate::shutdown`] is armed. An `attach` that ends in [`AttachError::NoAnswer`] must not leave
+///   the user staring at an empty alternate screen.
 pub(crate) fn batch() -> Vec<u8> {
     let mut out = String::with_capacity(512);
+
+    // **The page, before the first question.** Production ticket 12, and the whole of it: everything
+    // below this line is allowed to be visible, because it is visible on a page that is thrown away.
+    //
+    // Spelled out rather than reached for through `crate::actuate::ENTER_ALT_SCREEN`, and that is
+    // deliberate: the gate takes its needle from the constant and its haystack from here, so the two
+    // are independent statements of the same eight bytes. A scanner that looks for a literal it
+    // shares with its subject checks nothing.
+    out.push_str("\x1b[?1049h");
 
     // Identity: XTVERSION where it exists, DA2 as the fallback.
     out.push_str("\x1b[>0q");
@@ -493,6 +541,15 @@ pub(crate) struct Tty {
     at: usize,
     /// Whether the batch went out, and therefore whether mode 2027 has to be given back.
     requested_2027: bool,
+    /// Whether the batch went out **and no session has taken the page over yet**.
+    ///
+    /// The batch's first bytes are `?1049h` (production ticket 12), and it is sent before `attach`
+    /// has decided there will be a session at all — so between the write and
+    /// [`crate::shutdown::arm`] there is a window where the only thing that can give the alternate
+    /// screen back is this type's `Drop`. [`Tty::page_is_the_sessions`] closes the window from the
+    /// other side; without it the epilogue and this `Drop` would both write `?1049l`, and a second
+    /// one on the primary page is a spurious cursor restore.
+    owes_the_page: bool,
 }
 
 impl Tty {
@@ -551,6 +608,7 @@ impl Tty {
                 pending: Vec::new(),
                 at: 0,
                 requested_2027: false,
+                owes_the_page: false,
             })
         }
     }
@@ -595,10 +653,32 @@ impl Tty {
         self.at = 0;
         Some((rx, pending))
     }
+
+    /// The session has the page now, so this type stops owing it.
+    ///
+    /// **Called once, from `attach`, the moment [`crate::shutdown`] is armed** — which is the
+    /// instant the alternate screen acquires a second, better owner: one that gives it back from any
+    /// thread and under a panic, where this type's `Drop` runs only if the thread holding the
+    /// `Screen` unwinds. Before that instant the debt is real and this type is the only thing that
+    /// can pay it; after it, paying twice writes a second `?1049l` onto the user's restored shell,
+    /// where mode 1049 off is a cursor restore nobody asked for.
+    ///
+    /// Mode 2027 is deliberately **not** handed over with it: it was set by detection, the epilogue
+    /// does not reset it, and the boundary [`Drop`] draws is *where the thing was taken*.
+    pub(crate) fn page_is_the_sessions(&mut self) {
+        self.owes_the_page = false;
+    }
 }
 
 impl Drop for Tty {
-    /// Give back the two things the batch changed.
+    /// Give back what the batch changed and nobody else has taken over.
+    ///
+    /// **Two things, and the second is conditional.** Mode 2027 is always this type's, for the
+    /// reason below. The alternate screen is this type's only until `attach` arms
+    /// [`crate::shutdown`] — see [`Tty::page_is_the_sessions`] — because production ticket 12 moved
+    /// `?1049h` into the batch, ahead of the first question, and an `attach` that fails with
+    /// [`AttachError::NoAnswer`] returns no `Screen` for a site to be armed on and would otherwise
+    /// leave the user looking at an empty alternate screen with their shell behind it.
     ///
     /// **Mode 2027 was being set and never reset**, which is a real asymmetry rather than a tidiness
     /// one: the batch pops the kitty flag stack in the same write it pushes it, and left 2027 on. A
@@ -623,9 +703,16 @@ impl Drop for Tty {
     /// a shell that echoes nothing for one keystroke; a shell with the kitty flags still pushed is
     /// broken until somebody runs `reset`, which is why the two are not given equal urgency.
     fn drop(&mut self) {
-        if self.requested_2027 {
+        if self.requested_2027 || self.owes_the_page {
             let mut out = std::io::stdout();
-            let _ = out.write_all(b"\x1b[?2027l");
+            if self.requested_2027 {
+                let _ = out.write_all(b"\x1b[?2027l");
+            }
+            // **Last, and after the mode**, for [`crate::actuate::restoration`]'s own reason: a mode
+            // reset written after the page is given back is written behind the user's prompt.
+            if self.owes_the_page {
+                let _ = out.write_all(crate::actuate::LEAVE_ALT_SCREEN);
+            }
             let _ = out.flush();
         }
         let _ = crossterm::terminal::disable_raw_mode();
@@ -634,11 +721,18 @@ impl Drop for Tty {
 
 impl Probe for Tty {
     fn write_batch(&mut self, bytes: &[u8]) -> std::io::Result<()> {
+        // **Both debts are taken on before the write and not after it, and the `?` is exactly why.**
+        // `write_all` can fail having already written some of the bytes, and since production ticket
+        // 12 the first eight of them are `?1049h` — so a partial write that returns here with the
+        // flags unset leaves the user behind an alternate screen nothing will give back, which is
+        // the outcome the `Drop` arm was added to prevent. These say *what may have gone out*, which
+        // is the only thing that can be known before the call, and both resets are harmless on a
+        // terminal that never received the sequence they undo.
+        self.requested_2027 = true;
+        self.owes_the_page = true;
         let mut out = std::io::stdout();
         out.write_all(bytes)?;
         out.flush()?;
-        // The batch sets mode 2027, so from here on this `Tty` owes it back on drop.
-        self.requested_2027 = true;
         Ok(())
     }
 

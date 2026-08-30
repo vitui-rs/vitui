@@ -30,6 +30,25 @@
 //! refusal of terminfo is a refusal to infer capabilities from a name, and an entry here overrides
 //! a capability that was measured.
 //!
+//! # What is deliberately **not** a seventh entry: a terminal that prints what it cannot parse
+//!
+//! Terminal.app 2.15 emits the XTGETTCAP payload and the final byte of each DECRQM as text rather
+//! than ignoring them (production ticket 12, `conform/`'s Terminal.app arm). That is a misbehaviour,
+//! it is recognisable by a query — DA2 answers `1;95;0` — and it still does not belong here, for a
+//! reason worth stating once rather than re-deriving.
+//!
+//! **Every entry in this table is a route the serializer can take around a defect**: use the legacy
+//! SGR spelling, drop an attribute the terminal will store and never forward, stop asking for a
+//! colour form that will be echoed. There is no such route here. The engine cannot stop asking the
+//! questions — the answers are what `Capabilities` is — and it cannot ask them in a spelling this
+//! terminal parses, because a terminal that prints an unimplemented sequence is doing so *for the
+//! sequences it does not implement*, which is the set the questions exist to discover. The fix is to
+//! stop putting them where they can be **seen**, which is `attach`'s order and not a rendering
+//! decision, and it costs nothing on the terminals that behave.
+//!
+//! So this is a defect in the engine's output that a real terminal found, and it was repaired in the
+//! output. Nothing here is degraded for it and no field on [`Quirks`] is added.
+//!
 //! # The sixth entry, and it is the cheapest evidence in the table
 //!
 //! JediTerm answers DA2 `0;10;0`, answers no XTVERSION, and sets `TERM=xterm-256color` — so there is

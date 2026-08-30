@@ -5167,6 +5167,122 @@ fn a_suspend_gives_the_terminal_back_and_a_resume_takes_it_again() {
     );
 }
 
+/// **Gate: nothing this engine sends can be seen on the user's own page** — production ticket 12.
+///
+/// # The defect, and why it is a count
+///
+/// `Engine::attach` used to write §10's capability batch to the terminal and enter the alternate
+/// screen afterwards, because `actuate::negotiation` is built **from** the answers and cannot be
+/// written before they are in. On every terminal this repository had ever run, that was invisible:
+/// a terminal that does not implement a sequence ignores it, which is what the standard asks for and
+/// what `term_model.rs` does. Terminal.app 2.15 does not. It prints the XTGETTCAP payload as
+/// `+q524742` and the final byte of each of the seven DECRQMs as a `p`, so every vitui application
+/// left eight artefacts on the line the user's shell prompt was on — and `?1049l` on the way out
+/// restored that page unchanged, so they stayed there for the rest of the session.
+///
+/// **No instrument inside this crate could ever have caught it**, and that is the fourth time this
+/// backlog has said so. The round trip replays the serializer's bytes through a terminal model, and
+/// a model that ignores what it does not implement is a *correct* model — so *a terminal that prints
+/// instead* is not a thing any gate here can be, and the property is not one any gate here can
+/// state. `conform/`'s Terminal.app arm found it with a control probe.
+///
+/// # What is gated, and why this shape
+///
+/// A timing is a report and a picture is not available, so what is left is §14's own permitted
+/// shape: **a count**. Two of them, over the bytes `attach` puts on the wire before a frame exists.
+///
+/// 1. `?1049h` appears in [`crate::detect::batch`] exactly once, at **offset zero** — so the number
+///    of bytes this engine sends to the user's own page is zero, and a probe added to the batch
+///    later cannot silently land on the wrong page. That is the gate the ticket asked for, and it
+///    fails on the exact edit that reintroduces the defect.
+/// 2. `?1049h` appears in the **whole** attach-time stream exactly once. A second one is not free:
+///    xterm guards `1049` against being entered twice and a terminal without that guard would save
+///    the cursor again, then give the user's shell back at the alternate screen's origin. This is
+///    what [`crate::actuate::Page`] exists for, and it is why the fix is two words rather than a
+///    reordering.
+/// 3. The `Page::Ours` arm opens with `ED 2` instead, because the batch's questions go out *after*
+///    `?1049h` cleared the page — so on a terminal that prints one, what is at the home position of
+///    our own alternate screen is the artefact. Nothing else would remove it: the mirror is unknown
+///    everywhere and a cell no layer covers is never damaged and never written.
+///
+/// The two functions below are the whole of what goes out before the render thread exists, and that
+/// is structural rather than remembered: the renderer's sink is **constructed after detection**, so
+/// there is no third writer for a byte to escape through.
+///
+/// # The alt-screen-less terminal is answered here rather than by omission
+///
+/// A terminal that does not implement mode 1049 is now probed on its only page, which is this defect
+/// with the mitigation removed. It is **not made worse than it was**: the same terminal ignored the
+/// same eight bytes of `?1049h` a moment later in the negotiation, so its page was always the one
+/// being written to. And there is no second rendering mode to fall back to — spec §15 puts inline,
+/// non-alt-screen rendering out of scope, and shadows and transitions have nowhere to land without
+/// an owned screen. The engine owns a page or it does not run.
+#[test]
+fn nothing_reaches_the_users_own_page() {
+    let enter = crate::actuate::ENTER_ALT_SCREEN;
+    let batch = crate::detect::batch();
+    assert_eq!(
+        offsets_of(&batch, enter),
+        vec![0],
+        "the capability batch enters the alternate screen once and first, and it does neither: {}",
+        escaped(&String::from_utf8_lossy(&batch))
+    );
+
+    // The whole of what a real terminal is sent before a frame: the batch, then the negotiation the
+    // answers to the batch are what builds.
+    let caps = every_input_protocol();
+    let declared = crate::input::InputConfig {
+        mouse: crate::input::MouseMode::Buttons,
+        focus: true,
+        paste: true,
+        ..crate::input::InputConfig::default()
+    };
+    let stream = [
+        batch,
+        crate::actuate::negotiation(&declared, &caps, crate::actuate::Page::Ours),
+    ]
+    .concat();
+    assert_eq!(
+        offsets_of(&stream, enter),
+        vec![0],
+        "the alternate screen is entered {} times over the attach-time stream, at {:?} — once, at \
+         byte zero, is the property: {}",
+        offsets_of(&stream, enter).len(),
+        offsets_of(&stream, enter),
+        escaped(&String::from_utf8_lossy(&stream))
+    );
+
+    // The arm that follows a batch opens by erasing the page the batch printed onto, and it is the
+    // one thing on this path that no count of `?1049h` can see.
+    let ours = crate::actuate::negotiation(&declared, &caps, crate::actuate::Page::Ours);
+    assert!(
+        ours.starts_with(crate::actuate::ERASE_PAGE),
+        "the batch opened the page and asked its questions onto it, and nothing erased it: {}",
+        escaped(&String::from_utf8_lossy(&ours))
+    );
+
+    // And the path with no terminal to ask is unchanged: nothing entered the page, so the
+    // negotiation still does, and it is still the first thing on the wire.
+    let alone = crate::actuate::negotiation(&declared, &caps, crate::actuate::Page::Users);
+    assert_eq!(
+        offsets_of(&alone, enter),
+        vec![0],
+        "a sink, a non-tty and `TERM=dumb` are asked nothing, so the negotiation is the only thing \
+         that can open the page: {}",
+        escaped(&String::from_utf8_lossy(&alone))
+    );
+}
+
+/// Every offset `needle` starts at in `hay`. Overlap is impossible for the one needle this is used
+/// with, and a `matches().count()` would have answered *how many* without answering *where*.
+fn offsets_of(hay: &[u8], needle: &[u8]) -> Vec<usize> {
+    hay.windows(needle.len())
+        .enumerate()
+        .filter(|(_, w)| *w == needle)
+        .map(|(at, _)| at)
+        .collect()
+}
+
 /// Escapes made visible, because a failure message full of raw `ESC` reprograms the reader's own
 /// terminal instead of telling them anything.
 fn escaped(out: &str) -> String {
@@ -5483,7 +5599,12 @@ fn a_resume_asks_the_terminal_nothing_and_the_capabilities_do_not_move() {
     let wrote = h.bytes_written() - quiet;
     let expected =
         crate::actuate::restoration(&crate::input::InputConfig::default(), &before, false).len()
-            + crate::actuate::negotiation(&crate::input::InputConfig::default(), &before).len();
+            + crate::actuate::negotiation(
+                &crate::input::InputConfig::default(),
+                &before,
+                crate::actuate::Page::Users,
+            )
+            .len();
     assert_eq!(
         wrote, expected,
         "the handover wrote {wrote} bytes where the epilogue and the negotiation are {expected} — \

@@ -27,7 +27,7 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
 
 ## Where the build is
 
-- **`vitui-engine` — implementation-complete.** 26 impl tickets, 29 verification-register entries,
+- **`vitui-engine` — implementation-complete.** 26 impl tickets, 30 verification-register entries,
   none pinned red, ~30k lines. Production readiness added `conform/` — the only instrument that asks
   a real terminal rather than our model of one, and the source of `quirks.rs`'s later entries.
 - **`vitui-runtime` — implementation-complete.** 21 tickets. `data`, `layout`, `theme` (fourteen
@@ -45,14 +45,12 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   since ticket 45 that is obligation **O7** rather than a habit: `vitui_components::consumer` joins
   the freeze against the import paths here.
 - **Active work: `.scratch/vitui-engine-production/`**, un-paused 2026-08-29 (it was paused because
-  nothing above the engine could draw a screen; eighteen applications ended that). **12 is the
-  frontier** — filed 2026-08-30 by 04's last arm: `Engine::attach` writes the capability batch before
-  `?1049h`, and Terminal.app 2.15 *prints* the sequences it does not implement, so `+q524742` and
-  seven `p`s survive on the user's shell screen. No gate here can see it and none could — a terminal
-  model that ignores an unimplemented sequence is a correct one. **04 is resolved** (2026-08-30, the
-  Terminal.app arm, four emulator families), **07 is resolved** (the terminal leaves and comes back;
-  ADR 0052), **08 is superseded** (the runtime is the caller it wanted, and a better one), **09 is
-  unblocked** and needs a Windows machine.
+  nothing above the engine could draw a screen; eighteen applications ended that). **09 is the only
+  ticket left** and it needs a Windows machine. **04 is resolved** (2026-08-30, the Terminal.app arm,
+  four emulator families), **07 is resolved** (the terminal leaves and comes back; ADR 0052), **08 is
+  superseded** (the runtime is the caller it wanted, and a better one), **12 is resolved**
+  (2026-08-30): `detect::batch`'s first bytes are `?1049h`, so the page is opened by the act of
+  asking and Terminal.app 2.15's echo of `+q524742` and seven `p`s lands on a page that is discarded.
 
 ## Decisions a session must not re-derive
 
@@ -85,6 +83,14 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   on the `Theme` and carries no tier guarantee.
 - **Budgets are per class** — typical damage-tracked frame < 100 µs, full-screen 300×80 < 1 ms.
   An over-budget screen is recorded beside the number, never reclassified to buy headroom.
+- **The alternate screen is entered exactly once, by whoever speaks to the terminal first** (spec §7,
+  production 12). On a real terminal that is `detect::batch`, whose first bytes are `?1049h`: a
+  terminal is not obliged to *ignore* a sequence it does not implement — Terminal.app 2.15 prints one
+  — and no instrument inside the engine can represent a terminal that does, because a model that
+  ignores the unimplemented is a correct model. `actuate::Page` is what stops the negotiation entering
+  it a second time; `?1049h` twice restores the shell's cursor to the alternate screen's origin on a
+  terminal without xterm's guard. A terminal with no alt screen is probed on its only page and that is
+  stated rather than mitigated — §15 puts inline rendering out of scope.
 - **Bars are reserved, never overlaid** (ADR 0029) — the parts of a reserved area tile the rectangle
   exactly, which an overlay bar cannot satisfy.
 
@@ -248,6 +254,7 @@ scripts/observer-gate.sh      # the debug observer is absent from a release bina
 scripts/steady-report.sh      # 60 fps for 30 s against 5% of a core
 scripts/lint-rung-gate.sh     # the clippy.toml rung fires in an application, not from a dep
 scripts/gallery-panic-gate.sh # the terminal is restored before a panic prints, under a pty
+scripts/page-order-gate.sh    # nothing precedes `?1049h` on a real pty — register #30
 n=1 cargo test -p vitui-engine golden                 # regenerate; review the git diff
 VITUI_BLESS=1 cargo test -p vitui-components golden   # the components' screens; refused in CI
 ```

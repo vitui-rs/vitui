@@ -93,3 +93,38 @@ held across a draw: `Permit<'a>` borrowed out of `&'a Screen` makes `Screen::lay
 (`E0502`) inside the very region the permit exists to excuse. `Permit` therefore holds an `Rc` and has
 no lifetime, and its `!Send`-ness is the `Rc`'s rather than a marker's. The general form is that
 **immobility by borrow and immobility by marker are not interchangeable when the value is a guard.**
+
+## Amended by production ticket 12, 2026-08-30 — `attach`'s order, and the byte before the first byte
+
+This ADR's account of `attach` is *it spawns the render and input threads*, and the whole of its
+argument rests on **terminal setup finishing before either exists**. That was true and it was not
+enough: setup is also an *order*, and the order was wrong.
+
+`Engine::attach` wrote §10's capability batch and entered the alternate screen afterwards, because
+`actuate::negotiation` is built from the answers and cannot be written before they arrive. On a
+terminal that ignores what it does not implement — which is what the standard asks for, and what this
+crate's own terminal model does — that is invisible. **Terminal.app 2.15 prints instead**: the
+XTGETTCAP payload comes back as `+q524742` and the final byte of each of the seven DECRQMs as a `p`,
+so every application built on this engine left eight artefacts on the line the user's shell prompt
+was on, and `?1049l` on the way out restored that page unchanged.
+
+The repair keeps every claim above intact and adds one word to the order: `detect::batch`'s first
+bytes are `?1049h`, so **the alternate screen is entered before the first question**, and
+`actuate::Page` tells the negotiation the page is already ours, so that mode 1049 is entered exactly
+once and the page the batch printed onto is erased once. A second `?1049h` is not free — xterm guards against re-entering the alternate buffer and a
+terminal without that guard would save the cursor again, then hand the user's shell back at the
+alternate screen's origin.
+
+Two consequences belong to this ADR rather than to §10, because both are about *what exists when*:
+
+- **The renderer's sink does not exist until after detection**, which is what makes *nothing precedes
+  `?1049h`* structural rather than remembered. There is no third writer for a byte to escape
+  through, and register entry 30 is the count that says so.
+- **The alternate screen is owed back before there is a `Screen` to owe it.** `crate::shutdown` is
+  armed after detection succeeds, so between the batch and the arming the only thing that can give
+  the page back is `Tty`'s `Drop` — the same boundary it already draws for mode 2027. It hands the
+  debt over at the arming, because a page given back twice restores the user's cursor twice.
+
+*Split handles are not what enforces this.* Nothing about the order is expressible in a type: it is a
+sequence inside one function, on one thread, and a count over the bytes it produces is the only
+instrument that can hold it.
