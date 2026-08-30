@@ -8,7 +8,7 @@
 //! *this* crate's: **a property that quietly never arrives is indistinguishable from one that was
 //! decided against**, so every gate is here and every one of them is in exactly one of two states —
 //! [`State::Wired`], naming the instruments that run it, or [`State::Red`], naming the
-//! implementation ticket that inverts it. **Thirty-nine wired, none red.** Ticket 19 left this
+//! implementation ticket that inverts it. **Forty-two wired, none red.** Ticket 19 left this
 //! register at thirty-eight and one — entry 12, the dense frame, which was *measured* in two places
 //! and *gated* in neither — and ticket 20 built the gate rather than reworded the row. What made
 //! that possible is that the red row named the missing instrument precisely enough to build it: a
@@ -239,7 +239,7 @@ pub const SPEC_ROWS: usize = 15;
 /// stated from two sides, and twenty-four survive deduplication against §20's fifteen. A row is
 /// here when it is a gate somebody can break; a bullet that restates a neighbour is not a second
 /// row.
-pub const REGISTER: [Entry; 41] = [
+pub const REGISTER: [Entry; 42] = [
     // ── spec §20's table, in its order ───────────────────────────────────────────────────────────
     Entry {
         number: 1,
@@ -1174,6 +1174,38 @@ pub const REGISTER: [Entry; 41] = [
             }],
         },
     },
+    Entry {
+        number: 42,
+        on_spec_table: false,
+        property: "A scroll scope's offset is a position, and the window, a verb and a press all \
+                   read it that way",
+        kind: Kind::Gate,
+        qualifier: "equality \u{2014} between *the content rows `visible_rows` names* and *the rows a \
+                    verb and a press actually reach*, at a nonzero offset. It is a property of the \
+                    mechanism rather than of the data: nothing varies but which sign each of three \
+                    fields takes, and there is no corpus and no size. **The offset has to be \
+                    nonzero and something has to be drawn through it**, which is the whole finding \
+                    \u{2014} at offset 0 every sign agrees, and the register's other two scroll \
+                    rows assert a ratio and an identity, neither of which is a cell landing \
+                    anywhere. The press half is a second row's worth of \
+                    care in one row because it is the same negation read backwards: `pointer` takes \
+                    the translation with the sign **opposite** to `view` and `origin`, and a \
+                    version where the three agree puts a click `2 \u{b7} offset` rows from where the \
+                    user pointed",
+        source: "issue 26",
+        state: State::Wired {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-runtime/src/ctx.rs",
+                    name: "a_scroll_scopes_offset_is_a_position_and_the_window_is_the_rows_it_names",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-runtime/src/ctx.rs",
+                    name: "a_press_inside_a_scroll_scope_lands_on_the_row_under_the_pointer",
+                },
+            ],
+        },
+    },
 ];
 
 /// How many `compile_fail` fences the crate carries.
@@ -1537,17 +1569,19 @@ mod tests {
         assert_eq!(seen, expected, "the numbers are not 1..={}", REGISTER.len());
     }
 
-    /// **Forty-one wired, none red.**
+    /// **Forty-two wired, none red.**
     ///
     /// This register was thirty-eight and one from ticket 19 until ticket 20 built the gate entry
     /// 12 was red for the absence of; forty since architecture issue 23 — the first row here whose
     /// source is an *architecture* issue rather than an implementation ticket, because the backlog
-    /// was closed when the gap was found — and forty-one since issue 25, which is the second and
-    /// arrived the same way. Saying *how many* is what stops a red row arriving unremarked, and it
+    /// was closed when the gap was found — forty-one since issue 25, which is the second and
+    /// arrived the same way, and forty-two since issue 26, which is the third: a defect three
+    /// tickets one layer up found before this register had a row that could. Saying *how many* is
+    /// what stops a red row arriving unremarked, and it
     /// has the second job the engine's has: **a register at all-green says so**, so the next red row
     /// is a deliberate edit to this number rather than a quiet one.
     #[test]
-    fn forty_one_are_wired_and_none_are_red() {
+    fn forty_two_are_wired_and_none_are_red() {
         let red: Vec<u8> = REGISTER
             .iter()
             .filter(|e| matches!(e.state, State::Red { .. }))
@@ -1560,7 +1594,7 @@ mod tests {
              documentation, and in the module comment above — the count is the thing that stops it \
              arriving unremarked"
         );
-        assert_eq!(REGISTER.len() - red.len(), 41);
+        assert_eq!(REGISTER.len() - red.len(), 42);
     }
 
     /// **The split, not the total.**
@@ -1575,8 +1609,9 @@ mod tests {
         assert_eq!(on_table, SPEC_ROWS, "spec §20's table is fifteen rows");
         assert_eq!(
             REGISTER.len() - on_table,
-            26,
-            "the backlog's gates, deduplicated against §20's fifteen, plus issues 23's and 25's"
+            27,
+            "the backlog's gates, deduplicated against §20's fifteen, plus issues 23's, 25's and \
+             26's"
         );
         // And §20's fifteen come first, so the table reads in the spec's order.
         for (index, entry) in REGISTER.iter().enumerate() {

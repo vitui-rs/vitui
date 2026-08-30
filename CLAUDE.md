@@ -32,7 +32,7 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   a real terminal rather than our model of one, and the source of `quirks.rs`'s later entries.
 - **`vitui-runtime` — implementation-complete.** 21 tickets. `data`, `layout`, `theme` (fourteen
   schemes), `keys`, `ctx`, `id`, `route`, `focus`, `sizing`, `work`, `anim`, `overlay`, `scroll`.
-  Register 41 entries and the 20-scene list, both green. The component-facing crate line is *built*
+  Register 42 entries and the 20-scene list, both green. The component-facing crate line is *built*
   rather than counted: `crates/vitui-components/tests/crate_line.rs` cannot name the engine.
 - **`vitui-components` — implementation-complete.** All 46 tickets; spec §17's freeze is **29 of 29
   built**, as a value (`INVENTORY`) that tests iterate, with the documentation and verification
@@ -91,22 +91,28 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   it a second time; `?1049h` twice restores the shell's cursor to the alternate screen's origin on a
   terminal without xterm's guard. A terminal with no alt screen is probed on its only page and that is
   stated rather than mitigated — §15 puts inline rendering out of scope.
+- **A scroll scope's offset is a position and `Ctx::scrolled`'s is a translation** (runtime
+  architecture 26, resolved 2026-08-30). The negation lives at one call site inside `scroll_scope`;
+  `Ctx::scrolled` keeps the engine's rule, *scrolling down by `n` is `scrolled(0, -n)`*. Of the
+  fields it moves, `view` and `origin` take `+dy` and `pointer` takes `-dy` — a disagreement that is
+  the mechanism and not a bug: the content moves past a pointer that does not, and a press inside a
+  scrolled scope lands on the row under it. **At offset 0 every sign agrees**, which is how this
+  survived until three components tickets met it from three directions; register row 42 is the first
+  scroll gate that draws.
 - **Bars are reserved, never overlaid** (ADR 0029) — the parts of a reserved area tile the rectangle
   exactly, which an overlay bar cannot satisfy.
 
 **Open questions — do not "fix" code to match one sentence of a spec without resolving the ticket.**
-Twelve stand open, every one of them filed by the layer above the one it lands in.
+Ten stand open, every one of them filed by the layer above the one it lands in.
 
-- **Runtime architecture 26 and its corroboration** — `Ctx::scroll_scope` translates the content the
-  wrong way, and the corroboration is C03's inverted sign inside the runtime's own verb. **28** — a
-  chord on a shifted character cannot match, because SHIFT is in `INTENT`. **29** — `Response`
-  publishes the press as a level and never as an edge. **31** — `Ctx::with_key` inside a scroll
-  scope clips the whole window away, and it is what pins register row 112 red. **33** — a
-  scroll-into-view is a two-frame gesture and nothing asks for the second frame. **34** — a picture
-  cannot ask what the terminal will show: no colour-pair question and no readable wire. **35** — an
-  application cannot give its terminal to an editor, because `Screen::suspend` now exists (ADR 0052)
-  and `Driver` owns it privately — the third *engine verb behind `Driver`'s private field* after 23
-  and 30.
+- **Runtime architecture 28** — a chord on a shifted character cannot match, because SHIFT is in
+  `INTENT`. **29** — `Response` publishes the press as a level and never as an edge. **31** —
+  `Ctx::with_key` inside a scroll scope clips the whole window away, and it is what pins register
+  row 112 red. **33** — a scroll-into-view is a two-frame gesture and nothing asks for the second
+  frame. **34** — a picture cannot ask what the terminal will show: no colour-pair question and no
+  readable wire. **35** — an application cannot give its terminal to an editor, because
+  `Screen::suspend` now exists (ADR 0052) and `Driver` owns it privately — the third *engine verb
+  behind `Driver`'s private field* after 23 and 30.
 - **Components architecture 19** (does a fold that costs the volume belong to O6), **20** (`tree`
   declares three glyphs it cannot draw), **22** (`Esc` over a plain `collection` is crate-private on
   purpose), **23** (`file_picker`'s popup has no keyboard at all).

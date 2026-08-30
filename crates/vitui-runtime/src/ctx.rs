@@ -5319,6 +5319,96 @@ mod pointer_tests {
             "10 + 3 + 1 and 4 + 1 + 1, and not 3 + 1 and 1 + 1"
         );
     }
+
+    /// **A press inside a scroll scope lands on the content row under the pointer**, and this is
+    /// runtime architecture issue 26's third question — the one it declined to answer, because
+    /// *that is not measured here and should not be assumed from the arithmetic*.
+    ///
+    /// It lands. `Ctx::scrolled` takes the translation on `pointer` with the sign **opposite** to
+    /// the one it takes on `view` and `origin`, which is what makes the three of them one map
+    /// rather than three: the content moves one way past a pointer that does not move. The
+    /// `2 · offset` the issue was worried about is what an *agreeing* sign would produce.
+    ///
+    /// Every visible row is its own widget, so a hit on the wrong one names itself instead of
+    /// answering `None` and leaving the direction of the error unstated. Both ends of the window
+    /// are pressed, because an error proportional to the offset and an error of one row are the
+    /// same assertion at a single position. The click is carried all the way to its award, since a
+    /// hit that is right during the draw and wrong at `end` is exactly the split ticket 10 exists
+    /// to catch.
+    #[test]
+    fn a_press_inside_a_scroll_scope_lands_on_the_row_under_the_pointer() {
+        // The pane, and the window it is scrolled to: content rows 100..108 at screen rows 5..13.
+        const VIEW: Rect = Rect::new(10, 5, 20, 8);
+        const OFFSET: i32 = 100;
+        let list = Id::named("list");
+
+        /// Which row the pointer reached, where inside it, and whether the click was awarded.
+        #[derive(PartialEq, Eq, Debug)]
+        struct Reached {
+            row: i32,
+            local: Option<(i32, i32)>,
+            clicked: bool,
+        }
+
+        fn draw(cx: &mut Ctx<'_, '_>, list: Id) -> Option<Reached> {
+            let mut hit = None;
+            cx.scroll_scope(list, VIEW, (0, OFFSET), (0, 992), |cx| {
+                for y in cx.visible_rows() {
+                    let r = cx.interact(
+                        Id::keyed(list, y as u64),
+                        Rect::new(0, y, VIEW.w, 1),
+                        Interest::CLICK,
+                    );
+                    if r.local.is_some() || r.clicked {
+                        hit = Some(Reached {
+                            row: y,
+                            local: r.local,
+                            clicked: r.clicked,
+                        });
+                    }
+                }
+            });
+            hit
+        }
+
+        // The top row of the window, and the bottom one: screen row 5 is content row 100, screen
+        // row 12 is content row 107.
+        for (screen_y, content_y) in [(5_u16, 100_i32), (12, 107)] {
+            let mut d = driver();
+            d.post_mouse(moved(12, screen_y));
+            let mut hovering = None;
+            d.frame(|cx| hovering = draw(cx, list));
+            assert_eq!(
+                hovering,
+                Some(Reached {
+                    row: content_y,
+                    local: Some((2, 0)),
+                    clicked: false
+                }),
+                "at screen row {screen_y} the pointer is over content row {content_y}, two \
+                 columns into it. A pointer translated the same way the content was would have \
+                 looked for it at row {}, which is `2 · offset` away and which no frame draws",
+                content_y - 2 * OFFSET
+            );
+
+            d.post_mouse(down(12, screen_y));
+            d.post_mouse(up(12, screen_y));
+            drain(&mut d, |cx| {
+                draw(cx, list);
+            });
+            let mut clicked = None;
+            d.frame(|cx| clicked = draw(cx, list));
+            assert_eq!(
+                clicked,
+                Some(Reached {
+                    row: content_y,
+                    local: Some((2, 0)),
+                    clicked: true
+                }),
+                "and the award at `end` reached the same row the draw saw"
+            );
+        }
+    }
 }
 
 #[cfg(test)]
