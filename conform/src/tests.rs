@@ -1647,10 +1647,13 @@ fn ucd_rs_cites_a_vs16_disagreement_and_this_is_the_first_capture_here_that_repr
         .iter()
         .position(|(l, _)| *l == "vs16")
         .expect("vs16 is a row of the scene");
-    let vs16 = |bytes: &[u8]| {
-        cursor_reports(bytes, OBSERVED.len()).expect("a batch")[at].column - 1
-    };
-    assert_eq!(vs16(TERMINAL_WIDTHS), 1, "Terminal.app 2.15 does not widen a VS16 emoji");
+    let vs16 =
+        |bytes: &[u8]| cursor_reports(bytes, OBSERVED.len()).expect("a batch")[at].column - 1;
+    assert_eq!(
+        vs16(TERMINAL_WIDTHS),
+        1,
+        "Terminal.app 2.15 does not widen a VS16 emoji"
+    );
     for (bytes, who) in [
         (GHOSTTY_WIDTHS, "Ghostty 1.3.1"),
         (KITTY_WIDTHS, "kitty 0.48.2"),
