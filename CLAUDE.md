@@ -45,12 +45,14 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   since ticket 45 that is obligation **O7** rather than a habit: `vitui_components::consumer` joins
   the freeze against the import paths here.
 - **Active work: `.scratch/vitui-engine-production/`**, un-paused 2026-08-29 (it was paused because
-  nothing above the engine could draw a screen; eighteen applications ended that). **04 is the
-  frontier** — stages 3 and 5 landed as conform scenes 05 and 06, so what is open is stage 4's second
-  VT lineage and nothing else. **07 is resolved** (the terminal leaves and comes back; ADR 0052),
-  **08 is superseded** (the runtime is the caller it wanted, and a better one), **09 is blocked by
-  04**. 04 needs what nothing else on this map does: a live terminal and a window server — an
-  AppleScript automation grant for the Terminal.app arm, and a real tty answering CPR and DECRQM.
+  nothing above the engine could draw a screen; eighteen applications ended that). **12 is the
+  frontier** — filed 2026-08-30 by 04's last arm: `Engine::attach` writes the capability batch before
+  `?1049h`, and Terminal.app 2.15 *prints* the sequences it does not implement, so `+q524742` and
+  seven `p`s survive on the user's shell screen. No gate here can see it and none could — a terminal
+  model that ignores an unimplemented sequence is a correct one. **04 is resolved** (2026-08-30, the
+  Terminal.app arm, four emulator families), **07 is resolved** (the terminal leaves and comes back;
+  ADR 0052), **08 is superseded** (the runtime is the caller it wanted, and a better one), **09 is
+  unblocked** and needs a Windows machine.
 
 ## Decisions a session must not re-derive
 
@@ -172,13 +174,20 @@ examples/app-template     copy-this-directory starting point, and the home of §
 compare/                  comparative suite: SCENES.md normative, harness.py, run.sh, REPORT.md
                           committed, FINDINGS.md by hand. Nine scenes, five arms, two of them ours
                           └ detached workspace; reports, never gates. No deny.toml, deliberately
-conform/                  the only instrument that asks a real terminal: SCENES.md normative, four
-                          arms across three examples — Ghostty, Ghostty-via-tmux (the same binary
-                          behind `--through-tmux`), tmux, kitty — one committed REPORT-<arm>.md
-                          each, FINDINGS.md by hand
+conform/                  the only instrument that asks a real terminal: SCENES.md normative, five
+                          arms across four examples — Ghostty, Ghostty-via-tmux (the same binary
+                          behind `--through-tmux`), tmux, kitty, Terminal.app — one committed
+                          REPORT-<arm>.md each, FINDINGS.md by hand
+                          └ Terminal.app is the fourth VT lineage and **the arm that disagrees**:
+                            four of scene 05's twelve surveyed rows, all four by summing a cluster's
+                            code points. Its capture surface carries no style at all, so scene 01 is
+                            eleven `cannot ask` rows and scenes 05 and 06 — asked in band — are
+                            answered in full
                           └ four scenes, two of them not photographs: 05 asks the emulator's own
                             UAX #11 verdict via CSI 6n (twelve rows are a survey and never fail),
-                            06 polls mode 2026 via DECRPM with five compared rows
+                            06 polls mode 2026 via DECRPM with five compared rows — and a terminal
+                            that answers *nothing* is `ModeError::Unanswered` and `cannot express`,
+                            never a short batch
                           └ detached workspace, no deny.toml — the third-party thing IS the subject.
                             Live arms are soaks; the gate is `cargo test` over fixtures/
 fuzz/                     two libFuzzer targets and the committed corpus that is their gate
@@ -201,6 +210,7 @@ cargo deny check                            # needs `cargo install cargo-deny`
 (cd fuzz && cargo deny check)               # detached workspace: its own graph, its own gate
 (cd conform && cargo test)                  # the conformance gate, over committed captures
 (cd conform && cargo run --example tmux)    # the one live arm that is headless
+(cd conform && cargo run --example terminal) # needs an AppleScript grant for Terminal.app
 ```
 
 Applications (`cargo run -p vitui-apps --example NAME`), each with the key worth pressing; those

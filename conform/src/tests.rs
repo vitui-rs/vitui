@@ -741,6 +741,12 @@ fn every_family_blanks_the_orphaned_half_and_they_do_not_disagree_about_it() {
         (KITTY_SCENE04, Dialect::Ecma48, "kitty 0.48.2"),
         (TMUX_SCENE04, Dialect::TmuxCapturePane, "tmux 3.7c"),
         (VIA_TMUX_SCENE04, Dialect::Ecma48, "tmux 3.7c forwarded"),
+        // **A fourth VT lineage, and the one that could have broken the unanimity.** The other
+        // three are recent reimplementations; this is the terminal Apple has shipped since NeXT,
+        // and it blanks the orphan exactly as they do — in both directions. Reachable here because
+        // these six rows are compared as *text*, which is the one thing this arm's capture surface
+        // carries. See the styleless assertions at the end of this file for what it cannot reach.
+        (TERMINAL_SCENE04, Dialect::Ecma48, "Terminal.app 2.15"),
     ] {
         let rows = scene04_text(bytes, dialect);
         for (i, (label, want)) in SCENE04_ROWS.iter().enumerate() {
@@ -1494,4 +1500,264 @@ fn a_sync_capture_is_not_a_width_capture_and_neither_is_a_screen() {
         Err(DumpError::Empty),
         "a batch of mode reports has no cells in it"
     );
+}
+
+// ── A terminal that does not answer at all, which is not a terminal that lost an answer ──────────
+
+#[test]
+fn a_sentinel_with_silence_in_front_of_it_is_a_terminal_without_the_report() {
+    // Terminal.app 2.15's answer to scene 06, in miniature: the batch was processed — the
+    // device-attributes reply is what says so — and not one DECRPM came back. Read as a short batch
+    // that is *the terminal lost four of five answers*, about a terminal that never had one.
+    assert_eq!(
+        mode_reports(b"\x1b[?1;2c", 2026, 5),
+        Err(ModeError::Unanswered { expected: 5 }),
+        "silence in front of the sentinel is the terminal declining the whole question"
+    );
+}
+
+#[test]
+fn a_terminal_that_answered_a_different_question_is_a_short_batch_and_not_a_silent_one() {
+    // **The line between the two, and it is what stops a `.cpr` passing as a terminal without
+    // synchronised output.** A capture from another channel has a sentinel and no mode reports too;
+    // what it does not have is silence. So the discriminator is whether the terminal spoke at all,
+    // never whether it spoke in this scene's grammar.
+    assert_eq!(
+        mode_reports(b"\x1b[3;4R\x1b[?1;2c", 2026, 5),
+        Err(ModeError::Count {
+            expected: 5,
+            found: 0
+        }),
+        "a cursor report is the terminal speaking, so this batch is short rather than unanswered"
+    );
+    // And the committed one says the same thing, so the rule is gated against real bytes and not
+    // only against a hand-written pair. This is the assertion `a_sync_capture_is_not_a_width_capture`
+    // already makes; it is repeated here because it is *this* variant's boundary and a later edit
+    // that widened `Unanswered` would break it there for a reason nobody would connect to this.
+    assert_eq!(
+        mode_reports(TMUX_WIDTHS, 2026, 5),
+        Err(ModeError::Count {
+            expected: 5,
+            found: 0
+        })
+    );
+}
+
+#[test]
+fn a_batch_the_scene_asked_nothing_of_is_not_unanswered() {
+    // `expected` of zero is not a scene this directory has, and the guard is here so the variant
+    // cannot come to mean *nothing was asked* as well as *nothing was answered*. Two facts, and a
+    // report that printed one under the other's heading would be wrong in the direction this whole
+    // file exists to refuse.
+    assert_eq!(mode_reports(b"\x1b[?1;2c", 2026, 0), Ok(Vec::new()));
+}
+
+// ── The fourth VT lineage, and the first arm here that disagrees with the other three ────────────
+
+const TERMINAL_SCENE01: &[u8] = include_bytes!("../fixtures/terminal-2.15-scene01-attrs.vt");
+const TERMINAL_SCENE04: &[u8] = include_bytes!("../fixtures/terminal-2.15-scene04-pairs.vt");
+const TERMINAL_WIDTHS: &[u8] = include_bytes!("../fixtures/terminal-2.15-scene05-widths.cpr");
+const TERMINAL_SYNC: &[u8] = include_bytes!("../fixtures/terminal-2.15-scene06-sync.decrqm");
+
+/// What Terminal.app 2.15 answered for scene 05's fifteen clusters, and it is **not** [`OBSERVED`].
+///
+/// Hand-written from the committed capture, like [`OBSERVED`], and kept as a second table rather
+/// than as a diff against the first: a table that said *`OBSERVED` except rows 8, 10, 12 and 14*
+/// would stop naming what this terminal actually said the moment either side changed.
+const TERMINAL_OBSERVED: &[(&str, u16)] = &[
+    ("ascii", 1),
+    ("ascii-pair", 2),
+    ("cjk", 2),
+    ("hangul", 2),
+    ("fullwidth", 2),
+    ("ambiguous", 1),
+    ("combining", 1),
+    // The four that differ, and every one of them is an emoji-era question.
+    ("zero-width", 1),
+    ("emoji", 2),
+    ("vs16", 1),
+    ("vs15", 1),
+    ("zwj-family", 8),
+    ("flag", 2),
+    ("skin-tone", 4),
+    ("keycap", 2),
+];
+
+#[test]
+fn terminal_app_is_the_arm_that_disagrees_and_these_are_the_four_rows() {
+    let replies = cursor_reports(TERMINAL_WIDTHS, TERMINAL_OBSERVED.len())
+        .expect("Terminal.app's capture is a batch");
+    for (reply, (label, advance)) in replies.iter().zip(TERMINAL_OBSERVED) {
+        assert_eq!(
+            reply.column - 1,
+            *advance,
+            "Terminal.app 2.15 moved the cursor differently for {label}"
+        );
+    }
+}
+
+#[test]
+fn the_survey_stopped_being_four_identical_columns_and_this_is_the_assertion_that_says_so() {
+    // **The reason this arm was built**, asserted rather than described. `FINDINGS.md` recorded on
+    // 2026-08-29 that three families agreeing on all twelve surveyed rows is not yet a result: a
+    // survey whose every column is the same cannot say whether it is measuring the terminals or
+    // measuring its own tables. It named a different VT lineage as the first candidate for a column
+    // that would disagree.
+    //
+    // Four rows differ, and the shape of them is the finding rather than the count: every one is an
+    // emoji-era question, and Terminal.app answers each by **summing the cluster's code points**
+    // where the other three take the base's width. A ZWJ family at 8 is 2+1+2+1+2 with the joiners
+    // counted; a skin tone at 4 is 2+2; a zero-width space at 1 is a cluster it does not know is
+    // zero-width. `ucd.rs` calls that behaviour out by name and pins the opposite as policy.
+    let differs: Vec<&str> = OBSERVED
+        .iter()
+        .zip(TERMINAL_OBSERVED)
+        .filter(|((_, ours), (_, theirs))| ours != theirs)
+        .map(|((label, _), _)| *label)
+        .collect();
+    assert_eq!(
+        differs,
+        vec!["zero-width", "vs16", "zwj-family", "skin-tone"],
+        "the disagreement is these four rows and no others"
+    );
+    // And the labels line up, or the comparison above is between two tables in different orders and
+    // every row of it is about the wrong cluster.
+    assert!(
+        OBSERVED
+            .iter()
+            .zip(TERMINAL_OBSERVED)
+            .all(|((a, _), (b, _))| a == b),
+        "the two tables must name the same fifteen clusters in the same order"
+    );
+}
+
+#[test]
+fn ucd_rs_cites_a_vs16_disagreement_and_this_is_the_first_capture_here_that_reproduces_it() {
+    // **The row worth the arm.** `ucd.rs`'s module docs support *our tables are authoritative* with
+    // a survey of 23 terminals in a research document, whose headline is *only 7 of 23 widen a VS16
+    // emoji correctly*. The three families measured on 2026-08-29 all widened it, and that session
+    // recorded the citation as not reproducing — on the evidence it had, correctly.
+    //
+    // Terminal.app 2.15 does not widen it. So the paragraph's claim is about a population this
+    // suite had been sampling from one end of, and `ucd.rs` now says so with a date and this
+    // fixture beside it. **The decision is untouched**: a terminal that answers 1 here is not
+    // misbehaving in any sense this repository acts on, and spec §8's `CHA`-after-non-ASCII rule is
+    // what bounds it.
+    let at = OBSERVED
+        .iter()
+        .position(|(l, _)| *l == "vs16")
+        .expect("vs16 is a row of the scene");
+    let vs16 = |bytes: &[u8]| {
+        cursor_reports(bytes, OBSERVED.len()).expect("a batch")[at].column - 1
+    };
+    assert_eq!(vs16(TERMINAL_WIDTHS), 1, "Terminal.app 2.15 does not widen a VS16 emoji");
+    for (bytes, who) in [
+        (GHOSTTY_WIDTHS, "Ghostty 1.3.1"),
+        (KITTY_WIDTHS, "kitty 0.48.2"),
+        (TMUX_WIDTHS, "tmux 3.7c"),
+    ] {
+        assert_eq!(vs16(bytes), 2, "{who} widens it");
+    }
+}
+
+#[test]
+fn terminal_app_answers_no_decrqm_at_all_and_the_sentinel_is_what_says_so() {
+    // The capture is seven bytes and all seven of them are the device-attributes reply. **That is
+    // the whole observation**: the terminal processed a batch of five `CSI ? 2026 $ p` and answered
+    // none of them, and the sentinel behind them cannot be sent before everything ahead of it has
+    // been processed — so this is silence the terminal chose rather than a read that gave up.
+    //
+    // The first `cannot express` in this directory, and the reason it is that rather than `FAILED`:
+    // Terminal.app has no synchronised output, `detect.rs` reaches the same conclusion from the
+    // same silence, and `serial.rs` then wraps nothing. A suite that failed the row would be
+    // demanding a feature of a terminal that never claimed one.
+    assert_eq!(
+        mode_reports(TERMINAL_SYNC, 2026, SCENE06_STATES.len()),
+        Err(ModeError::Unanswered {
+            expected: SCENE06_STATES.len()
+        })
+    );
+    // And the three that do have it still do, so this fixture is not quietly redefining the scene.
+    for (who, bytes) in SYNC_ARMS {
+        assert!(
+            mode_reports(bytes, 2026, SCENE06_STATES.len()).is_ok(),
+            "{who} still answers"
+        );
+    }
+}
+
+#[test]
+fn every_terminal_app_capture_is_styleless_and_that_is_gated_rather_than_declared() {
+    // **The arm declares this and the fixtures are what make the declaration checkable.**
+    // `Arm::no_style` takes eleven rows of scene 01 and one row of scene 04 out of the denominator,
+    // which is a large claim to rest on a sentence — and the `STALE` rule only catches a row that
+    // *agrees*, which a styleless capture cannot do. This is the other side of it: not one cluster
+    // in either committed capture carries anything.
+    //
+    // A fact about the capture surface. Terminal.app renders bold; `contents` is
+    // `type="text" access="r"` and no property reachable over AppleScript says that it did.
+    for (bytes, rows, who) in [
+        (TERMINAL_SCENE01, 11, "scene 01"),
+        (TERMINAL_SCENE04, SCENE04_ROWS.len(), "scene 04"),
+    ] {
+        let dump = parse(bytes, rows, Dialect::Ecma48).expect("a committed capture parses");
+        for (r, row) in dump.rows.iter().enumerate() {
+            for (c, cluster) in row.clusters.iter().enumerate() {
+                assert_eq!(
+                    cluster.style,
+                    Style::default(),
+                    "Terminal.app {who}, row {r} cluster {c} came back carrying a style"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn the_styleless_capture_still_carries_the_text_which_is_why_a_short_screen_is_still_loud() {
+    // The half that is **not** lost, and the reason scene 01 is run on this arm at all rather than
+    // skipped. Every one of the eleven labels is where the scene put it, so a capture that scrolled
+    // or came back at the wrong size would fail here exactly as it would on any other arm — where a
+    // report whose eleven rows all read `cannot ask` could otherwise hide one.
+    let dump = parse(TERMINAL_SCENE01, 11, Dialect::Ecma48).expect("parses");
+    for (i, label) in [
+        "bold",
+        "dim",
+        "italic",
+        "reverse",
+        "blink",
+        "strikethru",
+        "conceal",
+        "overline",
+        "under-sgl",
+        "under-dbl",
+        "under-dot",
+    ]
+    .iter()
+    .enumerate()
+    {
+        assert_eq!(
+            dump.rows[i].text().trim_end(),
+            *label,
+            "row {i} of Terminal.app's scene 01"
+        );
+    }
+}
+
+#[test]
+fn terminal_app_is_a_fourth_terminal_and_the_sentinel_says_so() {
+    // The scene 05 captures are four columns of fifteen numbers and this is the fifth; nothing in
+    // the numbers alone would catch a fixture accidentally copied from another arm, which is what
+    // `the_three_families_are_three_terminals` exists for one arm along. Terminal.app answers as a
+    // VT100 with AVO — the same shape tmux answers with, and not the same bytes.
+    let da1 = |bytes: &[u8]| {
+        let text = String::from_utf8_lossy(bytes).to_string();
+        let at = text.rfind("\x1b[?").expect("a sentinel");
+        text[at..].to_string()
+    };
+    assert_eq!(da1(TERMINAL_WIDTHS), "\x1b[?1;2c", "Terminal.app 2.15");
+    assert_ne!(da1(TERMINAL_WIDTHS), da1(TMUX_WIDTHS));
+    assert_ne!(TERMINAL_WIDTHS, GHOSTTY_WIDTHS);
+    assert_ne!(TERMINAL_WIDTHS, KITTY_WIDTHS);
+    assert_ne!(TERMINAL_WIDTHS, TMUX_WIDTHS);
 }

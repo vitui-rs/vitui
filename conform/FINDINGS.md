@@ -3,6 +3,208 @@
 Hand-written and dated, because a number and what it means are two different artefacts with two
 different lifetimes. `REPORT.md` is generated; this is not.
 
+## 2026-08-30 — stage 4's second VT lineage, and the survey stopped being four identical columns
+
+The Terminal.app arm — `conform/examples/terminal.rs`, the fifth arm and the fourth emulator family.
+The last thing production ticket 04 owed, and the arm this directory has been asking for by name
+since 2026-08-29: *what the survey needs is an arm that **disagrees**.*
+
+It disagrees. Four of the twelve surveyed rows of scene 05, and the shape of them is the finding
+rather than the count.
+
+### The four rows, and they are one behaviour
+
+| row | the engine | Terminal.app 2.15 |
+|---|---|---|
+| `zero-width` (U+200B) | 0 | **1** |
+| `vs16` (U+2764 U+FE0F) | 2 | **1** |
+| `zwj-family` (three emoji, two ZWJs) | 2 | **8** |
+| `skin-tone` (U+1F44D U+1F3FD) | 2 | **4** |
+
+Every one is an emoji-era question and every one falls the same way: **Terminal.app sums the
+cluster's code points where the other three take the base's width.** 8 is 2+1+2+1+2 with the joiners
+counted as columns of their own; 4 is 2+2; a zero-width space is a cluster it does not know is
+zero-width; a VS16 pair is a text-presentation heart plus a selector it does not act on. That is
+`ucd.rs`'s second pinned policy — *a cluster's width is its base's width, never the sum of its code
+points* — and this is the first terminal this repository has measured that does the other thing.
+
+**The headline citation reproduces, on the fourth family.** `ucd.rs` supports *our tables are
+authoritative* with a survey of 23 terminals in a research document, whose headline is *only 7 of 23
+widen a VS16 emoji correctly*. The 2026-08-29 session measured three families, found all three
+widened it, and recorded the citation as not reproducing — on the evidence it had, correctly. What
+was actually true is that this suite had been sampling one end of the population: three recent
+reimplementations, all of which implement UAX #29 clustering. The terminal Apple has shipped since
+NeXT does not, and it answers 1.
+
+So the correction runs the other way from 2026-08-29's. That session's finding was *a citation
+nobody re-measured*; this one is **a re-measurement that had not sampled widely enough to see what
+the citation was about** — and the earlier entry stays on this page unamended, because it was right
+about its own four columns and the record of how a conclusion narrowed is worth more than a tidy
+page. `ucd.rs` now carries both dates.
+
+**Nothing changes the decision, and the value is not in the four rows.** The rows stay *surveyed*
+rather than compared, for the reason the split was made: there is no mechanism in this repository
+that would read such a `quirks.rs` row, and §8's `CHA`-after-non-ASCII rule bounds the disagreement
+instead of following it. What changes is what the survey is worth. Three columns that agree cannot
+distinguish *the terminals agree with our tables* from *the instrument is reading our tables back to
+us*. A fourth that disagrees on four rows, through the same code, on the same day, can — and that is
+the entire reason this arm was built.
+
+### The first `cannot express` this directory has ever printed
+
+`SCENES.md` inherited `compare/`'s three kinds of non-number on the day it was written, and in four
+arms **no arm ever constructed the first of them**: the three emulator families that came first all
+had every capability the scenes ask about. Terminal.app 2.15 has no synchronised output, so scene
+06's five rows are the cell the vocabulary was carrying for something.
+
+**It does not answer `not recognised (0)`, which is DEC's own way of declining. It answers nothing.**
+Its parser does not take `$` as an intermediate byte, so `CSI ? 2026 $ p` is not a query it declines
+but a sequence it never finishes reading — and the `p` lands on the screen as text. The committed
+fixture is seven bytes and all seven of them are the device-attributes reply.
+
+That silence had to become a first-class observation, and the shape of it is the finding worth
+reading. `mode_reports` refused it as `ModeError::Count { expected: 5, found: 0 }` — *the terminal
+lost five answers*, about a terminal that never had one to lose — and a run that reported that would
+have failed the arm rather than recording the fact. So there is a `ModeError::Unanswered`, and
+**the line between the two is whether the terminal spoke at all, never whether it spoke in this
+scene's grammar.** A capture from another channel has a sentinel and no mode reports too: scene 05's
+`.cpr` is fifteen cursor reports and a `CSI c`, and read by the looser rule it would have passed as
+a terminal without synchronised output. `tests.rs` gates both sides.
+
+**The sentinel is what makes silence an observation rather than a timeout.** A device-attributes
+reply cannot be sent before everything ahead of it has been processed. Without it there would be no
+way to tell a terminal that declined the question from a read that gave up, and the honest report
+would have been *not run here*.
+
+Three things it does and does not mean. `detect.rs` reaches the same conclusion from the same
+silence and reports `sync_output false`, so the engine wraps no frame in a mode this terminal does
+not have — **this scene is the first outside evidence that the engine is right about that**, where
+before it was `detect.rs` believing a reply whose parser it also wrote. The `closed-once` row is the
+one §8 depends on and its absence is not a risk: a terminal that counted the sets would hold a frame
+past the close sent for it, and a terminal with no mode has nothing to hold. And there is no
+`quirks.rs` row in it — that table's four entries are force-flush *limits*, and a terminal without
+the mode has no limit to record.
+
+### The engine's own capability probe leaves visible text on this terminal's screen
+
+**The finding that is not about a scene, and it is the most valuable thing the arm turned up.** It
+came out of a control probe run before the instrument, which is the fourth time in this directory
+that discipline is what separated the terminal from the suite.
+
+Run any vitui application in Terminal.app 2.15 and this is on the screen afterwards:
+
+```text
+BEFORE-ATTACH-MARKER
++q524742pppppppvitui capabilities (tty)
+```
+
+`detect::batch` sends `DCS + q 524742 ST` for XTGETTCAP `RGB` and seven `CSI ? <mode> $ p` for the
+DECRQM block. Terminal.app implements neither, and it does not *ignore* them: it emits the DCS
+payload as text and the final `p` of each DECRQM as text. Eight sequences, eight visible artefacts,
+and the count is exact — seven `p`s for seven modes.
+
+**It lands on the primary screen and it survives the session.** `detect` runs in `attach` at
+`engine.rs:477`, and `begin_session` — whose first bytes are `?1049h` — runs after it. So the bytes
+are written to the page the user's shell is on, before the alt screen is entered; `?1049l` on the way
+out restores that page with the artefact on it, on the line the prompt was on. Nothing the engine
+does afterwards can reach it.
+
+Two reasons this is worth more than its size. It is **exactly** what production ticket 04 exists to
+find: every gate in this workspace is the engine's bytes replayed through the engine's own model of a
+terminal, and a model that ignores an unknown sequence — which is the correct thing for a model to do
+— cannot represent a terminal that prints it. And it is the *first* defect this directory has found
+in the engine's **output** rather than in a quirk table, an instrument or a document.
+
+It is not fixed here, and deliberately. The obvious repair is to send the batch after `?1049h`
+instead of before, and that is an attach-ordering decision with its own consequences — `negotiation`
+is built from `caps`, so the two cannot simply swap. **Production ticket 12** is where it goes.
+
+### The user's shell profile was in the measurement path, and it is in three arms' still
+
+`do script` runs the command in a **login shell**, so the user's profile has already run when the
+scene starts. On this machine that profile contains `export COLORTERM=truecolor`, unconditionally —
+and Terminal.app 2.15 is a 256-colour terminal, which `caps` confirms from its own DA2 and palette.
+Inherited, the run would have recorded a truecolor capability belonging to a line in somebody's
+`.zshrc`.
+
+So the arm's command line is an explicit `/usr/bin/env` with the eight variables the engine's
+detection reads that Terminal.app does not set itself unset, and `TERM`, `TERM_PROGRAM` and
+`TERM_PROGRAM_VERSION` left alone because those three are the terminal's own. It is the same argument
+as the tmux arm's `-f /dev/null` and kitty's `-o` flags: *the result must be about the terminal and
+not about somebody's config.*
+
+**It moves no row in this suite as it stands, and that is luck rather than safety.** No scene reads a
+colour the engine chose — scene 01 draws attributes and no colour, scene 04 writes its `SGR 41` as a
+raw byte with no engine in the path. **And the other three arms do inherit**: kitty is given this
+driver's environment, which has the same variable in it. Nothing is wrong with their captures and
+nothing about them is protected either, which is worth knowing before a scene is added that reads a
+colour.
+
+### One fact, one declaration, two scenes
+
+Terminal.app's capture surface carries no style at all — `contents` and `history` are
+`type="text" access="r"` and the `tab` class has no styled variant. Production ticket 04 read that
+out of the `sdef` on 2026-08-23 and recorded the arm as *glyph-grid scenes only*; scene 05 then made
+the sentence too small, because an in-band question has no capture surface in its path. What the arm
+actually cannot do is scene 01, and one row of scene 04.
+
+Eleven near-identical entries in the arm's `NOT_COMPARED` would have said one thing eleven times,
+which is how one of them comes to be worded differently from the other ten — and the report's table
+would have carried ninety words per row, which is a table nobody reads. So the fact is declared once,
+`Arm::no_style`, and the two scenes that need it consume it: scene 01 feeds it through
+`Excluded::CannotAsk` like any other exclusion — **so the `STALE` rule still covers all eleven rows**
+— and scene 04's `keeps-style` becomes `Seen::Unreportable` rather than `Seen::Reported`.
+
+That last one is small and it is the honest half. Folded into `Reported`, the row would have printed
+*the blanked half wears plain* — a claim about what Terminal.app renders, made by an instrument that
+cannot see what Terminal.app renders, in the one row of the scene whose whole value is that the
+families answer it differently.
+
+**And the rows still say something.** A styleless capture carries the row's *text*, so scene 01's
+eleven rows report *the label survived* and a scrolled or mis-sized screen is as loud on this arm as
+on any other. `tests.rs` gates both halves against the committed captures: not one cluster in either
+carries a style, and all eleven labels are where the scene put them.
+
+### Two operational facts, both found by doing it
+
+**`id of every window` is cumulative for the life of the Terminal.app process.** A closed window
+stays in the list with `visible` false and its name still readable — thirty-five of them after
+`close every window` on this machine. The Ghostty arm's equivalent fact is that window *indices* are
+z-order and shift between `osascript` calls; this is the same class of surprise one application
+along, and neither is written down anywhere but here.
+
+The set difference is still an address, and the reason is worth stating rather than leaving to a
+reader: the arm reads the id list **immediately before** it opens the window, so a stale id is in
+both snapshots and cancels, and what the difference contains is what appeared between the two calls.
+Filtering on `visible` would make the list live and would put *a window that has not finished
+appearing* into the refusal's path — a race the cumulative list does not have.
+
+**A `.decrqm` fixture was never covered by `.gitattributes`.** `*.vt` and `*.cpr` are marked `-text`
+because `core.autocrlf` silently rewrote 1949 bytes of a Ghostty capture to 1926 with every test
+still passing; scene 06 landed a third channel on 2026-08-29 and the rule was not extended to it.
+No damage was done — none of the four captures committed in between contains a CR — and *that is
+luck rather than safety*, which is the sentence the original rule was written to stop anyone having
+to say. Found by the session that added a fifth `.decrqm`, which is one arm's worth of notice.
+
+### The arm that can be handed a size and then insist on it
+
+`number of rows` and `number of columns` are read-write on Terminal.app's `window` class, so this arm
+sets them and then reads them back, and a window that came back some other size fails the run. kitty
+can *ask* on its command line and report what it got; Ghostty offers a font size and nothing else.
+
+It costs a two-step launch — `do script ""` for an empty window, the size, then `do script "…" in`
+that tab — because a size set after the scene has started is a size the engine is told about a moment
+too late. **The quiescence handshake is kept regardless**, for the reason the kitty arm gives: a
+declaration is not an observation, and the handshake is what observes that the window stopped moving.
+
+### What the arm confirmed rather than found, which is also worth the run
+
+Scene 04's four text rows agreed on a **fourth VT lineage**: Terminal.app blanks the orphaned half in
+both directions, exactly as Ghostty, kitty and tmux do. Architecture ticket 20's answer had been
+checked only against recent reimplementations, and this is the first terminal to agree with it that
+is not one. The `keeps-style` row is `not askable` here and always will be — and it was never a
+comparison.
+
 ## 2026-08-29 — stage 5, and the instrument was inside its own measurement on one family of three
 
 Scene 06 asks the terminal what it says about **mode 2026**: five DECRQM questions in one batch for

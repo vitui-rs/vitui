@@ -17,12 +17,22 @@
 //! `.scratch/vitui-engine-architecture/research/02-grapheme-clustering-and-width.md`.
 //!
 //! **Those three figures are a survey in a research document and not a measurement of ours**, and
-//! two of them were checked on 2026-08-29 and did not reproduce: `conform/`'s scene 05 asks a
-//! terminal what a cluster is worth with `CSI 6n`, and Ghostty 1.3.1, kitty 0.48.2 and tmux 3.7c
-//! all widen VS16 correctly and all answer **2** for a ZWJ family. The decision is unchanged —
-//! following the terminal was never the alternative, and a terminal that agrees today is not a
-//! promise — but the evidence for the disagreement is older than the terminals it names. See
-//! `conform/FINDINGS.md`, 2026-08-29.
+//! `conform/`'s scene 05 has now asked four terminals what a cluster is worth with `CSI 6n`. The
+//! answer arrived in two halves and the second corrects the reading of the first.
+//!
+//! - **2026-08-29, three families, and neither disagreement reproduced.** Ghostty 1.3.1,
+//!   kitty 0.48.2 and tmux 3.7c all widen VS16 correctly and all answer **2** for a ZWJ family.
+//! - **2026-08-30, a fourth, and both reproduce.** Terminal.app 2.15 answers **1** for the VS16
+//!   pair and **8** for the ZWJ family — the joiners counted as columns of their own. It sums the
+//!   cluster's code points where the other three take the base's width, which is the behaviour the
+//!   second policy below is pinned against.
+//!
+//! So the three families measured first are not the population the survey is about: they are recent
+//! reimplementations that all follow UAX #29, and the terminal Apple has shipped since NeXT does
+//! not. The decision is unchanged — following the terminal was never the alternative — and the
+//! right reading of the two dates together is that **a terminal that agrees today is not a promise
+//! and a terminal that disagrees is still shipping.** See `conform/FINDINGS.md`, 2026-08-29 and
+//! 2026-08-30, and `conform/fixtures/terminal-2.15-scene05-widths.cpr` for the bytes.
 //!
 //! Three answers are policy rather than standard, and each is pinned by name in [`tests`]:
 //! ambiguous width (UAX #11 class `A`) is **narrow**; a cluster's width is its base's width,

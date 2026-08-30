@@ -45,5 +45,8 @@ name = "tmux"
 [[example]]
 name = "kitty"
 
+[[example]]
+name = "terminal"
+
 [lints.rust]
 warnings = "deny"

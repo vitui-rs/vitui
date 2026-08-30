@@ -324,6 +324,9 @@ fn capture_and_compare(
                   and an in-band reply goes through none",
         },
         not_compared: NOT_COMPARED,
+        // Every capture from this arm is a re-serialisation of the emulator's own cell state, so
+        // the style is in the capture and scene 01 is answerable. See [`Arm::no_style`].
+        no_style: None,
         notes: vec![
             format!(
                 "**Geometry: asked for and got.** `-o initial_window_width={}c -o \

@@ -1336,8 +1336,18 @@ pub fn capture(
                 at.display()
             )
         })?;
-        let states = mode_reports(&bytes, SYNC_MODE, scene06().len())
-            .map_err(|e| format!("the answers are not a batch: {e}"))?;
+        // **One of the refusals is an observation, and only one.** A terminal that processed the
+        // batch and answered nothing has told us it has no synchronised-output report — the
+        // sentinel is what makes that a fact rather than a timeout — so it is carried as an empty
+        // set of states and printed row by row as `no reply`, against an arm that declared
+        // `cannot express` in advance. Every other refusal stays a refusal: a *short* batch is a
+        // lost answer, and reading one as the other would report a terminal without the mode on the
+        // strength of a dropped reply.
+        let states = match mode_reports(&bytes, SYNC_MODE, scene06().len()) {
+            Ok(states) => states,
+            Err(vitui_conform::ModeError::Unanswered { .. }) => Vec::new(),
+            Err(e) => return Err(format!("the answers are not a batch: {e}")),
+        };
         // The probe log is a **separate** refusal from the batch above, because the two channels
         // fail for different reasons: part A is a terminal that would not answer, part B is a
         // measurement that never ran. A driver that read one missing file as the other would
@@ -1437,8 +1447,27 @@ pub struct Arm {
     /// is reported `STALE` and counted as a failure — so a declaration cannot outlive what earned
     /// it.
     ///
-    /// See [`Excluded`] for the two kinds and why they are not one cell.
+    /// See [`Excluded`] for the three kinds and why they are not one cell.
     pub not_compared: &'static [(&'static str, Excluded, &'static str)],
+    /// Why this arm's capture surface carries **no style at all**, if it carries none.
+    ///
+    /// # One fact, declared once, reaching two scenes
+    ///
+    /// Terminal.app's AppleScript surface hands back `contents` as `type="text" access="r"` and has
+    /// no styled variant anywhere on the `tab` class, so every cell of every capture from that arm
+    /// is unstyled — whatever Terminal.app actually rendered. That is one property of the arm and it
+    /// lands in two places: scene 01 is eleven rows *about* style, and scene 04 has one row whose
+    /// value is a style it **reports**.
+    ///
+    /// Eleven near-identical entries in [`Arm::not_compared`] would have said the same thing eleven
+    /// times, which is how one of them comes to be worded differently from the other ten. This says
+    /// it once. **It is still a declaration and still carries the `STALE` rule**: scene 01 feeds it
+    /// through [`Excluded::CannotAsk`] like any other exclusion, so a row that agrees anyway is
+    /// counted as a failure and the declaration cannot outlive what earned it.
+    ///
+    /// **A fact about the instrument and never about the emulator.** Terminal.app renders bold; this
+    /// arm cannot see that it did. Nothing here may be read as a claim about what Terminal.app draws.
+    pub no_style: Option<&'static str>,
     /// Anything else this arm knows that the reader needs. One bullet per entry, already worded.
     pub notes: Vec<String>,
 }
@@ -1487,6 +1516,20 @@ pub struct AnswersInBand {
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum Excluded {
+    /// A fact about the **emulator**: it has no answer to give, and that is the answer.
+    ///
+    /// `compare/`'s first kind of non-number, inherited by `SCENES.md` on the day this directory was
+    /// laid out and constructed by no arm for four of them — because the first three emulator
+    /// families all had every capability the scenes ask about. **Terminal.app 2.15 is the first that
+    /// does not**: it has no synchronised output, so `CSI ? 2026 $ p` is a question it cannot answer
+    /// rather than one it answers wrongly, and a `FAILED` there would be this suite demanding a
+    /// feature of a terminal that never claimed it.
+    ///
+    /// Not [`Excluded::CannotAsk`]: that one is the *instrument* failing to see something the
+    /// emulator does. Here the emulator is not doing it, this suite can see that perfectly well, and
+    /// what is missing is the capability rather than the view of it. Collapsing the two would hide
+    /// the more interesting of the two facts behind the less.
+    CannotExpress,
     /// A fact about the **instrument**: the emulator does the thing and this suite cannot see it.
     ///
     /// kitty 0.48.2 renders a dotted underline and writes it into a capture as `CSI 4 : m`, which is
@@ -1513,6 +1556,7 @@ impl Excluded {
     /// The report's cell for this kind.
     fn cell(self) -> &'static str {
         match self {
+            Self::CannotExpress => "`cannot express`",
             Self::CannotAsk => "`cannot ask`",
             Self::ByDesign => "`by design`",
         }
@@ -1521,6 +1565,11 @@ impl Excluded {
     /// What a row of this kind agreeing anyway would mean.
     fn stale(self) -> &'static str {
         match self {
+            Self::CannotExpress => {
+                "the row agrees, so the terminal answered a question this arm \
+                 declared it had no answer to — it has grown the capability, and `SCENES.md` and \
+                 this arm no longer describe the same emulator"
+            }
             Self::CannotAsk => {
                 "the row agrees, so this arm's declaration that it cannot be asked \
                                 is out of date and is now hiding whatever it is next wrong about"
@@ -1552,6 +1601,20 @@ enum Verdict {
 }
 
 impl Verdict {
+    /// What this verdict says when the arm's capture surface carries **no style at all**.
+    ///
+    /// **Not "nothing", which is what [`Verdict::observed`] prints here and is the wrong sentence.**
+    /// A styleless capture still carries the row's *text*, so `Missing` and `WrongText` are real
+    /// observations that stay loud — a mis-sized or scrolled screen is exactly as visible on this
+    /// arm as on any other. What is unreachable is the style, and only the style, so the one verdict
+    /// that changes is the one that fell over on it.
+    fn observed_without_style(&self) -> String {
+        match self {
+            Self::WrongStyle(_) => "the label survived".to_string(),
+            other => other.observed(),
+        }
+    }
+
     fn observed(&self) -> String {
         match self {
             Self::Agreed(style) => describe(*style),
@@ -1705,11 +1768,20 @@ fn section01(arm: &Arm, dump: &Dump, size: &str) -> (String, usize, usize) {
     let mut unanswerable = 0;
     for (i, case) in cases.iter().enumerate() {
         let verdict = judge(dump, i, case);
+        // **The arm's own declaration first, then the styleless fallback.** An arm that named this
+        // row keeps its wording; one that only said its capture surface carries no style gets that
+        // reason on all eleven. See [`Arm::no_style`].
+        let excluded = arm
+            .excluded(case.label)
+            .or_else(|| arm.no_style.map(|why| (Excluded::CannotAsk, why)));
+        let observed = match arm.no_style {
+            Some(_) => verdict.observed_without_style(),
+            None => verdict.observed(),
+        };
         let (mark, observed) = mark_of(
-            arm,
-            case.label,
+            excluded,
             verdict.agreed(),
-            &verdict.observed(),
+            &observed,
             &mut failures,
             &mut unanswerable,
         );
@@ -1766,10 +1838,9 @@ fn section04(arm: &Arm, dump: &Dump, size: &str) -> (String, usize, usize) {
     let mut failures = 0;
     let mut unanswerable = 0;
     for (i, pair) in pairs.iter().enumerate() {
-        let verdict = judge04(dump, i, pair);
+        let verdict = judge04(dump, i, pair, arm.no_style);
         let (mark, observed) = mark_of(
-            arm,
-            pair.label,
+            arm.excluded(pair.label),
             verdict.agreed(),
             &verdict.observed(),
             &mut failures,
@@ -1839,8 +1910,7 @@ fn section05(arm: &Arm, replies: &[Reply]) -> (String, usize, usize) {
         compared += 1;
         let seen = advance(i);
         let (mark, observed) = mark_of(
-            arm,
-            glyph.label,
+            arm.excluded(glyph.label),
             seen == Some(want),
             &match seen {
                 Some(n) => format!("{n}"),
@@ -1952,7 +2022,11 @@ fn section06(arm: &Arm, answers: &ModeAnswers) -> (String, usize, usize) {
          the mode set after it was asked to reset it is wrong by the definition of the reply it \
          sent, not by a table this repository chose. A terminal with no synchronised output answers \
          `not recognised (0)` throughout, which is a legitimate answer — the arm then owes a \
-         `cannot express` declaration, and until it has one the rows are loud.\n"
+         `cannot express` declaration, and until it has one the rows are loud. **A terminal may \
+         also answer nothing at all**, which Terminal.app 2.15 does: its parser does not take `$` \
+         as an intermediate, so this is not a query it declines but one it never finishes reading. \
+         The sentinel is what makes that an observation rather than a timeout, and the rows below \
+         then read `no reply` against a `cannot express` the arm declared in advance.\n"
     );
     let _ = writeln!(
         out,
@@ -1965,8 +2039,7 @@ fn section06(arm: &Arm, answers: &ModeAnswers) -> (String, usize, usize) {
     for (i, row) in rows.iter().enumerate() {
         let seen = answers.states.get(i).map(|r| r.state);
         let (mark, observed) = mark_of(
-            arm,
-            row.label,
+            arm.excluded(row.label),
             seen == Some(row.want),
             &seen.map_or_else(|| "no reply".to_string(), |s| s.to_string()),
             &mut failures,
@@ -2074,18 +2147,23 @@ fn code_points(cluster: &str) -> String {
 
 /// The report cell for one row, and the two counters it moves.
 ///
-/// One function because the two scenes must treat an exclusion identically: a row an arm declared it
-/// would not compare leaves the denominator, and a row so declared that **agrees anyway** is `STALE`
-/// and counts as a failure. Two copies of that rule is how one of them would come to be missing it.
+/// One function because the three scenes must treat an exclusion identically: a row an arm declared
+/// it would not compare leaves the denominator, and a row so declared that **agrees anyway** is
+/// `STALE` and counts as a failure. Two copies of that rule is how one of them would come to be
+/// missing it.
+///
+/// **The exclusion is handed in rather than looked up**, because scene 01 has a second source for
+/// one: an arm whose capture surface carries no style at all excludes every row of that scene from
+/// [`Arm::no_style`], and the rule above has to reach those rows identically. A lookup inside here
+/// would have made that a fourth place the rule is written.
 fn mark_of(
-    arm: &Arm,
-    label: &str,
+    excluded: Option<(Excluded, &'static str)>,
     agreed: bool,
     observed: &str,
     failures: &mut usize,
     unanswerable: &mut usize,
 ) -> (&'static str, String) {
-    match (arm.excluded(label), agreed) {
+    match (excluded, agreed) {
         (Some((kind, _)), true) => {
             *failures += 1;
             ("**STALE**", kind.stale().to_string())
@@ -2107,11 +2185,13 @@ fn not_in_the_denominator(unanswerable: usize, total: usize) -> String {
     format!(
         "**Not in that denominator: {unanswerable} of the scene's {total}.** This arm declared \
          before the run that it would not compare them, with the reason printed in the row beside \
-         what was nonetheless observed. `cannot ask` is a fact about the **instrument** — the \
-         emulator does the thing and this suite cannot see it. `by design` is a fact about **the \
-         engine** — it consulted `quirks.rs` and did not send it, so a `FAILED` would blame the \
-         terminal for a decision of ours. `compare/`'s three kinds of non-number have a word for \
-         neither, which is why `SCENES.md` grew two more. A row so declared that agrees anyway is \
+         what was nonetheless observed. `cannot express` is a fact about the **emulator** — it has \
+         no answer to give, and that is the answer. `cannot ask` is a fact about the \
+         **instrument** — the emulator does the thing and this suite cannot see it. `by design` \
+         is a fact about **the engine** — it consulted `quirks.rs` and did not send it, so a \
+         `FAILED` would blame the terminal for a decision of ours. Only the first of the three is \
+         one `compare/` had a word for, which is why `SCENES.md` grew the other two. A row so \
+         declared that agrees anyway is \
          reported `STALE` and counted as a failure, so a declaration cannot outlive what earned \
          it.\n"
     )
@@ -2133,11 +2213,25 @@ enum Seen {
     /// The row asked to report a cluster the capture does not have that many of. A defect in the
     /// scene or a capture that lost cells, and either way not a silent blank cell in the report.
     NoSuchCluster(usize),
+    /// The text agreed and the style this row exists to report is **not askable of this arm**.
+    ///
+    /// **The alternative is a sentence that is false.** A styleless capture surface hands every
+    /// cluster back wearing nothing, so folding this into [`Seen::Reported`] would print *the
+    /// blanked half wears plain* — a claim about what Terminal.app renders, made by an instrument
+    /// that cannot see what Terminal.app renders, in the one row of the scene whose whole value is
+    /// that the three families answer it differently.
+    ///
+    /// It agrees, because the row's **assertion** is its text and the text is comparable here. Only
+    /// the reported half is out of reach, and this variant is what says which half.
+    Unreportable(String, usize, &'static str),
 }
 
 impl Seen {
     fn agreed(&self) -> bool {
-        matches!(self, Self::Agreed(_) | Self::Reported(..))
+        matches!(
+            self,
+            Self::Agreed(_) | Self::Reported(..) | Self::Unreportable(..)
+        )
     }
 
     fn observed(&self) -> String {
@@ -2150,6 +2244,10 @@ impl Seen {
             Self::Missing => "no such row".into(),
             Self::WrongText(text) => format!("`{text:?}`"),
             Self::NoSuchCluster(at) => format!("the row has no cluster {at}"),
+            Self::Unreportable(text, at, why) => format!(
+                "`{text:?}` — and what cluster {at}, the blanked half, wears is **not askable of \
+                 this arm**: {why}"
+            ),
         }
     }
 }
@@ -2161,7 +2259,7 @@ impl Verdict {
 }
 
 /// Judge one row of scene 04: the text is the assertion, and a style is carried out for the report.
-fn judge04(dump: &Dump, i: usize, pair: &Pair) -> Seen {
+fn judge04(dump: &Dump, i: usize, pair: &Pair, no_style: Option<&'static str>) -> Seen {
     let Some(row) = dump.rows.get(i) else {
         return Seen::Missing;
     };
@@ -2174,7 +2272,12 @@ fn judge04(dump: &Dump, i: usize, pair: &Pair) -> Seen {
         let Some(cluster) = row.clusters.get(at) else {
             return Seen::NoSuchCluster(at);
         };
-        return Seen::Reported(text, at, cluster.style);
+        // The cluster is looked up **before** this, so a styleless arm still refuses a capture that
+        // lost cells. What the declaration removes is the style claim and nothing else.
+        return match no_style {
+            Some(why) => Seen::Unreportable(text, at, why),
+            None => Seen::Reported(text, at, cluster.style),
+        };
     }
     Seen::Agreed(text)
 }
@@ -2239,7 +2342,17 @@ fn show(c: Option<Colour>) -> String {
 /// The write failing, or a disagreement — which is a non-zero exit so a human running this notices,
 /// and **not** a CI gate: nothing runs these on a pull request.
 pub fn publish(arm: &Arm, report: &str, asked: usize, failures: usize) -> Result<(), String> {
-    let path = format!("REPORT-{}.md", arm.title.to_lowercase());
+    // **Slugified rather than lowercased.** An arm titled `Terminal.app` would otherwise write
+    // `REPORT-terminal.app.md`, whose apparent double extension reads as an accident and whose name
+    // is not the one a reader arrives with — `cargo run --example terminal`. Every title that
+    // existed before this passes through unchanged.
+    let slug: String = arm
+        .title
+        .to_lowercase()
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect();
+    let path = format!("REPORT-{slug}.md");
     std::fs::write(&path, report).map_err(|e| format!("writing {path}: {e}"))?;
     println!("{report}");
     // `asked` is summed over the sections and already excludes the rows this arm said it would not

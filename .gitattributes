@@ -18,3 +18,12 @@ fuzz/corpus/** -text
 # A cursor report is not text either, and for the reason above. `.cpr` is the scene-05 channel:
 # the terminal's own answers, read by `cursor_reports` rather than by the dump parser.
 *.cpr -text
+
+# And a DECRQM reply is not text, for the third time and the same reason. `.decrqm` is the scene-06
+# channel: the terminal's own answers about mode 2026, read by `mode_reports`.
+#
+# **This line was missing from 2026-08-29, when scene 06 landed, until 2026-08-30.** No damage was
+# done — none of the four captures committed in between contains a CR — and that is luck rather than
+# safety, which is the same sentence the rule above was written to stop anyone having to say. The
+# gap was found by the session that added a fifth `.decrqm`, which is one arm's worth of notice.
+*.decrqm -text

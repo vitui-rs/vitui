@@ -896,6 +896,35 @@ pub struct ModeReply {
 pub enum ModeError {
     /// No device-attributes reply, so nothing says the terminal finished with the batch.
     NoSentinel,
+    /// The sentinel arrived and **nothing came before it**: the terminal processed the whole batch
+    /// and said not one word about the mode.
+    ///
+    /// # Not a short batch, and the difference is the whole finding
+    ///
+    /// [`ModeError::Count`] is *the terminal lost an answer*, which is a defect in the run. This is
+    /// *the terminal does not answer this question at all*, which is a fact about the terminal — and
+    /// the sentinel is what makes it one rather than a timeout: a device-attributes reply cannot be
+    /// sent before everything ahead of it has been processed, so silence in front of it is silence
+    /// the terminal chose.
+    ///
+    /// DEC's own answer for a mode a terminal does not have is `not recognised (0)`, and the four
+    /// arms that existed before this variant all *have* mode 2026 — so none of them ever produced
+    /// it, and a terminal without the mode was a case this reader had only ever been described.
+    /// **Terminal.app 2.15 answers nothing at all**: its parser does not take `$` as an
+    /// intermediate byte, so
+    /// `CSI ? 2026 $ p` is not a query it declines — it is a sequence it never finishes reading, and
+    /// the `p` lands on the screen as text. An instrument that read that as a short batch would
+    /// report a lost answer about a terminal that never had one to lose.
+    ///
+    /// **Silence, and not merely no answers of the right shape.** A capture from another channel —
+    /// scene 05's fifteen cursor reports, say — also has a sentinel and no mode reports, and that is
+    /// [`ModeError::Count`] rather than this: the terminal spoke, and what it said was an answer to
+    /// a different question. Collapsing the two would let a `.cpr` file pass as a terminal without
+    /// synchronised output.
+    Unanswered {
+        /// How many questions the scene asked and got no answer to.
+        expected: usize,
+    },
     /// Fewer — or more — mode reports before the sentinel than the scene asked for.
     Count {
         /// How many questions the scene asked.
@@ -962,6 +991,12 @@ impl fmt::Display for ModeError {
                 "a private-mode reply reads `CSI {body} y` and its two parameters are not two \
                  numbers; dropped it would arrive as a lost answer, which is a different cause"
             ),
+            Self::Unanswered { expected } => write!(
+                f,
+                "the sentinel arrived with nothing in front of it, so the terminal processed all \
+                 {expected} questions and answered none of them — it does not have this mode's \
+                 report, which is a fact about the terminal and not a lost answer"
+            ),
             Self::UnterminatedReply => write!(
                 f,
                 "a control sequence began and the bytes ran out before it ended"
@@ -997,6 +1032,14 @@ impl std::error::Error for ModeError {}
 pub fn mode_reports(bytes: &[u8], mode: u16, expected: usize) -> Result<Vec<ModeReply>, ModeError> {
     let mut replies: Vec<ModeReply> = Vec::new();
     let mut sentinel = false;
+    // Whether the terminal said **anything** before the sentinel, of any shape. It is what separates
+    // [`ModeError::Unanswered`] from [`ModeError::Count`]: a terminal that answered a different
+    // question spoke, and one that answered none did not. See that variant.
+    //
+    // The DECRPM arm below sets it too, where the emptiness test already covers that path. That is
+    // deliberate: the flag then means what its name says rather than *spoke, except about this*, and
+    // a later reader adding a fourth final byte has one rule to follow instead of two.
+    let mut spoke = false;
     let mut i = 0;
 
     while i < bytes.len() {
@@ -1047,15 +1090,19 @@ pub fn mode_reports(bytes: &[u8], mode: u16, expected: usize) -> Result<Vec<Mode
                 let Some(state) = ModeState::from_ps(ps) else {
                     return Err(ModeError::UnknownState { ps });
                 };
+                spoke = true;
                 replies.push(ModeReply { mode: which, state });
             }
-            _ => {}
+            _ => spoke = true,
         }
         i = end + 1;
     }
 
     if !sentinel {
         return Err(ModeError::NoSentinel);
+    }
+    if replies.is_empty() && expected > 0 && !spoke {
+        return Err(ModeError::Unanswered { expected });
     }
     if replies.len() != expected {
         return Err(ModeError::Count {

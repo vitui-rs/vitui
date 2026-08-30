@@ -17,7 +17,7 @@ conclusion and wrote its own list for the same reason.
 | **Ghostty** | Ghostty | its own screen dump, over an AppleScript surface. Needs a window server and a macOS automation grant |
 | **Ghostty-via-tmux** | **what tmux forwards** | the engine into tmux into Ghostty, photographing Ghostty. Ghostty alone agrees 11/11, so a disagreement here is tmux's. **The only arm that can see this**, because `capture-pane` and tmux's redraw path are different code and `attrs_dropped` is about what is rendered |
 | **kitty** | kitty | `kitten @ get-text --ansi` over a unix socket. No automation grant, no clipboard, no z-order — and **the only *emulator* arm that can be handed a size**, in cells, which Ghostty's AppleScript surface cannot do |
-| **Terminal.app** | Terminal.app | plain text only, so glyph-grid scenes and nothing else. Not built — **and scenes 05 and 06 change what that sentence excludes**, because a question asked in band needs no capture surface at all |
+| **Terminal.app** | Terminal.app | `contents of selected tab`, over AppleScript, and **plain text only** — the `tab` class has no styled variant. **A fourth VT lineage**, and the first arm here that disagrees with the others. Scene 01 is `cannot ask` on all eleven rows; scenes 05 and 06 are answered **in full**, because a question asked in band needs no capture surface at all. The only *emulator* arm that can be **handed** a size and then insist on it |
 
 **Scenes 05 and 06 are answered by a different party than the rows above it**, and only one arm is
 affected. Their answers come back **in band**, on the scene's own tty, so they come from the
@@ -63,6 +63,21 @@ Production ticket 04 predicted this cell would be needed and predicted the wrong
 expected Terminal.app's plain-text-only capture surface to be the first thing `compare/`'s vocabulary
 could not describe. kitty got there first, and with a sharper case — Terminal.app cannot carry *any*
 style, where kitty carries ten of the eleven and mis-spells the eleventh.
+
+**Terminal.app then arrived and constructed the cell it was predicted for, twelve rows of it — and
+also, separately, the first `cannot express` this directory has ever had.** The two land on different
+scenes and the pair is what shows they are not one word: scene 01's eleven rows and scene 04's one
+reported style are `cannot ask`, because Terminal.app draws bold and `contents` is
+`type="text" access="r"`; scene 06's five rows are `cannot express`, because Terminal.app has no
+synchronised output at all. One arm, one run, both facts — and a suite with a single word for them
+would have reported *this terminal does not do bold* and *we could not see the mode*, each of them
+the other's answer.
+
+**The eleven rows are declared from one sentence rather than eleven**, through `Arm::no_style`. Rule
+1 above is unaffected — it is still a hand-written declaration in the arm, made before the run, and
+rule 3 still applies to every row it covers. What changes is only that a fact about the arm is written
+once. The rows still print what was observed, and for a styleless capture that observation is *the
+label survived*, which is why a scrolled or mis-sized screen is as loud on this arm as on any other.
 
 **`by design` is the fifth, and it is a fact about *the engine*.** The engine consulted `quirks.rs`
 and deliberately did not send the attribute, so a `FAILED` would blame the terminal for a decision of
@@ -173,10 +188,12 @@ it* have no way to be told apart.
 lost its.** An arm that asked the engine what to expect would be checking the engine against itself.
 These six rows ask nothing of the engine at all, so wiring the answer took no measurement away.
 
-### What it found, on four arms, 2026-08-23
+### What it found, on four arms, 2026-08-23 — and a fifth on 2026-08-30
 
 The four text rows are **unanimous**: every family blanks the orphaned half, in both directions, and
-none of them has a clip to consult. That settles architecture ticket 20.
+none of them has a clip to consult. That settles architecture ticket 20. Terminal.app 2.15 agreed
+with all four of them a week later, which is the first time this answer has been checked against a
+terminal that is not a recent reimplementation.
 
 `keeps-style` is not unanimous, and it is the sharper finding. The wide glyph carries a red background
 and the cluster written over its continuation does not:
@@ -186,9 +203,17 @@ and the cluster written over its continuation does not:
 | kitty 0.48.2 | the orphan's own background |
 | Ghostty 1.3.1 | nothing — the SGR state in force |
 | tmux 3.7c | nothing — the SGR state in force |
+| Terminal.app 2.15 | **not askable**, 2026-08-30 — its capture surface carries no style at all |
 
 So a repair delegated to the terminal is a repair whose **result differs by terminal**, and no mirror
 state could be right on all three. *The engine may as well repair* becomes *the engine must*.
+
+**The fourth row is a fact about the instrument and is in the table anyway**, which is the rule this
+file's second section states: a row left out reads as a win. Terminal.app renders that background —
+nothing here says it does not — and no property reachable over AppleScript can report it. Its other
+four text rows joined the unanimity on 2026-08-30, so the answer architecture ticket 20 rests on now
+has a **fourth VT lineage** behind it and the one row that could not be reached is the one that was
+never a comparison.
 
 **That row is reported and never compared**, and it is not a sixth kind of non-number. There is no
 single right answer to hold an arm to, and inventing one would give two of three arms a permanent
@@ -278,13 +303,13 @@ everywhere.** The corpus is not a soft one: it carries the VS16 and VS15 pair, a
 regional-indicator flag, a skin-tone modifier, a keycap sequence, a combining acute, a zero-advance
 cluster and UAX #11's ambiguous class.
 
-Two of the rows were chosen because `ucd.rs` names them as disagreements, and **neither
-reproduces**:
+Two of the rows were chosen because `ucd.rs` names them as disagreements, and **neither reproduced
+on those four arms**:
 
-| `ucd.rs` says | measured here |
-|---|---|
-| *only 7 of 23 surveyed widen a VS16 emoji correctly* | Ghostty 1.3.1, kitty 0.48.2 and tmux 3.7c all widen it |
-| *kitty sums a ZWJ family emoji to 6 where the answer is 2* | kitty 0.48.2 answers **2** |
+| `ucd.rs` says | measured 2026-08-29 | and then 2026-08-30 |
+|---|---|---|
+| *only 7 of 23 surveyed widen a VS16 emoji correctly* | Ghostty 1.3.1, kitty 0.48.2 and tmux 3.7c all widen it | **Terminal.app 2.15 does not.** The citation reproduces on the fourth family |
+| *kitty sums a ZWJ family emoji to 6 where the answer is 2* | kitty 0.48.2 answers **2** | Terminal.app sums the same cluster to **8**, counting each joiner as a column. The behaviour `ucd.rs` describes, on a terminal it does not name |
 
 That paragraph cites a **survey in a research document**, and this is the first thing in this
 repository to observe any of it. The kitty row was checked a second time with a raw `printf` control
@@ -298,6 +323,34 @@ the bound; what moved is that the cited evidence for the disagreement is now kno
 the three families §10 puts in tier 1, at the versions on this machine. The right reading is
 `FINDINGS.md`'s: **the survey needs an arm that disagrees**, and the two candidates are a terminal
 of a different VT lineage and a locale this suite does not set.
+
+### The fifth arm, 2026-08-30, and the survey stopped being four identical columns
+
+**Terminal.app 2.15 disagrees on four of the twelve surveyed rows**, which is what the paragraph
+above asked for and is the reason that arm was built. The count is the least interesting part; the
+shape is the finding.
+
+| row | the engine | Terminal.app 2.15 |
+|---|---|---|
+| `zero-width` (U+200B) | 0 | **1** |
+| `vs16` (U+2764 U+FE0F) | 2 | **1** |
+| `zwj-family` (three emoji, two ZWJs) | 2 | **8** |
+| `skin-tone` (U+1F44D U+1F3FD) | 2 | **4** |
+
+Every one is an emoji-era question, and every one falls the same way: **Terminal.app sums the
+cluster's code points where the other three take the base's width.** 8 is 2+1+2+1+2 with the joiners
+counted as columns of their own; 4 is 2+2; a zero-width space is a cluster it does not know is
+zero-width; and a VS16 pair is a text-presentation heart plus a selector it does not act on. That is
+`ucd.rs`'s second pinned policy — *a cluster's width is its base's width, never the sum of its code
+points* — named as a policy precisely because terminals exist that do the other thing. This is the
+first one this repository has measured.
+
+**It changes no decision and it changes what the survey is worth.** Three columns that agree cannot
+distinguish *the terminals agree with our tables* from *the instrument is reading our tables back to
+us*; a fourth that disagrees on four rows, through the same code, on the same day, can. The rows stay
+surveyed rather than compared, for the reason the split was made: there is no mechanism in this
+repository that would read such a `quirks.rs` row, and §8's `CHA`-after-non-ASCII rule is what bounds
+the disagreement instead of following it.
 
 ## 06 — mode 2026, asked of the terminal rather than of its documentation
 
@@ -399,6 +452,33 @@ tmux and kitty land on theirs. **Ghostty's bracket sits below its own `sync_rese
 this scene cannot say why: the instant the terminal armed the timer is not observable from inside,
 so a write that reached Ghostty before the scene took its own `Instant::now()` would move the whole
 bracket earlier by that much. What is reported is the interval that was observed.
+
+### The fifth arm, 2026-08-30, and the first terminal here that has no answer
+
+**Terminal.app 2.15 answers nothing at all**, and the five rows are this directory's first
+`cannot express`. Not `not recognised (0)`, which is DEC's own way of declining a mode it does not
+have — nothing: its parser does not take `$` as an intermediate byte, so `CSI ? 2026 $ p` is not a
+query it declines but a sequence it never finishes reading, and the `p` lands on the screen as text.
+
+**The sentinel is the whole reason that is an observation rather than a timeout.** A
+device-attributes reply cannot be sent before everything ahead of it has been processed, so silence
+in front of one is silence the terminal chose. The committed fixture is seven bytes and all seven of
+them are that reply.
+
+`vitui_conform::ModeError::Unanswered` is the refusal that says so, and it is **not**
+`ModeError::Count`. A short batch is *the terminal lost an answer*, which is a defect in the run; this
+is *the terminal has no such report*, which is a fact about the terminal. The line between them is
+whether the terminal spoke at all before the sentinel — never whether it spoke in this scene's
+grammar — because a capture from another channel has a sentinel and no mode reports too, and
+collapsing the two would let a `.cpr` file pass as a terminal without synchronised output.
+
+**Three things this does and does not mean.** `detect.rs` reaches the same conclusion from the same
+silence and reports `sync_output false`, so the engine wraps no frame in a mode this terminal does
+not have — the engine is right here and this scene is the first outside evidence of it. The
+`closed-once` row is the one §8 depends on, and its absence is not a risk: a terminal that counted
+the sets would hold a frame past the close sent for it, and a terminal with no mode at all has
+nothing to hold. And there is no `quirks.rs` row in this: that table's four entries are force-flush
+*limits*, and a terminal without the mode has no limit to record.
 
 ### The refusals, and there are five
 

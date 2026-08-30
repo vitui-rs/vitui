@@ -15,11 +15,11 @@ that arrangement cannot catch:
 This directory is the missing fourth party. It is
 [production ticket 04](../.scratch/vitui-engine-production/issues/04-the-conformance-harness.md).
 
-## Status: stages 0, 1, 2, 3, 5, four scenes and three emulator families
+## Status: every stage, four scenes and four emulator families
 
-**Four arms, four committed reports, three emulator families, two `quirks.rs` entries, one closed
-architecture ticket, one stale citation and one documented number that does not reproduce came out
-of them.** Seventy tests, no emulator in the loop for any of them.
+**Five arms, five committed reports, four emulator families, two `quirks.rs` entries, one closed
+architecture ticket, one citation that reproduces on the fourth family and one defect in the
+engine's own output came out of them.** Eighty tests, no emulator in the loop for any of them.
 
 | arm | scene 01 | scene 04 | scene 05 | scene 06 | what its rows are about |
 |---|---|---|---|---|---|
@@ -27,6 +27,7 @@ of them.** Seventy tests, no emulator in the loop for any of them.
 | `cargo run --example tmux` | **10/10**, one `by design` | **6/6** | **3/3**, and 12 of 12 surveyed | **5/5**, flag reset 971–1064 ms | what tmux 3.7c *stores* — `capture-pane` re-serialises tmux's grid |
 | `cargo run --example ghostty -- --through-tmux` | **10/10**, one `by design` | **6/6** | **3/3**, and 12 of 12 surveyed — **tmux's, not Ghostty's** | **5/5**, 971–1063 ms — **tmux's, not Ghostty's** | what tmux 3.7c *forwards*, read through Ghostty |
 | `cargo run --example kitty` | **8/8**, one `cannot ask`, two `by design` | **6/6** | **3/3**, and 12 of 12 surveyed | **5/5**, flag reset 1985–2085 ms | kitty 0.48.2's own cell state |
+| `cargo run --example terminal` | **0/0**, eleven `cannot ask` | **6/6** | **3/3**, and **8 of 12** surveyed | **0/0**, five `cannot express` | Terminal.app 2.15's screen as plain text, and its own in-band answers |
 
 **An arm runs every scene or it is not a run**, and one report per arm holds a section for each —
 same rule, same reason, as one file per arm: a section that is missing reads as a win. There is
@@ -110,6 +111,7 @@ cd conform && cargo run --example tmux            # the headless soak. No window
 cd conform && cargo run --example kitty           # a window, but no automation grant
 cd conform && cargo run --example ghostty         # the soak that needs a window server
 cd conform && cargo run --example ghostty -- --through-tmux   # tmux in the middle
+cd conform && cargo run --example terminal        # a window, an automation grant, and no style
 ```
 
 **One report file per arm**, `REPORT-<arm>.md`, and that is not filing. Two arms writing one
@@ -125,6 +127,16 @@ but reaches the terminal over a remote-control socket rather than an automation 
 no TCC grant, no clipboard and no z-order in the loop, and no `kitty.conf` either. It is also **the
 only *emulator* arm that can be handed a size**, in cells; tmux can set a pane size and is not an
 emulator, and Ghostty's `surface configuration` offers a font size and nothing else.
+
+**The Terminal.app arm is the fourth family and the one that disagrees.** It needs a window server
+and an automation grant like the Ghostty arm, and its capture surface carries **no style at all** —
+`contents` is `type="text" access="r"` and the `tab` class has no styled variant — so scene 01 is
+eleven `cannot ask` rows and scene 04's reported style is unreportable. What it *can* do is the
+reason it exists: scenes 05 and 06 are answered in band on the scene's own tty, where no capture
+surface is in the path, and it is the first arm here to disagree with the other three about anything.
+It is also the only arm that can be **handed** a size and then insist on it — `number of rows` and
+`number of columns` are read-write on its `window` class, where kitty's geometry is a request
+reported back.
 
 Each arm is one executable with two halves: with no arguments it is the driver, with `--scene NN` it
 is that scene, and the driver launches the scene by re-running its own `current_exe()`. That is not a
@@ -153,13 +165,18 @@ captured.
 Stage 3 (CPR and the width questions) landed 2026-08-29 as scene 05, and **stage 5 (mode 2026) the
 same day as scene 06** — which was recorded as *if at all*, on an expectation that the AppleScript
 jitter made it unanswerable. It did not need the capture surface: the terminal answers DECRQM in
-band, so the whole of that jitter is out of the path. Stage 4 has three emulator families now — Ghostty, kitty and, as a target rather than an emulator, tmux — and what it still owes
-is a second **VT lineage**: Terminal.app, not built — and **scene 05 changes what that arm would be
-limited to.** Ticket 04 records it as glyph-grid scenes only, because its `sdef` says `contents` is
-`type="text" access="r"` with no styled variant. That is a fact about the *capture surface*, and
-scene 05 has no capture surface in its path — so such an arm could answer scene 05 in full, scene 04
-as text, and only scene 01 not at all. See
-[ticket 04](../.scratch/vitui-engine-production/issues/04-the-conformance-harness.md).
+band, so the whole of that jitter is out of the path.
+
+**Stage 4 closed on 2026-08-30 with the Terminal.app arm, and ticket 04 with it.** Ticket 04 had
+recorded that arm as *glyph-grid scenes only* from its `sdef`, and scene 05 had already made the
+sentence too small: *plain text only* is a fact about the **capture surface**, and an in-band
+question has none in its path. So the arm answers scene 05 in full, scene 06 in full, scene 04 as
+text, and only scene 01 not at all — and it is the arm the survey needed. Three families that agree
+cannot say whether they are agreeing with the engine's tables or reflecting them; **Terminal.app 2.15
+disagrees on four of scene 05's twelve surveyed rows**, all four by summing a cluster's code points
+where the others take the base's width. `ucd.rs`'s headline citation reproduces on it. See
+[ticket 04](../.scratch/vitui-engine-production/issues/04-the-conformance-harness.md) and
+`FINDINGS.md`, 2026-08-30.
 
 ## Why it reports and never gates
 
@@ -203,18 +220,22 @@ form — the missing row hiding inside a green one.
 | `tmux-3.7c-scene01-attrs.vt` | the same scene as **tmux's own grid** holds it — all eleven, overline included, spelled `5:3` because tmux writes any two-digit attribute code as `code/10 : code%10` |
 | `ghostty-1.3.1-via-tmux-3.7c-scene01-attrs.vt` | the same scene **through** tmux into Ghostty: ten of the eleven, and overline gone. The three files above are one scene down three paths, which is what turns *something is wrong* into *tmux does not forward SGR 53* |
 | `kitty-0.48.2-scene01-attrs.vt` | the same scene as kitty holds it: nine of the eleven, conceal and overline bare, and a dotted underline spelled `CSI 4 : m` — the bytes the arm's `cannot ask` declaration rests on. LF-separated where Ghostty's is CRLF, and padded to the full width where tmux's is trimmed to the label |
+| `terminal-2.15-scene01-attrs.vt` | the same scene as **Terminal.app's AppleScript surface** hands it back: eleven labels and **not one attribute anywhere**, because `contents` is `type="text"`. The bytes the arm's eleven `cannot ask` rows rest on, and the reason the declaration is gated rather than only stated — no cluster in this file carries a style, and all eleven labels are where the scene put them |
 
 | `ghostty-1.3.1-scene04-pairs.vt` | scene 04 as Ghostty gave it back: the orphaned half blanked in both directions, and blanked **to the SGR state in force** rather than to the glyph's own red background |
 | `kitty-0.48.2-scene04-pairs.vt` | the same scene as kitty holds it: the same four text rows, and the blanked half wearing **the orphan's own background**. The one row on which the three families differ, and the reason the engine may not delegate the repair |
 | `tmux-3.7c-scene04-pairs.vt` | the same scene as tmux's own grid holds it — agreeing with Ghostty on all five |
 | `ghostty-1.3.1-via-tmux-3.7c-scene04-pairs.vt` | the same scene **through** tmux into Ghostty, agreeing with both. It is also the arm that found the probe's own defect: `CSI 2 J` pushed the picture into tmux's history and the capture came back with the scene on it twice |
+| `terminal-2.15-scene04-pairs.vt` | the same scene on a **fourth VT lineage**, agreeing with all three on the four text rows — the first terminal to agree with architecture ticket 20's answer that is not a recent reimplementation. The `keeps-style` row is `not askable` here and always will be |
 | `ghostty-1.3.1-scene05-widths.cpr` | scene 05 as Ghostty answered it — fifteen `CSI 6n` replies and the device-attributes sentinel behind them. **Not a screen**: these are the terminal's own answers, and the file is what a width measurement with none of our tables in it looks like |
 | `kitty-0.48.2-scene05-widths.cpr` | the same fifteen as kitty answered them, including **2** for a ZWJ family emoji where `ucd.rs` records kitty summing it to 6 |
 | `tmux-3.7c-scene05-widths.cpr` | the same fifteen as tmux answered them, and a `?1;2;4c` sentinel — a VT100 with AVO |
+| `terminal-2.15-scene05-widths.cpr` | **the file that made the survey a survey.** Four of the twelve surveyed rows disagree with the other three arms, all four by summing a cluster's code points: a ZWJ family at **8**, a skin tone at **4**, a zero-width space at **1**, and a VS16 pair at **1** — which is `ucd.rs`'s headline citation reproducing on the fourth family after it did not reproduce on the first three |
 | `ghostty-1.3.1-via-tmux-3.7c-scene05-widths.cpr` | **byte-identical to the file above**, which is the evidence that a cursor report never leaves the innermost terminal. The two arms' *screen* captures are two serialisations of two grids; their reply captures are one terminal answering twice |
 | `ghostty-1.3.1-scene06-sync.decrqm` | scene 06 as Ghostty answered it — five DECRQM replies about mode 2026 and the device-attributes sentinel behind them. The evidence that the mode `serial.rs` wraps every frame in is one this terminal has, and that its state machine tracks both the `h` and the `l` |
 | `kitty-0.48.2-scene06-sync.decrqm` | the same five as kitty answered them |
 | `tmux-3.7c-scene06-sync.decrqm` | the same five as tmux answered them |
+| `terminal-2.15-scene06-sync.decrqm` | **seven bytes, and all seven of them are the sentinel.** Terminal.app 2.15 answered none of the five, because it has no synchronised output and its parser does not take `$` as an intermediate. The device-attributes reply is what makes that an observation rather than a timeout, and `ModeError::Unanswered` is the refusal that says *this terminal has no such report* where `ModeError::Count` would have said *this run lost five answers* |
 | `ghostty-1.3.1-via-tmux-3.7c-scene06-sync.decrqm` | **byte-identical to the file above**, for scene 05's reason: a DECRQM reply, like a cursor report, never leaves the innermost terminal. **Part B has no fixture on any arm** — it is a timing, a timing is a report, and a report is not gated |
 
 Raw bytes, as captured. Do not regenerate them to make a test pass: they are evidence, and a fixture
@@ -265,10 +286,20 @@ Written down because a limit nobody wrote down becomes a claim.
 - **What the pixels look like.** The `vt` dump is Ghostty's own cell state re-serialised, so it says
   what the terminal *recorded*, not what it *drew*. A terminal that stores an attribute and renders
   nothing agrees here and disagrees on screen.
-- **A disagreement, so far.** Four arms answered scene 05 identically, so its table has no spread
-  in it and fifteen ticks cannot distinguish *the terminals agree* from *the questions are easy*.
-  The corpus is not the soft part — a different VT lineage and a locale this suite does not set are
-  what it is missing, and `FINDINGS.md` names both.
+- ~~**A disagreement, so far.**~~ **Answered 2026-08-30.** Four arms had answered scene 05
+  identically, so its table had no spread in it and fifteen ticks could not distinguish *the
+  terminals agree* from *the questions are easy*. `FINDINGS.md` named two candidates for a column
+  that would disagree; the first of them — a different VT lineage — was built, and Terminal.app 2.15
+  disagrees on four of the twelve surveyed rows. **The second candidate is still open**: a locale
+  this suite does not set, which is the one row (`ambiguous`) where a terminal is *entitled* to
+  disagree and the engine answers by policy.
 - **Anything about timing.** Mode 2026 is stage 5, and the expectation is already recorded: the
   AppleScript round trip's jitter is the same order as Alacritty's 150 ms force-flush limit, so the
   sub-200 ms end may be unanswerable on this machine.
+- **What a terminal does with a sequence it does not implement — until an arm looks.** No scene here
+  asks that, and it is where the sharpest finding of 2026-08-30 came from: a *control probe* showed
+  Terminal.app 2.15 printing the payload of the engine's own `DCS + q` and the final `p` of each of
+  its seven DECRQM queries as visible text, on the **primary** screen, before `?1049h` is sent. Every
+  gate in this workspace replays the engine's bytes through the engine's own model of a terminal, and
+  a model that ignores an unknown sequence — which is correct for a model — cannot represent one that
+  prints it. Production ticket 12.

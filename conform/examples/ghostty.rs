@@ -378,6 +378,9 @@ fn capture_and_compare(
         measures: through.measures(),
         answers_in_band: through.answers_in_band(),
         not_compared: through.not_compared(),
+        // Every capture from this arm is a re-serialisation of the emulator's own cell state, so
+        // the style is in the capture and scene 01 is answerable. See [`Arm::no_style`].
+        no_style: None,
         notes,
     };
     Ok((arm, captured, bytes, size))
