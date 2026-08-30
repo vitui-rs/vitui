@@ -143,7 +143,9 @@ conversation. Definitions only. The specs and ADRs carry the arguments and the n
   terminal says so: **one boolean, never a ladder**, read and never edited. A binding is not rewritten because the
   terminal is poor; it simply does not fire.
 - **Chord** — a key plus modifiers, naming either a base-layout position or a printed character — and which is part of
-  the chord. Caps and num lock are keyboard *state* and never part of one.
+  the chord. Caps and num lock are keyboard *state* and never part of one. **Shift is state on a printed character and
+  intent on a position**: `+` cannot be typed without it, so a chord on the character compares the five modifiers that
+  are not shift and a chord on the position compares all six (ADR 0053).
 - **Binding** — chords, an action, and the help text naming it, declared once so it can be routed and rendered.
   **Key map** — an ordered set, first match wins, consulted after the focused widget and its scopes decline; the
   innermost scope holding the focus answers first.

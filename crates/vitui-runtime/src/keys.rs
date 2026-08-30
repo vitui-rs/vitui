@@ -98,8 +98,40 @@ pub type ActionId = u32;
 /// cannot add an inherent method to, so this module calls `chord()` and names the mask here rather
 /// than wrapping it in an extension trait. Two names for one mask is worse than one name in the wrong
 /// crate.
+///
+/// **`SHIFT` has one exception and it is a whole constant**: [`TYPED_INTENT`], which is this mask
+/// less that bit and is what a chord on a *typed character* compares. Six bits are intent for a key
+/// and five are intent for a character, because the sixth is how the character was made.
 pub const INTENT: Mods = Mods::SHIFT
     .with(Mods::ALT)
+    .with(Mods::CTRL)
+    .with(Mods::SUPER)
+    .with(Mods::HYPER)
+    .with(Mods::META);
+
+/// The modifiers a chord on a **typed character** compares: [`INTENT`] without `SHIFT`.
+///
+/// **Shift is intent for a named key and is not intent for a character.** `Shift+Tab` is a different
+/// binding from `Tab` and `keys::SIGNIFICANT` and `nav::step`'s *shift passes* rule both depend on
+/// that; but `+`, `?`, `:` and `_` cannot be typed on a US layout **without** shift, so on a
+/// character the modifier is *how the character was produced* and carries no intent of its own. An
+/// author writing [`Chord::typed('+')`](Chord::typed) has already said everything shift says.
+///
+/// Runtime architecture issue 28, and the third defect on this map with one shape: correct on the
+/// configuration everything was tested on and wrong on the capable one. It is **invisible on a
+/// legacy terminal**, which reports no modifier for a printable byte, which is why it shipped.
+///
+/// # It applies to [`On::Typed`] alone, and only on a `Char`
+///
+/// [`On::BaseLayout`] keeps all six bits, so `Chord::key('a').shift()` is untouched and still means
+/// what it says. The narrowness is the point: masking shift wherever a chord's code is a character
+/// would have made that binding silently equal to `Chord::key('a')`, which is a binding an author
+/// may have written on purpose.
+///
+/// The cost is stated where an author meets it rather than left to be discovered:
+/// **`Chord::typed(c).shift()` is `Chord::typed(c)`**, because the shift is already in the `c`, and
+/// `tests::shift_on_a_typed_chord_is_a_no_op_and_is_recorded_as_one` is the equality written down.
+pub const TYPED_INTENT: Mods = Mods::ALT
     .with(Mods::CTRL)
     .with(Mods::SUPER)
     .with(Mods::HYPER)
@@ -133,10 +165,11 @@ pub const fn base_layout_reported(caps: &vitui_engine::Capabilities) -> bool {
 /// that makes a bare-letter binding two different bindings rather than one ambiguous one.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum On {
-    /// Where the key is. Compares [`Key::code`].
+    /// Where the key is. Compares [`Key::code`], and all six of [`INTENT`]'s bits.
     #[default]
     BaseLayout,
-    /// What the key produced. Compares [`Key::text`].
+    /// What the key produced. Compares [`Key::text`], and [`TYPED_INTENT`] — the five modifiers that
+    /// are not `SHIFT`, because a character that needed shift already says so.
     Typed,
 }
 
@@ -165,6 +198,39 @@ pub struct Chord {
     pub on: On,
 }
 
+/// [`TYPED_INTENT`] applied to a held set: the five intent bits that are not `SHIFT`.
+///
+/// A projection written out bit by bit because `Mods` is a foreign type with no bitwise-and on its
+/// surface — the engine ships `with`, `contains` and [`Mods::chord`] and nothing that intersects.
+/// Adding one to the engine for this would have been a public verb bought to save five lines here.
+///
+/// The locks never survive it, which is the same answer [`Mods::chord`] gives and is why this needs
+/// no second masking step: a bit is copied across only when it is one of the five.
+///
+/// **This is the second bit-by-bit projection of `Mods` in the workspace** — `Mods::chord` is the
+/// first, one crate down. A third should buy the engine an intersection verb rather than write
+/// itself out again; two is not yet worth a public addition, and saying which number it is here is
+/// what makes that decidable rather than a matter of who notices.
+const fn typed_intent(m: Mods) -> Mods {
+    let mut out = Mods::NONE;
+    if m.alt() {
+        out = out.with(Mods::ALT);
+    }
+    if m.ctrl() {
+        out = out.with(Mods::CTRL);
+    }
+    if m.super_key() {
+        out = out.with(Mods::SUPER);
+    }
+    if m.hyper() {
+        out = out.with(Mods::HYPER);
+    }
+    if m.meta() {
+        out = out.with(Mods::META);
+    }
+    out
+}
+
 impl Chord {
     /// A chord on a named key, no modifiers.
     pub const fn new(code: KeyCode) -> Chord {
@@ -181,6 +247,18 @@ impl Chord {
     }
 
     /// A chord on a character the user actually typed.
+    ///
+    /// **The one to reach for on a character shift produces** — `+`, `?`, `:`, `_` — because it
+    /// compares [`TYPED_INTENT`] and so matches whichever of the three spellings the terminal
+    /// happens to send for that character. [`key`](Chord::key) on such a character matches only the
+    /// spelling a legacy terminal uses. Runtime architecture issue 28.
+    ///
+    /// **Do not hang a non-shift modifier on it.** `Chord::typed(c).ctrl()` and `.alt()` can match
+    /// only on a terminal at kitty flag 16: below it the engine fills `text` from the key it was sent
+    /// **only when the modifiers are typing modifiers** — shift and the locks — so a key held with
+    /// control or alt arrives with empty text and an `On::Typed` chord refuses it. An accelerator is
+    /// about *where the key is*, so [`key`](Chord::key) is the right constructor for one anyway; this
+    /// is written down because the failure is silence.
     pub const fn typed(c: char) -> Chord {
         Chord {
             code: KeyCode::Char(c),
@@ -202,6 +280,10 @@ impl Chord {
     }
 
     /// Hold shift.
+    ///
+    /// **Meaningless on a [`typed`](Chord::typed) chord** and left buildable anyway: see
+    /// [`TYPED_INTENT`], where the equality is stated, and
+    /// `tests::shift_on_a_typed_chord_is_a_no_op_and_is_recorded_as_one`, where it is asserted.
     pub const fn shift(mut self) -> Chord {
         self.mods = self.mods.with(Mods::SHIFT);
         self
@@ -209,7 +291,7 @@ impl Chord {
 
     /// Whether a key press is this chord.
     ///
-    /// # Three refusals, in one function
+    /// # Four refusals, in one function
     ///
     /// **A release never matches.** At kitty flag 2 a terminal reports both edges, and a map that
     /// matched both would fire every binding twice.
@@ -221,12 +303,19 @@ impl Chord {
     /// action that should not repeat is the application's, because only the application knows which
     /// those are.
     ///
-    /// **Locks are masked out**, through the engine's [`Mods::chord`] — see [`INTENT`].
+    /// **Locks are masked out**, through the engine's [`Mods::chord`] — see [`INTENT`]. And on an
+    /// [`On::Typed`] chord whose code is a character, **so is `SHIFT`**: see [`TYPED_INTENT`] for why
+    /// that is a fourth refusal rather than a hole in the third.
     pub fn matches(self, k: &Key, mode: MatchMode) -> bool {
         if k.kind == KeyKind::Release {
             return false;
         }
+        // **A typed character carries its own shift**, so that one arm compares the narrower mask —
+        // see [`TYPED_INTENT`]. `MatchMode::Equality` is untouched: it exists to *lose* bindings, and
+        // exempting a bit from it would blunt the one gate it is there to fail.
+        let typed_char = self.on == On::Typed && matches!(self.code, KeyCode::Char(_));
         let mods_ok = match mode {
+            MatchMode::Masked if typed_char => typed_intent(k.mods) == typed_intent(self.mods),
             MatchMode::Masked => k.mods.chord() == self.mods.chord(),
             MatchMode::Equality => k.mods == self.mods,
         };
@@ -766,23 +855,29 @@ mod tests {
     use super::*;
     use vitui_engine::KeyText;
 
-    /// A press, for the gates that do not go through the rig.
-    fn press(c: Chord) -> Key {
+    /// A press exactly as a terminal described it: a key, its modifiers, and what it produced.
+    ///
+    /// **The one place this module builds a `Key`**, and the only helper that can build one whose
+    /// `code` and `text` **disagree** — which is what a terminal at kitty flag 4 plus flag 16 sends,
+    /// and what nothing in this crate could express before `KeyText::of` (issue 28).
+    fn wire(code: KeyCode, mods: Mods, text: Option<char>) -> Key {
         Key {
-            code: c.code,
-            mods: c.mods,
+            code,
+            mods,
             kind: KeyKind::Press,
-            text: KeyText::EMPTY,
+            text: text.map_or(KeyText::EMPTY, KeyText::of),
             at: Instant::now(),
         }
     }
 
+    /// A press of a chord that produced no text, for the gates that do not go through the rig.
+    fn press(c: Chord) -> Key {
+        wire(c.code, c.mods, None)
+    }
+
     /// The same press with extra modifiers held.
     fn press_with(c: Chord, extra: Mods) -> Key {
-        Key {
-            mods: c.mods.with(extra),
-            ..press(c)
-        }
+        wire(c.code, c.mods.with(extra), None)
     }
 
     /// How many of a map's bindings fire when their own first chord is pressed with `extra` held.
@@ -999,15 +1094,187 @@ mod tests {
 
     /// A `Typed` chord never matches a key that produced no text.
     ///
-    /// **The only half of `On::Typed` this crate can test.** `KeyText` has no public constructor —
-    /// deliberately, so that nothing can forge a key whose `code` and `text` disagree — so there is
-    /// no way to build a key that a `Typed` chord *would* match. The gate is worth more than the
-    /// test, and the shortfall is written down rather than implied.
+    /// **This was once the only half of `On::Typed` this crate could test.** `KeyText` had no public
+    /// constructor, so there was no way to build a key a `Typed` chord *would* match, and the
+    /// shortfall was written down rather than implied. Issue 28 is what ended it: `KeyText::of` is
+    /// on the engine's surface now, and the positive half is
+    /// [`a_typed_chord_matches_the_three_wire_spellings_of_one_character`].
     #[test]
     fn a_typed_chord_never_matches_a_key_with_no_text() {
         let map = KeyMap::new().bind(&[Chord::typed('j')], 1, "typed j");
         // Same code, same modifiers, empty text.
         assert_eq!(map.match_first(&press(Chord::key('j'))), None);
+    }
+
+    /// **The defect issue 28 filed, as the four spellings one keystroke has, and what each one
+    /// fires.**
+    ///
+    /// A US-layout `+` cannot be typed without shift, so the author writes the chord for the
+    /// character they mean and the terminal reports a modifier that made the comparison unequal.
+    /// The four rows are the ticket's own measurement, and the fourth is the sharpest: **supplying
+    /// the typed text did not help**, because the modifier comparison had already returned false
+    /// before `On::Typed` looked at `text` at all.
+    ///
+    /// | wire | `code` | `mods` | `text` | what fires |
+    /// |---|---|---|---|---|
+    /// | `+`, legacy | `+` | — | `+` | `typed('+')` and `key('+')` |
+    /// | `CSI 43;2u` | `+` | SHIFT | `+` | `typed('+')` and `key('+').shift()` |
+    /// | `CSI 61;2;43u` | `=` | SHIFT | `+` | `typed('+')` |
+    /// | `CSI 61;2u` | `=` | SHIFT | `=` | `key('=').shift()` — **and nothing about `+`** |
+    ///
+    /// **One `typed` chord covers three of the four**, which is the whole of the answer. The fourth
+    /// is not a matching defect and no chord can reach it: the terminal reported the unshifted key
+    /// and sent no associated text, so nothing in this process knows a `+` was produced, and a
+    /// runtime that guessed would be reading a keyboard layout it has refused to consult.
+    #[test]
+    fn a_typed_chord_matches_the_three_wire_spellings_of_one_character() {
+        let map = KeyMap::new().bind(&[Chord::typed('+')], 1, "more points");
+
+        assert_eq!(
+            map.match_first(&wire(KeyCode::Char('+'), Mods::NONE, Some('+'))),
+            Some(1),
+            "a legacy terminal reports no modifier at all, and this always worked"
+        );
+        assert_eq!(
+            map.match_first(&wire(KeyCode::Char('+'), Mods::SHIFT, Some('+'))),
+            Some(1),
+            "`CSI 43;2u`: the shifted key with the modifier that produced it"
+        );
+        assert_eq!(
+            map.match_first(&wire(KeyCode::Char('='), Mods::SHIFT, Some('+'))),
+            Some(1),
+            "`CSI 61;2;43u`: base layout in `code`, what it produced in `text` — the row where \
+             `code` and `text` disagree by design, and the row a level-1 comparison lost"
+        );
+        assert_eq!(
+            map.match_first(&wire(KeyCode::Char('='), Mods::SHIFT, Some('='))),
+            None,
+            "`CSI 61;2u`: the wire never said `+`, so neither does this. `key('=').shift()` is \
+             the binding that reaches it, and it is an alternate rather than a repair"
+        );
+    }
+
+    /// **What the fix costs, written down rather than left to be discovered.**
+    ///
+    /// `Chord::typed(c).shift()` is `Chord::typed(c)` in everything that matters, because the shift
+    /// is already in the `c`. That is the same silent equality the ticket held against masking shift
+    /// on *every* character chord — and the reason it is acceptable here and was not there is
+    /// **reachability**: `Chord::key('a').shift()` is a binding an author writes on purpose and can
+    /// still write, and `Chord::typed('a').shift()` is one nobody has a reason to.
+    ///
+    /// It is recorded as a test rather than a doc line so that the day it stops being true, it says
+    /// so.
+    #[test]
+    fn shift_on_a_typed_chord_is_a_no_op_and_is_recorded_as_one() {
+        let plain = KeyMap::new().bind(&[Chord::typed('a')], 1, "typed a");
+        let shifted = KeyMap::new().bind(&[Chord::typed('a').shift()], 1, "typed A, allegedly");
+        for held in [Mods::NONE, Mods::SHIFT] {
+            let k = wire(KeyCode::Char('a'), held, Some('a'));
+            assert_eq!(
+                plain.match_first(&k),
+                shifted.match_first(&k),
+                "the two maps disagree with {held:?} held, so `.shift()` has grown a meaning"
+            );
+            assert_eq!(plain.match_first(&k), Some(1));
+        }
+        // And the chords are still two distinct values: the equality is in the matching, not in the
+        // type, so a `PartialEq` on `Chord` still tells them apart and a help line still prints the
+        // shift the author wrote.
+        assert_ne!(Chord::typed('a'), Chord::typed('a').shift());
+    }
+
+    /// **`On::BaseLayout` keeps all six bits**, which is the half the narrow mask exists to protect.
+    ///
+    /// Masking shift wherever a chord's code was a character — the one-line fix the ticket rejected —
+    /// makes this test fail, and that is what it is here for.
+    #[test]
+    fn shift_still_means_shift_on_a_base_layout_chord() {
+        let map = KeyMap::new().bind(&[Chord::key('a').shift()], 1, "capital A");
+        assert_eq!(
+            map.match_first(&wire(KeyCode::Char('a'), Mods::SHIFT, Some('A'))),
+            Some(1)
+        );
+        assert_eq!(
+            map.match_first(&wire(KeyCode::Char('a'), Mods::NONE, Some('a'))),
+            None,
+            "an unshifted `a` is not the binding, and a character chord masking shift would say \
+             it was"
+        );
+        // The same, one step further out: `Shift+Tab` is what the whole rule is protecting.
+        let nav = KeyMap::new().bind(&[Chord::new(KeyCode::Tab).shift()], 2, "back");
+        assert_eq!(nav.match_first(&press(Chord::new(KeyCode::Tab))), None);
+        assert_eq!(
+            nav.match_first(&press(Chord::new(KeyCode::Tab).shift())),
+            Some(2)
+        );
+    }
+
+    /// The narrow mask is [`INTENT`] less exactly one bit, and the locks do not survive either.
+    ///
+    /// A projection asserted against the constant that names it, so the five-branch function and the
+    /// five-bit constant cannot drift apart — the audit that produced this repo's ledger found one
+    /// threshold copied into nine files, and this is the two-file version of that.
+    #[test]
+    fn the_typed_mask_is_the_intent_mask_less_shift() {
+        // **The invariant, and it is one line rather than a list of five.** A list would be a third
+        // hand-written copy of the same bits, and a seventh bit added to `INTENT` and forgotten here
+        // would pass it: this is the only assertion in the file that relates the two constants, so
+        // `INTENT` cannot grow without `TYPED_INTENT` growing or this failing.
+        assert_eq!(TYPED_INTENT.with(Mods::SHIFT), INTENT);
+        assert!(!TYPED_INTENT.contains(Mods::SHIFT));
+        // The projection agrees with the constant on every combination of the eight bits.
+        for raw in 0u8..=u8::MAX {
+            let held = [
+                Mods::SHIFT,
+                Mods::ALT,
+                Mods::CTRL,
+                Mods::SUPER,
+                Mods::HYPER,
+                Mods::META,
+                Mods::CAPS,
+                Mods::NUM,
+            ]
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| raw & (1 << i) != 0)
+            .fold(Mods::NONE, |acc, (_, &bit)| acc.with(bit));
+
+            let projected = typed_intent(held);
+            for bit in [Mods::SHIFT, Mods::CAPS, Mods::NUM] {
+                assert!(
+                    !projected.contains(bit),
+                    "{bit:?} survived the projection of {held:?}"
+                );
+            }
+            for bit in [Mods::ALT, Mods::CTRL, Mods::SUPER, Mods::HYPER, Mods::META] {
+                assert_eq!(
+                    projected.contains(bit),
+                    held.contains(bit),
+                    "{bit:?} is intent and must cross the projection of {held:?}"
+                );
+            }
+        }
+    }
+
+    /// **The narrow mask reaches `MatchMode::Masked` only.** Equality still loses everything.
+    ///
+    /// `MatchMode::Equality` exists so that *first match wins is not an equality* is runnable, and a
+    /// bit exempted from it would blunt the one gate it is there to fail. So a typed chord under
+    /// equality is disarmed by shift exactly as every other binding is disarmed by a lock.
+    #[test]
+    fn equality_mode_still_compares_shift_on_a_typed_chord() {
+        let map = KeyMap::new()
+            .bind(&[Chord::typed('+')], 1, "more")
+            .with_mode(MatchMode::Equality);
+        assert_eq!(
+            map.match_first(&wire(KeyCode::Char('+'), Mods::NONE, Some('+'))),
+            Some(1)
+        );
+        assert_eq!(
+            map.match_first(&wire(KeyCode::Char('+'), Mods::SHIFT, Some('+'))),
+            None,
+            "equality is what it says on the tin, and the mask is the thing that ships"
+        );
     }
 
     // ---------------------------------------------------------------------------------------------

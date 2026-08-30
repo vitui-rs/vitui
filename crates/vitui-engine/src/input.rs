@@ -1414,6 +1414,43 @@ impl KeyText {
         self.len == 0 || self.len == KeyText::OVERFLOWED
     }
 
+    /// **What one character produced, for a caller that has to build the key the terminal sends.**
+    ///
+    /// A scalar is at most four bytes and [`CAPACITY`](KeyText::CAPACITY) is twenty-four, so this is
+    /// total by arithmetic: it has no failure mode and returns no `Option`. The cluster
+    /// constructor it is deliberately not is the point — see below.
+    ///
+    /// # Why this is public when the rest of the type is not
+    ///
+    /// The stated reason for the private fields was that *nothing outside should be able to forge a
+    /// key whose `code` and `text` disagree*, and that reason was never true of this engine: a
+    /// terminal at kitty flag 4 reports the **base layout** as `code` while flag 16 reports what the
+    /// key **produced** as `text`, so `CSI 61;2;43u` is `code == Char('=')` with `text == "+"` and
+    /// the two disagreeing is the design rather than a forgery. What the private fields actually
+    /// protect is the overflow sentinel — a `len` a caller could set to a length the buffer does not
+    /// hold — and a `char` cannot reach it.
+    ///
+    /// It is public because the layer above could not otherwise **test** the half of a binding that
+    /// reads `text` — runtime architecture issue 28, where `vitui_runtime::keys::On::Typed` had no
+    /// positive test in its own crate for want of any way to build the key that would match one.
+    ///
+    /// **No `&str` constructor is offered**, and not for want of a use: a multi-scalar cluster is a
+    /// dead key, an Indic conjunct or an IME commit, none of which any binding compares against, so
+    /// the only thing it could build is text nothing can match — and it would carry the overflow
+    /// case this one does not have.
+    ///
+    /// ```
+    /// use vitui_engine::KeyText;
+    /// assert_eq!(KeyText::of('+').as_str(), "+");
+    /// assert!(!KeyText::of('+').is_empty());
+    /// ```
+    #[must_use]
+    pub fn of(c: char) -> KeyText {
+        let mut text = KeyText::EMPTY;
+        text.push_char(c);
+        text
+    }
+
     /// Build one from a string, keeping nothing at all when it does not fit.
     pub(crate) fn from_str(s: &str) -> KeyText {
         let mut text = KeyText::EMPTY;

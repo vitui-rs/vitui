@@ -18,9 +18,9 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
    three maps are **closed**; the specs are the authority. An `architecture.md` beside a spec is the
    superseded proposal, kept only as the record of what was argued.
 2. `CONTEXT.md` — the glossary. Use its terms in code, comments, tickets and commit messages.
-3. `docs/adr/` — 52 decisions that are hard to reverse and surprising without context. 0001–0011,
-   0022–0025 and 0052 are the engine, 0012–0021 and 0034 the runtime, 0026–0033 and 0035–0051 the
-   components.
+3. `docs/adr/` — 53 decisions that are hard to reverse and surprising without context. 0001–0011,
+   0022–0025 and 0052 are the engine, 0012–0021, 0034 and 0053 the runtime, 0026–0033 and 0035–0051
+   the components.
 4. The impl backlog `README.md` for that layer — phase order, blocking edges, and the defects that
    shaped both. **Per-ticket findings are not restated here**: they live in each backlog's
    `research/`, in the tickets' `## Answer` sections, and in the ADRs.
@@ -32,7 +32,7 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   a real terminal rather than our model of one, and the source of `quirks.rs`'s later entries.
 - **`vitui-runtime` — implementation-complete.** 21 tickets. `data`, `layout`, `theme` (fourteen
   schemes), `keys`, `ctx`, `id`, `route`, `focus`, `sizing`, `work`, `anim`, `overlay`, `scroll`.
-  Register 42 entries and the 20-scene list, both green. The component-facing crate line is *built*
+  Register 43 entries and the 20-scene list, both green. The component-facing crate line is *built*
   rather than counted: `crates/vitui-components/tests/crate_line.rs` cannot name the engine.
 - **`vitui-components` — implementation-complete.** All 46 tickets; spec §17's freeze is **29 of 29
   built**, as a value (`INVENTORY`) that tests iterate, with the documentation and verification
@@ -81,6 +81,14 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   ids arithmetically (`Id::keyed`), because `Ctx::id` is `Location::caller()`.
 - **A component names a `Role`, never a colour** (ADR 0018); the one constructor that takes colours is
   on the `Theme` and carries no tier guarantee.
+- **`SHIFT` is intent for a key and not for a character** (ADR 0053, runtime architecture 28, resolved
+  2026-08-30). `Chord::typed(c)` compares `keys::TYPED_INTENT`, the five intent bits that are not
+  `SHIFT`, and is what to bind on `+`, `?`, `:` or `_` — a US-layout `+` cannot be typed without
+  shift, so on a character the bit is *how it was produced* and not intent. `Chord::key` still
+  compares all six, so `key('a').shift()` and `Shift+Tab` are unchanged, and `typed(c).shift()` is a
+  no-op that is asserted rather than documented. One keystroke has **four** wire spellings and a
+  `typed` chord is right about three; the fourth (`CSI 61;2u`) is unreachable by any chord and takes
+  an alternate, because the terminal never said which character was produced.
 - **Budgets are per class** — typical damage-tracked frame < 100 µs, full-screen 300×80 < 1 ms.
   An over-budget screen is recorded beside the number, never reclassified to buy headroom.
 - **The alternate screen is entered exactly once, by whoever speaks to the terminal first** (spec §7,
@@ -103,10 +111,9 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   exactly, which an overlay bar cannot satisfy.
 
 **Open questions — do not "fix" code to match one sentence of a spec without resolving the ticket.**
-Ten stand open, every one of them filed by the layer above the one it lands in.
+Nine stand open, every one of them filed by the layer above the one it lands in.
 
-- **Runtime architecture 28** — a chord on a shifted character cannot match, because SHIFT is in
-  `INTENT`. **29** — `Response` publishes the press as a level and never as an edge. **31** —
+- **Runtime architecture 29** — `Response` publishes the press as a level and never as an edge. **31** —
   `Ctx::with_key` inside a scroll scope clips the whole window away, and it is what pins register
   row 112 red. **33** — a scroll-into-view is a two-frame gesture and nothing asks for the second
   frame. **34** — a picture cannot ask what the terminal will show: no colour-pair question and no

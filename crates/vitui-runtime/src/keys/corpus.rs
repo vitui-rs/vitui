@@ -223,19 +223,20 @@ pub enum Tier {
 ///
 /// A model of what the engine's input ticket already settled, not a guess about terminals.
 ///
-/// # Every key it makes has empty text, and that is a hard limit rather than a simplification
+/// # Every key it makes has empty text, and that is now a choice rather than a hard limit
 ///
-/// **`KeyText` has no public constructor.** Its fields are private and the engine ships only
-/// `EMPTY`, `as_str` and `is_empty` — deliberately, because a component that could assemble one
-/// could forge a key whose `code` and `text` disagree and make any binding fire. That gate is worth
-/// more than this rig.
+/// **`KeyText` had no public constructor when this rig was written**, and the reason recorded here
+/// was that a caller able to assemble one could forge a key whose `code` and `text` disagree. That
+/// reason did not survive being looked at: a terminal at kitty flag 4 reports the base layout as
+/// `code` while flag 16 reports what the key produced as `text`, so the two disagreeing is the
+/// design and not a forgery, and runtime architecture issue 28 put `KeyText::of` on the engine's
+/// surface for exactly the key this rig could not build.
 ///
-/// The consequence is written down rather than worked around: **this rig models `On::BaseLayout`
-/// bindings only, and `On::Typed` cannot be exercised anywhere in this crate.** It costs the rig
-/// nothing, because the counts are about `code` — below flag 4 the engine infers `code` *from* the
-/// text, so a `BaseLayout` binding on `Char('j')` meets `Char('о')` and misses, which is the whole
-/// loss being counted. What it does cost is that `Chord`'s `On::Typed` arm has no positive test in
-/// this crate at all; only the negative one, that it never matches an empty text.
+/// **This rig still models `On::BaseLayout` bindings only**, and now because that is what it is for:
+/// the counts are about `code` — below flag 4 the engine infers `code` *from* the text, so a
+/// `BaseLayout` binding on `Char('j')` meets `Char('о')` and misses, which is the whole loss being
+/// counted. `On::Typed` is exercised one file over, against the wire spellings rather than against a
+/// layout, by `keys::tests::a_typed_chord_matches_the_three_wire_spellings_of_one_character`.
 pub fn as_received(press: Chord, layout: &Layout, tier: Tier, legacy: LegacyCtrl) -> Option<Key> {
     let key = |code: KeyCode, mods: Mods, text: KeyText| {
         Some(Key {

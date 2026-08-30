@@ -220,27 +220,19 @@ fn key_map() -> KeyMap {
         .bind(&[Chord::key('c')], DEPTH, "Colour depth")
         .bind(&[Chord::key('t')], RULE, "Threshold axis")
         .bind(&[Chord::new(Code::Char(' '))], PAUSE, "Pause")
-        // **Three spellings of one key, and the third is the one a real terminal sends.**
+        // **`typed` and not `key`, because `+` cannot be pressed without shift.**
         //
-        // `Chord::key(c)` carries `Mods::NONE`, and `Chord::matches` compares `SHIFT` because
-        // `keys::INTENT` contains it. So a chord on a character you can only *type* with shift can
-        // never match on a terminal that reports the modifier: pressing `Shift+=` on Ghostty
-        // arrives as the base-layout `=` with `SHIFT` set, and `Chord::key('+')` and
-        // `Chord::key('=')` both miss it. Measured through a pty: unshifted `+` and unshifted `=`
-        // work, and every shifted spelling — `=`+shift, `+`+shift, with or without the text field —
-        // does nothing at all. It is invisible on a legacy terminal, which reports no modifier for
-        // a printable byte.
+        // `Chord::typed('+')` compares `keys::TYPED_INTENT` — the five intent modifiers that are
+        // not `SHIFT` — so it matches whichever of the three spellings the terminal sends for the
+        // character: the legacy byte, `CSI 43;2u`, and `CSI 61;2;43u` where the base layout is in
+        // `code` and the `+` is in `text`. Runtime architecture issue 28; this used to be three
+        // chords and a paragraph explaining why none of them worked.
         //
-        // This is an application working around a runtime question rather than a fix: for a
-        // *character* chord, shift is how the character was produced and not a modifier the author
-        // meant, while for a *named key* chord (`Shift+Tab`) it is exactly the modifier. Recorded
-        // as a finding rather than decided here.
+        // The alternate is the fourth spelling and is not a workaround: at kitty flag 1 alone the
+        // terminal reports the *unshifted* key with no associated text, so nothing in the process
+        // knows a `+` was produced and the only thing left to bind is the keypress itself.
         .bind(
-            &[
-                Chord::key('+'),
-                Chord::key('=').shift(),
-                Chord::key('+').shift(),
-            ],
+            &[Chord::typed('+'), Chord::key('=').shift()],
             MORE,
             "More points",
         )

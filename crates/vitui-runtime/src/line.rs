@@ -254,6 +254,11 @@ pub const ENGINE_NAMES: [EngineName; 30] = [
         name: "KeyKind",
         reachable_as: Some("vitui_runtime::keys::Edge"),
     },
+    // **Reachable since issue 22 and *constructible* only since issue 28**, which is the rule's own
+    // second clause arriving on a row that was already green. `Driver::post_key` takes a `Key`, a
+    // `Key` carries a `KeyText`, and until `KeyText::of` there was no way to build one that was not
+    // `EMPTY` — a name a consumer could write but not fill, which is the barrier this list exists to
+    // find. It cost the layer above the only positive test `keys::On::Typed` could have had.
     EngineName {
         name: "KeyText",
         reachable_as: Some("vitui_runtime::keys::Text"),

@@ -543,6 +543,15 @@ pub const SURFACE: &[Item] = &[
                     why: "ADR 0007: what the key printed, read as a `&str` without allocating",
                 },
             },
+            Verb {
+                name: "of",
+                recv: Recv::None,
+                origin: Origin::Added {
+                    by: "runtime architecture 28",
+                    why: "the layer above could not build the key a `Typed` binding matches, so \
+                          that half of `Chord::matches` had no positive test in its own crate",
+                },
+            },
         ],
     },
     Item {
@@ -1578,13 +1587,19 @@ pub const NEGATIVE_CASES: usize = 37;
 /// named items that no longer exist, and what replaced them is one more path inside the crate
 /// root's existing twin rather than a fence of its own.
 ///
-/// **Forty-seven since production ticket 07**, and it is the one place `Screen::suspend` and
+/// **Forty-eight since runtime architecture 28**, whose fence is the one place a caller is shown
+/// building the text half of a key at all — `KeyText::of`, which exists because the layer above had
+/// no way to write the key a `Typed` binding matches. It has no negative twin for the same reason
+/// the pair below has none: a constructor total by arithmetic refuses nothing a compile outcome can
+/// express.
+///
+/// **Forty-seven since production ticket 07**, and that one is the one place `Screen::suspend` and
 /// `Screen::resume` are compiled as a caller would write them — three lines with somebody else
 /// holding the terminal in between. It has no negative twin because the pair refuses nothing a
 /// compile outcome can express: the closure form the two verbs replace is already held out by
 /// `no_public_verb_takes_a_closure_or_an_iterator`, which is a gate over the whole surface rather
 /// than a fence beside one item.
-pub const RUNNABLE_EXAMPLES: usize = 47;
+pub const RUNNABLE_EXAMPLES: usize = 48;
 
 #[cfg(test)]
 mod tests {
@@ -2064,11 +2079,11 @@ mod tests {
 
     /// **Every item §12's block does not list names the ticket that added it.**
     ///
-    /// Nine types and thirty-seven functions, and the point of the count is that it is a count: a
+    /// Nine types and thirty-eight functions, and the point of the count is that it is a count: a
     /// tenth type arriving without a ticket beside it fails, and a tenth type arriving *with* one is
     /// ordinary work that shows up in the diff of this file.
     ///
-    /// # Two backlogs, and the second one is why this reads a prefix list rather than one prefix
+    /// # Three backlogs, and the second and third are why this reads a prefix list
     ///
     /// It said `impl NN` and nothing else until production ticket 07, which is the first item on
     /// this surface added after the implementation backlog closed. **The gate was widened rather
@@ -2077,10 +2092,20 @@ mod tests {
     /// reader to a resolved ticket about something else. That is the same repair the runtime's
     /// register made for its entry 40, one crate over, for the same reason — a destination gate that
     /// admits only one backlog is a gate that asks the next ticket to lie about where it came from.
+    ///
+    /// **The third is not one of the engine's own**, and that is the interesting one. `KeyText::of`
+    /// was added by `.scratch/vitui-runtime-architecture/issues/28`: a ticket in the layer above,
+    /// which found that it could not build the key its own binding matches and had to come down here
+    /// for the constructor. Two backlogs would have made it `impl 20` — the ticket that added the
+    /// type — and sent a reader to a closed ticket that says in as many words that the fields are
+    /// private. **A prefix list that only names the engine's own backlogs is a gate that cannot
+    /// record where this surface actually changes from**, which is increasingly from above: this
+    /// crate is implementation-complete and its consumers are not.
     #[test]
     fn everything_outside_spec_12s_block_names_the_ticket_that_added_it() {
-        /// The backlogs an item may have come from, longest-lived first.
-        const BACKLOGS: [&str; 2] = ["impl ", "production "];
+        /// The backlogs an item may have come from, longest-lived first. The third is a **consumer's**
+        /// and not this crate's, which is the whole of why it is in the list.
+        const BACKLOGS: [&str; 3] = ["impl ", "production ", "runtime architecture "];
         let cited = |by: &str| BACKLOGS.iter().any(|prefix| by.starts_with(prefix));
         let mut types = 0;
         let mut verbs = 0;
@@ -2118,12 +2143,12 @@ mod tests {
                 }
             }
         }
-        assert_eq!((types, verbs), (9, 37), "the audit's own numbers moved");
+        assert_eq!((types, verbs), (9, 38), "the audit's own numbers moved");
     }
 
     /// **The counts, as the audit recorded them.**
     ///
-    /// Forty-nine types and one hundred and six functions, against §12's *twenty-one public types
+    /// Forty-nine types and one hundred and seven functions, against §12's *twenty-one public types
     /// and about sixty-three functions* — a sentence its own block never agreed with. The
     /// arithmetic is stated so that a reader can check it rather than trust it: 41 − 1 + 9 = 49.
     ///
@@ -2131,14 +2156,16 @@ mod tests {
     /// count did not move, because `LinkId` left the listing and `Link<'a>` joined it. **Production
     /// ticket 07 took it to one hundred and six** with `Screen::suspend` and `Screen::resume`, and
     /// the type count did not move there either: the pair is two verbs on a type that was already
-    /// listed, and neither of them returns anything.
+    /// listed, and neither of them returns anything. **Runtime architecture 28 took it to one
+    /// hundred and seven** with `KeyText::of`, and the type count did not move there either, for
+    /// the same reason: a constructor on a type that was already listed.
     #[test]
     fn the_counts_are_the_ones_the_audit_recorded() {
         let types = SURFACE.iter().filter(|i| i.kind != Kind::Function).count();
         let functions = SURFACE.iter().map(|i| i.verbs.len()).sum::<usize>()
             + SURFACE.iter().filter(|i| i.kind == Kind::Function).count();
         assert_eq!(types, 49, "the public type count moved");
-        assert_eq!(functions, 106, "the public function count moved");
+        assert_eq!(functions, 107, "the public function count moved");
         let added = SURFACE
             .iter()
             .filter(|i| i.kind != Kind::Function)

@@ -239,7 +239,7 @@ pub const SPEC_ROWS: usize = 15;
 /// stated from two sides, and twenty-four survive deduplication against §20's fifteen. A row is
 /// here when it is a gate somebody can break; a bullet that restates a neighbour is not a second
 /// row.
-pub const REGISTER: [Entry; 42] = [
+pub const REGISTER: [Entry; 43] = [
     // ── spec §20's table, in its order ───────────────────────────────────────────────────────────
     Entry {
         number: 1,
@@ -1206,6 +1206,42 @@ pub const REGISTER: [Entry; 42] = [
             ],
         },
     },
+    Entry {
+        number: 43,
+        on_spec_table: false,
+        property: "A chord on a character the user typed matches every spelling the wire has for \
+                   that character, and one on a named key still compares all six intent bits",
+        kind: Kind::Gate,
+        qualifier: "equality \u{2014} between *the action a `Typed` chord names* and *the action four \
+                    different `Key` values fire*, where the four are one keystroke as four terminals \
+                    describe it. It is a property of the mechanism and not of the data: the corpus is \
+                    the wire's own spellings and there are exactly four of them. **Three fire and the \
+                    fourth is asserted not to**, which is the row's load-bearing half \u{2014} \
+                    `CSI 61;2u` reports the unshifted key with no associated text, so nothing in the \
+                    process knows a `+` was produced, and a gate that made it fire would be asserting \
+                    that this crate reads a keyboard layout it has refused to consult. The guard \
+                    against over-fixing is a second instrument rather than a second row: masking \
+                    shift on every character chord \u{2014} the one-line repair the ticket rejected \
+                    \u{2014} makes `Chord::key('a').shift()` equal `Chord::key('a')`, and \
+                    `shift_still_means_shift_on_a_base_layout_chord` is what fails when it does",
+        source: "issue 28",
+        state: State::Wired {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-runtime/src/keys.rs",
+                    name: "a_typed_chord_matches_the_three_wire_spellings_of_one_character",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-runtime/src/keys.rs",
+                    name: "shift_still_means_shift_on_a_base_layout_chord",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-runtime/src/keys.rs",
+                    name: "shift_on_a_typed_chord_is_a_no_op_and_is_recorded_as_one",
+                },
+            ],
+        },
+    },
 ];
 
 /// How many `compile_fail` fences the crate carries.
@@ -1575,13 +1611,16 @@ mod tests {
     /// 12 was red for the absence of; forty since architecture issue 23 — the first row here whose
     /// source is an *architecture* issue rather than an implementation ticket, because the backlog
     /// was closed when the gap was found — forty-one since issue 25, which is the second and
-    /// arrived the same way, and forty-two since issue 26, which is the third: a defect three
-    /// tickets one layer up found before this register had a row that could. Saying *how many* is
+    /// arrived the same way, forty-two since issue 26, which is the third: a defect three
+    /// tickets one layer up found before this register had a row that could — and
+    /// **forty-three since issue 28**, the fourth, and the first of the four this register could not
+    /// have had a row for at all: the key it compares against was unbuildable outside the engine
+    /// until that ticket put `KeyText::of` on the engine's surface. Saying *how many* is
     /// what stops a red row arriving unremarked, and it
     /// has the second job the engine's has: **a register at all-green says so**, so the next red row
     /// is a deliberate edit to this number rather than a quiet one.
     #[test]
-    fn forty_two_are_wired_and_none_are_red() {
+    fn forty_three_are_wired_and_none_are_red() {
         let red: Vec<u8> = REGISTER
             .iter()
             .filter(|e| matches!(e.state, State::Red { .. }))
@@ -1594,7 +1633,7 @@ mod tests {
              documentation, and in the module comment above — the count is the thing that stops it \
              arriving unremarked"
         );
-        assert_eq!(REGISTER.len() - red.len(), 42);
+        assert_eq!(REGISTER.len() - red.len(), 43);
     }
 
     /// **The split, not the total.**
@@ -1609,9 +1648,9 @@ mod tests {
         assert_eq!(on_table, SPEC_ROWS, "spec §20's table is fifteen rows");
         assert_eq!(
             REGISTER.len() - on_table,
-            27,
-            "the backlog's gates, deduplicated against §20's fifteen, plus issues 23's, 25's and \
-             26's"
+            28,
+            "the backlog's gates, deduplicated against §20's fifteen, plus issues 23's, 25's, 26's \
+             and 28's"
         );
         // And §20's fifteen come first, so the table reads in the spec's order.
         for (index, entry) in REGISTER.iter().enumerate() {
