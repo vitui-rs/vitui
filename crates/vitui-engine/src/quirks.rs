@@ -172,6 +172,22 @@ impl Underlines {
 /// provenance as the three above it: the implementation, read. That is what `quirks.rs` can honestly
 /// hold, and it is worth saying rather than leaving a fourth row blank.
 ///
+/// **Three of the four now have an observation printed beside them, and it is not of the paint.**
+/// `conform/`'s scene 06 (production ticket 04, stage 5, 2026-08-29) opens a block, waits, and asks
+/// `CSI ? 2026 $ p` — so what it sees is when the terminal stops reporting the mode as **set**, the
+/// event Ghostty's own source calls *reset the synchronized output flag*. A terminal could paint
+/// without clearing the flag or clear it without painting, and no instrument here can separate
+/// those; the sentence above stays true and these rows keep their provenance. Observed on one
+/// machine on one day: tmux 971–1064 ms and kitty 1985–2085 ms, both on their documented figures,
+/// and **Ghostty 879–973 ms, below its own 1000** — with the arming instant unobservable from
+/// inside the terminal, which is as far as that goes — and the set end of each bracket reproduces
+/// exactly where the reset end jitters by a millisecond or two, because one is a delay the
+/// bisection asked for and the other is when a reply landed. `conform/FINDINGS.md` is the run and
+/// `conform/REPORT-<arm>.md` is where these numbers live. Its own
+/// finding is about the instrument rather than about any of these numbers: the obvious shape, one
+/// open polled repeatedly, puts Ghostty's reset before 517 ms and leaves the other two where they
+/// were, so a suite built that way would have reported a Ghostty defect that is the probe's.
+///
 /// **No entry sets this field, and nothing reads it.** The engine's own block is opened and closed
 /// inside one `write` (§8's twenty bytes of fixed framing), so a frame cannot approach the smallest
 /// of these limits; they bind only on a block spanning two writes, which nothing does. The numbers

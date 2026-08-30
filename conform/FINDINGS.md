@@ -3,6 +3,111 @@
 Hand-written and dated, because a number and what it means are two different artefacts with two
 different lifetimes. `REPORT.md` is generated; this is not.
 
+## 2026-08-29 — stage 5, and the instrument was inside its own measurement on one family of three
+
+Scene 06 asks the terminal what it says about **mode 2026**: five DECRQM questions in one batch for
+the state machine, and a bracket for when the terminal stops reporting the mode as set. **Five for
+five on all four arms**, and three brackets against the four-row table in `quirks.rs`.
+
+That headline is the least interesting sentence here. Four other things came out of it.
+
+### Stage 5 was recorded as *if at all*, and the reason it looked unanswerable was the capture
+
+Ticket 04 recorded this stage last, with the expectation written up front that *AppleScript's
+tens-of-milliseconds jitter is the same order as Alacritty's 150 ms limit, so the sub-200 ms end may
+be unanswerable on this machine.* `quirks.rs` says the same thing from the other side: production
+ticket 05 asked for Ghostty's row to be measured, and it could not be, because **a force flush is a
+rendering event and only a screen capture can see one** — and this repository's capture is an
+AppleScript round trip four runs put between 136 ms and 623 ms.
+
+Both sentences are about the **capture surface**, and scene 05 had already established that a
+question asked in band does not have one in its path. DECRQM is such a question. So the jitter that
+made the stage look unanswerable is not in the loop at all, and the resolution available is the
+round trip on a local pty — one to three milliseconds on every arm measured.
+
+**What that buys is not the force flush**, and the distinction is the whole of this scene's honesty:
+a terminal could paint without clearing the flag or clear it without painting, and nothing here can
+tell those apart. What is measured is the event Ghostty's own source calls *reset the synchronized
+output flag*. The four rows of `quirks.rs` keep their provenance — *the implementation, read* — and
+three of them now have a measurement printed beside them.
+
+### The obvious instrument is wrong on one family, and the other two would have hidden it
+
+The first shape written opens one block and polls it: one open where the shipped one costs seven.
+Run as a raw-`printf`-style control probe with no vitui code in the path, polling every 250 ms:
+
+| | polled every 250 ms | one probe per open |
+|---|---|---|
+| Ghostty 1.3.1 | still set at 262 ms, **reset by 517 ms** | still set at 904 ms, reset by 1002 ms |
+| tmux 3.7c | still set at 760 ms, reset by 1007 ms | still set at 904 ms, reset by 1005 ms |
+| kitty 0.48.2 | still set at 2013 ms, reset by 2261 ms | still set at 1912 ms, reset by 2010 ms |
+
+**Polling brings Ghostty's reset forward by roughly half a second and leaves the other two where
+they were.** An instrument that polls is inside its own measurement, and two families that do not
+notice are exactly what would have made that invisible — the polled column, read alone, has two
+terminals agreeing with their documentation and one apparently at 500 ms, which reads as a finding
+about Ghostty rather than as a defect in the probe.
+
+It is the third time in this directory that *run the control before the instrument* is what
+separated the terminal's behaviour from the suite's: the kitty arm's conceal row and scene 04 are
+the other two. So the shipped scene is one probe per open, a bisection over seven opens, and the
+readiness timeout is derived from that count rather than typed.
+
+### The bracket needs two clocks, and reading one for both ends is unsound in whichever direction
+
+The terminal processes the question somewhere between the write and the reply. *Still set* at some
+instant implies still set at every earlier one, so the **request** is the sound end for that answer
+— a sleep is a floor, so the question cannot have been asked before it. *Already reset* implies
+reset at every later one, so the **reply** is the sound end for that one. The first version recorded
+one elapsed per probe, taken after the answer arrived, which pushes `still_set_at` past anything
+that was observed.
+
+Both are printed in every report, and `flush_bracket` takes one end from each column. The unit test
+that holds it uses a deliberately non-zero round trip, because with the two clocks equal every
+assertion would pass under a fold that read one of them for both.
+
+### Ghostty's flag lets go earlier than its own source says, and this scene cannot say why
+
+| | documented | observed by the shipped arm |
+|---|---|---|
+| Ghostty 1.3.1 | `sync_reset_ms = 1000` in `src/termio/Thread.zig` | still set at **879 ms**, reset by **973 ms** |
+| tmux 3.7c | 1 s, its own documentation | still set at **971 ms**, reset by **1064 ms** |
+| kitty 0.48.2 | 2000 ms, its own documentation | still set at **1985 ms**, reset by **2085 ms** |
+| Ghostty via tmux 3.7c | tmux's | still set at **971 ms**, reset by **1063 ms** |
+
+tmux and kitty land on theirs. Ghostty's whole bracket sits below 1000 ms, and the single-poll
+control put it at (904, 1002] — the two overlap, so what both runs support is a reset somewhere
+around 900–975 ms.
+
+**The set end of each bracket reproduces exactly and the reset end jitters by a millisecond or
+two**, because the first is the delay the bisection asked for and the second is when a reply landed.
+The figures above are the runs in the committed reports, which are where these numbers live; a later
+run moving the reset end by 1 ms is the reply clock and not the terminal.
+
+**The instant the terminal armed the timer is not observable from inside**, which is the honest end
+of this. The scene takes its `Instant::now()` after flushing the `h`, and Ghostty arms whenever its
+own read thread gets there; anything spent between those two moves the whole bracket earlier by that
+much. No `quirks.rs` row is changed on the strength of it — the table's numbers are what those
+projects promise, and this is what one machine observed on one day.
+
+The fourth arm is the one worth reading twice: **Ghostty-via-tmux answers tmux's number**, because a
+DECRQM reply, like a cursor report, never leaves the innermost terminal. Its capture is
+byte-identical to the plain tmux arm's, which `tests.rs` asserts rather than describes.
+
+### What the scene deliberately does not answer
+
+- **Whether the terminal held the frame back.** That is the paint, and no process inside a terminal
+  can see it. Scene 06 says the flag was set; it does not say a frame was withheld.
+- **Whether any of this binds.** It does not: the engine opens and closes its block inside one
+  `write` — §8's twenty bytes of fixed framing — so a frame cannot approach the smallest of these
+  limits. `quirks.rs` says as much where the field is declared, and the numbers are headroom written
+  down where a future block spanning two writes will look for them. This scene changes where three
+  of them came from, and nothing else.
+- **A terminal that does not have the mode.** All four arms recognise it, so the `not recognised (0)`
+  path and the `cannot express` declaration that would go with it are written and unexercised —
+  `screen` 4.00.03 is the candidate on this machine, and it has no usable capture surface for the
+  other scenes.
+
 ## 2026-08-29 — stage 3, and the two disagreements `ucd.rs` cites do not reproduce
 
 Scene 05 asks the terminal itself what a cluster is worth: fifteen clusters written at column 1,

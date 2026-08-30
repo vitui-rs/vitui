@@ -1025,3 +1025,473 @@ fn the_two_channels_are_not_interchangeable() {
         "a batch of cursor reports has no cells in it"
     );
 }
+
+// ── Scene 06, part A: what the terminal says about a mode ────────────────────────────────────────
+
+/// The five questions scene 06 asks in one batch, and the states DECRPM defines for the answers.
+///
+/// Hand-written here as they are hand-written in the scene, because a test that took its
+/// expectations from the scene would be checking one copy of the arithmetic against another.
+const SCENE06_STATES: [ModeState; 5] = [
+    ModeState::Reset,
+    ModeState::Set,
+    ModeState::Reset,
+    ModeState::Set,
+    ModeState::Reset,
+];
+
+/// A well-formed batch: five answers about 2026 and a device-attributes reply behind them.
+const SCENE06_BATCH: &[u8] =
+    b"\x1b[?2026;2$y\x1b[?2026;1$y\x1b[?2026;2$y\x1b[?2026;1$y\x1b[?2026;2$y\x1b[?1;2;4c";
+
+#[test]
+fn a_mode_batch_with_no_sentinel_is_refused_and_never_a_state() {
+    // The same accident as the dump's zero bytes and the width batch's missing reply: an answer
+    // that never arrived, read as one. Here it would not even leave a blank — the batch is counted
+    // positionally, so a short one reports every later row under the wrong question.
+    let no_sentinel = &SCENE06_BATCH[..SCENE06_BATCH.len() - "\x1b[?1;2;4c".len()];
+    assert_eq!(
+        mode_reports(no_sentinel, 2026, 5),
+        Err(ModeError::NoSentinel)
+    );
+}
+
+#[test]
+fn a_short_batch_of_mode_reports_is_refused_rather_than_read_positionally() {
+    let mut short = SCENE06_BATCH.to_vec();
+    // Drop the first answer and keep the sentinel, which is what a terminal that missed one looks
+    // like from here.
+    let cut = short
+        .windows(11)
+        .position(|w| w == b"\x1b[?2026;2$y")
+        .expect("the batch opens with a reset");
+    short.drain(cut..cut + 11);
+    assert_eq!(
+        mode_reports(&short, 2026, 5),
+        Err(ModeError::Count {
+            expected: 5,
+            found: 4
+        })
+    );
+}
+
+#[test]
+fn a_reply_about_another_mode_is_refused_rather_than_skipped() {
+    // Skipping it would be worse than counting it: the count would then come out right for a batch
+    // whose answers are one question out of step.
+    let stranger = b"\x1b[?2026;2$y\x1b[?7;1$y\x1b[?2026;1$y\x1b[?1;2;4c";
+    assert_eq!(
+        mode_reports(stranger, 2026, 2),
+        Err(ModeError::OtherMode {
+            wanted: 2026,
+            then: 7
+        })
+    );
+}
+
+#[test]
+fn a_state_decrpm_does_not_define_is_refused_rather_than_guessed() {
+    let odd = b"\x1b[?2026;9$y\x1b[?1;2;4c";
+    assert_eq!(
+        mode_reports(odd, 2026, 1),
+        Err(ModeError::UnknownState { ps: 9 })
+    );
+    assert_eq!(ModeState::from_ps(9), None);
+}
+
+#[test]
+fn a_private_mode_reply_that_is_not_two_numbers_is_refused_rather_than_dropped() {
+    // Dropped, it arrives downstream as a short batch — *the terminal lost an answer* about a
+    // terminal that answered every question and spelled one of them in a way this reader does not
+    // know. Two causes, and only one of them is about the terminal.
+    let odd = b"\x1b[?2026;$y\x1b[?1;2;4c";
+    assert_eq!(
+        mode_reports(odd, 2026, 1),
+        Err(ModeError::Malformed {
+            body: "?2026;$".to_string()
+        })
+    );
+}
+
+#[test]
+fn a_truncated_mode_reply_is_refused() {
+    assert_eq!(
+        mode_reports(b"\x1b[?2026;1", 2026, 1),
+        Err(ModeError::UnterminatedReply)
+    );
+}
+
+#[test]
+fn a_mode_reply_after_the_sentinel_is_not_counted() {
+    // Everything past the device-attributes reply belongs to some other question, and a batch that
+    // lost an answer could otherwise be made up to length by a stranger's.
+    let mut trailing = SCENE06_BATCH.to_vec();
+    trailing.extend_from_slice(b"\x1b[?2026;1$y");
+    assert_eq!(
+        mode_reports(&trailing, 2026, 5).map(|r| r.len()),
+        Ok(5),
+        "the batch is what arrived before the sentinel"
+    );
+    assert_eq!(
+        mode_reports(&trailing, 2026, 6),
+        Err(ModeError::Count {
+            expected: 6,
+            found: 5
+        })
+    );
+}
+
+#[test]
+fn an_ansi_mode_reply_is_not_a_private_one() {
+    // `CSI 4 ; 2 $ y` is DECRPM for the *ANSI* mode 4 and has the same shape as the private reply
+    // with the `?` taken off. Reading one as the other would report insert-replace mode's state
+    // under mode 2026's heading, and the count would come out right.
+    let ansi = b"\x1b[4;2$y\x1b[?1;2;4c";
+    assert_eq!(
+        mode_reports(ansi, 2026, 0),
+        Ok(vec![]),
+        "an ANSI-mode reply is not an answer to a private-mode question"
+    );
+}
+
+#[test]
+fn the_five_states_come_back_in_the_order_the_scene_asked_them() {
+    let seen = mode_reports(SCENE06_BATCH, 2026, 5).expect("a well-formed batch");
+    assert_eq!(
+        seen.iter().map(|r| r.state).collect::<Vec<_>>(),
+        SCENE06_STATES.to_vec()
+    );
+    assert!(
+        seen.iter().all(|r| r.mode == 2026),
+        "every reply carries the mode it is about, and it is the one that was asked"
+    );
+}
+
+// ── Scene 06, part B: the bracket, which is the flag and not the paint ───────────────────────────
+
+/// A probe whose reply landed `LATENCY` after the question, which is what a local pty costs.
+fn probe(at_ms: u32, state: ModeState) -> Probe {
+    Probe {
+        at_ms,
+        answered_at_ms: at_ms + LATENCY,
+        state: Some(state),
+    }
+}
+
+/// The gap between the question and its answer in these fixtures.
+///
+/// Not zero, deliberately: with the two clocks equal every test here would pass under a fold that
+/// read one of them for both ends, which is the defect the two fields exist to prevent.
+const LATENCY: u32 = 40;
+
+#[test]
+fn no_probes_is_not_a_bracket() {
+    assert_eq!(flush_bracket(&[]), Err(BracketError::NoProbes));
+}
+
+#[test]
+fn a_hole_in_the_sequence_is_refused_rather_than_bracketed_around() {
+    // A probe that got no reply is not evidence that the mode was still set, and it is not evidence
+    // that it was reset. Bracketing around it would put the event on whichever side the two
+    // surviving probes happen to fall.
+    let run = [
+        probe(50, ModeState::Set),
+        Probe {
+            at_ms: 900,
+            answered_at_ms: 940,
+            state: None,
+        },
+        probe(3000, ModeState::Reset),
+    ];
+    assert_eq!(
+        flush_bracket(&run),
+        Err(BracketError::NoAnswer { at_ms: 900 })
+    );
+}
+
+#[test]
+fn a_probe_that_is_not_a_timing_is_refused_with_what_it_said() {
+    // A terminal without the mode, and one that pins it, are each a real answer about the terminal.
+    // Neither is a number, and a row that printed one would be inventing it.
+    for state in [
+        ModeState::NotRecognised,
+        ModeState::PermanentlySet,
+        ModeState::PermanentlyReset,
+    ] {
+        assert_eq!(
+            flush_bracket(&[probe(50, state)]),
+            Err(BracketError::NotUsable { at_ms: 50, state })
+        );
+    }
+}
+
+#[test]
+fn a_timeout_that_unexpired_itself_is_refused() {
+    // Monotonicity is what makes a bisection sound rather than a search over an arbitrary function,
+    // and a run that breaks it has measured something that is not a timeout.
+    let run = [probe(400, ModeState::Reset), probe(900, ModeState::Set)];
+    assert_eq!(
+        flush_bracket(&run),
+        Err(BracketError::NotMonotone {
+            set_at: 900,
+            reset_at: 400 + LATENCY
+        })
+    );
+}
+
+#[test]
+fn the_bracket_is_the_pair_the_event_is_between() {
+    let run = [
+        probe(50, ModeState::Set),
+        probe(3000, ModeState::Reset),
+        probe(904, ModeState::Set),
+        probe(1002, ModeState::Reset),
+    ];
+    assert_eq!(
+        flush_bracket(&run),
+        Ok(Bracket::Between {
+            still_set_at: 904,
+            reset_by: 1002 + LATENCY
+        }),
+        "the tightest straddling pair, and each end read off the clock that makes it sound"
+    );
+}
+
+#[test]
+fn a_mode_that_never_reset_inside_the_ceiling_says_so() {
+    let run = [probe(50, ModeState::Set), probe(3000, ModeState::Set)];
+    assert_eq!(
+        flush_bracket(&run),
+        Ok(Bracket::NeverReset { ceiling: 3000 }),
+        "the ceiling is the request, because nothing was observed to have reset by anything"
+    );
+}
+
+#[test]
+fn a_mode_already_reset_at_the_floor_says_so() {
+    // Either the limit is under the floor or the open never took, and those are different facts.
+    // The row prints the floor so a reader can tell which question to ask next.
+    let run = [probe(50, ModeState::Reset), probe(3000, ModeState::Reset)];
+    assert_eq!(
+        flush_bracket(&run),
+        Ok(Bracket::AlreadyReset {
+            floor: 50 + LATENCY
+        })
+    );
+}
+
+#[test]
+fn the_two_ends_are_probed_before_anything_is_halved() {
+    // A bisection between two ends that were never established is a bisection over a guess.
+    assert_eq!(next_delay(&[], 50, 3000, 128), Some(50));
+    assert_eq!(
+        next_delay(&[probe(50, ModeState::Set)], 50, 3000, 128),
+        Some(3000)
+    );
+}
+
+#[test]
+fn a_run_with_nothing_to_bisect_stops_rather_than_halving_a_guess() {
+    let never = [probe(50, ModeState::Set), probe(3000, ModeState::Set)];
+    assert_eq!(next_delay(&never, 50, 3000, 128), None);
+    let already = [probe(50, ModeState::Reset), probe(3000, ModeState::Reset)];
+    assert_eq!(next_delay(&already, 50, 3000, 128), None);
+    let absent = [
+        probe(50, ModeState::NotRecognised),
+        probe(3000, ModeState::NotRecognised),
+    ];
+    assert_eq!(next_delay(&absent, 50, 3000, 128), None);
+}
+
+#[test]
+fn the_halving_converges_on_the_boundary_and_stops_at_the_resolution() {
+    // A terminal whose flag resets at exactly 1000 ms, played against the real strategy. What is
+    // asserted is the *property* — the bracket straddles the boundary and is no wider than the
+    // resolution — rather than the ladder, so a better bisection does not fail this test.
+    const BOUNDARY: u32 = 1000;
+    let mut probes: Vec<Probe> = Vec::new();
+    let mut opens = 0;
+    while let Some(at_ms) = next_delay(
+        &probes,
+        FLUSH_FLOOR_MS,
+        FLUSH_CEILING_MS,
+        FLUSH_RESOLUTION_MS,
+    ) {
+        opens += 1;
+        assert!(opens < 32, "the strategy did not converge");
+        probes.push(probe(
+            at_ms,
+            if at_ms < BOUNDARY {
+                ModeState::Set
+            } else {
+                ModeState::Reset
+            },
+        ));
+    }
+    let Ok(Bracket::Between {
+        still_set_at,
+        reset_by,
+    }) = flush_bracket(&probes)
+    else {
+        panic!("a terminal with a boundary brackets it: {probes:?}");
+    };
+    assert!(
+        still_set_at < BOUNDARY && reset_by >= BOUNDARY,
+        "the bracket must straddle the boundary: ({still_set_at}, {reset_by}]"
+    );
+    assert!(
+        reset_by - still_set_at <= FLUSH_RESOLUTION_MS + LATENCY,
+        "the bracket must be no wider than the resolution it was asked for, plus the round trip \
+         the two clocks are honest about"
+    );
+    assert_eq!(
+        opens, 7,
+        "the readiness timeout is derived from this count, so the two move together"
+    );
+}
+
+#[test]
+fn the_probes_may_arrive_in_any_order() {
+    // The scene appends them in the order it took them and the strategy chooses that order, so
+    // nothing guarantees it is sorted. A fold that depended on the order would be right for every
+    // run that happened to be sorted.
+    let forward = [
+        probe(50, ModeState::Set),
+        probe(904, ModeState::Set),
+        probe(1002, ModeState::Reset),
+        probe(3000, ModeState::Reset),
+    ];
+    let mut backward = forward;
+    backward.reverse();
+    assert_eq!(flush_bracket(&forward), flush_bracket(&backward));
+    assert_eq!(
+        next_delay(&forward, 50, 3000, 32),
+        next_delay(&backward, 50, 3000, 32)
+    );
+}
+
+#[test]
+fn each_end_of_the_bracket_is_read_off_the_clock_that_makes_it_sound() {
+    // The terminal processed each question somewhere between the write and the reply, so a *set*
+    // answer is only evidence back to the request and a *reset* answer only forward to the reply.
+    // Read the other way round, this run would claim the mode was still set at 940 and already
+    // reset at 900 — a bracket that runs backwards over an event nothing observed.
+    let run = [
+        Probe {
+            at_ms: 900,
+            answered_at_ms: 940,
+            state: Some(ModeState::Set),
+        },
+        Probe {
+            at_ms: 1000,
+            answered_at_ms: 1400,
+            state: Some(ModeState::Reset),
+        },
+    ];
+    assert_eq!(
+        flush_bracket(&run),
+        Ok(Bracket::Between {
+            still_set_at: 900,
+            reset_by: 1400
+        }),
+        "a slow reply widens the bracket; it may never be allowed to narrow it"
+    );
+}
+
+// ── Scene 06, the four captures of what each terminal says about mode 2026 ───────────────────────
+
+const GHOSTTY_SYNC: &[u8] = include_bytes!("../fixtures/ghostty-1.3.1-scene06-sync.decrqm");
+const KITTY_SYNC: &[u8] = include_bytes!("../fixtures/kitty-0.48.2-scene06-sync.decrqm");
+const TMUX_SYNC: &[u8] = include_bytes!("../fixtures/tmux-3.7c-scene06-sync.decrqm");
+const VIA_TMUX_SYNC: &[u8] =
+    include_bytes!("../fixtures/ghostty-1.3.1-via-tmux-3.7c-scene06-sync.decrqm");
+
+const SYNC_ARMS: [(&str, &[u8]); 4] = [
+    ("Ghostty 1.3.1", GHOSTTY_SYNC),
+    ("kitty 0.48.2", KITTY_SYNC),
+    ("tmux 3.7c", TMUX_SYNC),
+    ("Ghostty 1.3.1 via tmux 3.7c", VIA_TMUX_SYNC),
+];
+
+#[test]
+fn all_three_families_have_mode_2026_and_their_state_machines_track_it() {
+    // The three families of spec §10's tier 1, answering about themselves. `serial.rs` wraps every
+    // frame in this mode where the terminal has it, and until this scene the evidence that any of
+    // them does was `detect.rs` believing a reply it also wrote the parser for.
+    for (who, bytes) in SYNC_ARMS {
+        let seen = mode_reports(bytes, 2026, SCENE06_STATES.len())
+            .unwrap_or_else(|e| panic!("{who}: {e}"));
+        assert_eq!(
+            seen.iter().map(|r| r.state).collect::<Vec<_>>(),
+            SCENE06_STATES.to_vec(),
+            "{who} disagrees with DECRPM's own definitions"
+        );
+    }
+}
+
+#[test]
+fn one_reset_undoes_two_sets_because_a_dec_mode_is_not_a_counter() {
+    // The last two rows of the batch, read on their own because this is the one row of the five
+    // whose answer the engine depends on: §8 wraps a frame in a **balanced** pair, and a terminal
+    // that counted would hold a frame past the close that was sent for it.
+    for (who, bytes) in SYNC_ARMS {
+        let seen = mode_reports(bytes, 2026, 5).unwrap_or_else(|e| panic!("{who}: {e}"));
+        assert_eq!(seen[3].state, ModeState::Set, "{who}: two `h` is set");
+        assert_eq!(
+            seen[4].state,
+            ModeState::Reset,
+            "{who}: one `l` after two `h` is reset, not set-with-one-left"
+        );
+    }
+}
+
+#[test]
+fn the_reply_never_leaves_the_innermost_terminal_and_the_two_tmux_fixtures_are_one_capture() {
+    // Scene 05's property, and it holds for scene 06 for the same reason: the question is asked in
+    // band on the scene's own tty, so the terminal that answers is the innermost one — which for
+    // the through-tmux arm is tmux and not the Ghostty it is photographed through. Asserted rather
+    // than described, because a column headed *Ghostty* over tmux's answers is the dishonesty
+    // `SCENES.md` opens by naming.
+    assert_eq!(
+        TMUX_SYNC, VIA_TMUX_SYNC,
+        "the two tmux paths answered one question, so their captures are one capture"
+    );
+    // And the other two are not, or one arm's capture would be sitting under two names. The device
+    // attributes are what separate them: three families, three answers.
+    assert_ne!(GHOSTTY_SYNC, KITTY_SYNC);
+    assert_ne!(GHOSTTY_SYNC, TMUX_SYNC);
+    assert_ne!(KITTY_SYNC, TMUX_SYNC);
+}
+
+#[test]
+fn a_sync_capture_is_not_a_width_capture_and_neither_is_a_screen() {
+    // Three channels now, and each reader refuses the other two's bytes for its own reason. The
+    // **named** errors, because a refusal for the wrong reason goes on passing after a reader
+    // starts refusing everything.
+    assert_eq!(
+        cursor_reports(TMUX_SYNC, OBSERVED.len()),
+        Err(CprError::Count {
+            expected: OBSERVED.len(),
+            found: 0
+        }),
+        "a batch of mode reports has a sentinel and no cursor reports in it"
+    );
+    assert_eq!(
+        mode_reports(TMUX_WIDTHS, 2026, 5),
+        Err(ModeError::Count {
+            expected: 5,
+            found: 0
+        }),
+        "a batch of cursor reports has a sentinel and no mode reports in it"
+    );
+    assert_eq!(
+        mode_reports(SCENE01, 2026, 5),
+        Err(ModeError::NoSentinel),
+        "a screen has no device-attributes reply in it"
+    );
+    assert_eq!(
+        parse(TMUX_SYNC, 5, Dialect::Ecma48),
+        Err(DumpError::Empty),
+        "a batch of mode reports has no cells in it"
+    );
+}

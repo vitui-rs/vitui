@@ -9,12 +9,12 @@ Read [`SCENES.md`](SCENES.md) first.
 - **Arm:** Ghostty 1.3.1, `write_screen_file:…,vt`
 - **These rows are evidence about:** Ghostty. Its own cell state, re-serialised by the emulator that holds it
 - **Default colours, from the dump's own OSC 10/11:** fg `#eaeaea`, bg `#000000`
-- **Launch to capture:** 5292 ms, of which the capture round trip alone was 237 ms — reported, never gated. It is AppleScript round trips and a window opening
+- **Launch to capture:** 1447 ms, of which the capture round trip alone was 213 ms — reported, never gated. It is AppleScript round trips and a window opening
 - **Geometry:** not ours to set. `surface configuration` offers a font size and no rows or columns, so the scene draws at the top left of whatever it is given
 
 ## Scene 01 — the eleven attribute bits, one per row
 
-Surface: **36x12** cells, as the scene reported it.
+Surface: **156x39** cells, as the scene reported it.
 
 Each row lights exactly one of the style word's eleven attribute bits. A row agrees only when the dump reports that attribute **and nothing else** — an invented attribute is a disagreement in the same way a missing one is.
 
@@ -95,5 +95,45 @@ What the paragraph in `ucd.rs` cites for the disagreement is a **survey of 23 te
 | `1️⃣` | U+0031 U+FE0F U+20E3 | an ASCII base carried into emoji presentation by a selector and a combining enclosing keycap — the sequence whose base is one column on its own | 2 | 2 | ✓ |
 
 **12 of 12 agree with the engine's tables.** That number is a fact about this terminal and about the disagreement's size; it is not a score and it is not a denominator anything is held to.
+
+## Scene 06 — mode 2026, asked of the terminal rather than of its documentation
+
+**Answered by: Ghostty** — Ghostty is an endpoint, so nothing sits between the scene's tty and it.
+
+The second scene here whose answer does not come back through a photograph, and the first for a question that is not a width. The scene asks `CSI ? 2026 $ p` on its own tty and the terminal answers in band, so the capture surface, the window server and the automation grant are all out of the path — and the terminal that answers is the **innermost** one, which is why the line above names a terminal rather than repeating this arm's title.
+
+### The state machine, and these five are compared
+
+One batch — ask, set, ask, reset, ask, set, set, ask, reset, ask — with `CSI c` behind it, and the answers read positionally. **The expectations are DECRPM's own**, which is what makes this a comparison where scene 05's twelve rows are a survey: a terminal that reports the mode set after it was asked to reset it is wrong by the definition of the reply it sent, not by a table this repository chose. A terminal with no synchronised output answers `not recognised (0)` throughout, which is a legitimate answer — the arm then owes a `cannot express` declaration, and until it has one the rows are loud.
+
+| row | asks | declared here | Ghostty | |
+|---|---|---|---|---|
+| before | whether the terminal recognises the mode at all, and what it says before anything has been done to it. A terminal without synchronised output answers `not recognised (0)` here, which is a legitimate answer and not a defect | reset (2) | reset (2) | ✓ |
+| while-open | whether `CSI ? 2026 h` reached the state machine. This is the row that separates a terminal that *has* the mode from one that parses the sequence and throws it away | set (1) | set (1) | ✓ |
+| after-close | whether `CSI ? 2026 l` reached it too. A terminal that opens and never closes is one where the engine's own frame framing leaves the mode set for ever | reset (2) | reset (2) | ✓ |
+| opened-twice | whether a second `h` over an already-set mode is still simply set | set (1) | set (1) | ✓ |
+| closed-once | whether one `l` undoes two `h`. A DEC private mode is not a counter, and a terminal that made it one would hold a frame past the close the engine sent | reset (2) | reset (2) | ✓ |
+
+**5/5 agreed.**
+
+### When the terminal let go of the flag — reported, never failed
+
+**This is the flag and it is not the paint.** A force flush is a *rendering* event and nothing a process inside a terminal can ask reports whether the terminal painted; DECRQM reports a **mode**. What is below is when the terminal stopped reporting the mode as set — the event Ghostty's own source calls *reset the synchronized output flag*. A terminal could paint without clearing the flag or clear it without painting, and nothing here can tell those apart. It is a timing besides, and a timing is a report.
+
+**One probe per open, and the control probe is why.** The polling instrument was written first: it opens one block and asks repeatedly, which costs one open where this costs seven. Polling a Ghostty 1.3.1 every 250 ms brought the reset forward from 1002 ms to under 517 ms, while the same polling left tmux 3.7c at 1007 ms and kitty 0.48.2 at 2261 ms — their documented figures. An instrument that polls is inside its own measurement, and the two families it happens not to disturb are exactly what would have made that invisible. So each row below is a fresh open, a wait, one question and a close, and the boundary between them is halved for. **The two clocks are both printed** because only one of them is sound for each answer: the terminal processed the question somewhere between them, a *set* is evidence back to the request and a *reset* is evidence forward to the reply, so the bracket takes one end from each column.
+
+| open | held open for | answered at | Ghostty |
+|---|---|---|---|
+| 1 | 50 ms | 51 ms | set (1) |
+| 2 | 3000 ms | 3003 ms | reset (2) |
+| 3 | 1525 ms | 1528 ms | reset (2) |
+| 4 | 787 ms | 788 ms | set (1) |
+| 5 | 1156 ms | 1156 ms | reset (2) |
+| 6 | 971 ms | 973 ms | reset (2) |
+| 7 | 879 ms | 882 ms | set (1) |
+
+**Still set at 879 ms, reset by 973 ms.** The event is in that interval; a bracket and never a point, because a probe is a sample. `quirks.rs`'s row for this terminal is the number to read it against, and that row's provenance is *the implementation, read*.
+
+Nothing in this section moves the numerator or the denominator above it. A timing is a report, and a gate tuned to one is the flaky test this repository refuses by name.
 
 A row that does not say which arm it came from is not a result, and a *missing* row reads as a win — which is the single easiest way for this directory to become dishonest. Every row of every scene is printed above whether it agreed or not, and a capture with fewer rows than the scene declared never reaches a table: it is refused as `FAILED` by the parser.

@@ -9,13 +9,13 @@ Read [`SCENES.md`](SCENES.md) first.
 - **Arm:** Ghostty-via-tmux 1.3.1, `write_screen_file:…,vt`
 - **These rows are evidence about:** **tmux's forwarding**, read through Ghostty. tmux parses the engine's bytes and Ghostty parses tmux's, and Ghostty alone agrees 11/11 — so a disagreement here is what tmux passed on. This is the only instrument here that can see it: `capture-pane` and tmux's redraw path are different code, and `attrs_dropped` is about what is rendered
 - **Default colours, from the dump's own OSC 10/11:** fg `#eaeaea`, bg `#000000`
-- **Launch to capture:** 1833 ms, of which the capture round trip alone was 705 ms — reported, never gated. It is AppleScript round trips and a window opening
+- **Launch to capture:** 1205 ms, of which the capture round trip alone was 204 ms — reported, never gated. It is AppleScript round trips and a window opening
 - **Geometry:** not ours to set. `surface configuration` offers a font size and no rows or columns, so the scene draws at the top left of whatever it is given
 - **Two parsers in series.** The engine detected *tmux's* capabilities, not Ghostty's, so a disagreement has two candidate causes — what the engine chose to emit, and what tmux passed on. The row tells them apart: an attribute the engine never sent is missing, where one tmux mangled arrives wrong
 
 ## Scene 01 — the eleven attribute bits, one per row
 
-Surface: **156x44** cells, as the scene reported it.
+Surface: **156x38** cells, as the scene reported it.
 
 Each row lights exactly one of the style word's eleven attribute bits. A row agrees only when the dump reports that attribute **and nothing else** — an invented attribute is a disagreement in the same way a missing one is.
 
@@ -58,7 +58,7 @@ Every row is `AB漢CD` — `A` at column 0, `B` at 1, the wide glyph across 2 an
 
 ## Scene 05 — what does this emulator think this cluster is worth
 
-**Answered by: tmux** — **not Ghostty, and this is where the arm's two halves come apart.** A cursor report is answered by the innermost terminal, so it never leaves tmux — where this arm's *photograph* is the only instrument in this directory that can see what tmux forwarded onward. These rows duplicate the plain tmux arm's exactly, and the column is headed with who answered rather than with this arm's title.
+**Answered by: tmux** — **not Ghostty, and this is where the arm's two halves come apart.** A question asked in band is answered by the innermost terminal, so it never leaves tmux — where this arm's *photograph* is the only instrument in this directory that can see what tmux forwarded onward. These rows duplicate the plain tmux arm's exactly, and the column is headed with who answered rather than with this arm's title.
 
 This is the only scene here whose answer does not come back through a photograph. The scene homes the cursor to column 1, writes one cluster, and asks `CSI 6n`; the column that comes back is the **emulator's own UAX #11 verdict**, reached by the emulator's tables and reported by the emulator, with nothing of this repository's in the path. A `CSI c` behind the batch is the sentinel, so the read stops on an observed condition rather than on a delay.
 
@@ -98,5 +98,45 @@ What the paragraph in `ucd.rs` cites for the disagreement is a **survey of 23 te
 | `1️⃣` | U+0031 U+FE0F U+20E3 | an ASCII base carried into emoji presentation by a selector and a combining enclosing keycap — the sequence whose base is one column on its own | 2 | 2 | ✓ |
 
 **12 of 12 agree with the engine's tables.** That number is a fact about this terminal and about the disagreement's size; it is not a score and it is not a denominator anything is held to.
+
+## Scene 06 — mode 2026, asked of the terminal rather than of its documentation
+
+**Answered by: tmux** — **not Ghostty, and this is where the arm's two halves come apart.** A question asked in band is answered by the innermost terminal, so it never leaves tmux — where this arm's *photograph* is the only instrument in this directory that can see what tmux forwarded onward. These rows duplicate the plain tmux arm's exactly, and the column is headed with who answered rather than with this arm's title.
+
+The second scene here whose answer does not come back through a photograph, and the first for a question that is not a width. The scene asks `CSI ? 2026 $ p` on its own tty and the terminal answers in band, so the capture surface, the window server and the automation grant are all out of the path — and the terminal that answers is the **innermost** one, which is why the line above names a terminal rather than repeating this arm's title.
+
+### The state machine, and these five are compared
+
+One batch — ask, set, ask, reset, ask, set, set, ask, reset, ask — with `CSI c` behind it, and the answers read positionally. **The expectations are DECRPM's own**, which is what makes this a comparison where scene 05's twelve rows are a survey: a terminal that reports the mode set after it was asked to reset it is wrong by the definition of the reply it sent, not by a table this repository chose. A terminal with no synchronised output answers `not recognised (0)` throughout, which is a legitimate answer — the arm then owes a `cannot express` declaration, and until it has one the rows are loud.
+
+| row | asks | declared here | tmux | |
+|---|---|---|---|---|
+| before | whether the terminal recognises the mode at all, and what it says before anything has been done to it. A terminal without synchronised output answers `not recognised (0)` here, which is a legitimate answer and not a defect | reset (2) | reset (2) | ✓ |
+| while-open | whether `CSI ? 2026 h` reached the state machine. This is the row that separates a terminal that *has* the mode from one that parses the sequence and throws it away | set (1) | set (1) | ✓ |
+| after-close | whether `CSI ? 2026 l` reached it too. A terminal that opens and never closes is one where the engine's own frame framing leaves the mode set for ever | reset (2) | reset (2) | ✓ |
+| opened-twice | whether a second `h` over an already-set mode is still simply set | set (1) | set (1) | ✓ |
+| closed-once | whether one `l` undoes two `h`. A DEC private mode is not a counter, and a terminal that made it one would hold a frame past the close the engine sent | reset (2) | reset (2) | ✓ |
+
+**5/5 agreed.**
+
+### When the terminal let go of the flag — reported, never failed
+
+**This is the flag and it is not the paint.** A force flush is a *rendering* event and nothing a process inside a terminal can ask reports whether the terminal painted; DECRQM reports a **mode**. What is below is when the terminal stopped reporting the mode as set — the event Ghostty's own source calls *reset the synchronized output flag*. A terminal could paint without clearing the flag or clear it without painting, and nothing here can tell those apart. It is a timing besides, and a timing is a report.
+
+**One probe per open, and the control probe is why.** The polling instrument was written first: it opens one block and asks repeatedly, which costs one open where this costs seven. Polling a Ghostty 1.3.1 every 250 ms brought the reset forward from 1002 ms to under 517 ms, while the same polling left tmux 3.7c at 1007 ms and kitty 0.48.2 at 2261 ms — their documented figures. An instrument that polls is inside its own measurement, and the two families it happens not to disturb are exactly what would have made that invisible. So each row below is a fresh open, a wait, one question and a close, and the boundary between them is halved for. **The two clocks are both printed** because only one of them is sound for each answer: the terminal processed the question somewhere between them, a *set* is evidence back to the request and a *reset* is evidence forward to the reply, so the bracket takes one end from each column.
+
+| open | held open for | answered at | tmux |
+|---|---|---|---|
+| 1 | 50 ms | 50 ms | set (1) |
+| 2 | 3000 ms | 3003 ms | reset (2) |
+| 3 | 1525 ms | 1530 ms | reset (2) |
+| 4 | 787 ms | 788 ms | set (1) |
+| 5 | 1156 ms | 1158 ms | reset (2) |
+| 6 | 971 ms | 972 ms | set (1) |
+| 7 | 1063 ms | 1063 ms | reset (2) |
+
+**Still set at 971 ms, reset by 1063 ms.** The event is in that interval; a bracket and never a point, because a probe is a sample. `quirks.rs`'s row for this terminal is the number to read it against, and that row's provenance is *the implementation, read*.
+
+Nothing in this section moves the numerator or the denominator above it. A timing is a report, and a gate tuned to one is the flaky test this repository refuses by name.
 
 A row that does not say which arm it came from is not a result, and a *missing* row reads as a win — which is the single easiest way for this directory to become dishonest. Every row of every scene is printed above whether it agreed or not, and a capture with fewer rows than the scene declared never reaches a table: it is refused as `FAILED` by the parser.

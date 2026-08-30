@@ -32,7 +32,9 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 
 use vitui_conform::{
-    Attrs, Colour, Dialect, Dump, Reply, Style, Underline, cursor_reports, default_colours, parse,
+    Attrs, Bracket, Colour, Dialect, Dump, FLUSH_CEILING_MS, FLUSH_FLOOR_MS, FLUSH_OPENS,
+    FLUSH_RESOLUTION_MS, ModeReply, Probe, Reply, Style, Underline, cursor_reports,
+    default_colours, flush_bracket, mode_reports, next_delay, parse,
 };
 use vitui_engine::{Clock, Config, Engine, Rect, Style as EngineStyle, Wake, width_of};
 
@@ -81,7 +83,92 @@ pub const QUIESCENT: Duration = Duration::from_millis(500);
 /// The rule is `SCENES.md`'s and it is the same one that gives each arm its own file: a scene whose
 /// section is missing reads as a win, and that is the single easiest way for this directory to
 /// become dishonest. There is deliberately no flag to run one.
-pub const SCENES: &[&str] = &["01", "04", "05"];
+pub const SCENES: &[&str] = &["01", "04", "05", "06"];
+
+/// The private mode scene 06 is about.
+///
+/// One constant rather than a literal in five places, and it is the number `serial.rs` writes into
+/// `\x1b[?2026h` — spelled here rather than imported, because an instrument that took the mode
+/// number from the engine would be asking the terminal about whatever the engine happened to say.
+pub const SYNC_MODE: u16 = 2026;
+
+/// How long scene 06 waits after closing a block before opening the next one.
+///
+/// The terminal is asked to reset the mode and then asked whether it did, so this is not a settle
+/// time for the *reset* — that is observed. It is slack between two opens, so a timer armed by the
+/// previous one cannot still be running when the next one starts.
+const FLUSH_BETWEEN: Duration = Duration::from_millis(150);
+
+/// One row of scene 06, part A: a question about the mode and the state DECRPM defines for it.
+pub struct Mode {
+    /// What has been done to the mode by the time this question is asked. Also the row's identity
+    /// in the report.
+    pub label: &'static str,
+    /// What the row is evidence about, in the report's own words.
+    pub asks: &'static str,
+    /// The state the standard says the reply must carry.
+    ///
+    /// **Compared and not surveyed**, which is where this scene differs from 05: these are
+    /// DECRPM's own values, so a terminal that answers otherwise is wrong by the definition of the
+    /// reply it sent rather than by a table this repository chose. Scene 05's twelve are a survey
+    /// precisely because `ucd.rs` makes the engine's tables authoritative and there is nothing for
+    /// a terminal to be wrong *against*.
+    pub want: vitui_conform::ModeState,
+}
+
+/// Scene 06, part A — does the terminal have mode 2026, and does its state machine track it.
+///
+/// # Five questions in one batch, because the answers are only meaningful in sequence
+///
+/// A terminal that reports the mode set is not interesting; a terminal that reports it set *after
+/// it was asked to reset it* is. So the batch is one write — ask, set, ask, reset, ask, set, set,
+/// ask, reset, ask — with `CSI c` behind it, and the five answers are read positionally. That is
+/// what makes `mode_reports` refuse a short batch rather than pad it: a lost answer does not blank
+/// a row, it reports every later row under the wrong question.
+///
+/// # The last two rows are a mode that is not a counter
+///
+/// DEC private modes are set and reset, not pushed and popped, so two `h` and one `l` leave the
+/// mode **reset**. A terminal that counted them would hold a frame back past the `l` the engine
+/// sent, and §8's twenty bytes of framing are a balanced pair per frame — so a counting terminal
+/// would be one where a frame that opened a block twice never appeared. Nothing in this repository
+/// does that, which is exactly why nothing here would notice.
+pub fn scene06() -> [Mode; 5] {
+    use vitui_conform::ModeState::{Reset, Set};
+    [
+        Mode {
+            label: "before",
+            asks: "whether the terminal recognises the mode at all, and what it says before \
+                   anything has been done to it. A terminal without synchronised output answers \
+                   `not recognised (0)` here, which is a legitimate answer and not a defect",
+            want: Reset,
+        },
+        Mode {
+            label: "while-open",
+            asks: "whether `CSI ? 2026 h` reached the state machine. This is the row that \
+                   separates a terminal that *has* the mode from one that parses the sequence and \
+                   throws it away",
+            want: Set,
+        },
+        Mode {
+            label: "after-close",
+            asks: "whether `CSI ? 2026 l` reached it too. A terminal that opens and never closes \
+                   is one where the engine's own frame framing leaves the mode set for ever",
+            want: Reset,
+        },
+        Mode {
+            label: "opened-twice",
+            asks: "whether a second `h` over an already-set mode is still simply set",
+            want: Set,
+        },
+        Mode {
+            label: "closed-once",
+            asks: "whether one `l` undoes two `h`. A DEC private mode is not a counter, and a \
+                   terminal that made it one would hold a frame past the close the engine sent",
+            want: Reset,
+        },
+    ]
+}
 
 /// One row of scene 01: an attribute, the label under it, and what the dump must say.
 pub struct Case {
@@ -472,6 +559,7 @@ pub fn rows_expected(which: &str) -> usize {
         // and the refusal that stands where a short screen's does is `cursor_reports`' own. See
         // [`capture`].
         "05" => panic!("scene 05 is not photographed — see `capture`"),
+        "06" => panic!("scene 06 is not photographed — see `capture`"),
         other => panic!("no such scene: {other}"),
     }
 }
@@ -522,6 +610,7 @@ pub fn scene(which: Option<&str>) {
         Some("01") => scene01_frames(&ready),
         Some("04") => scene04_bytes(&ready),
         Some("05") => scene05_cpr(&ready),
+        Some("06") => scene06_decrqm(&ready),
         other => panic!("no such scene: {other:?} — see SCENES"),
     }
 }
@@ -680,7 +769,7 @@ fn scene04_bytes(ready: &str) {
 /// judging the half that has one — where `cursor_reports` is ordinary library code with ordinary
 /// tests over committed fixtures.
 fn scene05_cpr(ready: &str) {
-    use std::io::{Read as _, Write as _};
+    use std::io::Write as _;
 
     let glyphs = scene05();
 
@@ -721,51 +810,15 @@ fn scene05_cpr(ready: &str) {
     }
     // The sentinel. Everything after its reply belongs to some other question.
     batch.push_str("\u{1b}[c");
-    {
-        let mut out = std::io::stdout();
-        let _ = out.write_all(batch.as_bytes());
-        let _ = out.flush();
-    }
-
-    let mut replies: Vec<u8> = Vec::new();
-    let deadline = Instant::now() + ANSWER_TIMEOUT;
-    let mut stdin = std::io::stdin();
-    let mut chunk = [0u8; 256];
-    let mut empty = 0usize;
-    while Instant::now() < deadline {
-        match stdin.read(&mut chunk) {
-            // **An empty read is the configured timeout, and it is also what EOF looks like.** With
-            // `VMIN 0 VTIME 5` a real tty takes half a second to produce one, so a run of them
-            // costs more than [`ANSWER_TIMEOUT`] and this bound can only be reached by reads that
-            // returned at once — which is a descriptor that is not the terminal. Without it that
-            // case spins at 100% of a core until the deadline, which is a defect this repository
-            // has already met once under a different name.
-            Ok(0) => {
-                empty += 1;
-                if empty > EMPTY_READS {
-                    break;
-                }
-            }
-            Ok(n) => {
-                empty = 0;
-                replies.extend_from_slice(&chunk[..n]);
-            }
-            // A signal arriving mid-read is not the terminal declining to answer, and treating it
-            // as one would surface downstream as `NoSentinel` — the instrument blaming the
-            // emulator for its own interruption.
-            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
-            Err(_) => break,
-        }
-        // Stop on the sentinel's own reply and on nothing else. `cursor_reports` is the one that
-        // knows what a finished batch looks like, and it is the half with tests over it.
-        match cursor_reports(&replies, glyphs.len()) {
-            Err(
-                vitui_conform::CprError::NoSentinel | vitui_conform::CprError::UnterminatedReply,
-            ) => {}
-            _ => break,
-        }
-    }
-    let _ = std::fs::write(answers_at(Path::new(ready)), &replies);
+    // Stop on the sentinel's own reply and on nothing else. `cursor_reports` is the one that knows
+    // what a finished batch looks like, and it is the half with tests over it.
+    let replies = ask(&batch, ANSWER_TIMEOUT, |seen| {
+        !matches!(
+            cursor_reports(seen, glyphs.len()),
+            Err(vitui_conform::CprError::NoSentinel | vitui_conform::CprError::UnterminatedReply)
+        )
+    });
+    let _ = std::fs::write(answers_at(Path::new(ready), "cpr"), &replies);
 
     // What a person looking at the window sees. Compared by nothing — the driver reads the file
     // above — and here because a window that goes blank after asking its questions is a window
@@ -805,6 +858,263 @@ fn scene05_cpr(ready: &str) {
     }
 }
 
+/// Write one batch to the terminal and read until it says it has finished with it.
+///
+/// **The stop condition is the caller's, and it is an observed one.** A batch ends with `CSI c`,
+/// whose reply the terminal cannot send before it has processed everything ahead of it, so
+/// `finished` is asked after every read and the loop leaves the moment the batch's own reader says
+/// the batch is whole. `after` is the ceiling for when there is not going to be one, and never a
+/// settle time.
+///
+/// # Shared because both of its defects were expensive and neither is visible in a passing run
+///
+/// A signal arriving mid-read is not the terminal declining to answer, and treating it as one
+/// surfaces downstream as *no sentinel* — the instrument blaming the emulator for its own
+/// interruption. And an empty read is the configured `VTIME` timeout *and* what EOF looks like:
+/// with `VMIN 0 VTIME 5` a real tty takes half a second to produce one, so a run of
+/// [`EMPTY_READS`] of them cannot happen inside `after` and reaching that bound is evidence about
+/// the descriptor rather than about how long the terminal took. Without it, a descriptor that is
+/// not a terminal spins at 100% of a core until the deadline.
+///
+/// Scene 06 asks nine times where scene 05 asks once, so a second copy of that loop would be a
+/// second copy of both.
+fn ask(batch: &str, after: Duration, finished: impl Fn(&[u8]) -> bool) -> Vec<u8> {
+    use std::io::{Read as _, Write as _};
+
+    {
+        let mut out = std::io::stdout();
+        let _ = out.write_all(batch.as_bytes());
+        let _ = out.flush();
+    }
+
+    let mut seen: Vec<u8> = Vec::new();
+    let deadline = Instant::now() + after;
+    let mut stdin = std::io::stdin();
+    let mut chunk = [0u8; 256];
+    let mut empty = 0usize;
+    while Instant::now() < deadline {
+        match stdin.read(&mut chunk) {
+            Ok(0) => {
+                empty += 1;
+                if empty > EMPTY_READS {
+                    break;
+                }
+            }
+            Ok(n) => {
+                empty = 0;
+                seen.extend_from_slice(&chunk[..n]);
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(_) => break,
+        }
+        if finished(&seen) {
+            break;
+        }
+    }
+    seen
+}
+
+/// Scene 06: ask the terminal what it says about mode 2026, and time the flag it lets go of.
+///
+/// # It asks about a mode where every other scene photographs a screen
+///
+/// `quirks.rs`'s synchronised-output table has four rows and every one of them has the same
+/// provenance — *the implementation, read* — because a force flush is a **rendering** event and
+/// nothing a process inside a terminal can ask reports whether the terminal painted. Production
+/// ticket 05 asked for Ghostty's row to be measured and it could not be: the only capture this
+/// repository has is an AppleScript round trip four runs put between 136 ms and 623 ms, which is
+/// the same order as Alacritty's entire 150 ms limit.
+///
+/// That sentence is still true and it is not the whole of mode 2026. Whether the terminal
+/// **recognises** the mode, whether its state machine tracks the set and the reset, and when it
+/// stops reporting the mode as set are three questions the terminal answers about *itself*, in
+/// band, on this scene's own tty — with no capture surface, no window server and no automation
+/// grant anywhere in the path. Scene 05 established that shape; this is the second scene to use it,
+/// and the first for a question that is not a width.
+///
+/// # The flag is not the paint, and this scene may never be read as though it were
+///
+/// DECRQM reports a *mode*. What part B measures is when the terminal stopped reporting the mode as
+/// set — the event Ghostty's own source calls *reset the synchronized output flag*. A terminal
+/// could paint without clearing the flag or clear it without painting, and nothing here can tell
+/// those apart. Every row says so, and [`vitui_conform::Bracket`] says it again where the number
+/// lives.
+///
+/// # One probe per open, which the control probe had to teach
+///
+/// See [`vitui_conform::next_delay`]. The polling instrument was written first and it is wrong on
+/// one of the three families: it brought Ghostty's reset forward from 1002 ms to under 517 ms while
+/// leaving tmux and kitty at their documented figures.
+///
+/// # It writes what arrived and judges none of it
+///
+/// Part A's bytes go to `<ready>.decrqm` exactly as they came. Part B's probes go to
+/// `<ready>.flush` as `<delay> <ps>` lines — the state read back through `mode_reports`, which is
+/// ordinary library code with ordinary tests, and the elapsed millisecond the scene measured, which
+/// is a fact about the run and not a judgement. The driver is what folds them into a bracket, and
+/// [`vitui_conform::flush_bracket`] is what refuses a run that is not one.
+///
+/// **Part B has no fixture, and that is the rule rather than an omission.** It is a timing, a timing
+/// is a report, and a report is not gated. Part A is a comparison and its bytes are committed.
+fn scene06_decrqm(ready: &str) {
+    let rows = scene06();
+
+    // Raw and unechoed, for scene 05's reasons exactly — in cooked mode the reply sits in the line
+    // discipline until a newline that will never come, and the echo paints it into the picture.
+    if !stty(&["raw", "-echo", "min", "0", "time", "5"]) {
+        // The answers files are deliberately **not** created, which is the one refusal the driver
+        // can attribute: it names this line. The stamp is still written, or the driver would time
+        // out and say the scene never started, which is the vaguer of the two.
+        let _ = std::fs::write(ready, "1 decrqm\n");
+        loop {
+            std::thread::sleep(REPAINT);
+        }
+    }
+
+    let batch = format!(
+        "\u{1b}[?25l\
+         \u{1b}[?{SYNC_MODE}$p\
+         \u{1b}[?{SYNC_MODE}h\u{1b}[?{SYNC_MODE}$p\
+         \u{1b}[?{SYNC_MODE}l\u{1b}[?{SYNC_MODE}$p\
+         \u{1b}[?{SYNC_MODE}h\u{1b}[?{SYNC_MODE}h\u{1b}[?{SYNC_MODE}$p\
+         \u{1b}[?{SYNC_MODE}l\u{1b}[?{SYNC_MODE}$p\
+         \u{1b}[c"
+    );
+    let answers = ask(&batch, ANSWER_TIMEOUT, |seen| {
+        !matches!(
+            mode_reports(seen, SYNC_MODE, rows.len()),
+            Err(vitui_conform::ModeError::NoSentinel | vitui_conform::ModeError::UnterminatedReply)
+        )
+    });
+    let _ = std::fs::write(answers_at(Path::new(ready), "decrqm"), &answers);
+
+    // ── Part B: one open, one wait, one question, and a fresh open for the next ──
+    //
+    // **Two asks a round, each consuming exactly the replies it asked for**, and that is not
+    // tidiness. An `ask` that stops on a stop condition a *previous* round's leftovers already
+    // satisfy returns immediately with somebody else's answer — the accident `clear_handshake`
+    // exists to prevent one level up, arriving inside one process's own tty buffer. So the close is
+    // verified by a DECRQM in the same batch rather than by a bare `CSI c`, and there is no third
+    // write in the round with a reply nobody reads.
+    let mut probes: Vec<Probe> = Vec::new();
+    let mut log = String::new();
+    let one_reply = |seen: &[u8]| {
+        !matches!(
+            mode_reports(seen, SYNC_MODE, 1),
+            Err(vitui_conform::ModeError::NoSentinel | vitui_conform::ModeError::UnterminatedReply)
+        )
+    };
+    while let Some(at_ms) = next_delay(
+        &probes,
+        FLUSH_FLOOR_MS,
+        FLUSH_CEILING_MS,
+        FLUSH_RESOLUTION_MS,
+    ) {
+        // Closed and asked about in one batch, so the round starts from a state that was observed
+        // rather than assumed, and then left to settle so a timer armed by the previous open
+        // cannot still be running when this one starts.
+        //
+        // **The reply is discarded on purpose and the evidence for the close is elsewhere.** Part
+        // A's `after-close` row is a compared assertion that `CSI ? 2026 l` resets the mode on this
+        // terminal, in this run, so a close that did not take is already a loud failure one section
+        // up; and a mode stuck set here reports as `NeverReset`, which the report prints as what it
+        // is. What this batch is for is the *ordering* — that the open below is the first thing to
+        // touch the mode since it was observed reset.
+        let _ = ask(
+            &format!("\u{1b}[?{SYNC_MODE}l\u{1b}[?{SYNC_MODE}$p\u{1b}[c"),
+            ANSWER_TIMEOUT,
+            one_reply,
+        );
+        std::thread::sleep(FLUSH_BETWEEN);
+
+        {
+            use std::io::Write as _;
+            let mut out = std::io::stdout();
+            let _ = out.write_all(format!("\u{1b}[?{SYNC_MODE}h").as_bytes());
+            let _ = out.flush();
+        }
+        let opened = Instant::now();
+        while opened.elapsed() < Duration::from_millis(u64::from(at_ms)) {
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        let seen = ask(
+            &format!("\u{1b}[?{SYNC_MODE}$p\u{1b}[c"),
+            ANSWER_TIMEOUT,
+            one_reply,
+        );
+        // **The reply's clock, and the request is the other one.** Which of the two a bracket may
+        // use depends on the answer, and `Probe` is where that is written down.
+        let answered_at_ms = u32::try_from(opened.elapsed().as_millis()).unwrap_or(u32::MAX);
+        let state = mode_reports(&seen, SYNC_MODE, 1)
+            .ok()
+            .and_then(|r| r.first().map(|r| r.state));
+        probes.push(Probe {
+            at_ms,
+            answered_at_ms,
+            state,
+        });
+        let _ = writeln!(
+            &mut log,
+            "{at_ms} {answered_at_ms} {}",
+            state.map_or_else(|| "-".to_string(), |s| s.ps().to_string())
+        );
+    }
+    // The last round left the mode set. Nothing downstream depends on it and the terminal is about
+    // to be destroyed by the arm, but a scene that hands back a terminal mid-block is a scene whose
+    // window a person could be looking at.
+    {
+        use std::io::Write as _;
+        let mut out = std::io::stdout();
+        let _ = out.write_all(format!("\u{1b}[?{SYNC_MODE}l").as_bytes());
+        let _ = out.flush();
+    }
+    let _ = std::fs::write(answers_at(Path::new(ready), "flush"), &log);
+
+    // What a person looking at the window sees. Compared by nothing.
+    let seen = mode_reports(&answers, SYNC_MODE, rows.len()).unwrap_or_default();
+    let mut screen = String::new();
+    screen.push_str("\u{1b}[?25l");
+    let _ = write!(
+        &mut screen,
+        "\u{1b}[1;1H\u{1b}[2Kscene 06 — what this terminal says about mode {SYNC_MODE}"
+    );
+    for (r, row) in rows.iter().enumerate() {
+        let said = seen
+            .get(r)
+            .map_or_else(|| "no reply".to_string(), |reply| reply.state.to_string());
+        let _ = write!(
+            &mut screen,
+            "\u{1b}[{};1H\u{1b}[2K{:<14} {said}",
+            r + 3,
+            row.label
+        );
+    }
+    for (r, line) in log.lines().enumerate() {
+        let _ = write!(
+            &mut screen,
+            "\u{1b}[{};1H\u{1b}[2Kflush probe   {line}",
+            rows.len() + 4 + r
+        );
+    }
+    let _ = write!(
+        &mut screen,
+        "\u{1b}[{};1H\u{1b}[2K",
+        rows.len() + 5 + log.lines().count()
+    );
+
+    // The stamp is written after both files are on disk, so a driver that saw quiescence is a
+    // driver whose files exist. It never moves: the measurement happened once.
+    let _ = std::fs::write(ready, "1 decrqm\n");
+
+    loop {
+        use std::io::Write as _;
+        let mut out = std::io::stdout();
+        let _ = out.write_all(screen.as_bytes());
+        let _ = out.flush();
+        std::thread::sleep(REPAINT);
+    }
+}
+
 /// Put this process's controlling terminal into the mode the batch needs, and say whether it worked.
 ///
 /// `/dev/tty` and not stdin: a scene launched by an arm has its tty as all three descriptors, and
@@ -828,6 +1138,28 @@ fn stty(args: &[&str]) -> bool {
     })
 }
 
+/// How long a driver waits for one scene, which is not the same for all of them.
+///
+/// **Scene 06 stamps after it has measured, and its measurement is timed by construction.** Part B
+/// opens [`FLUSH_OPENS`] blocks and each one waits up to [`FLUSH_CEILING_MS`], so a driver on
+/// [`READY_TIMEOUT`] alone would give up while the scene was still doing what it was launched to
+/// do — and would report *the scene never presented a frame*, which is the timeout blaming the
+/// scene for the measurement it asked for. That is [`ANSWER_TIMEOUT`]'s own invariant one level up,
+/// and it is derived here rather than typed, so the three parameters of the bisection cannot move
+/// without this moving with them.
+///
+/// It is a ceiling for a run that is stuck. A scene that finishes early stamps early, and the
+/// driver leaves as soon as the stamp has stood still.
+#[must_use]
+pub fn ready_timeout(which: &str) -> Duration {
+    match which {
+        "06" => {
+            READY_TIMEOUT + Duration::from_millis(u64::from(FLUSH_CEILING_MS) * FLUSH_OPENS as u64)
+        }
+        _ => READY_TIMEOUT,
+    }
+}
+
 /// Block until the scene has presented *and stopped changing*, or give up loudly.
 ///
 /// **This replaces the fixed delay** — the mechanism by which a capture races the paint, and a raced
@@ -848,8 +1180,9 @@ fn stty(args: &[&str]) -> bool {
 /// A message naming which of the two conditions was never met, because they have different causes:
 /// no stamp at all is a scene that failed to attach, and a stamp that never stands still is a
 /// terminal still changing shape.
-pub fn wait_for_quiescence(ready: &Path) -> Result<String, String> {
-    let deadline = Instant::now() + READY_TIMEOUT;
+pub fn wait_for_quiescence(ready: &Path, which: &str) -> Result<String, String> {
+    let limit = ready_timeout(which);
+    let deadline = Instant::now() + limit;
     let mut last: Option<(String, Instant)> = None;
     while Instant::now() < deadline {
         let now = std::fs::read_to_string(ready)
@@ -875,11 +1208,11 @@ pub fn wait_for_quiescence(ready: &Path) -> Result<String, String> {
     }
     Err(match last {
         None => format!(
-            "the scene never reported a presented frame within {READY_TIMEOUT:?} — it may have \
-             failed to attach, or the terminal may have refused the command"
+            "the scene never reported a presented frame within {limit:?} — it may have failed to \
+             attach, or the terminal may have refused the command"
         ),
         Some(_) => format!(
-            "the scene presented but never stood still for {QUIESCENT:?} within {READY_TIMEOUT:?} — \
+            "the scene presented but never stood still for {QUIESCENT:?} within {limit:?} — \
              something is redrawing it, and a capture of a moving screen is not evidence"
         ),
     })
@@ -899,6 +1232,23 @@ pub enum Capture {
     /// The terminal's own answers to `CSI 6n`, read by the scene and written where the driver can
     /// find them.
     Replies(Vec<Reply>),
+    /// The terminal's own answers about mode 2026, and when it let go of the flag.
+    Modes(ModeAnswers),
+}
+
+/// Scene 06's two halves, which arrive through two channels and are one capture.
+///
+/// **The bracket is a `Result` that is kept rather than unwrapped.** A run that cannot be
+/// bracketed is not a failed run — a terminal without the mode, a terminal that never let go
+/// inside the ceiling, and a probe that got no answer are three different facts, each worth
+/// printing. Collapsing them into a missing row is the dishonesty `SCENES.md` opens by naming.
+pub struct ModeAnswers {
+    /// Part A: the five states, in the order the batch asked them.
+    pub states: Vec<ModeReply>,
+    /// Part B: the probes as the scene took them, `(elapsed ms, state)`.
+    pub probes: Vec<Probe>,
+    /// Part B folded, or why it is not a bracket.
+    pub bracket: Result<Bracket, vitui_conform::BracketError>,
 }
 
 /// Where scene 05's answers land, derived from the readiness file rather than passed separately.
@@ -908,14 +1258,24 @@ pub enum Capture {
 /// a scene reached by three launchers that each had to be taught a second name is a scene one of
 /// them would be launched without.
 #[must_use]
-pub fn answers_at(ready: &Path) -> std::path::PathBuf {
+pub fn answers_at(ready: &Path, ext: &str) -> std::path::PathBuf {
     // Not `with_extension`: the ready file's name ends in `-05`, and `with_extension` would replace
     // nothing there while replacing `-3.7c`-shaped tails elsewhere if the name ever changed.
     ready.with_file_name(format!(
-        "{}.cpr",
+        "{}.{ext}",
         ready.file_name().unwrap_or_default().to_string_lossy()
     ))
 }
+
+/// Every side channel a scene may leave beside its stamp, so [`clear_handshake`] cannot be taught
+/// one and left ignorant of the next.
+///
+/// **A list and not three call sites.** The arms once deleted the readiness file and left the
+/// answers beside it, and a run whose scene never got as far as asking could read a *previous*
+/// run's answers as its own. Scene 06 leaves two files where scene 05 leaves one, which is exactly
+/// the shape that would have reintroduced it: a second channel added to one of the three places
+/// that knows about the first.
+const SIDE_CHANNELS: &[&str] = &["cpr", "decrqm", "flush"];
 
 /// Remove both halves of one scene's handshake, before a run and after it.
 ///
@@ -926,7 +1286,9 @@ pub fn answers_at(ready: &Path) -> std::path::PathBuf {
 /// batch would be well formed, the count right, the rows one, and the measurement somebody else's.
 pub fn clear_handshake(ready: &Path) {
     let _ = std::fs::remove_file(ready);
-    let _ = std::fs::remove_file(answers_at(ready));
+    for ext in SIDE_CHANNELS {
+        let _ = std::fs::remove_file(answers_at(ready, ext));
+    }
 }
 
 /// Bring back whatever this scene's answer is, and refuse anything that is not one.
@@ -948,7 +1310,7 @@ pub fn capture(
     photograph: impl FnOnce() -> Result<Vec<u8>, String>,
 ) -> Result<(Capture, Vec<u8>), String> {
     if which == "05" {
-        let at = answers_at(ready).display().to_string();
+        let at = answers_at(ready, "cpr").display().to_string();
         // A missing file is the scene never having got as far as writing one, and it is refused
         // here rather than read as an empty batch — which is `screen -X hardcopy`'s zero bytes
         // wearing this scene's clothes.
@@ -964,10 +1326,87 @@ pub fn capture(
             .map_err(|e| format!("the answers are not a batch: {e}"))?;
         return Ok((Capture::Replies(replies), bytes));
     }
+    if which == "06" {
+        let at = answers_at(ready, "decrqm");
+        let bytes = std::fs::read(&at).map_err(|e| {
+            format!(
+                "the scene wrote no answers to {}: {e} — it writes that file even when the \
+                 terminal answered nothing, so a missing one is the scene never having got as far \
+                 as asking, and the way that happens is `stty` failing to put the tty into raw mode",
+                at.display()
+            )
+        })?;
+        let states = mode_reports(&bytes, SYNC_MODE, scene06().len())
+            .map_err(|e| format!("the answers are not a batch: {e}"))?;
+        // The probe log is a **separate** refusal from the batch above, because the two channels
+        // fail for different reasons: part A is a terminal that would not answer, part B is a
+        // measurement that never ran. A driver that read one missing file as the other would
+        // report the wrong cause.
+        let flush = answers_at(ready, "flush");
+        let text = std::fs::read_to_string(&flush).map_err(|e| {
+            format!(
+                "the scene wrote no flush probes to {}: {e}",
+                flush.display()
+            )
+        })?;
+        let probes = flush_probes(&text)?;
+        let bracket = flush_bracket(&probes);
+        return Ok((
+            Capture::Modes(ModeAnswers {
+                states,
+                probes,
+                bracket,
+            }),
+            bytes,
+        ));
+    }
     let bytes = photograph()?;
     let dump = parse(&bytes, rows_expected(which), dialect)
         .map_err(|e| format!("the capture is not a screen: {e}"))?;
     Ok((Capture::Screen(dump), bytes))
+}
+
+/// Read scene 06's probe log back: one `<elapsed ms> <ps or dash>` line per open.
+///
+/// **A parser and therefore a refusal.** An unreadable line is not a probe that got no answer —
+/// `-` is what that looks like, and it is a real observation the bracket refuses on its own terms.
+/// A line this cannot read is the channel being wrong, and reading it as a hole would hand
+/// `flush_bracket` a fact nothing measured.
+fn flush_probes(text: &str) -> Result<Vec<Probe>, String> {
+    let mut probes = Vec::new();
+    for line in text.lines().filter(|l| !l.trim().is_empty()) {
+        let mut parts = line.split_whitespace();
+        let (Some(at), Some(answered), Some(state), None) =
+            (parts.next(), parts.next(), parts.next(), parts.next())
+        else {
+            return Err(format!(
+                "the flush probe log has a line that is not one: {line:?}"
+            ));
+        };
+        let at_ms = at
+            .parse()
+            .map_err(|_| format!("the flush probe log has a delay that is not one: {at:?}"))?;
+        let answered_at_ms = answered.parse().map_err(|_| {
+            format!("the flush probe log has a reply time that is not one: {answered:?}")
+        })?;
+        let state = match state {
+            "-" => None,
+            ps => Some(
+                ps.parse()
+                    .ok()
+                    .and_then(vitui_conform::ModeState::from_ps)
+                    .ok_or_else(|| {
+                        format!("the flush probe log has a state DECRPM does not define: {ps:?}")
+                    })?,
+            ),
+        };
+        probes.push(Probe {
+            at_ms,
+            answered_at_ms,
+            state,
+        });
+    }
+    Ok(probes)
 }
 
 // ── The report ───────────────────────────────────────────────────────────────────────────────────
@@ -988,7 +1427,7 @@ pub struct Arm {
     /// What this arm's rows are evidence *about*.
     pub measures: &'static str,
     /// Which terminal answers `CSI 6n` for this arm, and it is **not always the one named above**.
-    pub answers_cpr: AnswersCpr,
+    pub answers_in_band: AnswersInBand,
     /// Scene rows this arm does not compare, by label, each with why and the reason in words.
     ///
     /// **Declared in advance, never inferred from the observation**, or the instrument would be
@@ -1024,8 +1463,8 @@ impl Arm {
 /// over those numbers would be the dishonesty `SCENES.md` opens by naming.
 ///
 /// The rows are still printed, because they are real answers about a real terminal. What needed
-/// fixing was the heading, and [`AnswersCpr::who`] is what heads them.
-pub struct AnswersCpr {
+/// fixing was the heading, and [`AnswersInBand::who`] is what heads them.
+pub struct AnswersInBand {
     /// The terminal, short enough to head a column.
     pub who: &'static str,
     /// Why it is that terminal and not this arm's title, in one clause.
@@ -1227,6 +1666,7 @@ pub fn section(arm: &Arm, which: &str, capture: &Capture, size: &str) -> (String
         ("01", Capture::Screen(dump)) => section01(arm, dump, size),
         ("04", Capture::Screen(dump)) => section04(arm, dump, size),
         ("05", Capture::Replies(replies)) => section05(arm, replies),
+        ("06", Capture::Modes(answers)) => section06(arm, answers),
         (other, _) => panic!("no such scene, or the wrong kind of capture for it: {other}"),
     }
 }
@@ -1368,7 +1808,7 @@ fn section05(arm: &Arm, replies: &[Reply]) -> (String, usize, usize) {
          the emulator's tables and reported by the emulator, with nothing of this repository's in \
          the path. A `CSI c` behind the batch is the sentinel, so the read stops on an observed \
          condition rather than on a delay.\n",
-        arm.answers_cpr.who, arm.answers_cpr.why
+        arm.answers_in_band.who, arm.answers_in_band.why
     );
     let _ = writeln!(
         out,
@@ -1389,7 +1829,7 @@ fn section05(arm: &Arm, replies: &[Reply]) -> (String, usize, usize) {
     let _ = writeln!(
         out,
         "| row | asks | declared here | {} | |",
-        arm.answers_cpr.who
+        arm.answers_in_band.who
     );
     let _ = writeln!(out, "|---|---|---|---|---|");
 
@@ -1443,7 +1883,7 @@ fn section05(arm: &Arm, replies: &[Reply]) -> (String, usize, usize) {
     let _ = writeln!(
         out,
         "| cluster | code points | asks | the engine | {} | |",
-        arm.answers_cpr.who
+        arm.answers_in_band.who
     );
     let _ = writeln!(out, "|---|---|---|---|---|---|");
 
@@ -1478,6 +1918,146 @@ fn section05(arm: &Arm, replies: &[Reply]) -> (String, usize, usize) {
         "\n**{same} of {surveyed} agree with the engine's tables.** That number is a fact about \
          this terminal and about the disagreement's size; it is not a score and it is not a \
          denominator anything is held to.\n"
+    );
+
+    (out, asked, failures)
+}
+
+/// Scene 06's section: five rows compared, and one bracket that is a report.
+fn section06(arm: &Arm, answers: &ModeAnswers) -> (String, usize, usize) {
+    let rows = scene06();
+    let mut out = String::new();
+    let _ = writeln!(
+        out,
+        "## Scene 06 — mode {SYNC_MODE}, asked of the terminal rather than of its documentation\n"
+    );
+    let _ = writeln!(
+        out,
+        "**Answered by: {}** — {}.\n\nThe second scene here whose answer does not come back through \
+         a photograph, and the first for a question that is not a width. The scene asks \
+         `CSI ? {SYNC_MODE} $ p` on its own tty and the terminal answers in band, so the capture \
+         surface, the window server and the automation grant are all out of the path — and the \
+         terminal that answers is the **innermost** one, which is why the line above names a \
+         terminal rather than repeating this arm's title.\n",
+        arm.answers_in_band.who, arm.answers_in_band.why
+    );
+
+    // ── Part A ──
+    let _ = writeln!(out, "### The state machine, and these five are compared\n");
+    let _ = writeln!(
+        out,
+        "One batch — ask, set, ask, reset, ask, set, set, ask, reset, ask — with `CSI c` behind it, \
+         and the answers read positionally. **The expectations are DECRPM's own**, which is what \
+         makes this a comparison where scene 05's twelve rows are a survey: a terminal that reports \
+         the mode set after it was asked to reset it is wrong by the definition of the reply it \
+         sent, not by a table this repository chose. A terminal with no synchronised output answers \
+         `not recognised (0)` throughout, which is a legitimate answer — the arm then owes a \
+         `cannot express` declaration, and until it has one the rows are loud.\n"
+    );
+    let _ = writeln!(
+        out,
+        "| row | asks | declared here | {} | |",
+        arm.answers_in_band.who
+    );
+    let _ = writeln!(out, "|---|---|---|---|---|");
+
+    let (mut failures, mut unanswerable) = (0usize, 0usize);
+    for (i, row) in rows.iter().enumerate() {
+        let seen = answers.states.get(i).map(|r| r.state);
+        let (mark, observed) = mark_of(
+            arm,
+            row.label,
+            seen == Some(row.want),
+            &seen.map_or_else(|| "no reply".to_string(), |s| s.to_string()),
+            &mut failures,
+            &mut unanswerable,
+        );
+        let _ = writeln!(
+            out,
+            "| {} | {} | {} | {observed} | {mark} |",
+            row.label, row.asks, row.want
+        );
+    }
+    let asked = rows.len() - unanswerable;
+    let _ = writeln!(out, "\n**{}/{asked} agreed.**\n", asked - failures);
+    if unanswerable > 0 {
+        let _ = writeln!(out, "{}", not_in_the_denominator(unanswerable, rows.len()));
+    }
+
+    // ── Part B ──
+    let _ = writeln!(
+        out,
+        "### When the terminal let go of the flag — reported, never failed\n"
+    );
+    let _ = writeln!(
+        out,
+        "**This is the flag and it is not the paint.** A force flush is a *rendering* event and \
+         nothing a process inside a terminal can ask reports whether the terminal painted; DECRQM \
+         reports a **mode**. What is below is when the terminal stopped reporting the mode as set — \
+         the event Ghostty's own source calls *reset the synchronized output flag*. A terminal \
+         could paint without clearing the flag or clear it without painting, and nothing here can \
+         tell those apart. It is a timing besides, and a timing is a report.\n"
+    );
+    let _ = writeln!(
+        out,
+        "**One probe per open, and the control probe is why.** The polling instrument was written \
+         first: it opens one block and asks repeatedly, which costs one open where this costs seven. \
+         Polling a Ghostty 1.3.1 every 250 ms brought the reset forward from 1002 ms to under \
+         517 ms, while the same polling left tmux 3.7c at 1007 ms and kitty 0.48.2 at 2261 ms — \
+         their documented figures. An instrument that polls is inside its own measurement, and the \
+         two families it happens not to disturb are exactly what would have made that invisible. So \
+         each row below is a fresh open, a wait, one question and a close, and the boundary between \
+         them is halved for. **The two clocks are both printed** because only one of them is sound \
+         for each answer: the terminal processed the question somewhere between them, a *set* is \
+         evidence back to the request and a *reset* is evidence forward to the reply, so the \
+         bracket takes one end from each column.\n"
+    );
+    let _ = writeln!(
+        out,
+        "| open | held open for | answered at | {} |",
+        arm.answers_in_band.who
+    );
+    let _ = writeln!(out, "|---|---|---|---|");
+    for (n, probe) in answers.probes.iter().enumerate() {
+        let _ = writeln!(
+            out,
+            "| {} | {} ms | {} ms | {} |",
+            n + 1,
+            probe.at_ms,
+            probe.answered_at_ms,
+            probe
+                .state
+                .map_or_else(|| "no reply".to_string(), |s| s.to_string())
+        );
+    }
+    let _ = writeln!(out);
+    let verdict = match &answers.bracket {
+        Ok(Bracket::Between {
+            still_set_at,
+            reset_by,
+        }) => format!(
+            "**Still set at {still_set_at} ms, reset by {reset_by} ms.** The event is in that \
+             interval; a bracket and never a point, because a probe is a sample. `quirks.rs`'s \
+             row for this terminal is the number to read it against, and that row's provenance is \
+             *the implementation, read*."
+        ),
+        Ok(Bracket::NeverReset { ceiling }) => format!(
+            "**Still set at {ceiling} ms**, which is the largest delay this run opened a block \
+             for. Either this terminal's limit is beyond that or it has none, and this run cannot \
+             say which."
+        ),
+        Ok(Bracket::AlreadyReset { floor }) => format!(
+            "**Already reset at {floor} ms.** Either the limit is under the floor or the open \
+             never took, and those are different facts — the floor is printed so the next question \
+             is obvious."
+        ),
+        Err(why) => format!("**No bracket:** {why}"),
+    };
+    let _ = writeln!(out, "{verdict}\n");
+    let _ = writeln!(
+        out,
+        "Nothing in this section moves the numerator or the denominator above it. A timing is a \
+         report, and a gate tuned to one is the flaky test this repository refuses by name.\n"
     );
 
     (out, asked, failures)
@@ -1730,6 +2310,7 @@ fn scene_tag(which: &str) -> &'static str {
         "01" => "attrs",
         "04" => "pairs",
         "05" => "widths",
+        "06" => "sync",
         other => panic!("no such scene: {other}"),
     }
 }
@@ -1743,6 +2324,7 @@ fn scene_tag(which: &str) -> &'static str {
 fn scene_ext(which: &str) -> &'static str {
     match which {
         "05" => "cpr",
+        "06" => "decrqm",
         _ => "vt",
     }
 }

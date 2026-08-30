@@ -15,18 +15,18 @@ that arrangement cannot catch:
 This directory is the missing fourth party. It is
 [production ticket 04](../.scratch/vitui-engine-production/issues/04-the-conformance-harness.md).
 
-## Status: stages 0, 1, 2, 3, three scenes and three emulator families
+## Status: stages 0, 1, 2, 3, 5, four scenes and three emulator families
 
 **Four arms, four committed reports, three emulator families, two `quirks.rs` entries, one closed
-architecture ticket and one stale citation came out of them.** Forty-four tests, no emulator in the
-loop for any of them.
+architecture ticket, one stale citation and one documented number that does not reproduce came out
+of them.** Seventy tests, no emulator in the loop for any of them.
 
-| arm | scene 01 | scene 04 | scene 05 | what its rows are about |
-|---|---|---|---|---|
-| `cargo run --example ghostty` | **11/11** | **6/6** | **3/3**, and 12 of 12 surveyed | Ghostty 1.3.1's own cell state |
-| `cargo run --example tmux` | **10/10**, one `by design` | **6/6** | **3/3**, and 12 of 12 surveyed | what tmux 3.7c *stores* — `capture-pane` re-serialises tmux's grid |
-| `cargo run --example ghostty -- --through-tmux` | **10/10**, one `by design` | **6/6** | **3/3**, and 12 of 12 surveyed — **tmux's, not Ghostty's** | what tmux 3.7c *forwards*, read through Ghostty |
-| `cargo run --example kitty` | **8/8**, one `cannot ask`, two `by design` | **6/6** | **3/3**, and 12 of 12 surveyed | kitty 0.48.2's own cell state |
+| arm | scene 01 | scene 04 | scene 05 | scene 06 | what its rows are about |
+|---|---|---|---|---|---|
+| `cargo run --example ghostty` | **11/11** | **6/6** | **3/3**, and 12 of 12 surveyed | **5/5**, flag reset 879–973 ms | Ghostty 1.3.1's own cell state |
+| `cargo run --example tmux` | **10/10**, one `by design` | **6/6** | **3/3**, and 12 of 12 surveyed | **5/5**, flag reset 971–1064 ms | what tmux 3.7c *stores* — `capture-pane` re-serialises tmux's grid |
+| `cargo run --example ghostty -- --through-tmux` | **10/10**, one `by design` | **6/6** | **3/3**, and 12 of 12 surveyed — **tmux's, not Ghostty's** | **5/5**, 971–1063 ms — **tmux's, not Ghostty's** | what tmux 3.7c *forwards*, read through Ghostty |
+| `cargo run --example kitty` | **8/8**, one `cannot ask`, two `by design` | **6/6** | **3/3**, and 12 of 12 surveyed | **5/5**, flag reset 1985–2085 ms | kitty 0.48.2's own cell state |
 
 **An arm runs every scene or it is not a run**, and one report per arm holds a section for each —
 same rule, same reason, as one file per arm: a section that is missing reads as a win. There is
@@ -55,6 +55,22 @@ and the claim is about the capture and about nothing else. It is why the scene-0
 headed by **who answered** rather than by the arm, and why the `--through-tmux` row says tmux: a
 cursor report never leaves the innermost terminal, and that arm's two fixtures are byte-identical to
 the plain tmux arm's.
+
+**Scene 06 is the second one built on that property, and the first for a question that is not a
+width.** It asks `CSI ? 2026 $ p` and reads what the terminal says about mode 2026 — five rows
+compared against DECRPM's own definitions, and a bracket for when the terminal stops reporting the
+mode as **set**. `quirks.rs` carries a four-row table of the force-flush limits and every row of it
+is *the implementation, read*, because a force flush is a **rendering** event that nothing inside
+the terminal can observe. **The flag is not the paint** and this scene never claims otherwise; what
+it adds is that three of those numbers now have a measurement beside them. tmux and kitty land on
+theirs; **Ghostty's sits below its own `sync_reset_ms = 1000`.**
+
+Its finding is about the instrument. The obvious shape — open one block, poll it — is **wrong on one
+of the three families**: polling Ghostty every 250 ms put the reset before 517 ms where one probe
+per open puts it between 879 and 973, while the same polling left tmux and kitty on their documented
+figures. *An instrument that polls is inside its own measurement*, and the two families it happens
+not to disturb are what would have made that invisible. Third time in this directory that running
+the control before the instrument is what separated the terminal's behaviour from the suite's.
 
 Three of its fifteen rows are compared against hand-written numbers and twelve are **surveyed**. The
 survey never fails, because `ucd.rs` decides that the engine's tables are authoritative and §8's
@@ -134,8 +150,10 @@ sentence in three files; it is a branch now. An existing fixture is left alone a
 rather than failing the run — adding a scene means running an arm whose other scenes are already
 captured.
 
-Stage 3 (CPR and the width questions) landed 2026-08-29 as scene 05. Stage 5 (mode 2026) is open.
-Stage 4 has three emulator families now — Ghostty, kitty and, as a target rather than an emulator, tmux — and what it still owes
+Stage 3 (CPR and the width questions) landed 2026-08-29 as scene 05, and **stage 5 (mode 2026) the
+same day as scene 06** — which was recorded as *if at all*, on an expectation that the AppleScript
+jitter made it unanswerable. It did not need the capture surface: the terminal answers DECRQM in
+band, so the whole of that jitter is out of the path. Stage 4 has three emulator families now — Ghostty, kitty and, as a target rather than an emulator, tmux — and what it still owes
 is a second **VT lineage**: Terminal.app, not built — and **scene 05 changes what that arm would be
 limited to.** Ticket 04 records it as glyph-grid scenes only, because its `sdef` says `contents` is
 `type="text" access="r"` with no styled variant. That is a fact about the *capture surface*, and
@@ -194,6 +212,10 @@ form — the missing row hiding inside a green one.
 | `kitty-0.48.2-scene05-widths.cpr` | the same fifteen as kitty answered them, including **2** for a ZWJ family emoji where `ucd.rs` records kitty summing it to 6 |
 | `tmux-3.7c-scene05-widths.cpr` | the same fifteen as tmux answered them, and a `?1;2;4c` sentinel — a VT100 with AVO |
 | `ghostty-1.3.1-via-tmux-3.7c-scene05-widths.cpr` | **byte-identical to the file above**, which is the evidence that a cursor report never leaves the innermost terminal. The two arms' *screen* captures are two serialisations of two grids; their reply captures are one terminal answering twice |
+| `ghostty-1.3.1-scene06-sync.decrqm` | scene 06 as Ghostty answered it — five DECRQM replies about mode 2026 and the device-attributes sentinel behind them. The evidence that the mode `serial.rs` wraps every frame in is one this terminal has, and that its state machine tracks both the `h` and the `l` |
+| `kitty-0.48.2-scene06-sync.decrqm` | the same five as kitty answered them |
+| `tmux-3.7c-scene06-sync.decrqm` | the same five as tmux answered them |
+| `ghostty-1.3.1-via-tmux-3.7c-scene06-sync.decrqm` | **byte-identical to the file above**, for scene 05's reason: a DECRQM reply, like a cursor report, never leaves the innermost terminal. **Part B has no fixture on any arm** — it is a timing, a timing is a report, and a report is not gated |
 
 Raw bytes, as captured. Do not regenerate them to make a test pass: they are evidence, and a fixture
 that moves because the code moved is not evidence of anything. `save_if_asked` now refuses to.

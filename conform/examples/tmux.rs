@@ -52,7 +52,7 @@ use std::process::Command;
 use std::time::{Duration, Instant};
 
 use common::{
-    AnswersCpr, Arm, Excluded, SCENES, clear_handshake, header, publish, save_if_asked, scene,
+    AnswersInBand, Arm, Excluded, SCENES, clear_handshake, header, publish, save_if_asked, scene,
     scene_argv, section, trailer, wait_for_quiescence,
 };
 use vitui_conform::Dialect;
@@ -203,7 +203,7 @@ fn capture_and_compare(
         ));
     }
 
-    let size = wait_for_quiescence(ready)?;
+    let size = wait_for_quiescence(ready, which)?;
 
     // **A dead pane's capture is not evidence.** If the scene exited, tmux keeps the pane's last
     // grid and hands it back exactly as it hands back a live one, so `capture-pane` succeeds and the
@@ -249,11 +249,12 @@ fn capture_and_compare(
                    own grid, so the engine's bytes were parsed and stored by tmux and handed back by \
                    tmux. A legitimate target — tmux is in spec §10's tier-1 list — and never a proxy \
                    for the terminal it is running inside",
-        answers_cpr: AnswersCpr {
+        answers_in_band: AnswersInBand {
             who: "tmux",
-            why: "tmux answers `CSI 6n` from its own grid, on the pane's pty. The emulator behind \
-                  it never sees the question, exactly as it never sees the bytes `capture-pane` \
-                  hands back, so this scene and the two above it have the same subject for once",
+            why: "tmux answers a question asked in band itself, on the pane's pty. The emulator \
+                  behind it never sees the question, exactly as it never sees the bytes \
+                  `capture-pane` hands back, so these scenes and the photographed ones have the \
+                  same subject for once",
         },
         not_compared: NOT_COMPARED,
         notes: vec![
@@ -269,7 +270,7 @@ fn capture_and_compare(
                 default_terminal.trim()
             ),
             match which {
-                "05" => format!(
+                "05" | "06" => format!(
                     "**Launch to answer:** {} ms — reported, never gated. **This scene is not \
                      captured:** tmux answers in band on the pane's own pty, so `capture-pane` is \
                      out of the path and this arm's whole job was to have launched the scene at a \

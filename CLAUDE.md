@@ -1905,12 +1905,19 @@ compare/                  the comparative suite: SCENES.md normative, harness.py
 conform/                  the only instrument that asks a real terminal rather than our model of one:
                           SCENES.md normative, four arms as examples (Ghostty, Ghostty-via-tmux,
                           tmux, kitty), one committed REPORT-<arm>.md each, FINDINGS.md by hand
-                          └ three scenes, and **scene 05's answer is not a photograph**: fifteen
-                            clusters with `CSI 6n` behind each, so the number is the emulator's own
-                            UAX #11 verdict with none of our tables in the path. Twelve of its rows
-                            are a **survey** and never fail — the engine's tables are authoritative
-                            by decision — and what it found is that `ucd.rs`'s two cited
-                            disagreements do not reproduce on any of the three families
+                          └ four scenes, and **two of them are not photographs**. Scene 05 is
+                            fifteen clusters with `CSI 6n` behind each, so the number is the
+                            emulator's own UAX #11 verdict with none of our tables in the path;
+                            twelve of its rows are a **survey** and never fail — the engine's tables
+                            are authoritative by decision — and what it found is that `ucd.rs`'s two
+                            cited disagreements do not reproduce on any of the three families.
+                            Scene 06 is mode 2026 through `CSI ? 2026 $ p`, five rows **compared**
+                            because DECRPM defines the answers, and a bracket for when the terminal
+                            lets go of the flag — **which is not the paint**, so `quirks.rs`'s four
+                            force-flush rows keep their provenance and three gain an observation.
+                            Its finding is about the instrument: one open polled repeatedly puts
+                            Ghostty's reset before 517 ms and leaves the other two families on their
+                            documented figures, so the shipped scene is one probe per open
                           └ detached workspace, no deny.toml — the third-party thing IS the subject.
                             The live arms are soaks; the gate is `cargo test` over fixtures/, which
                             runs inside the `test` CI job. The engine is a DEV-dependency, so the
@@ -2110,13 +2117,13 @@ un-pauses now that a consumer exists — see the note below.
 `.scratch/vitui-engine-production/`. It was paused on 2026-08-23 because nothing above the engine
 could draw a screen, and eighteen applications is what ended that. **07 is resolved** (the terminal
 leaves and comes back — see the bullet above). **04, 08 and 09 are what is left**, and 04 is the
-frontier: **stage 3 landed 2026-08-29**, so what is open there is stage 5 and stage 4's second VT
-lineage. **08 is superseded** — the runtime is the caller it wanted, and a better one, so the small
+frontier: **stages 3 and 5 landed 2026-08-29** as scenes 05 and 06, so what is open there is stage
+4's second VT lineage and nothing else. **08 is superseded** — the runtime is the caller it wanted, and a better one, so the small
 engine-only application it specifies does not get built — and **09 is blocked by 04**.
 
 What 04 needs that nothing else on this map does is a **live terminal and a window server**: an
-AppleScript automation grant for the Terminal.app arm, and a real tty answering CPR for the width
-questions. Its committed fixtures are the gate and the live arms are soaks (`conform/README.md`).
+AppleScript automation grant for the Terminal.app arm, and a real tty answering CPR and DECRQM for
+the width and mode questions. Its committed fixtures are the gate and the live arms are soaks (`conform/README.md`).
 
 `tickets/` at the repo root is a **separate** surface — the hand-written backlog the `dispatch` skill
 consumes — and holds the two items that need the finished library. Do not migrate one into the other.

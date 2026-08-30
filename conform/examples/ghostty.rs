@@ -52,7 +52,7 @@ use std::process::Command;
 use std::time::{Duration, Instant, SystemTime};
 
 use common::{
-    AnswersCpr, Arm, Excluded, SCENES, clear_handshake, header, publish, save_if_asked, scene,
+    AnswersInBand, Arm, Excluded, SCENES, clear_handshake, header, publish, save_if_asked, scene,
     scene_argv, section, trailer, wait_for_quiescence,
 };
 use vitui_conform::Dialect;
@@ -119,16 +119,17 @@ impl Through {
     /// Printed rather than excluded, because the rows are real answers about a real terminal. What
     /// would be dishonest is the heading over them, and this is the field that stops it saying
     /// Ghostty.
-    fn answers_cpr(&self) -> AnswersCpr {
+    fn answers_in_band(&self) -> AnswersInBand {
         match self {
-            Self::Nothing => AnswersCpr {
+            Self::Nothing => AnswersInBand {
                 who: "Ghostty",
                 why: "Ghostty is an endpoint, so nothing sits between the scene's tty and it",
             },
-            Self::Tmux(_) => AnswersCpr {
+            Self::Tmux(_) => AnswersInBand {
                 who: "tmux",
-                why: "**not Ghostty, and this is where the arm's two halves come apart.** A cursor \
-                      report is answered by the innermost terminal, so it never leaves tmux — \
+                why: "**not Ghostty, and this is where the arm's two halves come apart.** A \
+                      question asked in band is answered by the innermost terminal, so it never \
+                      leaves tmux — \
                       where this arm's *photograph* is the only instrument in this directory that \
                       can see what tmux forwarded onward. These rows duplicate the plain tmux \
                       arm's exactly, and the column is headed with who answered rather than with \
@@ -328,7 +329,7 @@ fn capture_and_compare(
     ready: &Path,
     launched: Instant,
 ) -> Result<(Arm, common::Capture, Vec<u8>, String), String> {
-    let size = wait_for_quiescence(ready)?;
+    let size = wait_for_quiescence(ready, which)?;
     // **The window is not photographed for scene 05**, and that is `common::capture`'s decision
     // rather than this arm's: the terminal answers `CSI 6n` in band on the scene's own tty, so the
     // **capture** — the `write_screen_file` action, the undocumented `vt` writer and the hunt for
@@ -348,13 +349,13 @@ fn capture_and_compare(
     save_if_asked(which, &bytes)?;
     let mut notes = vec![
         match which {
-            "05" => format!(
+            "05" | "06" => format!(
                 "**Launch to answer:** {} ms — reported, never gated. **This scene is not \
-                 photographed:** the terminal answers `CSI 6n` in band on the scene's own tty, so \
-                 the `write_screen_file` action and the undocumented `vt` writer are out of its \
-                 path. **The automation grant is not** — this arm still opens, addresses and closes \
-                 its window over AppleScript, which is three Apple Events before the scene runs. \
-                 What scene 05 does without is the *capture surface*",
+                 photographed:** the terminal answers in band on the scene's own tty, so the \
+                 `write_screen_file` action and the undocumented `vt` writer are out of its path. \
+                 **The automation grant is not** — this arm still opens, addresses and closes its \
+                 window over AppleScript, which is three Apple Events before the scene runs. What \
+                 an in-band scene does without is the *capture surface*",
                 launched.elapsed().as_millis()
             ),
             _ => format!(
@@ -375,7 +376,7 @@ fn capture_and_compare(
             .unwrap_or_else(|_| "unknown".into()),
         mechanism: "`write_screen_file:…,vt`",
         measures: through.measures(),
-        answers_cpr: through.answers_cpr(),
+        answers_in_band: through.answers_in_band(),
         not_compared: through.not_compared(),
         notes,
     };

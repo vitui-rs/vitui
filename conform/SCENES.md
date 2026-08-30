@@ -6,7 +6,7 @@ comparison spans this engine and the emulators it talks to, and those words woul
 
 This list is deliberately **not** `crate::scenes`' twelve. Those are fixed at 300×80, are tuned for the
 byte budget and the damage model, and **not one of them contains a CJK glyph, an underline colour or
-mode 2026** — the four things this directory exists to ask about. `compare/` reached the same
+mode 2026** — the four things this directory exists to ask about. The last of those is scene 06. `compare/` reached the same
 conclusion and wrote its own list for the same reason.
 
 ## What each arm actually measures
@@ -17,15 +17,16 @@ conclusion and wrote its own list for the same reason.
 | **Ghostty** | Ghostty | its own screen dump, over an AppleScript surface. Needs a window server and a macOS automation grant |
 | **Ghostty-via-tmux** | **what tmux forwards** | the engine into tmux into Ghostty, photographing Ghostty. Ghostty alone agrees 11/11, so a disagreement here is tmux's. **The only arm that can see this**, because `capture-pane` and tmux's redraw path are different code and `attrs_dropped` is about what is rendered |
 | **kitty** | kitty | `kitten @ get-text --ansi` over a unix socket. No automation grant, no clipboard, no z-order — and **the only *emulator* arm that can be handed a size**, in cells, which Ghostty's AppleScript surface cannot do |
-| **Terminal.app** | Terminal.app | plain text only, so glyph-grid scenes and nothing else. Not built — **and scene 05 changes what that sentence excludes**, because a cursor report needs no capture surface at all |
+| **Terminal.app** | Terminal.app | plain text only, so glyph-grid scenes and nothing else. Not built — **and scenes 05 and 06 change what that sentence excludes**, because a question asked in band needs no capture surface at all |
 
-**Scene 05 is answered by a different party than the rows above it**, and only one arm is affected.
-Its answers come back **in band**, on the scene's own tty, so they come from the **innermost**
-terminal in the path and a capture surface further out cannot change that. For every arm but one
+**Scenes 05 and 06 are answered by a different party than the rows above it**, and only one arm is
+affected. Their answers come back **in band**, on the scene's own tty, so they come from the
+**innermost** terminal in the path and a capture surface further out cannot change that. For every arm but one
 that is the same terminal the photograph measures. For **Ghostty-via-tmux** it is not: the
-photograph sees what tmux *forwards*, and the cursor reports never leave tmux — the two fixtures are
-**byte-identical** to the plain tmux arm's, device attributes included, which `tests.rs` asserts.
-Each report heads that scene's columns with **who answered** rather than with the arm's title.
+photograph sees what tmux *forwards*, and an in-band reply never leaves tmux — the fixtures are
+**byte-identical** to the plain tmux arm's, device attributes included, which `tests.rs` asserts for
+both scenes. Each report heads those scenes' columns with **who answered** rather than with the
+arm's title.
 
 A row that does not say which of these it came from is not a result. **The tmux pair is why that
 sentence needed a fourth row**: *tmux* and *what tmux does to a terminal downstream of it* gave
@@ -297,3 +298,128 @@ the bound; what moved is that the cited evidence for the disagreement is now kno
 the three families §10 puts in tier 1, at the versions on this machine. The right reading is
 `FINDINGS.md`'s: **the survey needs an arm that disagrees**, and the two candidates are a terminal
 of a different VT lineage and a locale this suite does not set.
+
+## 06 — mode 2026, asked of the terminal rather than of its documentation
+
+No picture, no capture surface, and the second scene here whose answer comes back in band. It asks
+`CSI ? 2026 $ p` on the scene's own tty and reads the DECRQM reply, which means — like scene 05 —
+the answer is the **innermost** terminal's and a capture surface further out is not in the path.
+
+### Why it is a scene at all, and what `quirks.rs` says that it does not touch
+
+`quirks.rs` carries a four-row table of the terminals' force-flush limits for mode 2026, and every
+row of it has the same provenance: **the implementation, read.** Production ticket 05 asked for
+Ghostty's row to be *measured* and it could not be. A force flush is a **rendering** event; nothing
+a process inside a terminal can ask reports whether the terminal painted, only a screen capture can,
+and this repository's capture is an AppleScript round trip four runs put between 136 ms and 623 ms —
+the same order as Alacritty's entire 150 ms limit.
+
+That sentence is still true and **it is not the whole of what mode 2026 is.** Three questions about
+it are the terminal's to answer about itself:
+
+- does it **recognise** the mode;
+- does its state machine track the `h` and the `l` it was sent;
+- and when does it stop reporting the mode as **set**.
+
+None of those is the paint, and the third is the one to be careful about — see below.
+
+### The five compared rows, and why they are compared where scene 05's twelve are surveyed
+
+One batch — ask, set, ask, reset, ask, set, set, ask, reset, ask — with `CSI c` behind it, and the
+five answers read positionally.
+
+| row | expected | asks |
+|---|---|---|
+| `before` | `reset (2)` | whether the terminal recognises the mode, and what it says untouched |
+| `while-open` | `set (1)` | whether `CSI ? 2026 h` reached the state machine, or was parsed and thrown away |
+| `after-close` | `reset (2)` | whether `CSI ? 2026 l` reached it too |
+| `opened-twice` | `set (1)` | whether a second `h` over a set mode is still simply set |
+| `closed-once` | `reset (2)` | whether one `l` undoes two `h` — a DEC private mode is not a counter |
+
+**These are DECRPM's own values.** A terminal that reports the mode set after it was asked to reset
+it is wrong by the definition of the reply it sent, not by a table this repository chose — which is
+exactly the thing scene 05's survey does not have, since `ucd.rs` makes the engine's width tables
+authoritative and leaves a terminal nothing to be wrong *against*.
+
+The last row is the one the engine depends on. §8 wraps every frame in a **balanced** pair, so a
+terminal that counted the sets would hold a frame back past the close that was sent for it — and
+nothing in this repository opens a block twice, which is exactly why nothing here would notice.
+
+A terminal with no synchronised output answers `not recognised (0)` to all five, which is a
+legitimate answer and not a defect. Such an arm owes a declaration in advance, with the reason, and
+the cell for it is `compare/`'s own `cannot express` — **which `Excluded` has no variant for, because
+no arm here needs one.** All four recognise the mode, and a variant nothing constructs is a spare
+part this workspace refuses by name. So the path is written down and unexercised: the rows are loud
+until an arm that needs the declaration adds it, which is the right way round and is also what would
+make it real. `screen` 4.00.03 is the candidate on this machine and has no usable capture surface for
+the other three scenes.
+
+### The flag is not the paint, and this scene may never be read as though it were
+
+Part B opens a block, waits, and asks. What it finds is when the terminal stopped reporting the mode
+as **set** — the event Ghostty's own source calls *reset the synchronized output flag*. A terminal
+could paint without clearing the flag or clear it without painting, and nothing in this suite can
+tell those apart. It is a timing besides, so it is **reported and never compared**, and no row of it
+moves any numerator here.
+
+### One probe per open, which a control probe had to teach
+
+The obvious instrument opens one block and polls it, which costs one open where this costs seven. It
+was written first and it is **wrong on one of the three families**: polling a Ghostty 1.3.1 every
+250 ms put the reset before 517 ms, while one probe per open puts it between 879 and 973 — and the
+same polling left tmux 3.7c and kitty 0.48.2 on their documented figures. *An instrument that polls
+is inside its own measurement*, and the two families it happens not to disturb are exactly what
+would have made that invisible. It is the discipline scene 04 and the kitty arm's conceal row came
+out of, arriving a third time: **run the control before the instrument.**
+
+So each probe is a fresh open, a wait, one question and a close, and the boundary is bisected for —
+seven opens, which is what the arm's readiness timeout is derived from.
+
+### Two clocks, because a bracket built from one of them is unsound in one direction
+
+The terminal processes the question somewhere between the write and the reply, and which end of that
+interval is safe depends on the answer. *Still set* at some instant implies still set at every
+earlier one, so the **request** is the sound end — a sleep is a floor. *Already reset* implies reset
+at every later one, so the **reply** is. Both columns are printed and the bracket takes one end from
+each; either clock read for both would report an interval the run does not support.
+
+### What it found, on four arms, 2026-08-29
+
+**Five for five on all four**, and the three families' brackets against the figures `quirks.rs`
+reads out of their source trees:
+
+| | documented | observed here |
+|---|---|---|
+| Ghostty 1.3.1 | 1000 ms | still set at **879 ms**, reset by **973 ms** |
+| tmux 3.7c | 1000 ms | still set at **971 ms**, reset by **1064 ms** |
+| kitty 0.48.2 | 2000 ms | still set at **1985 ms**, reset by **2085 ms** |
+| Ghostty via tmux 3.7c | tmux's | still set at **971 ms**, reset by **1063 ms** — tmux's, as the innermost terminal |
+
+tmux and kitty land on theirs. **Ghostty's bracket sits below its own `sync_reset_ms = 1000`**, and
+this scene cannot say why: the instant the terminal armed the timer is not observable from inside,
+so a write that reached Ghostty before the scene took its own `Instant::now()` would move the whole
+bracket earlier by that much. What is reported is the interval that was observed.
+
+### The refusals, and there are five
+
+A missing reply read as a state would be worse here than in scene 05, because the batch is counted
+**positionally**: a lost answer does not blank a row, it reports every later row under the wrong
+question. So `mode_reports` refuses on no sentinel, on a count that is not the scene's, on a reply
+about a mode nobody asked about, on a state DECRPM does not define, on a private-mode reply whose
+two parameters are not two numbers, and on a truncated sequence. A reply after the sentinel is not
+counted, for the reason it is not counted in scene 05.
+
+The fifth of those is the one that had to be written rather than left to fall through: a reply this
+reader cannot parse, **dropped**, arrives downstream as a short batch — *the terminal lost an answer*
+about a terminal that answered every question and spelled one of them in a way this reader does not
+know. Two causes, one of them about the terminal and one about the instrument, and a single count
+cannot tell them apart.
+
+Part B refuses separately and on its own terms: a probe with no answer is a **hole** and not a
+state, a probe that came back *not recognised* or pinned permanently is an answer about the terminal
+and not a timing, and a run in which the mode was set at a longer delay than one at which it was
+already reset has measured something that is not a timeout. Each of those is printed as what it is
+rather than left out.
+
+**Part B has no fixture, and that is the rule rather than an omission.** It is a timing, a timing is
+a report, and a report is not gated. Part A is a comparison and its bytes are in `fixtures/`.

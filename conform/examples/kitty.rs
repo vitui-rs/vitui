@@ -74,7 +74,7 @@ use std::process::{Child, Command};
 use std::time::{Duration, Instant};
 
 use common::{
-    AnswersCpr, Arm, Excluded, SCENES, clear_handshake, header, publish, save_if_asked, scene,
+    AnswersInBand, Arm, Excluded, SCENES, clear_handshake, header, publish, save_if_asked, scene,
     scene_argv, section, trailer, wait_for_quiescence,
 };
 use vitui_conform::Dialect;
@@ -288,7 +288,7 @@ fn capture_and_compare(
         ));
     }
 
-    let size = wait_for_quiescence(ready)?;
+    let size = wait_for_quiescence(ready, which)?;
 
     // **`Ecma48`, and that was probed rather than assumed.** kitty re-serialises its own grid, which
     // is what tmux does too and tmux needed a dialect of its own — so this was checked with a raw
@@ -316,12 +316,12 @@ fn capture_and_compare(
                    same kind of evidence as the Ghostty arm's and gathered over a remote-control \
                    socket rather than an AppleScript surface, so no automation grant and no window \
                    z-order is in the loop",
-        answers_cpr: AnswersCpr {
+        answers_in_band: AnswersInBand {
             who: "kitty",
             why: "kitty is an endpoint, so nothing sits between the scene's tty and it. It is also \
                   the arm where the two channels are most obviously different instruments: the \
                   photograph goes through a serialiser with a string for `4:2` and none for `4:4`, \
-                  and a cursor report goes through none",
+                  and an in-band reply goes through none",
         },
         not_compared: NOT_COMPARED,
         notes: vec![
@@ -339,10 +339,10 @@ fn capture_and_compare(
              without it kitty restores the size of the last window the user dragged"
                 .to_string(),
             match which {
-                "05" => format!(
+                "05" | "06" => format!(
                     "**Launch to answer:** {} ms — reported, never gated. **This scene is not \
-                     photographed:** the terminal answers `CSI 6n` in band on the scene's own tty, \
-                     so `get-text` and the socket under it are out of the path and this arm's whole \
+                     photographed:** the terminal answers in band on the scene's own tty, so \
+                     `get-text` and the socket under it are out of the path and this arm's whole \
                      job was to have launched the scene",
                     launched.elapsed().as_millis()
                 ),

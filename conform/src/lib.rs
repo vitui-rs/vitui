@@ -809,5 +809,521 @@ pub fn cursor_reports(bytes: &[u8], expected: usize) -> Result<Vec<Reply>, CprEr
     Ok(replies)
 }
 
+// ── Scene 06: mode 2026, which the terminal answers about itself ─────────────────────────────────
+
+/// What a DECRQM reply says about one mode, by the numbers DEC gave those answers.
+///
+/// **These are the standard's own values and not this repository's policy**, which is what makes
+/// scene 06's first five rows a comparison where scene 05's twelve are a survey: a terminal that
+/// reports a mode *set* after it was asked to reset it is wrong by the definition of the reply it
+/// sent, not by a table we chose.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ModeState {
+    /// `0` — the terminal does not recognise the mode. A legitimate answer, and the one a terminal
+    /// with no synchronised output gives; see `SCENES.md` for what an arm then owes.
+    NotRecognised,
+    /// `1` — set.
+    Set,
+    /// `2` — reset.
+    Reset,
+    /// `3` — permanently set, so nothing the scene sends can change it.
+    PermanentlySet,
+    /// `4` — permanently reset, so nothing the scene sends can change it.
+    PermanentlyReset,
+}
+
+impl ModeState {
+    /// The reply's second parameter, as a state.
+    ///
+    /// `None` for a number DEC never defined, which is refused rather than guessed at: a state this
+    /// instrument invented would be a state a report printed.
+    #[must_use]
+    pub fn from_ps(ps: u16) -> Option<Self> {
+        match ps {
+            0 => Some(Self::NotRecognised),
+            1 => Some(Self::Set),
+            2 => Some(Self::Reset),
+            3 => Some(Self::PermanentlySet),
+            4 => Some(Self::PermanentlyReset),
+            _ => None,
+        }
+    }
+
+    /// The `ps` this state came from, for a report that wants the wire value beside the word.
+    #[must_use]
+    pub fn ps(self) -> u16 {
+        match self {
+            Self::NotRecognised => 0,
+            Self::Set => 1,
+            Self::Reset => 2,
+            Self::PermanentlySet => 3,
+            Self::PermanentlyReset => 4,
+        }
+    }
+}
+
+impl fmt::Display for ModeState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let word = match self {
+            Self::NotRecognised => "not recognised",
+            Self::Set => "set",
+            Self::Reset => "reset",
+            Self::PermanentlySet => "permanently set",
+            Self::PermanentlyReset => "permanently reset",
+        };
+        write!(f, "{word} ({})", self.ps())
+    }
+}
+
+/// One `CSI ? mode ; ps $ y` the terminal sent back.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ModeReply {
+    /// The mode the terminal says it is answering about. Carried rather than assumed — see
+    /// [`ModeError::OtherMode`].
+    pub mode: u16,
+    /// What it says about it.
+    pub state: ModeState,
+}
+
+/// Why a batch of DECRQM replies is not a measurement.
+///
+/// **The refusals come first here for the third time in this crate**, and the accident is the same
+/// one every time: an answer that never arrived, read as an answer. A missing reply in this scene
+/// would not read as a blank cell — it would shorten the batch, and a shortened batch read
+/// positionally reports *the state after the close* under the heading *the state while open*. Every
+/// row of the table would be one question out and every one of them would look like a number.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum ModeError {
+    /// No device-attributes reply, so nothing says the terminal finished with the batch.
+    NoSentinel,
+    /// Fewer — or more — mode reports before the sentinel than the scene asked for.
+    Count {
+        /// How many questions the scene asked.
+        expected: usize,
+        /// How many answers arrived before the sentinel.
+        found: usize,
+    },
+    /// A reply about a mode the scene never asked about.
+    ///
+    /// **Not ignored, refused.** The scene asks about one mode and counts the answers positionally,
+    /// so a stranger's reply in the stream does not merely add a row — it shifts every row after it
+    /// on to the wrong question.
+    OtherMode {
+        /// The mode the scene asked about.
+        wanted: u16,
+        /// The mode a reply named instead.
+        then: u16,
+    },
+    /// A second parameter DEC never defined. See [`ModeState::from_ps`].
+    UnknownState {
+        /// The number that arrived where a state belongs.
+        ps: u16,
+    },
+    /// A private-mode DECRPM reply whose two numbers are not two numbers.
+    ///
+    /// **Refused rather than skipped**, and the difference is the diagnosis. Dropped, it would
+    /// arrive downstream as a short [`ModeError::Count`] — *the terminal lost an answer* about a
+    /// terminal that answered every question and spelled one of them in a way this reader does not
+    /// know. The two have different causes and only one of them is a fact about the terminal.
+    Malformed {
+        /// The reply's parameter bytes, as they arrived.
+        body: String,
+    },
+    /// A `CSI` began and the bytes ran out before it ended.
+    UnterminatedReply,
+}
+
+impl fmt::Display for ModeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NoSentinel => write!(
+                f,
+                "no device-attributes reply, so nothing says the terminal finished with the batch \
+                 — the read gave up before the answers arrived, or they never will"
+            ),
+            Self::Count { expected, found } => write!(
+                f,
+                "the scene asked {expected} questions and {found} mode reports came back before \
+                 the sentinel — the answers are counted positionally, so a batch that lost one \
+                 reports every later row under the wrong question"
+            ),
+            Self::OtherMode { wanted, then } => write!(
+                f,
+                "a reply names mode {then} where every question was about mode {wanted}; the \
+                 stranger shifts every answer after it on to the wrong question"
+            ),
+            Self::UnknownState { ps } => write!(
+                f,
+                "a reply carries state {ps}, which DECRPM does not define — a state this \
+                 instrument invented is a state a report would print"
+            ),
+            Self::Malformed { body } => write!(
+                f,
+                "a private-mode reply reads `CSI {body} y` and its two parameters are not two \
+                 numbers; dropped it would arrive as a lost answer, which is a different cause"
+            ),
+            Self::UnterminatedReply => write!(
+                f,
+                "a control sequence began and the bytes ran out before it ended"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for ModeError {}
+
+/// The terminal's answers to a batch of `CSI ? mode $ p`, refused unless there are exactly
+/// `expected` of them about that mode with a device-attributes reply behind them.
+///
+/// # This asks the terminal what `quirks.rs` reads out of a source tree
+///
+/// Every row of `quirks.rs`'s synchronised-output table has the same provenance — *the
+/// implementation, read* — because a force flush is a **rendering** event and nothing a process
+/// inside a terminal can ask reports whether the terminal painted. That sentence is still true, and
+/// it is not the whole of what mode 2026 is. Whether the terminal *recognises* the mode, and
+/// whether its own state machine tracks the set and the reset it was sent, are questions the
+/// terminal answers about itself, in band, on the scene's own tty — with no capture surface, no
+/// window server and no automation grant in the path.
+///
+/// # The sentinel, and why it is not a timeout
+///
+/// `CSI c` behind the batch, whose reply the terminal cannot send before it has processed
+/// everything ahead of it. The read stops on an **observed** condition rather than on a delay tuned
+/// until it passed — scene 05's discipline, and `detect.rs`'s one crate over.
+///
+/// # Errors
+///
+/// [`ModeError`], and the five of them say five different things. See the type.
+pub fn mode_reports(bytes: &[u8], mode: u16, expected: usize) -> Result<Vec<ModeReply>, ModeError> {
+    let mut replies: Vec<ModeReply> = Vec::new();
+    let mut sentinel = false;
+    let mut i = 0;
+
+    while i < bytes.len() {
+        if bytes[i] != 0x1b {
+            i += 1;
+            continue;
+        }
+        let Some(b'[') = bytes.get(i + 1) else {
+            i += 1;
+            continue;
+        };
+        // Parameter and intermediate bytes, then one final byte in `@`..=`~`. `$` is an
+        // intermediate (0x24) and falls inside the run, which is what lets one scan read a `$y`
+        // reply and a `c` one.
+        let mut end = i + 2;
+        while end < bytes.len() && !(0x40..=0x7e).contains(&bytes[end]) {
+            end += 1;
+        }
+        if end == bytes.len() {
+            return Err(ModeError::UnterminatedReply);
+        }
+        let body = &bytes[i + 2..end];
+        match bytes[end] {
+            // The device-attributes reply. Everything after it belongs to some other question.
+            b'c' => {
+                sentinel = true;
+                break;
+            }
+            // A DECRPM reply about a **private** mode. The `?` is not decoration: `CSI 4 ; 2 $ y`
+            // is the ANSI-mode reply and is a different question with the same shape.
+            b'y' if body.starts_with(b"?") => {
+                let text = String::from_utf8_lossy(&body[1..]);
+                let text = text.strip_suffix('$').unwrap_or(&text);
+                let mut parts = text.split(';');
+                let which: Option<u16> = parts.next().and_then(|p| p.parse().ok());
+                let ps: Option<u16> = parts.next().and_then(|p| p.parse().ok());
+                let (Some(which), Some(ps)) = (which, ps) else {
+                    return Err(ModeError::Malformed {
+                        body: String::from_utf8_lossy(body).into_owned(),
+                    });
+                };
+                if which != mode {
+                    return Err(ModeError::OtherMode {
+                        wanted: mode,
+                        then: which,
+                    });
+                }
+                let Some(state) = ModeState::from_ps(ps) else {
+                    return Err(ModeError::UnknownState { ps });
+                };
+                replies.push(ModeReply { mode: which, state });
+            }
+            _ => {}
+        }
+        i = end + 1;
+    }
+
+    if !sentinel {
+        return Err(ModeError::NoSentinel);
+    }
+    if replies.len() != expected {
+        return Err(ModeError::Count {
+            expected,
+            found: replies.len(),
+        });
+    }
+    Ok(replies)
+}
+
+// ── Scene 06, part B: when the terminal stopped reporting the mode as set ────────────────────────
+
+/// One open, one wait, one question: what the terminal said about the mode `at_ms` after it was set.
+///
+/// **One probe per open, and that is a finding rather than a shape choice.** See
+/// [`next_delay`].
+/// # Two clocks, because a bracket built from one of them is unsound in one direction
+///
+/// The terminal processes the question at some instant between the write and the reply, and which
+/// end of that interval is safe depends on the answer. *Still set* at some instant implies still
+/// set at every earlier one, so the **request** is the sound end — a sleep is a floor, so the
+/// question cannot have been asked before it. *Already reset* at some instant implies reset at
+/// every later one, so the **reply** is the sound end. One clock read for both reports a bracket
+/// the run does not support: the reply for both pushes `still_set_at` past anything observed, and
+/// the request for both pulls `reset_by` below it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Probe {
+    /// How long the block was asked to stay open before the question, in milliseconds.
+    ///
+    /// The **requested** delay and not the achieved one, which is what makes it a sound lower
+    /// bound. It is also the key [`next_delay`] looks a probe up by, because it is the only one of
+    /// the two that side knows before the round has run.
+    pub at_ms: u32,
+    /// Elapsed, in milliseconds from the open, when the reply arrived. Measured, and a sound upper
+    /// bound on when the terminal processed the question.
+    pub answered_at_ms: u32,
+    /// What came back, or `None` where the terminal answered nothing at all.
+    pub state: Option<ModeState>,
+}
+
+/// What a run of probes says about when the terminal let go of the mode.
+///
+/// **This is the flag and it is not the paint.** A force flush is a rendering event; DECRQM reports
+/// a *mode*. A terminal may paint without clearing the flag or clear it without painting, and
+/// nothing here can tell those apart — what is measured is when the terminal stopped reporting the
+/// mode as set, which is the event Ghostty's own source calls *reset the synchronized output flag*.
+/// Reading it as the paint would be the instrument claiming a measurement it did not take.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Bracket {
+    /// Still set at `still_set_at` ms and reset by `reset_by` ms. The event is in between; a
+    /// bracket and never a point, because a probe is a sample.
+    Between {
+        /// The largest delay at which the terminal still reported the mode set.
+        still_set_at: u32,
+        /// The smallest delay at which it reported it reset.
+        reset_by: u32,
+    },
+    /// Still set at the largest delay probed, so this terminal's limit — if it has one — is beyond
+    /// the ceiling this run used.
+    NeverReset {
+        /// That largest delay, as it was **requested**: nothing here was observed to have reset by
+        /// anything, so the reply clock has nothing to bound.
+        ceiling: u32,
+    },
+    /// Already reset by the earliest reply this run saw. Either the limit is under the floor, or
+    /// the open never took, and those are different facts.
+    AlreadyReset {
+        /// The elapsed at which that earliest reply arrived.
+        floor: u32,
+    },
+}
+
+/// Why a run of probes is not a bracket.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum BracketError {
+    /// Nothing was probed.
+    NoProbes,
+    /// A probe got no reply, so the sequence has a hole and the two ends of the bracket may be on
+    /// opposite sides of it.
+    NoAnswer {
+        /// Where the hole is.
+        at_ms: u32,
+    },
+    /// A probe came back in a state a bracket cannot be built from — the mode not recognised, or
+    /// pinned permanently one way. Each of those is a real answer about the terminal and none of
+    /// them is a *timing*, so the row says so rather than reporting a number.
+    NotUsable {
+        /// Where.
+        at_ms: u32,
+        /// What came back.
+        state: ModeState,
+    },
+    /// The terminal reported the mode set at a longer delay than one at which it reported it reset.
+    ///
+    /// **A timeout that has expired stays expired**, and that assumption is what makes a bisection
+    /// sound rather than a search over an arbitrary function. A run that breaks it has measured
+    /// something other than a timeout, and inventing a bracket from it would hide that.
+    NotMonotone {
+        /// The delay at which it was still set.
+        set_at: u32,
+        /// The smaller delay at which it had already reset.
+        reset_at: u32,
+    },
+}
+
+impl fmt::Display for BracketError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NoProbes => write!(f, "no probes, so there is nothing to bracket"),
+            Self::NoAnswer { at_ms } => write!(
+                f,
+                "the probe at {at_ms} ms got no reply, so the sequence has a hole and the event \
+                 may be on either side of it"
+            ),
+            Self::NotUsable { at_ms, state } => write!(
+                f,
+                "the probe at {at_ms} ms came back {state}, which is an answer about the terminal \
+                 and not a timing"
+            ),
+            Self::NotMonotone { set_at, reset_at } => write!(
+                f,
+                "the mode was reported set at {set_at} ms and already reset at {reset_at} ms; a \
+                 timeout that has expired stays expired, so this run measured something other than \
+                 one"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for BracketError {}
+
+/// Fold a run of probes into the interval the reset happened in.
+///
+/// # Errors
+///
+/// [`BracketError`]. A hole, a state that is not a timing, and a non-monotone pair are each refused
+/// rather than bracketed around.
+pub fn flush_bracket(probes: &[Probe]) -> Result<Bracket, BracketError> {
+    if probes.is_empty() {
+        return Err(BracketError::NoProbes);
+    }
+    let (mut last_set, mut first_reset): (Option<u32>, Option<u32>) = (None, None);
+    for probe in probes {
+        let Some(state) = probe.state else {
+            return Err(BracketError::NoAnswer { at_ms: probe.at_ms });
+        };
+        match state {
+            // The request for the set end and the reply for the reset end — see [`Probe`]. One
+            // clock read for both is unsound in whichever direction it is read.
+            ModeState::Set => {
+                last_set = Some(last_set.map_or(probe.at_ms, |m: u32| m.max(probe.at_ms)))
+            }
+            ModeState::Reset => {
+                first_reset = Some(
+                    first_reset.map_or(probe.answered_at_ms, |m: u32| m.min(probe.answered_at_ms)),
+                );
+            }
+            other => {
+                return Err(BracketError::NotUsable {
+                    at_ms: probe.at_ms,
+                    state: other,
+                });
+            }
+        }
+    }
+    match (last_set, first_reset) {
+        (Some(set_at), Some(reset_at)) if set_at >= reset_at => {
+            Err(BracketError::NotMonotone { set_at, reset_at })
+        }
+        (Some(still_set_at), Some(reset_by)) => Ok(Bracket::Between {
+            still_set_at,
+            reset_by,
+        }),
+        (Some(ceiling), None) => Ok(Bracket::NeverReset { ceiling }),
+        (None, Some(floor)) => Ok(Bracket::AlreadyReset { floor }),
+        (None, None) => Err(BracketError::NoProbes),
+    }
+}
+
+/// The smallest delay scene 06 opens a block for, and the mode must still be set there.
+///
+/// Small enough that no terminal's force-flush limit can be under it — the smallest documented one
+/// is Alacritty's 150 ms — so a floor that reports the mode already reset is evidence that the open
+/// never took, which is a different fact and gets its own row.
+pub const FLUSH_FLOOR_MS: u32 = 50;
+
+/// The largest, and the mode must be reset by there.
+///
+/// Above every documented limit `quirks.rs` carries — kitty's 2000 ms is the largest — with enough
+/// margin that a terminal at that figure brackets rather than falling off the end. A terminal still
+/// holding the mode here is reported as such and never as a number.
+pub const FLUSH_CEILING_MS: u32 = 3000;
+
+/// How tight a bracket scene 06 halves for before it stops.
+///
+/// **A resolution and not an accuracy.** It bounds the interval the answer is reported in; it says
+/// nothing about where in that interval the terminal's own timer is. 128 ms is what separates the
+/// two figures this scene exists to tell apart — a 1000 ms limit from a 2000 ms one — with an order
+/// of magnitude to spare, and every halving past it costs an open worth up to three seconds.
+pub const FLUSH_RESOLUTION_MS: u32 = 128;
+
+/// The most opens the bisection above can cost, the two ends included.
+///
+/// **A bound and not a count.** Halving 2 950 ms down to 128 takes five steps, so the run is seven
+/// opens — which `the_halving_converges_on_the_boundary_and_stops_at_the_resolution` asserts against
+/// this constant rather than against a literal, so a change to any of the three parameters moves
+/// the budget and the test together. It is what an arm's readiness timeout is derived from: a
+/// driver that gave up while the scene was still measuring would report *the scene never presented
+/// a frame*, which is the timeout blaming the scene for the measurement it asked for.
+pub const FLUSH_OPENS: usize = 7;
+
+/// The next delay to open a block for, or `None` when the run is finished.
+///
+/// # One probe per open, and the control probe is why
+///
+/// The obvious instrument opens a block once and polls it, which costs one open where this costs
+/// nine. It was written first and it is **wrong on one of the three families measured**. Polling a
+/// Ghostty 1.3.1 every 250 ms brought the flag's reset forward from 1002 ms to somewhere under
+/// 517 ms, while the same polling left tmux 3.7c at 1007 ms and kitty 0.48.2 at 2261 ms — their
+/// documented figures. An instrument that polls is inside its own measurement, and the two arms it
+/// happens not to disturb are exactly what would have made that invisible.
+///
+/// So each probe is a fresh open, a wait, one question and a close. The cost is the bisection, and
+/// the bisection is what keeps it to nine.
+///
+/// # Bisection, and the assumption it rests on
+///
+/// A timeout that has expired stays expired, so *still set* and *already reset* partition the
+/// delays and the boundary can be halved for. That assumption is not free and [`flush_bracket`]
+/// refuses a run that breaks it. The two ends are probed **first**, before any halving, because a
+/// bisection between two ends that were never established is a bisection over a guess.
+#[must_use]
+pub fn next_delay(
+    probes: &[Probe],
+    floor_ms: u32,
+    ceiling_ms: u32,
+    resolution_ms: u32,
+) -> Option<u32> {
+    let at = |ms: u32| probes.iter().find(|p| p.at_ms == ms).map(|p| p.state);
+    // The ends first, in this order, so a terminal that never reset costs the ceiling once rather
+    // than once per halving.
+    let floor = match at(floor_ms) {
+        None => return Some(floor_ms),
+        Some(state) => state,
+    };
+    let ceiling = match at(ceiling_ms) {
+        None => return Some(ceiling_ms),
+        Some(state) => state,
+    };
+    // Anything but a clean `still set at the floor, reset by the ceiling` has nothing to bisect,
+    // and `flush_bracket` is where each of those becomes the row it deserves.
+    if floor != Some(ModeState::Set) || ceiling != Some(ModeState::Reset) {
+        return None;
+    }
+    let mut lo = floor_ms;
+    let mut hi = ceiling_ms;
+    for probe in probes {
+        match probe.state {
+            Some(ModeState::Set) if probe.at_ms > lo && probe.at_ms < hi => lo = probe.at_ms,
+            Some(ModeState::Reset) if probe.at_ms < hi && probe.at_ms > lo => hi = probe.at_ms,
+            _ => {}
+        }
+    }
+    if hi - lo <= resolution_ms {
+        return None;
+    }
+    Some(lo + (hi - lo) / 2)
+}
+
 #[cfg(test)]
 mod tests;

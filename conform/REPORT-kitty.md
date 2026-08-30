@@ -11,7 +11,7 @@ Read [`SCENES.md`](SCENES.md) first.
 - **Default colours, from the dump's own OSC 10/11:** fg `cannot express` — this capture format has no OSC 10/11 header, bg `cannot express` — this capture format has no OSC 10/11 header
 - **Geometry: asked for and got.** `-o initial_window_width=80c -o initial_window_height=24c`, and `kitten @ ls` reported 80x24. **The first *emulator* arm that can be handed a size** — Ghostty's `surface configuration` offers a font size and nothing else. The quiescence handshake is kept anyway: it is what proves the window stopped moving, and one command-line option is not a run
 - **Config:** none. `--listen-on` and `-o allow_remote_control=yes` are given on the command line, so there is no `kitty.conf` in the result — the tmux arm's `-f /dev/null` equivalent, for free. `-o remember_window_size=no` is the other half: without it kitty restores the size of the last window the user dragged
-- **Launch to capture:** 1562 ms, of which `get-text` itself was 66 ms — reported, never gated. No automation consent dialog, no clipboard, no z-order
+- **Launch to capture:** 1291 ms, of which `get-text` itself was 40 ms — reported, never gated. No automation consent dialog, no clipboard, no z-order
 - **Trailing blanks: kept, and that is the opposite of the tmux arm.** Every row the engine painted comes back at its full width, so the check that an attribute stopped where its label did has real padding to look at here. kitty closes each label with an explicit off-code — `22`, `23`, `24`, `27`, `29` — rather than a reset, which is what makes that check answerable at all. The one exception is the final row, which arrives as a bare `CSI m` with no cells where Ghostty's dump gives it painted; the parser drops a trailing blank row after counting the rows, so nothing turns on it
 - **A never-written cell is not a painted blank**, and only the first is trimmed. A probe screen kitty had never had written to came back with its unpainted rows absent entirely — which is what an empty capture looks like from this arm, and why the refusal is the first thing it does rather than the last
 - **Rows are LF-separated**, where Ghostty's dump is CRLF. So `core.autocrlf` has nothing to rewrite in this arm's fixture — which is luck rather than safety, and `.gitattributes` still marks `*.vt` as `-text`
@@ -61,7 +61,7 @@ Every row is `AB漢CD` — `A` at column 0, `B` at 1, the wide glyph across 2 an
 
 ## Scene 05 — what does this emulator think this cluster is worth
 
-**Answered by: kitty** — kitty is an endpoint, so nothing sits between the scene's tty and it. It is also the arm where the two channels are most obviously different instruments: the photograph goes through a serialiser with a string for `4:2` and none for `4:4`, and a cursor report goes through none.
+**Answered by: kitty** — kitty is an endpoint, so nothing sits between the scene's tty and it. It is also the arm where the two channels are most obviously different instruments: the photograph goes through a serialiser with a string for `4:2` and none for `4:4`, and an in-band reply goes through none.
 
 This is the only scene here whose answer does not come back through a photograph. The scene homes the cursor to column 1, writes one cluster, and asks `CSI 6n`; the column that comes back is the **emulator's own UAX #11 verdict**, reached by the emulator's tables and reported by the emulator, with nothing of this repository's in the path. A `CSI c` behind the batch is the sentinel, so the read stops on an observed condition rather than on a delay.
 
@@ -101,5 +101,45 @@ What the paragraph in `ucd.rs` cites for the disagreement is a **survey of 23 te
 | `1️⃣` | U+0031 U+FE0F U+20E3 | an ASCII base carried into emoji presentation by a selector and a combining enclosing keycap — the sequence whose base is one column on its own | 2 | 2 | ✓ |
 
 **12 of 12 agree with the engine's tables.** That number is a fact about this terminal and about the disagreement's size; it is not a score and it is not a denominator anything is held to.
+
+## Scene 06 — mode 2026, asked of the terminal rather than of its documentation
+
+**Answered by: kitty** — kitty is an endpoint, so nothing sits between the scene's tty and it. It is also the arm where the two channels are most obviously different instruments: the photograph goes through a serialiser with a string for `4:2` and none for `4:4`, and an in-band reply goes through none.
+
+The second scene here whose answer does not come back through a photograph, and the first for a question that is not a width. The scene asks `CSI ? 2026 $ p` on its own tty and the terminal answers in band, so the capture surface, the window server and the automation grant are all out of the path — and the terminal that answers is the **innermost** one, which is why the line above names a terminal rather than repeating this arm's title.
+
+### The state machine, and these five are compared
+
+One batch — ask, set, ask, reset, ask, set, set, ask, reset, ask — with `CSI c` behind it, and the answers read positionally. **The expectations are DECRPM's own**, which is what makes this a comparison where scene 05's twelve rows are a survey: a terminal that reports the mode set after it was asked to reset it is wrong by the definition of the reply it sent, not by a table this repository chose. A terminal with no synchronised output answers `not recognised (0)` throughout, which is a legitimate answer — the arm then owes a `cannot express` declaration, and until it has one the rows are loud.
+
+| row | asks | declared here | kitty | |
+|---|---|---|---|---|
+| before | whether the terminal recognises the mode at all, and what it says before anything has been done to it. A terminal without synchronised output answers `not recognised (0)` here, which is a legitimate answer and not a defect | reset (2) | reset (2) | ✓ |
+| while-open | whether `CSI ? 2026 h` reached the state machine. This is the row that separates a terminal that *has* the mode from one that parses the sequence and throws it away | set (1) | set (1) | ✓ |
+| after-close | whether `CSI ? 2026 l` reached it too. A terminal that opens and never closes is one where the engine's own frame framing leaves the mode set for ever | reset (2) | reset (2) | ✓ |
+| opened-twice | whether a second `h` over an already-set mode is still simply set | set (1) | set (1) | ✓ |
+| closed-once | whether one `l` undoes two `h`. A DEC private mode is not a counter, and a terminal that made it one would hold a frame past the close the engine sent | reset (2) | reset (2) | ✓ |
+
+**5/5 agreed.**
+
+### When the terminal let go of the flag — reported, never failed
+
+**This is the flag and it is not the paint.** A force flush is a *rendering* event and nothing a process inside a terminal can ask reports whether the terminal painted; DECRQM reports a **mode**. What is below is when the terminal stopped reporting the mode as set — the event Ghostty's own source calls *reset the synchronized output flag*. A terminal could paint without clearing the flag or clear it without painting, and nothing here can tell those apart. It is a timing besides, and a timing is a report.
+
+**One probe per open, and the control probe is why.** The polling instrument was written first: it opens one block and asks repeatedly, which costs one open where this costs seven. Polling a Ghostty 1.3.1 every 250 ms brought the reset forward from 1002 ms to under 517 ms, while the same polling left tmux 3.7c at 1007 ms and kitty 0.48.2 at 2261 ms — their documented figures. An instrument that polls is inside its own measurement, and the two families it happens not to disturb are exactly what would have made that invisible. So each row below is a fresh open, a wait, one question and a close, and the boundary between them is halved for. **The two clocks are both printed** because only one of them is sound for each answer: the terminal processed the question somewhere between them, a *set* is evidence back to the request and a *reset* is evidence forward to the reply, so the bracket takes one end from each column.
+
+| open | held open for | answered at | kitty |
+|---|---|---|---|
+| 1 | 50 ms | 55 ms | set (1) |
+| 2 | 3000 ms | 3012 ms | reset (2) |
+| 3 | 1525 ms | 1530 ms | set (1) |
+| 4 | 2262 ms | 2267 ms | reset (2) |
+| 5 | 1893 ms | 1898 ms | set (1) |
+| 6 | 2077 ms | 2085 ms | reset (2) |
+| 7 | 1985 ms | 1991 ms | set (1) |
+
+**Still set at 1985 ms, reset by 2085 ms.** The event is in that interval; a bracket and never a point, because a probe is a sample. `quirks.rs`'s row for this terminal is the number to read it against, and that row's provenance is *the implementation, read*.
+
+Nothing in this section moves the numerator or the denominator above it. A timing is a report, and a gate tuned to one is the flaky test this repository refuses by name.
 
 A row that does not say which arm it came from is not a result, and a *missing* row reads as a win — which is the single easiest way for this directory to become dishonest. Every row of every scene is printed above whether it agreed or not, and a capture with fewer rows than the scene declared never reaches a table: it is refused as `FAILED` by the parser.
