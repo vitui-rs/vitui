@@ -497,25 +497,17 @@ fn main() {
         // `q` did not quit. Components ticket 22's application found it and every loop in this crate
         // had it.
         //
-        // **And the reveal frame below is *also* a next frame**, which is the second half of the same
-        // mistake: `route::batch_len` folds several ordinary keys into one batch, so `[End, q]`
-        // arrives together — `End` is taken and requests an into-view, and a frame drawn before this
-        // line replaces the queue and takes the undrained `q` with it.
+        // **This loop once drew a reveal's second frame itself, right here**, and it no longer does.
+        // A reveal is a two-frame gesture — `Ctx::request_into_view` leaves the request on the frame
+        // and the component applies it through `take_into_view` on the next one — and nothing asked
+        // for that second frame, so `End` drew, requested and parked: the list moved on the *next*
+        // keystroke. This program is where it was found, because it is the first to drive a reveal
+        // from a key an **application** owns. Runtime architecture issue 33 put the ask in the
+        // runtime, where both producers meet and where a wake policy belongs; what stands here is
+        // the ordinary loop, and the reveal arrives as a `Wake::Deadline` below.
         let unhandled: Vec<Pressed> = driver.unhandled().to_vec();
         app.take_unhandled(&unhandled);
 
-        // **A reveal is a two-frame gesture and nothing asks for the second frame.**
-        // `Ctx::request_into_view` leaves the request on the frame and the component applies it
-        // through `take_into_view` on the *next* one — but `request_into_view` does not call
-        // `Ctx::request_frame`, so an application that draws only when something arrives shows the
-        // reveal one keystroke late: press `End` and nothing moves until the key after it. Every
-        // component on this map that reveals has the same lag, `collection` included, and none of
-        // their gates can see it because a gate drives its own frames. Filed as runtime
-        // architecture issue 33; this is the workaround and it is two lines rather than a wake
-        // policy an application may not decide.
-        if driver.inspect().into_view().is_some() {
-            driver.frame(|cx| app.ui(cx));
-        }
         app.regions = driver.inspect().hits().len();
 
         if app.exit {

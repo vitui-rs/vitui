@@ -1054,6 +1054,20 @@ pub struct WhyAnAutoHidingBarNeedsADeclaredExtent;
 /// `crate::wheel` runs both directions over this component and over `collection` separately, and
 /// `examples/wheel_numbers.rs` prints the pair.
 ///
+/// **Since runtime architecture issue 33 the every-frame asker is no longer silent.** A request
+/// that survives to `end` asks for the frame that reads it, so a body that asks unconditionally
+/// asks for a wake unconditionally, and the application stops sleeping — which is the first
+/// symptom of this fault any instrument has ever had. The screen is still identical and every
+/// counter still agrees; what changed is that something outside the picture moves.
+///
+/// **It is a symptom and not a diagnosis.**
+/// [`WakeLedger::runaway`](vitui_runtime::anim::WakeLedger::runaway) names the *runtime's* line —
+/// the ask carries no widget id and there is one line for every reveal in the process — and a held
+/// arrow key legitimately produces the same streak, because a list scrolling under auto-repeat
+/// cannot sleep either. So a runaway naming that line means *some body is asking every frame, or a
+/// key is down*, and telling those apart is still the wheel: twenty clicks that move the offset
+/// zero.
+///
 /// # The unit is content cells, everywhere
 ///
 /// `extent` is `Σ h` and never a row count. Spec §9 prices the substitution at **row 799 999 of

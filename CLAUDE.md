@@ -32,7 +32,7 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   a real terminal rather than our model of one, and the source of `quirks.rs`'s later entries.
 - **`vitui-runtime` — implementation-complete.** 21 tickets. `data`, `layout`, `theme` (fourteen
   schemes), `keys`, `ctx`, `id`, `route`, `focus`, `sizing`, `work`, `anim`, `overlay`, `scroll`.
-  Register 44 entries and the 20-scene list, both green. The component-facing crate line is *built*
+  Register 46 entries and the 20-scene list, both green. The component-facing crate line is *built*
   rather than counted: `crates/vitui-components/tests/crate_line.rs` cannot name the engine.
 - **`vitui-components` — implementation-complete.** All 46 tickets; spec §17's freeze is **29 of 29
   built**, as a value (`INVENTORY`) that tests iterate, with the documentation and verification
@@ -75,6 +75,20 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   the two apart, because `Gesture::Plain` is idempotent, and only a ctrl-click flickers. There is no
   `CollState::press_edge()` any more and nothing keeps a `pressing` bool: the readers hold the
   `Response`.
+- **A reveal asks for its own second frame, and `end` is what asks** (runtime architecture 33,
+  resolved 2026-08-31). A scroll-into-view is two frames — `Ctx::request_into_view` leaves the
+  request and the offset's owner takes it with `take_into_view` on the next one — and nothing asked
+  for that next frame, so `End` drew and parked and the list moved on the *following* keystroke.
+  `Frame::resolve_into_view` now asks, because it is the one place the **two** producers meet: the
+  explicit request and the ring's keyboard pull, which no application spells and where the explicit
+  one overwrites it — one gesture, one wake. Asking at `request_into_view` fixes `End` and leaves
+  `Tab` lagging. The gate draws **one** frame per arm and reads `WakeLedger::pending()`, with a
+  control arm that parks, because every other instrument here drives its own second frame and so
+  supplies the thing under test. The cost is one line in the wake census for **every** reveal in the
+  process: a body that asks for a reveal every frame — forbidden by name in
+  `vitui_components::scroll`, previously invisible to every counter — is now a runaway, and so is a
+  held arrow key, which is honest and is not the fault the detector is consulted about.
+
 - **Nothing holds the focus until an application seats it** (issue 25): `if cx.focused().is_none()`
   inside the draw. A runtime that seats the first stop was refused.
 - **`Driver::unhandled` is read *after* the frame**, never before — it is a window onto the same
@@ -119,11 +133,10 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   exactly, which an overlay bar cannot satisfy.
 
 **Open questions — do not "fix" code to match one sentence of a spec without resolving the ticket.**
-Eight stand open. Seven were filed by the layer above the one they land in; **36 is the first one
+Seven stand open. Six were filed by the layer above the one they land in; **36 is the first one
 this map filed against itself**, and it was found by resolving 31.
 
-- **Runtime architecture 33** — a scroll-into-view is a two-frame gesture and nothing asks for the
-  second frame. **34** — a picture cannot ask what the terminal will show: no colour-pair question
+- **Runtime architecture 34** — a picture cannot ask what the terminal will show: no colour-pair question
   and no readable wire. **35** — an application cannot give its terminal to an editor, because
   `Screen::suspend` now exists (ADR 0052) and `Driver` owns it privately — the third *engine verb
   behind `Driver`'s private field* after 23 and 30. **36** — `Ctx::clear` and `Ctx::caret_with`

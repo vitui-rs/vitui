@@ -904,6 +904,87 @@ mod tests {
         );
     }
 
+    /// **A frame that leaves an into-view request wakes the screen.**
+    ///
+    /// The regression for runtime architecture issue 33, and the reason it stood for four
+    /// components: *a gate drives its own frames*. Every other test of this path draws a second
+    /// frame because it wants to observe one, so the harness supplied the wake the runtime did not
+    /// and the lag was invisible by construction. This one draws **one** frame per arm and asks the
+    /// wakeup sink instead — the only question an application's `wait` will ever ask.
+    ///
+    /// Three arms, and the first is the control: a frame that asks for nothing parks, so the two
+    /// below are measuring a wake rather than a driver that always wants one.
+    #[test]
+    fn a_frame_that_leaves_an_into_view_request_wakes_the_screen() {
+        let area = Id::named("area");
+        let field = |i: i32| Id::keyed(Id::ROOT, u64::try_from(i).unwrap_or(0));
+
+        // Control: the same scope, drawn with nothing asking.
+        let mut d = driver(20, 6);
+        d.frame(|cx| {
+            cx.scroll_scope(area, Rect::new(0, 0, 20, 6), (0, 0), (0, 34), |_cx| {});
+        });
+        assert_eq!(
+            d.inspect().wakes().pending(),
+            None,
+            "a frame with no request parks, so the arms below measure the request"
+        );
+
+        // The explicit ask: `Ctx::request_into_view`, which is what an application's own key runs.
+        d.frame(|cx| {
+            cx.scroll_scope(area, Rect::new(0, 0, 20, 6), (0, 0), (0, 34), |cx| {
+                cx.request_into_view(Rect::new(0, 20, 20, 1));
+            });
+        });
+        assert!(
+            d.inspect().into_view().is_some(),
+            "row 20 is below a six-row window, so there is a request to carry"
+        );
+        assert!(
+            d.inspect().wakes().pending().is_some(),
+            "the frame that takes it has to be asked for; nothing else will ask"
+        );
+
+        // The keyboard ask: the ring's own pull, which no application spells at all.
+        let mut d = driver(20, 6);
+        let draw = |cx: &mut Ctx<'_, '_>| {
+            cx.scroll_scope(area, Rect::new(0, 0, 20, 6), (0, 0), (0, 34), |cx| {
+                for i in 0..40 {
+                    cx.interact(field(i), Rect::new(0, i, 20, 1), Interest::FOCUS);
+                }
+            });
+        };
+        // **This arm needs its own control**, and the empty scope above is not one: it is a
+        // different driver, and it moves no focus, declares no stop and settles no caret. Six tabs
+        // land on rows 0..=5, every one of them inside the window, so the ring pulls nothing and
+        // this frame is the same frame as the one below in everything but that.
+        for _ in 0..6 {
+            d.post_key(tab());
+            while d.queued() > 0 {
+                d.frame(draw);
+            }
+        }
+        assert_eq!(d.inspect().focused(), Some(field(5)));
+        assert!(d.inspect().into_view().is_none(), "row 5 is already in");
+        assert_eq!(
+            d.inspect().wakes().pending(),
+            None,
+            "a tab that reveals nothing parks, so the seventh below is the request and not the tab"
+        );
+
+        // The seventh stop is row 6, one below the window.
+        d.post_key(tab());
+        while d.queued() > 0 {
+            d.frame(draw);
+        }
+        assert_eq!(d.inspect().focused(), Some(field(6)));
+        assert!(d.inspect().into_view().is_some(), "the ring pulled");
+        assert!(
+            d.inspect().wakes().pending().is_some(),
+            "a keyboard reveal is the same two-frame gesture and asks the same way"
+        );
+    }
+
     /// **A ring rectangle is in the enclosing area's content coordinates**, which reset at the area
     /// boundary and nowhere else.
     #[test]

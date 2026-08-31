@@ -877,7 +877,7 @@ impl Frame {
         // **Where the focus ended, recorded for the next frame's vanish rule.** It is the last step
         // because every one above it can move the focus.
         self.ring.note(self.focused);
-        self.resolve_into_view();
+        self.resolve_into_view(now);
 
         // **The one wake, read from the one sink.** 08 folded a `repaint` flag in here and 06 folded
         // the flag itself away: `request_frame()` is `deadline(now)`, so there is nothing left to
@@ -1119,11 +1119,48 @@ impl Frame {
     /// - a stop **outside every scroll area** asks for nothing, because there is nothing to move;
     /// - a request nobody took **lives one frame**, so the assignment below is unconditional: the
     ///   alternative is a pull that fires long after the move that asked for it.
-    fn resolve_into_view(&mut self) {
+    ///
+    /// # And the frame that reads it is asked for here
+    ///
+    /// A reveal is a two-frame gesture — this frame resolves it and the offset's owner applies it
+    /// through [`Ctx::take_into_view`] on the next one — and until issue 33 **nothing asked for the
+    /// second frame**. The loop every application in this workspace writes parks in `Driver::wait`,
+    /// so `End` drew, requested, and parked: the list moved on the *next* keystroke. Four
+    /// components reveal and all four carried it, and no gate could see it because a gate draws its
+    /// own second frame.
+    ///
+    /// The ask belongs **here** rather than in [`Ctx::request_into_view`], for two reasons. It is
+    /// the one place both producers meet — the explicit request and the ring's keyboard pull, which
+    /// no application spells at all — and it is the only place that knows the fold *survived*: a
+    /// request the keyboard raised and the explicit one overwrote is one wake and not two.
+    ///
+    /// # What this costs the census, stated rather than waved at
+    ///
+    /// A wake is not free and [`WakeLedger::runaway`](crate::anim::WakeLedger::runaway) counts the
+    /// ones that ask for *now*, so this line appears in it. **One** reveal is a streak of one: the
+    /// frame that takes the request applies the delta, and the next
+    /// [`Area::into_view`](crate::scroll::Area::into_view) over the same rectangle is `(0, 0)`,
+    /// which asks for nothing.
+    ///
+    /// **A held key is not**, and the tidy claim that the streak is bounded by the gesture is
+    /// false. Auto-repeat on `Down` in a long `collection` moves the cursor out of the window on
+    /// every frame that drains a repeat, so this line asks on consecutive frames for as long as
+    /// the key is down and about a second of it passes `runaway(60)`. That is not a
+    /// misreading — a screen scrolling under a held key genuinely cannot sleep, and sixty is
+    /// documented as *a second of one* — but it is also not the fault the detector is usually
+    /// consulted about, and **the census cannot tell the two apart**: the ask carries no `who`, and
+    /// `#[track_caller]` stops here, so every reveal in the process folds into this one line.
+    /// Attribution is a design question and not a defect in this line; it is recorded at the end of
+    /// runtime architecture issue 33 rather than guessed at here, because the keyboard producer is
+    /// the ring and has no caller to name at all.
+    fn resolve_into_view(&mut self, now: Instant) {
         let keyboard = self.tab_moved.then(|| self.keyboard_into_view()).flatten();
         // An explicit `request_into_view` wins: the component named a rectangle, which is more than
         // the ring knows.
         self.into_view = self.into_view_asked.take().or(keyboard);
+        if self.into_view.is_some() {
+            self.wants_another_frame(now);
+        }
     }
 
     /// The focused stop's request, if it is inside an area and is not already visible.
@@ -2185,6 +2222,12 @@ impl<'f, 'v> Ctx<'f, 'v> {
     ///
     /// It does nothing outside a [`Ctx::scroll_scope`], and nothing for a rectangle that is already
     /// visible.
+    ///
+    /// **A request that survives to `end` asks for the frame that reads it**, so a caller writing
+    /// the loop `Driver::wait`'s own documentation describes sees the reveal on the wake this frame
+    /// schedules rather than on whatever the user does next. The ask is not made here but in
+    /// `Frame::resolve_into_view`, which is where this producer and the ring's keyboard pull meet
+    /// and where the fold between them is already decided.
     pub fn request_into_view(&mut self, r: Rect) {
         let Some(ix) = self.frame.open_area else {
             return;

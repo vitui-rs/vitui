@@ -177,7 +177,9 @@ conversation. Definitions only. The specs and ADRs carry the arguments and the n
   of the frame. Residue: one click, at each end stop and on an area's first frame.
 - **Scroll-into-view** — bringing a newly focused entry into its area's viewport, resolved at the end of the frame that
   drew, for keyboard-driven moves only, a press proving the widget was on screen. What crosses the frame boundary is an
-  offset, never a rectangle; it has no meaning inside a virtualised collection.
+  offset, never a rectangle; it has no meaning inside a virtualised collection. **The frame that resolves one asks for
+  the frame that reads it**, so a loop that parks in `Driver::wait` shows the reveal on that wake and not on whatever the
+  user does next.
 
 ## Overlays
 

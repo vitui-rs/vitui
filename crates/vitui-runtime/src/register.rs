@@ -8,7 +8,7 @@
 //! *this* crate's: **a property that quietly never arrives is indistinguishable from one that was
 //! decided against**, so every gate is here and every one of them is in exactly one of two states —
 //! [`State::Wired`], naming the instruments that run it, or [`State::Red`], naming the
-//! implementation ticket that inverts it. **Forty-five wired, none red.** Ticket 19 left this
+//! implementation ticket that inverts it. **Forty-six wired, none red.** Ticket 19 left this
 //! register at thirty-eight and one — entry 12, the dense frame, which was *measured* in two places
 //! and *gated* in neither — and ticket 20 built the gate rather than reworded the row. What made
 //! that possible is that the red row named the missing instrument precisely enough to build it: a
@@ -239,7 +239,7 @@ pub const SPEC_ROWS: usize = 15;
 /// stated from two sides, and twenty-four survive deduplication against §20's fifteen. A row is
 /// here when it is a gate somebody can break; a bullet that restates a neighbour is not a second
 /// row.
-pub const REGISTER: [Entry; 45] = [
+pub const REGISTER: [Entry; 46] = [
     // ── spec §20's table, in its order ───────────────────────────────────────────────────────────
     Entry {
         number: 1,
@@ -1296,6 +1296,29 @@ pub const REGISTER: [Entry; 45] = [
             }],
         },
     },
+    Entry {
+        number: 46,
+        on_spec_table: false,
+        property: "A frame that leaves a scroll-into-view request asks for the frame that reads it",
+        kind: Kind::Gate,
+        qualifier: "count \u{2014} of the wakeup sink after **one** frame, which is the whole \
+                    difficulty: a reveal is a two-frame gesture, and every other instrument on \
+                    this map drives its own second frame because it wants to observe one, so the \
+                    harness supplied the wake the runtime did not and the lag was invisible by \
+                    construction. Both producers are arms \u{2014} the explicit `Ctx::request_into_view` \
+                    and the ring's keyboard pull, which no application spells \u{2014} and **the first \
+                    arm is a control**: the same scope drawn with nothing asking parks, so the two \
+                    below measure a request rather than a driver that always wants a frame. It is \
+                    a count of a fold and not of a timing: the sink is one `Option<Instant>` and \
+                    the question is whether it is inhabited",
+        source: "issue 33",
+        state: State::Wired {
+            by: &[Instrument::Unit {
+                file: "crates/vitui-runtime/src/scroll.rs",
+                name: "a_frame_that_leaves_an_into_view_request_wakes_the_screen",
+            }],
+        },
+    },
 ];
 
 /// How many `compile_fail` fences the crate carries.
@@ -1659,7 +1682,7 @@ mod tests {
         assert_eq!(seen, expected, "the numbers are not 1..={}", REGISTER.len());
     }
 
-    /// **Forty-five wired, none red.**
+    /// **Forty-six wired, none red.**
     ///
     /// This register was thirty-eight and one from ticket 19 until ticket 20 built the gate entry
     /// 12 was red for the absence of; forty since architecture issue 23 — the first row here whose
@@ -1675,12 +1698,16 @@ mod tests {
     /// 31**, the sixth, which is the one that inverts a *red row in another crate's register*:
     /// `Ctx::with_id` and `Ctx::scope` childed their body at `self.area()`, which inside a scroll
     /// scope is the content's rectangle, and the row exists here because the property is this
-    /// crate's even though three components tickets are what met it. Saying *how many* is
+    /// crate's even though three components tickets are what met it — and **forty-six since
+    /// issue 33**, the seventh, which is the one whose gate could not be written the way every
+    /// other row on this map is written: the property is that *a frame asks for the next one*, and
+    /// an instrument that drives its own second frame supplies exactly the thing under test, so
+    /// this one draws a single frame per arm and asks the wakeup sink instead. Saying *how many* is
     /// what stops a red row arriving unremarked, and it
     /// has the second job the engine's has: **a register at all-green says so**, so the next red row
     /// is a deliberate edit to this number rather than a quiet one.
     #[test]
-    fn forty_five_are_wired_and_none_are_red() {
+    fn forty_six_are_wired_and_none_are_red() {
         let red: Vec<u8> = REGISTER
             .iter()
             .filter(|e| matches!(e.state, State::Red { .. }))
@@ -1693,7 +1720,7 @@ mod tests {
              documentation, and in the module comment above — the count is the thing that stops it \
              arriving unremarked"
         );
-        assert_eq!(REGISTER.len() - red.len(), 45);
+        assert_eq!(REGISTER.len() - red.len(), 46);
     }
 
     /// **The split, not the total.**
@@ -1708,9 +1735,9 @@ mod tests {
         assert_eq!(on_table, SPEC_ROWS, "spec §20's table is fifteen rows");
         assert_eq!(
             REGISTER.len() - on_table,
-            30,
+            31,
             "the backlog's gates, deduplicated against §20's fifteen, plus issues 23's, 25's, \
-             26's, 28's, 29's and 31's"
+             26's, 28's, 29's, 31's and 33's"
         );
         // And §20's fifteen come first, so the table reads in the spec's order.
         for (index, entry) in REGISTER.iter().enumerate() {
