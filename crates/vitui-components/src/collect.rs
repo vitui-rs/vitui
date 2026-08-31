@@ -2795,25 +2795,30 @@ pub fn flattened_header_click(rows: usize, ncols: usize, col: usize) -> (usize, 
 
 /// **Which cell this is, and the id it may declare a target under.**
 ///
-/// # The id is handed over rather than pushed, and that is a measured workaround
+/// # The id is handed over rather than pushed, and it was a measured workaround first
 ///
 /// ADR 0027's rule is *a container roots its children inside its own id*, and §4 says `with_key` is
-/// the only verb that mints one. **It is not available here**, and the reason is a defect one crate
-/// down rather than a preference: [`Ctx::with_id`](vitui_runtime::Ctx::with_id) — which
-/// `Ctx::with_key` is written on — re-childs the view at `self.area()`, and `area()` is
-/// `Rect::new(0, 0, w, h)` in the *current* coordinate system. Inside a scroll scope that origin is
-/// the **content's**, so the clip it intersects with is content rows `0..h` while the window is at
-/// the offset: at any offset past the first screenful the two do not overlap and a cell keyed that
-/// way **draws nothing at all**.
+/// the only verb that mints one. **It was not available here**, for a defect one crate down rather
+/// than a preference: [`Ctx::with_id`](vitui_runtime::Ctx::with_id) — which `Ctx::with_key` is
+/// written on — re-childed the view at `self.area()`, and `area()` is `Rect::new(0, 0, w, h)` in
+/// the *current* coordinate system. Inside a scroll scope that origin is the **content's**, so the
+/// clip it intersected with was content rows `0..h` while the window sat at the offset: past the
+/// first screenful the two did not overlap and a cell keyed that way **drew nothing at all**.
 ///
-/// [`collection`] states the same fact from one level up — it is why the row loop's `cx.with_id` is
-/// outside the scope rather than around the loop — and `tests::a_with_key_inside_a_scroll_scope_/// draws_nothing_past_the_first_screenful` is it as a measurement rather than as an argument.
-/// Filed as `.scratch/vitui-runtime-architecture/issues/31`.
+/// **Runtime architecture issue 31 inverted it** — an identity verb reborrows now and narrows no
+/// view — and `tests::a_with_key_inside_a_scroll_scope_reaches_the_window` is the measurement,
+/// where it used to be the same measurement with the other number in it.
 ///
-/// So the container mints with [`Id::keyed`](vitui_runtime::Id::keyed) — the same arithmetic
-/// `with_key` performs — and hands the result down. §4's *every workaround on this map that looks
-/// like a hack is the id being opaque* is the same sentence one axis over: the value is a hash, so
-/// **handing it over is the only way to root a child whose context cannot be re-clipped**.
+/// The field stays, and the reason it stays is not the defect. `keyed(keyed(table, row), key)` is
+/// exactly the id `with_key(row)` inside `with_key(key)` mints, so the two spellings were never
+/// different identities — but only one of them is a **value**, and a cell's consumer is a
+/// caller-supplied closure that has to declare a target under it. §4's *every workaround on this
+/// map that looks like a hack is the id being opaque* is what is left over: the value is a hash, so
+/// handing it down is how a caller gets one at all.
+///
+/// [`collection`] and `vitui-apps`' `sheet` both still push their id **outside** the scroll scope.
+/// That was forced and is now a choice — the id names the whole area, scrollbars included, and not
+/// the body.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub struct Cell {
     /// The content row.
@@ -6114,9 +6119,11 @@ mod tests {
 
         // **`merges == 0` with two trees on screen, and the row-keyed spelling is not available
         // here to fail against** — a tree keys per *node* and there is no coarser key a row could
-        // take. What the pair separates instead is `with_key` from `Id::keyed`: `Ctx::with_key`
-        // inside a scroll scope re-childs at the content's origin, so the arm that uses it draws
-        // nothing past the first screenful (runtime architecture issue 31, register row 112).
+        // take. What the pair separates instead is `with_key` from `Id::keyed`, which was a
+        // difference in *behaviour* until runtime architecture issue 31 — `Ctx::with_key` inside a
+        // scroll scope re-childed at the content's origin and drew nothing past the first
+        // screenful — and is now a difference in spelling alone: the two mint the same id, and
+        // only `Id::keyed` produces a value a caller-supplied drawer can be handed.
         let (regions, merges) = declared(&index);
         assert_eq!(merges, 0, "two trees on one screen merge nothing");
         assert_eq!(
@@ -6570,19 +6577,25 @@ mod tests {
         );
     }
 
-    /// **`Ctx::with_key` inside a scroll scope draws nothing past the first screenful, and that is
-    /// why a cell's id is handed over rather than pushed.**
+    /// **`Ctx::with_key` inside a scroll scope reaches the window**, at every offset.
     ///
-    /// [`Cell::id`] carries the argument; this is the measurement behind it. `Ctx::with_id` — which
-    /// `with_key` is written on — re-childs the view at `self.area()`, and `area()` is
-    /// `Rect::new(0, 0, w, h)` in the **current** coordinate system. Inside a scroll scope that
-    /// origin is the content's, so the clip it intersects with is content rows `0..h` while the
-    /// window is at the offset.
+    /// It did not, until runtime architecture issue 31. `Ctx::with_id` — which `with_key` is
+    /// written on — built its inner context with `view: self.view.child(self.area())`, and
+    /// `area()` is `Rect::new(0, 0, w, h)` in the **current** coordinate system. Inside a scroll
+    /// scope that system is the content's, so the rectangle named content rows `0..h` while the
+    /// window sat at the offset, and past the first screenful the intersection was empty. At
+    /// offset 0 it is the identity, which is why every caller on this map drew through it: they
+    /// all play at 0.
     ///
-    /// Both directions and two offsets, so the day the runtime fixes it this test fails rather than
-    /// quietly passing. Filed as `.scratch/vitui-runtime-architecture/issues/31`.
+    /// The issue inverted it — `with_id` and `Ctx::scope` both reborrow now, because narrowing the
+    /// *view* was never part of what an identity verb does.
+    ///
+    /// **Both directions and two offsets**, which is the shape this test had while it was red and
+    /// is why it is still worth running: the unkeyed arm is the control that says the scope itself
+    /// is right, and a gate that asserted only the keyed arm could not tell a broken `with_key`
+    /// from a broken `scroll_scope`.
     #[test]
-    fn a_with_key_inside_a_scroll_scope_draws_nothing_past_the_first_screenful() {
+    fn a_with_key_inside_a_scroll_scope_reaches_the_window() {
         let landed = |offset: i32, keyed: bool| {
             let id = vitui_runtime::Id::named("scope");
             let view = Rect::new(0, 0, 20, 8);
@@ -6618,9 +6631,8 @@ mod tests {
         );
         assert_eq!(
             landed(100, true),
-            0,
-            "a `with_key` inside the scope clips the whole window away, which is why `table` \
-             mints a cell's id with `Id::keyed` and hands it over"
+            8,
+            "and so is a key inside it, which is what runtime architecture issue 31 bought"
         );
     }
 

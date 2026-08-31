@@ -1679,6 +1679,35 @@ impl<'f, 'v> Ctx<'f, 'v> {
         }
     }
 
+    /// **The same context, borrowed again**, changing nothing: same clip, same rectangle, same
+    /// origin, same content coordinates.
+    ///
+    /// It exists because a verb that takes a closure has to hand the body a `Ctx<'f, '_>` and the
+    /// only two public ways to build one — [`Ctx::child`] and [`Ctx::scrolled`] — both mean
+    /// something. The two verbs that mean *nothing* here, [`Ctx::with_id`] and [`Ctx::scope`], both
+    /// spelled it `child(self.area())`, and `area()` is `Rect::new(0, 0, w, h)` in the **current**
+    /// coordinate system: inside a scroll scope that is the content's, so the rectangle named
+    /// content rows `0..h` while the window was at the offset, and past the first screenful the
+    /// intersection was empty. At offset zero it is the identity, which is why every caller on this
+    /// map survived it. Runtime architecture issue 31.
+    ///
+    /// `View::scrolled(0, 0)` is the engine's identity reborrow — clip, origin and size all carried
+    /// through — and is the one spelling available from outside that crate.
+    fn reborrow(&mut self) -> Ctx<'f, '_> {
+        Ctx {
+            view: self.view.scrolled(0, 0),
+            frame: self.frame,
+            env: self.env,
+            rect: self.rect,
+            origin: self.origin,
+            pointer: self.pointer,
+            content: self.content,
+            bodies: self.bodies,
+            _frame: PhantomData,
+            _not_send: PhantomData,
+        }
+    }
+
     /// Offset the content coordinates, which is how a scrolled list is drawn.
     ///
     /// **`(dx, dy)` is a translation and not a scroll position**: scrolling *down* by `n` is
@@ -1901,18 +1930,11 @@ impl<'f, 'v> Ctx<'f, 'v> {
         // A block rather than an explicit `drop`: `Ctx` has no `Drop` impl, so `drop` only extends
         // the borrow's region — clippy is right, and a scope is what actually ends it.
         let r = {
-            let mut inner = Ctx {
-                view: self.view.child(self.area()),
-                frame: self.frame,
-                env: self.env,
-                rect: self.rect,
-                origin: self.origin,
-                pointer: self.pointer,
-                content: self.content,
-                bodies: self.bodies,
-                _frame: PhantomData,
-                _not_send: PhantomData,
-            };
+            // **A reborrow and not a child.** Narrowing is not part of what this verb does: it
+            // pushes an id, and the rectangle the caller draws into is unchanged. Written
+            // `self.view.child(self.area())` it *was* the identity at offset zero and a clip of
+            // nothing anywhere else — runtime architecture issue 31.
+            let mut inner = self.reborrow();
             f(&mut inner)
         };
         self.frame.stack.pop();
@@ -1982,7 +2004,10 @@ impl<'f, 'v> Ctx<'f, 'v> {
         let opened = self.frame.ring.open_scope(id, kind);
         let before = self.frame.focus_draws;
         let r = {
-            let mut inner = self.child(self.area());
+            // A reborrow, for [`Ctx::with_id`]'s reason: a scope narrows neither the rectangle nor
+            // the identity, and `child(self.area())` narrowed to content rows `0..h` inside a
+            // scroll scope. Issue 31 found it on `with_key` and this is the same two lines.
+            let mut inner = self.reborrow();
             f(&mut inner)
         };
         self.frame.ring.close_scope(opened);
@@ -4547,6 +4572,66 @@ mod tests {
             assert_eq!(deeper.depth(), 0, "and neither does a child of a child");
             let _ = deeper.area();
         });
+    }
+
+    /// **An identity verb narrows identity and never the view**, which is the whole of issue 31.
+    ///
+    /// `with_id` built its inner context with `view: self.view.child(self.area())`, and `area()` is
+    /// `Rect::new(0, 0, w, h)` in the **current** coordinate system. Inside a scroll scope that
+    /// system is the content's, so the rectangle names content rows `0..h` while the window the
+    /// caller can reach is `offset..offset + h`: past the first screenful the two do not overlap and
+    /// the clip is empty. At offset 0 the re-child is the identity, which is why every caller on
+    /// this map survived it.
+    ///
+    /// Both directions and two offsets, and the unkeyed arm is the control that says the scope
+    /// itself is right — a gate that only asserts the keyed arm cannot tell a fixed `with_key` from
+    /// a broken `scroll_scope`.
+    #[test]
+    fn an_identity_verb_inside_a_scroll_scope_reaches_the_window() {
+        // Three spellings of one loop: no identity verb, `with_key`, and `scope`, which built its
+        // body the same way and had the same defect.
+        #[derive(Clone, Copy)]
+        enum Wrap {
+            None,
+            Key,
+            Scope,
+        }
+
+        let landed = |offset: i32, wrap: Wrap| {
+            let id = crate::id::Id::named("scope");
+            let view = Rect::new(0, 0, 20, 8);
+            let mut d = driver();
+            let mut cells = 0u32;
+            d.frame(|cx| {
+                cx.scroll_scope(id, view, (0, offset), (0, 1_000), |cx| {
+                    let paint = cx.theme().paint(Role::Body);
+                    for y in cx.visible_rows() {
+                        let mut one = |cx: &mut Ctx<'_, '_>| {
+                            cells += u32::from(cx.text(0, y, "x", paint).cells);
+                        };
+                        match wrap {
+                            Wrap::None => one(cx),
+                            Wrap::Key => cx.with_key(y as u64, |cx| one(cx)),
+                            Wrap::Scope => {
+                                // Keyed per row: one call site, so `Id::named` alone would open
+                                // eight scopes under one id and the arm would exercise a
+                                // degenerate identity rather than the loop a caller writes.
+                                let row =
+                                    crate::id::Id::keyed(crate::id::Id::named("row"), y as u64);
+                                cx.scope(row, ScopeKind::Group, |cx| one(cx));
+                            }
+                        }
+                    }
+                });
+            });
+            cells
+        };
+
+        for (offset, what) in [(0, "at rest"), (100, "past the first screenful")] {
+            assert_eq!(landed(offset, Wrap::None), 8, "the scope itself, {what}");
+            assert_eq!(landed(offset, Wrap::Key), 8, "`with_key`, {what}");
+            assert_eq!(landed(offset, Wrap::Scope), 8, "`scope`, {what}");
+        }
     }
 
     /// A keyed row is depth 2 from inside, which is the other half of the same equality.

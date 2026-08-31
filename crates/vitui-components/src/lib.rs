@@ -83,10 +83,9 @@
 //!   unreachable and named that very issue as its inverter, and that **the colour axis is not
 //!   observable on a canvas at all**: `Theme::resolve` returns the same paint for all thirteen roles
 //!   at all four depths, because quantisation is the engine's and happens before the mirror.
-//! - [`gates`] — §21's register: **a hundred and twenty-one gates as rows, a hundred and one of
-//!   them evaluated**,
-//!   six pinned red with their failing sets, six unreachable across the crate line with what
-//!   would have to become public, and eight with nothing yet to run over. An instrument is a
+//! - [`gates`] — §21's register: **two hundred and thirty-three gates as rows, two hundred and
+//!   twenty-one of them evaluated and none pinned red**, six unreachable across the crate line with
+//!   what would have to become public, and six with nothing to run over. An instrument is a
 //!   file in it, so a row that has stopped running turns the register red here. **One of those rows
 //!   was not unreachable and had said it was for five tickets** — see that module's header, because
 //!   the shape it names is the one an `Unreachable` invites. **A fourth was red and is now green,
@@ -216,14 +215,15 @@
 //!   §6's argument rather than on a clock; and the identity numbers are this screen's population
 //!   rather than the prototype's.
 //!
-//!   Its own finding is a defect one crate down. **`Ctx::with_key` inside a scroll scope draws
-//!   nothing past the first screenful** — `with_id` re-childs at `self.area()`, which is the
-//!   *content's* origin there — so a container cannot key a child per row inside a virtualised
-//!   body: 0 cells of 8 at an offset of 100, and 8 of 8 at zero, which is why nothing had seen it.
-//!   `collection` had already worked around it without naming it; `table` cannot take the same
-//!   workaround, so it mints each cell's id with `Id::keyed` and hands it over on
-//!   [`collect::Cell::id`]. Filed as `.scratch/vitui-runtime-architecture/issues/31` and pinned as
-//!   register row 112.
+//!   Its own finding was a defect one crate down, and it is **fixed**. `Ctx::with_key` inside a
+//!   scroll scope drew nothing past the first screenful — `with_id` re-childed at `self.area()`,
+//!   which is the *content's* origin there — so a container could not key a child per row inside a
+//!   virtualised body: 0 cells of 8 at an offset of 100, and 8 of 8 at zero, which is why nothing
+//!   had seen it. Filed as `.scratch/vitui-runtime-architecture/issues/31`, pinned as register row
+//!   112, and **inverted by that issue**: an identity verb reborrows now and narrows no view.
+//!   `collection` still pushes its id outside the scope and `table` still hands each cell's id down
+//!   on [`collect::Cell::id`] — both were forced and are now choices, the second because only a
+//!   value can be handed to a caller-supplied closure.
 //!
 //! - [`order`] — **the order, the index and the memo**: `table`'s sort order, `tree`'s flatten
 //!   index, `textarea`'s wrap index, `collapsible`'s fold index and `table`'s prefix sum are one

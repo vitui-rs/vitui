@@ -437,8 +437,10 @@ impl App {
         });
 
         // **The body, at content coordinates**, under the grid's own id so that the scroll scope and
-        // the hit entry are one widget. `Ctx::with_id` is outside the scope and not around it, for
-        // `crate::collect`'s reason: inside, it re-childs the view at the *content's* rectangle.
+        // the hit entry are one widget. `Ctx::with_id` is outside the scope and not around it
+        // because the id names the whole area — which was also the only thing that worked until
+        // runtime architecture issue 31: inside, `with_id` re-childed the view at the *content's*
+        // rectangle.
         cx.with_id(GRID, |cx| {
             cx.scroll_scope(GRID, view, offset, max, |cx| {
                 for i in 0..i32::from(view.h) {

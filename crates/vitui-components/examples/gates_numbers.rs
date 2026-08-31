@@ -133,7 +133,16 @@ fn main() {
 
     obligations();
 
-    println!("\nred and pinned, each with the set it is pinned on:");
+    // **Nothing under the heading is the report, not an empty section.** Row 112 was the last red
+    // row and runtime architecture 31 inverted it; a heading with nothing under it reads as a gap in
+    // the instrument rather than as a green register, so the zero case says so out loud.
+    if red == 0 {
+        println!(
+            "\nred and pinned: none. Row 112 was the last, and runtime architecture 31 inverted it"
+        );
+    } else {
+        println!("\nred and pinned, each with the set it is pinned on:");
+    }
     for row in REGISTER {
         if let Standing::Red {
             failing,

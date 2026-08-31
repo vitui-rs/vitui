@@ -36,9 +36,10 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   rather than counted: `crates/vitui-components/tests/crate_line.rs` cannot name the engine.
 - **`vitui-components` — implementation-complete.** All 46 tickets; spec §17's freeze is **29 of 29
   built**, as a value (`INVENTORY`) that tests iterate, with the documentation and verification
-  obligations as functions over it. Register 233 rows, 220 evaluated, **1 red and pinned** — row
-  112, inverted by runtime architecture 31 — beside 6 unreachable across the crate line (ADR 0023)
-  and 6 unsubjected; every scene stood up. Obligations **O1–O4, O6 and O7 are `Met`; O5 is the one
+  obligations as functions over it. Register 233 rows, 221 evaluated and
+  **no row pinned red** — row 112 was the last, inverted by runtime architecture 31, and the only
+  inversion there that no components ticket did — beside 6 unreachable across the crate
+  line (ADR 0023) and 6 unsubjected; every scene stood up. Obligations **O1–O4, O6 and O7 are `Met`; O5 is the one
   left**, at **14 of 34 `(component, axis)` pairs**, and is watched panicking, because a query with
   no evidence must fail loudly rather than pass.
 - **`vitui-apps` — 18 applications**, one file each in `examples/`. A component ticket ships one, and
@@ -118,15 +119,17 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   exactly, which an overlay bar cannot satisfy.
 
 **Open questions — do not "fix" code to match one sentence of a spec without resolving the ticket.**
-Eight stand open, every one of them filed by the layer above the one it lands in.
+Eight stand open. Seven were filed by the layer above the one they land in; **36 is the first one
+this map filed against itself**, and it was found by resolving 31.
 
-- **Runtime architecture 31** —
-  `Ctx::with_key` inside a scroll scope clips the whole window away, and it is what pins register
-  row 112 red. **33** — a scroll-into-view is a two-frame gesture and nothing asks for the second
-  frame. **34** — a picture cannot ask what the terminal will show: no colour-pair question and no
-  readable wire. **35** — an application cannot give its terminal to an editor, because
+- **Runtime architecture 33** — a scroll-into-view is a two-frame gesture and nothing asks for the
+  second frame. **34** — a picture cannot ask what the terminal will show: no colour-pair question
+  and no readable wire. **35** — an application cannot give its terminal to an editor, because
   `Screen::suspend` now exists (ADR 0052) and `Driver` owns it privately — the third *engine verb
-  behind `Driver`'s private field* after 23 and 30.
+  behind `Driver`'s private field* after 23 and 30. **36** — `Ctx::clear` and `Ctx::caret_with`
+  *read* the `area()` that 31 stopped childing at, so a focused caret inside a scrolled form is
+  `Some` at offset 0 and `None` at 100; the obvious fix contradicts `View::size`'s own decision, so
+  it needs a scroll translation on `Ctx` separate from its clipping.
 - **Components architecture 19** (does a fold that costs the volume belong to O6), **20** (`tree`
   declares three glyphs it cannot draw), **22** (`Esc` over a plain `collection` is crate-private on
   purpose), **23** (`file_picker`'s popup has no keyboard at all).

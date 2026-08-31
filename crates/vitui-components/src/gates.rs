@@ -604,6 +604,13 @@ pub const SPEC_ROWS: usize = 32;
 /// instrument the rule's *other* half has always been read off, and the stricter of the two, since a
 /// verb that skips the caller's `Ink` makes it larger rather than smaller.
 ///
+/// **Runtime architecture 31 moved it from two hundred and twenty to two hundred and twenty-one,
+/// and it is the only inversion this register has recorded that no components ticket did.** Row 112 was red on a defect one crate down: `Ctx::with_id` re-childed its view at
+/// `self.area()`, which inside a scroll scope is the *content's* rectangle, so a keyed child past
+/// the first screenful drew nothing. `with_id` and `Ctx::scope` reborrow now. **The register is
+/// green: no row is pinned red**, and the two populations that read the standing — this count and
+/// the list beside it — are the two edits.
+///
 /// **Components ticket 46 moved it from two hundred and eighteen to two hundred and twenty**, and
 /// neither of the two is an inversion: rows 232 and 233 are the twenty-ninth component's — *stored
 /// state may be an anchor, never a phase*, and the playhead's cadence beside it. It is the last row
@@ -622,7 +629,7 @@ pub const SPEC_ROWS: usize = 32;
 /// it. Row 30's own instrument compares two lists of *ids*, which is the most a query over the
 /// freeze can ask; the chord-for-chord equality needs a value with a machine in it, and
 /// `crate::contract::Contract::live` is that machine — it runs the shipped component.
-pub const EVALUATED: usize = 220;
+pub const EVALUATED: usize = 221;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
 #[expect(
@@ -4017,25 +4024,27 @@ pub const REGISTER: [Row; 233] = [
         owner: "C04",
         section: "spec §4",
         // **The second row on this register whose subject is another crate**, and row 77 is the
-        // precedent that says it belongs here: §21's rule for a red gate is *assert the exact
-        // failing set, fire in both directions, say what to invert*, and all three are writable.
+        // precedent that says it belongs here. It is the one row on this register that a runtime
+        // ticket inverted: `Ctx::with_id` — which `Ctx::with_key` is written on —
+        // re-childed the view at `self.area()`, and `area()` is `Rect::new(0, 0, w, h)` in the
+        // *current* coordinate system. Inside a scroll scope that origin is the content's, so the
+        // clip it intersected with was content rows `0..h` while the window sat at the offset.
         //
-        // `Ctx::with_id` — which `Ctx::with_key` is written on — re-childs the view at
-        // `self.area()`, and `area()` is `Rect::new(0, 0, w, h)` in the *current* coordinate
-        // system. Inside a scroll scope that origin is the content's, so the clip it intersects
-        // with is content rows `0..h` while the window is at the offset. `collection` already
-        // works around it by pushing its id outside the scope; `table` cannot, because a cell's key
-        // is per row, so it mints with `Id::keyed` and hands the value down.
-        standing: Standing::Red {
+        // **Runtime architecture issue 31 inverted it**, and the failing set it named is what the
+        // gate now asserts green: at offset 100 over an 8-row view the keyed loop lands 8 of 8,
+        // where it landed 0. The unkeyed arm and the two offset-0 arms stay in the test as the
+        // control — the defect was invisible at the one offset every caller on this map draws at,
+        // so a gate that dropped them could not tell a broken `with_key` from a broken
+        // `scroll_scope`.
+        //
+        // `collection` and `sheet` still push their id outside the scope, which is now a choice
+        // rather than a workaround; `table` still hands a cell's id down on `Cell::id`, whose
+        // arithmetic is `with_key`'s and whose value a consumer can hold.
+        standing: Standing::Evaluated {
             by: &[Instrument::Unit {
                 file: COLLECT,
-                name: "a_with_key_inside_a_scroll_scope_draws_nothing_past_the_first_screenful",
+                name: "a_with_key_inside_a_scroll_scope_reaches_the_window",
             }],
-            failing: "at a vertical offset of 100 over an 8-row view, a `cx.with_key` around each \
-                      row's write lands 0 cells of 8; without it the same loop lands 8, and at \
-                      offset 0 both land 8. So the defect is invisible at the one offset every \
-                      caller on this map draws at",
-            inverted_by: "runtime architecture issue 31",
         },
     },
     Row {
@@ -8490,6 +8499,13 @@ mod tests {
                     );
                     None
                 }
+                // **This arm runs over nothing since runtime architecture 31 inverted row 112**,
+                // and that is worth saying out loud rather than deleting: §21's discipline for a red
+                // row is what the *next* one has to satisfy, and a variant with no constructor is
+                // still checked by the compiler. It is the register's own trap — *a gate that cannot
+                // fail* — in its least harmful form, because the arm's subject is a row that does
+                // not exist rather than a property that is not measured. `crate::scenes` keeps its
+                // own `Red` rows, so the variant stays live.
                 Standing::Red {
                     by,
                     failing,
@@ -8535,14 +8551,14 @@ mod tests {
         assert_eq!(seen, expected);
     }
 
-    /// **Forty-eight evaluated, and the other twenty-four each say why not.**
+    /// **Two hundred and twenty-one evaluated, and the other twelve each say why not.**
     ///
     /// This is the number §21 asks for: *how many gates are actually evaluated is a number a test
     /// asserts rather than a claim in a document*. Saying it out loud is what stops the next change
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn two_hundred_and_twenty_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn two_hundred_and_twenty_one_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -8558,42 +8574,50 @@ mod tests {
         assert_eq!(evaluated, EVALUATED, "the count §21 asks a test to assert");
         assert_eq!(
             red,
-            vec![112],
-            "the one gate that is red and pinned, and it is a defect in another crate. **The \
-             palette after a swap left with components 41** — row 8, the last of §21's two, and \
-             the one whose gate had to be **rewritten** rather than run: `changed > 0` is green on \
-             the exact set it exists to catch and its complement is green on a screen with nothing \
-             wrong, so the gate is a count over the surface against a second arm played at the \
-             destination theme. Its barrier was ADR 0023 and did not need lifting, for row 7's \
-             reason; its memo enumeration really did have nothing to enumerate, so the memo the \
-             rule is about is built as `gallery::Keying` and the row is watched failing on it. \
-             **The sentinel left with components 40** — row 7, the second of the three that \
-             was red on a *defect* rather than on a missing subject, and the only one whose \
-             prescribed detector could not be built at all: ADR 0023 forbids the readback, so the \
-             count is read off `crate::runner::Pen`, which is the instrument the rule's other half \
-             has always been read off and the stricter of the two. **Row 169 left with components 32**, which declared \
-             `pub fn file_preview_pane<T, F>(` and `pub fn file_picker<'f, T>(` in `src/files.rs` \
-             and rewrote `crate::preview::Screen` to draw through the first of them — and not one \
-             of the figures rows 170 to 175 carry moved, which is what a screen written from the \
-             component's own construction is supposed to buy and is not usually checked. **Row 162 is the picture's**, and row 89 was the previous one of that kind: it \
-             was the last until components 26 inverted it. **Twenty wheel clicks is not among them since \
-             components 20** — row 29 was red on a *defect* rather than on a missing subject, which \
-             is why it took a gate over the shipped path and two removed substitutions rather than \
-             a standing edit. Six have been \
-             inverted and each says what it took — the glyph-set count by components 05, row 61 \
-             by components 10 (which took rewriting the *gate* rather than the standing, because \
-             the row asserted an *absence*), row 78 by components 15, which took `table` being \
-             declared **and** `crate::grid::draw_into` calling it, row 74 by components 17 on \
-             the same two conditions for `tree`, and row 89 by components 26, which took `select` \
+            Vec::<u8>::new(),
+            "**no row of this register is pinned red**, and row 112 was the last. It was a defect \
+             in another crate — `Ctx::with_id` re-childed its view at `self.area()`, which inside \
+             a scroll scope is the content's rectangle, so a keyed child past the first screenful \
+             drew 0 cells of 8 — and **runtime architecture issue 31 inverted it**, which makes it \
+             the one inversion here that no components ticket did. §21's rule for a red row is \
+             *assert the exact failing set, fire in both directions, say what to invert*, and the \
+             set it named is what the gate now asserts green at both offsets and in both \
+             directions. **The palette after a swap left with components 41** — row 8, the last of \
+             §21's two, and the one whose gate had to be **rewritten** rather than run: \
+             `changed > 0` is green on the exact set it exists to catch and its complement is \
+             green on a screen with nothing wrong, so the gate is a count over the surface against \
+             a second arm played at the destination theme. Its barrier was ADR 0023 and did not \
+             need lifting, for row 7's reason; its memo enumeration really did have nothing to \
+             enumerate, so the memo the rule is about is built as `gallery::Keying` and the row is \
+             watched failing on it. **The sentinel left with components 40** — row 7, the second \
+             of the three that was red on a *defect* rather than on a missing subject, and the \
+             only one whose prescribed detector could not be built at all: ADR 0023 forbids the \
+             readback, so the count is read off `crate::runner::Pen`, which is the instrument the \
+             rule's other half has always been read off and the stricter of the two. **Row 169 \
+             left with components 32**, which declared `pub fn file_preview_pane<T, F>(` and \
+             `pub fn file_picker<'f, T>(` in `src/files.rs` and rewrote `crate::preview::Screen` \
+             to draw through the first of them — and not one of the figures rows 170 to 175 carry \
+             moved, which is what a screen written from the component's own construction is \
+             supposed to buy and is not usually checked. **Row 162 is the picture's**, and row 89 \
+             was the previous one of that kind: it was the last until components 26 inverted it. \
+             **Twenty wheel clicks is not among them since components 20** — row 29 was red on a \
+             *defect* rather than on a missing subject, which is why it took a gate over the \
+             shipped path and two removed substitutions rather than a standing edit. Seven have \
+             been inverted and each says what it took — the glyph-set count by components 05, row \
+             61 by components 10 (which took rewriting the *gate* rather than the standing, \
+             because the row asserted an *absence*), row 78 by components 15, which took `table` \
+             being declared **and** `crate::grid::draw_into` calling it, row 74 by components 17 \
+             on the same two conditions for `tree`, row 89 by components 26, which took `select` \
              and `overlay` being declared **and** the scan's own needle being wrong — it read \
-             `pub fn select(` for a component spec §1 already says costs two lifetime annotations. \
-             **Row 169 is components 31's**, and it is row 162's shape one family over: the three \
-             preview-pane screens run — the memo key at 100 of 100 frames, the seven batches, the \
-             crossover, the five offset spellings, the map and the tear — and what they run over is \
-             a pane written beside them, because `src/files.rs` declares neither of the two \
-             components. Its needle is deliberately the parenthesis, with the load-bearing half a \
-             *second* scan: §15 settles a negative — a job's lifetime is the question's — and a \
-             longer needle would be this ticket dictating ticket 32's parameter list"
+             `pub fn select(` for a component spec §1 already says costs two lifetime annotations \
+             — and row 112 by the runtime. **Row 169 is components 31's**, and it is row 162's \
+             shape one family over: the three preview-pane screens run — the memo key at 100 of \
+             100 frames, the seven batches, the crossover, the five offset spellings, the map and \
+             the tear — and what they run over is a pane written beside them, because \
+             `src/files.rs` declares neither of the two components. Its needle is deliberately the \
+             parenthesis, with the load-bearing half a *second* scan: §15 settles a negative — a \
+             job's lifetime is the question's — and a longer needle would be this ticket dictating \
+             ticket 32's parameter list"
         );
         assert_eq!(
             unreachable,

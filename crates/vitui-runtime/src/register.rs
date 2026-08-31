@@ -8,7 +8,7 @@
 //! *this* crate's: **a property that quietly never arrives is indistinguishable from one that was
 //! decided against**, so every gate is here and every one of them is in exactly one of two states —
 //! [`State::Wired`], naming the instruments that run it, or [`State::Red`], naming the
-//! implementation ticket that inverts it. **Forty-four wired, none red.** Ticket 19 left this
+//! implementation ticket that inverts it. **Forty-five wired, none red.** Ticket 19 left this
 //! register at thirty-eight and one — entry 12, the dense frame, which was *measured* in two places
 //! and *gated* in neither — and ticket 20 built the gate rather than reworded the row. What made
 //! that possible is that the red row named the missing instrument precisely enough to build it: a
@@ -239,7 +239,7 @@ pub const SPEC_ROWS: usize = 15;
 /// stated from two sides, and twenty-four survive deduplication against §20's fifteen. A row is
 /// here when it is a gate somebody can break; a bullet that restates a neighbour is not a second
 /// row.
-pub const REGISTER: [Entry; 44] = [
+pub const REGISTER: [Entry; 45] = [
     // ── spec §20's table, in its order ───────────────────────────────────────────────────────────
     Entry {
         number: 1,
@@ -1268,6 +1268,34 @@ pub const REGISTER: [Entry; 44] = [
             }],
         },
     },
+    Entry {
+        number: 45,
+        on_spec_table: false,
+        property: "An identity verb narrows identity and never the view, so a keyed or scoped child \
+                   inside a scroll scope reaches the window at every offset",
+        kind: Kind::Gate,
+        qualifier: "equality \u{2014} between *the cells three spellings of one row loop land* and \
+                    *the cells the loop without an identity verb lands*, at two offsets. It is a \
+                    property of the mechanism and not of the data: there is one scope, one column \
+                    and eight rows, and nothing varies but which verb wraps the write. **The \
+                    unkeyed arm is the control and is why the row is an equality rather than a \
+                    count** \u{2014} `with_id` and `Ctx::scope` both built their body with \
+                    `view: self.view.child(self.area())`, and `area()` is `Rect::new(0, 0, w, h)` \
+                    in the *current* coordinate system, which inside a scroll scope is the \
+                    content's: the rectangle named content rows `0..h` while the window sat at the \
+                    offset, so past the first screenful the intersection was empty and the keyed \
+                    arm landed 0 of 8. At offset zero the re-child is the identity in every field, \
+                    which is why every caller on this map drew through it \u{2014} they all play \
+                    at 0, and a gate that asserted the keyed arm alone could not tell a broken \
+                    `with_key` from a broken `scroll_scope`",
+        source: "issue 31",
+        state: State::Wired {
+            by: &[Instrument::Unit {
+                file: "crates/vitui-runtime/src/ctx.rs",
+                name: "an_identity_verb_inside_a_scroll_scope_reaches_the_window",
+            }],
+        },
+    },
 ];
 
 /// How many `compile_fail` fences the crate carries.
@@ -1631,7 +1659,7 @@ mod tests {
         assert_eq!(seen, expected, "the numbers are not 1..={}", REGISTER.len());
     }
 
-    /// **Forty-four wired, none red.**
+    /// **Forty-five wired, none red.**
     ///
     /// This register was thirty-eight and one from ticket 19 until ticket 20 built the gate entry
     /// 12 was red for the absence of; forty since architecture issue 23 — the first row here whose
@@ -1641,14 +1669,18 @@ mod tests {
     /// tickets one layer up found before this register had a row that could — forty-three since
     /// issue 28, the fourth, and the first of them this register could not have had a row for at
     /// all, the key it compares against having been unbuildable outside the engine until that
-    /// ticket put `KeyText::of` on the engine's surface — and **forty-four since issue 29**, the
+    /// ticket put `KeyText::of` on the engine's surface — forty-four since issue 29, the
     /// fifth, which is the one that *deletes* a store one layer up rather than gating a sign: the
-    /// press had an edge all along and published only the level. Saying *how many* is
+    /// press had an edge all along and published only the level — and **forty-five since issue
+    /// 31**, the sixth, which is the one that inverts a *red row in another crate's register*:
+    /// `Ctx::with_id` and `Ctx::scope` childed their body at `self.area()`, which inside a scroll
+    /// scope is the content's rectangle, and the row exists here because the property is this
+    /// crate's even though three components tickets are what met it. Saying *how many* is
     /// what stops a red row arriving unremarked, and it
     /// has the second job the engine's has: **a register at all-green says so**, so the next red row
     /// is a deliberate edit to this number rather than a quiet one.
     #[test]
-    fn forty_four_are_wired_and_none_are_red() {
+    fn forty_five_are_wired_and_none_are_red() {
         let red: Vec<u8> = REGISTER
             .iter()
             .filter(|e| matches!(e.state, State::Red { .. }))
@@ -1661,7 +1693,7 @@ mod tests {
              documentation, and in the module comment above — the count is the thing that stops it \
              arriving unremarked"
         );
-        assert_eq!(REGISTER.len() - red.len(), 44);
+        assert_eq!(REGISTER.len() - red.len(), 45);
     }
 
     /// **The split, not the total.**
@@ -1676,9 +1708,9 @@ mod tests {
         assert_eq!(on_table, SPEC_ROWS, "spec §20's table is fifteen rows");
         assert_eq!(
             REGISTER.len() - on_table,
-            29,
+            30,
             "the backlog's gates, deduplicated against §20's fifteen, plus issues 23's, 25's, \
-             26's, 28's and 29's"
+             26's, 28's, 29's and 31's"
         );
         // And §20's fifteen come first, so the table reads in the spec's order.
         for (index, entry) in REGISTER.iter().enumerate() {

@@ -711,13 +711,15 @@ pub fn draw_into<I: Ink>(
             let (lo, hi) = content.rows_in(top, AH);
             for i in lo..hi {
                 iterated += 1;
-                // **`Id::keyed` and not `Ctx::with_key`**, and the reason is a runtime defect this
-                // screen met from the other side. `Ctx::with_id` re-childs the view at
-                // `self.area()`, which inside a scrolled scope is content rows `0..h`; past the
-                // first screenful that does not overlap the window and the clip is empty — 69
-                // cells written on a frame that should write 16 974, all of them the bar's. It is
-                // runtime architecture issue 31, found by components ticket 15 in `table`, and the
-                // repair is the one `table` already takes: mint the row's id and hand it down.
+                // **`Id::keyed` and not `Ctx::with_key`**, which was forced by a runtime defect
+                // this screen met from the other side and is now the spelling this scene keeps.
+                // `Ctx::with_id` re-childed the view at `self.area()`, which inside a scrolled
+                // scope is content rows `0..h`; past the first screenful that did not overlap the
+                // window and the clip was empty — 69 cells written on a frame that should write
+                // 16 974, all of them the bar's. Runtime architecture issue 31, found by
+                // components ticket 15 in `table` and **inverted there**: an identity verb
+                // reborrows now. The row's id is still minted and handed down, because that is
+                // what `table` hands its cell drawer and this scene is written against it.
                 let row = Id::keyed(id, i as u64);
                 // **Content coordinates**, because the component opened a scroll scope. Before
                 // components 19 this screen applied the offset itself inside a `Ctx::child`, which

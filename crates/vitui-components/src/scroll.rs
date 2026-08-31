@@ -1189,8 +1189,11 @@ where
     }
 
     // **The body, at content coordinates.** `Ctx::with_id` is outside the scope rather than around
-    // it, for `crate::collect`'s reason: inside, it re-childs the view at `self.area()`, which is
-    // the *content's* rectangle, and at any offset past the first screenful the two do not overlap.
+    // it, and this is now a choice: the id names the whole area — scrollbars, tail and all — rather
+    // than the body. It was forced until runtime architecture issue 31, which is what
+    // `crate::collect`'s `Cell::id` records: inside the scope, `with_id` re-childed the view at
+    // `self.area()`, the *content's* rectangle, and past the first screenful the two did not
+    // overlap.
     let tail = cx.theme().paint(opts.tail);
     cx.with_id(id, |cx| {
         cx.scroll_scope(id, p.view, st.offset, max, |cx| {
