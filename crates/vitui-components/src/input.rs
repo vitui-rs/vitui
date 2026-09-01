@@ -3536,6 +3536,74 @@ mod field_tests {
         }
     }
 
+    /// **A focused field inside a scrolled form still places its caret**, which is runtime
+    /// architecture issue 36 asked of the caller the ticket names rather than of `Ctx::caret` on
+    /// its own.
+    ///
+    /// `Ctx::caret_with` bounds-checks against `Ctx::area`, and inside a [`Ctx::scroll_scope`] that
+    /// rectangle used to name content rows `0..h` while the window sat at `offset..offset + h`: so
+    /// a caret at a **visible** content row was silently dropped, and a form inside a scroll area is
+    /// the shape `scroll_scope`'s own rustdoc names as what it is right for. The runtime's gate
+    /// asserts the rectangle and calls `cx.caret` by hand; this one puts a real `field` there,
+    /// because a gate exercises a component where its author put it and an application puts it
+    /// somewhere else.
+    ///
+    /// The field is on the first row the window shows, so its caret is the same root cell at both
+    /// offsets — which is what makes the pair an equality rather than two unrelated numbers.
+    #[test]
+    fn a_focused_field_inside_a_scrolled_form_still_places_its_caret() {
+        // **One call site, drawn twice**, for `one_field`'s reason: `Ctx::id` is
+        // `Location::caller()`, so a field declared at two source lines is two widgets and the seat
+        // would name one that is no longer drawing.
+        fn one_scrolled_field(
+            driver: &mut Driver,
+            offset: i32,
+            st: &mut Text,
+            opts: &FieldOpts,
+            seat: Option<vitui_runtime::Id>,
+        ) -> vitui_runtime::Id {
+            let form = vitui_runtime::Id::named("form");
+            let view = Rect::new(0, 0, 20, 8);
+            let mut id = None;
+            driver.frame(|cx| {
+                if let Some(seat) = seat {
+                    cx.focus(seat);
+                }
+                cx.scroll_scope(form, view, (0, offset), (0, 1_000), |cx| {
+                    // The field sits on the first content row the window is showing, so the caret
+                    // it places lands on the screen's own first row whatever the offset is.
+                    id = Some(field_with(cx, Rect::new(0, offset, 20, 1), st, opts).id);
+                });
+            });
+            id.expect("a field answers with its id")
+        }
+
+        for offset in [0, 100] {
+            let mut st = Text::of("hello".into(), WrapKind::Ruler);
+            let mut driver = Driver::headless(20, 8).expect("a sink attaches");
+            let opts = FieldOpts::default();
+
+            // Nothing holds the keyboard on the first frame, and `Ctx::caret_with` refuses a caret
+            // then — the runtime's own refusal, asserted rather than worked around.
+            let id = one_scrolled_field(&mut driver, offset, &mut st, &opts, None);
+            assert!(
+                driver.inspect().caret().is_none(),
+                "offset {offset}: unfocused, so no caret"
+            );
+
+            one_scrolled_field(&mut driver, offset, &mut st, &opts, Some(id));
+            let caret = driver
+                .inspect()
+                .caret()
+                .unwrap_or_else(|| panic!("offset {offset}: focused, so a caret"));
+            assert_eq!(
+                (caret.x, caret.y),
+                (0, 0),
+                "offset {offset}: the caret is on the row the window shows"
+            );
+        }
+    }
+
     /// **A field writes a partition of its whole rectangle**, at every size the arithmetic runs out
     /// at. §2's two equalities on the component.
     #[test]

@@ -239,7 +239,7 @@ pub const SPEC_ROWS: usize = 15;
 /// stated from two sides, and twenty-four survive deduplication against §20's fifteen. A row is
 /// here when it is a gate somebody can break; a bullet that restates a neighbour is not a second
 /// row.
-pub const REGISTER: [Entry; 47] = [
+pub const REGISTER: [Entry; 48] = [
     // ── spec §20's table, in its order ───────────────────────────────────────────────────────────
     Entry {
         number: 1,
@@ -1354,6 +1354,44 @@ pub const REGISTER: [Entry; 47] = [
             ],
         },
     },
+    Entry {
+        number: 48,
+        on_spec_table: false,
+        property: "A scroll scope moves the area it hands its body and a clip does not, so a clear \
+                   and a caret reach the window at every offset",
+        kind: Kind::Gate,
+        qualifier: "equality \u{2014} between *the rectangle `Ctx::area` answers inside a scroll \
+                    scope* and *the offset the engine's clip starts at*, at four offsets on two \
+                    axes, with the caret and the clear underneath it as the two verbs that read \
+                    it. It is a property of the mechanism and not of the data: there is one \
+                    rectangle, one window and one offset, and nothing varies but how far the \
+                    content has been moved, and **the two sides are not two derivations of one \
+                    declaration** \u{2014} the left is the runtime's own translation bookkeeping, \
+                    reset by a clip and accumulated by a scroll, and the right is the engine's \
+                    clip, which knows nothing about either. **Where the clip starts and not what \
+                    it admits**: the two agree because the scope under test is wholly on screen \
+                    and nowhere near the content's end, and a scope half off the top has a \
+                    visible start the rectangle deliberately does not take. **The two control \
+                    arms are what make this a decision rather than an edit** \u{2014} answering \
+                    `visible_rows().start` fixes both verbs and contradicts `View::size`'s own, \
+                    *what it was given and not the part of it that is visible*, so the first \
+                    control is exactly that child hanging off the top of the screen and the \
+                    second is a child **inside** the scope, whose own coordinates start at its \
+                    own top-left however far the content has moved. The caret arm carries the \
+                    number: `Some` at the window's first cell at every offset, where it was \
+                    `None` past the first screenful. **The clear is asked of the frame** \u{2014} it \
+                    has no return value, so the observable is `Presented::submitted` over a pair \
+                    of frames that paint one rectangle two colours, the first warming the mirror \
+                    and the second measuring; a fill that lands nothing damages nothing and a \
+                    frame that damages nothing submits nothing",
+        source: "issue 36",
+        state: State::Wired {
+            by: &[Instrument::Unit {
+                file: "crates/vitui-runtime/src/ctx.rs",
+                name: "a_scroll_scope_moves_the_area_and_a_clip_does_not",
+            }],
+        },
+    },
 ];
 
 /// How many `compile_fail` fences the crate carries.
@@ -1725,7 +1763,7 @@ mod tests {
         assert_eq!(seen, expected, "the numbers are not 1..={}", REGISTER.len());
     }
 
-    /// **Forty-seven wired, none red.**
+    /// **Forty-eight wired, none red.**
     ///
     /// This register was thirty-eight and one from ticket 19 until ticket 20 built the gate entry
     /// 12 was red for the absence of; forty since architecture issue 23 — the first row here whose
@@ -1750,12 +1788,15 @@ mod tests {
     /// an engine verb behind `Driver`'s private field (after 23's `wait` and 30's `permit_slow`)
     /// and the first of the three worth a row: `wait` and `permit_slow` are forwards whose absence
     /// is a compile error at the call site, and a suspend that silently did nothing would draw a
-    /// screen into a terminal somebody else is holding. Saying *how many* is
+    /// screen into a terminal somebody else is holding — and **forty-eight since issue 36**, the
+    /// ninth and the first this map filed against itself, found by resolving 31: that ticket fixed
+    /// the two verbs that *childed* at `Ctx::area` and left the two that *read* it. Saying *how
+    /// many* is
     /// what stops a red row arriving unremarked, and it
     /// has the second job the engine's has: **a register at all-green says so**, so the next red row
     /// is a deliberate edit to this number rather than a quiet one.
     #[test]
-    fn forty_seven_are_wired_and_none_are_red() {
+    fn forty_eight_are_wired_and_none_are_red() {
         let red: Vec<u8> = REGISTER
             .iter()
             .filter(|e| matches!(e.state, State::Red { .. }))
@@ -1768,7 +1809,7 @@ mod tests {
              documentation, and in the module comment above — the count is the thing that stops it \
              arriving unremarked"
         );
-        assert_eq!(REGISTER.len() - red.len(), 47);
+        assert_eq!(REGISTER.len() - red.len(), 48);
     }
 
     /// **The split, not the total.**
@@ -1783,9 +1824,9 @@ mod tests {
         assert_eq!(on_table, SPEC_ROWS, "spec §20's table is fifteen rows");
         assert_eq!(
             REGISTER.len() - on_table,
-            32,
+            33,
             "the backlog's gates, deduplicated against §20's fifteen, plus issues 23's, 25's, \
-             26's, 28's, 29's, 31's, 33's and 35's"
+             26's, 28's, 29's, 31's, 33's, 35's and 36's"
         );
         // And §20's fifteen come first, so the table reads in the spec's order.
         for (index, entry) in REGISTER.iter().enumerate() {

@@ -1641,6 +1641,29 @@ pub struct Ctx<'f, 'v> {
     /// at the root, where the two are the same thing. Read at `end` and never across a frame
     /// (ADR 0015).
     content: (i32, i32),
+    /// **The scroll translation this context is drawing under, and nothing else.**
+    ///
+    /// [`Ctx::area`] is `Rect::new(-translation.0, -translation.1, w, h)`: its own rectangle,
+    /// expressed in the coordinate system it is currently drawing in. Inside a
+    /// [`Ctx::scroll_scope`] that system is the content's, so the rectangle sits at the offset —
+    /// which is where the window is, and where [`Ctx::clear`] and [`Ctx::caret_with`] have to look.
+    ///
+    /// **It is not [`Ctx::origin`] and it cannot be derived from it**, which is the whole of issue
+    /// 36: `origin` accumulates a clip and a scroll together, and the two are not the same case. A
+    /// clip is a window onto the caller's *own* coordinates, so a child hanging half off the top
+    /// still answers its own size at its own origin — `View::size`'s decision, *what it was given
+    /// and not the part of it that is visible*, so that a component centring its text draws the
+    /// same picture wherever it lands. A scroll is a **translation** of those coordinates, and a
+    /// rectangle that ignores it names cells nothing can reach.
+    ///
+    /// So [`Ctx::child`] resets it to zero — a child's own coordinates start at its own top-left,
+    /// however far the content around it has been scrolled — and [`Ctx::scrolled`] accumulates the
+    /// translation it applies.
+    ///
+    /// **A translation and not an offset**, which is the word [`Ctx::scrolled`] already insists on:
+    /// an offset is the application's scroll *position*, the two are one negation apart, and
+    /// architecture issue 26 turns on exactly that distinction.
+    translation: (i32, i32),
     /// **The frame call's overlay body queue**, shared by every context in the frame rather than
     /// owned by one — the same reasoning as [`Frame::layer_z`], one level further out: *where a body
     /// is kept* is a property of the frame call and not of a context.
@@ -1664,11 +1687,23 @@ pub struct Ctx<'f, 'v> {
 }
 
 impl<'f, 'v> Ctx<'f, 'v> {
-    /// This context's own rectangle, origin-relative.
+    /// This context's own rectangle, in the coordinate system it is drawing in.
     ///
     /// The engine's `View` has a size and not a rect, so this is the runtime's own arithmetic.
+    ///
+    /// **`(0, 0)` everywhere except inside a scroll scope**, where it is the offset — the
+    /// `translation` field carries it. A clip does not move it and a scroll does, and the two
+    /// verbs that read it, [`Ctx::clear`] and [`Ctx::caret_with`], are why the distinction is a
+    /// field rather than a comment: they filled and bounds-checked content rows `0..h` while the
+    /// window sat at `offset..offset + h`, so past the first screenful a clear painted nothing and
+    /// a caret at a visible row was dropped. Runtime architecture issue 36.
     pub fn area(&self) -> Rect {
-        Rect::new(0, 0, self.rect.w, self.rect.h)
+        Rect::new(
+            -self.translation.0,
+            -self.translation.1,
+            self.rect.w,
+            self.rect.h,
+        )
     }
 
     /// Its size.
@@ -1710,6 +1745,9 @@ impl<'f, 'v> Ctx<'f, 'v> {
             origin: (self.origin.0 + r.x, self.origin.1 + r.y),
             pointer: self.pointer.map(|(x, y)| (x - r.x, y - r.y)),
             content: (self.content.0 + r.x, self.content.1 + r.y),
+            // **The reset.** A child's own coordinates start at its own top-left, so whatever
+            // translation the content around it carries is already spent on `r`.
+            translation: (0, 0),
             bodies: self.bodies,
             _frame: PhantomData,
             _not_send: PhantomData,
@@ -1739,6 +1777,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
             origin: self.origin,
             pointer: self.pointer,
             content: self.content,
+            translation: self.translation,
             bodies: self.bodies,
             _frame: PhantomData,
             _not_send: PhantomData,
@@ -1770,6 +1809,9 @@ impl<'f, 'v> Ctx<'f, 'v> {
             // **The reset**: a scrolled context is a content coordinate system, so its own origin is
             // the content origin. §13's `to_content` resets at the area boundary, and this is it.
             content: (0, 0),
+            // **Accumulated, because two `scrolled` calls with no child between them are one
+            // translation** — and reset by `child`, which is what keeps a clip out of it.
+            translation: (self.translation.0 + dx, self.translation.1 + dy),
             bodies: self.bodies,
             _frame: PhantomData,
             _not_send: PhantomData,
@@ -2924,6 +2966,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
                 // The measured world is its own root: it composites nothing and scrolls nothing, so
                 // its content coordinates and its root coordinates are the same thing.
                 content: (0, 0),
+                translation: (0, 0),
                 bodies: &bodies,
                 _frame: PhantomData,
                 _not_send: PhantomData,
@@ -3359,6 +3402,7 @@ impl Driver {
                 origin: (0, 0),
                 pointer,
                 content: (0, 0),
+                translation: (0, 0),
                 bodies: &bodies,
                 _frame: PhantomData,
                 _not_send: PhantomData,
@@ -3511,6 +3555,7 @@ impl Driver {
                 origin: (rect.x, rect.y),
                 pointer,
                 content: (0, 0),
+                translation: (0, 0),
                 bodies,
                 _frame: PhantomData,
                 _not_send: PhantomData,
@@ -4777,6 +4822,134 @@ mod tests {
             assert_eq!(landed(offset, Wrap::None), 8, "the scope itself, {what}");
             assert_eq!(landed(offset, Wrap::Key), 8, "`with_key`, {what}");
             assert_eq!(landed(offset, Wrap::Scope), 8, "`scope`, {what}");
+        }
+    }
+
+    /// **A scroll scope moves the area it hands its body, and a clip does not**, which is the whole
+    /// of issue 36.
+    ///
+    /// `Ctx::area` was `Rect::new(0, 0, w, h)` in the **current** coordinate system, and inside a
+    /// [`Ctx::scroll_scope`] that system is the content's: the rectangle named content rows `0..h`
+    /// while the window the caller can reach sat at `offset..offset + h`. The two verbs that *read*
+    /// it were left behind by issue 31, which fixed the two that childed at it — [`Ctx::clear`]
+    /// fills it, so past the first screenful it filled rows nothing could see, and
+    /// [`Ctx::caret_with`] bounds-checks against it, so a caret at a visible content row was
+    /// silently dropped. `field` is that caller, and a form inside a scroll area is the shape
+    /// `scroll_scope`'s own rustdoc names as what it is right for.
+    ///
+    /// **The two control arms are what say this is not the obvious fix.** Answering
+    /// `visible_rows().start` would fix both verbs and contradict `View::size`'s decision — *what it
+    /// was given, not the part of it that is visible* — because a child placed half off the top has
+    /// a non-zero `visible_rows().start` with no scrolling at all. A clip is a window onto the
+    /// caller's own coordinates and a scroll is a translation of them; the first control is that
+    /// half-off child and the second is a child **inside** the scope, whose own coordinates start at
+    /// its own top-left however far the content has been scrolled.
+    ///
+    /// Both axes and two offsets, as issue 31's gate is written, and the caret arm is the one with a
+    /// number in it.
+    #[test]
+    fn a_scroll_scope_moves_the_area_and_a_clip_does_not() {
+        let id = Id::named("page");
+        let view = Rect::new(0, 0, 20, 8);
+        let max = (1_000, 1_000);
+        // Spelled once, so the three arms below are visibly the same four cases.
+        const OFFSETS: [(i32, i32); 4] = [(0, 0), (0, 100), (50, 0), (50, 100)];
+
+        // **The rectangle, at four offsets on two axes.**
+        for offset in OFFSETS {
+            let mut d = driver();
+            d.frame(|cx| {
+                assert_eq!(
+                    cx.area(),
+                    Rect::new(0, 0, 40, 10),
+                    "the root is unmoved by anything below it"
+                );
+                // A clip is not a translation: a child hanging off the top of the screen still
+                // answers its own size at its own origin, which is `View::size`'s decision.
+                let half_off = cx.child(Rect::new(0, -3, 20, 8));
+                assert_eq!(
+                    half_off.area(),
+                    Rect::new(0, 0, 20, 8),
+                    "a clipped child moved, and no scroll had happened"
+                );
+
+                cx.scroll_scope(id, view, offset, max, |cx| {
+                    assert_eq!(
+                        cx.area(),
+                        Rect::new(offset.0, offset.1, 20, 8),
+                        "the window is at the offset, in the content's coordinates"
+                    );
+                    // **Where the clip starts and not what it admits.** The two agree here
+                    // because this scope is wholly on screen and nowhere near the content's end;
+                    // a scope half off the top has a visible start the rectangle does not take,
+                    // which is the first control arm above.
+                    assert_eq!(
+                        (cx.area().x, cx.area().y),
+                        (cx.visible_cols().start, cx.visible_rows().start),
+                        "and it is the offset the clip starts at"
+                    );
+                    // The second control: a child inside the scope starts its own coordinates at
+                    // its own top-left, whatever the content has been scrolled by.
+                    let row = cx.child(Rect::new(offset.0, offset.1, 20, 1));
+                    assert_eq!(
+                        row.area(),
+                        Rect::new(0, 0, 20, 1),
+                        "a child inside a scroll scope kept the scope's translation"
+                    );
+                });
+            });
+        }
+
+        // **The caret, which is the arm with a number in it.** At the first row the window shows,
+        // on both axes, the caret lands on the same root cell at every offset.
+        let seated = |offset: (i32, i32)| {
+            let mut d = driver();
+            let field = Id::named("field");
+            d.frame(|cx| {
+                cx.interact(field, Rect::new(0, 0, 1, 1), Interest::FOCUS);
+                cx.focus(field);
+                cx.scroll_scope(id, view, offset, max, |cx| {
+                    let (x, y) = (cx.visible_cols().start, cx.visible_rows().start);
+                    cx.caret(x, y);
+                });
+            });
+            d.inspect().caret()
+        };
+        for offset in OFFSETS {
+            assert_eq!(
+                seated(offset),
+                Some(Cursor {
+                    x: 0,
+                    y: 0,
+                    shape: CursorShape::Terminal,
+                }),
+                "the caret at the window's first cell, at offset {offset:?}"
+            );
+        }
+
+        // **The clear, which has no return value and so is asked of the frame.** A `clear` that
+        // lands nothing damages nothing, and a frame that damages nothing submits nothing — so the
+        // second frame of each pair is the measurement and the first only warms the mirror.
+        let repaints = |offset: (i32, i32)| {
+            let mut d = driver();
+            let cleared = |d: &mut Driver, role: Role| {
+                d.frame(|cx| {
+                    cx.scroll_scope(id, view, offset, max, |cx| {
+                        let paint = cx.theme().paint(role);
+                        cx.clear(paint);
+                    });
+                })
+                .submitted
+            };
+            // The first warms the mirror; the second is the measurement.
+            let _ = cleared(&mut d, Role::Body);
+            cleared(&mut d, Role::Focus)
+        };
+        for offset in OFFSETS {
+            assert!(
+                repaints(offset),
+                "a clear inside a scroll scope painted nothing, at offset {offset:?}"
+            );
         }
     }
 

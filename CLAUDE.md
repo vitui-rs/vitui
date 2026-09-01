@@ -32,7 +32,7 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   a real terminal rather than our model of one, and the source of `quirks.rs`'s later entries.
 - **`vitui-runtime` — implementation-complete.** 21 tickets. `data`, `layout`, `theme` (fourteen
   schemes), `keys`, `ctx`, `id`, `route`, `focus`, `sizing`, `work`, `anim`, `overlay`, `scroll`.
-  Register 47 entries and the 20-scene list, both green. The component-facing crate line is *built*
+  Register 48 entries and the 20-scene list, both green. The component-facing crate line is *built*
   rather than counted: `crates/vitui-components/tests/crate_line.rs` cannot name the engine.
 - **`vitui-components` — implementation-complete.** All 46 tickets; spec §17's freeze is **29 of 29
   built**, as a value (`INVENTORY`) that tests iterate, with the documentation and verification
@@ -92,6 +92,24 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   process: a body that asks for a reveal every frame — forbidden by name in
   `vitui_components::scroll`, previously invisible to every counter — is now a runaway, and so is a
   held arrow key, which is honest and is not the fault the detector is consulted about.
+
+- **`Ctx::area` moves with a scroll and not with a clip, and `child` is what resets it** (runtime
+  architecture 36, resolved 2026-09-01). `Ctx` carries the scroll translation **alone** — `origin`
+  accumulates a clip and a scroll together and nothing on the type could tell them apart — and
+  `area()` is `Rect::new(-translation.0, -translation.1, w, h)`: **the rectangle in the coordinate
+  system the context is drawing in**, which is the rectangle for a clip and the window for a
+  scroll. Issue 31 fixed the two verbs that *childed* at `area()` and left the two that *read* it:
+  a `clear` inside a scroll scope painted nothing past the first screenful, and a focused `field`'s
+  caret was `Some` at offset 0 and **`None` at 100** — asserted on `field` itself and not only on
+  `Ctx::caret`, because a gate exercises a component where its author put it and an application puts
+  it somewhere else. **`child` resets it to zero** — a child's own coordinates start at
+  its own top-left, so a row placed at content row 100 inside a scope scrolled to 100 answers
+  `Rect::new(0, 0, 20, 1)`; a translation carried through the clip would have broken that case,
+  which was already right. `View::size`'s decision is untouched, which is why answering
+  `visible_rows().start` was refused: a child hanging off the top of the screen has a non-zero
+  visible start with no scrolling at all. Register entry 48, and `clear` got a number after the
+  ticket said it could not have one — a fill that lands nothing damages nothing, so the arm is
+  `Presented::submitted` over a pair of frames that paint one rectangle two colours.
 
 - **A component may ask about two colours, and a consumer may configure its own engine** (runtime
   architecture 34, resolved 2026-08-31). `Theme::colours_differ_on_wire(Rgb, Rgb)` is
@@ -184,13 +202,10 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   exactly, which an overlay bar cannot satisfy.
 
 **Open questions — do not "fix" code to match one sentence of a spec without resolving the ticket.**
-Five stand open. Four were filed by the layer above the one they land in; **36 is the first one
-this map filed against itself**, and it was found by resolving 31.
+Four stand open, all of them the components map's and all filed by the layer above the one they land
+in. **The runtime's architecture map has none left**: 36, the only one that map ever filed against
+itself, resolved 2026-09-01.
 
-- **Runtime architecture 36** — `Ctx::clear` and `Ctx::caret_with`
-  *read* the `area()` that 31 stopped childing at, so a focused caret inside a scrolled form is
-  `Some` at offset 0 and `None` at 100; the obvious fix contradicts `View::size`'s own decision, so
-  it needs a scroll translation on `Ctx` separate from its clipping.
 - **Components architecture 19** (does a fold that costs the volume belong to O6), **20** (`tree`
   declares three glyphs it cannot draw), **22** (`Esc` over a plain `collection` is crate-private on
   purpose), **23** (`file_picker`'s popup has no keyboard at all).
