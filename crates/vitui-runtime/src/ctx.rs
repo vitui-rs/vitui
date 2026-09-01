@@ -3190,6 +3190,109 @@ impl Driver {
         self.screen.permit_slow(reason)
     }
 
+    /// **Give the terminal back**, without ending the session.
+    ///
+    /// The epilogue goes out — the alternate screen left, the caret shown, raw mode dropped, every
+    /// mode this session raised put back — and the terminal is the user's again until
+    /// [`resume`](Driver::resume). It is the engine's `Screen::suspend` forwarded unchanged, and
+    /// unchanged is the whole of it: the epilogue, the join and the restoration's one atomic are
+    /// the engine's, and this crate has nothing to add to any of them.
+    ///
+    /// # Why this had to be added rather than being there already
+    ///
+    /// Engine production ticket 07 built the pair, and **nothing above the engine could reach
+    /// either half** — `Driver` owns its `Screen` privately. That is the third instance of one
+    /// shape this backlog has now settled three times: [`Driver::wait`] was the first (issue 23),
+    /// [`Driver::permit_slow`] the second (issue 30), and both had the same consequence, which is
+    /// that the only crate in this workspace with a binary in it could not use a verb the engine's
+    /// own documentation tells it to.
+    ///
+    /// Two things were unreachable because of it, and neither is exotic:
+    ///
+    /// - **`Ctrl+Z`.** Raw mode is `cfmakeraw`, which clears `ISIG`, so `Ctrl+Z` arrives at an
+    ///   application as an ordinary key event and not as a signal (engine spec §7, measured). What
+    ///   an application does about it is three lines — suspend, stop the process, resume — and it
+    ///   could write neither the first nor the third.
+    /// - **Running something else in the same terminal**: `$EDITOR`, a pager, `git commit`. The
+    ///   same pair — but see below, because only the first of these two is actually reachable even
+    ///   with both verbs forwarded, and the reason is the engine's rather than this crate's.
+    ///
+    /// # The runtime's own state is untouched, because no frame runs inside a suspension
+    ///
+    /// The four id-keyed facts (ADR 0012), the hit index and the ring are rebuilt from the next
+    /// draw; the frame arena and the overlay queue are locals of [`Driver::frame`], so a suspend
+    /// cannot happen inside one. The focus is the one thing that persists and it persists across
+    /// this, which is asserted rather than assumed — see
+    /// `loop_tests::a_suspension_does_not_disturb_the_runtimes_own_per_frame_state`.
+    ///
+    /// # This does not stop the reader, and that is what makes stopping the process mandatory
+    ///
+    /// **A suspension does not quiet the `vitui-pty` thread.** It is an unconditional
+    /// `loop { stdin.read(..) }` and safe Rust cannot cancel a blocking `read`, so it stays parked
+    /// on this terminal for the whole of a suspension — which is why `Screen::resume` throws away
+    /// what arrived rather than delivering it, and why the engine's own documentation says **a
+    /// child that needs the keyboard needs its own standard input, or this process needs to be
+    /// stopped while it runs.**
+    ///
+    /// So the two cases the section above lists are not equally reachable, and it is worth being
+    /// blunt about which:
+    ///
+    /// - **Stopping the process works**, because `SIGTSTP` stops every thread including the reader.
+    /// - **Handing the terminal to an interactive child that keeps this process running does not.**
+    ///   Two readers blocked on one tty means the kernel gives each byte to whichever it schedules,
+    ///   so the user loses about half of every keystroke and this side replays the ones it stole
+    ///   after the resume. `vitui-apps`' `console` had such an arm; it was written, reviewed and
+    ///   removed. A child that does *not* want the keyboard, or one given its own standard input,
+    ///   is fine.
+    ///
+    /// # Stopping the process is the application's decision and not this crate's
+    ///
+    /// Raising `SIGTSTP` needs `libc`, a `Command::new("kill")` or a crate, and all three are the
+    /// **application's** dependency policy rather than the runtime's — this crate depends on
+    /// nothing and is not about to acquire a dependency to spell one signal. `vitui-apps`' `console`
+    /// example is where the choice is made concrete: it shells out to `kill -TSTP`, which costs no
+    /// dependency at all. `-TSTP` and not `-STOP`, because `SIGSTOP` cannot be caught by the shell's
+    /// job control and `fg` would not know the process exists.
+    ///
+    /// A frame drawn while suspended composites nothing and answers `submitted: false` **with the
+    /// damage kept**, so it is a frame deferred rather than lost. Twice in a row is once.
+    ///
+    /// ```no_run
+    /// use vitui_runtime::ctx::Driver;
+    /// use std::process::Command;
+    ///
+    /// let mut driver = Driver::headless(80, 24).expect("a sink attaches");
+    /// driver.suspend();
+    /// // The shell has the terminal now. This process stops on the signal a moment later, so the
+    /// // resume below does not run until `fg`.
+    /// let _ = Command::new("kill")
+    ///     .args(["-TSTP", &std::process::id().to_string()])
+    ///     .status();
+    /// driver.resume();
+    /// ```
+    pub fn suspend(&mut self) {
+        self.screen.suspend();
+    }
+
+    /// **Take the terminal back**, and repaint every cell of it.
+    ///
+    /// The startup negotiation goes out again, raw mode comes back, and the next
+    /// [`Driver::frame`] writes the whole screen against a mirror that knows nothing. The engine's
+    /// `Screen::resume` forwarded unchanged; see [`suspend`](Driver::suspend) for why the pair had
+    /// to be forwarded at all.
+    ///
+    /// **The terminal is not asked anything and the size is not re-sampled** — a resume
+    /// re-declares and never re-detects, which is right for the terminal a suspend gave back and
+    /// wrong for one that was *replaced* underneath the process. A reconnected `ssh` session may be
+    /// a different program with a different capability set, and the honest answer to that is a
+    /// fresh [`Driver::attach`] rather than this. A terminal that changed size while somebody else
+    /// had it arrives as an ordinary resize on the next read.
+    ///
+    /// Twice in a row is once, and a resume with no suspend before it is a no-op.
+    pub fn resume(&mut self) {
+        self.screen.resume();
+    }
+
     /// Run one frame: `begin`, the base pass, the overlay pass, `end`, `settle`, `present`.
     ///
     /// **`&'f mut self`, not `&mut self`.** With the elided form `'f` is higher-ranked and every
@@ -7150,7 +7253,14 @@ mod loop_tests {
     //! for `IdTable::claim`.
 
     use super::*;
+    use crate::Role;
     use crate::work::{Task, Worker};
+
+    /// A driver over a sink, sized for the gates. The same helper the module above keeps, and it is
+    /// duplicated rather than shared because these two modules are two questions.
+    fn driver() -> Driver {
+        Driver::headless(40, 10).expect("attaching to a sink cannot fail")
+    }
 
     /// **`wait` and `wake` are two halves of one engine.** A quit posted through the handle the
     /// driver hands out is the wake the driver returns, which is the whole claim — a handle cloned
@@ -7207,5 +7317,138 @@ mod loop_tests {
         });
         joined.join().expect("the worker thread ran");
         assert_eq!(driver.wait(), Wake::Quit);
+    }
+    /// **The terminal can be given away and taken back from this side of the seam**, which is the
+    /// whole of runtime architecture issue 35.
+    ///
+    /// Three arms, and the middle one is the reason this is a gate rather than a compile check: a
+    /// pair of forwards that did nothing at all would pass an arm that only draws before and after.
+    ///
+    /// 1. A frame drawn while the screen is ours submits.
+    /// 2. A frame drawn while somebody else has the terminal **does not**, and the damage is not
+    ///    lost — this is a frame deferred, and `resume` damages everything anyway.
+    /// 3. The frame after the resume submits again, and it is the one that owes every cell.
+    #[test]
+    fn a_driver_can_hand_the_terminal_over_and_take_it_back() {
+        let mut d = driver();
+        assert!(
+            d.frame(|cx| cx.fill(cx.area(), " ", cx.theme().paint(Role::Body)))
+                .submitted,
+            "the screen is ours and the frame goes out"
+        );
+
+        d.suspend();
+        assert!(
+            !d.frame(|cx| cx.fill(cx.area(), " ", cx.theme().paint(Role::Focus)))
+                .submitted,
+            "nothing goes out while somebody else has the terminal"
+        );
+
+        // **The frame that draws nothing at all**, which is the arm that says a resume is a
+        // repaint and not merely an un-suspend. A frame with no verbs in it damages nothing, so on
+        // an ordinary screen it submits nothing; here it submits, because `resume` marked every
+        // cell owed and the mirror on the other side knows nothing.
+        d.resume();
+        assert!(
+            d.frame(|_cx| {}).submitted,
+            "the terminal is ours again and every cell is owed, drawn or not"
+        );
+    }
+
+    /// **Twice in a row is once, from this side too**, and it is asserted here rather than trusted
+    /// because `Driver` adds no state of its own — which is exactly the claim that would stop being
+    /// true the day somebody gives it a `suspended` flag to keep the two halves in step.
+    ///
+    /// A resume with no suspend before it is a no-op, and so is the second of two suspends.
+    #[test]
+    fn suspending_and_resuming_are_each_idempotent_through_the_driver() {
+        let mut d = driver();
+        // A resume nobody suspended into: the screen is still ours and the frame goes out.
+        d.resume();
+        assert!(
+            d.frame(|cx| cx.fill(cx.area(), " ", cx.theme().paint(Role::Body)))
+                .submitted
+        );
+
+        d.suspend();
+        d.suspend();
+        assert!(
+            !d.frame(|cx| cx.fill(cx.area(), " ", cx.theme().paint(Role::Focus)))
+                .submitted,
+            "the second suspend did not take the terminal back by accident"
+        );
+
+        d.resume();
+        d.resume();
+        assert!(
+            d.frame(|cx| cx.fill(cx.area(), " ", cx.theme().paint(Role::Body)))
+                .submitted,
+            "the second resume did not give it away again"
+        );
+    }
+
+    /// **A suspension costs the runtime nothing, because no frame runs inside one.**
+    ///
+    /// This is the ticket's second question answered as an observable rather than as an argument.
+    /// The four id-keyed facts (ADR 0012), the hit index and the ring are rebuilt from the *next*
+    /// draw, and the frame arena and the overlay queue are locals of [`Driver::frame`] — so what a
+    /// suspend can reach is nothing, and the frame after a resume finds the seat where it left it.
+    ///
+    /// The focus is the one of the four that is not rebuilt from the draw, so it is the one worth
+    /// asserting: a suspend that reset the driver would silently unseat it, and every application
+    /// that suspends would come back with its keyboard pointing at nothing.
+    #[test]
+    fn a_suspension_does_not_disturb_the_runtimes_own_per_frame_state() {
+        let mut d = driver();
+        let seat = Id::from_raw(7);
+        d.frame(|cx| {
+            cx.interact(seat, Rect::new(0, 0, 4, 1), Interest::FOCUS);
+            cx.focus(seat);
+        });
+        assert_eq!(
+            d.inspect().focused(),
+            Some(seat),
+            "seated before the suspend"
+        );
+        let frames = d.inspect().frames();
+
+        // **The suspension has to have happened for the rest of this to mean anything.** Without
+        // this frame the case passes against a pair of empty forwards, which is the gate-that-cannot-
+        // fail this workspace has met more than once: a negative claim needs the positive one under
+        // it, or it is an assertion about a suspension that never took place.
+        //
+        // **And it declares the seat**, which the first version did not and which cost a red run
+        // worth writing down: the focus is dropped for a widget the frame did not declare, by
+        // ADR 0012's ordinary rule, so a frame that only filled unseated it and the case failed
+        // pointing at the suspension. The frame was the culprit and the suspension was innocent —
+        // which is what an application that suspends mid-loop is doing anyway, because a suspended
+        // application that keeps drawing is drawing its real screen into a sink.
+        d.suspend();
+        assert!(
+            !d.frame(|cx| {
+                cx.interact(seat, Rect::new(0, 0, 4, 1), Interest::FOCUS);
+                cx.fill(cx.area(), " ", cx.theme().paint(Role::Focus));
+            })
+            .submitted,
+            "the terminal really is somebody else's here"
+        );
+        d.resume();
+
+        assert_eq!(
+            d.inspect().focused(),
+            Some(seat),
+            "the focus survived a terminal that went away and came back"
+        );
+        assert_eq!(
+            d.inspect().frames(),
+            frames + 1,
+            "the one frame above and not one more — neither verb runs a frame of its own"
+        );
+
+        // And the next draw finds it, which is the half an application can observe.
+        d.frame(|cx| {
+            let r = cx.interact(seat, Rect::new(0, 0, 4, 1), Interest::FOCUS);
+            assert!(r.focused, "the widget is still the focused one");
+        });
     }
 }

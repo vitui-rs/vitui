@@ -36,6 +36,29 @@
 //! And the dimming is the engine's operator layer rather than a fill, which is why the frame it is up
 //! costs nothing extra.
 //!
+//! # `Ctrl+Z` gives the terminal back to the shell, and `fg` takes it again
+//!
+//! Runtime architecture issue 35's application, and the gesture is a demonstration of a seam rather
+//! than a feature of a console: `Driver::suspend` writes the epilogue and gives the terminal back,
+//! `Driver::resume` renegotiates and repaints every cell. **Neither was reachable above the engine
+//! until that issue** — `Driver` owns its `Screen` privately, which is the wall issues 23
+//! (`wait`) and 30 (`permit_slow`) hit before it.
+//!
+//! **`Ctrl+Z` is a key here and not a signal.** Raw mode is `cfmakeraw`, which clears `ISIG`, so
+//! the terminal never turns it into a `SIGTSTP` — an application that wants the shell's `Ctrl+Z`
+//! has to send the signal itself, and *how* is the application's own dependency policy rather than
+//! the runtime's. This one shells out to `kill(1)`, which costs nothing and works everywhere; see
+//! [`hand_over`] for why it is `-TSTP` and not `-STOP`. `fg` brings it back and the screen is
+//! repainted in full.
+//!
+//! **There is no `$EDITOR` key beside it, and the absence is the finding.** The issue names two
+//! things an application could not do; only stopping is reachable even with both verbs forwarded,
+//! because `Screen::suspend` does not stop the **reader**. A `Ctrl+E` arm was written, reviewed and
+//! removed: two threads blocked on one tty means the kernel gives each byte to whichever it
+//! schedules, so the user loses about half of every keystroke inside the editor and vitui replays
+//! the ones it stole after the resume. `SIGTSTP` is what makes the other case work — it stops every
+//! thread in the process, the reader included.
+//!
 //! # `Esc` cannot close the palette, and that is §5 rather than a bug here
 //!
 //! **A `collection` claims `Esc` for itself** — `from_key` reads it as `Gesture::Nothing`, *clear the
@@ -62,6 +85,7 @@
 //! `Driver::unhandled` is *a window onto the same queue, valid until the next frame begins*, so it is
 //! read immediately after this application's own frame and never before it.
 
+use std::process::Command;
 use vitui_components::collect::{CollOpts, CollState, collection};
 use vitui_components::frame::face_paint;
 use vitui_components::input::{SelectOpts, SelectState, select_with};
@@ -127,6 +151,62 @@ static COMMANDS: [&str; 9] = [
 /// eight. This id is claimed by the root panel on every frame.
 const HOST: Id = Id::named("console.host");
 
+/// **Give this process's terminal back to the shell, and take it again when continued.**
+///
+/// Runtime architecture issue 35's application. `Driver::suspend` writes the epilogue and hands the
+/// terminal over, `Driver::resume` renegotiates and repaints every cell, and until that issue
+/// neither was reachable from here — `Driver` owns its `Screen` privately, which is the wall issues
+/// 23 (`wait`) and 30 (`permit_slow`) hit before it.
+///
+/// # Why this stops the process, and why there is no `$EDITOR` key beside it
+///
+/// The issue names two things an application could not do, and only one of them is reachable even
+/// with the pair forwarded. **`Screen::suspend` does not stop the reader.** The `vitui-pty` thread
+/// is an unconditional `loop { stdin.read(..) }`, and safe Rust cannot cancel a blocking `read`, so
+/// it is still parked on this terminal for the whole of a suspension — which is why `Screen::resume`
+/// throws away what arrived rather than delivering it, and why the engine's own documentation says
+/// **a child that needs the keyboard needs its own standard input, or this process needs to be
+/// stopped while it runs.**
+///
+/// A `$EDITOR` launched from here would be the first case: two readers blocked on one tty, the
+/// kernel giving each byte to whichever it schedules, and the user losing roughly half of every
+/// keystroke. It was written and removed rather than never tried — the review is in the ticket.
+/// **Stopping is the second case**, and it is the one that works, because `SIGTSTP` stops every
+/// thread in the process including the reader.
+///
+/// # `-TSTP` and not `-STOP`, which is the one decision in this function
+///
+/// How an application stops itself is the *application's* dependency policy: `vitui-runtime` depends
+/// on nothing and is not acquiring `libc` to spell one signal. The three options are `libc::raise`,
+/// a crate that wraps it, and this — `kill(1)`, which every POSIX system has and which costs no
+/// dependency at all.
+///
+/// `SIGSTOP` cannot be caught or ignored by anything, the shell's job control included, so a process
+/// stopped with it is one the shell was never told about: no *Suspended* line and no `fg`. `SIGTSTP`
+/// is the signal `Ctrl+Z` would have sent if raw mode had not cleared `ISIG`, so the shell reports
+/// it and `fg` brings the application back.
+///
+/// **The resume is not the line it looks like.** `kill` exits immediately and the signal lands on
+/// this process a moment later, so the `resume` below does not run until the shell continues us. The
+/// terminal is given back *before* the signal goes out, because the epilogue has to be written while
+/// this process still has somewhere to write it.
+///
+/// A failure is reported rather than swallowed: on a system with no `kill(1)` the suspend would
+/// otherwise look like an instantaneous full repaint and say nothing.
+fn hand_over(driver: &mut Driver) -> Option<String> {
+    driver.suspend();
+    let outcome = match Command::new("kill")
+        .args(["-TSTP", &std::process::id().to_string()])
+        .status()
+    {
+        Ok(status) if status.success() => None,
+        Ok(status) => Some(format!("kill -TSTP exited {status}")),
+        Err(why) => Some(format!("could not run kill: {why}")),
+    };
+    driver.resume();
+    outcome
+}
+
 /// Everything this application knows.
 struct App {
     /// The left `select`'s owner state.
@@ -152,6 +232,16 @@ struct App {
     pending: Option<&'static str>,
     /// Set inside `take_unhandled`, read by the loop.
     exit: bool,
+    /// **Set inside `take_unhandled`, acted on by the loop, and it has to be both.**
+    ///
+    /// A suspend takes `&mut Driver` and `take_unhandled` has only the keys — which is the same
+    /// separation `exit` is on, and for a sharper reason here: a `Driver` reachable from inside the
+    /// draw is a `suspend` reachable from inside a frame, and the terminal cannot be given away
+    /// while a frame is being composited into it.
+    handoff: bool,
+    /// What the last handoff went wrong with, printed until something else happens. `None` on the
+    /// path that works, which is every path on a machine with a `kill(1)`.
+    handoff_failed: Option<String>,
     /// What the status bar last saw, so the bar reports the frame rather than the state.
     seen: Seen,
 }
@@ -210,6 +300,7 @@ impl App {
             ran,
             pending,
             seen,
+            handoff_failed,
             ..
         } = self;
 
@@ -387,7 +478,7 @@ impl App {
         // **`*seen` and not `self`**: `self.sort_popup` is borrowed for the rest of the frame, so
         // `self` is not readable again from here — E0502, on a method call three lines from a
         // popup nobody was thinking about. The status bar takes the value it needs.
-        status_rows(cx, status, *seen);
+        status_rows(cx, status, *seen, handoff_failed.as_deref());
     }
 }
 
@@ -395,7 +486,7 @@ impl App {
 ///
 /// A free function taking a [`Seen`] by value, because `self` is not readable after a `select` has
 /// been handed its popup — see the call site.
-fn status_rows(cx: &mut Ctx<'_, '_>, at: Rect, s: Seen) {
+fn status_rows(cx: &mut Ctx<'_, '_>, at: Rect, s: Seen, handoff_failed: Option<&str>) {
     {
         let dim = TextOpts {
             role: Role::Dim,
@@ -436,7 +527,16 @@ fn status_rows(cx: &mut Ctx<'_, '_>, at: Rect, s: Seen) {
         text_with(
             cx,
             third,
-            "Ctrl+P opens and closes the palette · Ctrl+Q quits · Esc quits when nothing is open",
+            // **The new key leads**, because all three sections of this bar overflow their
+            // third and clip — what a person reads is the prefix, and the key worth discovering is
+            // the one this application was extended to demonstrate. A failed handoff takes the
+            // whole section, because it is the only place this application can say so.
+            &match handoff_failed {
+                Some(why) => format!("Ctrl+Z could not suspend: {why}"),
+                None => "Ctrl+Z to the shell (fg to return) · Ctrl+P palette · Ctrl+Q quits · \
+                         Esc quits when nothing is open"
+                    .to_string(),
+            },
             &dim,
         );
     }
@@ -474,6 +574,11 @@ impl App {
                 // architecture issue 22.
                 Code::Char('p') if chord.contains(Mods::CTRL) => self.palette = !self.palette,
                 Code::Char('q') if chord.contains(Mods::CTRL) => self.exit = true,
+                // **The one the runtime could not reach until issue 35.** `Ctrl+Z` arrives here as
+                // an ordinary key and not as a signal, because raw mode is `cfmakeraw` and that
+                // clears `ISIG` — so an application that wants the shell's `Ctrl+Z` has to spell
+                // it, and could not.
+                Code::Char('z') if chord.contains(Mods::CTRL) => self.handoff = true,
                 // `Esc` reaches here only when nothing took it first — a *shut* `select` declines it,
                 // and an open popup's own body consumes it as *cancel*. That is why it is safe to
                 // quit on, and it is only safe because the component was fixed: a shut `select` used
@@ -496,6 +601,8 @@ fn main() {
         ran: None,
         pending: None,
         exit: false,
+        handoff: false,
+        handoff_failed: None,
         seen: Seen::default(),
     };
 
@@ -521,6 +628,14 @@ fn main() {
         app.take_unhandled(&unhandled);
         if app.exit {
             break;
+        }
+        // **After the frame and before the park.** The screen the user is leaving behind is the one
+        // that has just been painted, and `resume` owes a full repaint that the `continue` below
+        // spends — so the terminal comes back carrying this application rather than the editor's
+        // last screen.
+        if std::mem::take(&mut app.handoff) {
+            app.handoff_failed = hand_over(&mut driver);
+            continue;
         }
         // **A key this application acted on owes a frame**, and `continue` rather than `wait` is how
         // every loop in this crate spends it: `take_unhandled` runs *after* the draw, so `Ctrl+P`

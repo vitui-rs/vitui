@@ -32,7 +32,7 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   a real terminal rather than our model of one, and the source of `quirks.rs`'s later entries.
 - **`vitui-runtime` — implementation-complete.** 21 tickets. `data`, `layout`, `theme` (fourteen
   schemes), `keys`, `ctx`, `id`, `route`, `focus`, `sizing`, `work`, `anim`, `overlay`, `scroll`.
-  Register 46 entries and the 20-scene list, both green. The component-facing crate line is *built*
+  Register 47 entries and the 20-scene list, both green. The component-facing crate line is *built*
   rather than counted: `crates/vitui-components/tests/crate_line.rs` cannot name the engine.
 - **`vitui-components` — implementation-complete.** All 46 tickets; spec §17's freeze is **29 of 29
   built**, as a value (`INVENTORY`) that tests iterate, with the documentation and verification
@@ -53,6 +53,10 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   superseded** (the runtime is the caller it wanted, and a better one), **12 is resolved**
   (2026-08-30): `detect::batch`'s first bytes are `?1049h`, so the page is opened by the act of
   asking and Terminal.app 2.15's echo of `+q524742` and seven `p`s lands on a page that is discarded.
+  **13 is new** (filed 2026-09-01 by runtime architecture 35): `Screen::suspend` does not stop the
+  reader, so *suspend, run `$EDITOR`, resume* splits the user's keystrokes between two processes and
+  only *suspend, stop the process, resume* actually works. The sentence was already in `suspend`'s
+  doc and was read as a caveat rather than a refusal.
 
 ## Decisions a session must not re-derive
 
@@ -105,6 +109,23 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   Byte *totals* are reported and never gated — a byte count is one step from a golden byte string,
   and the encoding is exactly the part allowed to change.
 
+- **An engine verb an application needs is forwarded unchanged, and `Driver` is the door** (runtime
+  architecture 35, resolved 2026-08-31, spec §4). `Driver::suspend` and `Driver::resume` are the
+  **third** instance after 23's `wait` and 30's `permit_slow`, so the shape is now a rule beside
+  issue 22's rule about *types*: that one is gated in both directions, this one has no instrument at
+  all, and all three were found by writing an application rather than by reading the surface. Both
+  bodies are one line — there is no policy to add on this side, and the runtime's own per-frame state
+  is untouched because **no frame runs inside a suspension**. `ENGINE_NAMES` is unmoved at
+  thirty-five, the first forward here needing no re-export. **How an application stops itself stays
+  the application's**: `vitui-runtime` depends on nothing, so `console` shells out to `kill -TSTP`
+  — `-TSTP` and not `-STOP`, because `SIGSTOP` cannot be caught by the shell's job control and `fg`
+  would not know the process exists. **A suspension does not quiet the reader**, which is the half
+  the ticket's brief got wrong and a review caught: `vitui-pty` is an unconditional
+  `loop { stdin.read(..) }` that safe Rust cannot cancel, so *stopping* works — `SIGTSTP` stops
+  every thread — and *handing the terminal to an interactive child while this process runs* does
+  not, because two readers on one tty split the keystrokes. A `Ctrl+E` arm for `$EDITOR` was
+  written, reviewed and removed; the engine's own `Screen::suspend` doc says so in advance.
+
 - **Nothing holds the focus until an application seats it** (issue 25): `if cx.focused().is_none()`
   inside the draw. A runtime that seats the first stop was refused.
 - **`Driver::unhandled` is read *after* the frame**, never before — it is a window onto the same
@@ -149,12 +170,10 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   exactly, which an overlay bar cannot satisfy.
 
 **Open questions — do not "fix" code to match one sentence of a spec without resolving the ticket.**
-Six stand open. Five were filed by the layer above the one they land in; **36 is the first one
+Five stand open. Four were filed by the layer above the one they land in; **36 is the first one
 this map filed against itself**, and it was found by resolving 31.
 
-- **Runtime architecture 35** — an application cannot give its terminal to an editor, because
-  `Screen::suspend` now exists (ADR 0052) and `Driver` owns it privately — the third *engine verb
-  behind `Driver`'s private field* after 23 and 30. **36** — `Ctx::clear` and `Ctx::caret_with`
+- **Runtime architecture 36** — `Ctx::clear` and `Ctx::caret_with`
   *read* the `area()` that 31 stopped childing at, so a focused caret inside a scrolled form is
   `Some` at offset 0 and `None` at 100; the obvious fix contradicts `View::size`'s own decision, so
   it needs a scroll translation on `Ctx` separate from its clipping.
@@ -276,7 +295,7 @@ marked `--probe` print one headless frame and what it cost:
 | app | what it shows |
 |---|---|
 | `counter` | the first application; `q` to quit |
-| `console` | the overlay family; `Ctrl+P` palette, `Ctrl+Q` quit |
+| `console` | the overlay family; `Ctrl+P` palette, `Ctrl+Z` to the shell (`fg` to return), `Ctrl+Q` quit |
 | `theatre` | the media family; `4` is the floor of the colour axis (`--probe`) |
 | `browse` | the preview pane; `k` then `s` is the memo-key rule (`--probe`) |
 | `mixer` | the slider; `x` fifty steps, `f` swaps the arithmetic (`--probe`) |

@@ -8,7 +8,7 @@
 //! *this* crate's: **a property that quietly never arrives is indistinguishable from one that was
 //! decided against**, so every gate is here and every one of them is in exactly one of two states —
 //! [`State::Wired`], naming the instruments that run it, or [`State::Red`], naming the
-//! implementation ticket that inverts it. **Forty-six wired, none red.** Ticket 19 left this
+//! implementation ticket that inverts it. **Forty-seven wired, none red.** Ticket 19 left this
 //! register at thirty-eight and one — entry 12, the dense frame, which was *measured* in two places
 //! and *gated* in neither — and ticket 20 built the gate rather than reworded the row. What made
 //! that possible is that the red row named the missing instrument precisely enough to build it: a
@@ -239,7 +239,7 @@ pub const SPEC_ROWS: usize = 15;
 /// stated from two sides, and twenty-four survive deduplication against §20's fifteen. A row is
 /// here when it is a gate somebody can break; a bullet that restates a neighbour is not a second
 /// row.
-pub const REGISTER: [Entry; 46] = [
+pub const REGISTER: [Entry; 47] = [
     // ── spec §20's table, in its order ───────────────────────────────────────────────────────────
     Entry {
         number: 1,
@@ -1319,6 +1319,41 @@ pub const REGISTER: [Entry; 46] = [
             }],
         },
     },
+    Entry {
+        number: 47,
+        on_spec_table: false,
+        property: "An application can give the terminal away and take it back",
+        kind: Kind::Gate,
+        qualifier: "count \u{2014} of frames submitted across a suspension, which is the only \
+                    observable this pair has above the engine: there is no public `suspended` \
+                    query, so the question is asked of `Presented::submitted`. **The middle arm is \
+                    the one that matters** \u{2014} a pair of empty forwards passes a case that only \
+                    draws before and after, which is the gate-that-cannot-fail this workspace has \
+                    met more than once, and all three cases below were watched failing against \
+                    exactly that. The third arm draws **nothing at all** and still submits, which \
+                    is what says a resume is a repaint rather than merely an un-suspend; the \
+                    idempotence case breaks the pair in each direction separately. The third \
+                    instrument is the negative half \u{2014} the runtime's own per-frame state is \
+                    untouched, because no frame runs inside a suspension \u{2014} and it carries the \
+                    positive claim under it for the same reason",
+        source: "issue 35",
+        state: State::Wired {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-runtime/src/ctx.rs",
+                    name: "a_driver_can_hand_the_terminal_over_and_take_it_back",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-runtime/src/ctx.rs",
+                    name: "suspending_and_resuming_are_each_idempotent_through_the_driver",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-runtime/src/ctx.rs",
+                    name: "a_suspension_does_not_disturb_the_runtimes_own_per_frame_state",
+                },
+            ],
+        },
+    },
 ];
 
 /// How many `compile_fail` fences the crate carries.
@@ -1344,7 +1379,12 @@ pub const NEGATIVE_CASES: usize = 31;
 /// architecture issue 34**, whose addition is on
 /// [`Theme::colours_differ_on_wire`](crate::Theme::colours_differ_on_wire) and shows the whole of
 /// the verb: two colours one unit of blue apart, separate at truecolor and one colour at sixteen.
-pub const RUNNABLE_EXAMPLES: usize = 60;
+///
+/// **Sixty-one since architecture issue 35**, whose addition is the second `no_run` block in the
+/// crate — [`Driver::suspend`](crate::ctx::Driver::suspend)'s, giving the terminal to `vi` — and it
+/// is `no_run` for a reason unrelated to [`Driver::wait`](crate::ctx::Driver::wait)'s: a doctest
+/// that ran it would hand the test harness's terminal to an editor.
+pub const RUNNABLE_EXAMPLES: usize = 61;
 
 #[cfg(test)]
 mod tests {
@@ -1685,7 +1725,7 @@ mod tests {
         assert_eq!(seen, expected, "the numbers are not 1..={}", REGISTER.len());
     }
 
-    /// **Forty-six wired, none red.**
+    /// **Forty-seven wired, none red.**
     ///
     /// This register was thirty-eight and one from ticket 19 until ticket 20 built the gate entry
     /// 12 was red for the absence of; forty since architecture issue 23 — the first row here whose
@@ -1705,12 +1745,17 @@ mod tests {
     /// issue 33**, the seventh, which is the one whose gate could not be written the way every
     /// other row on this map is written: the property is that *a frame asks for the next one*, and
     /// an instrument that drives its own second frame supplies exactly the thing under test, so
-    /// this one draws a single frame per arm and asks the wakeup sink instead. Saying *how many* is
+    /// this one draws a single frame per arm and asks the wakeup sink instead — and
+    /// **forty-seven since issue 35**, the eighth, which is the third time this backlog has found
+    /// an engine verb behind `Driver`'s private field (after 23's `wait` and 30's `permit_slow`)
+    /// and the first of the three worth a row: `wait` and `permit_slow` are forwards whose absence
+    /// is a compile error at the call site, and a suspend that silently did nothing would draw a
+    /// screen into a terminal somebody else is holding. Saying *how many* is
     /// what stops a red row arriving unremarked, and it
     /// has the second job the engine's has: **a register at all-green says so**, so the next red row
     /// is a deliberate edit to this number rather than a quiet one.
     #[test]
-    fn forty_six_are_wired_and_none_are_red() {
+    fn forty_seven_are_wired_and_none_are_red() {
         let red: Vec<u8> = REGISTER
             .iter()
             .filter(|e| matches!(e.state, State::Red { .. }))
@@ -1723,7 +1768,7 @@ mod tests {
              documentation, and in the module comment above — the count is the thing that stops it \
              arriving unremarked"
         );
-        assert_eq!(REGISTER.len() - red.len(), 46);
+        assert_eq!(REGISTER.len() - red.len(), 47);
     }
 
     /// **The split, not the total.**
@@ -1738,9 +1783,9 @@ mod tests {
         assert_eq!(on_table, SPEC_ROWS, "spec §20's table is fifteen rows");
         assert_eq!(
             REGISTER.len() - on_table,
-            31,
+            32,
             "the backlog's gates, deduplicated against §20's fifteen, plus issues 23's, 25's, \
-             26's, 28's, 29's, 31's and 33's"
+             26's, 28's, 29's, 31's, 33's and 35's"
         );
         // And §20's fifteen come first, so the table reads in the spec's order.
         for (index, entry) in REGISTER.iter().enumerate() {
