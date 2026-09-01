@@ -1535,37 +1535,52 @@ impl Screen {
 
     /// **Give the terminal back without ending the session**, for as long as somebody else needs it.
     ///
+    /// **The supported shape is *suspend, stop the process, resume*, and an interactive child in
+    /// this same terminal is refused rather than supported.** This does not stop the thread that
+    /// reads the terminal and nothing here can: it is parked in a blocking `read` on standard input,
+    /// and nothing in safe Rust cancels one. So a suspended process is still one of the readers of
+    /// the user's keyboard, and a child that wants that keyboard is competing with it for every
+    /// byte. **A child that needs the keyboard needs its own standard input, or this process needs
+    /// to be stopped while it runs.** That sentence is the first paragraph rather than the fifth
+    /// because it was the fifth, and it was read as a caveat on a supported case: see production
+    /// ticket 13 and ADR 0052.
+    ///
     /// The epilogue [`Screen::drop`] writes goes out — the input modes, the kitty flags, the caret,
     /// auto-wrap and the alternate screen, in that order — and raw mode goes with it. The `Screen`
     /// stays alive and holds everything it held: the layers, their cells, the capabilities, the
     /// registered deadlines and the caller's own mouse level and caret. [`resume`](Screen::resume)
     /// takes it all back.
     ///
-    /// # What this is for, and the one case it is not for
-    ///
-    /// Two callers, and they are the same three lines:
+    /// # What this is for, and the case it is not for
     ///
     /// - **Ctrl-Z.** In raw mode `ISIG` is off, so a `Ctrl+Z` is a key event and not a signal —
     ///   which means the ordinary gesture is the application's, on the app thread, with no signal
     ///   handler anywhere. Suspend, stop the process, and the line after the stop is where it comes
-    ///   back: `resume`.
-    /// - **Running something else in the same terminal.** An editor, a pager, a `git commit` — and
-    ///   this one comes with a condition, stated below, because the input thread does not stop.
+    ///   back: `resume`. This works completely, because a `SIGTSTP` stops **every** thread of the
+    ///   process, the reader included, and the terminal belongs to whoever has the foreground until
+    ///   the process is continued.
+    /// - **A child that does not want the keyboard**, in the same terminal, with this process still
+    ///   running: a formatter, a build, `git` writing to a pager this application does not keep, or
+    ///   anything reading from a pipe. Nothing is competing for anything, so the pair is enough.
+    /// - **Not an editor, and not any interactive child, while this process keeps running.** Two
+    ///   readers blocked on one tty means the kernel gives each byte to whichever it schedules, so
+    ///   the user loses about half of every keystroke. This pair cannot fix that; what it does
+    ///   instead is refuse to make it worse. [`resume`](Screen::resume) throws away everything the
+    ///   reader took during the suspension, so the editor's session does not arrive as several
+    ///   hundred `Event::Key`s afterwards.
     ///
-    /// # The reader does not stop, and nothing here can make it
+    /// # Why the read is not made cancellable
     ///
-    /// The thread that reads the terminal is parked in a blocking `read` on standard input, and
-    /// **nothing in safe Rust cancels one**. So the supported shape is *suspend, stop the process,
-    /// resume*: a `SIGTSTP` stops every thread of the process, the reader included, and the terminal
-    /// belongs to whoever has the foreground until the process is continued.
-    ///
-    /// An application that suspends and keeps **running** — to spawn a child in the same terminal —
-    /// is competing with that child for every byte the user types, and the kernel gives each byte to
-    /// whichever reader it schedules. That is not something this pair can fix; what it does instead
-    /// is refuse to make it worse. [`resume`](Screen::resume) throws away everything the reader took
-    /// during the suspension, so the editor's session does not arrive as several hundred
-    /// `Event::Key`s afterwards. **A child that needs the keyboard needs its own standard input, or
-    /// this process needs to be stopped while it runs.**
+    /// Four mechanisms could do it and all four are refused, which is production ticket 13's answer
+    /// and is written out in ADR 0052: a self-pipe and `poll` needs `libc` and an `unsafe` block,
+    /// which `#![forbid(unsafe_code)]` and ADR 0034 both refuse; crossterm's own cancellable event
+    /// source cannot carry the capability negotiation, because its `Event` has no variant for an
+    /// escape sequence nobody recognised and the whole batch is such sequences; a non-blocking
+    /// descriptor sets `O_NONBLOCK` on an open file description shared with the shell and with every
+    /// child; and `rustix` would need no `unsafe` here at all and is refused on **dependency
+    /// policy**, which is a judgement rather than an impossibility and is stated as one.
+    /// `scripts/suspend-reader-gate.sh` is register entry 31 and watches the refusal on a real pty,
+    /// so a build that makes the reader stoppable turns this paragraph red rather than stale.
     ///
     /// **It is not a recovery from a terminal that left on its own.** A `SIGTSTP` from outside the
     /// process stops it where it stands with no chance to write anything, and a connection that

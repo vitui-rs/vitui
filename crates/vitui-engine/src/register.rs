@@ -1,4 +1,4 @@
-//! Spec §14's register: twenty-seven properties, each one either wired or pinned red — and two
+//! Spec §14's register: twenty-seven properties, each one either wired or pinned red — and four
 //! more that §14 could not have had.
 //!
 //! > **A gate is a count, a ratio, an equality or a compile outcome. A timing is a report, and is a
@@ -35,7 +35,7 @@
 //! ticket that lights it (`.scratch/vitui-engine-impl/issues/`). The two are different numbering
 //! schemes and confusing them sends a reader to the wrong document.
 //!
-//! # Entries 28 and 29, and why the list is no longer exactly §14's
+//! # Entries 28 to 31, and why the list is no longer exactly §14's
 //!
 //! Entries 1–27 are §14's table. **Entry 28 is not**, and it is here rather than in a document
 //! because of what it is about: §14 could enumerate twenty-seven properties of the engine and had
@@ -56,6 +56,17 @@
 //! process is not drawing on it, which is every one of Ctrl-Z, an editor in the same window, a
 //! dropped connection and a terminal that was replaced. No entry above can be false while a shell
 //! is left in the alternate screen with the kitty flags pushed, because no frame is involved.
+//!
+//! **Entries 30 and 31 are the third and fourth, and both are about what happens outside a frame
+//! entirely.** 30 is the bytes that go out *before* there is one — the capability batch, and whether
+//! any of it can reach the page the user's shell is on. 31 is what this process still holds while
+//! somebody else has the terminal: the reader thread, which a suspension does not stop and nothing
+//! in safe Rust can. Both are added by the production backlog rather than by an implementation
+//! ticket, and both have a second property in common that is worth naming, because it is what the
+//! end of this register is turning into: **neither can be stated by any instrument inside this
+//! crate.** 30's subject is a terminal that *prints* a sequence it does not implement, and a model
+//! that ignores one is a correct model; 31's subject is a thread that `Tty::open` panics rather than
+//! spawn under `cfg(test)`. Both live in `scripts/` on a real pty for that reason.
 
 /// What a register entry costs when it disagrees with the code.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -158,7 +169,7 @@ pub struct Entry {
 }
 
 /// Spec §14's register, entry for entry.
-pub const REGISTER: [Entry; 30] = [
+pub const REGISTER: [Entry; 31] = [
     Entry {
         number: 1,
         property: "No damage structure under-reports",
@@ -672,6 +683,36 @@ pub const REGISTER: [Entry; 30] = [
             at: "`crate::gates::nothing_reaches_the_users_own_page`, over the two functions that                  are the whole of what goes out before a frame exists — `crate::detect::batch` and                  `crate::actuate::negotiation`. The count is at offset **zero** of the batch, which                  is *the number of bytes this engine sends to the user's own screen*, and it is one                  over the concatenation, because `?1049h` twice on a terminal without xterm's                  already-on-the-alternate-buffer guard restores the shell's cursor to the alternate                  screen's origin; and the `Page::Ours` arm opens with `ED 2`, because the batch's questions go out after `?1049h` cleared the page and a cell no layer covers is never damaged and never written. **Not §14's, and no instrument in this crate could have stated                  it**: `roundtrip.rs` replays the serializer's bytes through `term_model.rs`, and a                  terminal model that ignores a sequence it does not implement is a *correct* model,                  so a terminal that **prints** one instead is unrepresentable here. `conform/`'s                  Terminal.app 2.15 arm found it — the first defect that directory has found in the                  engine's output rather than in a quirk table, an instrument or a document — and                  production ticket 12 is where it was decided. **And a second home, on a real pty**: `scripts/page-order-gate.sh` runs `vitui-apps`' `caps` under `script(1)` and asserts four things over the bytes that actually went out — the first escape sequence is `?1049h`, entered once, left once, and `?7l` present, which is `actuate::negotiation` and is what stops the middle two from being true of the capability batch alone after a failed detection. That is the path no test in this workspace can take, because `Tty::open` panics under `cfg(test)` and detection never fires; with the defect reintroduced it names the number, **277 bytes on the user's own page**. What stays ungated is one arm of the same refusal: the page `Tty::drop` gives back when an `attach` ends in `AttachError::NoAnswer` after the batch entered it needs a terminal that answers nothing. It is reasoned in `crate::detect` and was driven once by hand over a `pty.fork()` that never answers, on 2026-08-30: `?1049h`, the batch, the sentinel, then `?2027l` `?1049l` and only then the failure message — entered once, left once, mode before page",
         },
     },
+    Entry {
+        number: 31,
+        property: "A suspension does not vacate standard input",
+        kind: Kind::Gate,
+        qualifier: "a keystroke arrives, or it does not: two arms and one of them is the control",
+        source: "production 13",
+        state: State::Wired {
+            at: "`scripts/suspend-reader-gate.sh`, which runs `vitui-engine`'s `suspend_reader` \
+                 example under `script(1)` and types twice — once before the suspension and once \
+                 during it. **The property is a refusal and this entry is a tripwire**: nothing is \
+                 trying to make the reader stop, and if it ever does, this is what says so. \
+                 `Screen::suspend` writes the epilogue, joins the render thread and leaves raw \
+                 mode, and it does not touch the `vitui-pty` thread, which is an unconditional \
+                 `loop { stdin.read(..) }` that safe Rust cannot cancel — so a suspended process is \
+                 still one of the readers of the user's terminal, and *suspend, hand the terminal \
+                 to an interactive child, resume* is refused rather than supported. ADR 0052's \
+                 'The reader does not stop' prices the four ways it could be made cancellable and \
+                 refuses all four. **No instrument inside this crate can state it**: `Tty::open` \
+                 panics under `cfg(test)`, so no test here ever spawns that thread, and every \
+                 keystroke a headless gate sees was put into the queue by `Screen::inject`, which \
+                 is on this side of the reader and cannot say whether the reader exists. That is \
+                 why `crate::gates::a_resume_delivers_no_keystroke_from_the_suspension_and_every_resize` \
+                 gates what happens to the bytes and is silent about where they came from — the two \
+                 halves of one property, and this is the half that needed a pty. The control arm is \
+                 what stops it being vacuous, because a pty that delivers nothing at all reports \
+                 exactly what a stopped reader reports; watched failing both ways on 2026-09-01 by \
+                 counting the reader's reads and stopping it at two (`control=ok`, \
+                 `during=timeout`) and at one (the control arm fails instead)",
+        },
+    },
 ];
 
 /// How many entries are wired, and how many are pinned red.
@@ -734,15 +775,19 @@ mod tests {
     #[test]
     fn every_entry_of_spec_14s_register_is_present_exactly_once() {
         const FROM_SPEC_14: usize = 27;
-        // **Three, and each says which side of the line it is on.** 28 is the conformance suite, 29
-        // is the session's lifecycle and 30 is what the user's own page is allowed to see; all three
-        // are properties §14 had no way to state, and all three were added by the production backlog
+        // **Four, and each says which side of the line it is on.** 28 is the conformance suite, 29
+        // is the session's lifecycle, 30 is what the user's own page is allowed to see and 31 is
+        // what this process still holds while somebody else has the terminal; all four are
+        // properties §14 had no way to state, and all four were added by the production backlog
         // rather than by an implementation ticket. 30 is the sharpest case of it: §14's every
         // instrument is a statement about a *frame*, and this is a statement about the bytes that go
-        // out before there is one.
-        const ADDED_HERE: usize = 3;
+        // out before there is one. 31 is the sharpest case of the *other* thing this end of the
+        // register collects — a property no instrument inside this crate can reach at all, because
+        // `Tty::open` panics under `cfg(test)` and the thread it is about is therefore never spawned
+        // by any test here.
+        const ADDED_HERE: usize = 4;
         assert_eq!(REGISTER.len(), FROM_SPEC_14 + ADDED_HERE);
-        let mut seen = [false; 31];
+        let mut seen = [false; 32];
         for e in REGISTER {
             let n = e.number as usize;
             assert!(
@@ -765,6 +810,18 @@ mod tests {
             "production 07",
             "entry 29 is what the terminal is left in while this process is not drawing on it, \
              which is a property of the session and not of a frame"
+        );
+        assert_eq!(
+            REGISTER[FROM_SPEC_14 + 2].source,
+            "production 12",
+            "entry 30 is what the user's own page is allowed to see, which is a property of the \
+             bytes that go out before there is a frame for §14 to have an entry about"
+        );
+        assert_eq!(
+            REGISTER[FROM_SPEC_14 + 3].source,
+            "production 13",
+            "entry 31 is what this process still holds while somebody else has the terminal, which \
+             is the other half of entry 29 and the half no instrument in this crate can reach"
         );
     }
 

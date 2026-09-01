@@ -216,6 +216,20 @@ test:
     # landing on a developer's screen, which is a coincidence worth noticing rather than a citation.
     # Debug artifacts for `vitui-apps` are already standing from `cargo clippy --all-targets`.
     - scripts/page-order-gate.sh
+    # **Register entry #31, and it is the third pty gate in this job for the same reason as the two
+    # above.** `Tty::open` panics under `cfg(test)`, so no test in this workspace ever spawns the
+    # thread this entry is about — the one that keeps reading standard input for the whole of a
+    # `Screen::suspend`, because safe Rust cannot cancel a blocking `read`. Every keystroke a
+    # headless gate sees was put in the queue by `Screen::inject`, on this side of the reader.
+    #
+    # **It asserts a refusal**, which is unusual enough to say here rather than only in the script:
+    # nothing is trying to make the reader stop, and if an edit ever does, this goes red on purpose
+    # and takes `Screen::suspend`'s first paragraph, `Screen::resume`'s discard and ADR 0052 with it.
+    # Its two arms are one keystroke before a suspension and one during it, and the first is the
+    # control — a pty that delivers nothing at all reports exactly what a stopped reader reports.
+    #
+    # Under a second on this machine, and `script(1)` is proven present by the two lines above.
+    - scripts/suspend-reader-gate.sh
     # **`conform/`'s gate, folded in rather than added as a sixth job** — the same runner-slot
     # decision the note above these jobs makes for the observer gate and the lint rung, and the one
     # that note says the *next* gate would have to make.

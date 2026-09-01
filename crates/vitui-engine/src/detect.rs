@@ -586,6 +586,17 @@ impl Tty {
                 .spawn(move || {
                     let mut stdin = std::io::stdin();
                     let mut buf = [0u8; 4096];
+                    // **Unconditional, and it is a decision rather than a first draft.** This thread
+                    // has no stop flag and no way to acquire one: `Stdin::read` has no timeout, no
+                    // deadline and no cancellation, and dropping the handle does not unblock a read
+                    // already in progress. So the loop runs for the life of the process — including
+                    // for the whole of a `Screen::suspend`, which is why that verb's first paragraph
+                    // refuses an interactive child in the same terminal and why `Screen::resume`
+                    // throws away what arrived. Production ticket 13 priced the four mechanisms that
+                    // would change this — a self-pipe and `poll`, crossterm's own event source, a
+                    // non-blocking descriptor, `rustix` — and refused all four; ADR 0052 carries the
+                    // reasoning and `scripts/suspend-reader-gate.sh` is register entry 31, which
+                    // goes red if this loop ever learns to stop.
                     loop {
                         match stdin.read(&mut buf) {
                             Ok(0) => break,

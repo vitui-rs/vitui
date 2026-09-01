@@ -62,7 +62,7 @@ served:
 - **An editor in the same window, with this process still running, does not.** Two readers on one
   descriptor, and the kernel gives each byte to whichever it schedules.
 
-This is stated rather than solved because there is nothing here to solve it with. What is decided is
+This is stated rather than solved. What is decided is
 the half that is decidable: a resume **drops everything the user typed** during the suspension and
 keeps everything the terminal *became*. Delivering it would put the editor's whole session into the
 application as several hundred keystrokes, on a screen that has just repainted; and dropping the
@@ -72,6 +72,51 @@ authoritative size disagree — a frame owed for ever, which is a hang.
 
 A child that needs the keyboard needs its own standard input, or this process needs to be stopped
 while it runs.
+
+### The four ways it could be cancelled, and why each is refused
+
+Production ticket 13 was filed because the sentence above was read as a caveat rather than as a
+refusal — an application that hands its terminal to `$EDITOR` was written against it, reviewed, and
+removed — and the first thing a refusal owes is the price of the alternative. There are four, and
+`std` is not one of them: `Stdin::read` has no timeout, no deadline and no cancellation token, and
+dropping the handle does not unblock a `read` already in progress.
+
+1. **A self-pipe and `poll`.** The usual answer, and it works: park in `poll` on standard input and
+   the read end of a pipe, and `suspend` writes a byte to the write end. It needs `libc`, and
+   `libc::poll` is an `extern` function, so calling it needs an `unsafe` block — which `lib.rs`'s
+   `#![forbid(unsafe_code)]` refuses at the crate root, and which ADR 0034 refuses for every shipped
+   crate. Two independent refusals, and the dependency is a third: ADR 0001 is crossterm plus
+   generated UCD tables.
+2. **crossterm's own event source.** `crossterm::event::poll(Duration)` is cancellable by
+   construction, and adopting it would replace our reader rather than add a second one. It is
+   refused by what detection needs: `poll` is only useful with `event::read`, which returns
+   crossterm's parsed `Event` — a closed enum of keys, mice, resizes, paste and focus with **no
+   variant for an escape sequence nobody recognised**. The capability batch is sixteen OSC palette
+   replies, seven DECRPMs, XTGETTCAP, DA2 and the DA1 sentinel; none of them is an `Event`, and a
+   parser that drops what it does not recognise drops the whole negotiation. This is impl 20's
+   finding arriving from a second direction, and `Cargo.toml` already records the first.
+3. **A non-blocking descriptor and a wait.** `fcntl(F_SETFL, O_NONBLOCK)` is `libc` and `unsafe`
+   again, and it carries a fault the others do not: `O_NONBLOCK` is a property of the open file
+   *description*, which standard input shares with the shell that started this process and with
+   every child that inherits it. Setting it hands somebody else's `read` an `EAGAIN` they have no
+   reason to expect — which is the same class of harm as the defect it would be fixing.
+
+4. **`rustix`, and this one is not refused on grounds of possibility.** Its wrappers are safe, so
+   the first option could be written with no `unsafe` in this crate at all. It is refused on
+   dependency policy, and that is a judgement rather than an impossibility, so it is worth being
+   plain about the trade: a permanent dependency for the whole engine, to serve one case that
+   already has two working answers — stop the process, or give the child its own standard input —
+   and whose absence costs an application three lines it was going to write anyway.
+
+**The decision is that the read is never made cancellable**, and it is a decision to be reopened
+with a ticket rather than worked around in a doc comment.
+
+`Screen::suspend`'s **first** paragraph is where a caller meets it, which is production ticket 13's
+other half: it was in the fifth, under a heading, after a list that presented the editor as one of
+two supported callers. And `scripts/suspend-reader-gate.sh` is register entry 31 — the property as a
+tripwire on a real pty, because four documents claimed it and nothing watched it. No instrument
+inside the crate can: `Tty::open` panics under `cfg(test)`, so no test in this workspace ever spawns
+the thread the claim is about.
 
 ## Why two verbs rather than one taking a closure
 

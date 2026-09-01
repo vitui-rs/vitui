@@ -27,7 +27,7 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
 
 ## Where the build is
 
-- **`vitui-engine` — implementation-complete.** 26 impl tickets, 30 verification-register entries,
+- **`vitui-engine` — implementation-complete.** 26 impl tickets, 31 verification-register entries,
   none pinned red, ~30k lines. Production readiness added `conform/` — the only instrument that asks
   a real terminal rather than our model of one, and the source of `quirks.rs`'s later entries.
 - **`vitui-runtime` — implementation-complete.** 21 tickets. `data`, `layout`, `theme` (fourteen
@@ -53,10 +53,9 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   superseded** (the runtime is the caller it wanted, and a better one), **12 is resolved**
   (2026-08-30): `detect::batch`'s first bytes are `?1049h`, so the page is opened by the act of
   asking and Terminal.app 2.15's echo of `+q524742` and seven `p`s lands on a page that is discarded.
-  **13 is new** (filed 2026-09-01 by runtime architecture 35): `Screen::suspend` does not stop the
-  reader, so *suspend, run `$EDITOR`, resume* splits the user's keystrokes between two processes and
-  only *suspend, stop the process, resume* actually works. The sentence was already in `suspend`'s
-  doc and was read as a caveat rather than a refusal.
+  **13 is resolved** (2026-09-01): the reader is never stopped, the refusal is
+  `Screen::suspend`'s **first** paragraph rather than its fifth, and register entry 31 is the
+  tripwire.
 
 ## Decisions a session must not re-derive
 
@@ -125,6 +124,21 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   every thread — and *handing the terminal to an interactive child while this process runs* does
   not, because two readers on one tty split the keystrokes. A `Ctrl+E` arm for `$EDITOR` was
   written, reviewed and removed; the engine's own `Screen::suspend` doc says so in advance.
+
+- **The reader is never stopped, and the refusal is the first paragraph** (production 13, resolved
+  2026-09-01). `Stdin::read` has no timeout and no cancellation, and the four mechanisms that would
+  give it one are all refused: a self-pipe and `poll` and a non-blocking descriptor both need `libc`
+  and an `unsafe` block, **crossterm's own cancellable event source cannot carry the capability
+  negotiation** — its `Event` has no variant for an unrecognised escape sequence and the whole batch
+  is such sequences — and `rustix` would need no `unsafe` here and is refused on dependency policy,
+  which is a judgement and is stated as one. So an interactive child in this terminal is a case the
+  pair **does not serve** rather than one with a condition on it, and that sentence moved from
+  `suspend`'s fifth paragraph to its first, because the fifth is where issue 35 read it as a caveat.
+  `resume`'s discard is untouched. **Register entry 31 and `scripts/suspend-reader-gate.sh`**: two
+  keystrokes on a real pty, one before the suspension and one during it, because four documents
+  claimed this and nothing watched it — and no instrument inside the crate can, since `Tty::open`
+  panics under `cfg(test)` and the thread the claim is about is never spawned by a test here. It is
+  a **tripwire**: it goes red if the reader ever learns to stop.
 
 - **Nothing holds the focus until an application seats it** (issue 25): `if cx.focused().is_none()`
   inside the draw. A runtime that seats the first stop was refused.
@@ -325,6 +339,7 @@ scripts/steady-report.sh      # 60 fps for 30 s against 5% of a core
 scripts/lint-rung-gate.sh     # the clippy.toml rung fires in an application, not from a dep
 scripts/gallery-panic-gate.sh # the terminal is restored before a panic prints, under a pty
 scripts/page-order-gate.sh    # nothing precedes `?1049h` on a real pty — register #30
+scripts/suspend-reader-gate.sh # a suspension does not vacate stdin, on a pty — register #31
 n=1 cargo test -p vitui-engine golden                 # regenerate; review the git diff
 VITUI_BLESS=1 cargo test -p vitui-components golden   # the components' screens; refused in CI
 ```
