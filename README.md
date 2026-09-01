@@ -16,27 +16,30 @@ this section before the numbers below it.
 
 | crate | state |
 |---|---|
-| `vitui-engine` | **implementation-complete.** All 26 implementation tickets resolved, all 28 verification-register entries wired, none pinned red. A production-readiness backlog of 9 tickets is open. |
-| `vitui-runtime` | **9 of 20 tickets in.** `data`, `layout`, `layout::text`, `theme`, `keys`, `ctx`, `id`, `route` and the hit index exist. Focus, overlays, scrolling, sizing, async work, animation, the standard theme set and the verification ledger do not. |
-| `vitui-components` | **empty.** One `lib.rs` with module documentation and no components. Out of scope for the current effort; it gets its own architecture map afterwards. |
+| `vitui-engine` | **implementation-complete.** All 26 implementation tickets resolved, all 31 verification-register entries wired, none pinned red. |
+| `vitui-runtime` | **implementation-complete.** All 21 tickets resolved. `data`, `layout`, `theme` with its fourteen schemes, `keys`, `ctx`, `id`, `route`, `focus`, `sizing`, `work`, `anim`, `overlay` and `scroll`; the register is 48 entries and the scene list 20, both green. |
+| `vitui-components` | **implementation-complete.** All 46 tickets resolved, and spec §17's v1 freeze is **29 of 29 components built**, as a value the tests iterate. The register is 233 rows, 222 evaluated with none pinned red. Obligation O5 — every component under every hostile axis it can meet — is at 14 of 34 pairs and is the one left. |
 | `vitui` | facade re-export of the three. |
+| `vitui-apps` | 18 applications, one file each, and the surface's only consumer. Never published. |
 
 Three things a prospective user should know, stated here rather than discovered:
 
-- **One terminal emulator has been asked, once.** Until 2026-08-23 no instrument here had ever
-  compared the engine's bytes against a real emulator's screen: the round-trip suite, the reference
-  compositor and the terminal model they are checked against all live inside the crate, so a case
-  where the model and the serializer are wrong *in the same direction* was invisible to every gate.
-  `conform/` is the missing fourth party, and Ghostty 1.3.1 agrees with the engine on all eleven
-  attribute bits. That is one scene on one emulator on one machine. The width questions are not
-  answerable by a screen dump at all and are still open.
+- **Four terminal emulator families have been asked, and three tier-1 terminals have not.** Until
+  2026-08-23 no instrument here had ever compared the engine's bytes against a real emulator's
+  screen: the round-trip suite, the reference compositor and the terminal model they are checked
+  against all live inside the crate, so a case where the model and the serializer are wrong *in the
+  same direction* was invisible to every gate. `conform/` is the missing fourth party — five arms
+  over Ghostty, Ghostty through tmux, tmux, kitty and Terminal.app, each with a committed report,
+  and Terminal.app is the arm that disagrees. WezTerm, Alacritty and iTerm2 have no arm, so the
+  attribute facts this workspace states for them are inference and are marked as such.
 - **Windows has never been run.** `.github/workflows/ci.yml` declares a three-OS matrix and no hosted
   CI has been watched go green. Every green run behind the numbers below is a shared local GitLab on
   one machine: linux/arm64, one OS, one architecture.
-- **One architecture question is still open**: the clip-edge pair, `.scratch/vitui-engine-architecture/issues/20`.
-  Its central unknown is what a terminal does with a bisected double-width glyph, and both emulators
-  measured re-serialise their grid as text with no padding cell — so no screen dump can settle it. The
-  default SGR spelling (23) and a hyperlink on a standalone surface (21) were closed on 2026-08-22.
+- **Four architecture questions are still open**, all four on the components map: whether a fold
+  that costs the volume belongs to obligation O6 (19), the three indent glyphs `tree` declares and
+  cannot draw (20), `Esc` over a plain `collection` being crate-private on purpose (22), and
+  `file_picker`'s popup having no keyboard at all (23). The engine's and the runtime's maps have
+  none left.
 
 ## The frame, as a sequence
 

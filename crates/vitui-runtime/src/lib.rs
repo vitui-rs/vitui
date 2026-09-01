@@ -11,8 +11,9 @@
 //!
 //! # Status
 //!
-//! Being built one ticket at a time from `.scratch/vitui-runtime-architecture/spec.md`, whose map is
-//! closed; the backlog is `.scratch/vitui-runtime-impl/`. What exists so far:
+//! Implementation-complete: twenty-one tickets against
+//! `.scratch/vitui-runtime-architecture/spec.md`, whose map is closed, with spec §20's register at
+//! forty-eight entries and its twenty scenes green. What the crate is, module by module:
 //!
 //! - [`data`] — `Revision`, `Versioned`, `Edit`, `Memo`. Spec §14, ADR 0019. **`std` only**: it
 //!   reaches for neither the engine nor the frame, which is why it is first.

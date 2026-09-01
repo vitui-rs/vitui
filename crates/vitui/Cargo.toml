@@ -1,6 +1,6 @@
 [package]
 name = "vitui"
-description = "A fast, layered, reactive TUI library for Rust"
+description = "A fast, layered TUI library for Rust"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

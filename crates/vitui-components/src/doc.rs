@@ -480,7 +480,7 @@ mod tests {
 
     /// **Criterion 5, in both directions: the page's axes are the freeze's axes.**
     ///
-    /// Thirteen of the twenty-eight declare none, so the equality is what makes the line worth
+    /// Fourteen of the twenty-nine declare none, so the equality is what makes the line worth
     /// writing — see this module's header. Watched failing both ways: a page that has lost the line
     /// and a page that claims an axis its row does not set.
     #[test]

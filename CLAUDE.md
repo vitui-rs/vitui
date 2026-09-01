@@ -46,9 +46,15 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
 - **`vitui-apps` — 18 applications**, one file each in `examples/`. A component ticket ships one, and
   since ticket 45 that is obligation **O7** rather than a habit: `vitui_components::consumer` joins
   the freeze against the import paths here.
-- **Active work: `.scratch/vitui-engine-production/`**, un-paused 2026-08-29 (it was paused because
-  nothing above the engine could draw a screen; eighteen applications ended that). **09 is the only
-  ticket left** and it needs a Windows machine. **04 is resolved** (2026-08-30, the Terminal.app arm,
+- **Active work: `.scratch/vitui-production/`** (opened 2026-09-01) — the whole workspace's road to a
+  published crate, sixteen tickets in five groups: the paperwork, the six unsubjected register rows,
+  the fourteen hostile axes O5 still owes, three tier-1 terminals nobody has run, and the release.
+  **Windows is last, as 16**, blocked by the publish — which carries the consequence that no shipped
+  string may claim a terminal the conform suite has not asked. Everything on it was already true and
+  already recorded; what was missing was that nothing scheduled any of it.
+- **`.scratch/vitui-engine-production/` is closed** (2026-09-01), un-paused 2026-08-29 (it was paused
+  because nothing above the engine could draw a screen; eighteen applications ended that). **09 left
+  for the backlog above**; it needs a Windows machine. **04 is resolved** (2026-08-30, the Terminal.app arm,
   four emulator families), **07 is resolved** (the terminal leaves and comes back; ADR 0052), **08 is
   superseded** (the runtime is the caller it wanted, and a better one), **12 is resolved**
   (2026-08-30): `detect::batch`'s first bytes are `?1049h`, so the page is opened by the act of
@@ -157,6 +163,17 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   claimed this and nothing watched it — and no instrument inside the crate can, since `Tty::open`
   panics under `cfg(test)` and the thread the claim is about is never spawned by a test here. It is
   a **tripwire**: it goes red if the reader ever learns to stop.
+
+- **A crate's `description` is its README's first sentence, and a gate says so** (production 01,
+  resolved 2026-09-01). Three places say what a crate is before a stranger reads a line of its code
+  — the manifest's `description`, the README's opening paragraph, the rustdoc's first line — and
+  four publishable crates make twelve sentences that nothing had ever compared against anything. The
+  facade's three called this library reactive. `crates/vitui/tests/blurb.rs` is the gate and it is
+  **the facade's**, because no one of the four can see the other three; the four are derived from
+  the workspace members by *does this manifest say `publish = false`*. Its half with teeth is the
+  **equality** — a README must open with its manifest's `description` — because a vocabulary scan
+  only catches a sentence coming back. **Do not reword one of the twelve without the other two**,
+  and note what the gate does *not* reach: a false sentence outside a `## Status` section.
 
 - **Nothing holds the focus until an application seats it** (issue 25): `if cx.focused().is_none()`
   inside the draw. A runtime that seats the first stop was refused.
@@ -480,8 +497,16 @@ pointer to the map's Decisions-so-far. Research findings go in `research/` besid
 
 Build order across the repo is **engine → runtime → components**, and it was never a queue: several
 runtime tickets name single engine tickets and ran beside them. The impl backlogs
-(`.scratch/vitui-{engine,runtime,components}-impl/`) are **closed**; the active one is the engine's
-production-readiness backlog above.
+(`.scratch/vitui-{engine,runtime,components}-impl/`) are **closed**, and so is
+`.scratch/vitui-engine-production/`. **The one active backlog is `.scratch/vitui-production/`** — its
+README is the queue and the blocking edges, and a ticket there may name an edge into another backlog
+(`components architecture 20`), which is the authority the same way a local number is.
+
+**A `Status:` line carries two vocabularies and they are not in conflict.** A freshly written ticket
+says `ready-for-agent` or `ready-for-human`, which is triage. A session working one overwrites it
+with `claimed` and then `resolved`, which is the frontier protocol above. `ready-for-human` means
+*do not claim this without the thing it needs* — a public repository for 02, a Windows machine
+for 16.
 
 `tickets/` at the repo root is a **separate** surface — the hand-written backlog the `dispatch` skill
 consumes — and holds the items that need the finished library. Do not migrate one into the other.

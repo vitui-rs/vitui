@@ -148,14 +148,15 @@
 //!
 //! # Status
 //!
-//! The architecture is decided — `.scratch/vitui-engine-architecture/spec.md` — and the
-//! implementation backlog is `.scratch/vitui-engine-impl/`. What exists so far is the Unicode layer
-//! everything stands on (ticket 02), the tracer bullet through every stage of the sequence above
+//! **Implementation-complete: twenty-six tickets** against
+//! `.scratch/vitui-engine-architecture/spec.md`, whose map is closed. What that is, ticket by
+//! ticket — because a ticket is where the measurement behind a decision is written down: the
+//! Unicode layer everything stands on (ticket 02), the tracer bullet through every stage of the
+//! sequence above
 //! (ticket 03) in the deterministic single-thread mode, the instruments that keep both honest
 //! (ticket 04) — spec §14's twelve scenes as a normative list, a reference compositor that generates
-//! the damage gate rather than agreeing with it, and all thirty-one register entries either wired
-//! or pinned red against the ticket that lights them — grapheme clusters in cells (ticket 06): the
-//! interner, the five repair rules, and [`graphemes`] and [`width_of`] over the same tables the
+//! the damage gate rather than agreeing with it, and all thirty-one register entries wired with
+//! none pinned red — grapheme clusters in cells (ticket 06): the interner, the five repair rules, and [`graphemes`] and [`width_of`] over the same tables the
 //! verbs segment with — the extended-style bit with the verb that owns it (ticket 07):
 //! [`Restyle`], [`Link`] and the two side tables the packet now carries — and the clip, the
 //! viewport and the visibility query (ticket 09): [`View::child`], [`View::scrolled`],

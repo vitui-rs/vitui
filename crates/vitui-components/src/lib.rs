@@ -2,37 +2,32 @@
 //!
 //! # Status
 //!
-//! Being built one ticket at a time from `.scratch/vitui-components-architecture/spec.md`, whose
-//! map is closed; the backlog is `.scratch/vitui-components-impl/`, forty-three tickets.
+//! Implementation-complete: forty-six tickets against
+//! `.scratch/vitui-components-architecture/spec.md`, whose map is closed.
 //!
-//! **Twenty-five of the twenty-nine components are written** — [`text::text`], [`text::chip`],
-//! [`input::button`] and [`structure::panel`] (components ticket 10), [`collect::collection`]
-//! (components ticket 12), [`chart::chart`] and [`chart::plot`] (components ticket 28),
-//! [`collect::table`] (components ticket 15), [`collect::tree`] (components ticket 17),
-//! [`scroll::scroll_area`], [`scroll::scrollbar`] and [`scroll::sticky`] (components ticket 19),
-//! [`disclose::collapsible`] (components ticket 22), [`input::field`] (components ticket 24) and
-//! [`input::select`] with [`overlay::overlay`] (components ticket 26), and
-//! [`files::file_preview_pane`] with [`files::file_picker`] (components ticket 32),
-//! [`input::slider`] (components ticket 33), and the six Tier 2 rows — [`input::checkbox`],
-//! [`input::radio`], [`input::switch`], [`indicate::meter`], [`indicate::sparkline`] and
-//! [`structure::rule`] (components ticket 34) — and the
-//! dense screen, the listing, the grid, the forest, the two scroll-area screens, the accordion and
-//! the preview pane's three screens are
-//! now drawn *through* them
-//! rather than through their construction. They are spec §1's four rules with
-//! **two stated substitutions**: [`Rect`] stands in for `Rect`, which cannot be named from a
-//! package whose dependency table is `vitui-runtime` and nothing else; and
-//! [`structure::Panel`] stands in for a bare `Response`, because §2's *the cells it does not write
-//! are named in its return value* is unwritable in one and the closure form that would make it
-//! writable is refused on two measurements ([`frame`]). Neither is the rule being ignored, and each
-//! says so where a reader coming from §1 will look.
+//! **Spec §17's v1 freeze is twenty-nine of twenty-nine components built**, and the authority for
+//! that sentence is [`INVENTORY`] — a value the tests iterate — rather than a list written out
+//! here, because *every obligation this map has stated as a sentence has been broken by someone who
+//! had read it* (ADR 0033). The dense screen, the listing, the grid, the forest, the two
+//! scroll-area screens, the accordion and the preview pane's three screens are drawn *through* the
+//! components rather than through their construction.
+//!
+//! They are spec §1's four rules with **one stated substitution**: [`structure::Panel`] stands in
+//! for a bare `Response`, because §2's *the cells it does not write are named in its return value*
+//! is unwritable in one and the closure form that would make it writable is refused on two
+//! measurements ([`frame`]). A second substitution — this crate's own rectangle standing in for the
+//! engine's, which could not be named from a package whose dependency table is `vitui-runtime` and
+//! nothing else — was **withdrawn**: runtime architecture issue 22 made every engine type the
+//! runtime's surface names reachable through it, and components architecture issue 17 deleted the
+//! stand-in, so the helpers return [`vitui_runtime::Rect`]. The one that remains is not the rule
+//! being ignored, and it says so where a reader coming from §1 will look.
 //!
 //! Beside them is [`app::Clears`], which is not a component and cannot be: *the correct build clears
 //! once, on its first frame and on a resize* is a statement about a **sequence** of frames, so it
 //! needs a value the application keeps.
 //!
-//! The rest of what exists is the instruments the other twenty-five are enumerable against, and
-//! every one of them is a value rather than a paragraph:
+//! Beside the components are the instruments they are enumerable against, and every one of them is
+//! a value rather than a paragraph:
 //!
 //! - [`INVENTORY`] — spec §17's v1 freeze as a value: **twenty-nine components in three tiers**,
 //!   eleven columns each, with [`MOVED`] and [`COMPOSITIONS`] beside it. Not a paragraph, because
@@ -58,10 +53,11 @@
 //! - [`doc`] — **O1's evidence as a value**: a documentation page per built component, located by
 //!   the freeze's own `families` column rather than listed, with a scan that opens each file and
 //!   reports what is in it. It is the value [`obligations::DOC_TESTED`] is compared against, because
-//!   a hand-written evidence list is a claim about twenty-eight files. Its own finding is the
-//!   **axis line**: O1 asks that a page state its hostile axes, and **thirteen of the twenty-eight
-//!   built components declare none at all** — so a page that mentions the axes it has is silent on
-//!   nearly half the freeze, and silence is indistinguishable from a page that forgot. Every page
+//!   a hand-written evidence list is a claim about one file per built row of the freeze. Its own
+//!   finding is the **axis line**: O1 asks that a page state its hostile axes, and **fourteen of
+//!   the twenty-nine built components declare none at all** — so a page that mentions the axes it
+//!   has is silent on nearly half the freeze, and silence is indistinguishable from a page that
+//!   forgot. Every page
 //!   says `none` out loud and the gate is an equality against the freeze **in both directions**.
 //! - [`contract`] — **O4's evidence as a value**: thirteen components' key bindings as declared
 //!   data, the help rendered from it through the runtime's own [`vitui_runtime::keys::write_help`],
@@ -73,9 +69,9 @@
 //!   four chord leaks in code that was already green, the sharpest of which answered `Ctrl+Left`
 //!   with a cluster.
 //! - [`gallery`] — **O2's evidence as a value**: one screen carrying every built row of the freeze,
-//!   twenty-eight panels in the freeze's own order, each with the function that draws the shipped
-//!   component. The application (`crates/vitui-apps/examples/gallery.rs`) iterates the table and
-//!   mints no panel of its own, which is the direction neither equality over the table can see. It
+//!   one panel per built row in the freeze's own order, each with the function that draws the
+//!   shipped component. The application (`crates/vitui-apps/examples/gallery.rs`) iterates the
+//!   table and mints no panel of its own, which is the direction neither equality over the table can see. It
 //!   lives here rather than in the application because §21 names two defects to be measured *on the
 //!   assembled gallery* — the sentinel and the palette swap, register rows 7 and 8, green since
 //!   components 40 and 41 — and both are components tickets whose gate is `cargo test`. Its own findings are that **`ColorDepth` had been

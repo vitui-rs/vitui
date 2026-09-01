@@ -35,9 +35,14 @@ Each of these is a decision with an ADR behind it, not a gap.
 ## Status
 
 Implementation-complete: 26 tickets resolved, 31 verification-register entries wired with none
-pinned red. The production-readiness backlog of thirteen tickets is down to one, and it is the thing
-worth knowing before you depend on this: **Windows has never been run.** The MSRV is 1.88, verified
-by a CI job pinned to it rather than declared.
+pinned red. Its own production-readiness backlog is closed, and what survived it is the thing worth
+knowing before you depend on this: **Windows has never been run.** Every green run behind the
+numbers here is one machine, one OS, one architecture.
+
+Beside the gates that live inside the crate is `conform/`, the only instrument that asks a real
+terminal rather than this crate's model of one: five arms across four emulator families, each with
+a committed report. It is the source of the later entries in the quirk table. The MSRV is 1.88,
+verified by a CI job pinned to it rather than declared.
 
 ## Dependencies
 

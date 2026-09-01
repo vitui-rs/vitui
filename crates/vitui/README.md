@@ -10,19 +10,22 @@ A fast, layered TUI library for Rust. **This crate is the facade** — it re-exp
 
 | you want | depend on |
 |---|---|
-| fast layered terminal output, bringing your own layout | `vitui-engine` alone — it is the only one that is implementation-complete |
-| layout, focus, routing and theming as well | `vitui-runtime` (9 of 20 tickets in) |
-| widgets | `vitui-components` (**empty**) |
+| fast layered terminal output, bringing your own layout | `vitui-engine` alone |
+| layout, focus, routing and theming as well | `vitui-runtime` |
+| the twenty-nine components | `vitui-components` |
 | all three, one dependency line | this crate |
 
 The engine is usable on its own and never reaches upward, so taking only it is a supported choice
-rather than a workaround.
+rather than a workaround. `vitui-components` pulls the other two in behind it, which is why the
+one-line answer and the three-line answer differ only in what you can name.
 
 ## Status
 
-Read the [repository README](../../README.md)'s status table before depending on any of these. In
-short: the engine is complete and has been compared against one real terminal emulator once, the
-runtime is half built, and the components crate is empty.
+All three layers are implementation-complete: the engine's 26 tickets, the runtime's 21 and the
+components crate's 46, with the v1 freeze at **29 of 29 components built**. What a prospective user
+should know before depending on any of them is in the [repository README](../../README.md)'s status
+section — in short, this workspace has been run on four terminal emulator families and **never on
+Windows**.
 
 ## Licence
 

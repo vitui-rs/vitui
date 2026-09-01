@@ -1,4 +1,4 @@
-//! vitui — a fast, layered, reactive TUI library.
+//! vitui — a fast, layered TUI library for Rust.
 //!
 //! This crate is the facade. It re-exports the three layers so an application depends on one name:
 //!
@@ -7,7 +7,7 @@
 //! - [`components`] — windows, panels, charts, lists, trees, forms, pickers
 //!
 //! A caller who wants only fast layered terminal output can depend on `vitui-engine` alone and never
-//! meet a layout or reactivity type. That is deliberate; see
+//! meet a layout type. That is deliberate; see
 //! `docs/adr/0002-layout-lives-outside-the-engine.md`.
 
 // **No `unsafe` in any shipped crate above the engine** (ticket 21, ADR 0034). The facade has none to

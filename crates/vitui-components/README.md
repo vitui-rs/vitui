@@ -3,25 +3,31 @@
 Windows, panels, charts, lists, trees, forms and pickers built on
 [`vitui-runtime`](../vitui-runtime).
 
-**Four of twenty-nine components exist**: `text`, `chip`, `button` and `panel`. Everything else is
-instruments — the freeze, the gate register, the scene list, the counters and the screens they are
-measured on.
+**Nothing is published. The version is `0.0.0` and there is no stability promise before 0.x.**
 
-Two of those screens are built: `dense.rs`, the 338-region screen the four primitives are proved
-against, and `listing.rs`, the 40x80 collection screen where the four hostile axes stand instead of
-sitting in a table. The listing's five scenes are **red on purpose** — four waiting for
-`collection`, and the wheel gate waiting for the unconditional `scroll_into_view` to come out — and
-the failure message says which of the two it is, because a scene that fails because it is
-unimplemented and one that fails because the code is wrong are the same failure otherwise.
+## Status
 
-Do not depend on this yet. It is published as part of the workspace and it does not have a component
-library in it.
+**Implementation-complete: 46 tickets, and spec §17's v1 freeze is 29 of 29 components built** — as
+a value, `INVENTORY`, that the tests iterate rather than a list a reader is asked to trust. Its
+seven documentation and verification obligations are functions over that value: O1, O2, O3, O4, O6
+and O7 are met, and O5 — *every component stands up under every hostile axis it can meet* — is the
+one left, at 14 of 34 `(component, axis)` pairs. A query with no evidence behind it panics here
+rather than returning green over an empty population.
 
-## The shape, and the two places it is not spec §1's
+§21's register is 233 rows, 222 of them evaluated and **none pinned red**, beside 5 that are
+unreachable across the crate line (`docs/adr/0023`) and 6 with nothing yet to run over. Thirty-three
+scenes stand behind them, each with the size it is played at and the property it decides; three
+exist because a defect survived every gate then in force by not being on any screen anybody had
+built.
+
+The `media` family ships with no members, and that is spec §14 rather than an omission: it is the
+one family with no v1 component.
+
+## The shape, and the one place it is not spec §1's
 
 Spec §1's rule is `fn(&mut Ctx, Rect, …) -> Response`, with options in a `Default` struct and an
-`f_with` sibling for every `f`. That is what ships, with two substitutions that are stated rather
-than silent:
+`f_with` sibling for every `f`. That is what ships, with one substitution that is stated rather
+than silent and one that was made and then withdrawn:
 
 - ~~**`Cells` for `Rect`.**~~ **Withdrawn**, and it is the one deviation that ended. `Rect` was
   `vitui_engine::Rect`, re-exported by none of the runtime's twenty-seven public declarations that
