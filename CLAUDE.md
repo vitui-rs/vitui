@@ -36,10 +36,11 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   rather than counted: `crates/vitui-components/tests/crate_line.rs` cannot name the engine.
 - **`vitui-components` — implementation-complete.** All 46 tickets; spec §17's freeze is **29 of 29
   built**, as a value (`INVENTORY`) that tests iterate, with the documentation and verification
-  obligations as functions over it. Register 233 rows, 221 evaluated and
-  **no row pinned red** — row 112 was the last, inverted by runtime architecture 31, and the only
-  inversion there that no components ticket did — beside 6 unreachable across the crate
-  line (ADR 0023) and 6 unsubjected; every scene stood up. Obligations **O1–O4, O6 and O7 are `Met`; O5 is the one
+  obligations as functions over it. Register 233 rows, 222 evaluated and
+  **no row pinned red** — row 112 was the last, inverted by runtime architecture 31 — beside
+  5 unreachable across the crate line (ADR 0023) and 6 unsubjected; every scene stood up. **Two
+  inversions there were the runtime's and no components ticket's**: row 112 and row 161, the bytes
+  on the wire, by runtime architecture 34. Obligations **O1–O4, O6 and O7 are `Met`; O5 is the one
   left**, at **14 of 34 `(component, axis)` pairs**, and is watched panicking, because a query with
   no evidence must fail loudly rather than pass.
 - **`vitui-apps` — 18 applications**, one file each in `examples/`. A component ticket ships one, and
@@ -89,6 +90,21 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   `vitui_components::scroll`, previously invisible to every counter — is now a runaway, and so is a
   held arrow key, which is honest and is not the fault the detector is consulted about.
 
+- **A component may ask about two colours, and a consumer may configure its own engine** (runtime
+  architecture 34, resolved 2026-08-31). `Theme::colours_differ_on_wire(Rgb, Rgb)` is
+  `roles_differ_on_wire` asked of two colours instead of two roles — `const`, no index published, so
+  ADR 0007 is untouched — and it is what discharges `Theme::custom`'s stated obligation, which had
+  no verb behind it for four tickets. And `Clock`, `Output`, `Overrides`, `WidthSource` and
+  `InputConfig` are re-exported, which closes issue 22's rule on `Config` itself: *every type needed
+  to **construct** one the surface accepts is reachable.* Five names and not three, because
+  `Overrides` carries a width source and `Config` carries an input config. **The tier is pinned on
+  `Config::overrides` and never on the theme alone** — `Theme::resolve(tier)` narrows the thirteen
+  roles and says nothing about what the engine quantises a `custom` paint into. What it bought:
+  components register row 161 runs, and a whole-row translation that changes **24 000 of 24 000
+  cells** costs **1.25% of a full repaint**, because the engine prices the rows the shift exposed.
+  Byte *totals* are reported and never gated — a byte count is one step from a golden byte string,
+  and the encoding is exactly the part allowed to change.
+
 - **Nothing holds the focus until an application seats it** (issue 25): `if cx.focused().is_none()`
   inside the draw. A runtime that seats the first stop was refused.
 - **`Driver::unhandled` is read *after* the frame**, never before — it is a window onto the same
@@ -133,11 +149,10 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   exactly, which an overlay bar cannot satisfy.
 
 **Open questions — do not "fix" code to match one sentence of a spec without resolving the ticket.**
-Seven stand open. Six were filed by the layer above the one they land in; **36 is the first one
+Six stand open. Five were filed by the layer above the one they land in; **36 is the first one
 this map filed against itself**, and it was found by resolving 31.
 
-- **Runtime architecture 34** — a picture cannot ask what the terminal will show: no colour-pair question
-  and no readable wire. **35** — an application cannot give its terminal to an editor, because
+- **Runtime architecture 35** — an application cannot give its terminal to an editor, because
   `Screen::suspend` now exists (ADR 0052) and `Driver` owns it privately — the third *engine verb
   behind `Driver`'s private field* after 23 and 30. **36** — `Ctx::clear` and `Ctx::caret_with`
   *read* the `area()` that 31 stopped childing at, so a focused caret inside a scrolled form is

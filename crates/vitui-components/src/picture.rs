@@ -43,10 +43,13 @@
 //!
 //! # The two traps, both of which produced a comfortable number
 //!
-//! **A picture translated by a whole cell row is a scroll.** [`Build::shift`] is that translation,
-//! and what this crate can see of it is the cell half: **24 000 of 24 000 cells change value**,
-//! against a still picture's 0. The byte half — the engine's scroll-region pre-pass emitting 5 885
-//! bytes for it — is [`crate::gates::Standing::Unreachable`] from here and says what it needs.
+//! **A picture translated by a whole cell row is a scroll**, and the two halves of that disagree by
+//! a factor of eighty. [`Build::shift`] is the translation: the cell half is **24 000 of 24 000
+//! cells change value**, against a still picture's 0, and a repaint priced by the cell would
+//! therefore price it at the whole screen. The byte half says **11 731 bytes — 1.25% of a full
+//! repaint** — because the engine's scroll pre-pass prices the rows the shift exposed, and 11 731
+//! is one row's own 11 715 plus sixteen bytes of scroll sequence. Both halves are needed and the
+//! byte half is the one that was unreadable until runtime architecture issue 34.
 //!
 //! **A QR module must be square and a cell is not.** [`Modules`] is the matrix and
 //! [`readback`] is the readback: the drawn cells are decoded back into modules through the four
@@ -54,34 +57,44 @@
 //! **not worse, invalid** — [`module_aspect`] prices it — and [`Pairing::Inverted`] is the
 //! one-character mistake the readback exists to catch.
 //!
-//! # What the screen cannot ask, and the shape of it
+//! # What the screen could not ask, and both answers came back as verbs
 //!
-//! Two of this ticket's measurements are bytes on the wire, and **no crate above the engine can
-//! read a byte the engine wrote**. [`vitui_runtime::Config`] is reachable and `Clock`, `Output` and
-//! `Overrides` are not in `vitui_runtime::line::ENGINE_NAMES` at all, so the only headless door is
-//! `Driver::headless`, whose sink is a `Vec` nobody can reach. That is runtime architecture issue
-//! 22's own rule — *a name a consumer can write but not build is a barrier wearing a re-export's
-//! clothes* — arriving on `Config` itself, and it is filed rather than worked around.
+//! This is the section that used to say *filed rather than worked around*, and it is kept in that
+//! shape because the sequence is the finding. Runtime architecture issue 34 answered both halves.
 //!
-//! One measurement is a quantiser, and the route to it is a **contrivance that works**. §14 asks
+//! **Two of this ticket's measurements are bytes on the wire, and no crate above the engine could
+//! read a byte the engine wrote.** [`vitui_runtime::Config`] was reachable and `Clock`, `Output`,
+//! `Overrides`, `WidthSource` and `InputConfig` were not in `vitui_runtime::line::ENGINE_NAMES` at
+//! all, so the only headless door was `Driver::headless`, whose tier is hard-coded to truecolor and
+//! whose sink is a `Vec` nobody can reach — issue 22's own rule (*a name a consumer can write but
+//! not build is a barrier wearing a re-export's clothes*) arriving on `Config` itself. All five are
+//! re-exported; [`bytes_over`] and [`bytes_by_shift`] are what that bought, and both halves of the
+//! door mattered — the sink for the bytes, the `Overrides` for the tier they are a tier's bytes of.
+//!
+//! **One measurement is a quantiser, and the route to it was a contrivance that worked.** §14 asks
 //! how many of a picture's horizontal distinctions survive at sixteen colours;
-//! [`vitui_runtime::Theme::custom`] says in as many words that the component calling it *owes a
-//! branch on the terminal's own capabilities* and gives it no verb to ask with —
+//! [`vitui_runtime::Theme::custom`] said in as many words that the component calling it *owes a
+//! branch on the terminal's own capabilities* and gave it no verb to ask with —
 //! `roles_differ_on_wire` compares two of the thirteen **roles**, and a picture's cells are outside
-//! the theme by construction. [`wire_differ`] is the way through: `Roles::from_palette` maps
-//! `base08` and `base0A` **verbatim** onto `Role::Danger` and `Role::Warn`, over the same ground
-//! and with the same attributes, so a theme authored with two arbitrary colours in those two slots
-//! answers *do these two colours collapse at this tier* through the shipped quantiser. It is one
-//! theme construction per distinct colour pair, and it is filed as a runtime architecture issue
-//! beside the number it produced.
+//! the theme by construction. [`wire_differ`] was the way through, at one whole theme construction
+//! per colour pair: `Roles::from_palette` maps `base08` and `base0A` **verbatim** onto
+//! `Role::Danger` and `Role::Warn`, over the same ground and with the same attributes. It is now
+//! `Theme::colours_differ_on_wire` — the same question asked of two colours — and the counts that
+//! come back are the same ones, which is the corroboration a contrivance is owed. **The verb alone
+//! bought nothing**: the theme has to be hoisted out of the call as well, because
+//! `Theme::default().resolve(tier)` in the body is the contrivance's own cost with the free part
+//! removed. 773 ns, 811 ns and 57 ns are the three arms — see [`wire_differ`].
 
 use std::collections::HashMap;
 use std::fmt::Write as _;
+use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
 use vitui_runtime::ctx::Driver;
-use vitui_runtime::theme::{CATPPUCCIN_MOCHA, Density, Role};
-use vitui_runtime::{ColorDepth, Ctx, GlyphSet, Rect, Rgb, Theme};
+use vitui_runtime::theme::{CATPPUCCIN_MOCHA, Density};
+use vitui_runtime::{
+    Clock, ColorDepth, Config, Ctx, GlyphSet, Output, Overrides, Rect, Rgb, Theme,
+};
 
 use crate::chart::raster::{Geom, Kind, RUNGS, cluster, geom};
 use crate::counters::Tally;
@@ -545,6 +558,144 @@ fn driver_for(build: Build) -> Driver {
     driver
 }
 
+// ── the wire, which is what runtime architecture issue 34 unblocked ──────────────────────────────
+
+/// **A driver whose bytes land somewhere this crate can read, at the build's own tier.**
+///
+/// Runtime architecture issue 34, part 2. Until it resolved, `Driver::headless` was the only
+/// headless door above the engine: its sink is a `Vec` moved into the engine and never returned, and
+/// its tier is hard-coded to truecolor. Both halves mattered here — a byte count needs the sink and
+/// a byte count *per tier* needs the override — and neither `Output`, `Clock`, `Overrides`,
+/// `WidthSource` nor `InputConfig` was in `vitui_runtime::line::ENGINE_NAMES` at all, reachable or
+/// not, so no `Config` this crate could build sent its bytes anywhere it could read.
+///
+/// **The tier is pinned on the `Overrides` and not only on the `Theme`.** `driver_for` seats
+/// `build.theme()`, which narrows the *thirteen roles* and says nothing about what the engine will
+/// quantise a `custom` paint into — and every cell of this screen is `custom`. A byte count taken
+/// through a truecolor engine with a C16 theme is a truecolor byte count.
+///
+/// **Two `Tap`s share one buffer**: the one boxed into `Output::Sink` is the engine's writer and is
+/// gone the moment it crosses, and the one returned is this crate's reader. That split is the shape
+/// of the barrier — the engine *owns* its writer — rather than a way around it.
+fn tapped_driver_for(build: Build) -> (Driver, Tap) {
+    let wire = Tap(Arc::new(Mutex::new(Vec::new())));
+    let driver = Driver::attach(
+        Config {
+            clock: Clock::Manual,
+            output: Output::Sink(Box::new(Tap(Arc::clone(&wire.0)))),
+            size: (W, H),
+            overrides: Overrides {
+                colors: Some(build.depth),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        build.theme(),
+    )
+    .expect("a configured sink cannot fail to attach");
+    (driver, wire)
+}
+
+/// The buffer, on both sides of the seam: boxed into `Output::Sink` it is the engine's writer, and
+/// held by [`tapped_driver_for`]'s caller it is the reader. A type rather than a `Vec` because the
+/// box is moved in and nothing hands it back.
+///
+/// `Send` because `Output::Sink` asks for it — on a real clock the box crosses to the render thread
+/// — and shared through an `Arc<Mutex<..>>` because *the engine owns the writer* is the invariant
+/// that made this measurement unreachable in the first place. There is no `unsafe` here and none is
+/// available: ADR 0034 is workspace-wide.
+struct Tap(Arc<Mutex<Vec<u8>>>);
+
+impl Tap {
+    /// Bytes written so far, and the counter is **cumulative** — read as deltas, which is the trap
+    /// this workspace has met more than once.
+    fn len(&self) -> u64 {
+        self.0.lock().expect("the tap is not poisoned").len() as u64
+    }
+}
+
+impl std::io::Write for Tap {
+    fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
+        self.0
+            .lock()
+            .expect("the tap is not poisoned")
+            .extend_from_slice(b);
+        Ok(b.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+/// **Bytes the engine wrote, per frame, over `frames` frames of one build.**
+///
+/// The still picture's shape: the first frame carries the whole screen and every frame after it
+/// carries nothing, because damage is marked at write time and an equal write marks none. The
+/// counter behind it is cumulative and is differenced here.
+///
+/// **`attach` writes before any frame does** — the alternate screen, the negotiation, the mode sets
+/// — so the baseline is taken after the driver exists and before the first `frame`, and what is
+/// returned is one number a frame and never a total.
+pub fn bytes_over(build: Build, frames: u32) -> Vec<u64> {
+    assert!(frames > 0, "a per-frame figure needs a frame");
+    let (mut driver, wire) = tapped_driver_for(build);
+    let mut canvas = Canvas::new(W, H);
+    let mut at = wire.len();
+    let mut out = Vec::with_capacity(frames as usize);
+    for _ in 0..frames {
+        // The surface is carried across frames for `repaints_over`'s reason: a fresh `Pen` re-records
+        // every cell as a first touch, and the second frame's zero is the whole claim.
+        let mut pen = Pen::over(canvas);
+        driver.frame(|cx| picture_into(&mut pen, cx, whole(), build, &mut Census::default()));
+        pen.end_frame();
+        canvas = pen.into_canvas();
+        let now = wire.len();
+        out.push(now - at);
+        at = now;
+    }
+    out
+}
+
+/// **Bytes a translation by `rows` whole cell rows costs, on an already-painted screen.**
+///
+/// The byte half of [`cells_changed_by_shift`], and the trap §14 asks to be gated: a whole-row
+/// translation changes **every** cell, so a repaint that priced it by the cell would price it at the
+/// whole screen. The number is what the engine's serializer actually emits, which is the
+/// comfortable-number check the cell count cannot perform.
+pub fn bytes_by_shift(build: Build, rows: u16) -> u64 {
+    let (mut driver, wire) = tapped_driver_for(build);
+    let mut canvas = Canvas::new(W, H);
+    // Frame one: the still screen, so that what frame two costs is the translation and not the
+    // picture.
+    let mut pen = Pen::over(canvas);
+    driver.frame(|cx| {
+        picture_into(
+            &mut pen,
+            cx,
+            whole(),
+            build.shifted(0),
+            &mut Census::default(),
+        )
+    });
+    pen.end_frame();
+    canvas = pen.into_canvas();
+
+    let at = wire.len();
+    let mut pen = Pen::over(canvas);
+    driver.frame(|cx| {
+        picture_into(
+            &mut pen,
+            cx,
+            whole(),
+            build.shifted(rows),
+            &mut Census::default(),
+        )
+    });
+    pen.end_frame();
+    wire.len() - at
+}
+
 /// The whole screen.
 pub fn whole() -> Rect {
     Rect::new(0, 0, W, H)
@@ -698,24 +849,84 @@ pub fn cost(build: Build, frames: u32) -> Duration {
 /// **Do these two colours survive as two at this tier?**
 ///
 /// The verb [`Theme::custom`]'s own documentation says a component owes and the runtime does not
-/// offer. `Roles::from_palette` puts `base08` on [`Role::Danger`] and `base0A` on [`Role::Warn`]
+/// offer. `Roles::from_palette` puts `base08` on [`Role::Danger`](vitui_runtime::Role::Danger) and `base0A` on [`Role::Warn`](vitui_runtime::Role::Warn)
 /// **verbatim**, both over the page and both with no attributes, so the pair key those two roles
 /// are compared by differs exactly when the two colours differ on the wire. Everything else in the
 /// palette is held fixed, and neither role goes through the `pick` that could substitute one.
 ///
-/// It is one theme construction a call — 1.03 µs — which is why [`Distinctions`] memoises. Filed as
-/// a runtime architecture issue: the question is `roles_differ_on_wire`'s, asked of two colours
-/// instead of two roles.
+/// **It is now the runtime's own verb, and it was a contrivance for one ticket.**
+/// `Theme::colours_differ_on_wire` is `roles_differ_on_wire` asked of two colours instead of two
+/// roles — runtime architecture issue 34, which this screen filed and which named this function as
+/// the friction. What it replaced authored a whole thirteen-role theme per colour pair, which is
+/// why [`Distinctions`] memoises.
+///
+/// # The verb alone bought nothing, and the number says so
+///
+/// Measured on the M1 Max, `--release`, minimum of twenty over two thousand pairs at C16:
+///
+/// | | ns a call |
+/// |---|---|
+/// | the contrivance | **773** |
+/// | the verb, theme built per call | **811** |
+/// | the verb, theme hoisted | **57** |
+///
+/// **The middle row is the one worth keeping.** `Theme::default()` is
+/// `Theme::authored(&CATPPUCCIN_MOCHA, ..)` — `Roles::from_palette` over sixteen entries, thirteen
+/// styles built, thirteen keys minted, then thirteen more at `resolve` — so a
+/// `Theme::default().resolve(tier)` inside this body is *the contrivance's own cost with the
+/// palette mutation removed*, and the mutation was the free part. The first rewrite of this
+/// function did exactly that and recorded the cost as gone; the number is here so the next reader
+/// does not have to take the sentence on trust.
+///
+/// A report and not a gate — a timing is a report (§21) — and the ratio is the point rather than
+/// the digits.
+///
+/// The contrivance is worth recording rather than deleting the memory of: `Roles::from_palette` maps
+/// `base08` and `base0A` **verbatim** onto [`Role::Danger`](vitui_runtime::Role::Danger) and [`Role::Warn`](vitui_runtime::Role::Warn), both over the page
+/// and both with no attributes, so a theme authored with two arbitrary colours in those two slots
+/// answered this question through the shipped quantiser. It worked, and *that it worked* is why
+/// components register row 158 is `Evaluated` rather than `Unreachable` — the discipline that
+/// catches a wrong `Unreachable` is trying it. The friction was filed instead, and the answer came
+/// back as a verb.
+///
+/// **The theme is hoisted out of the call, and that is the half of this that is not the verb.**
+/// `colours_differ_on_wire` reads only `Theme::tier`, so the theme is a parameter of the *tier* and
+/// never of the pair — and a `Theme::default().resolve(tier)` inside the body would have kept every
+/// byte of the contrivance's cost while the documents recorded it as gone. `RESOLVED` is four
+/// themes built once. The signature does not change, because the tier is what the caller has.
 pub fn wire_differ(a: u32, b: u32, tier: ColorDepth) -> bool {
     if a == b {
         return false;
     }
-    let mut palette = CATPPUCCIN_MOCHA;
-    palette[8] = a;
-    palette[10] = b;
-    Theme::authored(&palette, RUNGS[1], Density::default())
-        .resolve(tier)
-        .roles_differ_on_wire(Role::Danger, Role::Warn)
+    RESOLVED[tier_index(tier)].colours_differ_on_wire(rgb(a), rgb(b))
+}
+
+/// **The four tiers' themes, built once.** The whole of what [`wire_differ`] needs from a theme is
+/// its tier, and there are four of those.
+///
+/// A `LazyLock` for `crate::document`'s reason and this file's own: *a driver built inside a
+/// measurement window is what the window measures*, and a theme built inside a per-pair call is
+/// what the per-pair number measures. `Theme` is thirteen `Spec`s, thirteen `Style`s and a
+/// revision — plain data — so a `static` of four costs nothing to share.
+static RESOLVED: LazyLock<[Theme; 4]> = LazyLock::new(|| {
+    [
+        Theme::default().resolve(ColorDepth::TrueColor),
+        Theme::default().resolve(ColorDepth::Indexed256),
+        Theme::default().resolve(ColorDepth::Ansi16),
+        Theme::default().resolve(ColorDepth::None),
+    ]
+});
+
+/// Where a tier sits in [`RESOLVED`]. **An exhaustive match and not an `as usize`**: the engine's
+/// `ColorDepth` is not this crate's to number, and a variant added there must arrive here as a
+/// compile error rather than as an index.
+const fn tier_index(tier: ColorDepth) -> usize {
+    match tier {
+        ColorDepth::TrueColor => 0,
+        ColorDepth::Indexed256 => 1,
+        ColorDepth::Ansi16 => 2,
+        ColorDepth::None => 3,
+    }
 }
 
 /// **The horizontal distinctions a picture has at one tier**, and what it had at truecolor.
@@ -1030,6 +1241,68 @@ pub const DISTINCTIONS: [u64; 4] = [23_920, 23_899, 15_347, 0];
 /// 2.8x — where §14's B/cell claim is that the source moves the wire by 9%.
 pub const DISTINCTIONS_GRADIENT: [u64; 4] = [20_400, 473, 174, 0];
 
+/// **Bytes the engine writes for this screen's first four frames, at truecolor.**
+/// `[937 233, 0, 0, 0]`.
+///
+/// Runtime architecture issue 34 is what made this readable at all: `Driver::headless` moves its
+/// `Vec` into the engine and never returns it, so until `Output`, `Clock` and `Overrides` reached
+/// `vitui_runtime::line::ENGINE_NAMES` no crate above the engine could read a byte the engine wrote.
+///
+/// **The three zeros are the gate and the first number is a report**, which is this workspace's own
+/// rule about encodings: a golden byte *string* is refused because the encoding is exactly the part
+/// allowed to change, and a byte *count* is one step from a byte string. What does not depend on the
+/// encoding is the shape — *a still picture costs its screen once and then nothing* — and that is
+/// what [`WIRE_STEADY_FRAMES`] asserts.
+///
+/// §14 prices the same screen at **900 134 and then 0, 0, 0**. The zeros reproduce exactly; the
+/// total is 4.1% larger, which is a prototype's photograph and not a defect.
+pub const WIRE_FRAMES: [u64; 4] = [937_233, 0, 0, 0];
+
+/// **Frames after the first that must cost exactly zero bytes. Three.**
+///
+/// The gate [`WIRE_FRAMES`]'s first entry is not. Damage is marked at write time and an equal write
+/// marks none, so a picture that has not changed is a frame the serializer has nothing to say about
+/// — and a *counter on the wrong side of the question* would have been `frames[0] > 0`, which is
+/// green on the build where every frame repaints.
+pub const WIRE_STEADY_FRAMES: usize = 3;
+
+/// **Bytes a cell costs on the wire at truecolor. 39.05.**
+///
+/// [`WIRE_FRAMES`]`[0] / `[`CELLS`]. §14 says **37.5**, and it is the same measurement on a
+/// different photograph: reported, never gated.
+pub const WIRE_PER_CELL: f64 = 39.05;
+
+/// **Bytes a translation by one whole cell row costs. 11 731 of a 937 233-byte screen — 1.25%.**
+///
+/// **This is §14's trap, and the number inverts it.** [`SHIFTED_CELLS`] says the translation changes
+/// **24 000 of 24 000** cells, and a repaint priced by the cell would therefore price it at the whole
+/// screen. The engine's scroll pre-pass emits the region and repaints the one row the shift exposed:
+/// 11 731 bytes against a row's own 11 715, so the sixteen extra bytes are the scroll sequence.
+///
+/// §14 says **5 885**, which cannot be reconciled with its own 37.5 B/cell — a 300-cell row at 37.5
+/// is 11 250, not 5 885. The measured pair is internally consistent and §14's is not; both are
+/// printed by `examples/media_numbers.rs`.
+pub const WIRE_SHIFTED: u64 = 11_731;
+
+/// **The share of a full repaint a one-row translation costs, as a ceiling. 2%.**
+///
+/// Measured at **1.2517%**, so the headroom is 1.6x. The ratio is the gate rather than
+/// [`WIRE_SHIFTED`] because it survives an encoding change: whatever a cell costs, a translation
+/// costs the rows it exposed and not the cells whose value changed.
+pub const WIRE_SHIFT_SHARE_CEILING: f64 = 0.02;
+
+/// **Bytes the first frame costs at truecolor, 256, 16 and no colour at all.**
+/// `[937 233, 520 567, 166 463, 72 168]`.
+///
+/// The other half of what issue 34 unblocked, and the half `Driver::set_theme` could never have
+/// reached: seating a `Theme::resolve(tier)` narrows the **thirteen roles** and says nothing about
+/// what the engine quantises a `custom` paint into — and every cell here is `custom`. The tier is
+/// pinned on `Config::overrides` so that the bytes are the tier's.
+///
+/// The gate over it is the **monotonicity**, which is a property of quantisation and not of a
+/// spelling: a poorer terminal is told less. Reported at 39.05, 21.69, 6.94 and 3.01 B/cell.
+pub const WIRE_BY_TIER: [u64; 4] = [937_233, 520_567, 166_463, 72_168];
+
 /// **A module's aspect at one module a cell and at two, on a nominal 1:2 cell. 0.50 and 1.00.**
 pub const ASPECT_NOMINAL: [f32; 2] = [0.5, 1.0];
 
@@ -1227,6 +1500,24 @@ mod tests {
 
     /// **The probe the distinction census rests on, checked in both directions.**
     ///
+    /// **Each of the four themes is at the index `tier_index` sends its tier to.**
+    ///
+    /// Two derivations of one mapping — the order of a literal array and the arms of a match — and
+    /// nothing else in this crate would notice them disagreeing: every count `wire_differ` produces
+    /// would simply be another tier's, and `DISTINCTIONS`'s four entries would be a permutation of
+    /// themselves. The theme knows its own tier, so the equality is available and costs nothing.
+    #[test]
+    fn every_resolved_theme_is_at_its_own_tiers_index() {
+        for tier in DEPTHS.into_iter().chain(std::iter::once(ColorDepth::None)) {
+            assert_eq!(RESOLVED[tier_index(tier)].tier(), tier);
+        }
+        assert_eq!(
+            RESOLVED.len(),
+            4,
+            "four tiers, and `tier_index` is exhaustive over them"
+        );
+    }
+
     /// [`wire_differ`] is a contrivance — it authors a theme per colour pair — and a contrivance
     /// that is silently always-true or always-false would make every count above whatever the total
     /// is. So it is asserted on colours whose answer is known independently: two colours one unit
@@ -1266,6 +1557,90 @@ mod tests {
         // frame changes every cell and every frame after it changes none.
         let frames = repaints_over(Build::correct(), 4);
         assert_eq!(frames, vec![WRITES, 0, 0, 0]);
+    }
+
+    /// **The wire: a still picture costs its screen once and then nothing, and a whole-row
+    /// translation costs a row rather than a screen.**
+    ///
+    /// Components register row 161, and the gate that could not be written from this crate at all
+    /// until runtime architecture issue 34 re-exported `Clock`, `Output`, `Overrides`,
+    /// `WidthSource` and `InputConfig`. Four assertions and **none of them is a byte total**: a
+    /// golden byte string is refused in this workspace because the encoding is the part allowed to
+    /// change, and a byte count is one step from a byte string. What is gated is what survives an
+    /// encoding change.
+    ///
+    /// 1. **The three zeros.** A still picture is a frame the serializer has nothing to say about.
+    /// 2. **The share.** A one-row translation is under 2% of a full repaint — measured 1.2517%,
+    ///    1.6x of headroom — which is §14's trap inverted: [`SHIFTED_CELLS`] is 24 000 of 24 000,
+    ///    and the wire is priced by the rows the shift exposed.
+    /// 3. **Linearity.** `k` rows cost `k` times one row, to within 1%. A pre-pass that had given up
+    ///    and repainted would be flat at the screen.
+    /// 4. **Monotonicity by tier.** A poorer terminal is told strictly less — the half
+    ///    `Driver::set_theme` could never reach, because seating a resolved theme narrows the
+    ///    thirteen roles and every cell of this screen is outside them.
+    ///
+    /// The totals themselves are [`WIRE_FRAMES`], [`WIRE_SHIFTED`] and [`WIRE_BY_TIER`], and
+    /// `examples/media_numbers.rs` prints them beside §14's.
+    #[test]
+    fn a_still_picture_costs_nothing_and_a_translation_costs_a_row() {
+        let correct = Build::correct();
+
+        let frames = bytes_over(correct, 4);
+        assert_eq!(frames.len(), 1 + WIRE_STEADY_FRAMES);
+        assert!(
+            frames[0] > 0,
+            "the first frame wrote nothing at all, so the tap is not on the engine's writer"
+        );
+        assert_eq!(
+            &frames[1..],
+            &[0; WIRE_STEADY_FRAMES],
+            "a picture that did not change cost {frames:?} bytes"
+        );
+
+        let full = frames[0];
+        let one = bytes_by_shift(correct, 1);
+        assert!(
+            one > 0,
+            "a translation that changed every cell of the screen cost no bytes at all"
+        );
+        let share = one as f64 / full as f64;
+        assert!(
+            share < WIRE_SHIFT_SHARE_CEILING,
+            "a one-row translation cost {one} bytes of a {full}-byte screen — {:.4}%, against a \
+             {:.0}% ceiling. §14's trap is that a repaint priced by the cell would price this at \
+             the whole screen, and {SHIFTED_CELLS} of {CELLS} cells change value",
+            100.0 * share,
+            100.0 * WIRE_SHIFT_SHARE_CEILING
+        );
+        // Nothing moved is nothing written, which is the control arm: without it the share above is
+        // green on an engine that emits nothing at all.
+        assert_eq!(bytes_by_shift(correct, 0), 0);
+
+        // **Linear in the rows exposed**, which is what says the pre-pass ran rather than gave up.
+        for rows in [2u16, 3, 8] {
+            let many = bytes_by_shift(correct, rows);
+            let expected = one * rows as u64;
+            let drift = (many as f64 - expected as f64).abs() / expected as f64;
+            assert!(
+                drift < 0.01,
+                "{rows} rows cost {many} bytes against {expected} for one row {rows} times \
+                 ({:.2}% apart), so the cost is not the rows the shift exposed",
+                100.0 * drift
+            );
+        }
+
+        // **A poorer terminal is told strictly less.** The tier is pinned on `Config::overrides`;
+        // seating a resolved theme would leave every one of these a truecolor number, because every
+        // cell of this screen is `Theme::custom`.
+        let by_tier: Vec<u64> = DEPTHS
+            .into_iter()
+            .chain(std::iter::once(ColorDepth::None))
+            .map(|d| bytes_over(correct.tier(d), 1)[0])
+            .collect();
+        assert!(
+            by_tier.windows(2).all(|w| w[0] > w[1]),
+            "the wire did not shrink as the terminal got poorer: {by_tier:?}"
+        );
     }
 
     /// **The module readback catches the pairing, and the aspect trap is invisible to it.**

@@ -42,7 +42,8 @@ use vitui_components::media::{
 use vitui_components::picture::{
     self, ADJACENT_EQUAL, ADJACENT_EQUAL_GRADIENT, BAR_LADDER, Build, CELL_ASPECT_MEASURED,
     CELL_ASPECT_NOMINAL, CELLS, CUSTOMS, DEPTHS, H, HORIZONTAL_PAIRS, LADDER, Ladder, MARK_BITS,
-    Pairing, QR_MODULE_COUNT, Source, W, v1_symbol,
+    Pairing, QR_MODULE_COUNT, SHIFTED_CELLS, Source, W, WIRE_BY_TIER, WIRE_FRAMES, WIRE_PER_CELL,
+    WIRE_SHIFTED, bytes_by_shift, bytes_over, v1_symbol,
 };
 use vitui_components::scenes::{SCENES, scenes_for};
 use vitui_runtime::ctx::Driver;
@@ -70,6 +71,7 @@ fn main() {
     the_two_traps();
     the_family_census();
     the_chrome();
+    the_wire();
     what_this_crate_cannot_ask();
     what_does_not_reproduce();
 }
@@ -522,29 +524,121 @@ fn the_chrome() {
     );
 }
 
-/// 8. What this crate cannot ask, with the item each answer needs.
-fn what_this_crate_cannot_ask() {
-    println!("report  what this crate cannot ask, and the item each answer needs:");
+/// 8. The wire, which this crate could not read at all until runtime architecture issue 34.
+fn the_wire() {
+    println!("report  the wire — bytes the engine actually wrote, per frame:");
     println!(
-        "  the wire.  §14 prices a picture at 37.5 B/cell, 900 KB a frame, 27.0 MB/s at 30 fps, \
-         and a whole-row translation at 5 885 bytes. **No crate above the engine can read a byte \
-         the engine wrote.** `vitui_runtime::Config` is reachable; `Clock`, `Output` and \
-         `Overrides` are not in `vitui_runtime::line::ENGINE_NAMES` at all, so the only headless \
-         door is `Driver::headless`, whose sink is a `Vec` nobody can reach. Needs a driver that \
-         hands its sink back, or those three names re-exported"
+        "  {:<34}  {:>10}  {:>10}  {:>10}",
+        "", "measured", "recorded", "§14 / x1"
+    );
+
+    let correct = Build::correct();
+    let frames = bytes_over(correct, 4);
+    let full = frames[0];
+    println!(
+        "  {:<34}  {full:>10}  {:>10}  {:>10}",
+        "the first frame, truecolor", WIRE_FRAMES[0], "900 134"
     );
     println!(
-        "  the quantiser.  `Theme::custom`'s own documentation says the caller *owes a branch on \
-         the terminal's own capabilities* and offers no verb to ask with: `roles_differ_on_wire` \
-         compares two of the thirteen roles, and a picture's cells are outside the theme by \
-         construction. `picture::wire_differ` is the way through — `Roles::from_palette` maps \
-         base08 and base0A verbatim onto Danger and Warn — and it is one theme construction a \
-         colour pair. Needs `Theme::colours_differ_on_wire(Rgb, Rgb)`"
+        "  {:<34}  {:>10.2}  {WIRE_PER_CELL:>10}  {:>10}",
+        "bytes a cell",
+        full as f64 / CELLS as f64,
+        "37.5"
     );
-    println!("  Both are filed as runtime architecture issue 34.\n");
+    println!(
+        "  {:<34}  {:>10}  {:>10}  {:>10}",
+        "the three frames after it",
+        format!("{:?}", &frames[1..]),
+        format!("{:?}", &WIRE_FRAMES[1..]),
+        "0, 0, 0"
+    );
+
+    let one = bytes_by_shift(correct, 1);
+    println!(
+        "  {:<34}  {one:>10}  {WIRE_SHIFTED:>10}  {:>10}",
+        "a translation by one whole row", "5 885"
+    );
+    println!(
+        "  {:<34}  {:>10.4}  {:>10}  {:>10}",
+        "  as a share of a full repaint",
+        100.0 * one as f64 / full as f64,
+        "-",
+        "-"
+    );
+    // **`-` in the recorded column and not `WIRE_SHIFTED * rows`.** That column is `picture`'s own
+    // constants, and there is no constant for a multi-row shift; an extrapolation printed there
+    // would disagree with the measurement for ever — 23 474 against 23 462 — because the scroll
+    // sequence is one per frame and does not scale with the rows. A reader applying this report's
+    // own rule to those three lines would read a drift where nothing moved. The linearity is the
+    // gate's claim, at 1%, and the ratio beside each row is what shows it.
+    for rows in [2u16, 3, 8] {
+        let many = bytes_by_shift(correct, rows);
+        println!(
+            "  {:<34}  {many:>10}  {:>10}  {:>10}",
+            format!("  by {rows} rows"),
+            "-",
+            format!("{:.3}x", many as f64 / one as f64)
+        );
+    }
+
+    println!("\n  the same first frame, by tier — the half `Driver::set_theme` cannot reach:");
+    for (depth, recorded) in DEPTHS
+        .into_iter()
+        .chain(std::iter::once(ColorDepth::None))
+        .zip(WIRE_BY_TIER)
+    {
+        let at = bytes_over(correct.tier(depth), 1)[0];
+        println!(
+            "  {:<34}  {at:>10}  {recorded:>10}  {:>9.2}B",
+            format!("  {depth:?}"),
+            at as f64 / CELLS as f64
+        );
+    }
+    println!(
+        "\n  The `recorded` column is `picture`'s own constants — this crate's ledger discipline, \
+         one home for every number — and is a **report against a report**: a drift there is a \
+         screen that was rewritten or an encoding that changed, and telling those two apart is a \
+         reading and not an assertion. The gates are in the column that has none."
+    );
+
+    println!(
+        "\n  **{SHIFTED_CELLS} of {CELLS} cells change value and the wire costs {:.4}% of a full \
+         repaint.** That is §14's trap inverted: a repaint priced by the cell would have priced a \
+         whole-row translation at the whole screen, and the engine prices the rows the shift \
+         exposed — {one} bytes against a row's own {}, so the sixteen extra are the scroll \
+         sequence. The gate is the share, the linearity and the three zeros; the totals above are \
+         a report, because a byte count is one step from a golden byte string and the encoding is \
+         exactly the part allowed to change\n",
+        100.0 * one as f64 / full as f64,
+        full / H as u64
+    );
 }
 
-/// 9. What does not reproduce, said out loud rather than engineered away.
+/// 9. What this crate cannot ask, with the item each answer needs.
+fn what_this_crate_cannot_ask() {
+    println!("report  what this crate could not ask, and the item each answer needed:");
+    println!(
+        "  the wire.  **Answered.** No crate above the engine could read a byte the engine wrote: \
+         `Driver::headless` moves a `Vec` into the engine and never returns it, and `Clock`, \
+         `Output`, `Overrides`, `WidthSource` and `InputConfig` were not in \
+         `vitui_runtime::line::ENGINE_NAMES` at all — reachable or not — so no `Config` this crate \
+         could build sent its bytes anywhere it could read. All five are re-exported; the report \
+         above is what that bought, and register row 161 runs"
+    );
+    println!(
+        "  the quantiser.  **Answered.** `Theme::custom`'s own documentation says the caller *owes \
+         a branch on the terminal's own capabilities* and offered no verb to ask with: \
+         `roles_differ_on_wire` compares two of the thirteen roles, and a picture's cells are \
+         outside the theme by construction. `Theme::colours_differ_on_wire(Rgb, Rgb)` is that verb \
+         — the same question asked of two colours. **The verb alone bought nothing**: \
+         `Theme::default()` authors a thirteen-role theme, so the same body with the verb in it \
+         measures 811 ns against the contrivance's 773. The theme is hoisted to four statics, one \
+         a tier, and the call is 57 ns — 14x, and the hoist is the whole of it"
+    );
+    println!("  Both were runtime architecture issue 34, resolved.\n");
+}
+
+/// 10. What does not reproduce, said out loud rather than engineered away.
 fn what_does_not_reproduce() {
     println!("report  what does not reproduce, said out loud:");
     println!(
@@ -554,6 +648,35 @@ fn what_does_not_reproduce() {
          great deal**, which is the opposite direction from §14's B/cell claim that it moves the \
          wire by 9%: adjacent samples of noise are far apart in colour space and survive a \
          quantiser, adjacent samples of a ramp are one step apart and do not"
+    );
+    // **§14's own two wire numbers do not agree with each other**, which is a stronger statement
+    // than *the screen is different*: a 300-cell row at 37.5 B/cell is 11 250 and not 5 885. The
+    // measured pair is internally consistent, and that consistency is the reason to trust it.
+    let full = bytes_over(Build::correct(), 1)[0];
+    let one = bytes_by_shift(Build::correct(), 1);
+    let gradient = bytes_over(
+        Build {
+            source: Source::Gradient,
+            ..Build::correct()
+        },
+        1,
+    )[0];
+    println!(
+        "  §14's 5 885 bytes for a whole-row translation cannot be reconciled with its own 37.5 \
+         B/cell: a {W}-cell row at 37.5 is {:.0}, not 5 885. The measured pair is internally \
+         consistent — {one} for the translation against a row's own {} of a {full}-byte screen — \
+         and the consistency is the reason to believe it rather than the closeness of any one \
+         number",
+        W as f64 * 37.5,
+        full / H as u64
+    );
+    println!(
+        "  §14 says the source moves the wire by 9%. Measured now that the wire is readable: a \
+         photograph costs {full} bytes and a gradient {gradient}, which is {:.1}% — and it is the \
+         **opposite** direction from the same source's effect on distinctions, where the ramp \
+         loses 99.27% of its adjacencies against the photograph's 35.84%. A ramp is cheap on the \
+         wire *because* its neighbours collapse",
+        100.0 * (full - gradient) as f64 / full as f64
     );
     println!(
         "  §14's QR aspect pair, 0.97 against 0.50, cannot both come from one cell. Two modules a \

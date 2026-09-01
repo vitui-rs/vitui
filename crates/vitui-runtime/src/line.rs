@@ -215,7 +215,7 @@ pub struct EngineName {
 /// `Style` is on the list because `pub struct Paint(pub(crate) Style)` names it in a public
 /// declaration, and it is the one entry nothing is blocked by: the field is restricted, which is the
 /// whole design — a component names a role and can never construct a paint.
-pub const ENGINE_NAMES: [EngineName; 30] = [
+pub const ENGINE_NAMES: [EngineName; 35] = [
     // **Every row carries a path**, and `the_engine_names_on_the_surface_are_all_reachable` is what
     // makes that a gate rather than a claim. Nine of them predate issue 22 and sit in the module that
     // owns the concept; the twenty that arrived with it sit at the crate root, which owns none.
@@ -369,6 +369,39 @@ pub const ENGINE_NAMES: [EngineName; 30] = [
     EngineName {
         name: "Wheel",
         reachable_as: Some("vitui_runtime::Notch"),
+    },
+    // **The five that make `Config` configurable**, and they are the `Mouse` finding one type
+    // further out. `Driver::attach(config: Config, theme: Theme)` accepts a `Config`; a `Config`
+    // carries a `Clock`, an `Output`, an `Overrides` — which carries a `WidthSource` — and an
+    // `InputConfig`, and **none of the five was on this list at all**, reachable or not.
+    //
+    // It is the *weaker* half of issue 22's finding and the consequence is the sharper one.
+    // `Config` derives `Default`, so unlike `Mouse` — which needed a `Buttons` and a `MouseKind`
+    // and had no nameable box a value could travel inside — a value could always be built. What
+    // could not be reached was any **field** of it, which left exactly one headless door above this
+    // crate: `Driver::headless`, whose tier is hard-coded to truecolor and whose sink is a `Vec`
+    // moved into the engine and never returned. So no crate on the far side could read a byte the
+    // engine wrote, and none could resolve a driver at any tier but truecolor. Runtime architecture
+    // issue 34, filed by the layer above; components register row 161 is the measurement it cost.
+    EngineName {
+        name: "Clock",
+        reachable_as: Some("vitui_runtime::Clock"),
+    },
+    EngineName {
+        name: "Output",
+        reachable_as: Some("vitui_runtime::Output"),
+    },
+    EngineName {
+        name: "Overrides",
+        reachable_as: Some("vitui_runtime::Overrides"),
+    },
+    EngineName {
+        name: "WidthSource",
+        reachable_as: Some("vitui_runtime::WidthSource"),
+    },
+    EngineName {
+        name: "InputConfig",
+        reachable_as: Some("vitui_runtime::InputConfig"),
     },
 ];
 

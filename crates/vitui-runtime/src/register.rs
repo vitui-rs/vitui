@@ -1340,8 +1340,11 @@ pub const NEGATIVE_CASES: usize = 31;
 ///
 /// Fifty-eight at ticket 19; **fifty-nine since architecture issue 23**, whose one addition is the
 /// `no_run` loop on [`Driver::wait`](crate::ctx::Driver::wait) — the only doc block in the crate
-/// that cannot be `run`, because a loop with nothing pending parks for ever by design.
-pub const RUNNABLE_EXAMPLES: usize = 59;
+/// that cannot be `run`, because a loop with nothing pending parks for ever by design; **sixty since
+/// architecture issue 34**, whose addition is on
+/// [`Theme::colours_differ_on_wire`](crate::Theme::colours_differ_on_wire) and shows the whole of
+/// the verb: two colours one unit of blue apart, separate at truecolor and one colour at sixteen.
+pub const RUNNABLE_EXAMPLES: usize = 60;
 
 #[cfg(test)]
 mod tests {

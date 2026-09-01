@@ -84,7 +84,7 @@
 //!   observable on a canvas at all**: `Theme::resolve` returns the same paint for all thirteen roles
 //!   at all four depths, because quantisation is the engine's and happens before the mirror.
 //! - [`gates`] — §21's register: **two hundred and thirty-three gates as rows, two hundred and
-//!   twenty-one of them evaluated and none pinned red**, six unreachable across the crate line with
+//!   twenty-two of them evaluated and none pinned red**, five unreachable across the crate line with
 //!   what would have to become public, and six with nothing to run over. An instrument is a
 //!   file in it, so a row that has stopped running turns the register red here. **One of those rows
 //!   was not unreachable and had said it was for five tickets** — see that module's header, because

@@ -1126,6 +1126,11 @@ impl Theme {
     /// terminal's own capabilities — the two colours it picked may be one colour on the wire, and no
     /// [`Distinction`] bit covers them.
     ///
+    /// **The verb that discharges it is [`Theme::colours_differ_on_wire`]**, and it is here because
+    /// this sentence stood for four tickets with nothing to answer it: the one question the surface
+    /// had about the wire was over the thirteen **roles**, and a `custom` cell is outside them by
+    /// construction. Runtime architecture issue 34.
+    ///
     /// **It is a per-call cost and not a lookup.** [`Theme::paint`] reads an array; this builds a
     /// style. A component that calls it per cell is paying per cell, so a component that calls it at
     /// all should publish its own call census.
@@ -1219,6 +1224,39 @@ impl Theme {
     pub const fn roles_differ_on_wire(&self, a: Role, b: Role) -> bool {
         let (x, y) = (self.keys[a.index()], self.keys[b.index()]);
         x.0 != y.0 || x.1 != y.1 || x.2 != y.2
+    }
+
+    /// Whether two **colours** are distinguishable on the wire, at the tier this theme was resolved
+    /// for.
+    ///
+    /// [`Theme::roles_differ_on_wire`] asked of two colours instead of two roles, and it exists
+    /// because the one caller [`Theme::custom`]'s obligation is addressed to is the one caller the
+    /// role-pair question cannot serve: **a paint made from two `Rgb` is outside the thirteen roles
+    /// by construction**, so the branch `custom` says the component owes had nothing to branch on.
+    /// Runtime architecture issue 34, found by the first screen in the workspace whose every cell is
+    /// `custom`.
+    ///
+    /// # It publishes no index, which is what keeps ADR 0007 intact
+    ///
+    /// *Do these two look the same* is a fact a component may act on. *Which index this landed on*
+    /// is not — nothing in this process may read the sixteen colours the terminal is configured
+    /// with, so an index handed out would be an answer that is wrong on half of ten real terminal
+    /// profiles. The return is a `bool` for that reason and not for convenience.
+    ///
+    /// The obligation is [`Theme::roles_differ_on_wire`]'s, verbatim: a component reading `false`
+    /// owes a **second axis** — a glyph, a rule, a position — and never a darker colour, because a
+    /// darker colour is the same axis again and collapses in the same place.
+    ///
+    /// ```
+    /// use vitui_runtime::{ColorDepth, Rgb, Theme};
+    ///
+    /// let (a, b) = (Rgb::new(0x10, 0x20, 0x30), Rgb::new(0x10, 0x20, 0x31));
+    /// assert!(Theme::default().resolve(ColorDepth::TrueColor).colours_differ_on_wire(a, b));
+    /// assert!(!Theme::default().resolve(ColorDepth::Ansi16).colours_differ_on_wire(a, b));
+    /// ```
+    #[must_use]
+    pub const fn colours_differ_on_wire(&self, a: Rgb, b: Rgb) -> bool {
+        wire::key(a, self.tier) != wire::key(b, self.tier)
     }
 
     /// What a component should declare when it registers a hoverable region.
@@ -2084,6 +2122,94 @@ mod seam {
             !c16.roles_differ_on_wire(Role::Warn, Role::Ok),
             "Warn and Ok are both index 7 at C16"
         );
+    }
+
+    /// **The colour-pair question agrees with the role-pair question wherever both can be asked.**
+    ///
+    /// Runtime architecture issue 34. `roles_differ_on_wire` compares three cached keys minted at
+    /// `resolve`; `colours_differ_on_wire` mints one live. Two derivations of one fact, and the join
+    /// is the pairs of roles that share a ground and an attribute set — over those, the two verbs
+    /// must never disagree, which is what catches the arm that forgets `self.tier` and asks
+    /// truecolor.
+    ///
+    /// **Sixty-nine of the hundred and sixty-nine role pairs qualify** on the shipped default —
+    /// the rest carry a different ground or a different attribute set — so the join is a real
+    /// fraction of the matrix rather than a corner, and the floor below is a relation because which
+    /// pairs qualify is palette data (spec §20's own rule).
+    #[test]
+    fn the_colour_pair_question_agrees_with_the_role_pair_question() {
+        use super::{ColorDepth, Role, Theme};
+
+        let mut asked = 0usize;
+        for tier in [
+            ColorDepth::TrueColor,
+            ColorDepth::Indexed256,
+            ColorDepth::Ansi16,
+            ColorDepth::None,
+        ] {
+            let theme = Theme::default().resolve(tier);
+            for a in Role::ALL {
+                for b in Role::ALL {
+                    let (x, y) = (theme.specs[a.index()], theme.specs[b.index()]);
+                    // The join: only where the *other two* thirds of the key are equal is the role
+                    // pair's answer a statement about the two foregrounds alone.
+                    if x.bg != y.bg || x.attrs != y.attrs {
+                        continue;
+                    }
+                    asked += 1;
+                    assert_eq!(
+                        theme.roles_differ_on_wire(a, b),
+                        theme.colours_differ_on_wire(x.fg, y.fg),
+                        "{a:?} and {b:?} at {tier:?}: the two verbs disagree about \
+                         {:?} against {:?}",
+                        x.fg,
+                        y.fg
+                    );
+                }
+            }
+        }
+        assert!(
+            asked >= 250,
+            "only {asked} role pairs shared a ground and an attribute set — 276 over the four \
+             tiers on the shipped default — so this gate has become a corner rather than a \
+             fraction of the matrix"
+        );
+    }
+
+    /// **What the verb is for**: a pair of colours outside the theme, at four tiers.
+    ///
+    /// The one caller `Theme::custom`'s obligation is addressed to is the one caller
+    /// `roles_differ_on_wire` cannot serve, so these answers are the whole point — and they are
+    /// asserted **in both directions**, because a verb that always says *they differ* discharges the
+    /// obligation and tells the caller nothing.
+    #[test]
+    fn two_colours_a_theme_never_heard_of_collapse_where_the_tier_says_they_do() {
+        use super::{ColorDepth, Rgb, Theme};
+
+        let near = (Rgb::new(0x10, 0x20, 0x30), Rgb::new(0x10, 0x20, 0x31));
+        let far = (Rgb::new(0x10, 0x20, 0x30), Rgb::new(0x90, 0x20, 0x30));
+
+        for (tier, near_differ) in [
+            (ColorDepth::TrueColor, true),
+            (ColorDepth::Indexed256, false),
+            (ColorDepth::Ansi16, false),
+            (ColorDepth::None, false),
+        ] {
+            let theme = Theme::default().resolve(tier);
+            assert_eq!(
+                theme.colours_differ_on_wire(near.0, near.1),
+                near_differ,
+                "one unit of blue apart, at {tier:?}"
+            );
+            // Far apart survives everywhere except the tier that has no colour at all.
+            assert_eq!(
+                theme.colours_differ_on_wire(far.0, far.1),
+                tier != ColorDepth::None,
+                "half the red channel apart, at {tier:?}"
+            );
+            // A colour never differs from itself, whatever the tier.
+            assert!(!theme.colours_differ_on_wire(near.0, near.0));
+        }
     }
 
     /// `hover_interest` is a pure function of the theme, asked and never told.

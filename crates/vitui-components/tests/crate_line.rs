@@ -449,3 +449,87 @@ fn a_drain_takes_a_batch_without_a_worker() {
     assert_eq!(out, vec![1, 2, 3, 4]);
     assert_eq!(drain.drain_into(&mut out), 0);
 }
+
+/// **A consumer configures its own engine: a readable sink, a pinned tier, a manual clock.**
+/// Runtime architecture issue 34, part 2.
+///
+/// `Driver::attach(config, theme)` accepts a [`vitui_runtime::Config`] and, until this gate, a
+/// crate on this side of the line could *write* one and could not *configure* one — `Config`
+/// derives `Default`, so a value existed, and `Clock`, `Output`, `Overrides`, `WidthSource` and
+/// `InputConfig` were not in `vitui_runtime::line::ENGINE_NAMES` at all, reachable or not. That is
+/// issue 22's own rule arriving on `Config` itself: *every type needed to **construct** one the
+/// surface accepts is reachable through this crate.*
+///
+/// The consequence was exact and is what this gate is really about: the only headless door was
+/// `Driver::headless`, whose tier is hard-coded to truecolor and whose sink is a `Vec` moved into
+/// the engine and never returned. **So no crate above the engine could read a byte the engine
+/// wrote, or resolve a driver at any other tier** — and both of those are measurements components
+/// spec §14 asks for by number.
+///
+/// It asserts two things and each is a different half of the barrier: **the bytes arrive here**,
+/// into a buffer this crate owns, and **the engine resolved the tier that was asked for** — read
+/// off `Capabilities::colors` and not off the theme, because the theme's tier is the argument and
+/// comparing it with itself is a gate that cannot fail.
+#[test]
+fn a_consumer_can_configure_an_engine_and_read_the_bytes_it_wrote() {
+    use std::io::Write;
+    use std::sync::{Arc, Mutex};
+    use vitui_runtime::{
+        Clock, ColorDepth, Config, InputConfig, Output, Overrides, Theme, WidthSource,
+    };
+
+    /// The sink, written from a crate that cannot name `vitui_engine`. **`Send`, which is the whole
+    /// of what `Output::Sink` asks** — the box crosses to the render thread on a real clock.
+    struct Tap(Arc<Mutex<Vec<u8>>>);
+    impl Write for Tap {
+        fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
+            self.0
+                .lock()
+                .expect("the tap is not poisoned")
+                .extend_from_slice(b);
+            Ok(b.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    let wire = Arc::new(Mutex::new(Vec::new()));
+    let tier = ColorDepth::Ansi16;
+    let mut driver = Driver::attach(
+        Config {
+            clock: Clock::Manual,
+            output: Output::Sink(Box::new(Tap(Arc::clone(&wire)))),
+            size: (40, 8),
+            overrides: Overrides {
+                colors: Some(tier),
+                width: Some(WidthSource::Tables),
+                ..Default::default()
+            },
+            input: InputConfig::default(),
+            ..Default::default()
+        },
+        Theme::default().resolve(tier),
+    )
+    .expect("a configured sink attaches");
+
+    let before = wire.lock().expect("readable").len();
+    let mut seen = None;
+    driver.frame(|cx| {
+        // **The tier the *engine* resolved, not the one the theme was told.** Reading
+        // `cx.theme().tier()` here would compare the argument with itself; `Capabilities::colors` is
+        // what the `Overrides` reached, and `Driver::headless` could only ever answer truecolor.
+        seen = Some(cx.caps().colors);
+        let area = cx.area();
+        let paint = cx.theme().paint(Role::Body);
+        cx.text(area.x, area.y, "the wire is readable", paint);
+    });
+    assert_eq!(seen, Some(tier));
+    let after = wire.lock().expect("readable").len();
+
+    assert!(
+        after > before,
+        "a frame that drew twenty cells wrote {} bytes into a sink this crate owns",
+        after - before
+    );
+}

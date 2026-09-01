@@ -44,7 +44,7 @@
 //! - [`Standing::Evaluated`] and [`Standing::Red`] are the runtime's two. A red row is pinned in its
 //!   failing state, asserts its exact failing set, fires in both directions and names the ticket that
 //!   inverts it.
-//! - [`Standing::Unreachable`] is a **result**. Six gates cannot be written from this crate at all,
+//! - [`Standing::Unreachable`] is a **result**. Five gates cannot be written from this crate at all,
 //!   and each says exactly what would have to become public. That is not *not yet*: `vitui-components`
 //!   depends on `vitui-runtime` and nothing else (§19's C6), so a gate needing an engine name is a
 //!   compile error and no amount of component code changes it.
@@ -55,9 +55,9 @@
 //!   `Evaluated` would be claiming six green gates over an empty population. The count in the line
 //!   below is the authority; this is a summary of it.
 //!
-//! **Two hundred and nine evaluated, two red, six unreachable, six unsubjected**, and
-//! `tests::two_hundred_and_nine_rows_are_evaluated_and_the_rest_say_why_not` is what makes the next
-//! change a deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
+//! **Two hundred and twenty-two evaluated, none red, five unreachable, six unsubjected**, and
+//! `tests::two_hundred_and_twenty_two_rows_are_evaluated_and_the_rest_say_why_not` is what makes
+//! the next change a deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
 //! and subjected row 27, the cross-family collapse gate; ticket 07 added five, and none of them
 //! moved a standing that was already taken. **Ticket 08 added four and inverted one**, and the
@@ -605,11 +605,20 @@ pub const SPEC_ROWS: usize = 32;
 /// verb that skips the caller's `Ink` makes it larger rather than smaller.
 ///
 /// **Runtime architecture 31 moved it from two hundred and twenty to two hundred and twenty-one,
-/// and it is the only inversion this register has recorded that no components ticket did.** Row 112 was red on a defect one crate down: `Ctx::with_id` re-childed its view at
+/// and it is the first of two inversions this register has recorded that no components ticket
+/// did.** Row 112 was red on a defect one crate down: `Ctx::with_id` re-childed its view at
 /// `self.area()`, which inside a scroll scope is the *content's* rectangle, so a keyed child past
 /// the first screenful drew nothing. `with_id` and `Ctx::scope` reborrow now. **The register is
 /// green: no row is pinned red**, and the two populations that read the standing — this count and
 /// the list beside it — are the two edits.
+///
+/// **Runtime architecture issue 34 moved it from two hundred and twenty-one to two hundred and
+/// twenty-two, and it is the second of those** — one crate down again, and this time it lifted a
+/// barrier rather than fixing a defect. Row 161 wanted bytes on the wire and needed a driver that
+/// hands its sink back: `Clock`, `Output`, `Overrides`, `WidthSource` and `InputConfig` were not in
+/// `vitui_runtime::line::ENGINE_NAMES` at all, reachable or not, so no `Config` this crate could
+/// build sent its bytes anywhere it could read. All five are re-exported now. **Six unreachable
+/// became five**, and that is the whole of the change to the split.
 ///
 /// **Components ticket 46 moved it from two hundred and eighteen to two hundred and twenty**, and
 /// neither of the two is an inversion: rows 232 and 233 are the twenty-ninth component's — *stored
@@ -629,7 +638,7 @@ pub const SPEC_ROWS: usize = 32;
 /// it. Row 30's own instrument compares two lists of *ids*, which is the most a query over the
 /// freeze can ask; the chord-for-chord equality needs a value with a machine in it, and
 /// `crate::contract::Contract::live` is that machine — it runs the shipped component.
-pub const EVALUATED: usize = 221;
+pub const EVALUATED: usize = 222;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
 #[expect(
@@ -5480,16 +5489,30 @@ pub const REGISTER: [Row; 233] = [
         // worse drawing of itself and this one degrades to a description: 23 920 / 23 899 / 15 347
         // / 0 for a photograph, 20 400 / 473 / 174 / 0 for a gradient.
         //
-        // **The instrument is a contrivance and it is watched in both directions**, which is the
-        // condition for using one. `Theme::custom` says the caller owes a branch on the terminal's
-        // capabilities and offers no verb to ask with — `roles_differ_on_wire` compares two of the
-        // thirteen **roles** — so `picture::wire_differ` authors a theme per colour pair, putting
-        // the two colours on `Role::Danger` and `Role::Warn`, which `Roles::from_palette` takes
-        // verbatim from `base08` and `base0A` over one ground with no attributes. A probe that were
-        // silently always-true or always-false would make every count above whatever the total is,
-        // so it is asserted against answers known independently. Filed as runtime architecture
-        // issue 34; the row is `Evaluated` because it **runs**, which is what this file's row 5
-        // learned the hard way about writing a barrier one has not tried.
+        // **The instrument was a contrivance and it is now the runtime's own verb**, and the
+        // sequence is the whole argument for `Evaluated`. `Theme::custom` said the caller owes a
+        // branch on the terminal's capabilities and offered no verb to ask with —
+        // `roles_differ_on_wire` compares two of the thirteen **roles**, and a picture's cells are
+        // outside them by construction — so `picture::wire_differ` authored a theme per colour
+        // pair, putting the two colours on `Role::Danger` and `Role::Warn`, which
+        // `Roles::from_palette` takes verbatim from `base08` and `base0A` over one ground with no
+        // attributes. **773 ns a call, and it was right.** The friction was filed as runtime
+        // architecture issue 34, which answered it with `Theme::colours_differ_on_wire(Rgb, Rgb)` —
+        // the same question asked of two colours — and the same counts come back out of it.
+        //
+        // **The verb alone bought nothing, and that is the part worth recording.** Dropping it into
+        // the old body — `Theme::default().resolve(tier).colours_differ_on_wire(..)` — measures
+        // **811 ns**, because `Theme::default()` authors a thirteen-role theme and the two-slot
+        // palette mutation the rewrite deleted was the free part. The theme is hoisted to a
+        // `static` of four, one a tier, and the call is **57 ns**. All three arms are in
+        // `picture::wire_differ`'s own documentation, as a report and not a gate.
+        //
+        // The row was `Evaluated` before the verb existed and that is the point: *it cannot be
+        // written from this crate at all* is a claim about the whole space of programs, and this
+        // file's row 5 is what a wrong one costs. A probe that were silently always-true or
+        // always-false would make every count above whatever the total is, so it is asserted
+        // against answers known independently — in both directions, which is the condition for
+        // using a contrivance and is what carried over unchanged.
         standing: Standing::Evaluated {
             by: &[
                 Instrument::Unit {
@@ -5500,6 +5523,14 @@ pub const REGISTER: [Row; 233] = [
                 Instrument::Unit {
                     file: PICTURE,
                     name: "the_wire_probe_separates_at_truecolor_and_collapses_at_the_floor",
+                },
+                // **The hoist's own gate**, and it belongs to this row because this row's four
+                // numbers are what a wrong one would corrupt. The themes are a literal array and
+                // `tier_index` is a match: two derivations of one mapping, and a permutation of
+                // them would simply report each tier's count under another tier's name.
+                Instrument::Unit {
+                    file: PICTURE,
+                    name: "every_resolved_theme_is_at_its_own_tiers_index",
                 },
                 Instrument::Report {
                     file: MEDIA_NUMBERS,
@@ -5556,8 +5587,10 @@ pub const REGISTER: [Row; 233] = [
         // **The reachable half of both of §14's wire figures**, and it is row 48's question asked of
         // the one screen where the answer is the whole rectangle: 24 000 of 24 000 changed by a
         // translation of one row, and `[24 000, 0, 0, 0]` over a still picture's first four frames.
-        // What the same two frames cost in **bytes** — 5 885 for the translation against 900 134
-        // and then nothing — is row 161's, and it is unreachable.
+        // What the same two frames cost in **bytes** is row 161's, and it is reachable since
+        // runtime architecture issue 34 — where it inverts this row's own reading: 24 000 of 24 000
+        // cells change value and the wire costs **1.25% of a full repaint**, because the engine
+        // prices a translation by the rows it exposed.
         standing: Standing::Evaluated {
             by: &[
                 Instrument::Unit {
@@ -5574,27 +5607,49 @@ pub const REGISTER: [Row; 233] = [
     Row {
         number: 161,
         on_spec_table: false,
-        gate: "bytes on the wire: 37.5 B/cell, 900 134 and then 0, 0, 0, and 5 885 for a whole-row \
-               translation",
-        kind: Kind::Count,
+        gate: "bytes on the wire: three zeros after the first frame, a whole-row translation under \
+               2% of a full repaint and linear in the rows it exposed, and a strictly poorer wire \
+               at each poorer tier",
+        kind: Kind::Ratio,
         owner: "C15",
         section: "spec §14",
-        standing: Standing::Unreachable {
-            needs: "a driver that hands its sink back. `vitui_engine::Output::Sink` exists and the \
-                    runtime uses it — `Driver::headless` passes `Box::new(Vec::new())` — and the \
-                    `Vec` is moved into the engine and never returned, so no crate above it can \
-                    read a byte it wrote. Building one this crate *can* read needs \
-                    `Config { output, clock, .. }`, and **`Output`, `Clock` and `Overrides` are not \
-                    in `vitui_runtime::line::ENGINE_NAMES` at all**, reachable or not — which is \
-                    runtime architecture issue 22's own rule arriving on `Config` itself: *a name a \
-                    consumer can write but not build is a barrier wearing a re-export's clothes*. \
-                    `Config` has a `Default`, so this is the weaker half of that finding and the \
-                    consequence is exact: the only headless door is `Driver::headless`, whose tier \
-                    is hard-coded to truecolor and whose bytes go nowhere. Either \
-                    `Driver::headless_into(w, h, sink)` or those three names re-exported. **Row 160 \
-                    is the reachable form and does not invert this**: it counts the cells that \
-                    would have produced the bytes",
-            inverted_by: "runtime architecture issue 34",
+        // **Inverted by runtime architecture issue 34, and it is the second inversion on this
+        // register that no components ticket did.** Row 112 was the first. What the row needed was
+        // a driver that hands its sink back: `Driver::headless` moves a `Box::new(Vec::new())` into
+        // the engine and never returns it, and `Clock`, `Output`, `Overrides`, `WidthSource` and
+        // `InputConfig` were not in `vitui_runtime::line::ENGINE_NAMES` at all, reachable or not —
+        // issue 22's own rule arriving on `Config` itself. All five are re-exported now, so
+        // `picture::tapped_driver_for` builds a `Config` with a sink this crate owns **and** a tier
+        // pinned on the `Overrides`, which is the half `Driver::set_theme` could never reach: a
+        // resolved theme narrows the thirteen roles and every cell of this screen is outside them.
+        //
+        // **None of the three numbers §14 states is the gate**, and the reason is this workspace's
+        // own rule about encodings: a golden byte *string* is refused because the encoding is
+        // exactly the part allowed to change, and a byte *count* is one step from a byte string.
+        // What is gated is what survives an encoding change — the three zeros, the share, the
+        // linearity and the monotonicity — and the totals are reported beside §14's:
+        //
+        // - **39.05 B/cell** against §14's 37.5, and **937 233** against its 900 134. The same
+        //   measurement on a different photograph.
+        // - **11 731 bytes for a whole-row translation** against §14's 5 885 — and §14's pair
+        //   cannot be reconciled with itself: a 300-cell row at 37.5 B/cell is 11 250, not 5 885.
+        //   The measured pair is internally consistent, because 11 731 is one row's own 11 715 plus
+        //   sixteen bytes of scroll sequence.
+        //
+        // **The translation is where the row earns its place beside row 160.** Row 160 says 24 000
+        // of 24 000 cells change value; this row says the wire costs 1.2517% of a full repaint,
+        // because the engine's scroll pre-pass prices the rows the shift exposed. A repaint priced
+        // by the cell — which is what row 160 alone reads like — would have priced it at the screen.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: PICTURE,
+                    name: "a_still_picture_costs_nothing_and_a_translation_costs_a_row",
+                },
+                Instrument::Report {
+                    file: MEDIA_NUMBERS,
+                },
+            ],
         },
     },
     Row {
@@ -8551,14 +8606,14 @@ mod tests {
         assert_eq!(seen, expected);
     }
 
-    /// **Two hundred and twenty-one evaluated, and the other twelve each say why not.**
+    /// **Two hundred and twenty-two evaluated, and the other eleven each say why not.**
     ///
     /// This is the number §21 asks for: *how many gates are actually evaluated is a number a test
     /// asserts rather than a claim in a document*. Saying it out loud is what stops the next change
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn two_hundred_and_twenty_one_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn two_hundred_and_twenty_two_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -8621,13 +8676,14 @@ mod tests {
         );
         assert_eq!(
             unreachable,
-            vec![1, 2, 21, 28, 33, 161],
-            "the six that cannot be written from a crate whose dependency list is \
-             `vitui-runtime` and nothing else. **Row 161 is components 29's**, and it is row 1's \
-             shape one seam further out: not a count the engine keeps private, but the *bytes* it \
-             wrote — `Driver::headless` moves a `Vec` into the engine and `Output`, `Clock` and \
-             `Overrides` are not on `ENGINE_NAMES` at all, so no `Config` this crate can build \
-             sends them anywhere it can read. **It was seven until components ticket 08**, which \
+            vec![1, 2, 21, 28, 33],
+            "the five that cannot be written from a crate whose dependency list is \
+             `vitui-runtime` and nothing else. **It was six until runtime architecture issue 34**, \
+             which lifted row 161's — the *bytes* the engine wrote, which is row 1's shape one seam \
+             further out: `Driver::headless` moves a `Vec` into the engine and `Clock`, `Output`, \
+             `Overrides`, `WidthSource` and `InputConfig` were not on `ENGINE_NAMES` at all, so no \
+             `Config` this crate could build sent them anywhere it could read. All five are \
+             re-exported and the row runs. **It was seven until components ticket 08**, which \
              found row 5's barrier misread: `Mods` is unnameable here and `Chord::mods` hands over \
              the value anyway, so a chord can be pressed after all"
         );

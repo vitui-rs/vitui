@@ -174,8 +174,17 @@ pub use theme::{Scheme, Themes};
 // where `theme`'s `pub const BOLD: u16` is defined, and `Style` only as `Paint`'s `pub(crate)` field.
 // They are re-exported rather than struck from `crate::line::ENGINE_NAMES`, because deleting a row to
 // make a gate come out even is the move this repository forbids by name — `route` is the precedent.
+// **The five that make `Config` configurable**, and they are the same rule a second time, one type
+// further out than `Mouse`. `Driver::attach` takes a `Config`; a `Config` carries a `Clock`, an
+// `Output`, an `Overrides` — which carries a `WidthSource` — and an `InputConfig`, and none of the
+// five was on this list at all, reachable or not. `Config` derives `Default`, so unlike `Mouse` a
+// *value* could always be built and no *field* of it could be reached: the consequence was exact and
+// not theoretical. The only headless door above this crate was `Driver::headless`, whose tier is
+// hard-coded to truecolor and whose sink is a `Vec` moved into the engine and never returned — so a
+// crate on the far side could neither read a byte the engine wrote nor resolve a driver at any other
+// tier, and components spec §14 asks for both by number. Runtime architecture issue 34.
 pub use vitui_engine::{
-    AttachError, Button, Buttons, Capabilities, ColorDepth, Config, Cursor, CursorShape, Event,
-    Mods, Mouse, MouseKind, MouseMode, Permit, Presented, Rect, Restyle, Rgb, Style,
-    Wheel as Notch, Written,
+    AttachError, Button, Buttons, Capabilities, Clock, ColorDepth, Config, Cursor, CursorShape,
+    Event, InputConfig, Mods, Mouse, MouseKind, MouseMode, Output, Overrides, Permit, Presented,
+    Rect, Restyle, Rgb, Style, Wheel as Notch, WidthSource, Written,
 };

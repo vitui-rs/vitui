@@ -1386,11 +1386,14 @@ pub fn batches(build: Build) -> Batches {
 /// How many selections the photograph scene plays. §21's twenty.
 pub const SELECTIONS: usize = 20;
 
-/// **What a picture costs on the wire**, in bytes: [`BODY_CELLS`] at §14's measured **37.5 B/cell**.
+/// **What a picture costs on the wire**, in bytes: [`BODY_CELLS`] at §14's stated **37.5 B/cell**.
 ///
-/// It is arithmetic and not a measurement, and the difference is register row 161's: no crate above
-/// the engine can read a byte the engine wrote. What is measured here is the **count** — how many
-/// pictures were drawn — and the bytes are that count times a figure the engine's own map states.
+/// It is arithmetic and not a measurement, and it stays arithmetic. What row 161 measures since
+/// runtime architecture issue 34 is one screen's bytes through one engine; this figure is a *price
+/// list* over a count — how many pictures were drawn, times a B/cell — and multiplying by a
+/// measurement taken on the picture screen would make this scene's number a fact about that one.
+/// **§14's own figure is 4.1% under what that screen measures** (39.05 against 37.5), which is the
+/// size of the error being carried and is why the count is what this scene gates.
 pub const PICTURE_BYTES: u64 = BODY_CELLS as u64 * 75 / 2;
 
 /// **What a wire figure is**, and the count underneath it.
