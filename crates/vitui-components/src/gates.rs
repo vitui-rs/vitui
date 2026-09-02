@@ -1083,11 +1083,16 @@ pub const REGISTER: [Row; 233] = [
         // see**. It refuses §3.3's inverted horizontal sign at 17 022 cells over all eighty rows —
         // the defect on this axis no counter *refuses*, because it issues every verb the correct
         // build issues and the clip eats 15 360 of the writes, so the two counters that do move
-        // move the flattering way — and it is **blind** to §6's arithmetic band, which
-        // draws the right picture and re-damages 560 cells a frame for ever. That half is the pair
-        // `writes` against `distinct`, filed at row 6. `HOFF` is a column boundary for the
-        // instrument's sake, and the straddling offset beside it prices the recorder's own error at
-        // 800 cells rather than hiding it.
+        // move the flattering way.
+        //
+        // **What it cannot see is §6's arithmetic band, and that is not this row's to gate.** The
+        // band draws the right picture and re-damages 560 cells a frame for ever; the pair `writes`
+        // against `distinct` is what sees it, filed at row 6, and the screen's own count of it is
+        // row 76 — whose `the_equality_is_blind_to_the_band_and_the_pair_is_not` is therefore
+        // **row 76's alone** and is deliberately not cited here. What this row takes from the
+        // straddling instrument it *does* share with row 76 is the other half: the **correct** arm's
+        // 800 cells, which is the recorder's own error under a clamp-and-discard clip and is why
+        // `HOFF` is a column boundary. Priced rather than hidden.
         standing: Standing::Evaluated {
             by: &[
                 Instrument::Unit {
@@ -1098,10 +1103,6 @@ pub const REGISTER: [Row; 233] = [
                     file: GRID,
                     name: "the_inverted_horizontal_sign_is_refused_by_the_equality_and_flattered_\
                            by_the_counters",
-                },
-                Instrument::Unit {
-                    file: GRID,
-                    name: "the_equality_is_blind_to_the_band_and_the_pair_is_not",
                 },
                 Instrument::Unit {
                     file: GRID,
@@ -2876,12 +2877,14 @@ pub const REGISTER: [Row; 233] = [
         kind: Kind::Equality,
         owner: "C04",
         section: "spec §6",
-        // **This is row 11 evaluated over a screen rather than row 11 turned green.** Row 11 is
-        // §21's and it stays `Unsubjected` until `table` exists, which is components 15's; what
-        // this row gates is that *the instrument separates a correct build from a defective one*,
-        // watched in both directions — the virtualised arm is flat across all four declared counts
-        // and the clip-only arm costs 10.9x the verbs for the same 24 000 writes. Components
-        // ticket 11's row 66 has the same standing and the same reason.
+        // **This was row 11 evaluated over a screen rather than row 11 turned green**, while row
+        // 11 waited for `table` to exist — components 15's — and **production ticket 03 turned row
+        // 11 green on the same instrument**, so the two rows now share it and the division of
+        // labour between them is gone. That is not a duplicate: what *this* row gates is that the
+        // instrument separates a correct build from a defective one, watched in both directions —
+        // the virtualised arm flat across all four declared counts, the clip-only arm at 10.9x the
+        // verbs for the same 24 000 writes — where row 11 gates §6's property itself. Components
+        // ticket 11's row 66 has the standing this one had, and its reason.
         standing: Standing::Evaluated {
             by: &[
                 Instrument::Unit {
@@ -2912,6 +2915,14 @@ pub const REGISTER: [Row; 233] = [
         // the pair `writes` against `distinct`, which is row 6, C02's, filed by §21 as a *report
         // per component*. So §6's *no gate left by C01, C02 or C03 sees it* is half true: C02 named
         // the counter and nobody was running it.
+        //
+        // **The straddling instrument is shared with row 12 and the halves are different**, which
+        // production ticket 03 had to say out loud when it subjected that row: this row takes the
+        // arithmetic arm's 1 600 re-damaged cells at an offset inside a column, and row 12 takes
+        // the *correct* arm's 800 — the recorder's own error under a clamp-and-discard clip, which
+        // is a number about the equality and is why `HOFF` is a column boundary. `the_equality_is_\
+        // blind_to_the_band_and_the_pair_is_not` is **this row's alone**; a row 12 that cited it
+        // would be resting on a gate the register says does not decide its property.
         standing: Standing::Evaluated {
             by: &[
                 Instrument::Unit {
@@ -8765,7 +8776,9 @@ mod tests {
              the rows where they were, and `crate::grid` has drawn through the component ever \
              since. **It was eight until components ticket 22**, \
              which supplied the subject for rows 24 and 25 — the inplace map and *`open` is never \
-             ambiguous mid-transition*, the last two `Unsubjected` rows on §21's own table. It was \
+             ambiguous mid-transition*. **That sentence used to call them the last two on §21's \
+             own table and it was never true**: rows 11, 12 and 15 to 18 were all `on_spec_table` \
+             and all `Unsubjected` at the time, and four of them still are. It was \
              fifteen until ticket 18, which supplied row 20's: the bar fixpoint is arithmetic over a \
              domain and needs no component to be run against, and its row had been citing spec §13 \
              and components 28 for two tickets"

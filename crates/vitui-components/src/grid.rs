@@ -1543,7 +1543,9 @@ mod tests {
     /// **The column axis of the data-volume invariant: identical writes and identical verbs at 12,
     /// 40, 120 and 240 declared columns.**
     ///
-    /// §21's register row 11, evaluated over this screen rather than over `table`. The extras are
+    /// §21's register row 11, and row 75 beside it — the screen's own copy of the same equality,
+    /// which is the standing this one had while it waited. Both are drawn through the component
+    /// since components 15. The extras are
     /// appended after the nine that decide the window, so the viewport admits the same columns at
     /// every declared count — which is what makes the equality a statement about the mechanism
     /// rather than about the declaration list.
@@ -1590,11 +1592,14 @@ mod tests {
              grow with the declared count: {widths:?}"
         );
 
+        // A literal, and it stays one: `across_declared` maps over [`DECLARED`], so an equality
+        // against `DECLARED` here would be two derivations of one declaration — this gate's own
+        // subject one line up.
         let across = across_declared(Opts::correct());
         assert_eq!(
-            across.iter().map(|(d, _)| *d).collect::<Vec<_>>(),
-            DECLARED.to_vec(),
-            "the counts the row names, in the order it names them"
+            across.len(),
+            4,
+            "twelve, forty, a hundred and twenty, two hundred and forty"
         );
         let first = across[0].1;
         assert_eq!(first.writes, CELLS);
@@ -1619,10 +1624,14 @@ mod tests {
                 shape.writes, first.writes,
                 "at {declared} declared columns the write count is still blind to this"
             );
+            // **On `verbs` and not on the whole `Shape`.** A whole-shape inequality is satisfied by
+            // `Shape::columns` alone — 12, 40, 120, 240 against the correct arm's eleven — which is
+            // bookkeeping derived from `declared` and the virtualisation mode rather than evidence
+            // about the frame, so it would hold on a clip-only build whose verbs were flat.
             assert_ne!(
-                *shape, first,
+                shape.verbs, first.verbs,
                 "the clip-only sweep at {declared} declared columns is §6's refused screen and \
-                 this equality has to see it"
+                 this equality has to see it in the currency §6 prices it in"
             );
         }
         assert!(
