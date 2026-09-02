@@ -36,10 +36,10 @@
 //! ([`Scene::owed`] and [`Scene::from_a_survived_defect`]), because the value can hold both and a
 //! count cannot.
 //!
-//! # Three scenes are `Unsubjected`, none is `Red` and thirty are `Evaluated`
+//! # Three scenes are `Unsubjected`, none is `Red` and thirty-three are `Evaluated`
 //!
 //! The count that is a gate is `tests::three_scenes_have_nothing_to_run_over_none_is_red_and_
-//! thirty_are_stood_up`, which asserts the **numbers** each scene as well as the total; this
+//! thirty_three_are_stood_up`, which asserts the **numbers** each scene as well as the total; this
 //! heading is a summary of it and the test is the authority.
 //!
 //! **Components ticket 40 stood scene 26 up — the assembled gallery — and it is the first row here
@@ -503,6 +503,29 @@ const DOCUMENT: &str = "crates/vitui-components/src/document.rs";
 
 /// The wheel gate's own file. Scenes 6 and 33 are played there, over two different components.
 const WHEEL: &str = "crates/vitui-components/src/wheel.rs";
+
+/// **The field's window's own file**, which is where production ticket 05's three scenes are
+/// played. `crate::document` is where its fourth is.
+const WINDOW: &str = "crates/vitui-components/src/window.rs";
+
+/// **What stands production ticket 05's three scenes up**, and it is the same two instruments on
+/// each: the scan that opens the file the freeze homes `field` in and reads `pub fn field(` there,
+/// and the freeze's own declaration of the three axes. The scene's own equality is the third and it
+/// is different on every row.
+///
+/// The first is `crate::document`'s, reached rather than copied: three scenes and a fourth resting
+/// on one fact about one component is the arrangement [`STANDS_THE_AREA`] already uses at four
+/// rows, and a second scan written beside this one is a second answer to *is `field` declared*.
+const STANDS_THE_WINDOW: [Instrument; 2] = [
+    Instrument::Unit {
+        file: WINDOW,
+        name: "the_three_screens_stand_on_a_declared_field",
+    },
+    Instrument::Unit {
+        file: WINDOW,
+        name: "the_freeze_declares_all_three_axes_for_field",
+    },
+];
 
 /// The cluster corpus's own file. Scene 30 is a scene *of* it.
 const CLUSTERS: &str = "crates/vitui-components/src/clusters.rs";
@@ -1509,9 +1532,13 @@ const PINS_SCENE_22: &[Instrument] = &[
     },
 ];
 
-/// Spec §21's scene list, row for row, and this backlog's scenes beside it. **Thirty, of which
+/// Spec §21's scene list, row for row, and this backlog's scenes beside it. **Thirty-six, of which
 /// twenty-seven are §21's table and §21's table is the authority.**
-pub const SCENES: [Scene; 33] = [
+///
+/// The count in this sentence is a summary and never the gate:
+/// `tests::the_specs_table_is_twenty_seven_rows_and_this_list_carries_them_all` reads §21's own
+/// rows off the spec file and asserts the split, and it caught this sentence going stale at 33.
+pub const SCENES: [Scene; 36] = [
     Scene {
         number: 1,
         on_spec_table: true,
@@ -2522,6 +2549,178 @@ pub const SCENES: [Scene; 33] = [
         },
         rehearsed_by: &[],
     },
+    // ── production ticket 05's three scenes, and they are the axes §21 stated over one row ───────
+    //
+    // §21 carries **one** `field` row — scene 13, the wrap memo at 300 and at 120 — and it is the
+    // narrow axis. The freeze declares all four for this component and three had no scene at all,
+    // which is O5's own argument arriving on the row that is worth the most: a pair with no scene
+    // is a place a defect that *passed every gate then in force and looked healthier than the
+    // correct build* is invisible.
+    //
+    // **All three are one module and one oracle**, and that is a decision rather than a
+    // convenience: `field` owns its offset, so the same integer decides where the window sits, what
+    // happens to the rows the content has stopped reaching and what a notch may do to it — and the
+    // reference render is the document's own tail as a field of its own, at offset 0. Three modules
+    // would have put that oracle in three files, which is how three sessions come to disagree about
+    // it.
+    Scene {
+        number: 34,
+        on_spec_table: false,
+        name: "the document at visual row 400, against its own tail",
+        size: Size::Screen {
+            w: crate::window::W,
+            h: crate::window::H,
+        },
+        content: Content::Fields {
+            fields: 1,
+            bytes: crate::window::DOCUMENT_BYTES,
+        },
+        gestures: &[Gesture::Scroll {
+            rows: crate::window::SCROLLED_TO as i64,
+            cols: 0,
+        }],
+        decided: "that the window's sign and the caret's row are two defects and only one of them \
+                  is on the screen. The inverted window is **79 of 80 rows** wrong — 5 891 cells, \
+                  and the shortfall from 79 x 120 is the fixture rather than the defect — and no \
+                  counter of §20's nine separates it. The caret measured from the content row \
+                  instead of the viewport's is **0 cells**: the rule places one five rows down and \
+                  the refusal places **none at all**, on two screens that are cell for cell \
+                  identical, so the equality against a reference render is blind to it and \
+                  `Frame::caret` is the only instrument there is",
+        covers: &[("field", Axis::Scrolled)],
+        stands: FIELD,
+        owed: false,
+        // **Not §21's flag**, and the distinction is scene 31's and scene 33's: §21 marks three
+        // rows as existing because a defect survived every gate then in force, the count test
+        // asserts exactly those three, and a fourth arriving here to make a point would change a
+        // normative count to make an argument. The argument is in `decided`.
+        from_a_survived_defect: false,
+        standing: Standing::Evaluated {
+            by: &[
+                STANDS_THE_WINDOW[0],
+                STANDS_THE_WINDOW[1],
+                Instrument::Unit {
+                    file: WINDOW,
+                    name: "the_inverted_window_is_the_whole_screen_and_the_rule_agrees_with_the_tail",
+                },
+                Instrument::Unit {
+                    file: WINDOW,
+                    name: "the_caret_measured_from_the_content_row_is_invisible_to_every_cell",
+                },
+                Instrument::Unit {
+                    file: WINDOW,
+                    name: "no_counter_separates_the_inverted_window_or_the_misplaced_caret",
+                },
+                // **The oracle's own precondition**, which is the half a scene decided by an
+                // equality owes: a reference render nobody has characterised is a second copy of
+                // the subject until somebody checks.
+                Instrument::Unit {
+                    file: WINDOW,
+                    name: "a_suffix_cut_at_any_row_start_reproduces_the_window",
+                },
+                Instrument::Unit {
+                    file: WINDOW,
+                    name: "the_window_sits_inside_the_document_and_the_oracle_holds_its_rows",
+                },
+            ],
+        },
+        rehearsed_by: &[],
+    },
+    Scene {
+        number: 35,
+        on_spec_table: false,
+        name: "a pasted megabyte edited down to one line",
+        size: Size::Screen {
+            w: crate::window::W,
+            h: crate::window::H,
+        },
+        content: Content::Fields {
+            fields: 1,
+            bytes: crate::document::PASTED as u64,
+        },
+        // **A shrink and not a resize**, which is the distinction `Gesture::Shrink`'s own doc is
+        // about: the rectangle is 120x80 on both frames and the content is what becomes smaller.
+        gestures: &[Gesture::Shrink {
+            to_rows: crate::window::SHRUNK_ROWS as u64,
+        }],
+        decided: "the stale tail on §17's own spelling of this axis — *a 1 MB textarea edited down \
+                  to one line, inside a rectangle that does not move* — at **79 of 80 rows** and \
+                  5 519 cells, against a field freshly built over that one line. The refusal is \
+                  **cheaper on every counter that moves**: `writes` and `verbs` both fall, and \
+                  `distinct` is 9 600 on both arms because it is cumulative and the first frame \
+                  already touched every cell — *an output counter is blind to work that produces \
+                  no output*, met from the end where the work is omitted and the output stays. And \
+                  the spelling §21 refuses is refused as a number: played into a rectangle the \
+                  shrink has already resized, the same refusal is **clean**",
+        covers: &[("field", Axis::Shrunk)],
+        stands: FIELD,
+        from_a_survived_defect: false,
+        owed: false,
+        standing: Standing::Evaluated {
+            by: &[
+                STANDS_THE_WINDOW[0],
+                STANDS_THE_WINDOW[1],
+                Instrument::Unit {
+                    file: WINDOW,
+                    name: "the_stale_tail_is_seventy_nine_of_eighty_rows_and_the_resize_spelling_misses_it",
+                },
+                Instrument::Unit {
+                    file: WINDOW,
+                    name: "the_stale_tail_is_cheaper_on_the_counters_that_move_and_invisible_to_the_rest",
+                },
+            ],
+        },
+        rehearsed_by: &[],
+    },
+    Scene {
+        number: 36,
+        on_spec_table: false,
+        name: "twenty posted notches over a field, and what pulls them back",
+        size: Size::Screen {
+            w: crate::window::W,
+            h: crate::window::H,
+        },
+        content: Content::Fields {
+            fields: 1,
+            bytes: crate::window::DOCUMENT_BYTES,
+        },
+        gestures: &[Gesture::Wheel {
+            clicks: crate::window::CLICKS,
+        }],
+        decided: "that `field` consumes a real notch and that an unconditional reveal takes it \
+                  back: twenty posted clicks settle the window at **400 against 0**, and on the \
+                  screen the pull leaves **45 of 80 rows** disagreeing with the tail. Three arms \
+                  and not two — deleting the reveal moves the window exactly as far as the rule \
+                  does and loses the keyboard instead, which a gate written on the offset alone \
+                  calls a pass. Two findings in the instrument beside it: the **hover face is part \
+                  of the screen**, so an oracle without the pointer on it disagrees on 9 600 of \
+                  9 600 cells in the paint; and the 35 rows the pull gets away with are the \
+                  fixture's aliasing — a long line's second visual row carries no index — counted \
+                  rather than excused",
+        covers: &[("field", Axis::Wheeled)],
+        stands: FIELD,
+        from_a_survived_defect: false,
+        owed: false,
+        standing: Standing::Evaluated {
+            by: &[
+                STANDS_THE_WINDOW[0],
+                STANDS_THE_WINDOW[1],
+                Instrument::Unit {
+                    file: WINDOW,
+                    name: "twenty_posted_notches_settle_the_window_and_an_unconditional_reveal_drags_it_back",
+                },
+                Instrument::Unit {
+                    file: WINDOW,
+                    name: "the_settled_screen_is_the_tail_and_the_pull_is_the_top_of_the_document",
+                },
+                Instrument::Unit {
+                    file: WINDOW,
+                    name: "the_rows_the_pull_gets_away_with_are_the_fixtures_and_not_the_defects",
+                },
+            ],
+        },
+        rehearsed_by: &[],
+    },
 ];
 
 /// **Every scene that stands `component` up.** Criterion 2's enumeration, from the scene's side.
@@ -2718,9 +2917,9 @@ mod tests {
     /// has twenty-seven rows; the spec is the authority and the count below reads the spec.
     #[test]
     fn the_specs_table_is_twenty_seven_rows_and_this_list_carries_them_all() {
-        assert_eq!(SCENES.len(), 33);
+        assert_eq!(SCENES.len(), 36);
         let numbers: BTreeSet<u8> = SCENES.iter().map(|s| s.number).collect();
-        assert_eq!(numbers, (1..=33).collect::<BTreeSet<u8>>());
+        assert_eq!(numbers, (1..=36).collect::<BTreeSet<u8>>());
         let names: BTreeSet<&str> = SCENES.iter().map(|s| s.name).collect();
         assert_eq!(names.len(), SCENES.len(), "two scenes share a name");
 
@@ -2731,12 +2930,14 @@ mod tests {
         assert_eq!(on_table, 27);
         assert_eq!(
             SCENES.len() - on_table,
-            6,
+            9,
             "components 09's narrow axis, components 11's narrow collection, components 14's \
              equality under a horizontal offset, components 18's wrong pairing, components 23's \
              cluster corpus — the last of which this module's header predicted by name one ticket \
-             after it was written — and components 20's wheel over a `scroll_area`, which is a \
-             pair §21 had no way to state while a click was an arithmetic substitution"
+             after it was written — components 20's wheel over a `scroll_area`, which is a pair \
+             §21 had no way to state while a click was an arithmetic substitution, and **production \
+             05's three**: `field`'s scrolled, shrunk and wheeled axes, which §21 states over one \
+             narrow row and the freeze declares four of"
         );
         for (index, scene) in SCENES.iter().enumerate() {
             assert_eq!(
@@ -2815,7 +3016,7 @@ mod tests {
     /// keeps a red row's own report reachable from a test once the list has run out of red rows,
     /// and `crate::gates::Row`'s `Red` arm keeps the register's.
     #[test]
-    fn three_scenes_have_nothing_to_run_over_none_is_red_and_thirty_are_stood_up() {
+    fn three_scenes_have_nothing_to_run_over_none_is_red_and_thirty_three_are_stood_up() {
         let red: Vec<u8> = SCENES
             .iter()
             .filter(|s| matches!(s.standing, Standing::Red { .. }))
@@ -2849,7 +3050,7 @@ mod tests {
             evaluated,
             vec![
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 24, 25,
-                26, 27, 28, 29, 30, 31, 32, 33
+                26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36
             ],
             "**Scene 27 is components 41's**, and it is the last of §21's own twenty-seven to be \
              stood up: a theme swap over the assembled gallery, played against a second gallery at \
@@ -3045,7 +3246,7 @@ mod tests {
         );
     }
 
-    /// **O5 moves from 34 of 34 to 18 of 34, and it still fails loudly.**
+    /// **O5 moves from 34 of 34 to 11 of 34, and it still fails loudly.**
     ///
     /// This ticket cannot turn O5 and does not pretend to. Sixteen of the thirty-four
     /// `(component, axis)` pairs have a scene in §21's own list; the other twenty-two are the
@@ -3060,12 +3261,14 @@ mod tests {
     #[test]
     fn seventeen_of_the_thirty_four_axis_obligations_have_a_scene_and_seventeen_do_not() {
         let evidence = axis_scenes();
-        // **Twenty since components 32**, which claimed the three pairs the three preview-pane
-        // scenes had left empty while they were red: `file_preview_pane` shrunk and scrolled, and
-        // `file_picker` scrolled. The test's name is the one it was written under and is kept, for
+        // **Twenty-three since production 05**, which claimed `field`'s scrolled, shrunk and
+        // wheeled axes — §21 states one `field` row and the freeze declares four. It was twenty
+        // after components 32, which claimed the three pairs the three preview-pane scenes had left
+        // empty while they were red: `file_preview_pane` shrunk and scrolled, and `file_picker`
+        // scrolled. The test's name is the one it was written under and is kept, for
         // `PINS_SCENE_22`'s reason — the count is asserted here and the name is how a reader finds
         // the row.
-        assert_eq!(evidence.len(), 20);
+        assert_eq!(evidence.len(), 23);
         assert_eq!(
             crate::obligations::AXIS_SCENES.to_vec(),
             evidence,
@@ -3076,11 +3279,15 @@ mod tests {
         assert_eq!(coverage.len(), 34, "the population §17 states");
         let bare = coverage.iter().filter(|(_, _, s)| s.is_empty()).count();
         assert_eq!(
-            bare, 14,
+            bare, 11,
             "it was eighteen until components 20 claimed `(scroll_area, wheeled)` — the pair §21's \
              single wheel row had no way to state, because an arithmetic click has no second axis \
-             to be wrong on — and seventeen until components 32 claimed the preview pane's two and \
-             the picker's one, which the three scenes had left empty on purpose while they were red"
+             to be wrong on — seventeen until components 32 claimed the preview pane's two and the \
+             picker's one, which the three scenes had left empty on purpose while they were red, \
+             and fourteen until **production 05** claimed `field`'s scrolled, shrunk and wheeled. \
+             Production 05's three are the first here that no components ticket could have added \
+             and none of them was ever unexpressible: §21 states one `field` row, the freeze \
+             declares four axes, and nothing had scheduled the other three"
         );
 
         // Every claimed pair is an axis its component actually declares. A scene covering an axis
@@ -3297,7 +3504,7 @@ mod tests {
     fn a_rehearsal_is_never_what_stands_a_scene_up() {
         // The files where a screen or one of its components is measured. `crate::runner`'s is not
         // one of them, and that is the whole check.
-        const SCREEN_FILES: [&str; 25] = [
+        const SCREEN_FILES: [&str; 26] = [
             DENSE,
             LISTING,
             AREA,
@@ -3351,6 +3558,11 @@ mod tests {
             // **The 598-character form** (components 05), which is the same defect over a value
             // that really is made of glyphs and at a corpus small enough to count by hand.
             "crates/vitui-components/tests/glyph_matrix.rs",
+            // **The field's window** (production 05). Scenes 34, 35 and 36 are played there over
+            // the shipped `field`, and the file is the screen's own in exactly the sense `DOCUMENT`
+            // is: `crate::document` carries §21's narrow row and this one carries the other three
+            // axes.
+            WINDOW,
         ];
         for scene in SCENES {
             match scene.standing {
@@ -3418,7 +3630,14 @@ mod tests {
             })
             .map(|s| s.number)
             .collect();
-        assert_eq!(shrinks, vec![5, 28]);
+        assert_eq!(
+            shrinks,
+            vec![5, 28, 35],
+            "**scene 35 is production 05's** — a pasted megabyte edited down to one line inside a \
+             rectangle that does not move — and it carries a resize spelling beside it for the \
+             reason this test exists: the same refusal played into a rectangle the shrink has \
+             already resized is **clean**"
+        );
         assert_eq!(
             resizes,
             vec![13, 15, 29],
@@ -3478,10 +3697,11 @@ mod tests {
             printed
                 .matches("stood up on its own components, by ")
                 .count(),
-            30,
+            33,
             "a stood-up scene says what stands it up, rather than reading as unplayed. \
-             **Thirty-one** are stood up since components 41 and thirty say so here, because scene \
-             12 is the one this report **plays** — a played line carries its own numbers instead"
+             **Thirty-four** are stood up since production 05 and thirty-three say so here, \
+             because scene 12 is the one this report **plays** — a played line carries its own \
+             numbers instead"
         );
         assert_eq!(
             printed.matches("red, pinned: `components ").count(),
@@ -3558,6 +3778,6 @@ mod tests {
             .map(|s| s.number)
             .collect();
         assert_eq!(still, vec![1, 2, 26]);
-        assert_eq!(SCENES.len() - still.len(), 30);
+        assert_eq!(SCENES.len() - still.len(), 33);
     }
 }

@@ -2861,7 +2861,7 @@ pub const REGISTER: [Row; 233] = [
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
                     name: "three_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           thirty_are_stood_up",
+                           thirty_three_are_stood_up",
                 },
             ],
         },
@@ -3091,7 +3091,7 @@ pub const REGISTER: [Row; 233] = [
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
                     name: "three_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           thirty_are_stood_up",
+                           thirty_three_are_stood_up",
                 },
             ],
         },
@@ -3515,7 +3515,7 @@ pub const REGISTER: [Row; 233] = [
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
                     name: "three_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           thirty_are_stood_up",
+                           thirty_three_are_stood_up",
                 },
             ],
         },
@@ -3671,7 +3671,7 @@ pub const REGISTER: [Row; 233] = [
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
                     name: "three_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           thirty_are_stood_up",
+                           thirty_three_are_stood_up",
                 },
             ],
         },
@@ -4168,7 +4168,7 @@ pub const REGISTER: [Row; 233] = [
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
                     name: "three_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           thirty_are_stood_up",
+                           thirty_three_are_stood_up",
                 },
             ],
         },
@@ -4803,7 +4803,7 @@ pub const REGISTER: [Row; 233] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/obligations.rs",
-                    name: "o5_counts_a_pair_for_every_axis_the_wheel_gates_subjects_declare",
+                    name: "o5_counts_a_pair_for_every_axis_a_posted_notch_is_played_over",
                 },
             ],
         },

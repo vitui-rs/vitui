@@ -11,7 +11,7 @@ Windows, panels, charts, lists, trees, forms and pickers built on
 a value, `INVENTORY`, that the tests iterate rather than a list a reader is asked to trust. Its
 seven documentation and verification obligations are functions over that value: O1, O2, O3, O4, O6
 and O7 are met, and O5 — *every component stands up under every hostile axis it can meet* — is the
-one left, at 14 of 34 `(component, axis)` pairs. A query with no evidence behind it panics here
+one left, at 23 of 34 `(component, axis)` pairs. A query with no evidence behind it panics here
 rather than returning green over an empty population.
 
 §21's register is 233 rows, 228 of them evaluated and **none pinned red**, beside 5 that are

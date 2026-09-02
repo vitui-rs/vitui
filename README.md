@@ -18,7 +18,7 @@ this section before the numbers below it.
 |---|---|
 | `vitui-engine` | **implementation-complete.** All 26 implementation tickets resolved, all 31 verification-register entries wired, none pinned red. |
 | `vitui-runtime` | **implementation-complete.** All 21 tickets resolved. `data`, `layout`, `theme` with its fourteen schemes, `keys`, `ctx`, `id`, `route`, `focus`, `sizing`, `work`, `anim`, `overlay` and `scroll`; the register is 48 entries and the scene list 20, both green. |
-| `vitui-components` | **implementation-complete.** All 46 tickets resolved, and spec §17's v1 freeze is **29 of 29 components built**, as a value the tests iterate. The register is 233 rows, 228 evaluated with none pinned red and none left unsubjected. Obligation O5 — every component under every hostile axis it can meet — is at 14 of 34 pairs and is the one left. |
+| `vitui-components` | **implementation-complete.** All 46 tickets resolved, and spec §17's v1 freeze is **29 of 29 components built**, as a value the tests iterate. The register is 233 rows, 228 evaluated with none pinned red and none left unsubjected. Obligation O5 — every component under every hostile axis it can meet — is at 23 of 34 pairs and is the one left. |
 | `vitui` | facade re-export of the three. |
 | `vitui-apps` | 18 applications, one file each, and the surface's only consumer. Never published. |
 

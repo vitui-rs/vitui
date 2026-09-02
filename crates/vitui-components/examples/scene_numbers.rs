@@ -181,20 +181,23 @@ fn main() {
             println!("    {id:<20} {}", axis.name());
         }
     }
-    // **Twenty since components 32**, which claimed the preview pane's shrink and scroll and the
-    // picker's scroll — three pairs its three scenes had deliberately left empty while they were
-    // red, because a scene waiting for its subject is not yet evidence of anything. It was
-    // seventeen from components 20, which claimed `(scroll_area, wheeled)` — the pair §21 had no
-    // way to state, because its single wheel row was written while a click was an arithmetic
-    // substitution and a delta added to an offset has no second axis to be wrong on.
+    // **Twenty-three since production 05**, which claimed `field`'s scrolled, shrunk and wheeled
+    // axes — §21 states one `field` row and the freeze declares four, and the other three had never
+    // been unexpressible, merely unscheduled. It was twenty after components 32, which claimed the
+    // preview pane's shrink and scroll and the picker's scroll — three pairs its three scenes had
+    // deliberately left empty while they were red, because a scene waiting for its subject is not
+    // yet evidence of anything. It was seventeen from components 20, which claimed
+    // `(scroll_area, wheeled)` — the pair §21 had no way to state, because its single wheel row was
+    // written while a click was an arithmetic substitution and a delta added to an offset has no
+    // second axis to be wrong on.
     //
     // **This line said seventeen for four tickets and nothing said so**, which is components ticket
     // 20's own finding arriving in the file that finding was about: `cargo test` does not run an
     // example, so an `assert!` here is compiled by `cargo clippy --all-targets` and evaluated by
-    // nobody. `crate::obligations`'s own `unmet(o5(AXIS_SCENES)) == (34, 14)` is the gate and was
+    // nobody. `crate::obligations`'s own `unmet(o5(AXIS_SCENES)) == (34, 11)` is the gate and was
     // green throughout; this report — **O5's own** — had been panicking. Found by a review during
     // components 36.
-    assert_eq!(covered, 20);
+    assert_eq!(covered, 23);
     assert_eq!(coverage.len(), 34);
     assert_eq!(
         INVENTORY
@@ -249,7 +252,7 @@ fn main() {
     // it because `cargo test` does not run an example**: it is compiled by `cargo clippy
     // --all-targets` and evaluated by nothing. Resyncing them would put the same trap back one
     // number later, so they are deleted rather than corrected, and
-    // `scenes::tests::three_scenes_have_nothing_to_run_over_none_is_red_and_thirty_are_stood_up`
+    // `scenes::tests::three_scenes_have_nothing_to_run_over_none_is_red_and_thirty_three_are_stood_up`
     // owns those figures — it asserts the scene *numbers* and not only their count, which is
     // strictly more than these two lines said. Found by components 20.
 }

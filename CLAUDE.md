@@ -39,22 +39,24 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   obligations as functions over it. Register 233 rows, 228 evaluated and
   **no row pinned red** — row 112 was the last, inverted by runtime architecture 31 — beside
   5 unreachable across the crate line (ADR 0023) and **nothing unsubjected**: production 03 took
-  `table`'s two and production 04 took `field`'s four, which were the last. **Thirty of the
-  thirty-three scenes stand up, none is red and three have nothing to run over** —
+  `table`'s two and production 04 took `field`'s four, which were the last. **Thirty-three of the
+  thirty-six scenes stand up, none is red and three have nothing to run over** —
   `scenes.rs`'s own gate names the numbers, and *every scene stood up* was a third stale summary
-  sentence of production 01's kind, corrected by 04.
+  sentence of production 01's kind, corrected by 04. Scenes **34, 35 and 36 are production 05's**,
+  all three in `crates/vitui-components/src/window.rs`: `field`'s scrolled, shrunk and wheeled axes,
+  which §21 states over one narrow row and the freeze declares four of.
   **Two
   inversions there were the runtime's and no components ticket's**: row 112 and row 161, the bytes
   on the wire, by runtime architecture 34. Obligations **O1–O4, O6 and O7 are `Met`; O5 is the one
-  left**, at **14 of 34 `(component, axis)` pairs**, and is watched panicking, because a query with
-  no evidence must fail loudly rather than pass.
+  left**, at **23 of 34 `(component, axis)` pairs with a scene**, and is watched panicking, because a
+  query with no evidence must fail loudly rather than pass.
 - **`vitui-apps` — 18 applications**, one file each in `examples/`. A component ticket ships one, and
   since ticket 45 that is obligation **O7** rather than a habit: `vitui_components::consumer` joins
   the freeze against the import paths here.
 - **Active work: `.scratch/vitui-production/`** (opened 2026-09-01) — the whole workspace's road to a
   published crate, sixteen tickets in five groups: the paperwork, the six unsubjected register rows
   (**all six standing**, by production 03 and 04),
-  the fourteen hostile axes O5 still owes, three tier-1 terminals nobody has run, and the release.
+  the fourteen hostile axes O5 still owed (**eleven left**, `field`'s three taken by production 05), three tier-1 terminals nobody has run, and the release.
   **Windows is last, as 16**, blocked by the publish — which carries the consequence that no shipped
   string may claim a terminal the conform suite has not asked. Everything on it was already true and
   already recorded; what was missing was that nothing scheduled any of it.

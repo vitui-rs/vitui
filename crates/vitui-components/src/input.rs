@@ -539,11 +539,19 @@ pub(crate) fn field_keyed<I: Ink>(
     st: &mut Text,
     opts: &FieldOpts,
 ) -> Response {
-    draw_with(ink, cx, id, area, st, opts, defective::Regions::Widget)
+    draw_with(ink, cx, id, area, st, opts, defective::Refused::NONE)
 }
 
-/// **The one axis `field` can be false on that is not on [`FieldOpts`]**, threaded here so the
-/// shipped build and the refused one are one function with one value between them.
+/// **The three axes `field` can be false on that are not on [`FieldOpts`]**, threaded here so the
+/// shipped build and every refused one are one function with one value between them.
+///
+/// It was one argument and one axis until production ticket 05, which needed the other two:
+/// [`defective::Window`] is the window arithmetic — §17's `scrolled` and `shrunk` axes, whose two
+/// refusals are the *inverted sign* and *stopping at the last content row* — and
+/// [`defective::CaretRow`] is where the caret's row is measured from. They arrive as a
+/// [`defective::Refused`] rather than as three parameters because they are three
+/// [`defective::Window`]-shaped values a reader transposes; `crate::wheel::Play` is the same answer
+/// one module over, for the same reason.
 #[track_caller]
 fn draw_with<I: Ink>(
     ink: &mut I,
@@ -552,7 +560,7 @@ fn draw_with<I: Ink>(
     area: Rect,
     st: &mut Text,
     opts: &FieldOpts,
-    regions: defective::Regions,
+    refused: defective::Refused,
 ) -> Response {
     // **The id is the caller's** — minted by `field_into` from `Ctx::id` (ADR 0027, outside every
     // closure) or by a container that owes its rows' identities, which is [`field_keyed`].
@@ -762,7 +770,7 @@ fn draw_with<I: Ink>(
     let _ = st.index(w);
     // **The refused region spelling, declared where it can be**: it walks the rows the index
     // names, so it cannot run before the index exists — which is the first frame of every field.
-    if regions == defective::Regions::PerCluster {
+    if refused.regions == defective::Regions::PerCluster {
         declare_per_cluster(cx, st, area, opts);
     }
     let offset = st.offset();
@@ -781,9 +789,26 @@ fn draw_with<I: Ink>(
     // the start of the row it has just left. `Index::row_of` answers both, once.
     let caret_row = index.row_of(caret.byte());
     let mut caret_at = None;
-    for r in 0..rows {
+    // **How many rows of the rectangle are written, and it is all of them.** The shipped answer
+    // ignores the content's length: a row past the last one draws its pad, because the previous
+    // frame's content is what is there otherwise. [`defective::Window::ContentRowsOnly`] is the
+    // obvious saving, and it is §17's `shrunk` axis — the stale tail, from the direction no counter
+    // watches, and *cheaper* on every one of them.
+    let painted = match refused.window {
+        defective::Window::ContentRowsOnly => u16::try_from(index.rows().saturating_sub(offset))
+            .unwrap_or(rows)
+            .min(rows),
+        _ => rows,
+    };
+    for r in 0..painted {
         let y = area.y + i32::from(r);
-        let row = offset + usize::from(r);
+        // **The window's sign**, and `defective::Window::Inverted` is §17's `scrolled` axis: the
+        // content is at `offset + r` and the refusal reads `offset - r`, which was found three
+        // times independently and which every counter in the stack approved of.
+        let row = match refused.window {
+            defective::Window::Inverted => offset.saturating_sub(usize::from(r)),
+            _ => offset + usize::from(r),
+        };
         let start = index.row_start(row);
         let len = index.row_len(row);
         let text = index.row_text(buf, row);
@@ -816,6 +841,22 @@ fn draw_with<I: Ink>(
         }
     }
 
+    // **The caret's row is a row of the viewport, and `defective::CaretRow::Content` is the row of
+    // the content.** The loop above recorded the first; the refusal below is what somebody writes
+    // while looking at that loop, because the content row is the number already in hand. They are
+    // the same number at offset 0 and at **no other offset** — so it is right on every field a gate
+    // is written over and wrong the moment a reader scrolls — and the difference is invisible to
+    // every instrument that reads cells: the caret is the terminal's cursor, so the two screens are
+    // `crate::document::SURFACE_BLIND` cells apart and *the equality against a reference render
+    // cannot see it either*. `crate::window::misplaced_caret` reads `Frame::caret`, which is the
+    // only instrument that can.
+    let caret_at = match refused.caret {
+        defective::CaretRow::Content => Some((
+            area.x + i32::from(caret.col().min(w.saturating_sub(1))),
+            area.y + i32::try_from(caret_row).unwrap_or(i32::MAX),
+        )),
+        defective::CaretRow::Viewport => caret_at,
+    };
     // **The caret's shape is asked for rather than left to the terminal's default**, and it is
     // placed only where this widget holds the keyboard — `Ctx::caret_with` refuses it otherwise,
     // because a caret on a screen where nothing is focused says typing goes somewhere it does not.
@@ -2949,6 +2990,87 @@ pub mod defective {
         PerCluster,
     }
 
+    /// **Every refusal `draw_with` threads, as one value.**
+    ///
+    /// Three axes, and a struct rather than three parameters for [`crate::wheel::Play`]'s reason:
+    /// [`Window::Inverted`] and [`Window::ContentRowsOnly`] are two arms of one field and
+    /// [`CaretRow::Content`] is a second field, and three enums side by side in a call are exactly
+    /// the arguments a reader transposes. [`Refused::NONE`] is what the shipped `field` passes.
+    #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+    pub struct Refused {
+        /// How many hit entries the widget declares.
+        pub regions: Regions,
+        /// How the window over the content is computed.
+        pub window: Window,
+        /// Where the caret's row is measured from.
+        pub caret: CaretRow,
+    }
+
+    impl Refused {
+        /// **The shipped build**, which is what `field_into` and `field_keyed` pass.
+        ///
+        /// A `const` and not `Default::default()` at the call site, so that the one place the
+        /// shipped component names a value from this module names *this* one and a reader grepping
+        /// for the refusals finds it.
+        pub const NONE: Refused = Refused {
+            regions: Regions::Widget,
+            window: Window::Offset,
+            caret: CaretRow::Viewport,
+        };
+
+        /// The shipped build with one window arithmetic substituted.
+        pub const fn windowed(window: Window) -> Refused {
+            Refused {
+                window,
+                ..Refused::NONE
+            }
+        }
+
+        /// The shipped build with the caret measured from somewhere else.
+        pub const fn carets(caret: CaretRow) -> Refused {
+            Refused {
+                caret,
+                ..Refused::NONE
+            }
+        }
+    }
+
+    /// **How the window over the content is computed**, which is §17's `scrolled` and `shrunk` axes
+    /// in one enum.
+    ///
+    /// One enum for the two because both refusals are one expression of the shipped loop and
+    /// because the pair is the finding: they are the two directions a window can be wrong, one of
+    /// them *drawing the wrong content* and the other *drawing none* — and every counter of §20's
+    /// nine approves of both.
+    #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+    pub enum Window {
+        /// **The rule.** `offset + r`, over every row of the rectangle.
+        #[default]
+        Offset,
+        /// **The `scrolled` defect.** `offset - r`, which is §17's inverted sign — *12.21 µs /
+        /// 3 058 writes against 62.96 / 20 418, and faster.* Found three times independently.
+        Inverted,
+        /// **The `shrunk` defect.** Stop at the last content row instead of clearing the rest of
+        /// the rectangle, so what stays on screen is the previous frame: §17's stale tail, *71 of
+        /// 80 rows* one component over, and the arm that is **cheaper on every counter**.
+        ContentRowsOnly,
+    }
+
+    /// **Where the caret's row is measured from.**
+    ///
+    /// Two arms, and the defect is the one somebody writes while looking at the row loop: the loop
+    /// already knows the content row, so placing the caret at it reads as the simpler line. It is
+    /// right at offset 0 and wrong at every other offset, and **it is invisible to a cell-for-cell
+    /// equality**, because the caret is the terminal's cursor and not a cell.
+    #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+    pub enum CaretRow {
+        /// **The rule.** The screen row the content row was drawn on.
+        #[default]
+        Viewport,
+        /// **The defect.** The content row itself, unscrolled.
+        Content,
+    }
+
     /// Whether the caret's row is brought into view, and on what condition.
     ///
     /// Three arms and not two, for [`crate::wheel`]'s reason: a one-directional gate goes green the
@@ -3193,7 +3315,38 @@ pub mod defective {
         regions: Regions,
     ) -> vitui_runtime::Response {
         let id = cx.id();
-        super::draw_with(ink, cx, id, area, st, opts, regions)
+        super::draw_with(
+            ink,
+            cx,
+            id,
+            area,
+            st,
+            opts,
+            Refused {
+                regions,
+                ..Refused::NONE
+            },
+        )
+    }
+
+    /// **[`crate::input::field_into`] with every refusal stated**, which is the entry
+    /// [`crate::window`]'s three scenes take.
+    ///
+    /// It is a second entry rather than a widening of [`field_regions`], because that one is
+    /// `crate::contract`'s and `crate::gates`'s already and its argument is the question those ask.
+    /// Both are one call into `super::draw_with`, so there is one drawing path and not two —
+    /// `crate::ink`'s rule, and the reason a `Refused` exists at all.
+    #[track_caller]
+    pub fn field_refused<I: crate::ink::Ink>(
+        ink: &mut I,
+        cx: &mut vitui_runtime::Ctx<'_, '_>,
+        area: vitui_runtime::Rect,
+        st: &mut crate::edit::Text,
+        opts: &super::FieldOpts,
+        refused: Refused,
+    ) -> vitui_runtime::Response {
+        let id = cx.id();
+        super::draw_with(ink, cx, id, area, st, opts, refused)
     }
 
     // ── `form`'s one refused spelling ────────────────────────────────────────────────────────────

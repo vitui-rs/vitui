@@ -169,11 +169,24 @@ pub const SURFACE_BLIND: usize = 0;
 
 /// **The document's hard lines**, every one of them built out of [`crate::clusters::corpus`]'s rota.
 ///
-/// Line `i` opens with its own four-digit index, so no two lines share a prefix and a wrong row
+/// Line `i` opens with its own four-digit index, so no two **lines** share a prefix and a wrong row
 /// costs a full row of cells rather than the suffix nobody was looking at. That is
 /// [`crate::runner::Fixture::lines`]'s property, restated here because this document's lines vary in
 /// length and its generator's do not — and it is the property components ticket 11 found the runner
 /// fixture short of, where `(5i + c) mod 26` aliases every thirteenth row.
+///
+/// # The unit is a hard line and not a visual row, and production ticket 05 measured the difference
+///
+/// [`LONG`] of these lines wrap to two rows at [`NARROW`], and **a long line's second visual row
+/// carries no index**: it is a suffix of [`crate::clusters::ROTA`]'s eight-word rota, so two second
+/// rows an even number of rows apart are the same string. Over an eighty-row window compared
+/// against the window four hundred rows below it, [`crate::window::ALIASED_ROWS`] of the eighty
+/// agree **entirely** — which is the sentence above holding for the unit it names and not for the
+/// one a reader of a scrolled screen is counting in.
+///
+/// It is recorded rather than fixed: §21's own *625 rows drawn where 875 are needed* is a property
+/// of this generator, and a generator changed to sharpen a cell count would move a normative figure
+/// to win an argument. [`crate::window`] states its scenes in rows for this reason.
 pub fn lines() -> Vec<String> {
     LINES_ONCE.clone()
 }
