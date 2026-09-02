@@ -36,10 +36,14 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   rather than counted: `crates/vitui-components/tests/crate_line.rs` cannot name the engine.
 - **`vitui-components` — implementation-complete.** All 46 tickets; spec §17's freeze is **29 of 29
   built**, as a value (`INVENTORY`) that tests iterate, with the documentation and verification
-  obligations as functions over it. Register 233 rows, 224 evaluated and
+  obligations as functions over it. Register 233 rows, 228 evaluated and
   **no row pinned red** — row 112 was the last, inverted by runtime architecture 31 — beside
-  5 unreachable across the crate line (ADR 0023) and 4 unsubjected (production 03 took `table`'s two,
-  and the four left are the field's); every scene stood up. **Two
+  5 unreachable across the crate line (ADR 0023) and **nothing unsubjected**: production 03 took
+  `table`'s two and production 04 took `field`'s four, which were the last. **Thirty of the
+  thirty-three scenes stand up, none is red and three have nothing to run over** —
+  `scenes.rs`'s own gate names the numbers, and *every scene stood up* was a third stale summary
+  sentence of production 01's kind, corrected by 04.
+  **Two
   inversions there were the runtime's and no components ticket's**: row 112 and row 161, the bytes
   on the wire, by runtime architecture 34. Obligations **O1–O4, O6 and O7 are `Met`; O5 is the one
   left**, at **14 of 34 `(component, axis)` pairs**, and is watched panicking, because a query with
@@ -48,7 +52,8 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   since ticket 45 that is obligation **O7** rather than a habit: `vitui_components::consumer` joins
   the freeze against the import paths here.
 - **Active work: `.scratch/vitui-production/`** (opened 2026-09-01) — the whole workspace's road to a
-  published crate, sixteen tickets in five groups: the paperwork, the six unsubjected register rows,
+  published crate, sixteen tickets in five groups: the paperwork, the six unsubjected register rows
+  (**all six standing**, by production 03 and 04),
   the fourteen hostile axes O5 still owes, three tier-1 terminals nobody has run, and the release.
   **Windows is last, as 16**, blocked by the publish — which carries the consequence that no shipped
   string may claim a terminal the conform suite has not asked. Everything on it was already true and
@@ -247,6 +252,20 @@ instrument rather than in the code. Each of these has bitten at least twice.
   itself; an equality between two derivations of one declaration holds for ever; an equality between
   two things that do not exist holds. Watch every gate failing — and since `warnings = "deny"` turns
   an unused `pub(crate)` into a build failure, empty the body rather than deleting the call.
+- **A gate over a state nothing has moved cannot see a defect that arrives on a change** (production
+  04). Rows 15 and 16 were watched over a forward walk of a corpus and over the gestures — both
+  *constructions* — while §11's two caret defects both arrive on an **edit**; row 18's gate reads
+  *the width being drawn* and compared two indexes neither of which was drawn. Ask where the
+  property's own defect arrives, and inspect **there**.
+- **A check that re-runs the walk that produced the value cannot fail, however many observations it
+  takes** (production 04, found by a review of its own first fix — the *recorder shares a coordinate
+  system* trap one shape over). `Text::edit` places a caret by walking cluster steps from a row
+  start, so *is this caret on a cluster boundary* is a membership test against that same walk, and
+  starting the checker at byte 0 changes nothing — it passes through the row start and continues
+  identically. 1 296 inspections of a byte-addressed caret after every edit report **zero**. When a
+  property holds by construction, say so and count the producers apart: the observations live where a
+  value enters from **outside** the construction — here `set_pos`, and `undo`, which restores a pair
+  rather than recomputing one.
 - **A `compile_fail` needs a twin naming the protected item by path.** The error code beside the fence
   is documentation: rustdoc on stable ignores it.
 - **The recorder and the defect share a coordinate system**, so the gate cannot see it. Both recorders

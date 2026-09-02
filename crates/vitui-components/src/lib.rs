@@ -96,7 +96,7 @@
 //! - [`counters`] — §20's nine per-frame counters, **eight of which this crate can read**. The
 //!   ninth, `marked`, panics rather than answering `0`, and so does the sentinel probe.
 //! - [`scenes`] — the normative scene list: **thirty-three screens, twenty-seven of them §21's
-//!   table, eight `Unsubjected`, six `Red` and nineteen `Evaluated`**, each with the size it is
+//!   table, three `Unsubjected`, none `Red` and thirty `Evaluated`**, each with the size it is
 //!   played at, the content it stands up, the gestures it plays and the property it decided. Three
 //!   of them exist because a defect survived every gate then in force by not being on any screen
 //!   anybody had built. **Scenes 8 and 9 — the million-node forest and the fold over 349 524 rows —

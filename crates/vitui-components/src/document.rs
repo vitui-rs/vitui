@@ -265,7 +265,7 @@ pub fn pasted() -> String {
 /// `examples/field_numbers.rs` already used. **Every figure on this page is now a measurement of
 /// the shipped machine**, which is the difference between a scene that is stood up and one that is
 /// merely green.
-pub use crate::edit::{Caret, Index, boundaries, step, step_left, step_right};
+pub use crate::edit::{Caret, Index, Text, WrapKind, boundaries, step, step_left, step_right};
 
 /// **What one `Left` at the end of a pasted megabyte costs, both ways.**
 ///
@@ -437,6 +437,55 @@ fn edit(base: &str, at: usize, inserted: &str) -> String {
     edited
 }
 
+/// **The same five hundred edits, played through [`crate::edit::Text`] rather than through
+/// [`Index::spliced`].**
+///
+/// [`splice_sweep`] asks the *mechanism*: it holds one index and splices it two ways at a restart
+/// point the test computes. This asks the **component**: five hundred states, each seated by a
+/// gesture and edited with `Text::insert`, and the restart point is the one `Text::edit` chose —
+/// [`crate::edit::defective::restarted_at_row_of`] is the only difference between the two arms.
+///
+/// It exists because row 17 is an equality about the shipped splice and the cheaper sweep is an
+/// equality about a splice the test drove. Both populations are [`SPLICES`], so the two numbers are
+/// comparable; the component's arm is the one the register cites first.
+///
+/// The caret is walked to the trial's offset with `Text::right` from the start of its own row,
+/// because there is no expression for *put the caret at byte N* (§11) and a gate may not invent
+/// one — [`edit_walk`]'s [`Seat::AtByte`] is the door, and it is a defect rather than a fixture.
+pub fn component_splice_sweep() -> Splices {
+    let base = splice_document();
+    let mut out = Splices {
+        trials: 0,
+        at_row_of: 0,
+        one_row_earlier: 0,
+    };
+
+    for (at, inserted) in splice_trials(&base) {
+        out.trials += 1;
+        for naive in [false, true] {
+            let mut st = Text::of(base.clone(), WrapKind::Words);
+            if naive {
+                crate::edit::defective::restarted_at_row_of(&mut st);
+            }
+            let row = st.index(SPLICE_W).row_of(at);
+            st.click(SPLICE_W, row, 0, false);
+            while st.caret().byte() < at {
+                st.right(SPLICE_W, false);
+            }
+            st.insert(SPLICE_W, inserted);
+            let rebuilt = Index::build(st.text(), SPLICE_W, st.revision());
+            if !st.indexed().expect("the edit left one").same_rows(&rebuilt) {
+                match naive {
+                    true => out.at_row_of += 1,
+                    false => out.one_row_earlier += 1,
+                }
+            }
+        }
+    }
+
+    out
+}
+
 /// [`splice_sweep`], and the first trial the naive restart point got wrong beside it.
 ///
 /// The witness is what the screen next door is drawn from, so the surface figure and the sweep's
@@ -504,6 +553,269 @@ pub fn hostile_splice() -> (String, String, usize) {
 
 /// The width [`hostile_splice`] is wrapped at. Twelve columns: `ab` fits, the long word does not.
 pub const HOSTILE_W: u16 = 12;
+
+// ── gate 1, across an edit ───────────────────────────────────────────────────────────────────────
+
+/// **Positions [`edit_walk`] seats a caret at.** Every ninety-seventh `char` boundary of
+/// `splice_document`, which is a stride and not a sample of one row.
+pub const WALK_STRIDE: usize = 97;
+
+/// **How many positions that stride reaches. A hundred and forty-four.**
+///
+/// Named because a stride is a construction and the count it produces is a fact about the fixture:
+/// a `splice_document` that shrank would leave the script running over three seats and every
+/// relation below still true.
+pub const WALK_SEATS: usize = 144;
+
+/// **How many of those hundred and forty-four are inside a cluster. Forty-five.**
+///
+/// The stride walks `char` boundaries, and this document is built out of
+/// [`crate::clusters::corpus`]'s rota — so forty-five of the positions a byte-addressed caret would
+/// accept are places no gesture can put one. It is the *population* [`Seat::AtByte`] can be wrong
+/// at, which is what turns its off-boundary count into an equality rather than a threshold.
+pub const WALK_INSIDE: usize = 45;
+
+/// **How a caret is seated between the edits of [`edit_walk`]** — one function, two arms, one value
+/// between them, which is this file's rule for a defect (ADR 0026).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Seat {
+    /// **The shipped verbs.** A caret is placed by a click's column, a cluster step, `Home` or
+    /// `End`, and every one of those lands on a boundary by construction.
+    Gesture,
+    /// **§11's deleted API, spelled through the one door that exists**:
+    /// [`crate::edit::defective::at_byte`] handed to [`Text::set_pos`]. The caret it seats is a
+    /// boundary only by luck.
+    ///
+    /// Its *column* is the engine's tables over the **whole prefix**, and
+    /// `crate::edit::defective::at_byte`'s own doc calls that right on gate 2 — which it is on the
+    /// one-line corpus that doc was written against and is not here. A caret's column is a *screen*
+    /// column, re-seated at every row start, so over a sixty-four-line document a full-prefix column
+    /// is a screen column on row 0 and nowhere else: this arm is wrong on gate 1 at the seats inside
+    /// a cluster and wrong on gate 2 at every seat but one. The two gates are still separable, and
+    /// the arm that shows it is a `Text::edit` that seats a byte-addressed caret after every edit —
+    /// which puts 715 columns wrong and leaves gate 1 at zero.
+    AtByte,
+}
+
+/// **Which verb placed the caret being inspected**, because gate 1 can only fail on two of the
+/// three and that is the finding rather than a bookkeeping detail.
+///
+/// A review of production ticket 04 found the first version of this walk counting one number over
+/// all three, and reading a zero as *the shipped verbs are right across an edit* when for one of
+/// the three it could not have been anything else.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Placed {
+    /// **A gesture, or the seat.** `select_all`, a click, or — on the defective arm — a raw byte
+    /// through [`Text::set_pos`]. This is where a caret enters the state from outside, so it is the
+    /// only class an *off-boundary* caret can be introduced in.
+    Seated,
+    /// **`Text::edit`**, which re-seats the pair by walking cluster steps from the start of the
+    /// new visual row.
+    ///
+    /// **Gate 1 cannot fail here and the reason is structural**, not empirical: the walk returns a
+    /// member of its own walk, and a checker that walks from byte 0 is no more independent — it
+    /// passes through the row start (which is a boundary, and pinned as one) and continues with the
+    /// same steps. What *can* fail here is gate 2, and it does: a `Text::edit` that seats a
+    /// byte-addressed caret leaves 715 wrong columns and zero off-boundary carets.
+    Walked,
+    /// **`Text::undo`**, which **restores** the pair rather than recomputing it — §11's `set_pos`
+    /// at 0.0007 µs against `set_caret`'s 6 109.
+    ///
+    /// **This is where gate 1 has teeth across an edit.** A restored pair is only as good as the
+    /// buffer it is restored into: it was a boundary in the buffer the edit started from, and the
+    /// claim is that undo puts that buffer back. The defective arm demonstrates it without patching
+    /// `undo` at all — the third undo of each seat restores the seat's own pair, which on the
+    /// `AtByte` arm is inside a cluster.
+    Restored,
+}
+
+/// What [`edit_walk`] counted.
+///
+/// The failure columns are counted rather than asserted inside the walk, because a gate that stops
+/// at the first bad caret cannot say whether the arm is wrong once or wrong everywhere — and *once
+/// in five hundred* is the shape §11 already met on the splice.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct EditWalk {
+    /// Carets inspected: every gesture, every edit and every undo of the script, at every position.
+    pub inspected: usize,
+    /// Of those, how many sat somewhere that is **not** a cluster boundary of the buffer as it then
+    /// stood. Recomputed against the edited buffer, never against the original.
+    pub off_boundary: usize,
+    /// The [`Placed::Seated`] share of [`EditWalk::off_boundary`].
+    pub off_boundary_seated: usize,
+    /// The [`Placed::Walked`] share, which is **structurally** zero — see [`Placed::Walked`].
+    pub off_boundary_walked: usize,
+    /// The [`Placed::Restored`] share, which is where gate 1 has teeth across an edit.
+    pub off_boundary_restored: usize,
+    /// Of those, how many carried a column the engine's tables disagree with over the caret's own
+    /// visual row.
+    pub wrong_column: usize,
+    /// Edits applied — an insert, a backspace and a delete at every position.
+    pub edits: usize,
+    /// Positions a caret was seated at.
+    pub seats: usize,
+    /// Of those, how many are inside a cluster of the unedited buffer — the population
+    /// [`Seat::AtByte`] can be wrong on gate 1 at, and the number that makes its counts an equality
+    /// rather than a threshold.
+    pub inside: usize,
+    /// **Times an end-of-buffer inspection found the caret at the end it asked for**, counted at
+    /// both ends and **never from a fresh state**: a `Text` is constructed with its caret already at
+    /// byte 0, so a `Home` counted first is a comparison that cannot fail. `select_all` reaches the
+    /// buffer's length, and a click on row 0 column 0 comes back from there — neither end is
+    /// `Text::home` or `Text::end`, both of which are the *visual row's* ends.
+    pub ends: usize,
+    /// **Undos that applied an entry**, which is `Text::undo`'s own answer and not a count of calls.
+    /// Three per seat, which is the whole history: an empty ring would make a seat's last three
+    /// inspections copies of the one before them, and the third undo is the one that restores the
+    /// seat's own pair.
+    pub undone: usize,
+}
+
+/// **Whether `byte` is a cluster boundary of `buf`, walked from the start of the visual row it
+/// falls in** rather than from byte 0.
+///
+/// The row start is where the walk may begin because the break points are the engine's own:
+/// [`Index::build`] wraps with `vitui_runtime::layout::text::wrap`, whose breaks fall on cluster
+/// boundaries, so a walk from a row start reaches the same set over that row as a walk from byte 0.
+/// [`tests::every_row_start_is_a_cluster_boundary_of_the_whole_buffer`] is that assumption pinned
+/// rather than assumed, and it is the reason this is `O(row)`: the same check written as
+/// `boundaries(buf).contains(&byte)` is `O(buffer)` at every one of [`edit_walk`]'s inspections and
+/// costs twenty seconds against three.
+fn on_a_boundary(buf: &str, row_start: usize, byte: usize) -> bool {
+    let mut at = row_start;
+    while at < byte {
+        match step(&buf[at..]) {
+            Some(cluster) => at += cluster.len(),
+            None => break,
+        }
+    }
+    at == byte
+}
+
+/// **Gate 1 and gate 2 over a script of edits rather than over a construction.**
+///
+/// The two caret gates were watched over a forward walk of the corpus and over the gestures, and
+/// both of those inspect a caret the buffer has not moved under. **An edit moves it**: `Text::edit`
+/// re-seats the pair by walking from the start of the *new* visual row, and nothing asked whether
+/// that landed on a boundary. This walks the script at every [`WALK_STRIDE`]th `char` boundary of
+/// `splice_document` and inspects the caret at both ends of the buffer, after the seat, and after
+/// each of an insert, a backspace, a delete and two undos.
+///
+/// The insert is a base and a combining acute — two `char`s and one cluster — because an insert of
+/// one ASCII byte cannot produce a cluster the buffer did not already have.
+pub fn edit_walk(seat: Seat) -> EditWalk {
+    let base = splice_document();
+    let w = SPLICE_W;
+    let mut out = EditWalk::default();
+
+    fn inspect(st: &mut Text, w: u16, by: Placed, out: &mut EditWalk) {
+        let caret = st.caret();
+        let buf = st.text().to_string();
+        let row_start = {
+            let index = st.index(w);
+            index.row_start(index.row_of(caret.byte()))
+        };
+        out.inspected += 1;
+        let off = |by: Placed, out: &mut EditWalk| {
+            out.off_boundary += 1;
+            match by {
+                Placed::Seated => out.off_boundary_seated += 1,
+                Placed::Walked => out.off_boundary_walked += 1,
+                Placed::Restored => out.off_boundary_restored += 1,
+            }
+        };
+
+        // **A caret can be off a `char` boundary and not only off a cluster boundary, and the
+        // instrument may not fall over on it.** `&buf[..b]` panics inside a code point, so the
+        // width comparison below would take this gate down with a slicing message instead of
+        // reporting the property it exists for — which is what happened when `Text::undo` was
+        // patched to restore the wrong buffer: a pair restored into a shorter buffer landed inside
+        // a four-byte emoji. `str::is_char_boundary` is false past the end too, so one test covers
+        // a stale pair as well. Such a caret is off a cluster boundary by definition and has no
+        // column the engine's tables could agree with, so it counts on both.
+        if !buf.is_char_boundary(caret.byte()) {
+            off(by, out);
+            out.wrong_column += 1;
+            return;
+        }
+        if !on_a_boundary(&buf, row_start, caret.byte()) {
+            off(by, out);
+        }
+        if caret.col() != width(&buf[row_start..caret.byte()]) {
+            out.wrong_column += 1;
+        }
+    }
+
+    let seats: Vec<usize> = (0..base.len())
+        .step_by(WALK_STRIDE)
+        .filter(|at| base.is_char_boundary(*at))
+        .collect();
+
+    let cluster_boundaries = boundaries(&base);
+    out.seats = seats.len();
+    out.inside = seats
+        .iter()
+        .filter(|at| !cluster_boundaries.contains(at))
+        .count();
+
+    for at in seats {
+        let mut st = Text::of(base.clone(), WrapKind::Words);
+
+        // **Both ends of the buffer, and neither of them is `Home` or `End`.**
+        //
+        // Two traps, both of which a first version of this walk fell into. `Text::home` and
+        // `Text::end` are the ends of the caret's own **visual row**, so on row 0 neither is an end
+        // of a wrapped document; the two gestures that address the buffer are `select_all`, which
+        // clicks the last row at `u16::MAX`, and a click on row 0 column 0. And a `Text` is
+        // constructed with its caret already at byte 0 — a `Home` counted first is a comparison
+        // between a fresh state and where a fresh state already is, so **the far end is reached
+        // first** and byte 0 is the one that has to be come back to.
+        st.select_all(w);
+        out.ends += usize::from(st.caret().byte() == base.len());
+        inspect(&mut st, w, Placed::Seated, &mut out);
+        // A click settles the anchor, so this also clears the selection `select_all` left — without
+        // it the insert below would replace the whole document and the script would be one edit.
+        st.click(w, 0, 0, false);
+        out.ends += usize::from(st.caret().byte() == 0);
+        inspect(&mut st, w, Placed::Seated, &mut out);
+
+        match seat {
+            Seat::Gesture => {
+                let (row, col) = {
+                    let index = st.index(w);
+                    let row = index.row_of(at);
+                    (row, width(&base[index.row_start(row)..at]))
+                };
+                st.click(w, row, col, false);
+            }
+            Seat::AtByte => st.set_pos(crate::edit::defective::at_byte(&base, at)),
+        }
+        inspect(&mut st, w, Placed::Seated, &mut out);
+
+        st.insert(w, "e\u{301}");
+        out.edits += 1;
+        inspect(&mut st, w, Placed::Walked, &mut out);
+
+        st.backspace(w);
+        out.edits += 1;
+        inspect(&mut st, w, Placed::Walked, &mut out);
+
+        st.delete(w);
+        out.edits += 1;
+        inspect(&mut st, w, Placed::Walked, &mut out);
+
+        // **Three undos and not two: the whole history.** The third restores the *seat's* own pair
+        // into the buffer the seat was made in, which is the one inspection in this script where a
+        // caret enters from outside a cluster walk **after** an edit — and on the `AtByte` arm it is
+        // inside a cluster.
+        for _ in 0..3 {
+            out.undone += usize::from(st.undo());
+            inspect(&mut st, w, Placed::Restored, &mut out);
+        }
+    }
+
+    out
+}
 
 // ── the four defects, expressed ──────────────────────────────────────────────────────────────────
 
@@ -1143,6 +1455,158 @@ mod tests {
         );
     }
 
+    /// **Every visual row start is a cluster boundary of the whole buffer**, which is what lets
+    /// [`on_a_boundary`] begin its walk at a row start instead of at byte 0.
+    ///
+    /// One full [`boundaries`] walk of the walk's own document, against every row start the index
+    /// declares. Without it the cheap check would be resting on the thing it is checking: a wrap
+    /// that broke inside a cluster would move a row start off a boundary and every caret measured
+    /// from that start would still read as on one.
+    #[test]
+    fn every_row_start_is_a_cluster_boundary_of_the_whole_buffer() {
+        let base = splice_document();
+        let index = Index::build(&base, SPLICE_W, 0);
+        let all = boundaries(&base);
+        assert!(index.rows() > 1, "one row makes this vacuous");
+        for r in 0..index.rows() {
+            let start = index.row_start(r);
+            assert!(
+                all.contains(&start),
+                "row {r} starts at byte {start}, which is inside a cluster"
+            );
+        }
+
+        // Watched failing on the one thing that would invalidate it: a walk begun at a byte that is
+        // **not** a boundary reports the caret it was asked about as off one.
+        let inside = (0..base.len())
+            .find(|b| base.is_char_boundary(*b) && !all.contains(b))
+            .expect("this document is built out of clusters");
+        assert!(!on_a_boundary(&base, inside, inside + 1));
+        assert!(on_a_boundary(&base, 0, *all.last().expect("non-empty")));
+    }
+
+    /// **Gate 1 and gate 2 at both ends of the buffer and across an edit**, which is the half of
+    /// §11's first two gates a construction-time walk cannot reach.
+    ///
+    /// The two caret gates next door inspect a caret over a buffer that does not move: a forward
+    /// `step_right` walk of the corpus, and the gestures. **An edit moves the buffer under the
+    /// caret** — and §11's own two caret defects arrived there. [`edit_walk`] plays a script at each
+    /// of [`WALK_SEATS`] positions: both ends of the buffer, the seat, an insert of one cluster
+    /// spelled as two `char`s, a backspace, a delete, and then **three** undos, which is the whole
+    /// history back to the buffer the seat was made in.
+    ///
+    /// # The three producers are counted apart, and that is the finding
+    ///
+    /// A review of this ticket's first version found one number over all three and a zero being read
+    /// as *the shipped verbs are right across an edit*, when for one of the three it could not have
+    /// been anything else. [`Placed`] carries the split:
+    ///
+    /// - **[`Placed::Walked`] is structurally zero.** `Text::edit` re-seats the pair by walking
+    ///   cluster steps from the new row's start, so it returns a member of its own walk — and a
+    ///   checker walking from byte 0 is no more independent, because it passes through that row
+    ///   start and continues with the same steps. Gate 1 asks nothing here; **gate 2 does**, and a
+    ///   `Text::edit` that seats a byte-addressed caret leaves 715 wrong columns with the
+    ///   off-boundary count still at zero.
+    /// - **[`Placed::Restored`] is where gate 1 has teeth.** `Text::undo` restores the pair rather
+    ///   than recomputing it (§11: 0.0007 µs against 6 109), so a restored pair is only as good as
+    ///   the buffer it is restored into. The defective arm demonstrates it **without patching
+    ///   `undo`**: the third undo puts the seat's own pair back, and on the `AtByte` arm that pair
+    ///   is inside a cluster — [`WALK_INSIDE`] of them.
+    /// - **[`Placed::Seated`]** is where a caret enters from outside, and the other
+    ///   [`WALK_INSIDE`].
+    #[test]
+    fn the_caret_is_on_a_boundary_at_both_ends_and_after_every_edit() {
+        let shipped = edit_walk(Seat::Gesture);
+        assert_eq!(shipped.seats, WALK_SEATS, "the stride's population");
+        assert_eq!(shipped.inside, WALK_INSIDE);
+        assert_eq!(
+            shipped.ends,
+            2 * WALK_SEATS,
+            "both ends of the buffer were reached at every seat, and neither is `Home` or `End`: \
+             those are the ends of a visual row, so `select_all` reaches the buffer's length and a \
+             click on row 0 column 0 comes back from there"
+        );
+        assert_eq!(shipped.inspected, 9 * WALK_SEATS, "the script's length");
+        assert_eq!(
+            shipped.edits,
+            3 * WALK_SEATS,
+            "an insert, a backspace and a delete at every seat"
+        );
+        assert_eq!(
+            shipped.undone,
+            3 * WALK_SEATS,
+            "and three undos that each applied an entry, which is the whole history — an empty \
+             ring would make a seat's last three inspections copies of the one before them"
+        );
+        assert_eq!(
+            (
+                shipped.off_boundary,
+                shipped.off_boundary_seated,
+                shipped.off_boundary_walked,
+                shipped.off_boundary_restored
+            ),
+            (0, 0, 0, 0),
+            "gate 1 across an edit: {} of {} carets the shipped verbs produced were inside a \
+             cluster",
+            shipped.off_boundary,
+            shipped.inspected
+        );
+        assert_eq!(
+            shipped.wrong_column, 0,
+            "gate 2 across an edit: {} carried a column the engine's tables disagree with over \
+             their own visual row",
+            shipped.wrong_column
+        );
+
+        // **The deleted API, watched failing both gates over the same script.**
+        let bad = edit_walk(Seat::AtByte);
+        assert_eq!(
+            (
+                bad.seats,
+                bad.inside,
+                bad.inspected,
+                bad.edits,
+                bad.ends,
+                bad.undone
+            ),
+            (
+                shipped.seats,
+                shipped.inside,
+                shipped.inspected,
+                shipped.edits,
+                shipped.ends,
+                shipped.undone
+            ),
+            "the two arms differ by the seat and by nothing else — every count that is not a \
+             failure count, including both ends reached and all three undos applied, because the \
+             failure counts below are read off this arm"
+        );
+        assert_eq!(
+            bad.off_boundary_seated, WALK_INSIDE,
+            "one per seat that is inside a cluster, which is where a caret enters from outside"
+        );
+        assert_eq!(
+            bad.off_boundary_restored, WALK_INSIDE,
+            "and one per seat again from the third undo, which restores that same pair into the \
+             buffer it was made in — this is the observation gate 1 has after an edit, and it is \
+             `Text::undo` restoring a pair rather than recomputing one"
+        );
+        assert_eq!(
+            bad.off_boundary_walked, 0,
+            "**structural, not a pass.** `Text::edit` walks cluster steps from the new row's start \
+             and returns a member of its own walk; nothing a checker can do from outside separates \
+             that from a correct one, which is why gate 2 is the one that fires here"
+        );
+        assert_eq!(bad.off_boundary, 2 * WALK_INSIDE);
+        assert_eq!(
+            bad.wrong_column,
+            2 * (WALK_SEATS - 1),
+            "every seat but the one on row 0, twice: once at the seat and once when the third undo \
+             restores it. `at_byte`'s column is the tables over the **whole** prefix, and a \
+             caret's column is a screen column re-seated at every row start"
+        );
+    }
+
     /// **Gate 1: the caret is always on a cluster boundary**, and the defective arm is not.
     #[test]
     fn the_caret_is_always_on_a_cluster_boundary_and_the_off_boundary_arm_is_not() {
@@ -1265,6 +1729,100 @@ mod tests {
             "the fourth gate is exactly this inequality, and it is invisible in the row count \
              until the rows are compared"
         );
+    }
+
+    /// **Row 17's equality over the shipped component, at the sweep's own population of five
+    /// hundred.**
+    ///
+    /// [`five_hundred_splices_separate_the_two_restart_points`] is an equality about
+    /// [`Index::spliced`] at a restart point the test computes; this is the same five hundred edits
+    /// played through `Text::insert`, where the restart point is the one `Text::edit` chose. The
+    /// naive arm is [`crate::edit::defective::restarted_at_row_of`] — one field on the state, so the
+    /// two arms are one drawing path with one value between them.
+    ///
+    /// **The two sweeps report the same three numbers**, which is what makes the cheap one a
+    /// legitimate stand-in for the expensive one rather than a second population that happens to
+    /// agree. It is not an equality between two derivations of one declaration: the restart point is
+    /// spelled `i.row_of(at).saturating_sub(1)` inside `Text::edit` and `row.saturating_sub(1)`
+    /// inside [`splice_sweep`], in two files, and a change to either would separate them here.
+    ///
+    /// **Nine of five hundred and not one.** §11 remembers *499 times in 500*
+    /// ([`REMEMBERED_SPLICE_AGREEMENTS`]) and this population reaches the defect nine times; the
+    /// figure is reported as measured beside the remembered one in `examples/field_numbers.rs` and
+    /// asserted here as a floor rather than as a number, because the count is a property of the
+    /// five hundred insertions and not of the mechanism.
+    #[test]
+    fn the_components_five_hundred_splices_agree_with_a_rebuild_and_the_naive_point_does_not() {
+        let component = component_splice_sweep();
+        assert_eq!(component.trials, SPLICES, "the population, stated");
+        assert_eq!(
+            component.one_row_earlier, 0,
+            "the shipped restart point disagreed with a rebuild {} times in {SPLICES}, which \
+             contradicts §11's *provably enough*",
+            component.one_row_earlier
+        );
+        assert!(
+            component.at_row_of > 0,
+            "five hundred edits through `Text::insert` found no case where the naive restart point \
+             keeps an invalidated break, so this population cannot see the defect at all"
+        );
+        assert_eq!(
+            component,
+            splice_sweep(),
+            "the component's splice and the mechanism's are the same function over this population"
+        );
+    }
+
+    /// **Gate 4 over the shipped draw: the index the frame drew with was built at the frame's own
+    /// width.**
+    ///
+    /// The gate next door is an *inequality* between two builds — two indexes, one at 300 and one at
+    /// 120, neither of them drawn — and the surface figure below it is a count of differing rows.
+    /// Neither states the property §11 states, which is about **the width being drawn**: a frame at
+    /// `w` columns holds an index built at `w`. Read off the state after
+    /// [`crate::input::field_into`] has drawn it, so the width it is compared against is the
+    /// rectangle the component was handed and not a number the test chose.
+    ///
+    /// Both arms enter the frame holding an index built at [`WIDE`] and draw at [`NARROW`], which is
+    /// the resize. The correct key misses and rebuilds; the defective one **hits**, and what it
+    /// draws with was built at the width before the resize.
+    #[test]
+    fn the_index_the_field_drew_with_was_built_at_the_width_it_drew_at() {
+        let (mut correct, mut stale) = screens(Defect::MemoKeyedOnRevision);
+        for arm in [&correct, &stale] {
+            assert_eq!(arm.w, NARROW, "the screen is drawn after the resize");
+            assert_eq!(
+                arm.st.indexed().expect("built before the frame").built_at(),
+                WIDE,
+                "and enters the frame holding an index built before it, which is what makes this a \
+                 resize rather than a first frame"
+            );
+        }
+
+        let _ = play_field(&mut correct, inert());
+        assert_eq!(
+            correct.st.indexed().expect("the draw built one").built_at(),
+            correct.w,
+            "the shipped key is `(revision, width)`, so the frame's own width is in it"
+        );
+        assert_eq!(correct.st.indexed().expect("built").rows(), WRAPPED);
+
+        // **Watched failing on the same frame**, which is the direction that matters: the defect is
+        // not a build that is absent, it is a build that is *there* and answers the wrong width.
+        let _ = play_field(&mut stale, inert());
+        assert_eq!(
+            stale
+                .st
+                .indexed()
+                .expect("the draw hit the memo")
+                .built_at(),
+            WIDE,
+            "the memo keyed on the revision alone is a hit on a resize, so gate 4 is the one \
+             equality that separates the two — and `recomputes` reports the defect as the cheaper \
+             build"
+        );
+        assert_ne!(stale.st.indexed().expect("built").built_at(), stale.w);
+        assert_eq!(stale.st.indexed().expect("built").rows(), LINES);
     }
 
     /// **The resize on the surface: 69 of 80 rows.** §21's own figure, and criterion 5.

@@ -50,13 +50,14 @@
 //!   compile error and no amount of component code changes it.
 //! - [`Standing::Unsubjected`] is the vacuity arm, and it exists because [`crate::obligations`]
 //!   already proved it necessary one file over: *a query over an obligation nobody has met yet is
-//!   the exact shape that returns green by accident*. **Four gates here could run and have nothing
-//!   to run over** — it was fifteen when no component existed, and six until production ticket 03 —
-//!   and a register that filed those as `Evaluated` would be claiming four green gates over an empty
-//!   population. The count in the line below is the authority; this is a summary of it.
+//!   the exact shape that returns green by accident*. **No gate here stands on it any more** — it
+//!   was fifteen when no component existed, six until production ticket 03 and four until production
+//!   ticket 04 — and the arm stays on the type, because what it refuses is a standing and not a
+//!   moment: the next row written against a component this crate has not declared belongs here. The
+//!   count in the line below is the authority; this is a summary of it.
 //!
-//! **Two hundred and twenty-four evaluated, none red, five unreachable, four unsubjected**, and
-//! `tests::two_hundred_and_twenty_four_rows_are_evaluated_and_the_rest_say_why_not` is what makes
+//! **Two hundred and twenty-eight evaluated, none red, five unreachable, none unsubjected**, and
+//! `tests::two_hundred_and_twenty_eight_rows_are_evaluated_and_the_rest_say_why_not` is what makes
 //! the next change a deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
 //! and subjected row 27, the cross-family collapse gate; ticket 07 added five, and none of them
@@ -612,6 +613,37 @@ pub const SPEC_ROWS: usize = 32;
 /// green: no row is pinned red**, and the two populations that read the standing — this count and
 /// the list beside it — are the two edits.
 ///
+/// **Production ticket 04 moved it from two hundred and twenty-four to two hundred and twenty-eight,
+/// and it emptied the `Unsubjected` column.** Rows 15 to 18 are §21's own, `field`'s four, and all
+/// four named components 24 — which built the component and then filed six *new* rows for it instead
+/// of standing these up. Three of the four were stale the way rows 11 and 12 were: the instruments
+/// ran over the shipped `field` and the standing said nothing ran. **Two of the four were missing a
+/// half**, and both halves are the same mistake in two places — *the instrument inspects a state
+/// nothing has moved*:
+///
+/// - rows 15 and 16 were watched over a `step_right` walk of the corpus and over the gestures, both
+///   of which read a caret over a buffer that does not move. §11's two caret defects arrived on an
+///   **edit**. `document::edit_walk` plays a script at each of 144 seats — both ends, the seat, an
+///   insert, a backspace, a delete and three undos — and counts the three producers apart, because
+///   gate 1 is *structurally* unable to fail on the one that walks and has teeth on the one that
+///   **restores**. A `Text::edit` that seats a byte-addressed caret puts 715 of 1 296 columns wrong
+///   and no caret off a boundary at all.
+/// - row 18 read an inequality between two indexes **neither of which was drawn**, and its own gate
+///   is about *the width being drawn*. It now reads `built_at()` off the state after
+///   `crate::input::field_into` has drawn it.
+///
+/// Row 17 was the one already carrying its population — 500 deterministic edits, because §11's own
+/// defect agreed with a rebuild 499 times in 500 — and what it gained is that the population runs
+/// through `Text::insert` as well as through `Index::spliced`, and that the two report the same three
+/// numbers. **Four unsubjected became none**, and every row of this register is now `Evaluated` or
+/// `Unreachable` and nothing else.
+///
+/// **The four `gate` strings are §21's own words and were left alone**, which is a rule this ticket
+/// nearly broke: extending row 15's to *at both ends and across an edit* and row 17's to *over five
+/// hundred edits* reads as clarification and is a **spec edit**, arriving as a one-line diff in this
+/// file, exactly what `tests::thirty_two_rows_are_the_specs_and_two_hundred_and_one_are_this_\
+/// lineages` exists to make deliberate. What a ticket adds to a spec row goes in its comment.
+///
 /// **Production ticket 03 moved it from two hundred and twenty-two to two hundred and twenty-four,
 /// and neither of the two is an inversion — both are standings that had gone stale.** Rows 11 and 12
 /// are §21's own, `table`'s two, and both named components 15 as the ticket that would subject them;
@@ -649,7 +681,7 @@ pub const SPEC_ROWS: usize = 32;
 /// it. Row 30's own instrument compares two lists of *ids*, which is the most a query over the
 /// freeze can ask; the chord-for-chord equality needs a value with a machine in it, and
 /// `crate::contract::Contract::live` is that machine — it runs the shipped component.
-pub const EVALUATED: usize = 224;
+pub const EVALUATED: usize = 228;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
 #[expect(
@@ -1179,8 +1211,84 @@ pub const REGISTER: [Row; 233] = [
         kind: Kind::Invariant,
         owner: "C06",
         section: "spec §11",
-        standing: Standing::Unsubjected {
-            inverted_by: "components 24",
+        // **A stale standing rather than an unreachable property, and one half really was
+        // missing.** It named components 24, which built `field` and then filed six *new* rows for
+        // it instead of standing this one up — so it read *it could run and there is nothing to run
+        // it over* for the rest of that backlog while two instruments ran over the shipped
+        // component. Production ticket 04 found the gap: both of them inspect a caret over a buffer
+        // **that does not move**. A `step_right` walk of the corpus and a sweep of the gestures are
+        // constructions; §11's own two defects arrived on an *edit*, where `Text::edit` re-seats the
+        // pair by walking from the start of the **new** visual row.
+        //
+        // `document::edit_walk` is that script — both ends of the buffer, the seat, an insert of one
+        // cluster spelled as two `char`s, a backspace, a delete, and then **three** undos, which is
+        // the whole history back to the buffer the seat was made in — at each of 144 seats, 1 296
+        // inspections.
+        //
+        // **The three producers are counted apart, and that is the finding.** A review of this
+        // ticket's first version found one number over all three and a zero being read as *the
+        // shipped verbs are right across an edit*, when for one of the three it could not have been
+        // anything else. `document::Placed` carries the split:
+        //
+        // - **`Walked` is structurally zero.** `Text::edit` re-seats the pair by walking cluster
+        //   steps from the new row's start, so it returns a member of its own walk — and a checker
+        //   walking from byte 0 is no more independent, because it passes through that row start and
+        //   continues with the same steps. A `Text::edit` patched to seat a byte-addressed caret
+        //   leaves **715 wrong columns and zero off-boundary carets**, and a `walked_to` patched to
+        //   land one cluster past every edit leaves zero as well. Gate 1 asks nothing here; **gate 2
+        //   is what fires**, which is this row and row 16 being two rows rather than one.
+        // - **`Restored` is where gate 1 has teeth after an edit.** `Text::undo` restores the pair
+        //   rather than recomputing it (§11: 0.0007 µs against 6 109), so a restored pair is only as
+        //   good as the buffer it is restored into. The defective arm demonstrates it **without
+        //   patching `undo`**: the third undo puts the seat's own pair back, and on the `AtByte` arm
+        //   that pair is inside a cluster — 45 of them, the same 45 as the seat's, so the arm's
+        //   total is 90.
+        // - **`Seated`** is where a caret enters from outside, and the other 45.
+        //
+        // **Both ends of the buffer, and neither of them is `Home` or `End`** — those are the ends
+        // of a caret's own *visual row*, so on row 0 neither is an end of a wrapped document. The
+        // far end is `select_all` and byte 0 is a click on row 0 column 0, **in that order**: a
+        // `Text` is constructed with its caret already at byte 0, so a `Home` counted first is a
+        // comparison that cannot fail — which is what the first version did, and substituting `home`
+        // for the click now reports 144 ends against 288.
+        //
+        // **The third instrument is the second one's precondition and not a third claim.** The
+        // boundary check walks from the caret's own **row start**, because
+        // `boundaries(buf).contains(&byte)` at 1 296 inspections is a gate that takes twenty seconds
+        // instead of four — and a walk begun at a row start is only the same walk if a row start is
+        // a boundary. `every_row_start_is_a_cluster_boundary_of_the_whole_buffer` is one full walk
+        // that says so. Three vacuity refusals inside the gate: all three undos are asserted to have
+        // **applied an entry**, the two arms are asserted to differ by the seat and by nothing else
+        // — every non-failure count, ends and undos included, because the failure counts are read
+        // off the defective arm — and a caret off a `char` boundary is counted rather than sliced,
+        // which a patched `undo` found by taking the instrument down with a slicing message.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "the_caret_is_on_a_boundary_at_both_ends_and_after_every_edit",
+                },
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "the_caret_is_always_on_a_cluster_boundary_and_the_off_boundary_arm_is_\
+                           not",
+                },
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "every_row_start_is_a_cluster_boundary_of_the_whole_buffer",
+                },
+                Instrument::Unit {
+                    file: EDIT,
+                    name: "every_gesture_lands_on_a_boundary_at_the_engines_own_column",
+                },
+                Instrument::Unit {
+                    file: EDIT,
+                    name: "the_two_caret_defects_fail_the_two_caret_gates_and_ascii_hides_both",
+                },
+                Instrument::Report {
+                    file: FIELD_NUMBERS,
+                },
+            ],
         },
     },
     Row {
@@ -1190,8 +1298,45 @@ pub const REGISTER: [Row; 233] = [
         kind: Kind::Equality,
         owner: "C06",
         section: "spec §11",
-        standing: Standing::Unsubjected {
-            inverted_by: "components 24",
+        // **The tables are the engine's and not a count**, which is the whole of this row:
+        // `vitui_runtime::layout::text::width` is `vitui_engine::width_of` under another name, and
+        // `crate::edit::defective::column_by_chars` — one column a code point — is the *defect*
+        // rather than the check. It is right on ASCII and wrong on every cluster of
+        // `crate::clusters::corpus`, which is why a caret gate run over ASCII said nothing for two
+        // tickets.
+        //
+        // **The prefix is the caret's own visual row and not the buffer**, which is the half §11's
+        // wording leaves to be read: a caret's column is a *screen* column, re-seated at every row
+        // start, so over the 64-line document a full-prefix column is a screen column on row 0 and
+        // nowhere else. That is what makes `defective::at_byte` — whose column *is* the tables over
+        // the whole prefix — wrong here on 143 of 144 seats while being right on the one-line
+        // corpus its own doc was written against, and it is why this row and row 15 stay two rows
+        // while sharing two instruments: one arm can be wrong on either gate alone.
+        //
+        // Watched failing on a `Text::edit` that re-seats the pair with `at_byte`: 715 of 1 296
+        // inspections carry a column the tables disagree with, **while gate 1 stays at zero** — and
+        // row 15 says why that zero is structural rather than a pass. This is the row that fires on
+        // the whole `Placed::Walked` class, which is the sharp form of §11 stating two gates and not
+        // one.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "the_carets_column_is_the_engines_tables_and_counting_code_points_is_not",
+                },
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "the_caret_is_on_a_boundary_at_both_ends_and_after_every_edit",
+                },
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "a_char_caret_lands_inside_clusters_and_changes_widths_nobody_typed",
+                },
+                Instrument::Unit {
+                    file: EDIT,
+                    name: "every_gesture_lands_on_a_boundary_at_the_engines_own_column",
+                },
+            ],
         },
     },
     Row {
@@ -1201,8 +1346,52 @@ pub const REGISTER: [Row; 233] = [
         kind: Kind::Equality,
         owner: "C06",
         section: "spec §11",
-        standing: Standing::Unsubjected {
-            inverted_by: "components 24",
+        // **The population is stated because one case is what a 499-of-500 defect hides behind.**
+        // §11's own finding is a splice restarted at `row_of(at)` that agreed with a rebuild *499
+        // times in 500* and drew a screen that looked right; a gate over one edit is green with
+        // probability 0.998. `document::splice_trials` is 500 deterministic insertions — xorshift64
+        // at a fixed seed, and **whitespace is among the inserts**, without which the population
+        // cannot reach the defect at all, since the case that moves a break backwards is a word too
+        // long for the previous row acquiring a break opportunity inside it.
+        //
+        // **Two sweeps over one population, and the shipped one is cited first.**
+        // `component_splice_sweep` plays all 500 through `Text::insert`, where the restart point is
+        // the one `Text::edit` chose and the naive arm is one field on the state
+        // (`defective::restarted_at_row_of`); `splice_sweep` asks `Index::spliced` at a point the
+        // test computes. **The two report the same three numbers**, which is what makes the cheap
+        // one a stand-in rather than a second population that happens to agree — and it is not an
+        // equality between two derivations of one declaration, because the restart point is spelled
+        // once inside `Text::edit` and once inside the sweep, in two files.
+        //
+        // **Nine of 500 and not one.** §11's remembered figure is asserted as remembered
+        // (`document::REMEMBERED_SPLICE_AGREEMENTS`) and reported beside the measured one; the count
+        // is gated as a floor rather than as a number, because it is a property of the five hundred
+        // insertions and not of the mechanism. Watched failing by giving the shipped arm the naive
+        // restart: 9 disagreements in 500 against 0.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "the_components_five_hundred_splices_agree_with_a_rebuild_and_the_naive_\
+                           point_does_not",
+                },
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "five_hundred_splices_separate_the_two_restart_points",
+                },
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "a_splice_restarted_at_the_row_of_the_edit_keeps_a_break_the_edit_\
+                           invalidated",
+                },
+                Instrument::Unit {
+                    file: EDIT,
+                    name: "a_keystroke_at_a_megabyte_splices_and_the_splice_is_the_rebuilds_answer",
+                },
+                Instrument::Report {
+                    file: FIELD_NUMBERS,
+                },
+            ],
         },
     },
     Row {
@@ -1212,8 +1401,45 @@ pub const REGISTER: [Row; 233] = [
         kind: Kind::Equality,
         owner: "C06",
         section: "spec §11",
-        standing: Standing::Unsubjected {
-            inverted_by: "components 24",
+        // **`the width being drawn` is the load-bearing half, and nothing was asking it.** The two
+        // instruments that were here read an *inequality* between two indexes neither of which was
+        // drawn — one built at 300, one at 120 — and a count of the rows the surface differs by.
+        // Production ticket 04's gate reads the width off the state **after
+        // `crate::input::field_into` has drawn it**, so the number it is compared against is the
+        // rectangle the component was handed rather than one the test chose:
+        // `built_at() == screen.w`.
+        //
+        // Both arms enter the frame holding an index built at 300 and draw at 120, which is the
+        // resize. The correct key — `(revision, width)` — misses and rebuilds; the defective one
+        // **hits**, so what it draws with was built before the resize. Watched failing in both
+        // directions on the same frame: the shipped arm given `defective::keyed_on_revision`
+        // answers 300 where 120 is drawn, and the stale arm with the key restored answers 120 where
+        // the row asserts 300.
+        //
+        // **`recomputes` points the wrong way and may not be gated on**: the defect recomputes once
+        // where the correct key recomputes twice, so the cheaper number is the wrong build. That is
+        // why the width is a *field* of `Index` and not only a key — an index that did not record
+        // its width would leave this row with nothing to fail.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "the_index_the_field_drew_with_was_built_at_the_width_it_drew_at",
+                },
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "a_memo_keyed_on_the_revision_alone_draws_an_index_built_at_another_\
+                           width",
+                },
+                Instrument::Unit {
+                    file: DOCUMENT,
+                    name: "the_resize_differs_on_sixty_nine_of_eighty_rows",
+                },
+                Instrument::Unit {
+                    file: EDIT,
+                    name: "two_hundred_caret_steps_are_one_index_and_a_resize_is_a_second",
+                },
+            ],
         },
     },
     Row {
@@ -2567,7 +2793,8 @@ pub const REGISTER: [Row; 233] = [
         owner: "C11",
         section: "spec §5, §20",
         // **This is not row 4 restated, and the difference is the finding.** Row 4 is *writes flat
-        // 1k -> 1M* and it is `Unsubjected`; this row asks about the **hit index**, and the reason
+        // 1k -> 1M* — `Unsubjected` when this comment was written and subjected by components 12
+        // since; this row asks about the **hit index**, and the reason
         // it has to is that the write count cannot see the defect at all: the engine reports a
         // fully clipped verb as zero columns, so a listing that iterates its whole content and lets
         // the clip reject the rest writes exactly what the windowed one writes — 3 200 at every
@@ -8687,14 +8914,14 @@ mod tests {
         assert_eq!(seen, expected);
     }
 
-    /// **Two hundred and twenty-four evaluated, and the other nine each say why not.**
+    /// **Two hundred and twenty-eight evaluated, and the other five each say why not.**
     ///
     /// This is the number §21 asks for: *how many gates are actually evaluated is a number a test
     /// asserts rather than a claim in a document*. Saying it out loud is what stops the next change
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn two_hundred_and_twenty_four_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn two_hundred_and_twenty_eight_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -8769,16 +8996,23 @@ mod tests {
              the value anyway, so a chord can be pressed after all"
         );
         assert_eq!(
-            unsubjected, 4,
-            "and the four with nothing to run over, all four the field's. **It was six until \
-             production ticket 03**, which found rows 11 and 12 standing on a stale reading rather \
-             than on a missing subject: both named components 15, which declared `table` and left \
-             the rows where they were, and `crate::grid` has drawn through the component ever \
-             since. **It was eight until components ticket 22**, \
+            unsubjected, 0,
+            "**and the column is empty.** It was four until production ticket 04, which took the \
+             field's rows 15 to 18 — the last four, and the last of §21's own table to stand on \
+             nothing. All four named components 24, which built `field` and filed six *new* rows \
+             for it instead; three of the four were stale the way 11 and 12 were, and two were \
+             missing a half, both the same mistake: **the instrument inspected a state nothing had \
+             moved**. Rows 15 and 16 were watched over a walk of the corpus and over the gestures, \
+             and §11's two caret defects arrive on an *edit*; row 18's gate says *the width being \
+             drawn* and its instruments compared two indexes neither of which was drawn. **It was \
+             six until production ticket 03**, which found rows 11 and 12 standing on a stale \
+             reading rather than on a missing subject: both named components 15, which declared \
+             `table` and left the rows where they were, and `crate::grid` has drawn through the \
+             component ever since. **It was eight until components ticket 22**, \
              which supplied the subject for rows 24 and 25 — the inplace map and *`open` is never \
              ambiguous mid-transition*. **That sentence used to call them the last two on §21's \
              own table and it was never true**: rows 11, 12 and 15 to 18 were all `on_spec_table` \
-             and all `Unsubjected` at the time, and four of them still are. It was \
+             and all `Unsubjected` at the time. It was \
              fifteen until ticket 18, which supplied row 20's: the bar fixpoint is arithmetic over a \
              domain and needs no component to be run against, and its row had been citing spec §13 \
              and components 28 for two tickets"

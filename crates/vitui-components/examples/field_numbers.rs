@@ -54,6 +54,7 @@ fn main() {
     the_char_caret();
     left_at_a_megabyte();
     the_wrap_index();
+    the_caret_across_an_edit();
     the_four_gates();
     the_component();
     the_ring();
@@ -478,6 +479,21 @@ fn the_wrap_index() {
          {} times   (§11: 499 of 500 agreed)",
         splices.trials, splices.at_row_of, splices.one_row_earlier
     );
+    // **The same five hundred through the component**, which is the population register row 17
+    // cites first. Production ticket 04: the mechanism's sweep is a legitimate stand-in only
+    // because the two report the same three numbers, and this is where a reader sees that.
+    let through = document::component_splice_sweep();
+    println!(
+        "  the same {} through `Text::insert`: at `row_of(at)` wrong {} times, one row earlier \
+         wrong {} times   ({})",
+        through.trials,
+        through.at_row_of,
+        through.one_row_earlier,
+        match through == splices {
+            true => "identical to the mechanism's sweep, which is what makes it a stand-in",
+            false => "DIFFERENT from the mechanism's sweep",
+        }
+    );
     println!(
         "  the witness the screen is drawn from is edit at byte {}\n",
         witness.map(|(_, at)| at).unwrap_or(0)
@@ -494,6 +510,57 @@ fn the_wrap_index() {
         splices.trials,
         document::REMEMBERED_SPLICE_AGREEMENTS
     );
+}
+
+/// 11. **The two caret gates across an edit** — production ticket 04's half of rows 15 and 16.
+///
+/// The corpus walk and the gesture sweep both read a caret over a buffer that does not move, and
+/// §11's two caret defects arrived on an edit. This is the script — both ends of the buffer, the
+/// seat, an insert of one cluster spelled as two `char`s, a backspace, a delete and three undos —
+/// with the shipped verbs beside `defective::at_byte`.
+///
+/// **The three producers are printed apart** and that is the point of the table: gate 1 cannot fail
+/// on the class that *walks* — `Text::edit` returns a member of its own cluster walk — and has teeth
+/// on the class that *restores*, because `Text::undo` puts a pair back rather than recomputing one.
+fn the_caret_across_an_edit() {
+    let shipped = document::edit_walk(document::Seat::Gesture);
+    let bad = document::edit_walk(document::Seat::AtByte);
+    println!(
+        "report  the caret across an edit — {} seats, {} inspections, {} edits, {} undos, both \
+         ends of the buffer at every seat:",
+        shipped.seats, shipped.inspected, shipped.edits, shipped.undone
+    );
+    println!(
+        "  {:<22}  {:>7}  {:>7}  {:>9}  {:>9}  {:>13}",
+        "arm", "off-bnd", "seated", "walked", "restored", "wrong column"
+    );
+    for (name, walk) in [
+        ("the shipped verbs", shipped),
+        ("`defective::at_byte`", bad),
+    ] {
+        println!(
+            "  {:<22}  {:>7}  {:>7}  {:>9}  {:>9}  {:>13}",
+            name,
+            walk.off_boundary,
+            walk.off_boundary_seated,
+            walk.off_boundary_walked,
+            walk.off_boundary_restored,
+            walk.wrong_column
+        );
+    }
+    println!(
+        "  the seats inside a cluster are {}, and the defective arm is off a boundary exactly twice \
+         that: once at the seat, and\n  once when the third undo restores that same pair into the \
+         buffer it was made in. `walked` is zero on BOTH arms and\n  that is structural — a walk \
+         cannot leave its own walk, so gate 2 is what fires on that class.\n",
+        bad.inside
+    );
+    assert_eq!((shipped.off_boundary, shipped.wrong_column), (0, 0));
+    assert_eq!(shipped.ends, 2 * shipped.seats);
+    assert_eq!(shipped.undone, 3 * shipped.seats);
+    assert_eq!(bad.off_boundary_seated, bad.inside);
+    assert_eq!(bad.off_boundary_restored, bad.inside);
+    assert_eq!(bad.off_boundary_walked, 0);
 }
 
 /// 6. **The four gates, and which of §20's nine counters can see each. None.**
