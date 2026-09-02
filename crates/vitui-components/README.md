@@ -14,8 +14,8 @@ and O7 are met, and O5 — *every component stands up under every hostile axis i
 one left, at 14 of 34 `(component, axis)` pairs. A query with no evidence behind it panics here
 rather than returning green over an empty population.
 
-§21's register is 233 rows, 222 of them evaluated and **none pinned red**, beside 5 that are
-unreachable across the crate line (`docs/adr/0023`) and 6 with nothing yet to run over. Thirty-three
+§21's register is 233 rows, 224 of them evaluated and **none pinned red**, beside 5 that are
+unreachable across the crate line (`docs/adr/0023`) and 4 with nothing yet to run over. Thirty-three
 scenes stand behind them, each with the size it is played at and the property it decides; three
 exist because a defect survived every gate then in force by not being on any screen anybody had
 built.

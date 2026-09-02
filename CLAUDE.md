@@ -36,9 +36,10 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   rather than counted: `crates/vitui-components/tests/crate_line.rs` cannot name the engine.
 - **`vitui-components` — implementation-complete.** All 46 tickets; spec §17's freeze is **29 of 29
   built**, as a value (`INVENTORY`) that tests iterate, with the documentation and verification
-  obligations as functions over it. Register 233 rows, 222 evaluated and
+  obligations as functions over it. Register 233 rows, 224 evaluated and
   **no row pinned red** — row 112 was the last, inverted by runtime architecture 31 — beside
-  5 unreachable across the crate line (ADR 0023) and 6 unsubjected; every scene stood up. **Two
+  5 unreachable across the crate line (ADR 0023) and 4 unsubjected (production 03 took `table`'s two,
+  and the four left are the field's); every scene stood up. **Two
   inversions there were the runtime's and no components ticket's**: row 112 and row 161, the bytes
   on the wire, by runtime architecture 34. Obligations **O1–O4, O6 and O7 are `Met`; O5 is the one
   left**, at **14 of 34 `(component, axis)` pairs**, and is watched panicking, because a query with

@@ -92,12 +92,20 @@
 //! a sticky header cannot be measured by either recorder without one of them learning the frame's
 //! own origin, and `Ctx` has no public accessor for it.
 //!
-//! # The gate is red, and it is red for one reason
+//! # The gate was red for one reason, and components 15 took it away
 //!
-//! `table` is not declared. [`standing`] is a [`Verdict`] over one subject, [`subjects_declared`]
+//! `table` was not declared. [`standing`] is a [`Verdict`] over one subject, [`subjects_declared`]
 //! opens the file the freeze homes it in, and [`owed_message`] is the sentence that separates
 //! *waiting for its subject* from *the code is wrong* — ticket 09's criterion 7, inherited whole.
-//! Inverted by **components 15**.
+//! The sentence is kept live rather than deleted, because a message no test can read is a message
+//! that rots; what asserts it green is `tests::the_grid_stands_on_the_table_it_is_a_screen_of`.
+//!
+//! **§21's register rows 11 and 12 are this file's**, and they read `Evaluated` since production
+//! ticket 03 — which is later than it sounds: the instruments below were green from the day
+//! components 15 declared the component and nothing edited the standings, so both rows spent the
+//! rest of that backlog claiming to have nothing to run over while running. What ticket 03 added is
+//! the half that lets row 11's sweep fail — the four declared counts are asserted to be four
+//! *different* tables, and the clip-only sweep beside them steps at every arm.
 //!
 //! [`Tally`]: crate::counters::Tally
 //! [`Tally::asked`]: crate::counters::Tally::asked
@@ -1544,10 +1552,50 @@ mod tests {
     /// that is the scene's requirement rather than a better result: §21's row asks for *horizontal
     /// overflow*, so this table's twelve columns already overflow and the viewport has nothing left
     /// to admit.
+    ///
+    /// # The four arms are four different tables, and that half is asserted rather than assumed
+    ///
+    /// Production ticket 03's requirement, and it is the whole difference between this and *a gate
+    /// that cannot fail*: [`columns`] truncates and then appends, so a declaration list that had
+    /// stopped growing would hand the sweep **four copies of one table**, and an equality between
+    /// four copies of one thing holds for ever. The arms are therefore checked to *be* four tables
+    /// first — [`DECLARED`] columns each, and a scrolling [`Solved::content_w`] that strictly grows
+    /// with them — and only then to draw the same screen.
+    ///
+    /// The other half of the same requirement is the control below: the same sweep drawn the way §6
+    /// refuses **steps at every arm**, so this equality is watched failing by the gate that asserts
+    /// it, over the one defect whose whole shape is *the declared count reaches the frame*.
+    ///
+    /// [`Solved::content_w`]: crate::collect::Solved::content_w
     #[test]
     fn writes_and_verbs_are_identical_across_declared_column_counts() {
+        // **Four tables, not one table declared four times.**
+        let widths: Vec<u16> = DECLARED
+            .into_iter()
+            .map(|declared| {
+                let specs = columns(declared);
+                assert_eq!(
+                    specs.len(),
+                    declared,
+                    "the sweep's {declared}-column arm declares {} columns, so the equality below \
+                     would be comparing one table with itself",
+                    specs.len()
+                );
+                solve_columns(W, &specs).content_w
+            })
+            .collect();
+        assert!(
+            widths.windows(2).all(|w| w[0] < w[1]),
+            "every extra column is content the scrolling band has to carry, so its width has to \
+             grow with the declared count: {widths:?}"
+        );
+
         let across = across_declared(Opts::correct());
-        assert_eq!(across.len(), 4);
+        assert_eq!(
+            across.iter().map(|(d, _)| *d).collect::<Vec<_>>(),
+            DECLARED.to_vec(),
+            "the counts the row names, in the order it names them"
+        );
         let first = across[0].1;
         assert_eq!(first.writes, CELLS);
         for (declared, shape) in &across {
@@ -1559,6 +1607,32 @@ mod tests {
                 across[0].0
             );
         }
+
+        // **The control, and it is what makes the sweep a gate rather than a shape of the fixture.**
+        // Every declared column drawn with the clip left to discard what does not fit: the writes
+        // stay flat — the engine reports a fully clipped verb as zero columns, which is
+        // `tests::the_clip_only_spelling_costs_verbs_and_no_writes_at_all`'s finding — and the
+        // whole shape steps at **every** arm, in the declared count and not in the visible one.
+        let clipped = across_declared(Opts::clip_only());
+        for (declared, shape) in &clipped {
+            assert_eq!(
+                shape.writes, first.writes,
+                "at {declared} declared columns the write count is still blind to this"
+            );
+            assert_ne!(
+                *shape, first,
+                "the clip-only sweep at {declared} declared columns is §6's refused screen and \
+                 this equality has to see it"
+            );
+        }
+        assert!(
+            clipped.windows(2).all(|p| p[0].1.verbs < p[1].1.verbs),
+            "and it is the verbs that step, once an arm: {:?}",
+            clipped
+                .iter()
+                .map(|(d, s)| (*d, s.verbs))
+                .collect::<Vec<_>>()
+        );
 
         // And the row axis of the same invariant, which is what a table inherits from a collection.
         let volumes = across_volumes(Opts::correct());

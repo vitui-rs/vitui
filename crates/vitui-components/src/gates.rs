@@ -50,13 +50,13 @@
 //!   compile error and no amount of component code changes it.
 //! - [`Standing::Unsubjected`] is the vacuity arm, and it exists because [`crate::obligations`]
 //!   already proved it necessary one file over: *a query over an obligation nobody has met yet is
-//!   the exact shape that returns green by accident*. **Six gates here could run and have nothing to
-//!   run over** — it was fifteen when no component existed — and a register that filed those as
-//!   `Evaluated` would be claiming six green gates over an empty population. The count in the line
-//!   below is the authority; this is a summary of it.
+//!   the exact shape that returns green by accident*. **Four gates here could run and have nothing
+//!   to run over** — it was fifteen when no component existed, and six until production ticket 03 —
+//!   and a register that filed those as `Evaluated` would be claiming four green gates over an empty
+//!   population. The count in the line below is the authority; this is a summary of it.
 //!
-//! **Two hundred and twenty-two evaluated, none red, five unreachable, six unsubjected**, and
-//! `tests::two_hundred_and_twenty_two_rows_are_evaluated_and_the_rest_say_why_not` is what makes
+//! **Two hundred and twenty-four evaluated, none red, five unreachable, four unsubjected**, and
+//! `tests::two_hundred_and_twenty_four_rows_are_evaluated_and_the_rest_say_why_not` is what makes
 //! the next change a deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
 //! and subjected row 27, the cross-family collapse gate; ticket 07 added five, and none of them
@@ -612,6 +612,17 @@ pub const SPEC_ROWS: usize = 32;
 /// green: no row is pinned red**, and the two populations that read the standing — this count and
 /// the list beside it — are the two edits.
 ///
+/// **Production ticket 03 moved it from two hundred and twenty-two to two hundred and twenty-four,
+/// and neither of the two is an inversion — both are standings that had gone stale.** Rows 11 and 12
+/// are §21's own, `table`'s two, and both named components 15 as the ticket that would subject them;
+/// components 15 declared the component and did not edit the rows, and nothing left on any backlog
+/// was going to. The instruments were already there and already green — `crate::grid` has drawn
+/// through `crate::collect::table` since components 15 — so what this ticket added is the half that
+/// made each of them able to fail: row 11's sweep now asserts that its four declared column counts
+/// are **four different tables** before asserting they draw one screen, and carries the clip-only
+/// sweep beside it as the control that steps at every arm. **Six unsubjected became four**, and all
+/// four of those are on §21's table too — they are the field's, and production ticket 04 takes them.
+///
 /// **Runtime architecture issue 34 moved it from two hundred and twenty-one to two hundred and
 /// twenty-two, and it is the second of those** — one crate down again, and this time it lifted a
 /// barrier rather than fixing a defect. Row 161 wanted bytes on the wire and needed a driver that
@@ -638,7 +649,7 @@ pub const SPEC_ROWS: usize = 32;
 /// it. Row 30's own instrument compares two lists of *ids*, which is the most a query over the
 /// freeze can ask; the chord-for-chord equality needs a value with a machine in it, and
 /// `crate::contract::Contract::live` is that machine — it runs the shipped component.
-pub const EVALUATED: usize = 222;
+pub const EVALUATED: usize = 224;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
 #[expect(
@@ -1026,8 +1037,28 @@ pub const REGISTER: [Row; 233] = [
         kind: Kind::Equality,
         owner: "C04",
         section: "spec §6",
-        standing: Standing::Unsubjected {
-            inverted_by: "components 15",
+        // **Subjected by production ticket 03, and the standing was stale rather than the property
+        // unreachable.** `table` has been declared since components 15 and `crate::grid::draw_into`
+        // has drawn through it since — row 78 is the row that says so — so the subject this row was
+        // waiting for arrived without anything editing the row.
+        //
+        // The counts are **12, 40, 120 and 240** over one 300x80 rectangle, and the whole `Shape` is
+        // equal at all four: 24 000 writes, 1 600 verbs, 27 120 asked, eleven columns drawn. The
+        // extras are appended *after* the nine that decide the window, so what stays flat is the
+        // mechanism rather than the declaration list.
+        //
+        // **The four arms are asserted to be four different tables before they are asserted to draw
+        // one screen**, because `crate::grid::columns` truncates and then appends: a list that had
+        // stopped growing would leave this an equality between four copies of one thing, which
+        // holds for ever. Each arm declares its own count and the band's `content_w` strictly grows
+        // with it. The control is the same sweep drawn `Opts::clip_only`, which steps at every arm —
+        // 1 760, 6 240, 17 440, 27 040 verbs — on **identical writes**, because the engine reports a
+        // fully clipped verb as zero columns.
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: GRID,
+                name: "writes_and_verbs_are_identical_across_declared_column_counts",
+            }],
         },
     },
     Row {
@@ -1037,8 +1068,47 @@ pub const REGISTER: [Row; 233] = [
         kind: Kind::Equality,
         owner: "C04",
         section: "spec §6",
-        standing: Standing::Unsubjected {
-            inverted_by: "components 15",
+        // **Subjected by production ticket 03**, for row 11's reason and on row 11's screen.
+        //
+        // **The two sides are two programs.** One is `crate::grid::oracle_rows`, which walks the
+        // 300x80 rectangle a cell at a time and inverts the map — screen x to band, band-local x to
+        // column, by binary search over the cumulative array — and is drawn one
+        // `Ctx::set` a cell through `crate::runner::Pen`. The other is `crate::collect::table_into`
+        // at the same offset, which applies the map the other way: column to screen x, in runs. So
+        // this is not two derivations of one declaration, and neither side is empty — the correct
+        // arm is asserted to write `CELLS` cells exactly once, which is the partition from the
+        // other direction.
+        //
+        // What the equality decides is **what an equality against a reference render can and cannot
+        // see**. It refuses §3.3's inverted horizontal sign at 17 022 cells over all eighty rows —
+        // the defect on this axis no counter *refuses*, because it issues every verb the correct
+        // build issues and the clip eats 15 360 of the writes, so the two counters that do move
+        // move the flattering way — and it is **blind** to §6's arithmetic band, which
+        // draws the right picture and re-damages 560 cells a frame for ever. That half is the pair
+        // `writes` against `distinct`, filed at row 6. `HOFF` is a column boundary for the
+        // instrument's sake, and the straddling offset beside it prices the recorder's own error at
+        // 800 cells rather than hiding it.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: GRID,
+                    name: "the_oracle_and_the_grid_are_two_programs_that_agree",
+                },
+                Instrument::Unit {
+                    file: GRID,
+                    name: "the_inverted_horizontal_sign_is_refused_by_the_equality_and_flattered_\
+                           by_the_counters",
+                },
+                Instrument::Unit {
+                    file: GRID,
+                    name: "the_equality_is_blind_to_the_band_and_the_pair_is_not",
+                },
+                Instrument::Unit {
+                    file: GRID,
+                    name: "at_an_offset_inside_a_column_the_overrun_is_on_the_left_and_the_picture_\
+                           is_wrong",
+                },
+            ],
         },
     },
     Row {
@@ -8606,14 +8676,14 @@ mod tests {
         assert_eq!(seen, expected);
     }
 
-    /// **Two hundred and twenty-two evaluated, and the other eleven each say why not.**
+    /// **Two hundred and twenty-four evaluated, and the other nine each say why not.**
     ///
     /// This is the number §21 asks for: *how many gates are actually evaluated is a number a test
     /// asserts rather than a claim in a document*. Saying it out loud is what stops the next change
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn two_hundred_and_twenty_two_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn two_hundred_and_twenty_four_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -8688,8 +8758,12 @@ mod tests {
              the value anyway, so a chord can be pressed after all"
         );
         assert_eq!(
-            unsubjected, 6,
-            "and the six with nothing to run over. **It was eight until components ticket 22**, \
+            unsubjected, 4,
+            "and the four with nothing to run over, all four the field's. **It was six until \
+             production ticket 03**, which found rows 11 and 12 standing on a stale reading rather \
+             than on a missing subject: both named components 15, which declared `table` and left \
+             the rows where they were, and `crate::grid` has drawn through the component ever \
+             since. **It was eight until components ticket 22**, \
              which supplied the subject for rows 24 and 25 — the inplace map and *`open` is never \
              ambiguous mid-transition*, the last two `Unsubjected` rows on §21's own table. It was \
              fifteen until ticket 18, which supplied row 20's: the bar fixpoint is arithmetic over a \
