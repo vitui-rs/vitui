@@ -9,14 +9,16 @@
 //!
 //! # What it prints
 //!
-//! 1. **The two scenes**, with where each stands and which ticket inverts it.
+//! 1. **The scenes**, with where each stands and which ticket inverts it.
 //! 2. **§6's headline**, measured here and remembered there, side by side — because the magnitudes
 //!    belong to a prototype screen this ticket does not own and the *structure* is what reproduces.
 //! 3. **The column axis**, at 12, 40, 120 and 240 declared columns, virtualised and clip-only.
 //! 4. **The band**, in both spellings and at both offsets, with every counter this crate can read.
 //! 5. **The inverted horizontal sign**, which is the defect the equality *does* catch.
-//! 6. **O5's table column**, and what `scenes_for("table")` answers.
-//! 7. **What does not reproduce**, said out loud rather than engineered away.
+//! 6. **The shrink** (production 06): the stale tail at 71 of 80 rows, the counters that prefer it,
+//!    and the second surface of the same axis that nothing writes at all.
+//! 7. **O5's table column**, and what `scenes_for("table")` answers.
+//! 8. **What does not reproduce**, said out loud rather than engineered away.
 //!
 //! # It asserts the shape and not the timings
 //!
@@ -56,13 +58,14 @@ fn main() {
     the_column_axis();
     the_band();
     the_inverted_sign();
+    the_shrink();
     o5();
     what_does_not_reproduce();
 }
 
-/// 1. The two scenes, and which ticket inverts each.
+/// 1. The scenes `table` is a screen of, and which ticket inverts each.
 fn scene_list() {
-    println!("report  the two scenes `table` is a screen of:");
+    println!("report  the scenes `table` is a screen of:");
     println!(
         "  {:>3}  {:<14}  {:<13}  scene",
         "#", "standing", "inverted by"
@@ -88,10 +91,11 @@ fn scene_list() {
     }
     assert_eq!(
         (red, stood),
-        (0, 4),
-        "both stand on `table` since components 15, and the two galleries are the third and fourth \
-         since components 40 and 41 stood scenes 26 and 27 up. **It read 3 for five tickets while \
-         the answer was 4** — `cargo test` does not run an example"
+        (0, 6),
+        "components 14's two stand on `table` since components 15, the two galleries are the third \
+         and fourth since components 40 and 41 stood scenes 26 and 27 up, and **production 06's two \
+         are the fifth and sixth**. It read 3 for five tickets while the answer was 4 — \
+         `cargo test` does not run an example, which is why this number has been wrong before"
     );
     println!(
         "\n  Both stood up when components 15 declared `table` and rewrote `grid::draw_into` to \
@@ -406,7 +410,115 @@ fn the_inverted_sign() {
     );
 }
 
-/// 6. O5's `table` column.
+/// 6. The shrink: the stale tail, the counters that prefer it, and the second surface of the same
+///    axis that nothing writes at all.
+fn the_shrink() {
+    let diff = grid::stale();
+    println!(
+        "report  the table's content edited down to {} rows, in a {}x{} rectangle that does not \
+         move:",
+        grid::SHRUNK_TO,
+        grid::W,
+        grid::H
+    );
+    println!("  {:<34}{diff}", "the tail omitted");
+    println!(
+        "  {:<34}{}",
+        "the same, spelled as a resize",
+        grid::stale_by_resize()
+    );
+    println!(
+        "  {:<34}{} of {}",
+        "cells the refusal never writes",
+        grid::TAIL_WRITES,
+        grid::CELLS
+    );
+    assert_eq!(
+        (diff.rows, diff.cells),
+        (grid::STALE_ROWS, grid::STALE_CELLS)
+    );
+    assert!(grid::stale_by_resize().clean());
+
+    let steps = grid::shrink_steps();
+    let frames = steps.len() as u32;
+    let allocs = |n: usize| Allocations::over(frames, n as u64);
+    let (_, rule_allocs) = count_allocations(|| {
+        let _ = vitui_components::runner::play(grid::tabled, &steps);
+    });
+    let (_, refused_allocs) = count_allocations(|| {
+        let _ = vitui_components::runner::play(grid::stale_tailed, &steps);
+    });
+    let (a, b) = grid::shrunk_counters(allocs(rule_allocs), allocs(refused_allocs));
+    println!(
+        "\n  {:<14}  {:>8}  {:>9}  {:>8}  {:>12}",
+        "arm", "writes", "distinct", "verbs", "allocations"
+    );
+    let word = |c: &vitui_components::counters::Counters, k: Counter| match c.get(k).measured() {
+        Some(n) => n.to_string(),
+        None => "unreachable".to_string(),
+    };
+    for (name, c, n) in [
+        ("the rule", &a, rule_allocs),
+        ("the refusal", &b, refused_allocs),
+    ] {
+        println!(
+            "  {name:<14}  {:>8}  {:>9}  {:>8}  {:>12}",
+            word(c, Counter::Writes),
+            word(c, Counter::Distinct),
+            word(c, Counter::Verbs),
+            n,
+        );
+    }
+    println!(
+        "  {:<14}  {:?}",
+        "separated",
+        grid::shrunk_counters_that_separate(allocs(rule_allocs), allocs(refused_allocs))
+    );
+    println!(
+        "\n  **The refused build is cheaper on every counter that moves and nothing rises**, which\n  \
+         is why the scene is an equality and not a threshold. It is wrong on {} of {} rows and \
+         only\n  {} cells: a table row is mostly padding, so a stale row and a blank one agree \
+         wherever both\n  are spaces — the cell count is a **floor** on how wrong the screen is \
+         and never a measure of it.\n  `distinct` does not fall at all, because it is cumulative \
+         and the first frame touched every cell.\n  The allocation column is the **recorder's**, \
+         and it separates them here only because this file\n  installs a probe: a `Pen` allocates \
+         per write, so fewer writes is fewer allocations.\n  `src/grid.rs`'s gate hands both arms \
+         an inert total and reports the two that are the\n  component's.",
+        grid::STALE_ROWS,
+        grid::H,
+        grid::STALE_CELLS
+    );
+    println!(
+        "\n  **The same axis has a second surface and nothing writes it.** A band whose columns do \
+         not\n  fill it leaves the remainder untouched — on the shipped build, not on a refusal:"
+    );
+    println!(
+        "  {:<34}{} of {} cells, {} a row",
+        "three narrow columns",
+        grid::unwritten(&grid::narrow_columns(), grid::VOLUMES[0]),
+        grid::CELLS,
+        grid::COLUMN_RESIDUE_PER_ROW
+    );
+    println!(
+        "  {:<34}{} of {} cells",
+        "twelve, which overflow",
+        grid::unwritten(&grid::columns(12), grid::VOLUMES[0]),
+        grid::CELLS
+    );
+    println!(
+        "  `examples/ledger.rs` declares twelve fixed columns summing to 197 in a 263-cell band, so\n  \
+         **66 cells of every row are unwritten** at this width and none are at eighty. Filed as\n  \
+         components architecture 24; deciding it moves scene 7's own verb figures, so it is not a\n  \
+         scenes ticket's to repair.\n"
+    );
+    assert_eq!(
+        grid::unwritten(&grid::narrow_columns(), grid::VOLUMES[0]),
+        grid::COLUMN_RESIDUE
+    );
+    assert_eq!(grid::unwritten(&grid::columns(12), grid::VOLUMES[0]), 0);
+}
+
+/// 7. O5, from the table's side.
 fn o5() {
     println!("report  O5, from the table's side:");
     let component = INVENTORY
@@ -428,19 +540,33 @@ fn o5() {
     println!("  `scenes_for(\"table\")` answers {stands:?}");
     assert_eq!(
         stands,
-        vec![7, 26, 27, 31],
+        vec![7, 26, 27, 31, 37, 38],
         "and **both** galleries, which claim no axis pair at all — scene 26 since components 40 and \
          scene 27 since 41, carrying the same `STANDS_THE_GALLERY`"
     );
     println!(
-        "\n  O5 did not move, and that is correct: §21's row 7 already claimed \
-         `(table, scrolled)` and\n  `(table, narrow)`, and scene 31 is a second **instrument** on \
-         one axis rather than a second axis.\n  Two of the four axes `table` declares — shrunk and \
-         wheeled — still have no scene, and this\n  ticket does not pretend otherwise.\n"
+        "\n  **All four axes have a scene since production 06**, and the history is worth the \
+         line:\n  §21's row 7 claimed `(table, scrolled)` and `(table, narrow)` on one screen; \
+         scene 31 is a\n  second **instrument** on one of those axes rather than a second axis, so \
+         components 14 moved\n  nothing; and the shrunk and wheeled axes had no scene at all for \
+         twenty-two tickets. Neither\n  was ever unexpressible — the tail is `collection`'s and so \
+         is the reveal, both reached by\n  calling it — and nothing had scheduled them.\n"
     );
+    for axis in Axis::ALL {
+        if !component.declares(axis) {
+            continue;
+        }
+        assert!(
+            SCENES
+                .iter()
+                .any(|s| s.covers.contains(&("table", axis)) && !s.owed),
+            "`(table, {})` has no scene, and O5 counts it",
+            axis.name()
+        );
+    }
 }
 
-/// 7. What does not reproduce.
+/// 8. What does not reproduce.
 fn what_does_not_reproduce() {
     println!("report  what does not reproduce, and why:");
     for line in [

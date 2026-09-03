@@ -490,7 +490,35 @@ impl HSign {
     }
 }
 
-/// One arm of the scene: three independent choices, each of which is a way for
+/// **Whether the rows the content no longer reaches are written**, which is §17's `shrunk` axis.
+///
+/// `crate::collect::Tail` under the name this screen gives it, and it is a second enum for
+/// [`BandShape`]'s and [`ColVirt`]'s reason rather than a copy of one: the component's is
+/// crate-private and this module's [`Opts`] is a screen's vocabulary, spelled the way §21's rows
+/// spell it. The variant doc is written once, over there.
+///
+/// See [`crate::collect::defective::table_stale_tail`], which is this enum's one value on the
+/// shipped component.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum TailShape {
+    /// **The rule.** Every cell of the rectangle, including the rows past the content's end.
+    Written,
+    /// **The defect.** The rows the content reaches and nothing else, so what the previous frame
+    /// drew below them stays on the screen.
+    Omitted,
+}
+
+impl TailShape {
+    /// The word a report prints.
+    pub const fn word(self) -> &'static str {
+        match self {
+            TailShape::Written => "the whole rectangle",
+            TailShape::Omitted => "the content's rows only",
+        }
+    }
+}
+
+/// One arm of the scene: four independent choices, each of which is a way for
 /// `table = collection + column rectangles` to be false.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Opts {
@@ -500,6 +528,8 @@ pub struct Opts {
     pub cols: ColVirt,
     /// The sign of the horizontal offset.
     pub hsign: HSign,
+    /// Whether the tail below the content is written.
+    pub tail: TailShape,
 }
 
 impl Default for Opts {
@@ -509,6 +539,7 @@ impl Default for Opts {
             band: BandShape::View,
             cols: ColVirt::Virtualised,
             hsign: HSign::Plus,
+            tail: TailShape::Written,
         }
     }
 }
@@ -543,13 +574,23 @@ impl Opts {
         }
     }
 
+    /// **The arm §17's `shrunk` axis is about**: the rows the content reaches and nothing below
+    /// them. Production 06.
+    pub fn stale_tail() -> Opts {
+        Opts {
+            tail: TailShape::Omitted,
+            ..Opts::default()
+        }
+    }
+
     /// A one-line description, for a report's row label.
     pub fn word(self) -> String {
         format!(
-            "{}, {}, {}",
+            "{}, {}, {}, {}",
             self.band.word(),
             self.cols.word(),
-            self.hsign.word()
+            self.hsign.word(),
+            self.tail.word()
         )
     }
 }
@@ -614,24 +655,29 @@ pub fn draw_into<I: Ink>(
     let mut find = |_: &str, _: std::ops::Range<usize>| None;
     let rows = Rows::of(len);
     let area = cx.area();
-    match (o.band, o.cols, o.hsign) {
-        (BandShape::View, ColVirt::Virtualised, HSign::Plus) => {
+    match (o.band, o.cols, o.hsign, o.tail) {
+        (BandShape::View, ColVirt::Virtualised, HSign::Plus, TailShape::Written) => {
             let _ = table_into(
                 ink, cx, area, &mut st, &opts, specs, rows, &mut find, &mut cell,
             );
         }
-        (BandShape::Arithmetic, ColVirt::Virtualised, HSign::Plus) => {
+        (BandShape::Arithmetic, ColVirt::Virtualised, HSign::Plus, TailShape::Written) => {
             let _ = coll_defective::arithmetic_band(
                 ink, cx, area, &mut st, &opts, specs, rows, &mut find, &mut cell,
             );
         }
-        (BandShape::View, ColVirt::ClipOnly, HSign::Plus) => {
+        (BandShape::View, ColVirt::ClipOnly, HSign::Plus, TailShape::Written) => {
             let _ = coll_defective::clip_only(
                 ink, cx, area, &mut st, &opts, specs, rows, &mut find, &mut cell,
             );
         }
-        (BandShape::View, ColVirt::Virtualised, HSign::Minus) => {
+        (BandShape::View, ColVirt::Virtualised, HSign::Minus, TailShape::Written) => {
             let _ = coll_defective::inverted_sign(
+                ink, cx, area, &mut st, &opts, specs, rows, &mut find, &mut cell,
+            );
+        }
+        (BandShape::View, ColVirt::Virtualised, HSign::Plus, TailShape::Omitted) => {
+            let _ = coll_defective::table_stale_tail(
                 ink, cx, area, &mut st, &opts, specs, rows, &mut find, &mut cell,
             );
         }
@@ -860,10 +906,21 @@ pub fn counters_that_separate(
     allocs_b: Allocations,
 ) -> Vec<Counter> {
     let (x, y) = counters_of(a, b, allocs_a, allocs_b);
+    separated(&x, &y)
+}
+
+/// **Which counters two readings disagree about**, and it is one function because two copies of a
+/// filter are two answers to *what does §20 make visible*.
+///
+/// A counter that is [`Reading::Unreachable`](crate::counters::Reading::Unreachable) on both arms —
+/// `marked`, and it will stay that way — contributes nothing either way and is skipped rather than
+/// counted as agreement. A counter reachable on one arm and not the other is a defect in the
+/// instrument and is reported as a separation.
+fn separated(a: &Counters, b: &Counters) -> Vec<Counter> {
     Counter::ALL
         .into_iter()
         .filter(|c| {
-            let (left, right) = (x.get(*c).measured(), y.get(*c).measured());
+            let (left, right) = (a.get(*c).measured(), b.get(*c).measured());
             left.is_some() != right.is_some() || (left.is_some() && left != right)
         })
         .collect()
@@ -1036,6 +1093,325 @@ pub fn banded_straddling(pen: &mut Pen, cx: &mut Ctx<'_, '_>, _fx: &Fixture) {
 /// table drawn the way the arm draws it.
 pub fn equality(arm: crate::runner::Painter, hoff: i32) -> Diff {
     compare(per_cell, arm, &[oracle(12, hoff)])
+}
+
+// ── production 06: the table's shrink, over two frames into one surface ──────────────────────────
+
+/// **The rows the table is edited down to. Nine.**
+///
+/// [`crate::listing::SHRUNK_TO`]'s own, reached rather than restated: §21 states the stale tail as
+/// *71 of 80 rows* on the collection's screen, and this is the same shrink on the component built
+/// on it. A second nine here would be a second number for one finding, and the two would come to
+/// disagree the first time either moved.
+pub const SHRUNK_TO: usize = crate::listing::SHRUNK_TO;
+
+/// **How many rows the table holds before the shrink.** [`crate::listing::FULL_ROWS`]'s two
+/// hundred, reached rather than restated for [`SHRUNK_TO`]'s reason: `crate::listing` plays the
+/// same shrink one component down and a second literal would be a second home for one number.
+pub const FULL_ROWS: usize = crate::listing::FULL_ROWS;
+
+/// **Rows left standing when the table's content shrinks inside a rectangle that does not move.
+/// Seventy-one of eighty**, which is §21's own number for this defect one component down.
+///
+/// `H - SHRUNK_TO`, and it is stated as an arithmetic identity here and asserted against a **drawn**
+/// screen in `tests::the_stale_tail_is_seventy_one_of_eighty_rows_over_a_table`: an equality
+/// between two derivations of one declaration holds for ever.
+pub const STALE_ROWS: usize = H as usize - SHRUNK_TO;
+
+/// **Cells the stale tail leaves wrong. 5 822 of 24 000**, which is eighty-two a row against a
+/// three-hundred-cell row.
+///
+/// **A wrong row of a table does not cost `w` cells, and that was measured after a first draft of
+/// this constant said `STALE_ROWS * W` and was wrong by a factor of four.** A table row is mostly
+/// **padding**: this file's `emit` writes each column's text and then the pad after it, so the cells a stale
+/// row and a blank tail row disagree about are only the ones carrying digits. Everything else is a
+/// space on both arms and compares equal.
+///
+/// So the cell count is a **floor on how wrong the screen is and never a measure of it**, which is
+/// [`crate::window::INVERTED_CELLS`]'s finding arriving for a different reason: that screen's
+/// shortfall is prose agreeing with prose and this one's is padding agreeing with blanks. It is why
+/// this scene is stated in [`STALE_ROWS`], and why [`TAIL_WRITES`] is beside it — the refusal omits
+/// **21 300** cells of writing and the screen is visibly wrong in 5 822 of them.
+pub const STALE_CELLS: usize = 5_822;
+
+/// **Cells the refusal does not write. 21 300**, which is `STALE_ROWS * W` — the whole tail.
+///
+/// The counter half of the scene, and the gap between this and [`STALE_CELLS`] is the padding: the
+/// refused build does **21 300 fewer cells of work** and buys a screen that is wrong in 5 822 of
+/// them. That ratio is the shrink axis's whole shape — *the defective build looks healthier* — as a
+/// pair of numbers rather than as a sentence.
+pub const TAIL_WRITES: u64 = STALE_ROWS as u64 * W as u64;
+
+/// **Drawing verbs the refusal does not issue. Seventy-one**, one run a tail row.
+///
+/// [`crate::collect`]'s tail is one run the width of the rectangle, so the verb difference is
+/// exactly [`STALE_ROWS`] — an identity between the two counters and the row count, and the one
+/// place on this screen where `verbs` and `rows` are the same number.
+pub const TAIL_VERBS: u64 = STALE_ROWS as u64;
+
+/// **Distinct cells touched, on both arms of the shrink. 24 000.**
+///
+/// [`crate::window::SHRUNK_DISTINCT`]'s finding one component over, and the equality is the finding
+/// rather than the number: the counter is cumulative over the play and the first frame already
+/// touched every cell, so *how many cells were ever written* cannot fall when a later frame stops
+/// writing some of them. It is the *output counter is blind to work that produces no output* trap
+/// met from the other end — here the work is omitted and the output stays.
+pub const SHRUNK_DISTINCT: u64 = CELLS;
+
+// ── the shrink axis's second surface, which this ticket found and does not fix ───────────────────
+
+/// **Columns that do not fill the band.** One pin and two narrow fixed columns at [`W`].
+///
+/// Every other column list on this screen overflows the viewport by construction — [`columns`]
+/// exists to put *horizontal overflow* on the screen, which is §21's row 7 — so the case below the
+/// viewport had never been drawn here at all.
+pub fn narrow_columns() -> Vec<ColSpec> {
+    vec![
+        ColSpec::new(0, "id", Constraint::Fixed(8)).pinned_left(8),
+        ColSpec::new(1, "a", Constraint::Fixed(10)),
+        ColSpec::new(2, "b", Constraint::Fixed(10)),
+    ]
+}
+
+/// **Cells of the rectangle no verb reaches when the columns do not fill the band. 21 760 of
+/// 24 000**, and it is a property of the **shipped** `table` rather than of a refusal.
+///
+/// `solve_columns` answers `content_w = max(Σ minima, view_w)` and then solves the columns inside
+/// it; with every scrolling column `Fixed`, the slack is nobody's. `table_with` draws the three
+/// bands and inside each band it draws the **columns**, so the band's remainder is written by
+/// nothing: the left pin's eight cells and the two ten-cell columns are twenty-eight of a
+/// three-hundred-cell row, and the other two hundred and seventy-two are never touched.
+///
+/// # It is the shrink axis from the column side, and it is on a shipped screen
+///
+/// [`stale`] above is *the rectangle loses rows and keeps what was drawn in them*; this is the same
+/// sentence with **columns** in it, and unlike the tail nothing refuses it — the component does not
+/// write those cells on any arm. `crates/vitui-apps/examples/ledger.rs` declares twelve `Fixed`
+/// columns whose nine scrolling widths sum to 197, so at three hundred columns its viewport is 263
+/// and **[`LEDGER_RESIDUE_PER_ROW`] cells of every row are unwritten**, on a screen a reader can
+/// open today — and that figure is [`ledger_columns`]'s, read off the application's own source and
+/// solved, rather than a number this file typed.
+///
+/// # Why it is a constant here and not a repair
+///
+/// Filed as `.scratch/vitui-components-architecture/issues/24`. Deciding it is deciding whether §2's
+/// *a component owes every cell of the rectangle* binds the band's slack to the component or to the
+/// caller's cell drawer, and either answer moves scene 7's own numbers — a band that filled its
+/// remainder would write [`CELLS`] on a screen where it writes fewer, which is
+/// [`VERBS_TWELVE`]'s neighbourhood. A scenes ticket has no standing to move a normative figure.
+///
+/// **This assertion is a tripwire and it fails when the defect is repaired**, which is the register's
+/// own *pinned red* shape one instrument down: `tests::the_bands_slack_is_written_by_nothing` says so
+/// in as many words, so the day issue 24 is answered the number is a deliberate edit rather than a
+/// quiet one.
+pub const COLUMN_RESIDUE: usize = 21_760;
+
+/// **How many cells of a row the narrow band leaves unwritten. Two hundred and seventy-two** —
+/// [`VIEW_W`]'s viewport less the two ten-cell columns inside it.
+///
+/// **A literal and not `COLUMN_RESIDUE / H`**, which is what it was until a review said so: a
+/// constant divided by a number and multiplied back by it is one declaration round-tripped, and the
+/// assertion under it could only ever have failed on non-divisibility. Written out, the two are
+/// independent and the test that relates them relates a measurement to the **solve** — see
+/// `tests::the_bands_slack_is_written_by_nothing`.
+///
+/// The row figure is the one that transfers: the ledger application's is 66 on the same arithmetic
+/// and a different column list.
+pub const COLUMN_RESIDUE_PER_ROW: usize = 272;
+
+/// **Cells of every row `crates/vitui-apps/examples/ledger.rs` leaves unwritten at [`W`]. Sixty-six.**
+///
+/// **Measured and not typed**, which it was until a review said so: the figure is the finding's
+/// strongest claim — *a screen a reader can open today* — and it stood in five documents and one
+/// `println!` with nothing computing it. [`ledger_columns`] reads the application's own `columns()`
+/// out of its source and [`solve_columns`] answers the rest, so the day that list changes this
+/// number moves rather than the sentence going quietly stale.
+///
+/// It is **zero at eighty, a hundred and twenty and two hundred columns**, because the band is
+/// narrower than the 197 the columns claim and there is no slack to leave. The defect appears when
+/// the terminal gets *wider*, which is why it survived eighteen applications.
+pub const LEDGER_RESIDUE_PER_ROW: usize = 66;
+
+/// **The ledger application's twelve columns, read off its own source.**
+///
+/// [`crate::consumer`]'s arrangement one obligation over — *this scan reads another crate's files* —
+/// and for its reason: a copy of the list here would be a second declaration of the thing under
+/// test, and the two would part the first time either moved.
+///
+/// The needles are assembled from fragments, because **a scanner looking for a literal contains that
+/// literal** — though the trap cannot bite through a file boundary, this file also declares columns
+/// and a later reader moving the scan would meet it.
+///
+/// # Panics
+///
+/// Panics when the application's `columns()` cannot be found or parses to no columns. A scan that
+/// silently answers an empty list is a gate reporting *no slack* about a screen it never read.
+pub fn ledger_columns() -> Vec<ColSpec> {
+    let source = std::fs::read_to_string(
+        std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
+            .join("crates/vitui-apps/examples/ledger.rs"),
+    )
+    .expect("the ledger application is a workspace member");
+    let open = String::from("fn ") + "columns() -> Vec<Column> {";
+    let body = source
+        .split_once(&open)
+        .unwrap_or_else(|| panic!("`{open}` is the ledger's column list"))
+        .1
+        .split_once("\n}")
+        .expect("and it ends")
+        .0;
+
+    let mut out = Vec::new();
+    for line in body.lines() {
+        let Some(rest) = line.trim().strip_prefix("Column::new(") else {
+            continue;
+        };
+        // **The key is this list's position and not the token in the source**, because the last
+        // column spells it `BALANCE` — a constant this scan cannot resolve. Nothing here reads a
+        // key: `solve_columns` partitions by pin and by width.
+        let key = out.len() as u16;
+        let width: u16 = rest
+            .split(", ")
+            .nth(2)
+            .and_then(|w| w.trim().strip_prefix("Fixed("))
+            .and_then(|w| w.split(')').next())
+            .and_then(|w| w.parse().ok())
+            .unwrap_or_else(|| panic!("a `Fixed` width in `{line}`"));
+        let col = ColSpec::new(key, "", Constraint::Fixed(width));
+        out.push(
+            match (
+                line.contains(".pinned_left("),
+                line.contains(".pinned_right("),
+            ) {
+                (true, _) => col.pinned_left(width),
+                (_, true) => col.pinned_right(width),
+                _ => col,
+            },
+        );
+    }
+    assert!(
+        !out.is_empty(),
+        "the ledger's column list parsed to nothing, so the slack below is a measurement of an \
+         empty table"
+    );
+    out
+}
+
+/// **Cells of a row `specs` leaves unwritten at `width`**: the band's viewport less what its
+/// scrolling columns claim, or zero where they overflow it.
+///
+/// The arithmetic behind [`COLUMN_RESIDUE_PER_ROW`] and [`LEDGER_RESIDUE_PER_ROW`], as one function,
+/// so the two are one derivation over two column lists rather than two.
+pub fn slack_per_row(specs: &[ColSpec], width: u16) -> usize {
+    let solved = solve_columns(width, specs);
+    let filled: u16 = (solved.scroll.0..solved.scroll.1)
+        .map(|i| solved.w[i])
+        .sum();
+    usize::from(solved.view_w.saturating_sub(filled))
+}
+
+/// **Which cells of the rectangle the shipped table leaves untouched at `specs`.**
+///
+/// A count of cells [`Pen`] never saw a verb for, which is a question only [`crate::runner::Canvas`]
+/// can answer: *never touched is its own value and not a blank*, so it is the one instrument here
+/// that can tell a cell painted with a space from a cell nobody wrote.
+pub fn unwritten(specs: &[ColSpec], rows: u64) -> usize {
+    let mut driver = crate::runner::driver_at(W, H, Density::default());
+    let mut pen = Pen::new(W, H);
+    driver.frame(|cx| {
+        let _ = draw_into(&mut pen, cx, specs, Opts::correct(), rows, OFFSET, 0);
+    });
+    let canvas = pen.into_canvas();
+    (0..H)
+        .flat_map(|y| (0..W).map(move |x| (x, y)))
+        .filter(|(x, y)| canvas.get(*x, *y).is_none())
+        .count()
+}
+
+/// **The table's shrink, as an equality against the shipped component over the same content.**
+///
+/// Two frames into **one** [`crate::runner::Pen`]: the first draws [`FULL_ROWS`] rows, the second
+/// draws [`SHRUNK_TO`]. §17's own spelling of the axis — *content shrinking inside a rectangle that
+/// does not move* — and the rectangle is [`W`] by [`H`] on both frames.
+///
+/// The reference arm is the **shipped table over the same two frames**, which is production 05's
+/// oracle shape one component over: what the equality is independent of is the tail and not the row
+/// drawing, so a defect in `emit`, in the column solve or in the band is invisible to it and belongs
+/// to scenes 7 and 30 above.
+pub fn stale() -> Diff {
+    compare(tabled, stale_tailed, &shrink_steps())
+}
+
+/// **The same defect spelled as a terminal resize — and it scores clean.**
+///
+/// §21 refuses to bank the shrink gate written this way, and this is the refusal as a number rather
+/// than as a sentence: the **rectangle** becomes the content's height, so there is nowhere for a
+/// residue to sit and the arm that omits the tail draws the same screen as the rule.
+///
+/// It is spelled the way [`crate::window::stale_by_resize`] spells it one component over, and for
+/// the reason that one records: written as *the same [`H`]-row play begun at the shrunk content* it
+/// would report the tail **dirty** rather than clean, because the refusal leaves seventy-one rows
+/// *untouched* and an untouched cell is [`crate::runner::Canvas`]'s own value and not a blank.
+pub fn stale_by_resize() -> Diff {
+    let rows = u16::try_from(SHRUNK_TO).unwrap_or(u16::MAX);
+    compare(tabled, stale_tailed, &[Fixture::lines(W, rows, SHRUNK_TO)])
+}
+
+/// **The two frames the shrink is played over**: [`FULL_ROWS`] rows, then [`SHRUNK_TO`].
+///
+/// One function and not two literals, for [`crate::window::shrunk_play`]'s reason: [`stale`] and
+/// [`shrunk_counters`] both need this exact pair, and two copies of it would let the scene's cell
+/// count and its counter argument come to describe two different plays.
+pub fn shrink_steps() -> [Fixture; 2] {
+    [
+        Fixture::lines(W, H, FULL_ROWS),
+        Fixture::lines(W, H, SHRUNK_TO),
+    ]
+}
+
+/// **The shipped table over the fixture's row count**, at twelve columns and no horizontal offset.
+///
+/// The row count is read off the [`Fixture`] rather than taken from a constant, because that is what
+/// makes a *step* of a play a shrink: [`crate::runner::play`] hands each step to the same painter,
+/// and a painter ignoring its fixture would draw the same table twice.
+///
+/// [`HOFF`] is deliberately not used. The shrink is the **row** axis and scenes 7 and 30 are the
+/// column one; a horizontal offset here would put two axes on one screen and leave a reader unable
+/// to say which one a disagreement came from.
+pub fn tabled(pen: &mut Pen, cx: &mut Ctx<'_, '_>, fx: &Fixture) {
+    let specs = columns(12);
+    let _ = draw_into(pen, cx, &specs, Opts::correct(), fx.len() as u64, 0, 0);
+}
+
+/// **The same table with the tail below the content refused.** §17's `shrunk` axis, on the shipped
+/// component.
+pub fn stale_tailed(pen: &mut Pen, cx: &mut Ctx<'_, '_>, fx: &Fixture) {
+    let specs = columns(12);
+    let _ = draw_into(pen, cx, &specs, Opts::stale_tail(), fx.len() as u64, 0, 0);
+}
+
+/// **Every counter this crate can read, over the two arms of [`stale`].** Returns
+/// `(the rule, the refusal)`.
+///
+/// The scene exists because the refused build looks *healthier*, and a report printing only the
+/// diff would leave the reader to take that on trust. The allocation totals are the caller's, for
+/// [`counters_of`]'s reason.
+pub fn shrunk_counters(rule: Allocations, refused: Allocations) -> (Counters, Counters) {
+    let steps = shrink_steps();
+    (
+        crate::runner::play(tabled, &steps).counters(rule),
+        crate::runner::play(stale_tailed, &steps).counters(refused),
+    )
+}
+
+/// **Which of §20's nine counters tell the two arms of [`stale`] apart, and in which direction.**
+///
+/// See [`counters_that_separate`]: an empty answer means the equality is the only detector there is.
+/// This one is **not** empty, and that is the finding rather than a weakness — every counter that
+/// moves moves in the refusal's favour, which is the shrink axis's whole shape.
+pub fn shrunk_counters_that_separate(rule: Allocations, refused: Allocations) -> Vec<Counter> {
+    let (a, b) = shrunk_counters(rule, refused);
+    separated(&a, &b)
 }
 
 // ── components ticket 15's two measurements over this screen ─────────────────────────────────────
@@ -1359,6 +1735,193 @@ mod tests {
 
     /// The offset the scroll-scope sign is measured at. A thousand rows into a million.
     const OFF: i32 = 1_000;
+
+    /// **Production 06, scene 37: the table's content shrinks inside a rectangle that does not
+    /// move, and seventy-one of eighty rows keep what was drawn in them.**
+    ///
+    /// Both halves, because a comparison whose correct arm has never been watched agreeing reports
+    /// *0 cells over 0 rows* for the same reason a broken one would — and here the correct arm is
+    /// the **shipped component over the same two frames**, so *clean* is a statement that the tail
+    /// is the only difference between them.
+    #[test]
+    fn the_stale_tail_is_seventy_one_of_eighty_rows_over_a_table() {
+        // The rule against itself: the same painter, twice. The oracle is an oracle.
+        let steps = shrink_steps();
+        compare(tabled, tabled, &steps).assert_clean("scene 37, the rule");
+
+        let diff = stale();
+        assert_eq!(
+            (diff.rows, diff.cells),
+            (STALE_ROWS, STALE_CELLS),
+            "§21's own number for this defect, one component up: {diff}"
+        );
+        assert_eq!(
+            diff.first,
+            Some((0, SHRUNK_TO as u16)),
+            "and it starts at the first row the content no longer reaches"
+        );
+
+        // **A wrong row of a table does not cost `w` cells**, and the number above is where that
+        // is settled. `STALE_CELLS` is 5 822 where `STALE_ROWS * W` is 21 300, because a table row
+        // is mostly padding and a stale row agrees with a blank one wherever both are spaces — so
+        // the cell count is a floor on how wrong the screen is rather than a measure of it. Two
+        // assertions saying so stood here and a review struck both: `diff.rows == H - SHRUNK_TO` is
+        // `STALE_ROWS`'s own definition asserted a second time, and `diff.cells < STALE_ROWS * W`
+        // after an exact equality is `5_822 < 21_300` — a constant against a constant.
+
+        // §21's refused spelling, and it scores clean.
+        assert!(
+            stale_by_resize().clean(),
+            "a fresh rectangle has nowhere for the residue to survive, which is why §21 will not \
+             bank the shrink gate written as a resize"
+        );
+    }
+
+    /// **The refused build is cheaper on every counter that moves, and nothing rises.**
+    ///
+    /// The other half of scene 37, and the half that says why the equality is needed at all: this
+    /// is a build that does [`TAIL_WRITES`] fewer cells of work, issues [`TAIL_VERBS`] fewer verbs,
+    /// and is wrong on seventy-one of eighty rows.
+    ///
+    /// The claim *cheaper on every counter that moves* is a **partition over [`Counter::ALL`]** and
+    /// not a hand-written pair of lists, which is [`crate::window`]'s own finding: a counter left
+    /// out of both is a counter nobody looked at.
+    #[test]
+    fn the_stale_tail_is_cheaper_on_every_counter_that_moves_and_nothing_rises() {
+        let allocs = Allocations::over(2, 0);
+        let (rule, refused) = shrunk_counters(allocs, allocs);
+        let moved = shrunk_counters_that_separate(allocs, allocs);
+        assert_eq!(
+            moved,
+            vec![Counter::Writes, Counter::Verbs],
+            "the two counters the omitted tail is visible in. **The allocation total is inert on \
+             both arms here and that is not a hole** — `vitui-alloc-probe` is a dev-dependency and \
+             a library cannot install a global allocator on a consumer's behalf, so a caller with \
+             no probe hands both arms the same value. `examples/grid_numbers.rs` has one and \
+             reports a third separation, which is the **recorder's**: a `Pen` allocates per write, \
+             so fewer writes is fewer allocations and the column says nothing about the component"
+        );
+
+        // **Every counter, and the claim is `nothing rises`.**
+        //
+        // A review struck the other half of what stood here. `moved` is `separated`'s answer, which
+        // *is* the set where the two readings differ — so an `else` arm asserting `a == b` off that
+        // same set is true by construction and reports nothing. What can fail is the **direction**,
+        // and it can fail for every counter rather than only for the two that move: a refusal that
+        // omitted the tail and cost more somewhere else fails here, on a counter absent from
+        // `moved`.
+        for c in Counter::ALL {
+            let (a, b) = (rule.get(c).measured(), refused.get(c).measured());
+            let (Some(a), Some(b)) = (a, b) else {
+                assert!(
+                    !moved.contains(&c),
+                    "`{c:?}` is unreachable on an arm and was reported as a separation"
+                );
+                continue;
+            };
+            assert!(b <= a, "`{c:?}` rose on the refusal: {a} -> {b}");
+            if moved.contains(&c) {
+                assert!(b < a, "`{c:?}` was reported as separating and did not move");
+            }
+        }
+
+        // The two differences are identities and not measurements: the tail is one run a row.
+        let of = |cs: &Counters, c: Counter| cs.get(c).measured().expect("measured");
+        assert_eq!(
+            of(&rule, Counter::Writes) - of(&refused, Counter::Writes),
+            TAIL_WRITES
+        );
+        assert_eq!(
+            of(&rule, Counter::Verbs) - of(&refused, Counter::Verbs),
+            TAIL_VERBS
+        );
+
+        // **`distinct` does not fall**, and that is the counter trap met from the other end: it is
+        // cumulative over the play and the first frame already touched every cell.
+        for arm in [&rule, &refused] {
+            assert_eq!(
+                of(arm, Counter::Distinct),
+                SHRUNK_DISTINCT,
+                "the shrink is invisible to a cumulative output counter"
+            );
+        }
+    }
+
+    /// **The shipped table leaves the band's slack unwritten, and this assertion fails the day that
+    /// is repaired.**
+    ///
+    /// A **tripwire** and not an approval. It is the shrink axis's second surface — *the rectangle
+    /// loses columns and keeps what was drawn in them* — and unlike the tail no refusal is involved:
+    /// the component does not write those cells on any arm. See [`COLUMN_RESIDUE`] for the
+    /// arithmetic and `.scratch/vitui-components-architecture/issues/24` for the question, which is
+    /// whether §2's *a component owes every cell of the rectangle* binds the slack to the component
+    /// or to the caller's cell drawer.
+    ///
+    /// The control is what makes it a finding rather than an artefact of this fixture: at
+    /// [`columns`]'s twelve the band overflows and **every cell is written**, so the gap is the
+    /// column list's shape and not the instrument's.
+    ///
+    /// **The shipped application is the second half and it was prose until a review said so.** *A
+    /// screen a reader can open today* is this finding's strongest claim and it stood in five
+    /// documents with nothing computing it; [`ledger_columns`] reads that application's own column
+    /// list off disk now, so the figure moves with the list rather than going quietly stale.
+    #[test]
+    fn the_bands_slack_is_written_by_nothing() {
+        assert_eq!(
+            unwritten(&columns(12), VOLUMES[0]),
+            0,
+            "a band that overflows its viewport writes every cell of the rectangle, which is the \
+             control this finding needs"
+        );
+        assert_eq!(
+            unwritten(&narrow_columns(), VOLUMES[0]),
+            COLUMN_RESIDUE,
+            "**this failing means the defect was repaired**, not that it arrived: a table whose \
+             columns do not fill the band leaves the remainder untouched, and issues/24 is the \
+             ticket that decides whose those cells are"
+        );
+        // **The per-row figure is read off the solve and not divided out of the one above**, which
+        // is what it was until a review said so: `COLUMN_RESIDUE / H` multiplied back by `H` is one
+        // declaration round-tripped and could only fail on non-divisibility. These two are
+        // independent — one is a count of untouched cells on a drawn screen, the other is the
+        // band's viewport less what its columns claim — and the product relates them.
+        assert_eq!(
+            slack_per_row(&narrow_columns(), W),
+            COLUMN_RESIDUE_PER_ROW,
+            "the slack is the viewport less what the columns claim"
+        );
+        assert_eq!(
+            COLUMN_RESIDUE_PER_ROW * H as usize,
+            COLUMN_RESIDUE,
+            "the solve's slack over every row is the screen's untouched cells"
+        );
+        assert_eq!(
+            slack_per_row(&columns(12), W),
+            0,
+            "and a band that overflows has none, which is the control in the other unit"
+        );
+
+        // **The shipped application, at four widths**, with its column list read off its own source
+        // rather than copied here. Sixty-six at three hundred columns and **nothing at the three
+        // narrower ones**, because the band is narrower there than the 197 its columns claim: the
+        // defect appears when the terminal gets *wider*, which is why eighteen applications and
+        // every gate in this crate went past it.
+        let ledger = ledger_columns();
+        assert_eq!(ledger.len(), 12, "the ledger declares twelve columns");
+        assert_eq!(
+            slack_per_row(&ledger, W),
+            LEDGER_RESIDUE_PER_ROW,
+            "`examples/ledger.rs` leaves this many cells of every row unwritten at {W} columns"
+        );
+        for narrow in [80u16, 120, 200] {
+            assert_eq!(
+                slack_per_row(&ledger, narrow),
+                0,
+                "at {narrow} columns the ledger's band is narrower than its columns claim, so \
+                 there is no slack — and a gate that only looked here would have found nothing"
+            );
+        }
+    }
 
     /// **The geometry the whole file's arithmetic rests on, asserted once.**
     ///

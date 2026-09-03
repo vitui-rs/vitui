@@ -113,6 +113,14 @@ pub const ROW: &str = "listing row, ready, nothing wrong";
 /// The three volumes §21's scene 3 states.
 pub const VOLUMES: [u64; 3] = [1_000, 100_000, 1_000_000];
 
+/// **How many rows the shrink starts from. Two hundred**, and it is a constant because
+/// [`crate::grid`] plays the same shrink one component up and a second literal would be a second
+/// home for one number.
+///
+/// The property it is chosen for is *more than [`H`]*, so every row of the viewport has content on
+/// the first frame and the residue the shrink leaves is the whole tail.
+pub const FULL_ROWS: usize = 200;
+
 /// **Rect a correct frame writes, at every one of [`VOLUMES`].** Every cell of the viewport, once.
 pub const WRITES: u64 = W as u64 * H as u64;
 
@@ -480,7 +488,7 @@ pub fn counters_that_separate_them(correct: Allocations, defective: Allocations)
 /// resize passes on all twelve panels, because a fresh `Surface` has nowhere for the residue to
 /// survive; [`stale_by_resize`] is that spelling, kept beside this one so the difference is a number.
 pub fn stale() -> Diff {
-    let full = lines(200);
+    let full = lines(FULL_ROWS);
     let shrunk = full.shrunk_to(SHRUNK_TO);
     compare(reference, defective::stale_tail, &[full, shrunk])
 }
@@ -803,7 +811,7 @@ mod tests {
         assert_eq!(diff.first, Some((0, SHRUNK_TO as u16)));
 
         // **The defective build looks healthier**, measured on the frame the defect is in.
-        let shrunk = lines(200).shrunk_to(SHRUNK_TO);
+        let shrunk = lines(FULL_ROWS).shrunk_to(SHRUNK_TO);
         let correct = play(rows_at_a_time, std::slice::from_ref(&shrunk));
         let broken = play(defective::stale_tail, std::slice::from_ref(&shrunk));
         assert_eq!(

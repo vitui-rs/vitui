@@ -39,16 +39,21 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   obligations as functions over it. Register 233 rows, 228 evaluated and
   **no row pinned red** — row 112 was the last, inverted by runtime architecture 31 — beside
   5 unreachable across the crate line (ADR 0023) and **nothing unsubjected**: production 03 took
-  `table`'s two and production 04 took `field`'s four, which were the last. **Thirty-three of the
-  thirty-six scenes stand up, none is red and three have nothing to run over** —
+  `table`'s two and production 04 took `field`'s four, which were the last. **Thirty-six of the
+  thirty-eight scenes stand up, none is red and two have nothing to run over** —
   `scenes.rs`'s own gate names the numbers, and *every scene stood up* was a third stale summary
-  sentence of production 01's kind, corrected by 04. Scenes **34, 35 and 36 are production 05's**,
+  sentence of production 01's kind, corrected by 04. That gate's own **name** was a fourth, saying
+  three and thirty-three while its assertions said two and thirty-four; production 06 renamed it
+  with its five register citations. Scenes **34, 35 and 36 are production 05's**,
   all three in `crates/vitui-components/src/window.rs`: `field`'s scrolled, shrunk and wheeled axes,
-  which §21 states over one narrow row and the freeze declares four of.
+  which §21 states over one narrow row and the freeze declares four of. Scenes **37 and 38 are
+  production 06's** and they are `table`'s last two, in **two** files rather than one — a shrink is a
+  screen (`crate::grid`) and a wheel is an offset (`crate::wheel`), which is where the posted notch
+  is driven and where `table` is now the **third** subject beside `collection` and `scroll_area`.
   **Two
   inversions there were the runtime's and no components ticket's**: row 112 and row 161, the bytes
   on the wire, by runtime architecture 34. Obligations **O1–O4, O6 and O7 are `Met`; O5 is the one
-  left**, at **23 of 34 `(component, axis)` pairs with a scene**, and is watched panicking, because a
+  left**, at **25 of 34 `(component, axis)` pairs with a scene**, and is watched panicking, because a
   query with no evidence must fail loudly rather than pass.
 - **`vitui-apps` — 18 applications**, one file each in `examples/`. A component ticket ships one, and
   since ticket 45 that is obligation **O7** rather than a habit: `vitui_components::consumer` joins
@@ -56,7 +61,8 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
 - **Active work: `.scratch/vitui-production/`** (opened 2026-09-01) — the whole workspace's road to a
   published crate, sixteen tickets in five groups: the paperwork, the six unsubjected register rows
   (**all six standing**, by production 03 and 04),
-  the fourteen hostile axes O5 still owed (**eleven left**, `field`'s three taken by production 05), three tier-1 terminals nobody has run, and the release.
+  the fourteen hostile axes O5 still owed (**nine left**, `field`'s three taken by production 05
+  and `table`'s two by 06), three tier-1 terminals nobody has run, and the release.
   **Windows is last, as 16**, blocked by the publish — which carries the consequence that no shipped
   string may claim a terminal the conform suite has not asked. Everything on it was already true and
   already recorded; what was missing was that nothing scheduled any of it.
@@ -227,13 +233,16 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   exactly, which an overlay bar cannot satisfy.
 
 **Open questions — do not "fix" code to match one sentence of a spec without resolving the ticket.**
-Four stand open, all of them the components map's and all filed by the layer above the one they land
+Five stand open, all of them the components map's and all filed by the layer above the one they land
 in. **The runtime's architecture map has none left**: 36, the only one that map ever filed against
 itself, resolved 2026-09-01.
 
 - **Components architecture 19** (does a fold that costs the volume belong to O6), **20** (`tree`
   declares three glyphs it cannot draw), **22** (`Esc` over a plain `collection` is crate-private on
-  purpose), **23** (`file_picker`'s popup has no keyboard at all).
+  purpose), **23** (`file_picker`'s popup has no keyboard at all), **24** (a `table` whose columns do
+  not fill the band leaves the remainder **unwritten** — 66 cells of every row in
+  `examples/ledger.rs` at three hundred columns, and none at eighty; filed by production 06, whose
+  scene 37 is the same axis on the row side).
 
 **The engine's architecture map has none left.** Issues 20, 21 and 23 read as open for a while and
 were closed by production tickets 06, 03 and 02 — do not re-file them.

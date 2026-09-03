@@ -856,8 +856,7 @@ where
         &mut find,
         &mut row,
         &mut no_refusal,
-        Shape::Virtualised,
-        Reveal::WhenAsked,
+        CollShape::RULE,
     )
 }
 
@@ -930,7 +929,7 @@ where
         find,
         row,
         first,
-        Shape::Virtualised,
+        CollShape::RULE,
     )
 }
 
@@ -961,7 +960,7 @@ pub(crate) fn collection_shaped<I, F, R>(
     mut find: F,
     mut row: R,
     first: Refusal<'_>,
-    shape: Shape,
+    shaped: CollShape,
 ) -> Response
 where
     I: Ink,
@@ -969,17 +968,7 @@ where
     R: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, usize, Face),
 {
     draw_with(
-        ink,
-        cx,
-        area,
-        st,
-        opts,
-        rows,
-        &mut find,
-        &mut row,
-        first,
-        shape,
-        Reveal::WhenAsked,
+        ink, cx, area, st, opts, rows, &mut find, &mut row, first, shaped,
     )
 }
 
@@ -1000,16 +989,66 @@ pub(crate) enum Shape {
     WholeContent,
 }
 
+/// **Whether the rows the content no longer reaches are written.**
+///
+/// §2's *a component owes every cell of the rectangle*, as the one line between the shipped build
+/// and §17's `shrunk` axis. The rows the row drawer covers are the content's; the rest of the
+/// partition is the tail below it, and leaving it out is **71 of 80 rows** on `crate::listing`'s
+/// screen and [`crate::grid::STALE_ROWS`] on the table's.
+///
+/// **It is a defect of the second frame given the first**, which is why it needs a surface that
+/// persists across frames to be visible at all: the cells are not blanked, they keep the previous
+/// frame's content, and on a fresh surface the arm draws the same picture as the rule.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub(crate) enum Tail {
+    /// **The rule.** Every cell of the rectangle, including the rows past the content's end.
+    #[default]
+    Written,
+    /// **The defect.** The row drawer's rows and nothing else.
+    Omitted,
+}
+
 /// Whether the reveal is conditional, unconditional, or gone.
 ///
 /// Three arms and not two, because a one-directional gate goes green the moment somebody deletes the
 /// call entirely — which loses the keyboard behaviour instead of fixing the pointer one. See
 /// [`crate::wheel::Reveal`], whose three arms these are.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum Reveal {
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub(crate) enum Reveal {
+    #[default]
     WhenAsked,
     EveryFrame,
     Never,
+}
+
+/// **Every policy [`draw_with`] threads that separates the shipped collection from a refused one**,
+/// as one value.
+///
+/// A struct and not three parameters, for [`crate::input::defective::Refused`]'s reason one file
+/// over: [`Shape`], [`Tail`] and [`Reveal`] are three enums that would sit side by side in a call,
+/// which is exactly the argument list a reader transposes. It is also what keeps
+/// [`collection_shaped`] at ten arguments while the two components built *on* `collection` gain two
+/// more refusals each.
+///
+/// [`CollShape::RULE`] is what the shipped `collection`, `table` and `tree` pass.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub(crate) struct CollShape {
+    /// Which rows the body iterates.
+    pub rows: Shape,
+    /// Whether the tail below the content is written.
+    pub tail: Tail,
+    /// When the reveal fires.
+    pub reveal: Reveal,
+}
+
+impl CollShape {
+    /// **The shipped build**, named rather than defaulted at the call site so that a reader
+    /// grepping for the refusals finds the one place a component says it makes none.
+    pub(crate) const RULE: CollShape = CollShape {
+        rows: Shape::Virtualised,
+        tail: Tail::Written,
+        reveal: Reveal::WhenAsked,
+    };
 }
 
 /// **`#[track_caller]` all the way down, and the missing attribute is a real defect this fixture
@@ -1039,8 +1078,7 @@ fn draw_with<I, F, R>(
     find: &mut F,
     row: &mut R,
     first: Refusal<'_>,
-    shape: Shape,
-    reveal: Reveal,
+    shaped: CollShape,
 ) -> Response
 where
     I: Ink,
@@ -1159,7 +1197,7 @@ where
             {
                 let visible = cx.visible_rows();
                 let content = 0..i32::try_from(len).unwrap_or(i32::MAX);
-                let over_rows = match shape {
+                let over_rows = match shaped.rows {
                     Shape::Virtualised => visible.clone(),
                     Shape::WholeContent => content.clone(),
                 };
@@ -1182,13 +1220,17 @@ where
                 }
                 // **The tail is the collection's own, and every cell of it is written.** The rows the
                 // content admits belong to the row drawer; this is the rest of the partition, and
-                // leaving it out is 71 of 80 rows on `crate::listing`'s screen.
+                // leaving it out is 71 of 80 rows on `crate::listing`'s screen and
+                // [`crate::grid::STALE_ROWS`] on the table's — see [`Tail`], which is that omission
+                // as a value a gate can play.
                 let tail = i32::try_from(len).unwrap_or(i32::MAX).max(visible.start);
                 let paint = cx.theme().paint(opts.tail);
-                for y in tail..visible.end {
-                    let _ = ink.run(cx, 0, y, " ", area.w, paint);
+                if shaped.tail == Tail::Written {
+                    for y in tail..visible.end {
+                        let _ = ink.run(cx, 0, y, " ", area.w, paint);
+                    }
                 }
-                if asks_for_a_reveal(reveal, asked.reveal) {
+                if asks_for_a_reveal(shaped.reveal, asked.reveal) {
                     let at = i32::try_from(st.sel.lead).unwrap_or(i32::MAX);
                     cx.request_into_view(Rect::new(0, at, area.w, 1));
                 }
@@ -1412,10 +1454,10 @@ pub fn search_range(lead: usize, len: usize, budget: usize) -> Range<usize> {
 /// line and every one of them **passes at least one gate the correct build passes**.
 pub mod defective {
     use super::{
-        Band, BandShape, Cell, CellKeys, Code, ColVirt, CollOpts, CollState, Column, Ctx, Face,
-        Gesture, HSign, Id, Indent, Ink, Node, Order, Pressed, Range, Rect, Response, Reveal, Rows,
-        Scan, Shape, TableOpts, TableShape, TableState, TreeOpts, TreeShape, TreeState, draw_with,
-        no_refusal, table_with, tree_with,
+        Band, BandShape, Cell, CellKeys, Code, ColVirt, CollOpts, CollShape, CollState, Column,
+        Ctx, Face, Gesture, HSign, Id, Indent, Ink, Node, Order, Pressed, Range, Rect, Response,
+        Reveal, Rows, Scan, Shape, TableOpts, TableShape, TableState, Tail, TreeOpts, TreeShape,
+        TreeState, draw_with, no_refusal, table_with, tree_with,
     };
 
     /// **[`super::from_key`] reading `k.code` alone, which is how it shipped for thirty-seven
@@ -1489,8 +1531,10 @@ pub mod defective {
             &mut find,
             &mut row,
             &mut no_refusal,
-            Shape::WholeContent,
-            Reveal::WhenAsked,
+            CollShape {
+                rows: Shape::WholeContent,
+                ..CollShape::RULE
+            },
         )
     }
 
@@ -1531,8 +1575,10 @@ pub mod defective {
             &mut find,
             &mut row,
             &mut no_refusal,
-            Shape::Virtualised,
-            Reveal::EveryFrame,
+            CollShape {
+                reveal: Reveal::EveryFrame,
+                ..CollShape::RULE
+            },
         )
     }
 
@@ -1570,8 +1616,10 @@ pub mod defective {
             &mut find,
             &mut row,
             &mut no_refusal,
-            Shape::Virtualised,
-            Reveal::Never,
+            CollShape {
+                reveal: Reveal::Never,
+                ..CollShape::RULE
+            },
         )
     }
 
@@ -1674,7 +1722,163 @@ pub mod defective {
             find,
             cell,
             TableShape {
-                rows: Shape::WholeContent,
+                coll: CollShape {
+                    rows: Shape::WholeContent,
+                    ..CollShape::RULE
+                },
+                ..TableShape::default()
+            },
+        )
+    }
+
+    // ── `table`'s two hostile axes, production 06 ────────────────────────────────────────────────
+
+    /// **The table that draws the rows its content reaches and nothing else.** §17's `shrunk` axis.
+    ///
+    /// `super::Tail::Omitted` on [`super::table`], and the rows below the content keep what the
+    /// previous frame put there. It is one field of `TableShape` changed and the field is the row
+    /// axis's, because the tail is `collection`'s — spec §6's *the tail below the content is
+    /// `collection`'s, reached by calling it*, arriving as a refusal.
+    ///
+    /// **It is a defect of the second frame given the first**, so it is invisible on any instrument
+    /// that starts each frame from a blank surface. `crate::grid::stale` plays it over two frames
+    /// into one [`crate::runner::Pen`]; `crate::grid::stale_by_resize` is the spelling §21 refuses,
+    /// kept beside it as a number.
+    #[track_caller]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "`table_into`'s nine exactly, because a defective arm that took a different \
+                  signature would be a different function rather than the same one with one value \
+                  changed"
+    )]
+    pub fn table_stale_tail<I, F, C>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Rect,
+        st: &mut TableState,
+        opts: &TableOpts,
+        cols: &[Column],
+        rows: Rows,
+        find: F,
+        cell: C,
+    ) -> Response
+    where
+        I: Ink,
+        F: FnMut(&str, Range<usize>) -> Option<usize>,
+        C: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, Cell, Face),
+    {
+        table_with(
+            ink,
+            cx,
+            area,
+            st,
+            opts,
+            cols,
+            rows,
+            find,
+            cell,
+            TableShape {
+                coll: CollShape {
+                    tail: Tail::Omitted,
+                    ..CollShape::RULE
+                },
+                ..TableShape::default()
+            },
+        )
+    }
+
+    /// **The table whose `scroll_into_view` fires on every frame.** §17's `wheeled` axis.
+    ///
+    /// [`every_frame`] on the component built on it. `crate::wheel` owns the gate and plays it over
+    /// three subjects now; this is the arm it fires against for the third, and
+    /// [`table_never_reveals`] is the other one.
+    #[track_caller]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "`table_into`'s nine exactly, because a defective arm that took a different \
+                  signature would be a different function rather than the same one with one value \
+                  changed"
+    )]
+    pub fn table_every_frame<I, F, C>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Rect,
+        st: &mut TableState,
+        opts: &TableOpts,
+        cols: &[Column],
+        rows: Rows,
+        find: F,
+        cell: C,
+    ) -> Response
+    where
+        I: Ink,
+        F: FnMut(&str, Range<usize>) -> Option<usize>,
+        C: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, Cell, Face),
+    {
+        table_with(
+            ink,
+            cx,
+            area,
+            st,
+            opts,
+            cols,
+            rows,
+            find,
+            cell,
+            TableShape {
+                coll: CollShape {
+                    reveal: Reveal::EveryFrame,
+                    ..CollShape::RULE
+                },
+                ..TableShape::default()
+            },
+        )
+    }
+
+    /// **The table whose reveal was deleted rather than made conditional**, which is the way to pass
+    /// a one-directional wheel gate and is not a fix.
+    ///
+    /// [`never_reveals`] on the component built on it. See [`crate::wheel::Reveal::Never`]: the
+    /// wheel moves exactly as far as under the rule and the keyboard cursor can no longer bring
+    /// anything into view.
+    #[track_caller]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "`table_into`'s nine exactly, because a defective arm that took a different \
+                  signature would be a different function rather than the same one with one value \
+                  changed"
+    )]
+    pub fn table_never_reveals<I, F, C>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Rect,
+        st: &mut TableState,
+        opts: &TableOpts,
+        cols: &[Column],
+        rows: Rows,
+        find: F,
+        cell: C,
+    ) -> Response
+    where
+        I: Ink,
+        F: FnMut(&str, Range<usize>) -> Option<usize>,
+        C: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, Cell, Face),
+    {
+        table_with(
+            ink,
+            cx,
+            area,
+            st,
+            opts,
+            cols,
+            rows,
+            find,
+            cell,
+            TableShape {
+                coll: CollShape {
+                    reveal: Reveal::Never,
+                    ..CollShape::RULE
+                },
                 ..TableShape::default()
             },
         )
@@ -3119,11 +3323,17 @@ where
 /// [`defective`] exists for.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 struct TableShape {
-    /// **Which rows the body iterates**, which is [`Shape`] and belongs here for its own reason: a
-    /// table *is* a collection plus a rectangle split, so the one mistake `collection` has an arm
-    /// for is a mistake a table can make too — and until [`crate::volume`] asked, it could not be
-    /// written down on this side.
-    rows: Shape,
+    /// **Every refusal the row axis has**, which is [`CollShape`] and belongs here for its own
+    /// reason: a table *is* a collection plus a rectangle split, so every mistake `collection` has
+    /// an arm for is a mistake a table can make too — and none of the three could be written down
+    /// on this side until a ticket asked.
+    ///
+    /// [`crate::volume`] asked for the first ([`Shape`]); production 06 asked for the other two,
+    /// which are §17's `shrunk` and `wheeled` axes on this component: [`Tail`] is the stale tail
+    /// and [`Reveal`] is the pull that fights the wheel. **All three are the row axis's and none of
+    /// them is a second implementation** — `table` reaches them by calling `collection`, which is
+    /// the sentence spec §6 opens with.
+    coll: CollShape,
     /// How the scrolling band reaches the surface.
     band: BandShape,
     /// Whether the column window is asked for.
@@ -3312,7 +3522,7 @@ where
             in_band(ink, cx, right_x, solved.right_w, solved.right, 0, &mut draw);
         },
         &mut no_refusal,
-        shape.rows,
+        shape.coll,
     )
 }
 
@@ -3647,8 +3857,16 @@ where
 /// the refused one is a single line — [`TableShape`]'s arrangement one component over.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 struct TreeShape {
-    /// **Which rows the body iterates.** See [`TableShape::rows`]: a tree is a collection plus a
+    /// **Which rows the body iterates.** See [`TableShape::coll`]: a tree is a collection plus a
     /// flatten index, and it inherits the same one-line mistake.
+    ///
+    /// **It is [`Shape`] where the table's is the whole [`CollShape`], and that is deliberate rather
+    /// than half a migration.** Production 06 gave `table` the other two refusals because two
+    /// scenes play them; a `tree` arm for a tail nothing draws and a reveal nothing posts would be
+    /// a build no gate exercises, which is `crate::ink`'s complaint from the other end — a refusal
+    /// that is never played is a second implementation with no comparison behind it.
+    /// `tree_with` reconstitutes a `CollShape` from this field and [`CollShape::RULE`], so the day
+    /// production 07 plays `tree`'s axes the field widens and nothing else moves.
     rows: Shape,
     /// Whether the indent is clamped to the rectangle.
     indent: Indent,
@@ -3800,7 +4018,10 @@ where
             );
         },
         &mut refuse,
-        shape.rows,
+        CollShape {
+            rows: shape.rows,
+            ..CollShape::RULE
+        },
     );
 
     // **The pointer half, and it reads `collection`'s edge rather than keeping one.** A press on the

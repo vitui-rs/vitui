@@ -1,4 +1,4 @@
-//! **The wheel gate, over two shipped components and both axes, as numbers.**
+//! **The wheel gate, over three shipped components and both axes, as numbers.**
 //!
 //! Components ticket 20. The convention is the runtime's — a file in `examples/` named
 //! `<subject>_numbers.rs` that prints the numbers a human reads — and so is the rule about what an
@@ -15,7 +15,10 @@
 //! 2. **The same three arms over a `scroll_area`, per axis**, which is where the pair that could not
 //!    be seen before shows up: **a body dead downward is alive sideways**, and one number for *the
 //!    offset* says nothing about either.
-//! 3. **What the two removed substitutions were**, because the figures moved when they came out and
+//! 3. **The same three arms over a `table`**, which is production 06's, and every column of it is
+//!    asserted **equal to the collection's** rather than to a repeated constant — a table's row
+//!    axis is a collection's, and this is where that stops being a sentence in spec §6.
+//! 4. **What the two removed substitutions were**, because the figures moved when they came out and
 //!    a reader deserves to know which ones and why.
 //!
 //! # It asserts the shape and not the timings
@@ -37,7 +40,51 @@ fn main() {
 
     the_collection();
     the_area_per_axis();
+    the_table();
     what_the_substitutions_were();
+}
+
+/// 3. The same three arms over the shipped `table`. **Production 06**, and the row that says how
+///    much of spec §6's opening sentence is true.
+fn the_table() {
+    println!(
+        "report  a `table` at three columns, a million rows, {CLICKS} clicks down, beside the \
+         `collection`:"
+    );
+    println!(
+        "  {:<18}  {:>8}  {:>12}  {:>9}  {:>16}  {:>10}",
+        "reveal", "settled", "collection", "requests", "keyboard reveal", "agree"
+    );
+    for reveal in [Reveal::WhenAsked, Reveal::EveryFrame, Reveal::Never] {
+        let table = wheel::wheeled(Play::of(Subject::Table, reveal));
+        let coll = wheel::wheeled(Play::of(Subject::Collection, reveal));
+        let keyboard = wheel::revealed(Subject::Table, reveal, (0, SCROLLED_AWAY));
+        let agree = table.settled == coll.settled
+            && table.reveals == coll.reveals
+            && keyboard == wheel::revealed(Subject::Collection, reveal, (0, SCROLLED_AWAY));
+        println!(
+            "  {:<18}  {:>8}  {:>12}  {:>9}  {:>16}  {:>10}",
+            reveal.word(),
+            table.settled.1,
+            coll.settled.1,
+            table.reveals,
+            keyboard.1,
+            agree,
+        );
+        assert!(
+            agree,
+            "`table` and `collection` disagree on the {} arm",
+            reveal.word()
+        );
+    }
+    println!(
+        "\n  **The `agree` column is the finding and the other columns are how it is checked.**\n  \
+         `table = collection + column rectangles` says the row axis, the wheel, the keyboard and\n  \
+         the reveal are all reached by calling `collection`, and a column split that had grown a\n  \
+         second offset or a reveal of its own would show up as a `false` here rather than as a\n  \
+         number a reader has to compare by eye. The wheel notch reaches **one** axis: a table's\n  \
+         horizontal offset is the caller's and is `examples/grid_numbers.rs`'s question.\n"
+    );
 }
 
 /// 1. The three arms over the shipped `collection`, in both directions.

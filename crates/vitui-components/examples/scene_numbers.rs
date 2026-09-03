@@ -194,10 +194,10 @@ fn main() {
     // **This line said seventeen for four tickets and nothing said so**, which is components ticket
     // 20's own finding arriving in the file that finding was about: `cargo test` does not run an
     // example, so an `assert!` here is compiled by `cargo clippy --all-targets` and evaluated by
-    // nobody. `crate::obligations`'s own `unmet(o5(AXIS_SCENES)) == (34, 11)` is the gate and was
+    // nobody. `crate::obligations`'s own `unmet(o5(AXIS_SCENES)) == (34, 9)` is the gate and was
     // green throughout; this report — **O5's own** — had been panicking. Found by a review during
     // components 36.
-    assert_eq!(covered, 23);
+    assert_eq!(covered, 25);
     assert_eq!(coverage.len(), 34);
     assert_eq!(
         INVENTORY
@@ -252,7 +252,7 @@ fn main() {
     // it because `cargo test` does not run an example**: it is compiled by `cargo clippy
     // --all-targets` and evaluated by nothing. Resyncing them would put the same trap back one
     // number later, so they are deleted rather than corrected, and
-    // `scenes::tests::three_scenes_have_nothing_to_run_over_none_is_red_and_thirty_three_are_stood_up`
+    // `scenes::tests::two_scenes_have_nothing_to_run_over_none_is_red_and_thirty_six_are_stood_up`
     // owns those figures — it asserts the scene *numbers* and not only their count, which is
     // strictly more than these two lines said. Found by components 20.
 }

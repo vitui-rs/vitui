@@ -36,10 +36,10 @@
 //! ([`Scene::owed`] and [`Scene::from_a_survived_defect`]), because the value can hold both and a
 //! count cannot.
 //!
-//! # Three scenes are `Unsubjected`, none is `Red` and thirty-three are `Evaluated`
+//! # Two scenes are `Unsubjected`, none is `Red` and thirty-six are `Evaluated`
 //!
-//! The count that is a gate is `tests::three_scenes_have_nothing_to_run_over_none_is_red_and_
-//! thirty_three_are_stood_up`, which asserts the **numbers** each scene as well as the total; this
+//! The count that is a gate is `tests::two_scenes_have_nothing_to_run_over_none_is_red_and_
+//! thirty_six_are_stood_up`, which asserts the **numbers** each scene as well as the total; this
 //! heading is a summary of it and the test is the authority.
 //!
 //! **Components ticket 40 stood scene 26 up — the assembled gallery — and it is the first row here
@@ -962,6 +962,48 @@ const OWED_ITS_TABLE: &str = "`table` is not declared in `crates/vitui-component
      re-damaged a frame by the arithmetic band, and the equality clean on the correct arm at two \
      horizontal offsets. What is missing is the subject";
 
+/// **What pins production ticket 06's two, beyond the pair each shares with its file.**
+///
+/// The two scenes are in **two** files and that is the finding rather than an arrangement: `table`'s
+/// shrink is a screen and belongs where the table's screens are, and its wheel is an **offset** and
+/// belongs where the posted notch is driven. Production 05 put a component's three axes in one
+/// module because one integer decided all three; here two axes are decided by two different things,
+/// and a third copy of `crate::wheel`'s drive loop inside `crate::grid` is exactly the substitution
+/// components 20 spent a ticket removing.
+const PINS_SCENE_37: &[Instrument] = &[
+    Instrument::Unit {
+        file: GRID,
+        name: "the_stale_tail_is_seventy_one_of_eighty_rows_over_a_table",
+    },
+    Instrument::Unit {
+        file: GRID,
+        name: "the_stale_tail_is_cheaper_on_every_counter_that_moves_and_nothing_rises",
+    },
+    // **The finding this scene turned up and does not repair**, kept as a standing instrument
+    // because a measurement with no test under it is a sentence — production 05's `pointless_oracle`
+    // one component over, and the same review finding behind it.
+    Instrument::Unit {
+        file: GRID,
+        name: "the_bands_slack_is_written_by_nothing",
+    },
+    STANDS_ON_TABLE[0],
+    STANDS_ON_TABLE[1],
+];
+
+/// What pins scene 38, the posted notch over a table. See [`PINS_SCENE_37`].
+const PINS_SCENE_38: &[Instrument] = &[
+    Instrument::Unit {
+        file: WHEEL,
+        name: "twenty_posted_clicks_move_a_tables_offset_twenty_and_the_numbers_are_the_collections",
+    },
+    Instrument::Unit {
+        file: WHEEL,
+        name: "every_subject_of_this_gate_declares_the_wheeled_axis",
+    },
+    STANDS_ON_TABLE[0],
+    STANDS_ON_TABLE[1],
+];
+
 /// What pins scene 7, beyond the pair both share.
 const PINS_SCENE_7: &[Instrument] = &[
     Instrument::Unit {
@@ -1538,7 +1580,7 @@ const PINS_SCENE_22: &[Instrument] = &[
 /// The count in this sentence is a summary and never the gate:
 /// `tests::the_specs_table_is_twenty_seven_rows_and_this_list_carries_them_all` reads §21's own
 /// rows off the spec file and asserts the split, and it caught this sentence going stale at 33.
-pub const SCENES: [Scene; 36] = [
+pub const SCENES: [Scene; 38] = [
     Scene {
         number: 1,
         on_spec_table: true,
@@ -2721,6 +2763,85 @@ pub const SCENES: [Scene; 36] = [
         },
         rehearsed_by: &[],
     },
+    // ── production ticket 06's two, and they are `table`'s last two axes ─────────────────────────
+    //
+    // §21 carries one `table` row and it is scene 7 — the twelve-column band under a horizontal
+    // offset, which covers `scrolled` and `narrow` in one screen. The other two axes the freeze
+    // declares had no scene at all, and neither was unexpressible: the shrink is `collection`'s tail
+    // and the wheel is `collection`'s reveal, both reached by calling it, and both had been
+    // writable since the day `table` was declared. Nothing had scheduled them, which is
+    // `.scratch/vitui-production/README.md`'s whole argument.
+    //
+    // **They are two files and production 05's three were one**, and the reason is what each axis is
+    // decided by: a shrink is a screen and a wheel is an offset.
+    Scene {
+        number: 37,
+        on_spec_table: false,
+        name: "a table's content edited down to nine rows, inside a rectangle that does not move",
+        size: Size::Screen {
+            w: crate::grid::W,
+            h: crate::grid::H,
+        },
+        content: Content::Grid {
+            rows: crate::grid::FULL_ROWS as u64,
+            cols: 12,
+        },
+        // **A shrink and not a resize**, which is `Gesture::Shrink`'s own distinction: the rectangle
+        // is 300x80 on both frames and the content is what becomes smaller.
+        gestures: &[Gesture::Shrink {
+            to_rows: crate::grid::SHRUNK_TO as u64,
+        }],
+        decided: "the stale tail on the component built on the one §21 states it for: **71 of 80 \
+                  rows**, the same number `collection` reports, against the shipped table drawn over \
+                  the same two frames. It is **5 822 cells and not 21 300** — a table row is mostly \
+                  padding, so a stale row and a blank one agree wherever both are spaces, and the \
+                  cell count is a floor on how wrong the screen is rather than a measure of it. The \
+                  refusal is cheaper on every counter that moves and nothing rises: 21 300 fewer \
+                  writes, 71 fewer verbs — one run a tail row — and `distinct` is 24 000 on both \
+                  arms because it is cumulative. The spelling §21 refuses is refused as a number: \
+                  played into a rectangle the shrink has already resized, the same refusal is clean. \
+                  **And the axis has a second surface nothing writes**: a band whose columns do not \
+                  fill it leaves the remainder untouched on every arm — 21 760 of 24 000 cells at \
+                  three narrow columns, 66 cells a row in `examples/ledger.rs` — which is \
+                  components architecture 24 and not this ticket's to repair",
+        covers: &[("table", Axis::Shrunk)],
+        stands: TABLE,
+        from_a_survived_defect: false,
+        owed: false,
+        standing: Standing::Evaluated { by: PINS_SCENE_37 },
+        rehearsed_by: &[],
+    },
+    Scene {
+        number: 38,
+        on_spec_table: false,
+        name: "twenty posted notches over a table",
+        size: Size::Screen {
+            w: crate::wheel::W,
+            h: crate::wheel::H,
+        },
+        content: Content::Grid {
+            rows: crate::wheel::ROWS,
+            cols: 3,
+        },
+        gestures: &[Gesture::Wheel {
+            clicks: crate::wheel::CLICKS,
+        }],
+        decided: "that a column split above a row axis costs the row axis nothing, and that §6's \
+                  *the wheel and the reveal are all `collection`'s, reached by calling it* is a \
+                  claim somebody has now asked. Twenty posted clicks settle a table's offset at \
+                  **20 against 0**, the unconditional reveal asks on all twenty frames, the residue \
+                  after the last click is 1 — ADR 0015's, unchanged by the split — and deleting the \
+                  reveal passes the wheel half while moving the keyboard 0. Every one of those \
+                  numbers is asserted **equal to `collection`'s own** rather than to a repeated \
+                  constant, which is what makes it a measurement of the claim rather than a \
+                  restatement of it",
+        covers: &[("table", Axis::Wheeled)],
+        stands: TABLE,
+        from_a_survived_defect: false,
+        owed: false,
+        standing: Standing::Evaluated { by: PINS_SCENE_38 },
+        rehearsed_by: &[],
+    },
 ];
 
 /// **Every scene that stands `component` up.** Criterion 2's enumeration, from the scene's side.
@@ -2917,9 +3038,9 @@ mod tests {
     /// has twenty-seven rows; the spec is the authority and the count below reads the spec.
     #[test]
     fn the_specs_table_is_twenty_seven_rows_and_this_list_carries_them_all() {
-        assert_eq!(SCENES.len(), 36);
+        assert_eq!(SCENES.len(), 38);
         let numbers: BTreeSet<u8> = SCENES.iter().map(|s| s.number).collect();
-        assert_eq!(numbers, (1..=36).collect::<BTreeSet<u8>>());
+        assert_eq!(numbers, (1..=38).collect::<BTreeSet<u8>>());
         let names: BTreeSet<&str> = SCENES.iter().map(|s| s.name).collect();
         assert_eq!(names.len(), SCENES.len(), "two scenes share a name");
 
@@ -2930,14 +3051,15 @@ mod tests {
         assert_eq!(on_table, 27);
         assert_eq!(
             SCENES.len() - on_table,
-            9,
+            11,
             "components 09's narrow axis, components 11's narrow collection, components 14's \
              equality under a horizontal offset, components 18's wrong pairing, components 23's \
              cluster corpus — the last of which this module's header predicted by name one ticket \
              after it was written — components 20's wheel over a `scroll_area`, which is a pair \
-             §21 had no way to state while a click was an arithmetic substitution, and **production \
-             05's three**: `field`'s scrolled, shrunk and wheeled axes, which §21 states over one \
-             narrow row and the freeze declares four of"
+             §21 had no way to state while a click was an arithmetic substitution, **production \
+             05's three** — `field`'s scrolled, shrunk and wheeled axes, which §21 states over one \
+             narrow row and the freeze declares four of — and **production 06's two**: `table`'s \
+             shrunk and wheeled, which §21 states over one row that covers the other two"
         );
         for (index, scene) in SCENES.iter().enumerate() {
             assert_eq!(
@@ -3016,7 +3138,7 @@ mod tests {
     /// keeps a red row's own report reachable from a test once the list has run out of red rows,
     /// and `crate::gates::Row`'s `Red` arm keeps the register's.
     #[test]
-    fn three_scenes_have_nothing_to_run_over_none_is_red_and_thirty_three_are_stood_up() {
+    fn two_scenes_have_nothing_to_run_over_none_is_red_and_thirty_six_are_stood_up() {
         let red: Vec<u8> = SCENES
             .iter()
             .filter(|s| matches!(s.standing, Standing::Red { .. }))
@@ -3050,7 +3172,7 @@ mod tests {
             evaluated,
             vec![
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 24, 25,
-                26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36
+                26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38
             ],
             "**Scene 27 is components 41's**, and it is the last of §21's own twenty-seven to be \
              stood up: a theme swap over the assembled gallery, played against a second gallery at \
@@ -3084,7 +3206,12 @@ mod tests {
              module's header and to `crate::gates::REGISTER`. Scenes 12, 13 and 32 are components \
              24's, and the third of them is the one worth naming: the cluster corpus stands no \
              component and covers no axis, and what makes it a scene is that a fixture can be \
-             sampled away by a later ticket with nothing saying so"
+             sampled away by a later ticket with nothing saying so. **Scenes 37 and 38 are \
+             production 06's**, and they are the first pair on this list played in two different \
+             files for one component: a shrink is a screen and belongs where `crate::grid` measures \
+             the table's screens, and a wheel is an offset and belongs where `crate::wheel` drives \
+             a posted notch. Production 05's three were one module because one integer decided all \
+             three; these two are decided by two different things"
         );
         assert_eq!(
             SCENES.len() - evaluated.len() - red.len(),
@@ -3261,14 +3388,23 @@ mod tests {
     #[test]
     fn seventeen_of_the_thirty_four_axis_obligations_have_a_scene_and_seventeen_do_not() {
         let evidence = axis_scenes();
-        // **Twenty-three since production 05**, which claimed `field`'s scrolled, shrunk and
-        // wheeled axes — §21 states one `field` row and the freeze declares four. It was twenty
-        // after components 32, which claimed the three pairs the three preview-pane scenes had left
+        // **Twenty-five since production 06**, which claimed `table`'s shrunk and wheeled axes —
+        // §21 states one `table` row and it covers the other two. It was twenty-three after
+        // production 05, which claimed `field`'s scrolled, shrunk and wheeled, and twenty after
+        // components 32, which claimed the three pairs the three preview-pane scenes had left
         // empty while they were red: `file_preview_pane` shrunk and scrolled, and `file_picker`
-        // scrolled. The test's name is the one it was written under and is kept, for
-        // `PINS_SCENE_22`'s reason — the count is asserted here and the name is how a reader finds
-        // the row.
-        assert_eq!(evidence.len(), 23);
+        // scrolled.
+        //
+        // **The name is kept and the one below it was changed, and the policy is the difference
+        // between them.** A name is a summary sentence and production 01's rule applies to it — but
+        // a name is also how a reader and five register citations find a row, so the rule this
+        // lineage follows is: **a stale name that carries a note saying so stays; one that does not
+        // is corrected.** This one has carried that note since the count first moved, for
+        // `PINS_SCENE_22`'s reason. `two_scenes_have_nothing_to_run_over_...` carried none — its
+        // name said three and thirty-three while its assertions said two and thirty-four — so
+        // production 06 renamed it. The count is asserted either way, which is what makes the name
+        // a pointer rather than the authority.
+        assert_eq!(evidence.len(), 25);
         assert_eq!(
             crate::obligations::AXIS_SCENES.to_vec(),
             evidence,
@@ -3279,15 +3415,16 @@ mod tests {
         assert_eq!(coverage.len(), 34, "the population §17 states");
         let bare = coverage.iter().filter(|(_, _, s)| s.is_empty()).count();
         assert_eq!(
-            bare, 11,
+            bare, 9,
             "it was eighteen until components 20 claimed `(scroll_area, wheeled)` — the pair §21's \
              single wheel row had no way to state, because an arithmetic click has no second axis \
              to be wrong on — seventeen until components 32 claimed the preview pane's two and the \
              picker's one, which the three scenes had left empty on purpose while they were red, \
-             and fourteen until **production 05** claimed `field`'s scrolled, shrunk and wheeled. \
-             Production 05's three are the first here that no components ticket could have added \
-             and none of them was ever unexpressible: §21 states one `field` row, the freeze \
-             declares four axes, and nothing had scheduled the other three"
+             fourteen until **production 05** claimed `field`'s scrolled, shrunk and wheeled, and \
+             eleven until **production 06** claimed `table`'s shrunk and wheeled. Those five are \
+             the first here that no components ticket could have added and not one of them was ever \
+             unexpressible: §21 states one row for each component, the freeze declares four axes \
+             for each, and nothing had scheduled the rest"
         );
 
         // Every claimed pair is an axis its component actually declares. A scene covering an axis
@@ -3376,10 +3513,12 @@ mod tests {
         assert!(matches!(narrow.gestures, [Gesture::Resize { .. }]));
         assert_eq!(
             scenes_for("table").map(|s| s.number).collect::<Vec<_>>(),
-            vec![7, 26, 27, 31],
+            vec![7, 26, 27, 31, 37, 38],
             "components ticket 14's two, and the second answers through `stands` as well as \
              `covers` because it claims no pair §21's row 7 has not already claimed. The gallery is \
-             the third and the fourth: scene 26 draws it and scene 27 swaps its theme"
+             the third and the fourth: scene 26 draws it and scene 27 swaps its theme. **The fifth \
+             and sixth are production 06's**, and they are the component's last two axes: the \
+             stale tail in `crate::grid` and the posted notch in `crate::wheel`"
         );
         assert_eq!(
             scenes_for("checkbox").map(|s| s.number).collect::<Vec<_>>(),
@@ -3632,7 +3771,7 @@ mod tests {
             .collect();
         assert_eq!(
             shrinks,
-            vec![5, 28, 35],
+            vec![5, 28, 35, 37],
             "**scene 35 is production 05's** — a pasted megabyte edited down to one line inside a \
              rectangle that does not move — and it carries a resize spelling beside it for the \
              reason this test exists: the same refusal played into a rectangle the shrink has \
@@ -3697,9 +3836,9 @@ mod tests {
             printed
                 .matches("stood up on its own components, by ")
                 .count(),
-            33,
+            35,
             "a stood-up scene says what stands it up, rather than reading as unplayed. \
-             **Thirty-four** are stood up since production 05 and thirty-three say so here, \
+             **Thirty-six** are stood up since production 06 and thirty-five say so here, \
              because scene 12 is the one this report **plays** — a played line carries its own \
              numbers instead"
         );
@@ -3778,6 +3917,6 @@ mod tests {
             .map(|s| s.number)
             .collect();
         assert_eq!(still, vec![1, 2, 26]);
-        assert_eq!(SCENES.len() - still.len(), 33);
+        assert_eq!(SCENES.len() - still.len(), 35);
     }
 }

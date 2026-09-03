@@ -34,11 +34,20 @@
 //!
 //! [`Driver::post_mouse`]: vitui_runtime::Driver::post_mouse
 //!
-//! # Two subjects, run separately, because the blindness is per axis
+//! # Three subjects, run separately, because the blindness is per axis
 //!
 //! Ticket 20's fourth criterion: *the same gate runs over `scroll_area` and over a virtualised
 //! `collection` separately, because the watermark's blindness is per axis — a body dead downward and
 //! alive sideways must be distinguishable.*
+//!
+//! **The third is production 06's and it is a different kind of question.** [`Subject::Table`] owns
+//! one offset in rows, like a collection, and every number it reports is a collection's — which is
+//! the point: spec §6 opens by claiming that a table's *row axis, wheel, keyboard, type-ahead and
+//! reveal are all `collection`'s, reached by calling it*, and until this ticket nothing had asked it
+//! a wheel question. The arm costs one `match` arm here and three
+//! [`crate::collect::defective`] entries, and what it buys is that the claim is compared rather than
+//! trusted: the assertions are *`table` equals `collection`, arm for arm*, not three constants
+//! written twice.
 //!
 //! A [`Subject::Collection`] owns one offset, in rows. A [`Subject::Area`] owns two, in content
 //! cells, and its reveal is the **body's** rather than the component's — `scroll_area` applies the
@@ -68,11 +77,15 @@ use vitui_runtime::{
     Button, Buttons, Ctx, Density, Driver, Mods, Mouse, MouseKind, Notch, Rect, Role,
 };
 
-use crate::collect::{CollOpts, CollState, collection_into, defective as coll_defective};
+use crate::collect::{
+    Cell, CollOpts, CollState, Column, TableOpts, TableState, collection_into,
+    defective as coll_defective, table_into,
+};
 use crate::ink::{Direct, Ink};
 use crate::keys;
 use crate::order::Rows;
 use crate::scroll::{AreaOpts, AreaState, parts, scroll_area};
+use vitui_runtime::layout::Constraint;
 
 // ── the screen ───────────────────────────────────────────────────────────────────────────────────
 
@@ -157,6 +170,17 @@ pub enum Subject {
     /// A [`crate::scroll::scroll_area`]: two offsets, in content cells, and the reveal is the
     /// **body's**. The component applies a delta and never asks for one.
     Area,
+    /// A [`crate::collect::table`]: **one offset, in rows, and it is `collection`'s** — the row
+    /// axis, the wheel and the reveal are all reached by calling it, which is the sentence spec §6
+    /// opens with.
+    ///
+    /// **That is why it is a third subject rather than a fourth assertion about the first.**
+    /// *`table` is `collection`* is the claim; a gate that plays the wheel over `collection` and
+    /// takes the claim on trust is a gate that would stay green if the column split ever grew a
+    /// second offset, a second store or a reveal of its own. Production 06 asked it directly, and
+    /// what it costs is one `match` arm — which is the measure of how much of §6's sentence is
+    /// true.
+    Table,
 }
 
 impl Subject {
@@ -166,13 +190,14 @@ impl Subject {
     /// each side of the join a third subject escapes both halves while both stay green. This crate
     /// makes such populations values — `INVENTORY`, `SCENES`, `REGISTER` — and this is the same form
     /// at two rows.
-    pub const ALL: [Subject; 2] = [Subject::Collection, Subject::Area];
+    pub const ALL: [Subject; 3] = [Subject::Collection, Subject::Area, Subject::Table];
 
     /// The `INVENTORY` id, which is what makes criterion 6 a query rather than a claim.
     pub const fn id(self) -> &'static str {
         match self {
             Subject::Collection => "collection",
             Subject::Area => "scroll_area",
+            Subject::Table => "table",
         }
     }
 
@@ -185,6 +210,12 @@ impl Subject {
         match self {
             Subject::Collection => &[Along::Rows],
             Subject::Area => &[Along::Rows, Along::Columns],
+            // **A table owns a horizontal offset and a wheel notch does not reach it.** `TableState`
+            // carries `hoff`, and `collection_shaped` is where the notch is consumed — one axis, in
+            // rows. The column offset is the caller's to move, which is `crate::grid`'s scene 7 and
+            // is not a wheel question; naming `Along::Columns` here would make `wheeled` report a
+            // motionless offset as a dead wheel.
+            Subject::Table => &[Along::Rows],
         }
     }
 
@@ -201,7 +232,10 @@ impl Subject {
     /// gate clamped its starting offset for the same reason and the move mislaid it.
     pub fn max_offset(self) -> (i32, i32) {
         match self {
-            Subject::Collection => (
+            // **The table's clamp is the collection's**, and it is reached through the same
+            // function rather than restated: `table` has no second row store, so a second
+            // expression here would be a second answer to one question.
+            Subject::Collection | Subject::Table => (
                 0,
                 CollState::max_offset(usize::try_from(ROWS).unwrap_or(usize::MAX), H),
             ),
@@ -417,7 +451,10 @@ pub fn revealed(subject: Subject, reveal: Reveal, from: (i32, i32)) -> (i32, i32
     // the frame that reads it rather than inside one: `post_key` is a `Driver` verb, which is the
     // runtime's own statement that an event is a thing a frame *finds*.
     match subject {
-        Subject::Collection => run.press(REVEAL_CHORD),
+        // **A table's cursor is a collection's**, so the gesture is the same one and reaches it
+        // through the same drain loop. That is the third instance of §6's sentence being checked
+        // rather than trusted.
+        Subject::Collection | Subject::Table => run.press(REVEAL_CHORD),
         Subject::Area => run.ask(),
     }
     run.play(play, |_| {});
@@ -522,6 +559,7 @@ struct Run {
     driver: Driver,
     subject: Subject,
     coll: CollState,
+    table: TableState,
     area: AreaState,
     offset: (i32, i32),
     /// Whether the frame just played left a reveal request behind.
@@ -557,10 +595,13 @@ impl Run {
         let offset = (offset.0.clamp(0, max.0), offset.1.clamp(0, max.1));
         let mut coll = CollState::default();
         coll.offset = offset.1;
+        let mut table = TableState::new();
+        table.coll.offset = offset.1;
         Run {
             driver: crate::runner::driver_at(W, H, Density::default()),
             subject,
             coll,
+            table,
             area: AreaState { offset },
             offset,
             asked: false,
@@ -604,6 +645,7 @@ impl Run {
     fn play(&mut self, play: Play, before: impl FnOnce(&mut Ctx<'_, '_>)) {
         let subject = self.subject;
         let coll = &mut self.coll;
+        let table = &mut self.table;
         let area = &mut self.area;
         let once = &mut self.once;
         let armed = self.armed;
@@ -612,14 +654,19 @@ impl Run {
             match subject {
                 Subject::Collection => collection_frame(cx, coll, play),
                 Subject::Area => area_frame(cx, area, play, once, armed),
+                Subject::Table => table_frame(cx, table, play),
             }
         });
         self.offset = match subject {
             Subject::Collection => (0, self.coll.offset),
             Subject::Area => self.area.offset,
+            Subject::Table => (0, self.table.coll.offset),
         };
         self.asked = self.driver.inspect().into_view().is_some();
-        self.selected = self.coll.sel.count();
+        self.selected = match subject {
+            Subject::Table => self.table.coll.sel.count(),
+            _ => self.coll.sel.count(),
+        };
     }
 }
 
@@ -674,6 +721,83 @@ fn collection_frame(cx: &mut Ctx<'_, '_>, st: &mut CollState, play: Play) {
     // collection* available from outside it is the one it hands back. This is `explorer`'s and
     // `reader`'s own arrangement, and it is the reason the reveal half of the gate takes three
     // frames rather than two — the seating lands a frame before the key it enables.
+    if cx.focused().is_none() {
+        cx.focus(resp.id);
+    }
+}
+
+/// **The table arm's columns.** One pinned each side and one elastic between them, at [`W`].
+///
+/// Three, and the shape rather than the count is what matters: `solve_columns` runs above the row
+/// loop and touches no row, so a wheel notch cannot reach it — the arm exists to show that the row
+/// axis under a column split is still `collection`'s, not to price the split. `crate::grid` is
+/// where the columns are the question, at twelve of them and three hundred cells wide.
+///
+/// The elastic middle is what makes the row a partition of [`W`] with no gap in it: a band whose
+/// columns are all `Fixed` and sum to less than the viewport leaves the remainder unwritten, which
+/// is a **second** shrink surface and is `crate::grid::COLUMN_RESIDUE`'s measurement rather than
+/// this gate's.
+fn columns() -> [Column; 3] {
+    [
+        Column::new(0, "id", Constraint::Fixed(6)).pinned_left(6),
+        Column::new(1, "name", Constraint::Weight(1)),
+        Column::new(2, "cpu", Constraint::Fixed(5)).pinned_right(5),
+    ]
+}
+
+/// One frame of the table arm, **through the shipped component**.
+///
+/// The same three arms as [`collection_frame`] and the same focus seating, one component up. The
+/// cell drawer writes one run a cell, because what this gate reads is an offset and not a screen —
+/// `crate::grid` is where a table's cells are compared against a reference render.
+fn table_frame(cx: &mut Ctx<'_, '_>, st: &mut TableState, play: Play) {
+    let area = cx.area();
+    let rows = Rows::of(usize::try_from(ROWS).unwrap_or(usize::MAX));
+    let body = cx.theme().paint(Role::Body);
+    let cols = columns();
+    let opts = TableOpts::default();
+    let mut find = |_: &str, _: std::ops::Range<usize>| None;
+    let mut cell =
+        |ink: &mut Direct, cx: &mut Ctx<'_, '_>, r: Rect, _: Cell, _: crate::frame::Face| {
+            let _ = ink.run(cx, r.x, r.y, "·", r.w, body);
+        };
+    let resp = match play.reveal {
+        Reveal::WhenAsked => table_into(
+            &mut Direct,
+            cx,
+            area,
+            st,
+            &opts,
+            &cols,
+            rows,
+            &mut find,
+            &mut cell,
+        ),
+        Reveal::EveryFrame => coll_defective::table_every_frame(
+            &mut Direct,
+            cx,
+            area,
+            st,
+            &opts,
+            &cols,
+            rows,
+            &mut find,
+            &mut cell,
+        ),
+        Reveal::Never => coll_defective::table_never_reveals(
+            &mut Direct,
+            cx,
+            area,
+            st,
+            &opts,
+            &cols,
+            rows,
+            &mut find,
+            &mut cell,
+        ),
+    };
+    // [`collection_frame`]'s seating, for its reason: nothing holds the focus until an application
+    // says so, and the id is the one the component answered.
     if cx.focused().is_none() {
         cx.focus(resp.id);
     }
@@ -934,6 +1058,92 @@ mod tests {
              quiet"
         );
         assert!(leaves_no_request(play, scrolled));
+    }
+
+    /// **Production 06: the same gate over the shipped `table`, and §6's sentence is checked
+    /// rather than trusted.**
+    ///
+    /// > There is no second selection store, no second scan cursor and no second `Mode`. The row
+    /// > axis, the wheel, the keyboard, the type-ahead, the reveal, the tail below the content and
+    /// > the revision check are all `collection`'s, reached by calling it.
+    ///
+    /// That is `crate::collect::table`'s own claim, and until this ticket nothing had asked it a
+    /// wheel question. The numbers are `collection`'s to the click, in both directions — which is
+    /// the finding: **a column split above a row axis costs the row axis nothing**, and a build
+    /// where it did would show up here as one of these three arms disagreeing with its twin one
+    /// component down.
+    #[test]
+    fn twenty_posted_clicks_move_a_tables_offset_twenty_and_the_numbers_are_the_collections() {
+        let free = wheeled(Play::of(Subject::Table, Reveal::WhenAsked));
+        assert_eq!(free.settled, (0, MOVED), "twenty clicks, twenty rows");
+        assert_eq!(free.after_last_click, (0, MOVED));
+        assert_eq!(free.reveals, 0, "nothing asked, so nothing was requested");
+
+        let dragged = wheeled(Play::of(Subject::Table, Reveal::EveryFrame));
+        assert_eq!(
+            dragged.settled,
+            (0, DRAGGED_BACK),
+            "an unconditional `scroll_into_view` and the pointer is dead over a table too"
+        );
+        assert_eq!(dragged.reveals, CLICKS);
+        assert_eq!(
+            dragged.after_last_click,
+            (0, 1),
+            "ADR 0015's residue, unchanged by the column split"
+        );
+
+        // **The second direction**, and it is what stops the arm below being a fix.
+        assert_eq!(
+            revealed(Subject::Table, Reveal::WhenAsked, (0, SCROLLED_AWAY)),
+            (0, -SCROLLED_AWAY),
+            "a cursor moved to the top of the content brings the viewport with it"
+        );
+        assert_eq!(
+            revealed(Subject::Table, Reveal::Never, (0, SCROLLED_AWAY)),
+            (0, 0),
+            "and deleting the call loses it"
+        );
+        assert_eq!(
+            wheeled(Play::of(Subject::Table, Reveal::Never)).settled,
+            (0, MOVED),
+            "while passing the wheel half, which is why a one-directional gate is not a gate"
+        );
+
+        assert!(leaves_no_request(
+            Play::of(Subject::Table, Reveal::WhenAsked),
+            (0, MOVED)
+        ));
+        assert!(
+            !leaves_no_request(Play::of(Subject::Table, Reveal::EveryFrame), (0, MOVED)),
+            "twenty rows down, the unconditional arm asks to be dragged back on this very frame"
+        );
+
+        // **The three arms agree with `collection`'s, arm for arm.** Written as a comparison rather
+        // than as three repeated constants, because the claim is *the table's row axis is the
+        // collection's* and a constant repeated on both sides cannot say whether the two components
+        // reached it — see `crate::obligations`'s two keyboard lists, which is this shape one
+        // obligation over.
+        for reveal in [Reveal::WhenAsked, Reveal::EveryFrame, Reveal::Never] {
+            let table = wheeled(Play::of(Subject::Table, reveal));
+            let collection = wheeled(Play::of(Subject::Collection, reveal));
+            assert_eq!(
+                (table.settled, table.after_last_click, table.reveals),
+                (
+                    collection.settled,
+                    collection.after_last_click,
+                    collection.reveals
+                ),
+                "`table` and `collection` disagree about the wheel on the `{}` arm, so the row \
+                 axis is not the one component reached by the other",
+                reveal.word()
+            );
+            assert_eq!(
+                revealed(Subject::Table, reveal, (0, SCROLLED_AWAY)),
+                revealed(Subject::Collection, reveal, (0, SCROLLED_AWAY)),
+                "and they disagree about the keyboard on the `{}` arm",
+                reveal.word()
+            );
+        }
     }
 
     /// **Criterion 6: every subject this gate runs against declares the axis.**

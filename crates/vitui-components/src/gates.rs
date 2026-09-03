@@ -1744,8 +1744,17 @@ pub const REGISTER: [Row; 233] = [
         // cost was the *second subject and the second axis*, which is where the finding is — a body
         // dead downward is alive sideways, and `scroll_area` at `Along::Rows` settles a vertical
         // click at 0 and a horizontal one at 20 while the transpose does the opposite. One number
-        // for *the offset* cannot say either, which is why criterion 4 asks for the two subjects
+        // for *the offset* cannot say either, which is why criterion 4 asks for the subjects
         // separately.
+        //
+        // **The third subject is production 06's and it asks a different question.** `table` owns
+        // one offset in rows, like a collection, and every number it reports **is** a collection's
+        // — which is the point rather than a redundancy: spec §6 opens by claiming a table's *row
+        // axis, wheel, keyboard, type-ahead and reveal are all `collection`'s, reached by calling
+        // it*, and until that ticket nothing had asked it a wheel question. It is asked as an
+        // equality — *`table` equals `collection`, arm for arm*, over all three `Reveal` arms and
+        // all four columns — so a column split that grew an offset or a reveal of its own fails
+        // here, where three constants written twice would have passed. Scene 38.
         //
         // **The rule's second clause is asserted here for the first time**, over the shipped
         // component: *a press already proves the widget was on screen*, so a press selects a row at
@@ -1768,6 +1777,11 @@ pub const REGISTER: [Row; 233] = [
                 Instrument::Unit {
                     file: WHEEL,
                     name: "a_press_selects_a_row_and_does_not_pull_the_viewport_to_it",
+                },
+                Instrument::Unit {
+                    file: WHEEL,
+                    name: "twenty_posted_clicks_move_a_tables_offset_twenty_and_the_numbers_are_\
+                           the_collections",
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/tests/gates.rs",
@@ -2860,8 +2874,8 @@ pub const REGISTER: [Row; 233] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "three_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           thirty_three_are_stood_up",
+                    name: "two_scenes_have_nothing_to_run_over_none_is_red_and_\
+                           thirty_six_are_stood_up",
                 },
             ],
         },
@@ -3090,8 +3104,8 @@ pub const REGISTER: [Row; 233] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "three_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           thirty_three_are_stood_up",
+                    name: "two_scenes_have_nothing_to_run_over_none_is_red_and_\
+                           thirty_six_are_stood_up",
                 },
             ],
         },
@@ -3514,8 +3528,8 @@ pub const REGISTER: [Row; 233] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "three_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           thirty_three_are_stood_up",
+                    name: "two_scenes_have_nothing_to_run_over_none_is_red_and_\
+                           thirty_six_are_stood_up",
                 },
             ],
         },
@@ -3670,8 +3684,8 @@ pub const REGISTER: [Row; 233] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "three_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           thirty_three_are_stood_up",
+                    name: "two_scenes_have_nothing_to_run_over_none_is_red_and_\
+                           thirty_six_are_stood_up",
                 },
             ],
         },
@@ -4167,8 +4181,8 @@ pub const REGISTER: [Row; 233] = [
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
-                    name: "three_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           thirty_three_are_stood_up",
+                    name: "two_scenes_have_nothing_to_run_over_none_is_red_and_\
+                           thirty_six_are_stood_up",
                 },
             ],
         },
@@ -4789,12 +4803,21 @@ pub const REGISTER: [Row; 233] = [
         section: "spec §17",
         // **Ticket 20's criterion 6, and it is a join rather than a claim.**
         //
-        // The gate above runs over two subjects, and *which* two is a decision this crate makes in
-        // one file. `INVENTORY`'s `owns_offset` column is exactly `Axis::Wheeled`, so asking whether
-        // the freeze agrees is one question — and the failure it catches is a gate run over a
+        // The gate above runs over three subjects since production 06, and *which* three is a
+        // decision this crate makes in one file. `INVENTORY`'s `owns_offset` column is exactly
+        // `Axis::Wheeled`, so asking whether the freeze agrees is one question — and the failure it catches is a gate run over a
         // component the freeze says owns no offset, which reports a number while measuring nothing.
         // It is the same shape as O5 and for the same reason: **O5 is a query about axes and not
         // about components**, so a pair claimed here and unclaimed there is evidence for nothing.
+        //
+        // **The equality behind it is over sorted lists since production 06, and it was over
+        // ordered ones.** `AXIS_SCENES` is scene order — what `crate::scenes::axis_scenes` derives
+        // — and `Subject::ALL` is the drive loop's enumeration order. The two coincided only while
+        // the gate's subjects happened to be the first wheel scenes written; `table` joined a gate
+        // that predates `field`'s scene and took a scene number after it, and the orders parted.
+        // Sorting both sides asks the population question exactly: an element on one side and not
+        // the other still fails, and a coincidence of two unrelated orderings stops being
+        // load-bearing.
         standing: Standing::Evaluated {
             by: &[
                 Instrument::Unit {

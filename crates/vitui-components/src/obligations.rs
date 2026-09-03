@@ -349,9 +349,10 @@ pub const KEYBOARD_REGISTERED: &[&str] = &[
 
 /// The scenes that exist, as `(component, axis)` pairs. O5's evidence.
 ///
-/// **Twenty-three of thirty-four.** Ticket 04 put twelve here off spec §21's own rows, ticket 09
+/// **Twenty-five of thirty-four.** Ticket 04 put twelve here off spec §21's own rows, ticket 09
 /// added two, ticket 20 added one, components 32 added three, production 05 added `field`'s last
-/// three, and neither components ticket 10 nor components ticket 11 moved it at all.
+/// three and production 06 `table`'s last two, and neither components ticket 10 nor components
+/// ticket 11 moved it at all.
 ///
 /// **Production 05's three are the first entries here that no components ticket could have added**,
 /// and the distinction is worth keeping beside ticket 20's and ticket 11's below. Ticket 10's
@@ -465,6 +466,19 @@ pub const AXIS_SCENES: &[(&str, Axis)] = &[
     ("field", Axis::Scrolled),
     ("field", Axis::Shrunk),
     ("field", Axis::Wheeled),
+    // Scenes 37 and 38 — production 06's, and `table`'s last two axes.
+    //
+    // **§21 carries one `table` row and it is scene 7**, which covers `scrolled` and `narrow` in
+    // one screen. The other two were expressible from the day components 15 declared the component
+    // — the shrink is `collection`'s tail and the wheel is `collection`'s reveal, both reached by
+    // calling it — and nothing had scheduled them, which is production 05's entry above one
+    // component over.
+    //
+    // **They are two files where production 05's three were one**, and the two entries here are
+    // adjacent for the same reason scene 33's is where it is: this list is scene order, and
+    // `crate::scenes::axis_scenes` derives it from the scene list.
+    ("table", Axis::Shrunk),
+    ("table", Axis::Wheeled),
 ];
 
 /// **The ids whose data-volume cost has been measured and answers both of O6's bounds.** O6's
@@ -890,15 +904,30 @@ mod tests {
     /// [`crate::wheel::Subject::ALL`] plus [`crate::window::WHEELED_SUBJECTS`], **both derived from
     /// the gate that plays them**, which is what the sentence below is about: written out by hand
     /// on either side, a third subject escapes both halves while both stay green.
+    ///
+    /// # The equality is over **sorted** lists, and it stopped being over ordered ones in
+    /// production 06
+    ///
+    /// The two sides carry two different orders and neither is wrong. [`AXIS_SCENES`] is **scene
+    /// order** — that is what [`crate::scenes::axis_scenes`] derives and what the ordered
+    /// comparison one module over is written on — and `Subject::ALL` is the order the drive loop
+    /// enumerates its subjects in. They coincided while the wheel gate's subjects happened to be
+    /// the first wheel scenes written; production 06 added `table` to a gate whose subjects predate
+    /// `field`'s scene and whose scenes follow it, and the two orders parted.
+    ///
+    /// **What this test is about is a population and not an order**, so sorting both sides is the
+    /// question asked exactly rather than a weakened one: an element on one side and not the other
+    /// still fails, and a coincidence of two unrelated orderings is no longer load-bearing.
     #[test]
     fn o5_counts_a_pair_for_every_axis_a_posted_notch_is_played_over() {
         use crate::wheel::Subject;
 
-        let played: Vec<&str> = Subject::ALL
+        let mut played: Vec<&str> = Subject::ALL
             .iter()
             .map(|s| s.id())
             .chain(crate::window::WHEELED_SUBJECTS.iter().copied())
             .collect();
+        played.sort_unstable();
         for id in &played {
             assert!(
                 AXIS_SCENES
@@ -910,16 +939,18 @@ mod tests {
         }
         // And the join is exactly those subject lists: a further pair here would be an axis
         // claimed for a component nothing plays a wheel over.
-        let wheeled: Vec<&str> = AXIS_SCENES
+        let mut wheeled: Vec<&str> = AXIS_SCENES
             .iter()
             .filter(|(_, axis)| *axis == Axis::Wheeled)
             .map(|(id, _)| *id)
             .collect();
+        wheeled.sort_unstable();
         assert_eq!(
             wheeled, played,
             "the pairs and the two gates' subject lists are the same population, derived from the \
              gates that play them — written out by hand on each side, a third subject escapes both \
-             halves while both stay green"
+             halves while both stay green. Sorted, because the two sides carry two different orders \
+             and the question is a population"
         );
     }
 
@@ -1053,7 +1084,7 @@ mod tests {
         // `field`'s last three** — scrolled, shrunk and wheeled, none of which was ever
         // unexpressible and none of which anything had scheduled. Eleven are left and they are
         // production 06 to 09's. A query that moves is a query that is measuring something.
-        assert_eq!(unmet(o5(AXIS_SCENES)), (34, 11), "O5");
+        assert_eq!(unmet(o5(AXIS_SCENES)), (34, 9), "O5");
         // **O6 is `Met` over the seven rows that take a volume**, so it is asserted from the other
         // side too. The population is derived rather than written out — the `Layer::L2` column plus
         // the rows that keep a memo keyed on a data revision — and it answered **seven** where
@@ -1247,7 +1278,7 @@ mod tests {
     /// See [`o1_fails_loudly`]. **The one worth more than the other four together**, and the one
     /// whose population is `(component, axis)` pairs rather than scenes.
     #[test]
-    #[should_panic(expected = "O5 is unmet: 11 of 34")]
+    #[should_panic(expected = "O5 is unmet: 9 of 34")]
     fn o5_fails_loudly() {
         o5(AXIS_SCENES).assert_met("O5");
     }
