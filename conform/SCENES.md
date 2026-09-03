@@ -13,7 +13,7 @@ conclusion and wrote its own list for the same reason.
 anything the engine sends reach the user's own page*, the property behind production ticket 12's
 defect. It is mechanically possible — a marker before `attach`, a marker after the detach, and a row
 equality on a text screen, which is the one thing every capture surface here can read. It is declined
-because four of the five arms consume the probe silently, so four of its five rows would be green
+because five of the six arms consume the probe silently, so five of its six rows would be green
 whether or not the engine is defective, and the one arm that discriminates discriminates on a
 *consequence* of the byte order rather than on the byte order. The property is stated where it can
 fail on the edit instead: `scripts/page-order-gate.sh`, over a real pty. See `FINDINGS.md`.
@@ -27,6 +27,7 @@ fail on the edit instead: `scripts/page-order-gate.sh`, over a real pty. See `FI
 | **Ghostty-via-tmux** | **what tmux forwards** | the engine into tmux into Ghostty, photographing Ghostty. Ghostty alone agrees 11/11, so a disagreement here is tmux's. **The only arm that can see this**, because `capture-pane` and tmux's redraw path are different code and `attrs_dropped` is about what is rendered |
 | **kitty** | kitty | `kitten @ get-text --ansi` over a unix socket. No automation grant, no clipboard, no z-order — and **the only *emulator* arm that can be handed a size**, in cells, which Ghostty's AppleScript surface cannot do |
 | **Terminal.app** | Terminal.app | `contents of selected tab`, over AppleScript, and **plain text only** — the `tab` class has no styled variant. **A fourth VT lineage**, and the first arm here that disagrees with the others. Scene 01 is `cannot ask` on all eleven rows; scenes 05 and 06 are answered **in full**, because a question asked in band needs no capture surface at all. The only *emulator* arm that can be **handed** a size and then insist on it |
+| **WezTerm** | WezTerm | `wezterm cli get-text --escapes`, over **this run's own GUI socket**. **A fifth family**, and the second that can be handed a size in cells. Its capture carries style but in a **classic** SGR repertoire — no SGR 53, no SGR 58, and sub-parameters normalised away — so two of scene 01's rows are `cannot ask`; and it is the first arm to answer scene 06 *wrongly* rather than not at all. **The socket is the whole of its setup risk**: `wezterm cli` prefers a background mux server, starts one if none is listening, and photographs that daemon's own shell — exiting 0, with valid JSON |
 
 **Scenes 05 and 06 are answered by a different party than the rows above it**, and only one arm is
 affected. Their answers come back **in band**, on the scene's own tty, so they come from the
@@ -72,6 +73,12 @@ Production ticket 04 predicted this cell would be needed and predicted the wrong
 expected Terminal.app's plain-text-only capture surface to be the first thing `compare/`'s vocabulary
 could not describe. kitty got there first, and with a sharper case — Terminal.app cannot carry *any*
 style, where kitty carries ten of the eleven and mis-spells the eleventh.
+
+**WezTerm is the third arm to construct it and the first where it is the *only* verdict available.**
+kitty's two bare rows became a `quirks.rs` entry because a second source existed outside the
+capture; WezTerm's two have none, so `cannot ask` is not a softer reading of a disagreement here —
+it is the strongest thing the evidence supports. That is the cell earning its keep rather than
+excusing something: see §01.
 
 **Terminal.app then arrived and constructed the cell it was predicted for, twelve rows of it — and
 also, separately, the first `cannot express` this directory has ever had.** The two land on different
@@ -144,6 +151,18 @@ design` cell where they once printed a disagreement. The numbers that earned the
 grid and absent past tmux, and no single arm could have said which of the three parties lost it. That
 is the scene's real assertion: eleven booleans *per path*, compared.
 
+**The fifth family is where reading across stopped being *available*, and the verdict changed with
+it.** WezTerm 20240203 renders nine and cannot be asked about two — overline and the dotted
+underline — which is kitty's shape one row over, and it earns **no `quirks.rs` entry at all**.
+`get-text --escapes` has no spelling for SGR 53 and none for a `4:n` sub-parameter: `CSI 4:1 m`
+comes back as bare `4`, `CSI 4:2 m` as ECMA-48's `21`, and `4:3`, `4:4`, `4:5`, `53` and `58` come
+back as nothing. A cell carrying curly-plus-bold comes back carrying the bold, so the serialiser
+reached a styled cell and dropped one attribute of it — and *that is as far as this instrument
+reaches*. There is no far side (WezTerm is an endpoint) and no second source: its shipped binary is
+one blob whose string table holds `OVERLINE` as a Unicode character name, so the technique that
+settled kitty returns noise. **The difference between a `cannot ask` and a quirk is entirely in what
+evidence exists outside the capture**, and this arm is the case that says so.
+
 **And the fifth entry is where reading across stopped being enough.** kitty's conceal and overline
 come back bare, which is exactly what tmux's overline looked like from one arm — and there is no
 further arm to add, because kitty is an endpoint and has no far side to read from. What settled it was
@@ -213,9 +232,17 @@ and the cluster written over its continuation does not:
 | Ghostty 1.3.1 | nothing — the SGR state in force |
 | tmux 3.7c | nothing — the SGR state in force |
 | Terminal.app 2.15 | **not askable**, 2026-08-30 — its capture surface carries no style at all |
+| WezTerm 20240203 | the orphan's own background, 2026-09-03 |
 
 So a repair delegated to the terminal is a repair whose **result differs by terminal**, and no mirror
-state could be right on all three. *The engine may as well repair* becomes *the engine must*.
+state could be right on all of them. *The engine may as well repair* becomes *the engine must*.
+
+**The fifth arm made that a split rather than an outlier**, which is worth more than a fifth row.
+With four arms the table read *kitty keeps it and everybody askable blanks it*, and one family
+against two invites the reading that kitty has a bug. WezTerm 20240203 keeps it too, on a fifth
+family and a different codebase — so these are **two designs**, both defensible, and the argument
+for repairing in the engine no longer rests on which side is the majority. Its other five text rows
+joined the unanimity on the same run.
 
 **The fourth row is a fact about the instrument and is in the table anyway**, which is the rule this
 file's second section states: a row left out reads as a win. Terminal.app renders that background —
@@ -317,8 +344,8 @@ on those four arms**:
 
 | `ucd.rs` says | measured 2026-08-29 | and then 2026-08-30 |
 |---|---|---|
-| *only 7 of 23 surveyed widen a VS16 emoji correctly* | Ghostty 1.3.1, kitty 0.48.2 and tmux 3.7c all widen it | **Terminal.app 2.15 does not.** The citation reproduces on the fourth family |
-| *kitty sums a ZWJ family emoji to 6 where the answer is 2* | kitty 0.48.2 answers **2** | Terminal.app sums the same cluster to **8**, counting each joiner as a column. The behaviour `ucd.rs` describes, on a terminal it does not name |
+| *only 7 of 23 surveyed widen a VS16 emoji correctly* | Ghostty 1.3.1, kitty 0.48.2 and tmux 3.7c all widen it | **Terminal.app 2.15 does not.** The citation reproduces on the fourth family — and on the **fifth**, WezTerm 20240203, 2026-09-03 |
+| *kitty sums a ZWJ family emoji to 6 where the answer is 2* | kitty 0.48.2 answers **2** | Terminal.app sums the same cluster to **8**, counting each joiner as a column. The behaviour `ucd.rs` describes, on a terminal it does not name. WezTerm answers **2** |
 
 That paragraph cites a **survey in a research document**, and this is the first thing in this
 repository to observe any of it. The kitty row was checked a second time with a raw `printf` control
@@ -360,6 +387,32 @@ us*; a fourth that disagrees on four rows, through the same code, on the same da
 surveyed rather than compared, for the reason the split was made: there is no mechanism in this
 repository that would read such a `quirks.rs` row, and §8's `CHA`-after-non-ASCII rule is what bounds
 the disagreement instead of following it.
+
+### The sixth arm, 2026-09-03, and the two disagreeing columns disagree with each other
+
+**WezTerm 20240203 disagrees on two of the twelve**, and the pair is not a subset of Terminal.app's
+four — which is the reading that matters, because two arms failing the same four rows the same way
+would be one observation printed twice.
+
+| row | the engine | WezTerm 20240203 | Terminal.app 2.15 |
+|---|---|---|---|
+| `vs16` (U+2764 U+FE0F) | 2 | **1** | **1** |
+| `keycap` (U+0031 U+FE0F U+20E3) | 2 | **1** | 2 |
+| `zero-width` (U+200B) | 0 | 0 | **1** |
+| `zwj-family` | 2 | 2 | **8** |
+| `skin-tone` | 2 | 2 | **4** |
+
+**Two mechanisms, not two instances of one.** Terminal.app sums a cluster's code points; WezTerm
+takes the base's width everywhere Terminal.app sums — a ZWJ family at 2, a skin tone at 2, a
+zero-width space at 0 — and then **does not let a variation selector widen the base**. VS16 and the
+keycap sequence are exactly the two rows of the corpus where a selector is what asks for the second
+column, which is why they are the two that differ and nothing else does.
+
+So `ucd.rs`'s headline citation now reproduces on **two of five** arms, which is a population rather
+than an outlier and is the sentence the Terminal.app run could not make on its own evidence. And the
+keycap row is the first in this survey where the two disagreeing arms disagree with **each other** —
+Terminal.app widens it and WezTerm does not. **The decision is untouched** for the reason above:
+there is no mechanism here that would read such a `quirks.rs` row.
 
 ## 06 — mode 2026, asked of the terminal rather than of its documentation
 
@@ -488,6 +541,45 @@ not have — the engine is right here and this scene is the first outside eviden
 the sets would hold a frame past the close sent for it, and a terminal with no mode at all has
 nothing to hold. And there is no `quirks.rs` row in this: that table's four entries are force-flush
 *limits*, and a terminal without the mode has no limit to record.
+
+### The sixth arm, 2026-09-03, and the first terminal here that answers wrongly
+
+**WezTerm 20240203 answers all five, and two of them are `FAILED`.** It reports mode 2026 as
+**reset while the mode is set** — `while-open` and `opened-twice`, the two rows asked immediately
+after a `CSI ? 2026 h`. Not `cannot express`: it answers. Not a short batch: five replies and a
+sentinel. A genuine disagreement with DECRPM's own definition of the reply it sent, and the first one
+this scene has produced on any arm.
+
+**The capture alone could not have said so, and three control probes are what make it a finding.**
+Raw `printf` against WezTerm, no engine in any of them:
+
+- `CSI ? 9999 $ p` answers **`0`**, so this terminal does say *not recognised* when it means it —
+  the `2` it gives for 2026 is a real *reset* and not a catch-all.
+- `CSI ? 2004 $ p` answers `2`, then **`1`** after an `h`, then `2` after an `l`. Its DECRQM tracks
+  a mode it implements.
+- **It has synchronised output and holds every reply while the mode is set.** A DECRQM about an
+  unrelated mode, asked inside an open block, returned nothing for **eight seconds** and arrived the
+  instant the block closed. That alone would explain a `2` — a reply computed when the buffer drains
+  is a reply about the state at the flush — so the third probe closes it: a mode set *and reset
+  again inside the block* came back **`1`**. A reply is computed when the query is **parsed**, so
+  the `2` above was given while the mode was set.
+
+**It earns no `quirks.rs` entry, and that is the table's own rule rather than an omission.** Every
+row there is a route the serializer can take around a defect. `Detected::mode` reads `1` and `2`
+alike as *available* — the question is whether the capability exists, not whether it happens to be
+on — so `sync_output` is true for WezTerm, `serial.rs` wraps every frame, and the terminal really
+does synchronise. Nothing is degraded and there is nothing to route around. It is the second thing
+recorded as *deliberately not an entry*, after Terminal.app's printing of what it cannot parse.
+
+**Part B is unanswerable on this arm, and its rows are not evidence about WezTerm.** The bisection
+asks DECRQM *inside* the open block, and a terminal that holds its replies until the close cannot
+answer inside one — so every probe is a hole, `flush_bracket` refuses, and the report prints *no
+bracket*. Worse, a round's opening batch closes the previous block and flushes what it was holding,
+so a probe can read a **leftover** and report it as an answer: the run this arm was built on printed
+`reset (2)` at 3000 ms, and that number is a previous round's reply arriving late. The refusal is
+doing its job; the rows above it are a log and must not be read as a measurement. Nothing here is
+gated — a timing is a report — and WezTerm gets **no force-flush row** in `quirks.rs`, which is
+consistent with what was observed: eight seconds with no flush at all.
 
 ### The refusals, and there are five
 

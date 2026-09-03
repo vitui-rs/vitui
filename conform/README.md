@@ -15,11 +15,12 @@ that arrangement cannot catch:
 This directory is the missing fourth party. It is
 [production ticket 04](../.scratch/vitui-engine-production/issues/04-the-conformance-harness.md).
 
-## Status: every stage, four scenes and four emulator families
+## Status: every stage, four scenes and five emulator families
 
-**Five arms, five committed reports, four emulator families, two `quirks.rs` entries, one closed
-architecture ticket, one citation that reproduces on the fourth family and one defect in the
-engine's own output came out of them.** Eighty tests, no emulator in the loop for any of them.
+**Six arms, six committed reports, five emulator families, two `quirks.rs` entries, one closed
+architecture ticket, a citation that reproduces on two families, two parser defects and one defect in
+the engine's own output came out of them.** Eighty-nine tests, no emulator in the loop for any of
+them.
 
 | arm | scene 01 | scene 04 | scene 05 | scene 06 | what its rows are about |
 |---|---|---|---|---|---|
@@ -28,6 +29,7 @@ engine's own output came out of them.** Eighty tests, no emulator in the loop fo
 | `cargo run --example ghostty -- --through-tmux` | **10/10**, one `by design` | **6/6** | **3/3**, and 12 of 12 surveyed — **tmux's, not Ghostty's** | **5/5**, 971–1063 ms — **tmux's, not Ghostty's** | what tmux 3.7c *forwards*, read through Ghostty |
 | `cargo run --example kitty` | **8/8**, one `cannot ask`, two `by design` | **6/6** | **3/3**, and 12 of 12 surveyed | **5/5**, flag reset 1985–2085 ms | kitty 0.48.2's own cell state |
 | `cargo run --example terminal` | **0/0**, eleven `cannot ask` | **6/6** | **3/3**, and **8 of 12** surveyed | **0/0**, five `cannot express` | Terminal.app 2.15's screen as plain text, and its own in-band answers |
+| `cargo run --example wezterm` | **9/9**, two `cannot ask` | **6/6** | **3/3**, and **10 of 12** surveyed | **3/5**, no bracket | WezTerm 20240203's own cell state, and the first arm to answer scene 06 **wrongly** |
 
 **An arm runs every scene or it is not a run**, and one report per arm holds a section for each —
 same rule, same reason, as one file per arm: a section that is missing reads as a win. There is
@@ -36,9 +38,11 @@ deliberately no flag to run one scene.
 **Scene 04 closed [architecture ticket 20](../.scratch/vitui-engine-architecture/issues/20-a-pair-bisected-by-a-child-clip.md)**,
 which is the first decision on that map settled by asking a terminal rather than by argument. All four
 arms agree that a terminal blanks the orphaned half of a bisected pair itself, in both directions, and
-none of them has a clip to consult. **They disagree about what the blanked cell wears** — kitty keeps
-the orphan's background, Ghostty and tmux blank to the SGR state in force — which is the finding that
-turned *the engine may as well repair* into *the engine must*. See `FINDINGS.md`.
+none of them has a clip to consult. **They disagree about what the blanked cell wears** — kitty and WezTerm keep the orphan's
+background, Ghostty and tmux blank to the SGR state in force — which is the finding that turned *the
+engine may as well repair* into *the engine must*. **The fifth family made it a two-two split**
+rather than one family against two, which is what stops *kitty has a bug* being a reading. See
+`FINDINGS.md`.
 
 It is also the only scene that does **not** drive the engine, and it cannot: the engine repairs a
 bisected pair before it serialises anything, so an engine-driven scene could photograph only the
@@ -77,7 +81,7 @@ Three of its fifteen rows are compared against hand-written numbers and twelve a
 survey never fails, because `ucd.rs` decides that the engine's tables are authoritative and §8's
 `CHA`-after-non-ASCII rule bounds the disagreement rather than following it — so a `FAILED` there
 would be the instrument inventing a defect. **What it found is that the two disagreements `ucd.rs`
-cites do not reproduce**: all three families widen a VS16 emoji, and kitty 0.48.2 answers 2 for a ZWJ
+cites do not reproduce**: those three families widen a VS16 emoji, and kitty 0.48.2 answers 2 for a ZWJ
 family where that paragraph records 6. The citation is a survey in a research document; this is the
 first thing here to look. `ucd.rs` now says so, the decision is untouched, and `FINDINGS.md` records
 what the survey needs next — an arm that disagrees.
@@ -112,6 +116,7 @@ cd conform && cargo run --example kitty           # a window, but no automation 
 cd conform && cargo run --example ghostty         # the soak that needs a window server
 cd conform && cargo run --example ghostty -- --through-tmux   # tmux in the middle
 cd conform && cargo run --example terminal        # a window, an automation grant, and no style
+cd conform && cargo run --example wezterm         # a window, a control socket, and no grant
 ```
 
 **One report file per arm**, `REPORT-<arm>.md`, and that is not filing. Two arms writing one
@@ -137,6 +142,29 @@ surface is in the path, and it is the first arm here to disagree with the other 
 It is also the only arm that can be **handed** a size and then insist on it — `number of rows` and
 `number of columns` are read-write on its `window` class, where kitty's geometry is a request
 reported back.
+
+**The WezTerm arm is the fifth family and the one whose setup risk is the interesting part.** Like
+kitty's it reaches the terminal over a control socket, so there is no TCC grant and no z-order in
+the loop, and like kitty's it can be handed a size in cells — `--config initial_cols=80`, before
+the `start` subcommand, because after it WezTerm exits with `unexpected argument` before opening a
+window. `-n` is `--skip-config`, the tmux arm's `-f /dev/null` for free.
+
+What is unlike every other arm is **who answers**. `wezterm cli` prefers a background *mux server*
+at `~/.local/share/wezterm/sock` over the GUI this run started, and **starts one with
+`wezterm-mux-server --daemonize` if none is listening** — so a run written the obvious way exits 0,
+returns well-formed JSON, and photographs a daemon's default shell. Observed. The arm addresses its
+own child's `gui-sock-<pid>` through `WEZTERM_UNIX_SOCKET` and passes `--no-auto-start` on every
+command, and `--class` is not the answer: on macOS it is a windowing-system class and routes
+nowhere. **It is the sharpest instance of *a missing row reads as a win* in this directory**, because
+the wrong version succeeds.
+
+Its capture carries style, in a **classic** SGR repertoire — sub-parameters normalised away (`4:1`
+comes back as bare `4`, `4:2` as `21`), and no spelling at all for `4:3`, `4:4`, `4:5`, SGR 53 or
+SGR 58. Two of scene 01's rows are therefore `cannot ask`, and unlike kitty's they cannot be
+promoted to a `quirks.rs` row: there is no far side and no second source. It is also the first arm
+to answer scene 06 **wrongly** — mode 2026 reported reset while set, with three control probes
+separating that from every innocent reading, and still no quirk entry, because `Detected::mode`
+reads `2` as *available* and nothing is degraded.
 
 Each arm is one executable with two halves: with no arguments it is the driver, with `--scene NN` it
 is that scene, and the driver launches the scene by re-running its own `current_exe()`. That is not a
@@ -174,7 +202,9 @@ question has none in its path. So the arm answers scene 05 in full, scene 06 in 
 text, and only scene 01 not at all — and it is the arm the survey needed. Three families that agree
 cannot say whether they are agreeing with the engine's tables or reflecting them; **Terminal.app 2.15
 disagrees on four of scene 05's twelve surveyed rows**, all four by summing a cluster's code points
-where the others take the base's width. `ucd.rs`'s headline citation reproduces on it. See
+where the others take the base's width. `ucd.rs`'s headline citation reproduces on it — and again on
+WezTerm 20240203 (2026-09-03), by a different mechanism, which is what makes it a population rather
+than an outlier. See
 [ticket 04](../.scratch/vitui-engine-production/issues/04-the-conformance-harness.md) and
 `FINDINGS.md`, 2026-08-30.
 
@@ -220,6 +250,10 @@ form — the missing row hiding inside a green one.
 | `tmux-3.7c-scene01-attrs.vt` | the same scene as **tmux's own grid** holds it — all eleven, overline included, spelled `5:3` because tmux writes any two-digit attribute code as `code/10 : code%10` |
 | `ghostty-1.3.1-via-tmux-3.7c-scene01-attrs.vt` | the same scene **through** tmux into Ghostty: ten of the eleven, and overline gone. The three files above are one scene down three paths, which is what turns *something is wrong* into *tmux does not forward SGR 53* |
 | `kitty-0.48.2-scene01-attrs.vt` | the same scene as kitty holds it: nine of the eleven, conceal and overline bare, and a dotted underline spelled `CSI 4 : m` — the bytes the arm's `cannot ask` declaration rests on. LF-separated where Ghostty's is CRLF, and padded to the full width where tmux's is trimmed to the label |
+| `wezterm-20240203-110809-5046fc22-scene01-attrs.vt` | the same scene as **WezTerm's own grid** hands it back: nine of the eleven, overline and the dotted underline bare, the double underline spelled **`21`** rather than `4:2`, and every row led by **`ESC ( B`**. Those last two are the bytes the parser grew two arms for, and no other fixture here contains either — `tests.rs` asserts both facts, because a parser arm added for a capture and then tested only synthetically leaves *WezTerm writes it this way* resting on a sentence |
+| `wezterm-20240203-110809-5046fc22-scene04-pairs.vt` | the same scene as WezTerm holds it: the four text rows agreeing with all four other families, and the blanked half wearing **the orphan's own background** — the fifth family, landing on kitty's side and turning that row into a two-two split |
+| `wezterm-20240203-110809-5046fc22-scene05-widths.cpr` | the same fifteen as WezTerm answered them. **Two of the twelve surveyed rows disagree and they are not Terminal.app's four**: a VS16 pair at **1** and a keycap sequence at **1**, where every summing case — ZWJ family, skin tone, zero-width space — matches the engine exactly. Terminal.app sums code points; this terminal takes the base's width and then lets no **variation selector** widen it |
+| `wezterm-20240203-110809-5046fc22-scene06-sync.decrqm` | **five answers and every one of them `reset`**, two of them given while the mode was set. The first capture here that is a *wrong* answer rather than a missing one, and the fixture the three control probes in `SCENES.md` §06 exist to interpret |
 | `terminal-2.15-scene01-attrs.vt` | the same scene as **Terminal.app's AppleScript surface** hands it back: eleven labels and **not one attribute anywhere**, because `contents` is `type="text"`. The bytes the arm's eleven `cannot ask` rows rest on, and the reason the declaration is gated rather than only stated — no cluster in this file carries a style, and all eleven labels are where the scene put them |
 
 | `ghostty-1.3.1-scene04-pairs.vt` | scene 04 as Ghostty gave it back: the orphaned half blanked in both directions, and blanked **to the SGR state in force** rather than to the glyph's own red background |

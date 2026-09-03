@@ -74,7 +74,8 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   (**all six standing**, by production 03 and 04),
   the fourteen hostile axes O5 still owed (**two left, and both `tree`'s**: `field`'s three taken by
   production 05, `table`'s two by 06, the overlay family's four by 08 and the scroll family's three
-  by 09), three tier-1 terminals nobody has run, and the release.
+  by 09), three tier-1 terminals nobody had run (**WezTerm now has**, by 11; Alacritty and iTerm2
+  are 12 and 13), and the release.
   **Windows is last, as 16**, blocked by the publish — which carries the consequence that no shipped
   string may claim a terminal the conform suite has not asked. Everything on it was already true and
   already recorded; what was missing was that nothing scheduled any of it.
@@ -202,6 +203,20 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   claimed this and nothing watched it — and no instrument inside the crate can, since `Tty::open`
   panics under `cfg(test)` and the thread the claim is about is never spawned by a test here. It is
   a **tripwire**: it goes red if the reader ever learns to stop.
+
+- **A `cannot ask` becomes a quirk only when evidence exists outside the capture, and a real
+  misbehaviour with no route around it is no entry at all** (production 11). Two rows of `conform/`'s
+  WezTerm arm come back bare and **cannot** be promoted the way kitty's two were: a dump cannot tell
+  *not stored* from *not serialised*, kitty was settled by its shipped `.so`'s `Cursor` repr, and
+  WezTerm has no far side (it is an endpoint) and no second source (its binary's string table holds
+  `OVERLINE` as a Unicode character name, so a `grep -c` returns noise). Separately, WezTerm reports
+  **mode 2026 reset while it is set** — a real misbehaviour, with three control probes ruling out
+  every innocent reading — and it earns nothing either, because **every row of `quirks.rs` is a route
+  the serializer can take around a defect** and `Detected::mode` reads `1` and `2` alike as
+  *available*, so `sync_output` is true and nothing is degraded. It is the second thing that table
+  records as deliberately not an entry. Two parser gaps came out of the same arm and neither grew
+  `Dialect`: `ESC ( B` is three bytes (the two-byte fallback left the `B` as content and eleven rows
+  read `Bbold`), and **ECMA-48's SGR 21 is *doubly underlined***, not bold-off.
 
 - **A crate's `description` is its README's first sentence, and a gate says so** (production 01,
   resolved 2026-09-01). Three places say what a crate is before a stranger reads a line of its code
@@ -406,15 +421,23 @@ examples/app-template     copy-this-directory starting point, and the home of §
 compare/                  comparative suite: SCENES.md normative, harness.py, run.sh, REPORT.md
                           committed, FINDINGS.md by hand. Nine scenes, five arms, two of them ours
                           └ detached workspace; reports, never gates. No deny.toml, deliberately
-conform/                  the only instrument that asks a real terminal: SCENES.md normative, five
-                          arms across four examples — Ghostty, Ghostty-via-tmux (the same binary
-                          behind `--through-tmux`), tmux, kitty, Terminal.app — one committed
-                          REPORT-<arm>.md each, FINDINGS.md by hand
+conform/                  the only instrument that asks a real terminal: SCENES.md normative, six
+                          arms across five examples — Ghostty, Ghostty-via-tmux (the same binary
+                          behind `--through-tmux`), tmux, kitty, Terminal.app, WezTerm — one
+                          committed REPORT-<arm>.md each, FINDINGS.md by hand
                           └ Terminal.app is the fourth VT lineage and **the arm that disagrees**:
                             four of scene 05's twelve surveyed rows, all four by summing a cluster's
                             code points. Its capture surface carries no style at all, so scene 01 is
                             eleven `cannot ask` rows and scenes 05 and 06 — asked in band — are
                             answered in full
+                          └ WezTerm is the fifth family and **the arm that answers wrongly**: mode
+                            2026 reported reset while set, which is a real misbehaviour and earns no
+                            quirk row, because that table is routes and `Detected::mode` reads `2`
+                            as available. Its capture is a classic SGR re-speller — `4:1` back as
+                            `4`, `4:2` as `21`, and nothing at all for `4:3`, `4:4`, `4:5`, 53 or 58
+                            — so two of scene 01's rows are `cannot ask` that **cannot** become a
+                            quirk: no far side, no second source. `wezterm cli` will start a
+                            mux-server daemon and photograph its shell, exiting 0
                           └ four scenes, two of them not photographs: 05 asks the emulator's own
                             UAX #11 verdict via CSI 6n (twelve rows are a survey and never fail),
                             06 polls mode 2026 via DECRPM with five compared rows — and a terminal
@@ -443,6 +466,7 @@ cargo deny check                            # needs `cargo install cargo-deny`
 (cd conform && cargo test)                  # the conformance gate, over committed captures
 (cd conform && cargo run --example tmux)    # the one live arm that is headless
 (cd conform && cargo run --example terminal) # needs an AppleScript grant for Terminal.app
+(cd conform && cargo run --example wezterm)  # a window and a control socket; exits 1 on scene 06
 ```
 
 Applications (`cargo run -p vitui-apps --example NAME`), each with the key worth pressing; those

@@ -12,6 +12,8 @@ const TMUX_SCENE01: &[u8] = include_bytes!("../fixtures/tmux-3.7c-scene01-attrs.
 const VIA_TMUX: &[u8] = include_bytes!("../fixtures/ghostty-1.3.1-via-tmux-3.7c-scene01-attrs.vt");
 const SCENE01: &[u8] = include_bytes!("../fixtures/ghostty-1.3.1-scene01-attrs.vt");
 const KITTY_SCENE01: &[u8] = include_bytes!("../fixtures/kitty-0.48.2-scene01-attrs.vt");
+const WEZTERM_SCENE01: &[u8] =
+    include_bytes!("../fixtures/wezterm-20240203-110809-5046fc22-scene01-attrs.vt");
 
 // ── Scene 04, the four captures that answered architecture ticket 20 ─────────────────────────────
 
@@ -20,6 +22,8 @@ const KITTY_SCENE04: &[u8] = include_bytes!("../fixtures/kitty-0.48.2-scene04-pa
 const TMUX_SCENE04: &[u8] = include_bytes!("../fixtures/tmux-3.7c-scene04-pairs.vt");
 const VIA_TMUX_SCENE04: &[u8] =
     include_bytes!("../fixtures/ghostty-1.3.1-via-tmux-3.7c-scene04-pairs.vt");
+const WEZTERM_SCENE04: &[u8] =
+    include_bytes!("../fixtures/wezterm-20240203-110809-5046fc22-scene04-pairs.vt");
 
 // ── The refusal, which is the first thing this parser had to do ──────────────────────────────────
 
@@ -150,6 +154,8 @@ fn an_underline_style_is_one_parameter_and_not_two() {
 fn every_underline_style_the_engine_can_spell_reads_back() {
     // The engine's three-bit underline field, and it always emits the `4:n` form — never bare `4`,
     // and never SGR 21. Ghostty answers bare `4` for single, so both spellings have to arrive here.
+    // A **capture** may still be written in 21, which is a fact about a serialiser and not about
+    // the engine — see `sgr_21_is_a_double_underline_and_not_a_bold_off`.
     for (bytes, want) in [
         (&b"\x1b[4m"[..], Underline::Single),
         (&b"\x1b[4:1m"[..], Underline::Single),
@@ -166,6 +172,58 @@ fn every_underline_style_the_engine_can_spell_reads_back() {
     // An undefined style stays visible as one rather than collapsing into single.
     let d = parse(b"\x1b[4:9mX\n", 1, Dialect::Ecma48).unwrap();
     assert_eq!(d.rows[0].clusters[0].style.underline, Underline::Other(9));
+}
+
+#[test]
+fn sgr_21_is_a_double_underline_and_not_a_bold_off() {
+    // **ECMA-48 spends 21 on *doubly underlined*** and 22 on normal intensity; *bold off* is
+    // xterm's reading of 21 and a deviation. The engine never emits either spelling — it always
+    // writes `4:n` — so nothing here needed this arm until a **capture** turned up written in it:
+    // WezTerm's `get-text --escapes` normalises a sub-parameter away (`4:1` comes back as bare `4`)
+    // and spells the double underline `21`. Without this, that row parses as no underline at all
+    // and the comparison reports *WezTerm dropped the double underline*, which is an attribute the
+    // instrument would have invented.
+    for dialect in [Dialect::Ecma48, Dialect::TmuxCapturePane] {
+        let d = parse(b"\x1b[21mX\n", 1, dialect).unwrap();
+        let s = d.rows[0].clusters[0].style;
+        assert_eq!(
+            s.underline,
+            Underline::Double,
+            "{dialect:?}: ECMA-48 SGR 21 is doubly underlined"
+        );
+        assert!(
+            !s.attrs.has(Attrs::BOLD) && !s.attrs.has(Attrs::DIM),
+            "{dialect:?}: and it is not an intensity — SGR 22 is"
+        );
+    }
+    // And 24 still clears it, whichever spelling set it.
+    let d = parse(b"\x1b[21mA\x1b[24mB\n", 1, Dialect::Ecma48).unwrap();
+    assert_eq!(d.rows[0].clusters[1].style.underline, Underline::None);
+}
+
+#[test]
+fn a_charset_designation_is_consumed_whole_and_never_becomes_a_glyph() {
+    // **Three bytes, and the fallback consumed two.** `ESC ( B` designates US-ASCII as G0, and
+    // WezTerm's capture leads every row with one. An escape handler that skips `ESC` plus the
+    // intermediate leaves the final byte behind as content, so every row of that arm's scene 01
+    // arrives as `Bbold` and eleven rows go red — the instrument blaming the terminal for its own
+    // arithmetic. The whole SCS family is here because a capture that has one designator may have
+    // any of them, and none of them is content.
+    for designator in *b"()*+-./" {
+        let mut input = vec![0x1b, designator, b'B'];
+        input.extend_from_slice(b"bold\n");
+        let d = parse(&input, 1, Dialect::Ecma48).unwrap();
+        let text: String = d.rows[0].clusters.iter().map(|c| c.text.as_str()).collect();
+        assert_eq!(
+            text, "bold",
+            "ESC {} B is a charset designation, not a `B`",
+            designator as char
+        );
+    }
+    // A designation carries no style, so one between two cells leaves the second one styled.
+    let d = parse(b"\x1b[1mA\x1b(BB\n", 1, Dialect::Ecma48).unwrap();
+    assert_eq!(d.rows[0].clusters.len(), 2, "and it added no cluster");
+    assert!(d.rows[0].clusters[1].style.attrs.has(Attrs::BOLD));
 }
 
 #[test]
@@ -747,6 +805,9 @@ fn every_family_blanks_the_orphaned_half_and_they_do_not_disagree_about_it() {
         // these six rows are compared as *text*, which is the one thing this arm's capture surface
         // carries. See the styleless assertions at the end of this file for what it cannot reach.
         (TERMINAL_SCENE04, Dialect::Ecma48, "Terminal.app 2.15"),
+        // The fifth family, and the one that makes the *style* row below a two-two split where it
+        // had been one against three. It agrees with every other arm on all six text rows.
+        (WEZTERM_SCENE04, Dialect::Ecma48, "WezTerm 20240203"),
     ] {
         let rows = scene04_text(bytes, dialect);
         for (i, (label, want)) in SCENE04_ROWS.iter().enumerate() {
@@ -772,11 +833,20 @@ fn the_families_disagree_about_what_the_blanked_half_wears_and_that_is_the_sharp
     let at = |bytes, dialect| {
         parse(bytes, SCENE04_ROWS.len(), dialect).unwrap().rows[4].clusters[2].style
     };
-    assert_eq!(
-        at(KITTY_SCENE04, Dialect::Ecma48).bg,
-        Colour::Indexed(1),
-        "kitty 0.48.2 keeps the background of the half it blanked"
-    );
+    // **Two against three, and it was one against three until WezTerm ran.** A fifth family
+    // landing on the minority side is what stops *kitty is the odd one out* being the reading — the
+    // two behaviours are two designs, not one design and one bug, and no mirror state is right on
+    // both.
+    for (bytes, who) in [
+        (KITTY_SCENE04, "kitty 0.48.2"),
+        (WEZTERM_SCENE04, "WezTerm 20240203"),
+    ] {
+        assert_eq!(
+            at(bytes, Dialect::Ecma48).bg,
+            Colour::Indexed(1),
+            "{who} keeps the background of the half it blanked"
+        );
+    }
     for (bytes, dialect, who) in [
         (SCENE04, Dialect::Ecma48, "Ghostty 1.3.1"),
         (TMUX_SCENE04, Dialect::TmuxCapturePane, "tmux 3.7c"),
@@ -1420,10 +1490,16 @@ const SYNC_ARMS: [(&str, &[u8]); 4] = [
 ];
 
 #[test]
-fn all_three_families_have_mode_2026_and_their_state_machines_track_it() {
+fn every_arm_in_sync_arms_tracks_mode_2026_and_the_two_that_do_not_are_below() {
     // The three families of spec §10's tier 1, answering about themselves. `serial.rs` wraps every
     // frame in this mode where the terminal has it, and until this scene the evidence that any of
     // them does was `detect.rs` believing a reply it also wrote the parser for.
+    //
+    // **The name of this test said *all three families* until a fourth and a fifth arrived**, and a
+    // stale name over a list that is now a minority is this repository's own recorded trap.
+    // Terminal.app 2.15 answers nothing at all and WezTerm 20240203 answers *reset* while the mode
+    // is set — two different facts, each with its own test at the end of this file, and neither of
+    // them is in `SYNC_ARMS`.
     for (who, bytes) in SYNC_ARMS {
         let seen = mode_reports(bytes, 2026, SCENE06_STATES.len())
             .unwrap_or_else(|e| panic!("{who}: {e}"));
@@ -1621,7 +1697,13 @@ fn the_survey_stopped_being_four_identical_columns_and_this_is_the_assertion_tha
         "the disagreement is these four rows and no others"
     );
     // And the labels line up, or the comparison above is between two tables in different orders and
-    // every row of it is about the wrong cluster.
+    // every row of it is about the wrong cluster. **The length is asserted first for the reason the
+    // WezTerm twin gives**: `zip` truncates, so a table that lost or gained a row would pass this.
+    assert_eq!(
+        OBSERVED.len(),
+        TERMINAL_OBSERVED.len(),
+        "the two tables must be the same length, or the join below stops at the shorter one"
+    );
     assert!(
         OBSERVED
             .iter()
@@ -1763,4 +1845,310 @@ fn terminal_app_is_a_fourth_terminal_and_the_sentinel_says_so() {
     assert_ne!(TERMINAL_WIDTHS, GHOSTTY_WIDTHS);
     assert_ne!(TERMINAL_WIDTHS, KITTY_WIDTHS);
     assert_ne!(TERMINAL_WIDTHS, TMUX_WIDTHS);
+}
+
+// ── The fifth family, and the arm whose two disagreements are in two different scenes ────────────
+
+const WEZTERM_WIDTHS: &[u8] =
+    include_bytes!("../fixtures/wezterm-20240203-110809-5046fc22-scene05-widths.cpr");
+const WEZTERM_SYNC: &[u8] =
+    include_bytes!("../fixtures/wezterm-20240203-110809-5046fc22-scene06-sync.decrqm");
+
+#[test]
+fn wezterm_holds_nine_of_the_eleven_and_the_capture_cannot_ask_about_the_other_two() {
+    // **The fifth family**, and the first whose scene-01 shortfall earns no `quirks.rs` row.
+    // WezTerm's `get-text --escapes` re-serialises into a classic SGR repertoire: nine of the
+    // eleven come back exactly, and SGR 53 and the `4:n` sub-parameters are not spellings it has.
+    //
+    // Compare `kitty_has_nowhere_to_put_conceal_or_overline_and_holds_the_other_nine`, which is the
+    // same shortfall with a different cause and therefore a different verdict. kitty's two rows are
+    // a quirk because a **second source** — the shipped `kitty.fast_data_types.so`'s `Cursor` repr
+    // — says the attributes have nowhere to live. There is no second source here: WezTerm is an
+    // endpoint so no arm can read its far side, and its shipped binary's string table carries
+    // `OVERLINE` as a Unicode character name, so a `grep` there is noise. *Not stored* and *not
+    // serialised* stay indistinguishable, and the arm declares both rows `cannot ask` in advance.
+    //
+    // **Conceal is the interesting agreement.** kitty has nowhere to put it; WezTerm hands it back.
+    let d = parse(WEZTERM_SCENE01, 11, Dialect::Ecma48).expect("parses");
+    for (i, (label, attrs, underline)) in SCENE01_ROWS.iter().enumerate() {
+        // `row_style` answers `None` when the row's clusters do **not** all agree, so the message
+        // is the negative. It read "is uniform" for one review, which sends a reader looking for
+        // the opposite defect.
+        let got = row_style(&d, i, label)
+            .unwrap_or_else(|| panic!("row {i} — {label} is not uniform across its clusters"));
+        if matches!(*label, "overline" | "under-dot") {
+            assert_eq!(
+                got,
+                Style::default(),
+                "row {i} — {label} comes back bare, which is what the arm declared. A style here \
+                 would make the declaration STALE"
+            );
+            continue;
+        }
+        let want = Style {
+            attrs: *attrs,
+            underline: *underline,
+            ..Style::default()
+        };
+        assert_eq!(got, want, "row {i} — {label}");
+    }
+}
+
+#[test]
+fn the_wezterm_capture_is_written_in_two_constructs_no_other_arm_sent() {
+    // **The two parser arms this fixture is the evidence for.** Both were added for these bytes,
+    // both are ECMA-48-correct, and a synthetic test of either would leave the claim *WezTerm
+    // writes it this way* resting on a sentence. The `\x1b(B` prefix in particular is the one that
+    // cost eleven red rows before it was handled: the escape handler's two-byte fallback left the
+    // `B` behind as content and every row parsed as `Bbold`.
+    assert!(
+        WEZTERM_SCENE01.windows(3).any(|w| w == b"\x1b(B"),
+        "WezTerm designates US-ASCII as G0 before each row"
+    );
+    assert!(
+        WEZTERM_SCENE01.windows(5).any(|w| w == b"\x1b[21m"),
+        "and spells the double underline SGR 21, not `4:2`"
+    );
+    // And no other arm's capture carries either, so the two arms are reached by this fixture alone.
+    for (who, bytes) in [
+        ("Ghostty 1.3.1", SCENE01),
+        ("kitty 0.48.2", KITTY_SCENE01),
+        ("tmux 3.7c", TMUX_SCENE01),
+        ("Terminal.app 2.15", TERMINAL_SCENE01),
+    ] {
+        assert!(
+            !bytes.windows(3).any(|w| w == b"\x1b(B"),
+            "{who} sends no charset designation"
+        );
+        assert!(
+            !bytes.windows(5).any(|w| w == b"\x1b[21m"),
+            "{who} does not spell a double underline SGR 21"
+        );
+    }
+    // The row text is still where the scene put it, or the two assertions above would be satisfied
+    // by a capture that had scrolled.
+    for (i, (label, ..)) in SCENE01_ROWS.iter().enumerate() {
+        let d = parse(WEZTERM_SCENE01, 11, Dialect::Ecma48).expect("parses");
+        assert_eq!(d.rows[i].text().trim_end(), *label, "row {i}");
+    }
+}
+
+#[test]
+fn the_wezterm_capture_still_has_the_carriage_returns_the_terminal_sent() {
+    // `.gitattributes` marks `*.vt -text` and this is the second fixture that line is load-bearing
+    // for: WezTerm's rows are CRLF-separated like Ghostty's, where kitty's and tmux's are LF. The
+    // parser skips CR the way a terminal does, so every test here would pass over a capture git had
+    // quietly rewritten — which is precisely how the Ghostty fixture lost twenty-three of them.
+    //
+    // Twenty-four, because the screen is 24 rows and every one of them ends in CRLF, payload and
+    // trailing blank alike.
+    assert_eq!(
+        WEZTERM_SCENE01.iter().filter(|b| **b == b'\r').count(),
+        24,
+        "twenty-four carriage returns, one per row of an 80x24 screen"
+    );
+}
+
+/// What WezTerm 20240203 answered for scene 05's fifteen clusters, and it is **not** [`OBSERVED`].
+///
+/// A second table rather than a diff against the first, for [`TERMINAL_OBSERVED`]'s reason.
+const WEZTERM_OBSERVED: &[(&str, u16)] = &[
+    ("ascii", 1),
+    ("ascii-pair", 2),
+    ("cjk", 2),
+    ("hangul", 2),
+    ("fullwidth", 2),
+    ("ambiguous", 1),
+    ("combining", 1),
+    ("zero-width", 0),
+    ("emoji", 2),
+    // The two that differ, and both are a selector question rather than a summing one.
+    ("vs16", 1),
+    ("vs15", 1),
+    ("zwj-family", 2),
+    ("flag", 2),
+    ("skin-tone", 2),
+    ("keycap", 1),
+];
+
+#[test]
+fn wezterm_disagrees_on_two_rows_and_they_are_not_terminal_apps_four() {
+    let replies = cursor_reports(WEZTERM_WIDTHS, WEZTERM_OBSERVED.len())
+        .expect("WezTerm's capture is a batch");
+    for (reply, (label, advance)) in replies.iter().zip(WEZTERM_OBSERVED) {
+        assert_eq!(
+            reply.column - 1,
+            *advance,
+            "WezTerm 20240203 moved the cursor differently for {label}"
+        );
+    }
+
+    // **The shape of the disagreement is the finding, not the count.** Terminal.app's four are all
+    // one mechanism — it sums a cluster's code points — and WezTerm's two are a different one: it
+    // takes the base's width for every summing case (a ZWJ family at 2, a skin tone at 2, a
+    // zero-width space at 0) and then does not let a **variation selector** widen the base. VS16
+    // and the keycap sequence are the two rows where a selector is what asks for the second column.
+    let differs: Vec<&str> = OBSERVED
+        .iter()
+        .zip(WEZTERM_OBSERVED)
+        .filter(|((_, ours), (_, theirs))| ours != theirs)
+        .map(|((label, _), _)| *label)
+        .collect();
+    assert_eq!(
+        differs,
+        vec!["vs16", "keycap"],
+        "the disagreement is these two rows and no others"
+    );
+    // **The length first, because `zip` truncates.** Without this the join below is green on a
+    // sixteenth cluster appended to `OBSERVED` and not to this table — every row still compared,
+    // the new one silently unmeasured on this arm. `cursor_reports` is asked for *this* table's
+    // length, so nothing else here compares the two counts.
+    assert_eq!(
+        OBSERVED.len(),
+        WEZTERM_OBSERVED.len(),
+        "the two tables must be the same length, or the join below stops at the shorter one"
+    );
+    assert!(
+        OBSERVED
+            .iter()
+            .zip(WEZTERM_OBSERVED)
+            .all(|((a, _), (b, _))| a == b),
+        "the two tables must name the same fifteen clusters in the same order"
+    );
+    // And it is not Terminal.app's set, which is what makes two disagreeing arms two observations
+    // rather than one repeated. `zero-width` is the sharpest: Terminal.app says 1 and WezTerm 0.
+    let theirs: Vec<&str> = OBSERVED
+        .iter()
+        .zip(TERMINAL_OBSERVED)
+        .filter(|((_, ours), (_, t))| ours != t)
+        .map(|((label, _), _)| *label)
+        .collect();
+    assert_ne!(differs, theirs, "two arms, two different sets of rows");
+}
+
+#[test]
+fn the_vs16_citation_reproduces_on_a_second_family_and_the_keycap_row_is_wezterms_alone() {
+    // `ucd.rs`'s headline — *only 7 of 23 surveyed widen a VS16 emoji correctly* — did not
+    // reproduce on the first three families, reproduced on Terminal.app 2.15, and reproduces here.
+    // **Two of five arms is a population rather than an outlier**, which is the sentence the
+    // Terminal.app run could not yet make on its own evidence.
+    //
+    // The keycap row is new. Terminal.app widens `1️⃣` and WezTerm does not, so this is the first
+    // row of the survey where the two disagreeing arms disagree with **each other** — and it is the
+    // reading that makes WezTerm's mechanism a selector question rather than a copy of
+    // Terminal.app's summing.
+    let column = |bytes: &[u8], label: &str| {
+        let at = OBSERVED
+            .iter()
+            .position(|(l, _)| *l == label)
+            .expect("a row of the scene");
+        cursor_reports(bytes, OBSERVED.len()).expect("a batch")[at].column - 1
+    };
+    assert_eq!(
+        column(WEZTERM_WIDTHS, "vs16"),
+        1,
+        "WezTerm does not widen it"
+    );
+    assert_eq!(column(TERMINAL_WIDTHS, "vs16"), 1, "nor does Terminal.app");
+    for (bytes, who) in [
+        (GHOSTTY_WIDTHS, "Ghostty 1.3.1"),
+        (KITTY_WIDTHS, "kitty 0.48.2"),
+        (TMUX_WIDTHS, "tmux 3.7c"),
+    ] {
+        assert_eq!(column(bytes, "vs16"), 2, "{who} widens it");
+    }
+
+    assert_eq!(column(WEZTERM_WIDTHS, "keycap"), 1, "WezTerm alone here");
+    for (bytes, who) in [
+        (GHOSTTY_WIDTHS, "Ghostty 1.3.1"),
+        (KITTY_WIDTHS, "kitty 0.48.2"),
+        (TMUX_WIDTHS, "tmux 3.7c"),
+        (TERMINAL_WIDTHS, "Terminal.app 2.15"),
+    ] {
+        assert_eq!(column(bytes, "keycap"), 2, "{who} widens the keycap");
+    }
+}
+
+#[test]
+fn wezterm_recognises_mode_2026_and_reports_it_reset_while_it_is_set() {
+    // **A real misbehaviour, and the controls are what make it one.** This is the first arm here to
+    // answer scene 06's batch *wrongly* rather than not at all, and the capture alone could not
+    // have said so — a terminal that had never heard of the mode would answer `0` throughout, and a
+    // terminal that deferred its replies to the end of a synchronised block would answer about the
+    // state at the flush. Three control probes, raw `printf` against WezTerm with no engine in
+    // them, close both readings:
+    //
+    // - `CSI ? 9999 $ p` answers `0`, so this terminal does say *not recognised* when it means it,
+    //   and the `2` below is a real *reset*.
+    // - `CSI ? 2004 $ p` answers `2`, then `1` after `h`, then `2` after `l` — so its DECRQM does
+    //   track a mode it implements.
+    // - It **has** synchronised output: every reply is held while the mode is set — a DECRQM about
+    //   an unrelated mode got nothing for eight seconds and arrived the instant the block closed —
+    //   and the reply for a mode set *and reset again inside the block* came back `1`. So a reply is
+    //   computed when the query is parsed, not when the buffer drains, and the answer below was
+    //   given while the mode was set.
+    //
+    // **It earns no `quirks.rs` entry, and that is a rule rather than an omission.** Every row of
+    // that table is a route the serializer can take around a defect. `Detected::mode` reads `1` and
+    // `2` alike as *available* — the question is whether the capability exists, not whether it is
+    // on right now — so `sync_output` is true for WezTerm, `serial.rs` wraps every frame, and the
+    // terminal really does synchronise. Nothing is degraded and there is nothing to route around.
+    // See `FINDINGS.md`.
+    let seen = mode_reports(WEZTERM_SYNC, 2026, SCENE06_STATES.len())
+        .expect("WezTerm answers all five and a sentinel");
+    assert_eq!(
+        seen.iter().map(|r| r.state).collect::<Vec<_>>(),
+        vec![ModeState::Reset; 5],
+        "WezTerm answers reset five times, including twice while the mode was set"
+    );
+    assert!(
+        seen.iter().all(|r| r.state != ModeState::NotRecognised),
+        "and never `not recognised` — it knows the mode, which is what makes this a disagreement \
+         rather than a `cannot express`"
+    );
+    // The arms that do track it still do, so this fixture is not quietly redefining the scene.
+    for (who, bytes) in SYNC_ARMS {
+        assert_eq!(
+            mode_reports(bytes, 2026, SCENE06_STATES.len())
+                .unwrap_or_else(|e| panic!("{who}: {e}"))
+                .iter()
+                .map(|r| r.state)
+                .collect::<Vec<_>>(),
+            SCENE06_STATES.to_vec(),
+            "{who} still tracks it"
+        );
+    }
+}
+
+#[test]
+fn wezterm_is_a_fifth_terminal_and_the_sentinel_says_so() {
+    // The scene 05 captures are now five columns of fifteen numbers, and thirteen of WezTerm's
+    // fifteen are `OBSERVED`'s — which is the shape of a fixture accidentally copied from another
+    // arm. The device-attributes reply separates them, and WezTerm's is a fifth distinct answer:
+    // a VT500 where tmux and Terminal.app answer as VT100s.
+    let da1 = |bytes: &[u8]| {
+        let text = String::from_utf8_lossy(bytes).to_string();
+        let at = text.rfind("\x1b[?").expect("a sentinel");
+        text[at..].to_string()
+    };
+    assert_eq!(
+        da1(WEZTERM_WIDTHS),
+        "\x1b[?65;4;6;18;22c",
+        "WezTerm 20240203 answers as a VT500"
+    );
+    for (who, bytes) in [
+        ("Ghostty 1.3.1", GHOSTTY_WIDTHS),
+        ("kitty 0.48.2", KITTY_WIDTHS),
+        ("tmux 3.7c", TMUX_WIDTHS),
+        ("Terminal.app 2.15", TERMINAL_WIDTHS),
+    ] {
+        assert_ne!(da1(WEZTERM_WIDTHS), da1(bytes), "not {who}'s sentinel");
+        assert_ne!(WEZTERM_WIDTHS, bytes, "not {who}'s capture");
+    }
+    // And the same for scene 06, where WezTerm's five answers are all `2` — the same *states* the
+    // other arms open and close with, so the sentinel is the only thing that could tell a copy.
+    assert_ne!(WEZTERM_SYNC, GHOSTTY_SYNC);
+    assert_ne!(WEZTERM_SYNC, KITTY_SYNC);
+    assert_ne!(WEZTERM_SYNC, TMUX_SYNC);
+    assert_ne!(WEZTERM_SYNC, TERMINAL_SYNC);
 }

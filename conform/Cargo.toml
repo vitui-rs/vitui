@@ -48,5 +48,8 @@ name = "kitty"
 [[example]]
 name = "terminal"
 
+[[example]]
+name = "wezterm"
+
 [lints.rust]
 warnings = "deny"

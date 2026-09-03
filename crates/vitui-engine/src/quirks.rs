@@ -12,7 +12,7 @@
 //! fourth and fifth are the ones this repository gathered itself, and it took an instrument to get
 //! either.
 //!
-//! The five, and how each is recognised, which is the part that matters:
+//! The six, and how each is recognised, which is the part that matters:
 //!
 //! | terminal | recognised by | quirk |
 //! |---|---|---|
@@ -30,7 +30,14 @@
 //! refusal of terminfo is a refusal to infer capabilities from a name, and an entry here overrides
 //! a capability that was measured.
 //!
-//! # What is deliberately **not** a seventh entry: a terminal that prints what it cannot parse
+//! # What is deliberately **not** a seventh entry, and there are two of them
+//!
+//! Both were found by `conform/`, both are real misbehaviours, and neither belongs here. The rule
+//! they are both refused by is worth stating once rather than re-deriving: **every entry in this
+//! table is a route the serializer can take around a defect.** Where there is no route, an entry
+//! would be a note, and a note in a table something reads at run time is worse than a note.
+//!
+//! ## A terminal that prints what it cannot parse
 //!
 //! Terminal.app 2.15 emits the XTGETTCAP payload and the final byte of each DECRQM as text rather
 //! than ignoring them (production ticket 12, `conform/`'s Terminal.app arm). That is a misbehaviour,
@@ -48,6 +55,26 @@
 //!
 //! So this is a defect in the engine's output that a real terminal found, and it was repaired in the
 //! output. Nothing here is degraded for it and no field on [`Quirks`] is added.
+//!
+//! ## A terminal that has synchronised output and reports it reset while it is set
+//!
+//! WezTerm 20240203 answers `CSI ? 2026 $ p` with **`2`** — reset — on a query parsed while the
+//! mode was set (`conform/`'s WezTerm arm, scene 06, production ticket 11). Three control probes
+//! separate that from every innocent reading: it answers `0` for a mode it has never heard of, so
+//! its `2` is a real reset; its DECRQM tracks mode 2004 correctly through an `h` and an `l`; it
+//! genuinely **has** synchronised output, holding every reply for the duration of a block with no
+//! flush inside eight seconds; and a reply for a mode set and reset again *inside* a block comes
+//! back `1`, so a reply is computed when the query is parsed rather than when the buffer drains.
+//!
+//! **And it costs this engine nothing, which is why there is no route to add.**
+//! [`Detected::mode`](crate::caps::Detected::mode) reads `1` and `2` alike as *available* — the
+//! question it asks is whether the capability exists, not whether it happens to be on right now —
+//! so `sync_output` is true for WezTerm, [`crate::serial`] wraps every frame in the mode, and the
+//! terminal really does synchronise. There is no attribute to withhold, no spelling to change and
+//! no degradation to declare. A field here would describe a defect that has no consequence.
+//!
+//! It also earns **no row of the force-flush table below**: those four rows are *limits*, and eight
+//! seconds with no flush is the absence of one rather than a number.
 //!
 //! # The sixth entry, and it is the cheapest evidence in the table
 //!

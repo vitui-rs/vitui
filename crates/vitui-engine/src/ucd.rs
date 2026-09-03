@@ -17,8 +17,8 @@
 //! `.scratch/vitui-engine-architecture/research/02-grapheme-clustering-and-width.md`.
 //!
 //! **Those three figures are a survey in a research document and not a measurement of ours**, and
-//! `conform/`'s scene 05 has now asked four terminals what a cluster is worth with `CSI 6n`. The
-//! answer arrived in two halves and the second corrects the reading of the first.
+//! `conform/`'s scene 05 has now asked five terminals what a cluster is worth with `CSI 6n`. The
+//! answer arrived in three parts and each one corrects the reading of the one before.
 //!
 //! - **2026-08-29, three families, and neither disagreement reproduced.** Ghostty 1.3.1,
 //!   kitty 0.48.2 and tmux 3.7c all widen VS16 correctly and all answer **2** for a ZWJ family.
@@ -27,12 +27,23 @@
 //!   cluster's code points where the other three take the base's width, which is the behaviour the
 //!   second policy below is pinned against.
 //!
+//! - **2026-09-03, a fifth, and the VS16 half reproduces by a *different* mechanism.** WezTerm
+//!   20240203 answers **1** for the VS16 pair and **1** for a keycap sequence, and **2** for the ZWJ
+//!   family, **2** for a skin tone and **0** for a zero-width space — every summing case exactly as
+//!   this file has it. It takes the base's width and then lets no **variation selector** widen the
+//!   base, which is a different defect from Terminal.app's and lands on the two rows of that corpus
+//!   where a selector is what asks for the second column.
+//!
 //! So the three families measured first are not the population the survey is about: they are recent
-//! reimplementations that all follow UAX #29, and the terminal Apple has shipped since NeXT does
-//! not. The decision is unchanged — following the terminal was never the alternative — and the
-//! right reading of the two dates together is that **a terminal that agrees today is not a promise
-//! and a terminal that disagrees is still shipping.** See `conform/FINDINGS.md`, 2026-08-29 and
-//! 2026-08-30, and `conform/fixtures/terminal-2.15-scene05-widths.cpr` for the bytes.
+//! reimplementations that all follow UAX #29, and neither the terminal Apple has shipped since NeXT
+//! nor WezTerm's stable release does. **Two of five is a population and one of four was an
+//! outlier**, and the second disagreeing arm is also the one that shows there is more than one way
+//! to get this wrong. The decision is unchanged — following the terminal was never the alternative
+//! — and the right reading of the three dates together is that **a terminal that agrees today is
+//! not a promise and a terminal that disagrees is still shipping.** See `conform/FINDINGS.md`,
+//! 2026-08-29, 2026-08-30 and 2026-09-03, and
+//! `conform/fixtures/terminal-2.15-scene05-widths.cpr` and
+//! `conform/fixtures/wezterm-20240203-110809-5046fc22-scene05-widths.cpr` for the bytes.
 //!
 //! Three answers are policy rather than standard, and each is pinned by name in [`tests`]:
 //! ambiguous width (UAX #11 class `A`) is **narrow**; a cluster's width is its base's width,

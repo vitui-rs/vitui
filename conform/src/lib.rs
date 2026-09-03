@@ -59,6 +59,22 @@
 //! difference in style**, and the difference is worth a paragraph because only one of the two costs
 //! an attribute.
 //!
+//! **A fourth capture format was asked and answered no as well, and it cost two arms rather than a
+//! dialect.** WezTerm's `wezterm cli get-text --escapes` re-serialises its own grid into a
+//! **classic** SGR repertoire — a sub-parameter is normalised away (`4:1` comes back as bare `4`),
+//! a double underline is spelled ECMA-48's `21`, and `4:3`, `4:4`, `4:5`, `53` and `58` come back
+//! as nothing at all — and every construct it *does* emit means what ECMA-48 says. So it is
+//! [`Dialect::Ecma48`] too, and what it needed was two arms in `sgr` and `escape`: **`ESC ( B`** is
+//! three bytes and the two-byte fallback left the `B` as content, and **SGR 21** had never been
+//! reached because the engine always writes `4:n`.
+//!
+//! **One hazard comes with that second arm and is left standing deliberately.** xterm and much of
+//! its family read 21 as *bold off*, so a capture format spelling it that way would be parsed here
+//! as bold-still-set plus a double underline — an invented attribute, which is what this enum
+//! exists to stop. It is not conditioned on a dialect because a variant with no probed capture
+//! behind it is a branch nothing can test; `sgr`'s own comment says so, and `tests.rs` asserts that
+//! no other committed fixture contains `CSI 21 m`, so the day one does an arm is being added.
+//!
 //! # A lossy spelling is not a dropped attribute, and the difference decides a `quirks.rs` row
 //!
 //! kitty writes a **dotted** underline as `CSI 4 : m` — parameter 4 with an *empty* sub-parameter —
@@ -463,6 +479,12 @@ fn escape(bytes: &[u8], style: Style, dialect: Dialect) -> Result<(usize, Style)
                 .ok_or(DumpError::UnterminatedEscape)?;
             Ok((end, style))
         }
+        // **A charset designation is three bytes and carries no style.** `ESC ( B` designates
+        // US-ASCII as G0 and WezTerm's `get-text --escapes` leads every row with one; the
+        // two-byte fallback below consumed `ESC (` and left the `B` to be read as content, so
+        // every row of that arm's scene 01 arrived as `Bbold`. The whole SCS family is listed
+        // because a capture with one designator may carry any of them and none of them is a glyph.
+        b'(' | b')' | b'*' | b'+' | b'-' | b'.' | b'/' if bytes.len() >= 3 => Ok((3, style)),
         _ => Ok((2, style)),
     }
 }
@@ -527,6 +549,22 @@ fn sgr(params: &[u8], mut style: Style, dialect: Dialect) -> Style {
             7 => style.attrs.set(Attrs::REVERSE),
             8 => style.attrs.set(Attrs::HIDDEN),
             9 => style.attrs.set(Attrs::STRIKE),
+            // **ECMA-48 spends 21 on *doubly underlined***, and 22 on normal intensity. *Bold
+            // off* is xterm's reading of 21 and a deviation from the standard this parser is
+            // named after. Nothing needed the arm while every capture spelled the style `4:2`;
+            // WezTerm's normalises the sub-parameter away and writes `21`.
+            //
+            // **The hazard, and why it is not conditioned on the dialect.** A future arm whose
+            // serialiser writes *bold off* as 21 would be parsed here as bold-still-set **plus** a
+            // double underline the terminal never drew — the instrument inventing an attribute,
+            // which is the whole thing [`Dialect`] exists to prevent. It is left unconditional
+            // because a `Dialect` variant with no capture behind it is a branch nothing can test:
+            // the enum's own rule is that a dialect is added when a capture is **probed** and found
+            // to disagree, and none here does. What stands in for a gate is
+            // `the_wezterm_capture_is_written_in_two_constructs_no_other_arm_sent`, which asserts
+            // no other committed fixture contains `CSI 21 m` — so the day one does, an arm is
+            // being added and this paragraph is what its author has to read. See the module docs.
+            21 => style.underline = Underline::Double,
             22 => style.attrs.clear(Attrs(Attrs::BOLD.0 | Attrs::DIM.0)),
             23 => style.attrs.clear(Attrs::ITALIC),
             24 => style.underline = Underline::None,

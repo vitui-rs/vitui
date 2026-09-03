@@ -370,11 +370,12 @@ pub fn scene04() -> [Pair; 6] {
             emit: &[(0, "AB"), (2, "\u{1b}[41m漢\u{1b}[0m"), (4, "CD"), (3, "x")],
             want: "AB xCD",
             report_style: Some(2),
-            asks: "**what does the blanked half wear, and the three families disagree.** The wide \
-                   glyph carries a red background and the `x` does not. kitty 0.48.2 keeps the \
-                   orphan's own background; Ghostty 1.3.1 and tmux 3.7c blank it to the SGR state \
-                   in force. Reported, never compared — there is no single right answer to hold an \
-                   arm to, and this row's value is that sentence rather than a tick",
+            asks: "**what does the blanked half wear, and the askable families split two-two.** The \
+                   wide glyph carries a red background and the `x` does not. kitty 0.48.2 and \
+                   WezTerm 20240203 keep the orphan's own background; Ghostty 1.3.1 and tmux 3.7c \
+                   blank it to the SGR state in force; Terminal.app 2.15 cannot be asked. Reported, \
+                   never compared — there is no single right answer to hold an arm to, and this \
+                   row's value is that sentence rather than a tick",
         },
         Pair {
             label: "ruler",
