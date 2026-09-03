@@ -2164,8 +2164,15 @@ pub const PICKER_MAY_NOT: [(&str, &str); 4] = [
 ];
 
 /// **What `file_picker` must contain**: its three parts, by name.
+///
+/// **`collection_shaped` and not `collection_into` since production 08**, which is where the row
+/// loop went when the picker's listing gained the refused spellings §17's `shrunk` and `wheeled`
+/// axes need: the picker *is* `collection` inside a layer, so the mistakes `collection` has arms for
+/// are mistakes a picker's listing can make too, and until scenes 41 and 42 asked there was no way
+/// to write either down on this side. It is `crate::collect`'s own note about `table` one component
+/// over.
 pub const PICKER_CALLS: [&str; 3] = [
-    "collection_into(",
+    "collection_shaped(",
     "overlay_into(",
     "file_preview_pane_with(",
 ];

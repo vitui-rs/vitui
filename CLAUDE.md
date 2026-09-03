@@ -39,12 +39,13 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   obligations as functions over it. Register 233 rows, 228 evaluated and
   **no row pinned red** — row 112 was the last, inverted by runtime architecture 31 — beside
   5 unreachable across the crate line (ADR 0023) and **nothing unsubjected**: production 03 took
-  `table`'s two and production 04 took `field`'s four, which were the last. **Thirty-six of the
-  thirty-eight scenes stand up, none is red and two have nothing to run over** —
+  `table`'s two and production 04 took `field`'s four, which were the last. **Forty of the
+  forty-two scenes stand up, none is red and two have nothing to run over** —
   `scenes.rs`'s own gate names the numbers, and *every scene stood up* was a third stale summary
-  sentence of production 01's kind, corrected by 04. That gate's own **name** was a fourth, saying
-  three and thirty-three while its assertions said two and thirty-four; production 06 renamed it
-  with its five register citations. Scenes **34, 35 and 36 are production 05's**,
+  sentence of production 01's kind, corrected by 04. That gate's own **name** has now been stale
+  twice and corrected twice — production 06 renamed it from three-and-thirty-three, production 08
+  from thirty-six — each time with its five register citations, which is the recorded policy: a
+  stale name carrying a note saying so stays, one that does not is corrected. Scenes **34, 35 and 36 are production 05's**,
   all three in `crates/vitui-components/src/window.rs`: `field`'s scrolled, shrunk and wheeled axes,
   which §21 states over one narrow row and the freeze declares four of. Scenes **37 and 38 are
   production 06's** and they are `table`'s last two, in **two** files rather than one — a shrink is a
@@ -52,17 +53,22 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   is driven and where `table` is now the **third** subject beside `collection` and `scroll_area`.
   **Two
   inversions there were the runtime's and no components ticket's**: row 112 and row 161, the bytes
-  on the wire, by runtime architecture 34. Obligations **O1–O4, O6 and O7 are `Met`; O5 is the one
-  left**, at **25 of 34 `(component, axis)` pairs with a scene**, and is watched panicking, because a
-  query with no evidence must fail loudly rather than pass.
+  on the wire, by runtime architecture 34. Scenes **39 to 42 are production 08's** and they are the
+  overlay family's last four, all four in **one** file (`crate::dropped`) — because 06's two axes
+  were decided by two different things and these four are decided by one: **the list is behind a
+  layer**, which changes who can see the arithmetic rather than the arithmetic. Obligations
+  **O1–O4, O6 and O7 are `Met`; O5 is the one left**, at **29 of 34 `(component, axis)` pairs with a
+  scene**, and is watched panicking, because a query with no evidence must fail loudly rather than
+  pass.
 - **`vitui-apps` — 18 applications**, one file each in `examples/`. A component ticket ships one, and
   since ticket 45 that is obligation **O7** rather than a habit: `vitui_components::consumer` joins
   the freeze against the import paths here.
 - **Active work: `.scratch/vitui-production/`** (opened 2026-09-01) — the whole workspace's road to a
   published crate, sixteen tickets in five groups: the paperwork, the six unsubjected register rows
   (**all six standing**, by production 03 and 04),
-  the fourteen hostile axes O5 still owed (**nine left**, `field`'s three taken by production 05
-  and `table`'s two by 06), three tier-1 terminals nobody has run, and the release.
+  the fourteen hostile axes O5 still owed (**five left**, `field`'s three taken by production 05,
+  `table`'s two by 06 and the overlay family's four by 08), three tier-1 terminals nobody has run,
+  and the release.
   **Windows is last, as 16**, blocked by the publish — which carries the consequence that no shipped
   string may claim a terminal the conform suite has not asked. Everything on it was already true and
   already recorded; what was missing was that nothing scheduled any of it.
@@ -189,6 +195,37 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   only catches a sentence coming back. **Do not reword one of the twelve without the other two**,
   and note what the gate does *not* reach: a false sentence outside a `## Status` section.
 
+- **An overlay body draws through the `Ink` seam and a `Ctx::overlay` body still cannot capture
+  one** (production 08). `input::popup_body` and `files::picker_body` are generic over `I: Ink`, so
+  the shipped drawing of a `select`'s popup and a `file_picker`'s listing is what a
+  `crate::runner::Pen` sees — but only when a caller invokes those two functions **in the base
+  pass**, because a body is `FnMut(&mut Ctx<'f, '_>) + 'f` and a `&mut I` borrowed for the owner's
+  call cannot travel into one (spec §1's fifth component). That base-pass call is
+  `crate::popup`'s named substitution and it is on **both arms** of every comparison, so it is on
+  the side of neither. What it replaced was worse: `popup::popup_cells_into` is *the same two orders
+  written where a `Pen` can see them*, which is a copy, and `crate::ink`'s rule is that a gate
+  written against a copy tests the copy. It is still there because `FILL_FIRST` is scene 14's number;
+  **it is now unnecessary** and a later ticket may retake that figure over the shipped body.
+
+- **A popup's wheel needs two opening frames and `crate::wheel::Subject::ALL` stays at three**
+  (production 08). A notch is resolved against the **previous** frame's hit index and a layer's
+  entries only enter it once the layer has been placed, so a run over an overlay owner opens with a
+  pointer position and two frames where that drive loop opens with one. A wheel gate is therefore
+  **not one drive loop**: `crate::obligations`' wheel-pair join is over three subject lists —
+  `wheel::Subject::ALL`, `window::WHEELED_SUBJECTS` and `dropped::WHEELED_SUBJECTS` — because a
+  notch's cadence is a property of *what consumes it*, and a component reading `Response::scrolled`
+  in its own draw, a base-pass subject and a body inside a layer are three cadences.
+
+- **A reserved bar's thumb is a function of the extent and the offset it is handed is a literal
+  zero** (production 08). `overlay`'s shell builds `Span { viewport, extent: rows, offset: 0 }`, so a
+  popup's bar does **not** move as its list scrolls — and what a tail-cut reference render cannot
+  share is the **row count**: the thumb is 9 rows of 24 over 64 rows and 18 over 32, which is 9 cells
+  over 9 rows on the **correct** arm, all in one column. A scene over such an oracle compares the
+  **interior** (`Canvas::cropped`, so no second `diff` exists) and **reports the excluded number
+  beside it**: an exclusion a reader is told about is owed its measurement. **The first record of
+  this said *offset* and a review caught it** — the two readings send a session to different places,
+  because aligning the two arms' offsets changes nothing and the extent is the only lever.
+
 - **Nothing holds the focus until an application seats it** (issue 25): `if cx.focused().is_none()`
   inside the draw. A runtime that seats the first stop was refused.
 - **`Driver::unhandled` is read *after* the frame**, never before — it is a window onto the same
@@ -252,7 +289,12 @@ were closed by production tickets 06, 03 and 02 — do not re-file them.
 The verification machinery is architecture, and most of the defects found here were in the
 instrument rather than in the code. Each of these has bitten at least twice.
 
-- **A scanner looking for a literal contains that literal.** Assemble needles from fragments.
+- **A scanner looking for a literal contains that literal.** Assemble needles from fragments, or
+  scan a **bounded** region — the function's own body — which is the stronger form and the one this
+  crate has twice (`collect`'s column solve, and its `tree`-is-a-collection scan since production
+  08). That one had **two** satisfiers and neither was a call: the line holding the needle, and an
+  `#[expect]` reason string naming the same function. A gate with two ways to read green on a file
+  containing no call at all.
 - **A needle is a join, and a bare name is not one.** `pub fn x(` never matches `pub fn x<T>(` — the
   boundary is `(` **or** `<` — and `keys::text` is not `text::text`, so join through the module the
   freeze homes a component in.
@@ -301,6 +343,8 @@ crates/vitui-runtime      layout, identity, focus, hit-testing, routing, key map
                           overlays, the data contract — no scene tree, no reactivity
 crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers — 29 of 29 built
                           └ `gallery`: 29 panels as a value, where §21's rows 7 and 8 are measured
+                          └ `dropped`: the two overlay owners' four axes, where a popup's interior
+                            is drawn in the base pass because a layer body takes no ink
                           └ per component: a doc page with a compiled example (O1), a golden screen
                             per construction under `tests/golden/` (O3, 36 of them, `VITUI_BLESS=1`),
                             a declared keyboard contract for the thirteen that read a key (O4), and

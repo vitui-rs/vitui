@@ -2875,7 +2875,7 @@ pub const REGISTER: [Row; 233] = [
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
                     name: "two_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           thirty_six_are_stood_up",
+                           forty_are_stood_up",
                 },
             ],
         },
@@ -3105,7 +3105,7 @@ pub const REGISTER: [Row; 233] = [
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
                     name: "two_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           thirty_six_are_stood_up",
+                           forty_are_stood_up",
                 },
             ],
         },
@@ -3529,7 +3529,7 @@ pub const REGISTER: [Row; 233] = [
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
                     name: "two_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           thirty_six_are_stood_up",
+                           forty_are_stood_up",
                 },
             ],
         },
@@ -3685,7 +3685,7 @@ pub const REGISTER: [Row; 233] = [
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
                     name: "two_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           thirty_six_are_stood_up",
+                           forty_are_stood_up",
                 },
             ],
         },
@@ -4182,7 +4182,7 @@ pub const REGISTER: [Row; 233] = [
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
                     name: "two_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           thirty_six_are_stood_up",
+                           forty_are_stood_up",
                 },
             ],
         },

@@ -64,7 +64,7 @@
 //! **A `collection` claims `Esc` for itself** — `from_key` reads it as `Gesture::Nothing`, *clear the
 //! selection* — so the key is consumed inside the modal and never reaches `Driver::unhandled`. The
 //! shipped `select` closes its own popup on `Esc` because its body takes **first refusal** through
-//! `collect::collection_chorded`, and that hook is crate-private on purpose: *a public one would
+//! `collect::collection_shaped`, and that hook is crate-private on purpose: *a public one would
 //! invite an application to spell a keyboard for a collection it did not write.* So an application
 //! that puts a collection in a dialog owns a chord and not `Esc`, and this one owns `Ctrl+P`. Filed
 //! as components architecture issue 22 with the three answers rather than worked around silently.

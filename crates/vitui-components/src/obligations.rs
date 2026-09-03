@@ -479,6 +479,24 @@ pub const AXIS_SCENES: &[(&str, Axis)] = &[
     // `crate::scenes::axis_scenes` derives it from the scene list.
     ("table", Axis::Shrunk),
     ("table", Axis::Wheeled),
+    // Scenes 39 to 42 — production 08's, and they are the overlay family's last four.
+    //
+    // **§21 carries one overlay-family row and it is scene 14**, whose `covers` is empty on purpose:
+    // that screen measures what a layer costs the frame and plays no wheel and no scroll, and
+    // `crate::popup` says so beside the assertion that `select` declares two of the four axes.
+    // So all four pairs here were expressible from the day both components were declared — both
+    // bodies draw §5's collection and both specs say *reached by calling it* — and nothing had
+    // scheduled the question, which is production 05's and 06's entries above for the third time.
+    //
+    // **All four are one file** where 06's two were two, and the reason is that one thing decides
+    // all four: the list is behind a **layer**, which changes who can see the arithmetic rather
+    // than the arithmetic. See `crate::dropped`.
+    //
+    // **Their position is scene order and not importance**, for scene 33's entry's reason.
+    ("select", Axis::Scrolled),
+    ("select", Axis::Wheeled),
+    ("file_picker", Axis::Shrunk),
+    ("file_picker", Axis::Wheeled),
 ];
 
 /// **The ids whose data-volume cost has been measured and answers both of O6's bounds.** O6's
@@ -900,10 +918,19 @@ mod tests {
     /// This read `Subject::ALL` alone for twenty-six tickets, and production 05 minted a wheel
     /// scene in a **second** file — [`crate::window`]'s scene 36, twenty posted notches over a
     /// `field`, whose notch path is the component consuming `Response::scrolled` itself rather than
-    /// `crate::wheel`'s two-subject drive loop. So the population is
-    /// [`crate::wheel::Subject::ALL`] plus [`crate::window::WHEELED_SUBJECTS`], **both derived from
-    /// the gate that plays them**, which is what the sentence below is about: written out by hand
-    /// on either side, a third subject escapes both halves while both stay green.
+    /// `crate::wheel`'s two-subject drive loop. Production 08 minted a **third**:
+    /// [`crate::dropped`]'s scenes 40 and 42, over the two overlay owners, whose cadence is two
+    /// opening frames rather than one because a layer's entries are only in the hit index a notch is
+    /// resolved against once the layer has been placed. So the population is
+    /// [`crate::wheel::Subject::ALL`] plus [`crate::window::WHEELED_SUBJECTS`] plus
+    /// [`crate::dropped::WHEELED_SUBJECTS`], **every one derived from the gate that plays them**,
+    /// which is what the sentence below is about: written out by hand on either side, a further
+    /// subject escapes every half while all of them stay green.
+    ///
+    /// **Three sources is the point at which the shape stops being an exception**: a wheel gate is
+    /// not one drive loop, because a notch's cadence is a property of *what consumes it* — a
+    /// component reading `Response::scrolled` in its own draw, a drive loop over a base-pass
+    /// subject, and a body inside a layer are three cadences and no one loop has all three.
     ///
     /// # The equality is over **sorted** lists, and it stopped being over ordered ones in
     /// production 06
@@ -926,6 +953,7 @@ mod tests {
             .iter()
             .map(|s| s.id())
             .chain(crate::window::WHEELED_SUBJECTS.iter().copied())
+            .chain(crate::dropped::WHEELED_SUBJECTS.iter().copied())
             .collect();
         played.sort_unstable();
         for id in &played {
@@ -1084,7 +1112,7 @@ mod tests {
         // `field`'s last three** — scrolled, shrunk and wheeled, none of which was ever
         // unexpressible and none of which anything had scheduled. Eleven are left and they are
         // production 06 to 09's. A query that moves is a query that is measuring something.
-        assert_eq!(unmet(o5(AXIS_SCENES)), (34, 9), "O5");
+        assert_eq!(unmet(o5(AXIS_SCENES)), (34, 5), "O5");
         // **O6 is `Met` over the seven rows that take a volume**, so it is asserted from the other
         // side too. The population is derived rather than written out — the `Layer::L2` column plus
         // the rows that keep a memo keyed on a data revision — and it answered **seven** where
@@ -1278,7 +1306,7 @@ mod tests {
     /// See [`o1_fails_loudly`]. **The one worth more than the other four together**, and the one
     /// whose population is `(component, axis)` pairs rather than scenes.
     #[test]
-    #[should_panic(expected = "O5 is unmet: 9 of 34")]
+    #[should_panic(expected = "O5 is unmet: 5 of 34")]
     fn o5_fails_loudly() {
         o5(AXIS_SCENES).assert_met("O5");
     }

@@ -310,6 +310,46 @@ impl Canvas {
         (0..self.h).map(|y| self.row_text(y)).collect()
     }
 
+    /// **A window onto this surface as a surface of its own**, so that a comparison can be made
+    /// over part of a screen without a second comparison being written.
+    ///
+    /// Production 08's, and what it is for is stated where it is used: a reserved scrollbar is a
+    /// function of the **offset** ([`crate::overlay::overlay`]'s gutter over
+    /// [`crate::scroll::Span`]), so a reference render cut at row `k` and drawn at offset 0
+    /// cannot carry the same thumb as a subject drawn at offset `k`. A comparison including that
+    /// column would report the oracle's own cut on every arm, including the correct one.
+    ///
+    /// **A crop and not a second `diff`**, which is the whole reason it is here: [`Canvas::diff`] is
+    /// the one cell-for-cell comparison this crate has, and an interior comparison written beside it
+    /// would be a second answer to *do these two screens agree*. `crate::dropped` reports the
+    /// cropped equality and the whole-surface one **both**, because the difference between them is
+    /// the measurement of what the bar costs an oracle.
+    ///
+    /// Cells outside this surface come back unwritten, which is [`Canvas::get`]'s own answer and
+    /// not a special case.
+    ///
+    /// **The re-damage ledger does not come with it**, and that is deliberate rather than an
+    /// oversight: a crop is a *reading* and not a draw, so the cells are copied in place of going
+    /// through the write path that records them. A cropped surface therefore answers `0` to
+    /// [`Canvas::take_repaints`] and is for [`Canvas::diff`] and nothing else — re-damage is
+    /// measured over the frames a [`Pen`] actually wrote.
+    pub fn cropped(&self, r: vitui_runtime::Rect) -> Canvas {
+        let (w, h) = (r.w, r.h);
+        let mut out = Canvas::new(w, h);
+        for y in 0..h {
+            for x in 0..w {
+                let (sx, sy) = (r.x + i32::from(x), r.y + i32::from(y));
+                let cell = u16::try_from(sx)
+                    .ok()
+                    .zip(u16::try_from(sy).ok())
+                    .and_then(|(sx, sy)| self.get(sx, sy))
+                    .cloned();
+                out.cells[usize::from(y) * usize::from(w) + usize::from(x)] = cell;
+            }
+        }
+        out
+    }
+
     /// Cell for cell against another surface of the same size.
     ///
     /// # Panics

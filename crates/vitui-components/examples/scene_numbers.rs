@@ -8,18 +8,23 @@
 //!
 //! # What it prints, and why each half is here
 //!
-//! 1. **The scene list, one line a scene, in §21's column order.** Thirteen of the thirty-one
-//!    print the ticket that will build their subject rather than a row of zeros — see
-//!    [`vitui_components::scenes::report`], which argues that at length. One is a rehearsal over a
-//!    fixture and says so, three are stood up on their own components, and **fifteen are pinned
-//!    red**: components ticket 11's five, ticket 14's two, ticket 16's two, ticket 18's four and
-//!    ticket 21's two. Every one of them waits for its subject except the wheel gate, which waits
-//!    for the fix.
+//! 1. **The scene list, one line a scene, in §21's column order.** **Two of the forty-two** print
+//!    the ticket that will build their subject rather than a row of zeros — see
+//!    [`vitui_components::scenes::report`], which argues that at length. One is played by this
+//!    report and carries its own numbers, **forty are stood up on their own components**, and
+//!    **none is pinned red** — row by row, the whole list has turned since components ticket 04
+//!    wrote it, and the counts here are the ones
+//!    `scenes::tests::two_scenes_have_nothing_to_run_over_none_is_red_and_forty_are_stood_up`
+//!    asserts. **The paragraph this replaced was three tickets' worth of stale**, saying thirteen
+//!    of thirty-one and fifteen pinned red: production 01's defect in the one place a `#[test]`
+//!    cannot reach it, because `cargo test` does not run an example. Corrected in passing by
+//!    production 08, which is where the count last moved.
 //! 2. **The four hostile axes, each caught.** *n cells over m rows*, beside what the defective build
 //!    cost — because the whole argument for an equality against a reference render is that **every
 //!    one of the four made the defective build look healthier**, and a report that printed only the
 //!    diff would leave the reader to take that on trust.
-//! 3. **O5's coverage**, sixteen of thirty-four, with the eighteen bare pairs named.
+//! 3. **O5's coverage**, **twenty-nine of thirty-four**, with the **five** bare pairs named — the
+//!    scroll family's three and `tree`'s two, which are production 09's and 07's.
 //!
 //! # It asserts the shape and not the timings
 //!
@@ -49,11 +54,12 @@ const H: u16 = 80;
 
 fn main() {
     println!(
-        "§21's scene list — thirty scenes, twenty-seven of them the spec's table, and the \
-         spec's table is the authority\n"
+        "§21's scene list — {} scenes, twenty-seven of them the spec's table, and the \
+         spec's table is the authority\n",
+        SCENES.len()
     );
 
-    // One rehearsal, over a fixture, so that the format the other twenty-six will print in is
+    // One rehearsal, over a fixture, so that the format the rest of the list will print in is
     // visible rather than described.
     let scrolled = Fixture::lines(W, 12, 1_000).scrolled_to(60);
     let (run, allocated) =
@@ -191,13 +197,18 @@ fn main() {
     // written while a click was an arithmetic substitution and a delta added to an offset has no
     // second axis to be wrong on.
     //
-    // **This line said seventeen for four tickets and nothing said so**, which is components ticket
-    // 20's own finding arriving in the file that finding was about: `cargo test` does not run an
-    // example, so an `assert!` here is compiled by `cargo clippy --all-targets` and evaluated by
-    // nobody. `crate::obligations`'s own `unmet(o5(AXIS_SCENES)) == (34, 9)` is the gate and was
-    // green throughout; this report — **O5's own** — had been panicking. Found by a review during
-    // components 36.
-    assert_eq!(covered, 25);
+    // **The coverage count is gone, and it is gone for the reason the note further down gives.**
+    // It said seventeen for four tickets, was resynced to twenty-five by components 36, and had
+    // rotted again to five-behind by production 08 — because `cargo test` does not run an example,
+    // so an `assert!` here is compiled by `cargo clippy --all-targets` and evaluated by nobody.
+    // `crate::obligations`'s own `unmet(o5(AXIS_SCENES)) == (34, 5)` is the gate and was green
+    // throughout, and it is strictly more than this line said. **Resyncing it a second time would
+    // put the same trap back one number later**, which is this file's own recorded conclusion about
+    // the standing counts two notes below — so it is deleted rather than corrected, and `covered`
+    // stays as a thing the report *prints*.
+    //
+    // **What stays are the relations**, which cannot go stale because both sides move together: the
+    // population §17 states, derived once from the coverage table and once from `INVENTORY`.
     assert_eq!(coverage.len(), 34);
     assert_eq!(
         INVENTORY
@@ -252,7 +263,7 @@ fn main() {
     // it because `cargo test` does not run an example**: it is compiled by `cargo clippy
     // --all-targets` and evaluated by nothing. Resyncing them would put the same trap back one
     // number later, so they are deleted rather than corrected, and
-    // `scenes::tests::two_scenes_have_nothing_to_run_over_none_is_red_and_thirty_six_are_stood_up`
+    // `scenes::tests::two_scenes_have_nothing_to_run_over_none_is_red_and_forty_are_stood_up`
     // owns those figures — it asserts the scene *numbers* and not only their count, which is
     // strictly more than these two lines said. Found by components 20.
 }

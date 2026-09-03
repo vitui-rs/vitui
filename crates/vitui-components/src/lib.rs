@@ -399,6 +399,7 @@ pub mod counters;
 pub mod dense;
 pub mod doc;
 pub mod document;
+pub mod dropped;
 pub mod edit;
 pub mod forest;
 pub mod form;

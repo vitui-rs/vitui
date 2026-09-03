@@ -45,14 +45,14 @@ use vitui_runtime::layout::text::{truncate, width};
 use vitui_runtime::overlay::{OverlayOpts, Placement, Z};
 use vitui_runtime::{Ctx, CursorShape, Glyph, Id, Interest, Response, Role};
 
-use crate::collect::{CollOpts, CollState, Mode, collection_chorded};
+use crate::collect::{CollOpts, CollState, Mode, collection_shaped};
 use crate::edit::{Text, WrapKind};
 use crate::frame::{Face, face_paint};
 use crate::ink::{Direct, Ink};
 use crate::keys;
 use crate::nav::{self, Cursor, TypeAhead};
 use crate::order::Rows;
-use crate::overlay::{Blur, MARK, PopupState, ShellOpts, overlay_with, popup_size};
+use crate::overlay::{Blur, MARK, PopupState, ShellOpts, overlay_into, popup_size};
 use crate::scroll::Orient;
 use crate::state::Faces;
 use crate::text::{ChipOpts, Justify, chip_drawn};
@@ -1327,6 +1327,16 @@ pub(crate) struct SelectShape {
     pub(crate) holds: Holds,
     /// How the owner qualifies a blur.
     pub(crate) blur: Blur,
+    /// **What the popup's own list refuses**, which is `collection`'s vocabulary and not a second
+    /// one.
+    ///
+    /// Production 08, and it is [`crate::collect::TableShape`]'s `coll` field one family over and
+    /// for its reason: spec §12 states the popup's list as *§5's collection over the option list*,
+    /// so the three axes a windowed list can be wrong on are `collection`'s, reached by calling it.
+    /// A second vocabulary here would be a second answer to *what is a stale tail*.
+    ///
+    /// [`crate::collect::TableShape`]: crate::collect
+    pub(crate) list: crate::collect::CollShape,
 }
 
 /// **What an overlay body holds its list position in.**
@@ -1609,7 +1619,19 @@ fn select_shaped<'f, I: Ink>(
                 placement: opts.placement,
                 ..OverlayOpts::sized(size.0, size.1)
             },
-            move |cx| popup_body(cx, popup, options, chosen, search, shape, carried, id),
+            move |cx| {
+                popup_body(
+                    &mut Direct,
+                    cx,
+                    popup,
+                    options,
+                    chosen,
+                    search,
+                    shape,
+                    carried,
+                    id,
+                )
+            },
         );
     }
 
@@ -1627,10 +1649,12 @@ fn select_shaped<'f, I: Ink>(
 #[expect(
     clippy::too_many_arguments,
     reason = "the body's own five, the shape, the offset the refused `Holds` arm carries by value, \
-              and the owner's id — which it needs in order to hand the keyboard over exactly once. \
-              The extras exist so the refused arms are one field apart rather than two bodies"
+              and the owner's id — which it needs in order to hand the keyboard over exactly once, \
+              plus the `Ink` seam's writer. The extras exist so the refused arms are one field \
+              apart rather than two bodies"
 )]
-fn popup_body(
+pub(crate) fn popup_body<I: Ink>(
+    ink: &mut I,
     cx: &mut Ctx<'_, '_>,
     popup: &mut PopupState,
     options: &[&str],
@@ -1661,17 +1685,36 @@ fn popup_body(
         let _ = cx.interact(list, area, Interest::CLICK.with(Interest::FOCUS));
     }
 
-    let shell = overlay_with(
+    // **The shell goes through the seam and not through `Direct`**, which is production 08's one
+    // change to this function. `overlay_with` hard-codes [`Direct`], so everything a popup drew was
+    // invisible to a [`Pen`](crate::runner::Pen) and the only picture of a popup's interior this
+    // crate had was `crate::popup::popup_cells_into` — *the same two orders written where a `Pen`
+    // can see them*, which is to say a copy, and `crate::ink`'s own trap says a gate written
+    // against a copy tests the copy. Threaded, the shipped body **is** the drawing a scene compares,
+    // and `crate::dropped` is what compares it.
+    //
+    // **What it does not reach is a `Ctx::overlay` body**, and that is unchanged: a body is
+    // `FnMut(&mut Ctx<'f, '_>) + 'f` and a `&mut I` borrowed for the call cannot travel into one
+    // (spec §1's fifth component, components 26's `'f`). So a `Pen` reaches this function only when
+    // a caller invokes it **in the base pass** — `crate::popup`'s own named substitution, and it is
+    // on both arms of every comparison there.
+    //
+    // **The shell's id, minted here rather than inside `overlay_with`.** One source line, and it
+    // still mints two ids for two open popups: the id stack is rooted at the *owner*, which is the
+    // sentence the `Closed::Declare` branch above already rests on.
+    let shell_id = cx.id();
+    let shell = overlay_into(
+        ink,
         cx,
+        shell_id,
         area,
         rows,
         &ShellOpts::default(),
-        &mut |cx, interior| {
+        |ink: &mut I, cx: &mut Ctx<'_, '_>, interior: Rect| {
             // **The refused fill**, before a single row is written. Every non-blank cell the rows then
             // write is written twice and re-damaged for as long as the popup stands.
             if shape.fill == Fill::FillFirst {
                 let paint = cx.theme().paint(Role::Body);
-                let mut ink = Direct;
                 for row in 0..interior.h {
                     let _ = ink.run(
                         cx,
@@ -1740,8 +1783,8 @@ fn popup_body(
             } else {
                 &mut scratch
             };
-            let list_resp = collection_chorded(
-                &mut Direct,
+            let list_resp = collection_shaped(
+                ink,
                 cx,
                 interior,
                 list,
@@ -1750,7 +1793,7 @@ fn popup_body(
                 |buf, range: core::ops::Range<usize>| {
                     range.into_iter().find(|&i| options[i].starts_with(buf))
                 },
-                |ink: &mut Direct, cx: &mut Ctx<'_, '_>, r: Rect, i: usize, face: Face| {
+                |ink: &mut I, cx: &mut Ctx<'_, '_>, r: Rect, i: usize, face: Face| {
                     let paint = face_paint(cx.theme(), face);
                     let mark = if i == chosen {
                         cx.theme().glyph(Glyph::Tick)
@@ -1786,6 +1829,7 @@ fn popup_body(
                     }
                 },
                 &mut mine,
+                shape.list,
             );
             // **A click on a row is a choice**, and it is the collection's own response rather
             // than a second hit entry per row: §5's *one hit entry per collection* is what keeps
@@ -3155,6 +3199,86 @@ pub mod defective {
             opts,
             super::SelectShape {
                 holds: super::Holds::CopyOfTheOffset,
+                ..Default::default()
+            },
+        )
+    }
+
+    /// **A `select` whose popup asks to be brought into view on every frame.** §17's `wheeled` axis
+    /// on this component, and the arm `CONTEXT.md` forbids by name.
+    ///
+    /// The **second** wheel defect this component can make and the first that is not its own:
+    /// [`a_copy_of_the_offset`] is §7's `Copy`-only body, where the notch lands and the write dies;
+    /// this one is `collection`'s unconditional reveal, where the notch lands, the write survives
+    /// and the pull undoes it before anything draws. Both move the offset **0** in twenty clicks
+    /// and both leave the screen identical, and a gate that plays one has not played the other.
+    /// [`a_popup_that_never_reveals`] is the third arm.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the shipped signature plus the one arm, so the two are one call apart"
+    )]
+    pub fn a_popup_revealing_every_frame<'f, I: crate::ink::Ink>(
+        ink: &mut I,
+        cx: &mut vitui_runtime::Ctx<'f, '_>,
+        id: vitui_runtime::Id,
+        area: vitui_runtime::Rect,
+        st: &mut super::SelectState,
+        popup: &'f mut crate::overlay::PopupState,
+        options: &'f [&'f str],
+        opts: &super::SelectOpts,
+    ) -> vitui_runtime::Response {
+        super::select_shaped(
+            ink,
+            cx,
+            id,
+            area,
+            st,
+            popup,
+            options,
+            opts,
+            super::SelectShape {
+                list: crate::collect::CollShape {
+                    reveal: crate::collect::Reveal::EveryFrame,
+                    ..crate::collect::CollShape::RULE
+                },
+                ..Default::default()
+            },
+        )
+    }
+
+    /// **A `select` whose popup never asks to be brought into view.** The way to pass a wheel gate
+    /// written in one direction, and it is not a fix.
+    ///
+    /// [`a_popup_revealing_every_frame`]'s third arm, for `crate::wheel`'s reason: deleting the call
+    /// passes the loud half and loses the keyboard.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the shipped signature plus the one arm, so the two are one call apart"
+    )]
+    pub fn a_popup_that_never_reveals<'f, I: crate::ink::Ink>(
+        ink: &mut I,
+        cx: &mut vitui_runtime::Ctx<'f, '_>,
+        id: vitui_runtime::Id,
+        area: vitui_runtime::Rect,
+        st: &mut super::SelectState,
+        popup: &'f mut crate::overlay::PopupState,
+        options: &'f [&'f str],
+        opts: &super::SelectOpts,
+    ) -> vitui_runtime::Response {
+        super::select_shaped(
+            ink,
+            cx,
+            id,
+            area,
+            st,
+            popup,
+            options,
+            opts,
+            super::SelectShape {
+                list: crate::collect::CollShape {
+                    reveal: crate::collect::Reveal::Never,
+                    ..crate::collect::CollShape::RULE
+                },
                 ..Default::default()
             },
         )

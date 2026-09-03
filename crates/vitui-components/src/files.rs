@@ -39,7 +39,7 @@ use vitui_runtime::keys::{Code, Edge};
 use vitui_runtime::work::{Cancel, Requested, Task};
 use vitui_runtime::{Ctx, Glyph, Id, Interest, Rect, Response, Role};
 
-use crate::collect::{CollOpts, CollState, Mode, collection_into};
+use crate::collect::{CollOpts, CollShape, CollState, Mode, collection_shaped};
 use crate::frame::{Face, face_paint};
 use crate::ink::{Direct, Ink};
 use crate::order::Rows;
@@ -925,6 +925,27 @@ where
     )
 }
 
+/// **What the picker's own list refuses**, as one value.
+///
+/// Production 08, and it is [`crate::input::SelectShape`]'s `list` field one component over and for
+/// its reason: spec §15 states the picker's body as *the shell, then a collection beside a preview
+/// pane*, so the axes a windowed list can be wrong on are `collection`'s vocabulary reached by
+/// calling it. One struct rather than three booleans, which is
+/// [`crate::collect::TableShape`]'s arrangement and its reason — three enums side by side in a call
+/// are the arguments a reader transposes.
+///
+/// **The pane's four axes are not here.** [`defective`] carries those, they are `PaneState`'s own
+/// and they are `file_preview_pane`'s rather than `file_picker`'s — scenes 23 and 24 measure them.
+/// This value is the *picker*'s, and what the picker adds to the pane is the list.
+///
+/// [`crate::input::SelectShape`]: crate::input
+/// [`crate::collect::TableShape`]: crate::collect
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub(crate) struct PickerShape {
+    /// What the list refuses. [`CollShape::RULE`] is what the shipped picker passes.
+    pub(crate) list: CollShape,
+}
+
 /// **[`file_picker`]'s shut face, drawn through an [`Ink`] and under an id its caller minted.**
 ///
 /// The entry point a gate takes; [`file_picker`] is this with [`Direct`]. See [`crate::ink`] for why
@@ -954,6 +975,51 @@ pub fn file_picker_into<'f, I, T>(
     decode: fn(u64, &Cancel) -> T,
     line: fn(&mut Ctx<'_, '_>, Rect, &T, u32),
     opts: &PickerOpts,
+) -> Response
+where
+    I: Ink,
+    T: Preview + Send + 'static,
+{
+    file_picker_shaped(
+        ink,
+        cx,
+        id,
+        area,
+        st,
+        body,
+        files,
+        task,
+        decode,
+        line,
+        opts,
+        PickerShape::default(),
+    )
+}
+
+/// **The component, with the refused list spellings threaded in.**
+///
+/// [`crate::input::select`]'s `select_shaped` one component over, and for its reason: a refused arm
+/// has to differ from the shipped build by **one value**, so a reviewer's diff between them is a
+/// single line and the register can point at it.
+#[track_caller]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "`file_picker_into`'s eleven plus the one value that carries every refused spelling, \
+              so the arms are one call apart"
+)]
+fn file_picker_shaped<'f, I, T>(
+    ink: &mut I,
+    cx: &mut Ctx<'f, '_>,
+    id: Id,
+    area: Rect,
+    st: &mut PickerState,
+    body: &'f mut PickerBody<T>,
+    files: &'f [Entry<'f>],
+    task: &'f Task<T>,
+    decode: fn(u64, &Cancel) -> T,
+    line: fn(&mut Ctx<'_, '_>, Rect, &T, u32),
+    opts: &PickerOpts,
+    shape: PickerShape,
 ) -> Response
 where
     I: Ink,
@@ -1064,7 +1130,20 @@ where
             id,
             area,
             vitui_runtime::overlay::OverlayOpts::sized(size.0, size.1),
-            move |cx| picker_body(cx, body, files, task, decode, line, list_w, &pane_opts),
+            move |cx| {
+                picker_body(
+                    &mut Direct,
+                    cx,
+                    body,
+                    files,
+                    task,
+                    decode,
+                    line,
+                    list_w,
+                    &pane_opts,
+                    shape,
+                )
+            },
         );
     }
 
@@ -1079,9 +1158,11 @@ where
     clippy::too_many_arguments,
     reason = "the body's own four plus the two function pointers the owner cannot close over, the \
               list's width and the pane's options. Every one of them is a thing the body may not \
-              capture by reference, which is `'f`'s whole cost"
+              capture by reference, which is `'f`'s whole cost — and since production 08 the `Ink` \
+              seam's writer and the one value carrying every refused spelling"
 )]
-fn picker_body<'f, T>(
+pub(crate) fn picker_body<'f, I: Ink, T>(
+    ink: &mut I,
     cx: &mut Ctx<'f, '_>,
     body: &mut PickerBody<T>,
     files: &[Entry<'_>],
@@ -1090,6 +1171,7 @@ fn picker_body<'f, T>(
     line: fn(&mut Ctx<'_, '_>, Rect, &T, u32),
     list_w: u16,
     pane_opts: &PaneOpts,
+    shape: PickerShape,
 ) where
     T: Preview + Send + 'static,
 {
@@ -1101,8 +1183,13 @@ fn picker_body<'f, T>(
     let rows = u32::try_from(files.len()).unwrap_or(u32::MAX);
     let mut answer = None;
     let shell_id = cx.id();
+    // **The shell goes through the seam and not through `Direct`** — `crate::input::popup_body`'s
+    // one production 08 change, and its reason: everything a popup drew was invisible to a
+    // [`Pen`](crate::runner::Pen), so a scene about the picker's list had no picture to compare.
+    // What the seam does not reach is a `Ctx::overlay` body, which is unchanged; a `Pen` reaches
+    // this function only when a caller invokes it **in the base pass**.
     let shell = overlay_into(
-        &mut Direct,
+        ink,
         cx,
         shell_id,
         area,
@@ -1111,7 +1198,7 @@ fn picker_body<'f, T>(
             kind: Kind::Popup,
             ..ShellOpts::default()
         },
-        |_ink: &mut Direct, _cx: &mut Ctx<'_, '_>, _interior: Rect| {},
+        |_ink: &mut I, _cx: &mut Ctx<'_, '_>, _interior: Rect| {},
     );
     let interior = shell.interior;
     // **What the body reports and the owner reads a frame later.** `Response::local` and not
@@ -1133,8 +1220,8 @@ fn picker_body<'f, T>(
         mode: Mode::Single,
         ..CollOpts::default()
     };
-    let list_resp = collection_into(
-        &mut Direct,
+    let list_resp = collection_shaped(
+        ink,
         cx,
         list,
         &mut body.list,
@@ -1143,10 +1230,12 @@ fn picker_body<'f, T>(
         |buf, range: std::ops::Range<usize>| {
             range.into_iter().find(|&i| files[i].name.starts_with(buf))
         },
-        |ink: &mut Direct, cx: &mut Ctx<'_, '_>, r: Rect, i: usize, face: Face| {
+        |ink: &mut I, cx: &mut Ctx<'_, '_>, r: Rect, i: usize, face: Face| {
             let paint = face_paint(cx.theme(), face);
             let _ = ink.pad_to(cx, r.x, r.y, files[i].name, r.w, paint);
         },
+        &mut |_, _| false,
+        shape.list,
     );
     body.inside = cx.is_focused(list_resp.id);
     if list_resp.clicked {
@@ -1313,6 +1402,105 @@ pub mod defective {
             taken: Taken::InsideTheDraw,
             ..PaneShape::default()
         })
+    }
+
+    /// **A picker whose list asks to be brought into view on every frame.** §17's `wheeled` axis on
+    /// this component, and the arm `CONTEXT.md` forbids by name.
+    ///
+    /// `Reveal::EveryFrame` on the collection inside the popup. The wheel is then dead: a notch
+    /// moves the offset and the pull puts it back before anything draws, on a screen that is
+    /// identical while it happens. [`a_list_that_never_reveals`] is the other arm, and it is not a
+    /// fix — see `crate::dropped::wheeled`, which reports all three.
+    #[track_caller]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "[`a_stale_list_tail`]'s eleven, unchanged"
+    )]
+    pub fn a_list_revealing_every_frame<'f, I, T>(
+        ink: &mut I,
+        cx: &mut vitui_runtime::Ctx<'f, '_>,
+        id: vitui_runtime::Id,
+        area: vitui_runtime::Rect,
+        st: &mut super::PickerState,
+        body: &'f mut super::PickerBody<T>,
+        files: &'f [super::Entry<'f>],
+        task: &'f Task<T>,
+        decode: fn(u64, &vitui_runtime::work::Cancel) -> T,
+        line: fn(&mut vitui_runtime::Ctx<'_, '_>, vitui_runtime::Rect, &T, u32),
+        opts: &super::PickerOpts,
+    ) -> vitui_runtime::Response
+    where
+        I: crate::ink::Ink,
+        T: Preview + Send + 'static,
+    {
+        super::file_picker_shaped(
+            ink,
+            cx,
+            id,
+            area,
+            st,
+            body,
+            files,
+            task,
+            decode,
+            line,
+            opts,
+            super::PickerShape {
+                list: crate::collect::CollShape {
+                    reveal: crate::collect::Reveal::EveryFrame,
+                    ..crate::collect::CollShape::RULE
+                },
+            },
+        )
+    }
+
+    /// **A picker whose list never asks to be brought into view.** The way to pass a wheel gate
+    /// written in one direction, and it is not a fix: the keyboard cursor can no longer bring
+    /// anything into view.
+    ///
+    /// [`a_list_revealing_every_frame`]'s third arm, and it exists for `crate::wheel`'s reason —
+    /// a gate written on the wheel alone goes green the moment somebody deletes the call.
+    #[track_caller]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "[`a_stale_list_tail`]'s eleven, unchanged"
+    )]
+    pub fn a_list_that_never_reveals<'f, I, T>(
+        ink: &mut I,
+        cx: &mut vitui_runtime::Ctx<'f, '_>,
+        id: vitui_runtime::Id,
+        area: vitui_runtime::Rect,
+        st: &mut super::PickerState,
+        body: &'f mut super::PickerBody<T>,
+        files: &'f [super::Entry<'f>],
+        task: &'f Task<T>,
+        decode: fn(u64, &vitui_runtime::work::Cancel) -> T,
+        line: fn(&mut vitui_runtime::Ctx<'_, '_>, vitui_runtime::Rect, &T, u32),
+        opts: &super::PickerOpts,
+    ) -> vitui_runtime::Response
+    where
+        I: crate::ink::Ink,
+        T: Preview + Send + 'static,
+    {
+        super::file_picker_shaped(
+            ink,
+            cx,
+            id,
+            area,
+            st,
+            body,
+            files,
+            task,
+            decode,
+            line,
+            opts,
+            super::PickerShape {
+                list: crate::collect::CollShape {
+                    reveal: crate::collect::Reveal::Never,
+                    ..crate::collect::CollShape::RULE
+                },
+            },
+        )
     }
 
     /// **The fifth offset spelling: a slot per file.**

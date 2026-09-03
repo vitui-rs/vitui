@@ -890,55 +890,23 @@ fn no_refusal(_: &Pressed, _: usize) -> bool {
     false
 }
 
-/// **[`collection_into`] with a [`Refusal`], which is the entry a container built on it takes.**
-///
-/// Crate-private, because the hook is not part of spec §1's component shape: it is the seam one
-/// component reaches another through, and a public one would invite an application to spell a
-/// keyboard for a collection it did not write. `pub(crate)` and not module-private since components
-/// ticket 26: [`crate::input::select`]'s popup body is the second container to need the hook and the
-/// first one that is not in this file, and a copy of the drain loop beside it would be a second place
-/// §5's lockstep scan cursor is advanced.
-#[track_caller]
-#[expect(
-    clippy::too_many_arguments,
-    reason = "`collection_into`'s eight plus the hook. The eight are spec §5's and the ninth is               what makes a container's own keys expressible at all"
-)]
-pub(crate) fn collection_chorded<I, F, R>(
-    ink: &mut I,
-    cx: &mut Ctx<'_, '_>,
-    area: Rect,
-    st: &mut CollState,
-    opts: &CollOpts,
-    rows: Rows,
-    find: F,
-    row: R,
-    first: Refusal<'_>,
-) -> Response
-where
-    I: Ink,
-    F: FnMut(&str, Range<usize>) -> Option<usize>,
-    R: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, usize, Face),
-{
-    collection_shaped(
-        ink,
-        cx,
-        area,
-        st,
-        opts,
-        rows,
-        find,
-        row,
-        first,
-        CollShape::RULE,
-    )
-}
-
-/// **[`collection_chorded`], with which rows the body iterates as a parameter.**
+/// **[`collection_into`] with a [`Refusal`] and a [`CollShape`], which is the entry a container
+/// built on it takes.**
 ///
 /// The one line between [`collection`] and [`defective::whole_content`], threaded so that the two
 /// components built *on* `collection` can express it too. [`table_with`] and [`tree_with`] call
 /// this rather than the two public entry points, and their own [`Shape`] field is what a reviewer's
 /// diff between the shipped build and the refused one is.
+///
+/// # It absorbed `collection_chorded` in production 08, and that is a merge rather than a deletion
+///
+/// The `Refusal`-only wrapper had one caller — [`crate::input::select`]'s popup body — and that
+/// caller needed a shape, because a popup's list is a windowed collection and the three axes it can
+/// be wrong on are this vocabulary's. A wrapper whose only caller has moved past it is a name a
+/// reader has to follow twice, and the hook's own paragraph is kept here: it is `pub(crate)`
+/// because the hook is **not** part of spec §1's component shape — it is the seam one component
+/// reaches another through, and a public one would invite an application to spell a keyboard for a
+/// collection it did not write.
 ///
 /// **The arm existed for one caller of three**, which is what [`crate::volume`] found: `table` and
 /// `tree` *are* `collection` plus a rectangle split and a flatten index, so the single most
@@ -947,7 +915,8 @@ where
 #[track_caller]
 #[expect(
     clippy::too_many_arguments,
-    reason = "`collection_chorded`'s nine plus the row shape. Splitting it would put the defect in \
+    reason = "`collection_into`'s eight plus the keyboard hook and the row shape. Splitting it \
+              would put the defect in \
               a second function where a reviewer's diff could not be one field"
 )]
 pub(crate) fn collection_shaped<I, F, R>(
@@ -1008,6 +977,51 @@ pub(crate) enum Tail {
     Omitted,
 }
 
+/// **Which content row the body is handed for a visible row.**
+///
+/// §17's `scrolled` axis, as the one line between the shipped collection and the inverted sign:
+/// *`offset - r` where the content is at `offset + r`*, which was found three times independently
+/// and which **every counter in the stack approves of** — it draws less, so it is faster and marks
+/// almost nothing.
+///
+/// # It is a field here and not a painter beside a gate, and that is production 08's finding
+///
+/// `crate::listing`'s scene 4 measures this axis over [`crate::runner::defective::inverted_scroll`]
+/// — a hand-written painter over a [`crate::runner::Fixture`], written before a refusal could be
+/// threaded through the shipped component at all. That is `crate::ink`'s own trap (*a gate written
+/// against a copy of the code tests the copy*) standing on the sharpest axis this crate has, and
+/// this field is what makes it unnecessary. **Scene 4's own figures are not moved here**: they are
+/// §21's normative ones and a scenes ticket has no standing to re-measure them. What the field is
+/// for is the two components built *on* `collection` inside a layer, whose window is
+/// `collection`'s — reached by calling it — and had never been asked.
+///
+/// **There is no `defective::inverted_window` beside it**, and that is deliberate: the two callers
+/// that need this are [`crate::input::SelectShape`]'s `list` and [`crate::files::PickerShape`]'s,
+/// which reach it as a `CollShape` **value** the way [`TableShape`]'s `coll` does — and a `pub fn`
+/// wrapper with no caller is an entry that exists for a reader rather than for a component, which
+/// §17's own glyph-column gate refuses by name. A `defective::stale_tail` here would collide with
+/// [`crate::runner::defective::stale_tail`] besides, which is the two-meanings-of-one-word
+/// collision `CONTEXT.md` exists to prevent.
+///
+/// [`crate::input::SelectShape`]: crate::input
+/// [`crate::files::PickerShape`]: crate::files
+///
+/// # An out-of-range source is blanked and not skipped
+///
+/// [`crate::runner::defective::inverted_scroll`]'s own spelling, and it is the difference between
+/// measuring a window and measuring a surface nobody drew on: at `offset - r < 0` that painter
+/// writes `" ".repeat(w)`, so the two arms are comparable cell for cell. A row simply left out
+/// would keep whatever the previous frame put there, which is the **`shrunk`** axis's defect
+/// arriving inside the `scrolled` axis's arm and two findings in one number.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub(crate) enum Window {
+    /// **The rule.** The visible row is the content row: `offset + r`.
+    #[default]
+    Offset,
+    /// **The defect.** `offset - r`, which is §17's inverted sign.
+    Inverted,
+}
+
 /// Whether the reveal is conditional, unconditional, or gone.
 ///
 /// Three arms and not two, because a one-directional gate goes green the moment somebody deletes the
@@ -1039,6 +1053,8 @@ pub(crate) struct CollShape {
     pub tail: Tail,
     /// When the reveal fires.
     pub reveal: Reveal,
+    /// Which content row a visible row is handed.
+    pub window: Window,
 }
 
 impl CollShape {
@@ -1048,6 +1064,7 @@ impl CollShape {
         rows: Shape::Virtualised,
         tail: Tail::Written,
         reveal: Reveal::WhenAsked,
+        window: Window::Offset,
     };
 }
 
@@ -1209,6 +1226,26 @@ where
                     if i >= len {
                         continue;
                     }
+                    // **Which content row this visible row is handed** (see [`Window`]). The
+                    // shipped answer is `i`, which inside a scroll scope already *is* `offset + r`;
+                    // the refused one is `offset - r`, spelled `2 * offset - y` because `y` is a
+                    // content row and not a screen row. An out-of-range source is blanked rather
+                    // than skipped, for the reason [`Window::Inverted`] gives.
+                    let source = match shaped.window {
+                        Window::Offset => Some(i),
+                        Window::Inverted => {
+                            usize::try_from(2 * st.offset - y).ok().filter(|s| *s < len)
+                        }
+                    };
+                    let Some(source) = source else {
+                        let paint = cx.theme().paint(opts.tail);
+                        let _ = ink.run(cx, 0, y, " ", area.w, paint);
+                        continue;
+                    };
+                    // **The face is the row the pointer and the cursor are on and not the source**,
+                    // which is the isolation this arm needs: a refusal that moved the face as well
+                    // would be two defects arriving together, and the count would stop naming which
+                    // one it is about.
                     let face = Face {
                         selected: scan.at(i),
                         cursor: st.sel.lead == i,
@@ -1216,7 +1253,7 @@ where
                         hovered: over == Some(i),
                         disabled: false,
                     };
-                    row(ink, cx, Rect::new(0, y, area.w, 1), i, face);
+                    row(ink, cx, Rect::new(0, y, area.w, 1), source, face);
                 }
                 // **The tail is the collection's own, and every cell of it is written.** The rows the
                 // content admits belong to the row drawer; this is the rest of the partition, and
@@ -3721,7 +3758,8 @@ impl Default for TreeOpts {
 ///
 /// # It is `collection`, and the sentence is checkable rather than decorative
 ///
-/// `tree_with` calls `collection_chorded`, which is [`collection`] with one parameter. There is
+/// `tree_with` calls `collection_shaped`, which is [`collection`] with two parameters — the
+/// keyboard hook and the row shape. There is
 /// **no second selection store**, **no second scan cursor** — the row's [`Face`] arrives from
 /// `collection`'s own lockstep [`Scan`] — **no second [`Mode`]**, **no second offset** and **no
 /// second press edge** — both read `Response::press_began`. The row axis, the wheel, the
@@ -5845,10 +5883,31 @@ mod tests {
     #[test]
     fn a_tree_is_a_collection_and_the_sentence_is_read_out_of_the_file() {
         let source = include_str!("collect.rs");
+        // **The scan is over `tree_with`'s own body**, which is the strongest form this file has —
+        // `the_column_solve_touches_no_row_and_runs_once_a_frame`'s, one component over — and it
+        // arrived in production 08 because the spelling before it **could not fail**. It was
+        // `crate::dense::declares(source, "collection_chorded(")` over the whole file, and the line
+        // holding the needle is not a comment: *a scanner looking for a literal contains that
+        // literal*, which is this crate's most-repeated trap arriving on the sentence `tree` rests
+        // on. It had a second satisfier too — the `#[expect]` reason on `collection_shaped`, which
+        // named the old wrapper in a string — so the gate had **two** ways to be green with no call
+        // in the file at all, and it stayed green after that wrapper was deleted.
+        let body = source
+            .split_once("fn tree_with<I, F, R>(")
+            .expect("`tree_with` is this file's")
+            .1
+            .split_once("\n/// **The row count")
+            .expect("and it ends before the cell-store figures")
+            .0;
         assert!(
-            crate::dense::declares(source, "collection_chorded("),
-            "`tree_with` no longer reaches `collection`, so `tree = collection + a flatten index` \
-             has stopped being a claim about this file"
+            body.len() < source.len(),
+            "the scan is reading the whole file again, so it can be satisfied by its own needle"
+        );
+        assert_eq!(
+            body.matches("collection_shaped(").count(),
+            1,
+            "`tree_with` no longer reaches `collection` exactly once, so \
+             `tree = collection + a flatten index` has stopped being a claim about this file"
         );
         // Counted by declaration and not by mention, which is `table`'s own scan two tests down:
         // a doc comment naming `Mode` is not a second `Mode`.

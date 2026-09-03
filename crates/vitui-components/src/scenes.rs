@@ -36,10 +36,10 @@
 //! ([`Scene::owed`] and [`Scene::from_a_survived_defect`]), because the value can hold both and a
 //! count cannot.
 //!
-//! # Two scenes are `Unsubjected`, none is `Red` and thirty-six are `Evaluated`
+//! # Two scenes are `Unsubjected`, none is `Red` and forty are `Evaluated`
 //!
 //! The count that is a gate is `tests::two_scenes_have_nothing_to_run_over_none_is_red_and_
-//! thirty_six_are_stood_up`, which asserts the **numbers** each scene as well as the total; this
+//! forty_are_stood_up`, which asserts the **numbers** each scene as well as the total; this
 //! heading is a summary of it and the test is the authority.
 //!
 //! **Components ticket 40 stood scene 26 up — the assembled gallery — and it is the first row here
@@ -526,6 +526,115 @@ const STANDS_THE_WINDOW: [Instrument; 2] = [
         name: "the_freeze_declares_all_three_axes_for_field",
     },
 ];
+
+/// **The dropped list's own file**, which is where production ticket 08's four scenes are played.
+/// `crate::popup` is where the overlay family's own scene 14 is.
+const DROPPED: &str = "crates/vitui-components/src/dropped.rs";
+
+/// **What stands production ticket 08's four scenes up**, and it is the same two instruments on
+/// each: the freeze declaring the axis each pair claims, and the scan that opens the file the freeze
+/// homes `select` in.
+///
+/// The second is [`crate::popup`]'s, reached rather than copied — [`STANDS_THE_WINDOW`]'s
+/// arrangement and its reason: a second scan written beside it is a second answer to *is `select`
+/// declared*. Each scene's own equality or offset reading is the third and it is different on every
+/// row.
+const STANDS_THE_DROP: [Instrument; 2] = [
+    Instrument::Unit {
+        file: DROPPED,
+        name: "the_four_screens_stand_on_two_declared_components",
+    },
+    Instrument::Unit {
+        file: DROPPED,
+        name: "the_freeze_declares_all_four_axes_this_module_claims",
+    },
+];
+
+/// **What pins scene 39, the popup's window.**
+///
+/// Three beyond the pair, and the first is the oracle's own arm: a comparison whose correct side
+/// has never been watched agreeing reports *0 cells over 0 rows* for the same reason a broken one
+/// would, and that arm carries the **bar's** number besides — which is what makes
+/// `crate::dropped::window_interior`'s exclusion a measurement rather than a convenience.
+const PINS_SCENE_39: &[Instrument] = &[
+    Instrument::Unit {
+        file: DROPPED,
+        name: "the_correct_window_is_the_option_lists_own_tail_and_the_bar_is_the_whole_difference",
+    },
+    Instrument::Unit {
+        file: DROPPED,
+        name: "the_inverted_popup_window_is_twenty_three_of_twenty_four_rows_and_every_counter_approves",
+    },
+    STANDS_THE_DROP[0],
+    STANDS_THE_DROP[1],
+];
+
+/// What pins scene 40, the posted notch over a `select`. See [`PINS_SCENE_39`].
+///
+/// **Three, and the third is the family's own fourth defect.** A wheel gate that plays the reveal
+/// has not played §7's `Copy`-only body, and a scene claiming this component's wheel axis owes both.
+const PINS_SCENE_40: &[Instrument] = &[
+    Instrument::Unit {
+        file: DROPPED,
+        name: "twenty_posted_notches_settle_both_owners_and_an_unconditional_reveal_drags_both_back",
+    },
+    Instrument::Unit {
+        file: DROPPED,
+        name: "deleting_the_reveal_loses_the_keyboard_and_only_the_select_can_be_asked",
+    },
+    Instrument::Unit {
+        file: DROPPED,
+        name: "the_copy_only_body_is_a_fourth_wheel_defect_and_neither_reveal_arm_is_it",
+    },
+    STANDS_THE_DROP[0],
+    STANDS_THE_DROP[1],
+];
+
+/// What pins scene 41, the picker's stale tail. See [`PINS_SCENE_39`].
+const PINS_SCENE_41: &[Instrument] = &[
+    Instrument::Unit {
+        file: DROPPED,
+        name: "the_pickers_stale_tail_is_fifteen_of_twenty_four_rows_and_the_resize_spelling_misses_it",
+    },
+    Instrument::Unit {
+        file: DROPPED,
+        name: "the_stale_tail_is_cheaper_on_the_counters_that_move_and_invisible_to_the_rest",
+    },
+    STANDS_THE_DROP[0],
+    STANDS_THE_DROP[1],
+];
+
+/// What pins scene 42, the posted notch over a `file_picker`. See [`PINS_SCENE_40`].
+///
+/// **Two and not three**, and the missing one is components architecture 23: an open picker seats no
+/// focus, so there is no id a posted key could be routed to and the keyboard half of the wheel rule
+/// cannot be asked of this component at all. The scene says so; the day 23 is answered it gains the
+/// third instrument and needs no rewriting to get one.
+const PINS_SCENE_42: &[Instrument] = &[
+    Instrument::Unit {
+        file: DROPPED,
+        name: "twenty_posted_notches_settle_both_owners_and_an_unconditional_reveal_drags_both_back",
+    },
+    STANDS_THE_DROP[0],
+    STANDS_THE_DROP[1],
+];
+
+/// **What scenes 39 and 40 stand up, and it is one component.**
+///
+/// [`crate::dropped::SELECT_SCREENS`], reached through this alias so the two files cannot drift
+/// about which components are on which screen.
+///
+/// **Two aliases and not one, which is a review finding on production 08's first draft.** All four
+/// scenes were given the module's whole population, and [`Scene::stands`] is *the components that
+/// are on the screen*: [`crate::dropped::popup_screen`] draws a `select` and no picker, and
+/// [`crate::dropped::picker_screen`] a picker and no `select`. A list of both on all four inflates
+/// [`scenes_for`]'s enumeration in **both** directions, which is the *generous join* that field's
+/// own documentation forbids by name — and production 06's analogous pair uses a one-component
+/// `stands` for exactly this reason.
+const SELECT_SCREENS: &[&str] = crate::dropped::SELECT_SCREENS;
+
+/// **What scenes 41 and 42 stand up.** See [`SELECT_SCREENS`].
+const PICKER_SCREENS: &[&str] = crate::dropped::PICKER_SCREENS;
 
 /// The cluster corpus's own file. Scene 30 is a scene *of* it.
 const CLUSTERS: &str = "crates/vitui-components/src/clusters.rs";
@@ -1580,7 +1689,7 @@ const PINS_SCENE_22: &[Instrument] = &[
 /// The count in this sentence is a summary and never the gate:
 /// `tests::the_specs_table_is_twenty_seven_rows_and_this_list_carries_them_all` reads §21's own
 /// rows off the spec file and asserts the split, and it caught this sentence going stale at 33.
-pub const SCENES: [Scene; 38] = [
+pub const SCENES: [Scene; 42] = [
     Scene {
         number: 1,
         on_spec_table: true,
@@ -2842,6 +2951,112 @@ pub const SCENES: [Scene; 38] = [
         standing: Standing::Evaluated { by: PINS_SCENE_38 },
         rehearsed_by: &[],
     },
+    // ── production ticket 08's four, and they are the overlay family's last ──────────────────────
+    //
+    // §21 carries one overlay-family row and it is scene 14 — the family's five configurations,
+    // whose `covers` is deliberately **empty**: that screen plays no wheel and no scroll, and
+    // `crate::popup` says so in as many words. So all four axes the two overlay owners declare had
+    // no scene at all, and none of them was unexpressible: both bodies draw §5's collection, both
+    // specs say *reached by calling it*, and nothing had scheduled the question.
+    //
+    // **All four are in one file where production 06's two were in two**, and the reason is the one
+    // production 05 gives: 06's two axes were decided by two different things — a screen and an
+    // offset — and these four are decided by **one**, which is that the list is behind a layer. A
+    // layer changes who can see the arithmetic rather than the arithmetic: an overlay body cannot be
+    // handed an `Ink`, so no `Pen` had ever seen a popup's interior; and a notch is routed against a
+    // hit index a layer only enters once it has been placed, so the wheel needs two opening frames
+    // where `crate::wheel`'s drive loop has one.
+    Scene {
+        number: 39,
+        on_spec_table: false,
+        name: "a select's popup at option 32 of 64, inside its own layer",
+        size: Size::Screen {
+            w: crate::dropped::W,
+            h: crate::dropped::H,
+        },
+        content: Content::Rows {
+            rows: crate::dropped::OPTIONS as u64,
+        },
+        gestures: &[Gesture::Scroll {
+            rows: crate::dropped::SCROLLED_TO as i64,
+            cols: 0,
+        }],
+        decided: "the inverted scroll sign on the sharpest surface it has ever been played on:                   **23 of 24 rows** of a popup's interior, against the option list's own tail drawn                   at offset 0, and **no counter of the nine separates them** — the refused build                   draws less, marks the same and costs the same 2 880 writes and 192 verbs. The one                   row it is right about is the first, by coincidence, which is the two arithmetics                   meeting at `offset + 0 == offset - 0`. It is **40 cells and not 552**: an option                   row is a word and a pad, the pad agrees, and a cell count is a floor on how wrong                   the screen is. Two findings in the instrument: a popup's interior had never been                   compared against anything because **an overlay body cannot be handed an `Ink`**,                   and the only picture of one this crate held was a transcription of the drawing                   rather than the drawing; and a **reserved bar's thumb is a function of the extent and not of the offset it is handed** — `overlay` passes a literal 0, so a popup's bar never moves as its list scrolls, and what a tail-cut oracle cannot share is the row count: 9 rows of thumb over 64 rows against 18 over 32, which is 9 cells over 9 rows on the *correct* arm, every one of them in one column. That is why the equality is over the interior and why the number is reported rather than the exclusion assumed",
+        covers: &[("select", Axis::Scrolled)],
+        stands: SELECT_SCREENS,
+        from_a_survived_defect: false,
+        owed: false,
+        standing: Standing::Evaluated { by: PINS_SCENE_39 },
+        rehearsed_by: &[],
+    },
+    Scene {
+        number: 40,
+        on_spec_table: false,
+        name: "twenty posted notches over a select's popup",
+        size: Size::Screen {
+            w: crate::dropped::W,
+            h: crate::dropped::H,
+        },
+        content: Content::Rows {
+            rows: crate::dropped::OPTIONS as u64,
+        },
+        gestures: &[Gesture::Wheel {
+            clicks: crate::dropped::CLICKS,
+        }],
+        decided: "that a list inside a layer consumes a real notch, and that §12's *the popup's                   list is §5's collection over the option list* is a claim somebody has now asked.                   Twenty posted clicks settle the window at **30 against 0**, the unconditional                   reveal asks on **21 of the 23** frames — the two that do not are the two on which                   the pull had just landed — the residue after the last click is 1, which is ADR                   0015's, and deleting the reveal moves the window exactly as far as the rule does                   while losing the keyboard: `Ctrl+Home` leaves the offset at 10 rather than 0.                   **And this family has a fourth wheel defect neither reveal arm is**: §7's literal                   `Copy`-only body, where the notch lands and the write dies with the frame — 20                   against **0**, on a screen that is identical while it happens. A wheel gate that                   plays the reveal has not played it. The cadence is **two** opening frames and not                   one, because a layer's entries are only in the index a notch is resolved against                   once the layer has been placed",
+        covers: &[("select", Axis::Wheeled)],
+        stands: SELECT_SCREENS,
+        from_a_survived_defect: false,
+        owed: false,
+        standing: Standing::Evaluated { by: PINS_SCENE_40 },
+        rehearsed_by: &[],
+    },
+    Scene {
+        number: 41,
+        on_spec_table: false,
+        name: "a file picker's listing edited down to nine files, inside a rectangle that does not                move",
+        size: Size::Screen {
+            w: crate::dropped::W,
+            h: crate::dropped::H,
+        },
+        content: Content::Files {
+            files: crate::dropped::FILES as u32,
+        },
+        // **A shrink and not a resize**, which is `Gesture::Shrink`'s own distinction: the popup is
+        // the room on both frames and the listing is what becomes smaller.
+        gestures: &[Gesture::Shrink {
+            to_rows: crate::dropped::SHRUNK_TO as u64,
+        }],
+        decided: "the stale tail behind a layer: **15 of 24 rows** of the picker's listing, against                   a picker built over the short listing from its first frame. It is **180 cells**,                   which is fifteen rows times a file name's twelve columns — a stale row costs the                   *name* and not the row, so the cell count is a floor here for the reason it is                   one on `crate::grid`. The refusal is **cheaper on both counters that move and                   nothing rises**: 816 writes against 1 176 and 57 verbs against 72, with                   `distinct` at 600 on both arms because the first frame already touched every cell                   the listing has. The spelling §21 refuses is refused as a number: played into a                   rectangle the shrink has already resized, the same refusal is clean. **The pane is                   not in the picture and that is stated rather than worked around** —                   `file_picker`'s public `line` takes no ink, so a `Pen` sees the shell and the                   listing and nothing of the pane, identically on both arms, and the pane's own two                   axes have scenes 23 and 24",
+        covers: &[("file_picker", Axis::Shrunk)],
+        stands: PICKER_SCREENS,
+        from_a_survived_defect: false,
+        owed: false,
+        standing: Standing::Evaluated { by: PINS_SCENE_41 },
+        rehearsed_by: &[],
+    },
+    Scene {
+        number: 42,
+        on_spec_table: false,
+        name: "twenty posted notches over an open file picker",
+        size: Size::Screen {
+            w: crate::dropped::W,
+            h: crate::dropped::H,
+        },
+        content: Content::Files {
+            files: crate::dropped::FILES as u32,
+        },
+        gestures: &[Gesture::Wheel {
+            clicks: crate::dropped::CLICKS,
+        }],
+        decided: "that the other overlay owner's row axis is the same one, and it is asserted as                   **`file_picker` equals `select`, arm for arm** rather than as three constants                   written twice: the settled offset, the residue after the last click and the                   request count are equal on all three `Reveal` arms, so an owner that grew an                   offset or a reveal of its own fails here. Two findings. **The notch has to be                   posted over the listing and not over the popup** — a picker's popup is the room                   and its listing is 24 columns of it, so twenty notches over the middle of the                   screen reach the *preview pane* and move the listing 0, which is exactly the                   reading a dead wheel gives; measured before it was understood. And **this scene                   has no keyboard arm**, because an open `file_picker` seats no focus and there is                   no id a posted key could be routed to — components architecture 23, open, not a                   scenes ticket's to answer, and recorded here rather than left for a reader to                   read a mouse-only drive as a decision about the axis",
+        covers: &[("file_picker", Axis::Wheeled)],
+        stands: PICKER_SCREENS,
+        from_a_survived_defect: false,
+        owed: false,
+        standing: Standing::Evaluated { by: PINS_SCENE_42 },
+        rehearsed_by: &[],
+    },
 ];
 
 /// **Every scene that stands `component` up.** Criterion 2's enumeration, from the scene's side.
@@ -3038,9 +3253,9 @@ mod tests {
     /// has twenty-seven rows; the spec is the authority and the count below reads the spec.
     #[test]
     fn the_specs_table_is_twenty_seven_rows_and_this_list_carries_them_all() {
-        assert_eq!(SCENES.len(), 38);
+        assert_eq!(SCENES.len(), 42);
         let numbers: BTreeSet<u8> = SCENES.iter().map(|s| s.number).collect();
-        assert_eq!(numbers, (1..=38).collect::<BTreeSet<u8>>());
+        assert_eq!(numbers, (1..=42).collect::<BTreeSet<u8>>());
         let names: BTreeSet<&str> = SCENES.iter().map(|s| s.name).collect();
         assert_eq!(names.len(), SCENES.len(), "two scenes share a name");
 
@@ -3051,7 +3266,7 @@ mod tests {
         assert_eq!(on_table, 27);
         assert_eq!(
             SCENES.len() - on_table,
-            11,
+            15,
             "components 09's narrow axis, components 11's narrow collection, components 14's \
              equality under a horizontal offset, components 18's wrong pairing, components 23's \
              cluster corpus — the last of which this module's header predicted by name one ticket \
@@ -3138,7 +3353,7 @@ mod tests {
     /// keeps a red row's own report reachable from a test once the list has run out of red rows,
     /// and `crate::gates::Row`'s `Red` arm keeps the register's.
     #[test]
-    fn two_scenes_have_nothing_to_run_over_none_is_red_and_thirty_six_are_stood_up() {
+    fn two_scenes_have_nothing_to_run_over_none_is_red_and_forty_are_stood_up() {
         let red: Vec<u8> = SCENES
             .iter()
             .filter(|s| matches!(s.standing, Standing::Red { .. }))
@@ -3172,7 +3387,7 @@ mod tests {
             evaluated,
             vec![
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 24, 25,
-                26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38
+                26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42
             ],
             "**Scene 27 is components 41's**, and it is the last of §21's own twenty-seven to be \
              stood up: a theme swap over the assembled gallery, played against a second gallery at \
@@ -3388,12 +3603,18 @@ mod tests {
     #[test]
     fn seventeen_of_the_thirty_four_axis_obligations_have_a_scene_and_seventeen_do_not() {
         let evidence = axis_scenes();
-        // **Twenty-five since production 06**, which claimed `table`'s shrunk and wheeled axes —
-        // §21 states one `table` row and it covers the other two. It was twenty-three after
-        // production 05, which claimed `field`'s scrolled, shrunk and wheeled, and twenty after
-        // components 32, which claimed the three pairs the three preview-pane scenes had left
-        // empty while they were red: `file_preview_pane` shrunk and scrolled, and `file_picker`
-        // scrolled.
+        // **Twenty-nine since production 08**, which claimed the overlay family's last four —
+        // `select` scrolled and wheeled, `file_picker` shrunk and wheeled — all four inside a
+        // layer, which is the one thing that decides them. It was twenty-five after production 06,
+        // which claimed `table`'s shrunk and wheeled (§21 states one `table` row and it covers the
+        // other two), twenty-three after production 05, which claimed `field`'s scrolled, shrunk
+        // and wheeled, and twenty after components 32, which claimed the three pairs the three
+        // preview-pane scenes had left empty while they were red: `file_preview_pane` shrunk and
+        // scrolled, and `file_picker` scrolled.
+        //
+        // **This comment was one production ticket stale when a review read it**, saying
+        // twenty-five above an assertion that said twenty-nine. The test *name* below carries the
+        // note the recorded policy requires and stays; a comment that carries none does not.
         //
         // **The name is kept and the one below it was changed, and the policy is the difference
         // between them.** A name is a summary sentence and production 01's rule applies to it — but
@@ -3404,7 +3625,7 @@ mod tests {
         // name said three and thirty-three while its assertions said two and thirty-four — so
         // production 06 renamed it. The count is asserted either way, which is what makes the name
         // a pointer rather than the authority.
-        assert_eq!(evidence.len(), 25);
+        assert_eq!(evidence.len(), 29);
         assert_eq!(
             crate::obligations::AXIS_SCENES.to_vec(),
             evidence,
@@ -3415,16 +3636,19 @@ mod tests {
         assert_eq!(coverage.len(), 34, "the population §17 states");
         let bare = coverage.iter().filter(|(_, _, s)| s.is_empty()).count();
         assert_eq!(
-            bare, 9,
+            bare, 5,
             "it was eighteen until components 20 claimed `(scroll_area, wheeled)` — the pair §21's \
              single wheel row had no way to state, because an arithmetic click has no second axis \
              to be wrong on — seventeen until components 32 claimed the preview pane's two and the \
              picker's one, which the three scenes had left empty on purpose while they were red, \
-             fourteen until **production 05** claimed `field`'s scrolled, shrunk and wheeled, and \
-             eleven until **production 06** claimed `table`'s shrunk and wheeled. Those five are \
-             the first here that no components ticket could have added and not one of them was ever \
+             fourteen until **production 05** claimed `field`'s scrolled, shrunk and wheeled, \
+             eleven until **production 06** claimed `table`'s shrunk and wheeled, and nine until \
+             **production 08** claimed the overlay family's four. Those nine are the first here \
+             that no components ticket could have added and not one of them was ever \
              unexpressible: §21 states one row for each component, the freeze declares four axes \
-             for each, and nothing had scheduled the rest"
+             for each, and nothing had scheduled the rest. The five left are `tree`'s two \
+             (production 07, blocked on components architecture 20) and the scroll family's three \
+             (production 09)"
         );
 
         // Every claimed pair is an axis its component actually declares. A scene covering an axis
@@ -3550,20 +3774,42 @@ mod tests {
         // evidence of anything, and claiming a `(component, axis)` pair there would have been
         // `crate::obligations::Verdict::of`'s vacuity accident arriving on O5's own join.
         // **Components 32 declared the subject and claims the pairs**, three of them.
-        for id in crate::preview::SUBJECTS {
-            assert_eq!(
-                scenes_for(id).map(|s| s.number).collect::<Vec<_>>(),
-                vec![23, 24, 25, 26, 27],
-                "`{id}` does not answer `scenes_for` for the three preview-pane scenes and the \
-                 assembled gallery"
-            );
-        }
+        //
+        // **And the two subjects stopped answering the same list in production 08.** `file_picker`
+        // gains scenes 41 and 42 — its own shrink and its own wheel, inside its own layer — and
+        // *stands* on 39 and 40 besides, because those two are played over both overlay owners.
+        // `file_preview_pane` gains nothing, which is the distinction O5 is built on: the pane's
+        // two axes had their scenes since 32 and building a scene for its **caller** cannot move
+        // them.
+        assert_eq!(
+            scenes_for("file_preview_pane")
+                .map(|s| s.number)
+                .collect::<Vec<_>>(),
+            vec![23, 24, 25, 26, 27],
+            "the pane does not answer `scenes_for` for the three preview-pane scenes and the \
+             assembled gallery"
+        );
+        assert_eq!(
+            scenes_for("file_picker")
+                .map(|s| s.number)
+                .collect::<Vec<_>>(),
+            vec![23, 24, 25, 26, 27, 41, 42],
+            "the picker answers those five and **two** of production 08's four — 39 and 40 are a \
+             `select`'s screens and it is not on them. The first draft claimed all four here, \
+             because all four carried the module's whole population in `stands`; a review caught it"
+        );
+        assert_eq!(
+            scenes_for("select").map(|s| s.number).collect::<Vec<_>>(),
+            vec![14, 26, 27, 39, 40],
+            "and the other two are the `select`'s, beside scene 14's overlay family and both \
+             galleries"
+        );
         assert_eq!(
             axis_scenes()
                 .iter()
                 .filter(|(c, _)| crate::preview::SUBJECTS.contains(c))
                 .count(),
-            3,
+            5,
             "the pane's shrink and scroll axes and the picker's scroll axis"
         );
     }
@@ -3643,7 +3889,7 @@ mod tests {
     fn a_rehearsal_is_never_what_stands_a_scene_up() {
         // The files where a screen or one of its components is measured. `crate::runner`'s is not
         // one of them, and that is the whole check.
-        const SCREEN_FILES: [&str; 26] = [
+        const SCREEN_FILES: [&str; 27] = [
             DENSE,
             LISTING,
             AREA,
@@ -3702,6 +3948,9 @@ mod tests {
             // is: `crate::document` carries §21's narrow row and this one carries the other three
             // axes.
             WINDOW,
+            // **Production 08's**, and the overlay family's last four axes: the dropped list, where
+            // both owners' bodies are drawn where a `Pen` can see them.
+            DROPPED,
         ];
         for scene in SCENES {
             match scene.standing {
@@ -3771,11 +4020,14 @@ mod tests {
             .collect();
         assert_eq!(
             shrinks,
-            vec![5, 28, 35, 37],
+            vec![5, 28, 35, 37, 41],
             "**scene 35 is production 05's** — a pasted megabyte edited down to one line inside a \
              rectangle that does not move — and it carries a resize spelling beside it for the \
              reason this test exists: the same refusal played into a rectangle the shrink has \
-             already resized is **clean**"
+             already resized is **clean**. **Scene 41 is production 08's** and it carries the same \
+             pair one family over: a picker's listing edited down to nine files behind a layer, and \
+             the resize spelling clean again — the third component this map has watched §21's own \
+             correction hold on"
         );
         assert_eq!(
             resizes,
@@ -3836,7 +4088,7 @@ mod tests {
             printed
                 .matches("stood up on its own components, by ")
                 .count(),
-            35,
+            39,
             "a stood-up scene says what stands it up, rather than reading as unplayed. \
              **Thirty-six** are stood up since production 06 and thirty-five say so here, \
              because scene 12 is the one this report **plays** — a played line carries its own \
@@ -3917,6 +4169,6 @@ mod tests {
             .map(|s| s.number)
             .collect();
         assert_eq!(still, vec![1, 2, 26]);
-        assert_eq!(SCENES.len() - still.len(), 35);
+        assert_eq!(SCENES.len() - still.len(), 39);
     }
 }
