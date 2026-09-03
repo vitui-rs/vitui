@@ -36,10 +36,10 @@
 //! ([`Scene::owed`] and [`Scene::from_a_survived_defect`]), because the value can hold both and a
 //! count cannot.
 //!
-//! # Two scenes are `Unsubjected`, none is `Red` and forty are `Evaluated`
+//! # Two scenes are `Unsubjected`, none is `Red` and forty-three are `Evaluated`
 //!
 //! The count that is a gate is `tests::two_scenes_have_nothing_to_run_over_none_is_red_and_
-//! forty_are_stood_up`, which asserts the **numbers** each scene as well as the total; this
+//! forty_three_are_stood_up`, which asserts the **numbers** each scene as well as the total; this
 //! heading is a summary of it and the test is the authority.
 //!
 //! **Components ticket 40 stood scene 26 up — the assembled gallery — and it is the first row here
@@ -549,6 +549,120 @@ const STANDS_THE_DROP: [Instrument; 2] = [
         name: "the_freeze_declares_all_four_axes_this_module_claims",
     },
 ];
+
+/// **The scroll area's furniture's own file**, which is where production ticket 09's two screens
+/// are played. [`AREA`] is where this family's other four scenes are.
+const SURROUND: &str = "crates/vitui-components/src/surround.rs";
+
+/// **What stands production ticket 09's two screens up**, and it is the same two instruments on
+/// each: the freeze declaring the axis each pair claims, and the scan that opens the file the
+/// freeze homes `scroll_area` and `sticky` in.
+///
+/// The second is [`crate::area::subjects_declared`]'s, reached rather than copied —
+/// [`STANDS_THE_WINDOW`]'s arrangement and its reason: a second scan written beside it is a second
+/// answer to *is `sticky` declared*. Each scene's own equality is the third and it is different on
+/// both rows.
+const STANDS_THE_SURROUND: [Instrument; 2] = [
+    Instrument::Unit {
+        file: SURROUND,
+        name: "the_two_screens_stand_on_declared_components",
+    },
+    Instrument::Unit {
+        file: SURROUND,
+        name: "the_freeze_declares_both_axes_this_module_claims",
+    },
+];
+
+/// **What pins scene 43, the scroll area's omitted tail.**
+///
+/// Four, and the first is the oracle's own arm — a comparison whose correct side has never been
+/// watched agreeing reports *0 cells over 0 rows* for the same reason a broken one would. It
+/// carries the offset reading beside it, which is what says the window moved at the same time as
+/// the content stopped reaching it.
+const PINS_SCENE_43: &[Instrument] = &[
+    Instrument::Unit {
+        file: SURROUND,
+        name: "the_correct_area_agrees_with_one_built_over_the_short_content",
+    },
+    Instrument::Unit {
+        file: SURROUND,
+        name: "the_omitted_tail_is_every_row_of_the_viewport_and_the_resize_spelling_misses_it",
+    },
+    Instrument::Unit {
+        file: SURROUND,
+        name: "the_omitted_tail_is_cheaper_on_the_counters_that_move",
+    },
+    STANDS_THE_SURROUND[0],
+    STANDS_THE_SURROUND[1],
+];
+
+/// What pins scene 44, the five bands at a non-zero offset. See [`PINS_SCENE_43`].
+///
+/// **Five, and it is the most instrumented row this lineage has written**, because the axis is
+/// stated in three readings and no one of them can see the other two: the counts, the strings, and
+/// the control at the origin. The fifth is the arithmetic band, which is the fourth refusal and the
+/// one **no** equality can see — named here so that a reader cannot take the three for the whole
+/// population.
+const PINS_SCENE_44: &[Instrument] = &[
+    Instrument::Unit {
+        file: SURROUND,
+        name: "the_bands_agree_with_the_reference_and_every_translation_refusal_disagrees",
+    },
+    Instrument::Unit {
+        file: SURROUND,
+        name: "the_three_refusals_are_two_numbers_and_three_strings_and_neither_offset_says_both",
+    },
+    Instrument::Unit {
+        file: SURROUND,
+        name: "the_unpinned_band_is_a_different_number_at_a_different_offset",
+    },
+    Instrument::Unit {
+        file: SURROUND,
+        name: "at_the_origin_every_band_refusal_is_clean",
+    },
+    Instrument::Unit {
+        file: SURROUND,
+        name: "the_arithmetic_band_is_a_fourth_refusal_and_the_equality_is_blind_to_it",
+    },
+    STANDS_THE_SURROUND[0],
+    STANDS_THE_SURROUND[1],
+];
+
+/// What pins scene 45, the posted notch over a `file_preview_pane`. See [`PINS_SCENE_43`].
+///
+/// **Two of the three are `crate::wheel`'s**, because this scene is a fourth subject of that gate
+/// rather than a screen of its own — production 06's arrangement for `table`, and its reason: a
+/// notch driven anywhere else would be a fourth copy of one drive loop. So `crate::surround`'s two
+/// standing instruments are not here.
+///
+/// The third is [`PINS_THE_PREVIEW`]'s first, **reached rather than copied**: the scan that opens
+/// the file the freeze homes this component in is the same fact scenes 23, 24 and 25 rest on, and a
+/// second one written beside it would be a second answer to *is `file_preview_pane` declared*.
+const PINS_SCENE_45: &[Instrument] = &[
+    Instrument::Unit {
+        file: WHEEL,
+        name: "twenty_posted_clicks_move_a_panes_offset_twenty_and_the_numbers_are_the_areas",
+    },
+    Instrument::Unit {
+        file: WHEEL,
+        name: "every_subject_of_this_gate_declares_the_wheeled_axis",
+    },
+    PINS_THE_PREVIEW[0],
+];
+
+/// **What scene 43 stands up: a `scroll_area`, and no band is on that screen.**
+///
+/// [`crate::surround::TAIL_SCREEN`], reached through this alias so the two files cannot drift about
+/// which components are on which screen — [`SELECT_SCREENS`]' arrangement and its reason.
+const TAIL_SCREEN: &[&str] = crate::surround::TAIL_SCREEN;
+
+/// **What scene 44 stands up: both**, because a band exists only inside the area that cuts it. See
+/// [`TAIL_SCREEN`].
+const BAND_SCREEN: &[&str] = crate::surround::BAND_SCREEN;
+
+/// **What scene 45 stands up: a `file_preview_pane`.** One component, for [`SELECT_SCREENS`]'
+/// reason: `crate::wheel::pane_frame` draws one.
+const PANE_SCREEN: &[&str] = &["file_preview_pane"];
 
 /// **What pins scene 39, the popup's window.**
 ///
@@ -1689,7 +1803,7 @@ const PINS_SCENE_22: &[Instrument] = &[
 /// The count in this sentence is a summary and never the gate:
 /// `tests::the_specs_table_is_twenty_seven_rows_and_this_list_carries_them_all` reads §21's own
 /// rows off the spec file and asserts the split, and it caught this sentence going stale at 33.
-pub const SCENES: [Scene; 42] = [
+pub const SCENES: [Scene; 45] = [
     Scene {
         number: 1,
         on_spec_table: true,
@@ -3057,6 +3171,91 @@ pub const SCENES: [Scene; 42] = [
         standing: Standing::Evaluated { by: PINS_SCENE_42 },
         rehearsed_by: &[],
     },
+    // ── production ticket 09's three, and they are the scroll family's last ──────────────────────
+    //
+    // §21 carries **two** rows for this family and neither is a shrink or a band: scene 17 is the
+    // bar fixpoint and scene 18 is `Σ h` as the extent. Scene 33 is components 20's wheel over an
+    // area. So `(scroll_area, shrunk)`, `(sticky, scrolled)` and `(file_preview_pane, wheeled)` had
+    // no scene at all, and **all three had an instrument that could not fail on its own axis** —
+    // which is the sharpest form this backlog's argument has taken. See `crate::surround`'s header
+    // for the two, and `crate::wheel::Subject::Pane` for the third.
+    //
+    // **Two files and three scenes**, and the split is production 06's rule rather than a new one:
+    // the two screens are decided by one offset and live in one module; a wheel is a **posted
+    // notch** and belongs where the drive loop is, because a fourth copy of it would be the
+    // substitution components 20 spent a ticket removing.
+    Scene {
+        number: 43,
+        on_spec_table: false,
+        name: "a scroll area's content shrunk to nine cells on both axes, from content row 100",
+        size: Size::Screen {
+            w: crate::surround::W,
+            h: crate::surround::H,
+        },
+        content: Content::Grid {
+            rows: crate::surround::LONG.1 as u64,
+            cols: crate::surround::LONG.0 as u16,
+        },
+        // **A shrink and not a resize**, which is `Gesture::Shrink`'s own distinction: the rig is
+        // 60x24 on both frames and the content is what becomes smaller.
+        gestures: &[Gesture::Shrink {
+            to_rows: crate::surround::SHORT.1 as u64,
+        }],
+        decided: "the tail on the one component that partitions its rectangle **between itself and                   its caller**: the body gets the viewport and the area keeps the bars, the four                   bands and `[extent, offset + viewport)`. Omitted, it leaves **1 276 cells over                   every one of the viewport's 23 rows**, against an area built over the short                   content from its first frame — and the refusal is cheaper on both counters that                   move, 1 604 writes against 2 880 and 88 verbs against 111, with `distinct` at                   1 440 on both arms because it is cumulative. **The vertical half of the tail is                   826 cells over 14 rows and the horizontal half is the other 450**, which is                   `tail_into`'s inner loop and a property a gate on either number alone cannot                   state. The spelling §21 refuses is refused as a number: played into a rectangle                   the shrink has already resized, the same refusal is clean. **And the offset is                   read off the component**: a tail can only exist where the content is smaller than                   the viewport, so the shrink clamps the window to the origin — the window moves at                   the same time as the content stops reaching it, which a scene played *from* the                   origin does not show",
+        covers: &[("scroll_area", Axis::Shrunk)],
+        stands: TAIL_SCREEN,
+        from_a_survived_defect: false,
+        owed: false,
+        standing: Standing::Evaluated { by: PINS_SCENE_43 },
+        rehearsed_by: &[],
+    },
+    Scene {
+        number: 44,
+        on_spec_table: false,
+        name: "five sticky bands over a body at forty columns and a hundred rows",
+        size: Size::Screen {
+            w: crate::surround::W,
+            h: crate::surround::H,
+        },
+        content: Content::Grid {
+            rows: crate::surround::LONG.1 as u64,
+            cols: crate::surround::LONG.0 as u16,
+        },
+        gestures: &[Gesture::Scroll {
+            rows: crate::surround::FAR.1 as i64,
+            cols: crate::surround::FAR.0 as i64,
+        }],
+        decided: "§9's *a band shares one of the two offsets and pins the other to zero*, which had                   an instrument played at offset `(0, 0)` — where four of the five spellings draw                   the same screen. **Stated in three readings, because no one of them can see the                   other two.** The counts: a transposed band, an unpinned one and an inverted one                   are each wrong in 232 of the 244 band cells, and **only the count separates the                   unpinned arm** — the two gutters, 12 cells over 2 rows, because a gutter shares                   *neither* offset and it is the one arm that translates one anyway. The strings:                   at `(40, 100)` all three draw **nothing**, so the three header rows are one empty                   string, and at `(2, 3)` they are three — shifted left by one, blank, and shifted                   right by twice the offset. The control: at the origin every refusal is clean,                   which is the runtime's own *at offset 0 every sign agrees* as a number. A fourth                   refusal is named and never measured here — the arithmetic band, whose picture is                   identical by construction and whose detector is the damage ledger. And a band                   refusal **is** visible to two counters, unlike the tail: 1 208 writes against                   1 440, because a clipped write lands nothing — 1 396 against 1 440 at the near                   offset, which is a 3% reading on the same screen and is why the equality is the                   gate",
+        covers: &[("sticky", Axis::Scrolled)],
+        stands: BAND_SCREEN,
+        from_a_survived_defect: false,
+        owed: false,
+        standing: Standing::Evaluated { by: PINS_SCENE_44 },
+        rehearsed_by: &[],
+    },
+    Scene {
+        number: 45,
+        on_spec_table: false,
+        name: "twenty posted notches over a file preview pane",
+        size: Size::Screen {
+            w: crate::wheel::W,
+            h: crate::wheel::H,
+        },
+        content: Content::Grid {
+            rows: crate::wheel::PANE_EXTENT.1 as u64,
+            cols: crate::wheel::PANE_EXTENT.0 as u16,
+        },
+        gestures: &[Gesture::Wheel {
+            clicks: crate::wheel::CLICKS,
+        }],
+        decided: "that §15's *a scroll area over a document that arrives from another thread* is a                   claim somebody has now asked. Twenty posted clicks settle a pane's offset at                   **20 against 0** on **both** axes, the unconditional reveal drags the axis it                   names and leaves the other one entirely healthy, and deleting the call passes the                   wheel half while moving the reveal 0. Every one of those numbers is asserted                   **equal to `scroll_area`'s own, arm for arm and axis for axis** rather than to a                   repeated constant — production 06's shape on the pair `table`/`collection`, on a                   component that reaches its offset through another family. What it cost is one                   `match` arm, one `Subject` variant and **no `defective` entry at all**: a pane's                   reveal is its body's, so the three arms are three bodies. Two findings. The                   document has to have **landed** before the first click — a pane showing nothing                   declares `(0, 0)` and admits no offset, so a dead wheel and a meaningless axis                   are the same number, and the run asserts the opening offset is not the origin                   before it asserts anything else. And the offset is read **inside the body**, out                   of the coordinate system the component put it in, because `PaneState::offset`                   answers the vertical axis alone and this axis is the pair",
+        covers: &[("file_preview_pane", Axis::Wheeled)],
+        stands: PANE_SCREEN,
+        from_a_survived_defect: false,
+        owed: false,
+        standing: Standing::Evaluated { by: PINS_SCENE_45 },
+        rehearsed_by: &[],
+    },
 ];
 
 /// **Every scene that stands `component` up.** Criterion 2's enumeration, from the scene's side.
@@ -3253,9 +3452,9 @@ mod tests {
     /// has twenty-seven rows; the spec is the authority and the count below reads the spec.
     #[test]
     fn the_specs_table_is_twenty_seven_rows_and_this_list_carries_them_all() {
-        assert_eq!(SCENES.len(), 42);
+        assert_eq!(SCENES.len(), 45);
         let numbers: BTreeSet<u8> = SCENES.iter().map(|s| s.number).collect();
-        assert_eq!(numbers, (1..=42).collect::<BTreeSet<u8>>());
+        assert_eq!(numbers, (1..=45).collect::<BTreeSet<u8>>());
         let names: BTreeSet<&str> = SCENES.iter().map(|s| s.name).collect();
         assert_eq!(names.len(), SCENES.len(), "two scenes share a name");
 
@@ -3266,15 +3465,17 @@ mod tests {
         assert_eq!(on_table, 27);
         assert_eq!(
             SCENES.len() - on_table,
-            15,
+            18,
             "components 09's narrow axis, components 11's narrow collection, components 14's \
              equality under a horizontal offset, components 18's wrong pairing, components 23's \
              cluster corpus — the last of which this module's header predicted by name one ticket \
              after it was written — components 20's wheel over a `scroll_area`, which is a pair \
              §21 had no way to state while a click was an arithmetic substitution, **production \
              05's three** — `field`'s scrolled, shrunk and wheeled axes, which §21 states over one \
-             narrow row and the freeze declares four of — and **production 06's two**: `table`'s \
-             shrunk and wheeled, which §21 states over one row that covers the other two"
+             narrow row and the freeze declares four of — **production 06's two**: `table`'s \
+             shrunk and wheeled, which §21 states over one row that covers the other two — \
+             production 08's four, the overlay family's, and **production 09's three**: the scroll \
+             area's shrink, the band's scroll and the pane's wheel, of which §21 states none"
         );
         for (index, scene) in SCENES.iter().enumerate() {
             assert_eq!(
@@ -3353,7 +3554,7 @@ mod tests {
     /// keeps a red row's own report reachable from a test once the list has run out of red rows,
     /// and `crate::gates::Row`'s `Red` arm keeps the register's.
     #[test]
-    fn two_scenes_have_nothing_to_run_over_none_is_red_and_forty_are_stood_up() {
+    fn two_scenes_have_nothing_to_run_over_none_is_red_and_forty_three_are_stood_up() {
         let red: Vec<u8> = SCENES
             .iter()
             .filter(|s| matches!(s.standing, Standing::Red { .. }))
@@ -3387,7 +3588,7 @@ mod tests {
             evaluated,
             vec![
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 24, 25,
-                26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42
+                26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45
             ],
             "**Scene 27 is components 41's**, and it is the last of §21's own twenty-seven to be \
              stood up: a theme swap over the assembled gallery, played against a second gallery at \
@@ -3623,9 +3824,11 @@ mod tests {
         // is corrected.** This one has carried that note since the count first moved, for
         // `PINS_SCENE_22`'s reason. `two_scenes_have_nothing_to_run_over_...` carried none — its
         // name said three and thirty-three while its assertions said two and thirty-four — so
-        // production 06 renamed it. The count is asserted either way, which is what makes the name
-        // a pointer rather than the authority.
-        assert_eq!(evidence.len(), 29);
+        // production 06 renamed it, 08 renamed it again from thirty-six, and **09 a third time,
+        // from forty**. Each time with its five register citations, which is the cost the policy
+        // is priced against. The count is asserted either way, which is what makes the name a
+        // pointer rather than the authority.
+        assert_eq!(evidence.len(), 32);
         assert_eq!(
             crate::obligations::AXIS_SCENES.to_vec(),
             evidence,
@@ -3636,7 +3839,7 @@ mod tests {
         assert_eq!(coverage.len(), 34, "the population §17 states");
         let bare = coverage.iter().filter(|(_, _, s)| s.is_empty()).count();
         assert_eq!(
-            bare, 5,
+            bare, 2,
             "it was eighteen until components 20 claimed `(scroll_area, wheeled)` — the pair §21's \
              single wheel row had no way to state, because an arithmetic click has no second axis \
              to be wrong on — seventeen until components 32 claimed the preview pane's two and the \
@@ -3646,9 +3849,11 @@ mod tests {
              **production 08** claimed the overlay family's four. Those nine are the first here \
              that no components ticket could have added and not one of them was ever \
              unexpressible: §21 states one row for each component, the freeze declares four axes \
-             for each, and nothing had scheduled the rest. The five left are `tree`'s two \
-             (production 07, blocked on components architecture 20) and the scroll family's three \
-             (production 09)"
+             for each, and nothing had scheduled the rest. Five until **production 09** claimed \
+             the scroll family's three — the area's shrink, the band's scroll and the pane's wheel \
+             — all three of which had an instrument that **could not fail on its own axis**, which \
+             is the sharpest form this backlog's argument has taken. The two left are `tree`'s \
+             (production 07, blocked on components architecture 20)"
         );
 
         // Every claimed pair is an axis its component actually declares. A scene covering an axis
@@ -3785,9 +3990,10 @@ mod tests {
             scenes_for("file_preview_pane")
                 .map(|s| s.number)
                 .collect::<Vec<_>>(),
-            vec![23, 24, 25, 26, 27],
-            "the pane does not answer `scenes_for` for the three preview-pane scenes and the \
-             assembled gallery"
+            vec![23, 24, 25, 26, 27, 45],
+            "the pane does not answer `scenes_for` for the three preview-pane scenes, the \
+             assembled gallery and **production 09's wheel** — its fourth axis, which is \
+             `scroll_area`'s reached by calling it"
         );
         assert_eq!(
             scenes_for("file_picker")
@@ -3809,8 +4015,9 @@ mod tests {
                 .iter()
                 .filter(|(c, _)| crate::preview::SUBJECTS.contains(c))
                 .count(),
-            5,
-            "the pane's shrink and scroll axes and the picker's scroll axis"
+            6,
+            "the pane's shrink, scroll and **wheel** axes and the picker's scroll axis — the wheel \
+             is production 09's and it is `scroll_area`'s reached by calling it"
         );
     }
 
@@ -3889,7 +4096,7 @@ mod tests {
     fn a_rehearsal_is_never_what_stands_a_scene_up() {
         // The files where a screen or one of its components is measured. `crate::runner`'s is not
         // one of them, and that is the whole check.
-        const SCREEN_FILES: [&str; 27] = [
+        const SCREEN_FILES: [&str; 28] = [
             DENSE,
             LISTING,
             AREA,
@@ -3951,6 +4158,11 @@ mod tests {
             // **Production 08's**, and the overlay family's last four axes: the dropped list, where
             // both owners' bodies are drawn where a `Pen` can see them.
             DROPPED,
+            // **Production 09's**, and the scroll family's last: the furniture an area writes and
+            // its body does not. The file is the screen's own in exactly the sense `WINDOW` is —
+            // `crate::area` carries this family's four §21 rows and this one carries the two axes
+            // they leave out.
+            SURROUND,
         ];
         for scene in SCENES {
             match scene.standing {
@@ -4020,14 +4232,15 @@ mod tests {
             .collect();
         assert_eq!(
             shrinks,
-            vec![5, 28, 35, 37, 41],
+            vec![5, 28, 35, 37, 41, 43],
             "**scene 35 is production 05's** — a pasted megabyte edited down to one line inside a \
              rectangle that does not move — and it carries a resize spelling beside it for the \
              reason this test exists: the same refusal played into a rectangle the shrink has \
              already resized is **clean**. **Scene 41 is production 08's** and it carries the same \
              pair one family over: a picker's listing edited down to nine files behind a layer, and \
              the resize spelling clean again — the third component this map has watched §21's own \
-             correction hold on"
+             correction hold on. **Scene 43 is production 09's** and it is the fourth, on the one \
+             component whose rectangle is partitioned between itself and its caller"
         );
         assert_eq!(
             resizes,
@@ -4088,9 +4301,9 @@ mod tests {
             printed
                 .matches("stood up on its own components, by ")
                 .count(),
-            39,
+            42,
             "a stood-up scene says what stands it up, rather than reading as unplayed. \
-             **Thirty-six** are stood up since production 06 and thirty-five say so here, \
+             **Forty-three** are stood up since production 09 and forty-two say so here, \
              because scene 12 is the one this report **plays** — a played line carries its own \
              numbers instead"
         );
@@ -4169,6 +4382,6 @@ mod tests {
             .map(|s| s.number)
             .collect();
         assert_eq!(still, vec![1, 2, 26]);
-        assert_eq!(SCENES.len() - still.len(), 39);
+        assert_eq!(SCENES.len() - still.len(), 42);
     }
 }

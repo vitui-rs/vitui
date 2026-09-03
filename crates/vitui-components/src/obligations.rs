@@ -497,6 +497,25 @@ pub const AXIS_SCENES: &[(&str, Axis)] = &[
     ("select", Axis::Wheeled),
     ("file_picker", Axis::Shrunk),
     ("file_picker", Axis::Wheeled),
+    // Scenes 43, 44 and 45 — production 09's, and they are the scroll family's last three.
+    //
+    // **§21 carries two rows for this family and neither is a shrink or a band**: scene 17 is the
+    // bar fixpoint and scene 18 is `Σ h` as the extent, and scene 33 is components 20's wheel over
+    // an area. So these three pairs had no scene at all — and unlike every earlier group on this
+    // list, **all three had an instrument that could not fail on its own axis**: the tail's was one
+    // frame over a state nothing had moved, the band's was played at offset `(0, 0)` where four of
+    // the five spellings draw the same screen, and the pane's did not exist because the wheel gate
+    // had three subjects and the pane was not one of them.
+    //
+    // **Two files and three scenes**, which is production 06's rule rather than a new one: a wheel
+    // is a posted notch and belongs where the drive loop is — `crate::wheel::Subject::Pane`, the
+    // fourth arm — because a fourth copy of that loop would be the substitution components 20 spent
+    // a ticket removing.
+    //
+    // **Their position is scene order and not importance**, for scene 33's entry's reason.
+    ("scroll_area", Axis::Shrunk),
+    ("sticky", Axis::Scrolled),
+    ("file_preview_pane", Axis::Wheeled),
 ];
 
 /// **The ids whose data-volume cost has been measured and answers both of O6's bounds.** O6's
@@ -913,6 +932,15 @@ mod tests {
     /// [`o5`] actually reads. `crate::scenes` already gates the two against each other, so a pair
     /// present here and absent from a scene fails there instead of silently passing both.
     ///
+    /// # The pane joined `Subject::ALL` rather than a fourth source, and that is the shape holding
+    ///
+    /// Production 09's third scene is a **fourth arm of `crate::wheel`'s own drive loop**, not a
+    /// screen of its own — a pane's notch has an area's cadence exactly, because the pane hands its
+    /// rectangle to `scroll_area`. So the join below is still over three sources and
+    /// [`crate::wheel::Subject::ALL`] is at four. **The rule is: a new cadence is a new source and a
+    /// new subject of an existing cadence is not**, and the two screens production 09 adds post no
+    /// notch at all.
+    ///
     /// # The population is two gates' subject lists, not one, since production 05
     ///
     /// This read `Subject::ALL` alone for twenty-six tickets, and production 05 minted a wheel
@@ -1110,9 +1138,12 @@ mod tests {
         // 32 took three: the preview pane's shrink and scroll and the picker's scroll, which the
         // three scenes had left empty on purpose while they were red. **Production 05 took
         // `field`'s last three** — scrolled, shrunk and wheeled, none of which was ever
-        // unexpressible and none of which anything had scheduled. Eleven are left and they are
-        // production 06 to 09's. A query that moves is a query that is measuring something.
-        assert_eq!(unmet(o5(AXIS_SCENES)), (34, 5), "O5");
+        // unexpressible and none of which anything had scheduled. 06 took `table`'s two, 08 the
+        // overlay family's four, and **09 the scroll family's three**, which are the first on this
+        // list where all three pairs already had an instrument that *could not fail on its own
+        // axis*. **Two are left and they are `tree`'s**, blocked on components architecture 20. A
+        // query that moves is a query that is measuring something.
+        assert_eq!(unmet(o5(AXIS_SCENES)), (34, 2), "O5");
         // **O6 is `Met` over the seven rows that take a volume**, so it is asserted from the other
         // side too. The population is derived rather than written out — the `Layer::L2` column plus
         // the rows that keep a memo keyed on a data revision — and it answered **seven** where
@@ -1306,7 +1337,7 @@ mod tests {
     /// See [`o1_fails_loudly`]. **The one worth more than the other four together**, and the one
     /// whose population is `(component, axis)` pairs rather than scenes.
     #[test]
-    #[should_panic(expected = "O5 is unmet: 5 of 34")]
+    #[should_panic(expected = "O5 is unmet: 2 of 34")]
     fn o5_fails_loudly() {
         o5(AXIS_SCENES).assert_met("O5");
     }

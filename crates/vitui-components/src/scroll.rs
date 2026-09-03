@@ -319,13 +319,116 @@ pub(crate) fn stripe<I: Ink>(
     }
 }
 
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+// The refusals, as one value threaded through the shipped drawing path
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+
+/// **Whether the cells of the rectangle the content does not reach are written.**
+///
+/// [`crate::collect::Tail`] **reached and not restated**, which is the same decision production 06
+/// made about a table's clamp: two enums with two arms and one meaning are a second answer to one
+/// question, and §2's *a component owes every cell of its rectangle* is one rule with two
+/// components under it. What differs is the surface — a collection's tail is the **rows** below its
+/// content and an area's is `[extent, offset + viewport)` on **both** axes, which is why
+/// [`tail_into`] has an inner loop and `collect`'s has none.
+pub(crate) use crate::collect::Tail;
+
+/// **What a band actually translates by**, which is §17's `scrolled` axis on [`sticky`].
+///
+/// The rule is [`Shares::of`] negated: `child` narrows the clip and `scrolled` puts the shared axis
+/// back into content coordinates. Every other arm is one expression away from it, and **at offset
+/// `(0, 0)` all five draw the same screen** — which is the runtime's own finding about this axis
+/// (architecture 26) and the reason a band scene may not be played there.
+///
+/// # One enum for four refusals, because the pair a reader transposes is the finding
+///
+/// [`Shared::Transposed`] exists because [`Shares::X`] and [`Shares::Y`] read two fields of one
+/// tuple and a band drawn by hand reads the wrong one — a header that scrolls with the rows instead
+/// of with the columns. It is invisible wherever the two offsets are equal, which is one more
+/// reason than offset zero.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub(crate) enum Shared {
+    /// **The rule.** [`Shares::of`], negated, inside a [`Ctx::child`] on the band.
+    #[default]
+    Axis,
+    /// **The defect.** The shared axis reads the *other* field of the offset: a header follows the
+    /// rows and a pinned column follows the columns.
+    Transposed,
+    /// **The defect.** Nothing is pinned — both axes translate, so a one-row header's only row is
+    /// pushed out of its own band and clipped away.
+    Both,
+    /// **The defect.** §17's inverted sign, on the band rather than on the body: `scrolled(dx, dy)`
+    /// where the rule is `scrolled(-dx, -dy)`.
+    Inverted,
+    /// **The defect.** The `Ctx::child` is dropped and the origin moved by arithmetic, so a body
+    /// that writes past its own edge overruns onto whatever is beside it. The picture is identical
+    /// and the cost is in the damage — see [`defective::arithmetic_band`], which is this arm's own
+    /// entry point.
+    Arithmetic,
+}
+
+impl Shared {
+    /// **The translation this arm hands [`Ctx::scrolled`]**, sign included.
+    ///
+    /// The sign is inside this function rather than at the call site, so that [`Shared::Inverted`]
+    /// is a value and not a second call — one drawing path, which is [`crate::ink`]'s rule arriving
+    /// on a policy instead of on a writer.
+    const fn translation(self, shares: Shares, offset: (i32, i32)) -> (i32, i32) {
+        match self {
+            Shared::Axis | Shared::Arithmetic => {
+                let (dx, dy) = shares.of(offset);
+                (-dx, -dy)
+            }
+            Shared::Transposed => {
+                let (dx, dy) = match shares {
+                    Shares::X => (offset.1, 0),
+                    Shares::Y => (0, offset.0),
+                    Shares::Neither => (0, 0),
+                };
+                (-dx, -dy)
+            }
+            Shared::Both => (-offset.0, -offset.1),
+            Shared::Inverted => shares.of(offset),
+        }
+    }
+
+    /// Whether the band opens a [`Ctx::child`] on its own rectangle.
+    const fn clips(self) -> bool {
+        !matches!(self, Shared::Arithmetic)
+    }
+}
+
+/// **Every policy [`draw_with`] threads that separates the shipped scroll area from a refused
+/// one**, as one value.
+///
+/// [`crate::collect::CollShape`]'s arrangement and its reason: two enums side by side in a call are
+/// the arguments a reader transposes, and this keeps [`scroll_area_into`]'s public signature at the
+/// nine it already has while the component gains two refusals. [`AreaShape::RULE`] is what the
+/// shipped `scroll_area` and `file_preview_pane` pass.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub(crate) struct AreaShape {
+    /// Whether the cells past the extent are written.
+    pub tail: Tail,
+    /// What each of the four bands translates by.
+    pub band: Shared,
+}
+
+impl AreaShape {
+    /// **The shipped build**, named rather than defaulted at the call site so that a reader
+    /// grepping for the refusals finds the one place the component says it makes none.
+    pub(crate) const RULE: AreaShape = AreaShape {
+        tail: Tail::Written,
+        band: Shared::Axis,
+    };
+}
+
 /// **The bar everybody writes: the groove, then the thumb on top of it.**
 ///
 /// `pub` for the reason [`crate::frame::defective`] and [`crate::runner::defective`] are: an
 /// instrument crate's fixtures are part of the instrument, and a gate validated only against a
 /// correct build reports zero for the same reason a broken one would.
 pub mod defective {
-    use super::{BarOpts, Ctx, Ink, Rect, Response, Shares, Span, draw};
+    use super::{BarOpts, Ctx, Ink, Rect, Response, Shared, Shares, Span, draw, sticky_shaped};
 
     /// **A band drawn by arithmetic instead of into a view.**
     ///
@@ -339,6 +442,18 @@ pub mod defective {
     /// It is spec §6's pinned-column finding on the other axis, which is what spec §9 asks to be
     /// shown: *a body drawn by arithmetic instead of into a view has identical writes, identical
     /// verbs, identical output and cells re-damaged every steady frame.*
+    /// **It is the arithmetic arm's entry point and not a second body**, which is production
+    /// 08's own fold one component over: `collection_chorded` became an arm of `collection_shaped`
+    /// because two functions writing the same cells are two places for one rule to be got wrong.
+    /// This one keeps its name because `crate::gates`'s register cites it and
+    /// `tests::a_band_is_a_view_and_the_arithmetic_spelling_re_damages_what_is_under_it` is watched
+    /// through it.
+    ///
+    /// **No `#[track_caller]`, exactly as before the fold.** Production 09's first draft added one
+    /// and a review caught it: this function did not carry the attribute, so `cx.id()` mints *its
+    /// own* line, and adding one would have made it mint the caller's — a change to a shipped
+    /// signature's behaviour, unasked and ungated. It changes nothing observable, because a band
+    /// declares nothing (§9), and *changes nothing observable* is not a reason to make it.
     pub fn arithmetic_band(
         cx: &mut Ctx<'_, '_>,
         band: Rect,
@@ -347,13 +462,41 @@ pub mod defective {
         body: impl FnOnce(&mut Ctx<'_, '_>),
     ) -> Response {
         let id = cx.id();
-        if band.is_empty() {
-            return Response::inert(id, band);
-        }
-        let (dx, dy) = shares.of(offset);
-        let mut view = cx.scrolled(band.x - dx, band.y - dy);
-        body(&mut view);
-        Response::inert(id, band)
+        sticky_shaped(cx, id, band, shares, offset, Shared::Arithmetic, body)
+    }
+
+    /// **A scroll area under one or both of this component's refusals**, drawn through the shipped
+    /// path.
+    ///
+    /// The one entry the two [`crate::surround`] screens reach, and the reason there is no
+    /// `omitted_tail` and no `inverted_band` beside it: a band refusal has to arrive *through the
+    /// area*, because `scroll_area` is what calls [`super::sticky`] for all four of §9's bands and
+    /// nothing else in this crate opens a band of its own. A `pub fn` taking a band's own signature
+    /// would have no caller, which is production 08's own review finding — four wrappers written
+    /// and deleted for exactly that.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "[`super::scroll_area_into`]'s nine plus the one policy value, which is the whole \
+                  of what makes it a refusal — see [`super::AreaShape`]"
+    )]
+    pub(crate) fn area_shaped<I, B, D>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        id: vitui_runtime::Id,
+        rect: Rect,
+        st: &mut super::AreaState,
+        opts: &super::AreaOpts,
+        extent: (u32, u32),
+        band: B,
+        body: D,
+        shape: super::AreaShape,
+    ) -> Response
+    where
+        I: Ink,
+        B: FnMut(&mut I, &mut Ctx<'_, '_>, super::Band),
+        D: FnOnce(&mut I, &mut Ctx<'_, '_>),
+    {
+        super::draw_with(ink, cx, id, rect, st, opts, extent, band, body, shape)
     }
 
     /// **The groove first, then the thumb over it.**
@@ -657,19 +800,47 @@ pub fn sticky(
     body: impl FnOnce(&mut Ctx<'_, '_>),
 ) -> Response {
     let id = cx.id();
+    sticky_shaped(cx, id, band, shares, offset, Shared::Axis, body)
+}
+
+/// **[`sticky`] with the translation policy spelled out and the id its caller minted.**
+///
+/// The id is a parameter for [`scroll_area_into`]'s reason — `#[track_caller]` cannot see through a
+/// component that has already claimed one — and `shape` is [`Shared::Axis`] on every shipped path.
+///
+/// There is **one** band body in this crate and this is it: [`sticky`] is this with the rule, and
+/// [`defective::arithmetic_band`] is this with one arm. A second body written beside it would be
+/// two places for §9's sentence to be got wrong, which is `crate::ink`'s own rule about copies
+/// arriving on a policy rather than on a writer.
+fn sticky_shaped(
+    cx: &mut Ctx<'_, '_>,
+    id: Id,
+    band: Rect,
+    shares: Shares,
+    offset: (i32, i32),
+    shape: Shared,
+    body: impl FnOnce(&mut Ctx<'_, '_>),
+) -> Response {
     if band.is_empty() {
         return Response::inert(id, band);
     }
-    let (dx, dy) = shares.of(offset);
+    let (dx, dy) = shape.translation(shares, offset);
     // **The clip is the whole point.** `Ctx::child` narrows and translates; `Ctx::scrolled` puts
     // the shared axis back into content coordinates and leaves the pinned one at the band's own
     // origin. Drawn by arithmetic into the caller's context instead, a band's overrun lands on
     // whatever is beside it, is overdrawn by that neighbour, and re-damages those cells on every
     // steady frame for ever — `defective::arithmetic_band`, and it is spec §6's pinned-column
     // finding on the other axis.
-    let mut clipped = cx.child(band);
-    let mut view = clipped.scrolled(-dx, -dy);
-    body(&mut view);
+    if shape.clips() {
+        let mut clipped = cx.child(band);
+        let mut view = clipped.scrolled(dx, dy);
+        body(&mut view);
+    } else {
+        // **The arithmetic spelling**: the origin moves and the clip does not narrow, so the
+        // band's coordinates are the caller's plus a translation.
+        let mut view = cx.scrolled(band.x + dx, band.y + dy);
+        body(&mut view);
+    }
     Response::inert(id, band)
 }
 
@@ -1159,8 +1330,51 @@ pub fn scroll_area_into<I, B, D>(
     st: &mut AreaState,
     opts: &AreaOpts,
     extent: (u32, u32),
+    band: B,
+    body: D,
+) -> Response
+where
+    I: Ink,
+    B: FnMut(&mut I, &mut Ctx<'_, '_>, Band),
+    D: FnOnce(&mut I, &mut Ctx<'_, '_>),
+{
+    draw_with(
+        ink,
+        cx,
+        id,
+        rect,
+        st,
+        opts,
+        extent,
+        band,
+        body,
+        AreaShape::RULE,
+    )
+}
+
+/// **The one drawing path**, with the policy value the refusals substitute one field of.
+///
+/// [`crate::collect::draw_with`]'s arrangement one family over: the shipped entry point passes
+/// [`AreaShape::RULE`] and [`defective::area_shaped`] passes whatever it was handed, so a
+/// reviewer's diff between the two builds is a **single field** and there is no second
+/// implementation of this component for a gate to test instead.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "[`scroll_area_into`]'s nine plus the policy value — see its own `expect`, whose \
+              reasoning is unchanged and to which the tenth argument is the thing that makes a \
+              refusal one line rather than a second function"
+)]
+fn draw_with<I, B, D>(
+    ink: &mut I,
+    cx: &mut Ctx<'_, '_>,
+    id: Id,
+    rect: Rect,
+    st: &mut AreaState,
+    opts: &AreaOpts,
+    extent: (u32, u32),
     mut band: B,
     body: D,
+    shape: AreaShape,
 ) -> Response
 where
     I: Ink,
@@ -1197,9 +1411,27 @@ where
     // **The bands, and every one of them is a view.** One construction, four configurations —
     // and not one of them declares anything, so the four share the area's single hit entry.
     for b in p.bands() {
-        sticky(cx, b.rect, b.shares(), st.offset, |cx| {
-            band(&mut *ink, cx, b)
-        });
+        // **`cx.id()` here and not the area's `id`.** `sticky` is `#[track_caller]`, so before the
+        // policy value arrived this id was minted from the `sticky(` call site; it is minted from
+        // *this* line now, which is a different `Location` and therefore **a different `Id`**.
+        //
+        // A review of production 09's first draft caught a comment here claiming the value was
+        // unchanged. It is not, and what makes the change harmless is stated instead of assumed:
+        // a band **declares nothing** (§9 — *one hit entry for all four*, because a band that were
+        // a second scroll area would win the wheel from the body it is a header of), so the
+        // `Response` is inert, this loop discards it, and no hit entry, focus stop or scroll
+        // association is keyed on it. `tests::four_bands_standing_declare_no_hit_entry_of_their_own`
+        // is what watches that, `merges == 0` included.
+        let band_id = cx.id();
+        sticky_shaped(
+            cx,
+            band_id,
+            b.rect,
+            b.shares(),
+            st.offset,
+            shape.band,
+            |cx| band(&mut *ink, cx, b),
+        );
     }
 
     // **The body, at content coordinates.** `Ctx::with_id` is outside the scope rather than around
@@ -1217,7 +1449,9 @@ where
             // the rectangle must write it — spec §9 assigns that line by name. It is not free and
             // the offset clamp is: `max` is recomputed every frame, and a shrunk extent leaves
             // cells no body will ever draw.
-            tail_into(&mut *ink, cx, p.view, extent, st.offset, tail);
+            if shape.tail == Tail::Written {
+                tail_into(&mut *ink, cx, p.view, extent, st.offset, tail);
+            }
         });
     });
 

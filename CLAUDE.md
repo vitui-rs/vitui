@@ -39,8 +39,8 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   obligations as functions over it. Register 233 rows, 228 evaluated and
   **no row pinned red** — row 112 was the last, inverted by runtime architecture 31 — beside
   5 unreachable across the crate line (ADR 0023) and **nothing unsubjected**: production 03 took
-  `table`'s two and production 04 took `field`'s four, which were the last. **Forty of the
-  forty-two scenes stand up, none is red and two have nothing to run over** —
+  `table`'s two and production 04 took `field`'s four, which were the last. **Forty-three of the
+  forty-five scenes stand up, none is red and two have nothing to run over** —
   `scenes.rs`'s own gate names the numbers, and *every scene stood up* was a third stale summary
   sentence of production 01's kind, corrected by 04. That gate's own **name** has now been stale
   twice and corrected twice — production 06 renamed it from three-and-thirty-three, production 08
@@ -56,19 +56,25 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   on the wire, by runtime architecture 34. Scenes **39 to 42 are production 08's** and they are the
   overlay family's last four, all four in **one** file (`crate::dropped`) — because 06's two axes
   were decided by two different things and these four are decided by one: **the list is behind a
-  layer**, which changes who can see the arithmetic rather than the arithmetic. Obligations
-  **O1–O4, O6 and O7 are `Met`; O5 is the one left**, at **29 of 34 `(component, axis)` pairs with a
+  layer**, which changes who can see the arithmetic rather than the arithmetic. Scenes **43, 44 and
+  45 are production 09's** and they are the scroll family's last three, in **two** files: the two
+  screens are decided by one offset (`crate::surround` — the tail past an area's content and the
+  bands beside it), and the wheel is a **posted notch**, so it is `crate::wheel::Subject::Pane`, that
+  gate's fourth arm. **All three pairs already had an instrument and not one could fail on its own
+  axis** — one frame over a state nothing had moved, a band gate played at offset `(0, 0)` where four
+  of five spellings agree, and a wheel gate the pane was not a subject of. Obligations
+  **O1–O4, O6 and O7 are `Met`; O5 is the one left**, at **32 of 34 `(component, axis)` pairs with a
   scene**, and is watched panicking, because a query with no evidence must fail loudly rather than
-  pass.
+  pass. The two left are `tree`'s.
 - **`vitui-apps` — 18 applications**, one file each in `examples/`. A component ticket ships one, and
   since ticket 45 that is obligation **O7** rather than a habit: `vitui_components::consumer` joins
   the freeze against the import paths here.
 - **Active work: `.scratch/vitui-production/`** (opened 2026-09-01) — the whole workspace's road to a
   published crate, sixteen tickets in five groups: the paperwork, the six unsubjected register rows
   (**all six standing**, by production 03 and 04),
-  the fourteen hostile axes O5 still owed (**five left**, `field`'s three taken by production 05,
-  `table`'s two by 06 and the overlay family's four by 08), three tier-1 terminals nobody has run,
-  and the release.
+  the fourteen hostile axes O5 still owed (**two left, and both `tree`'s**: `field`'s three taken by
+  production 05, `table`'s two by 06, the overlay family's four by 08 and the scroll family's three
+  by 09), three tier-1 terminals nobody has run, and the release.
   **Windows is last, as 16**, blocked by the publish — which carries the consequence that no shipped
   string may claim a terminal the conform suite has not asked. Everything on it was already true and
   already recorded; what was missing was that nothing scheduled any of it.
@@ -136,6 +142,19 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   visible start with no scrolling at all. Register entry 48, and `clear` got a number after the
   ticket said it could not have one — a fill that lands nothing damages nothing, so the arm is
   `Presented::submitted` over a pair of frames that paint one rectangle two colours.
+
+- **A tail exists only where the content is smaller than the viewport, and a band scene may not be
+  played at the origin** (production 09). `max_offset` is `extent − viewport`, so at any offset the
+  clamp admits `offset + viewport ≤ extent` and the range `[extent, offset + viewport)` is **empty**
+  — a vertical tail needs a content shorter than the viewport and a horizontal one a content
+  narrower than it. What that buys is the reading: **the shrink clamps the window to the origin**, so
+  the window moves at the same time as the content stops reaching it. And `scroll::Shared`'s five
+  band spellings all draw the same screen at `(0, 0)`, which is where the gate this crate had was
+  played — so `crate::surround` plays two offsets and states the axis in **three** readings, because
+  the counts separate only the unpinned arm (the two gutters, 12 cells, since a gutter shares
+  *neither* offset), the strings separate all three only at a small offset, and the origin is the
+  control. `sticky` has **one** body now — `sticky_shaped` — and `defective::arithmetic_band` is
+  that body with one arm.
 
 - **A component may ask about two colours, and a consumer may configure its own engine** (runtime
   architecture 34, resolved 2026-08-31). `Theme::colours_differ_on_wire(Rgb, Rgb)` is
@@ -323,6 +342,17 @@ instrument rather than in the code. Each of these has bitten at least twice.
   is documentation: rustdoc on stable ignores it.
 - **The recorder and the defect share a coordinate system**, so the gate cannot see it. Both recorders
   union in root coordinates for this reason.
+- **`Pen` records a clipped verb at the column it was *asked* for**, so a verb starting left of its
+  clip lands in the recorder's arithmetic shifted by the discarded prefix (ADR 0022's
+  clamp-and-discard; `Tally` carries the same caveat). Harmless while the subject writes inside its
+  own rectangle — and *every* band refusal is a band writing outside one, so production 09's first
+  draft reported **one cell in a gutter the screen does not have**. Write **one cell a verb** where a
+  refusal can overrun: per cell a write lands whole or is discarded whole, which is
+  `crate::runner::reference`'s arrangement.
+- **A body cannot be a ruler on two axes at once.** An oracle built as *the band and the body agree
+  about a coordinate*, off one frame, wants the body's top row to carry column marks and its left
+  column to carry row marks — and those collide in the top-left cell, which a pinned column spans.
+  Every escape is a special case; use the reference render every other scene here uses.
 - **Counters on the wrong side of the question.** `changed > 0` is green on the exact set it exists to
   catch; every *output* counter is blind to work that produces no output (a fold at 476 ns a point
   drew the identical picture) — pair a work counter with a per-input ceiling.
@@ -345,6 +375,11 @@ crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers 
                           └ `gallery`: 29 panels as a value, where §21's rows 7 and 8 are measured
                           └ `dropped`: the two overlay owners' four axes, where a popup's interior
                             is drawn in the base pass because a layer body takes no ink
+                          └ `surround`: what an area writes and its body does not — the tail past
+                            `[extent, offset + viewport)` and the five bands beside it. The bands
+                            are compared at two non-zero offsets with `(0, 0)` as the control; the
+                            tail is played *from* `(40, 100)` and read after the shrink has clamped
+                            the window to the origin, which is the axis's own arithmetic
                           └ per component: a doc page with a compiled example (O1), a golden screen
                             per construction under `tests/golden/` (O3, 36 of them, `VITUI_BLESS=1`),
                             a declared keyboard contract for the thirteen that read a key (O4), and

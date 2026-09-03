@@ -423,6 +423,7 @@ pub mod runner;
 pub mod scenes;
 pub mod series;
 pub mod state;
+pub mod surround;
 pub mod volume;
 pub mod wheel;
 pub mod window;

@@ -8,23 +8,25 @@
 //!
 //! # What it prints, and why each half is here
 //!
-//! 1. **The scene list, one line a scene, in §21's column order.** **Two of the forty-two** print
+//! 1. **The scene list, one line a scene, in §21's column order.** **Two of the forty-five** print
 //!    the ticket that will build their subject rather than a row of zeros — see
 //!    [`vitui_components::scenes::report`], which argues that at length. One is played by this
-//!    report and carries its own numbers, **forty are stood up on their own components**, and
+//!    report and carries its own numbers, **forty-three are stood up on their own components**, and
 //!    **none is pinned red** — row by row, the whole list has turned since components ticket 04
 //!    wrote it, and the counts here are the ones
-//!    `scenes::tests::two_scenes_have_nothing_to_run_over_none_is_red_and_forty_are_stood_up`
+//!    `scenes::tests::two_scenes_have_nothing_to_run_over_none_is_red_and_forty_three_are_stood_up`
 //!    asserts. **The paragraph this replaced was three tickets' worth of stale**, saying thirteen
 //!    of thirty-one and fifteen pinned red: production 01's defect in the one place a `#[test]`
 //!    cannot reach it, because `cargo test` does not run an example. Corrected in passing by
-//!    production 08, which is where the count last moved.
+//!    production 08 — and **re-introduced by production 09's first draft, which renamed the test on
+//!    the line below and left the two numbers above it**: a code review caught it, and it is the
+//!    same defect this paragraph is about, one ticket later.
 //! 2. **The four hostile axes, each caught.** *n cells over m rows*, beside what the defective build
 //!    cost — because the whole argument for an equality against a reference render is that **every
 //!    one of the four made the defective build look healthier**, and a report that printed only the
 //!    diff would leave the reader to take that on trust.
-//! 3. **O5's coverage**, **twenty-nine of thirty-four**, with the **five** bare pairs named — the
-//!    scroll family's three and `tree`'s two, which are production 09's and 07's.
+//! 3. **O5's coverage**, **thirty-two of thirty-four**, with the **two** bare pairs named — both
+//!    `tree`'s, which are production 07's and are blocked on components architecture 20.
 //!
 //! # It asserts the shape and not the timings
 //!
@@ -263,7 +265,7 @@ fn main() {
     // it because `cargo test` does not run an example**: it is compiled by `cargo clippy
     // --all-targets` and evaluated by nothing. Resyncing them would put the same trap back one
     // number later, so they are deleted rather than corrected, and
-    // `scenes::tests::two_scenes_have_nothing_to_run_over_none_is_red_and_forty_are_stood_up`
+    // `scenes::tests::two_scenes_have_nothing_to_run_over_none_is_red_and_forty_three_are_stood_up`
     // owns those figures — it asserts the scene *numbers* and not only their count, which is
     // strictly more than these two lines said. Found by components 20.
 }

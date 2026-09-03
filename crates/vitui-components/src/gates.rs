@@ -2875,7 +2875,7 @@ pub const REGISTER: [Row; 233] = [
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
                     name: "two_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           forty_are_stood_up",
+                           forty_three_are_stood_up",
                 },
             ],
         },
@@ -3105,7 +3105,7 @@ pub const REGISTER: [Row; 233] = [
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
                     name: "two_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           forty_are_stood_up",
+                           forty_three_are_stood_up",
                 },
             ],
         },
@@ -3529,7 +3529,7 @@ pub const REGISTER: [Row; 233] = [
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
                     name: "two_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           forty_are_stood_up",
+                           forty_three_are_stood_up",
                 },
             ],
         },
@@ -3685,7 +3685,7 @@ pub const REGISTER: [Row; 233] = [
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
                     name: "two_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           forty_are_stood_up",
+                           forty_three_are_stood_up",
                 },
             ],
         },
@@ -4182,7 +4182,7 @@ pub const REGISTER: [Row; 233] = [
                 Instrument::Unit {
                     file: "crates/vitui-components/src/scenes.rs",
                     name: "two_scenes_have_nothing_to_run_over_none_is_red_and_\
-                           forty_are_stood_up",
+                           forty_three_are_stood_up",
                 },
             ],
         },
@@ -4803,8 +4803,11 @@ pub const REGISTER: [Row; 233] = [
         section: "spec §17",
         // **Ticket 20's criterion 6, and it is a join rather than a claim.**
         //
-        // The gate above runs over three subjects since production 06, and *which* three is a
-        // decision this crate makes in one file. `INVENTORY`'s `owns_offset` column is exactly
+        // The gate above runs over **four** subjects since production 09, and *which* four is a
+        // decision this crate makes in one file. `file_preview_pane` is the fourth and it is
+        // `Subject::Table`'s shape on another family: the pane hands its rectangle to
+        // `scroll_area`, so its offset, its clamp and its reveal are all reached by calling it, and
+        // the arm's assertions are *equal to the area's, arm for arm and axis for axis*. `INVENTORY`'s `owns_offset` column is exactly
         // `Axis::Wheeled`, so asking whether the freeze agrees is one question — and the failure it catches is a gate run over a
         // component the freeze says owns no offset, which reports a number while measuring nothing.
         // It is the same shape as O5 and for the same reason: **O5 is a query about axes and not

@@ -81,11 +81,13 @@ use crate::collect::{
     Cell, CollOpts, CollState, Column, TableOpts, TableState, collection_into,
     defective as coll_defective, table_into,
 };
+use crate::files::{PaneOpts, PaneState, Preview, asking, file_preview_pane_with};
 use crate::ink::{Direct, Ink};
 use crate::keys;
 use crate::order::Rows;
 use crate::scroll::{AreaOpts, AreaState, parts, scroll_area};
 use vitui_runtime::layout::Constraint;
+use vitui_runtime::work::{Cancel, Task, Worker};
 
 // ── the screen ───────────────────────────────────────────────────────────────────────────────────
 
@@ -129,6 +131,38 @@ pub const DRAGGED_BACK: i32 = 0;
 /// which is the state the defect's own sentence describes — *it drags the viewport back to the
 /// selection every time the user scrolls away from it*.
 pub const SCROLLED_AWAY: i32 = 200;
+
+/// **The document [`Subject::Pane`]'s pane is showing**, in content cells.
+///
+/// [`EXTENT`] and not a second pair, so the two subjects that own two offsets share **one** clamp
+/// and the arm-for-arm equality below is about the components rather than about two fixtures.
+pub const PANE_EXTENT: (u32, u32) = EXTENT;
+
+/// **The file the pane's question names.** One identity, asked on every frame, so `Task::request`
+/// deduplicates and the pane asks exactly once — which is the pane's own contract (§15) and not a
+/// convenience here.
+const PANE_FILE: u64 = 7;
+
+/// **What a decode produces**, and the extent is [`PANE_EXTENT`].
+///
+/// A free function over an identity and never a closure (spec §15), which is why the payload is
+/// eight bytes.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct Doc(u64);
+
+impl Preview for Doc {
+    fn shows(&self) -> u64 {
+        self.0
+    }
+    fn extent(&self) -> (u32, u32) {
+        PANE_EXTENT
+    }
+}
+
+/// The decode, as spec §15 requires it: a free function over an identity.
+fn decode(id: u64, _cancel: &Cancel) -> Doc {
+    Doc(id)
+}
 
 // ── the vocabulary ───────────────────────────────────────────────────────────────────────────────
 
@@ -181,6 +215,25 @@ pub enum Subject {
     /// what it costs is one `match` arm — which is the measure of how much of §6's sentence is
     /// true.
     Table,
+    /// A [`crate::files::file_preview_pane`]: **two offsets, in content cells, and they are
+    /// `scroll_area`'s** — the pane calls it, hands it the document's extent and keeps its
+    /// [`AreaState`] as a field.
+    ///
+    /// **Production 09's, and it is [`Subject::Table`]'s shape on the other family.** Spec §15
+    /// states the pane as *a scroll area over a document that arrives from another thread* and the
+    /// component is `scroll::scroll_area_into` with a virtualising body in front of it — so the
+    /// wheel, the reveal and both clamps are reached by calling it, and nothing had ever asked. The
+    /// assertions are therefore *`file_preview_pane` equals `scroll_area`, arm for arm* rather than
+    /// six constants written twice, which is production 06's own arrangement and its reason.
+    ///
+    /// # The extent is a field of the answer, so the run has to land one first
+    ///
+    /// A pane with nothing showing declares `(0, 0)` and admits **no offset at all** — the clamp is
+    /// `extent − viewport` — so a wheel run over an empty pane reports `0` and *a dead wheel and a
+    /// meaningless axis are the same number*, which is [`Subject::axes`]' own refusal one step
+    /// earlier. The drive loop answers the pane's question and lands it before the first frame; see
+    /// [`PANE_EXTENT`], which is [`EXTENT`] so that the two subjects share one clamp.
+    Pane,
 }
 
 impl Subject {
@@ -190,7 +243,12 @@ impl Subject {
     /// each side of the join a third subject escapes both halves while both stay green. This crate
     /// makes such populations values — `INVENTORY`, `SCENES`, `REGISTER` — and this is the same form
     /// at two rows.
-    pub const ALL: [Subject; 3] = [Subject::Collection, Subject::Area, Subject::Table];
+    pub const ALL: [Subject; 4] = [
+        Subject::Collection,
+        Subject::Area,
+        Subject::Table,
+        Subject::Pane,
+    ];
 
     /// The `INVENTORY` id, which is what makes criterion 6 a query rather than a claim.
     pub const fn id(self) -> &'static str {
@@ -198,6 +256,7 @@ impl Subject {
             Subject::Collection => "collection",
             Subject::Area => "scroll_area",
             Subject::Table => "table",
+            Subject::Pane => "file_preview_pane",
         }
     }
 
@@ -216,6 +275,10 @@ impl Subject {
             // is not a wheel question; naming `Along::Columns` here would make `wheeled` report a
             // motionless offset as a dead wheel.
             Subject::Table => &[Along::Rows],
+            // **A pane owns both**, because `scroll_area` does and the pane keeps its state: the
+            // document is [`PANE_EXTENT`] cells on each axis and `Scrollable::between` publishes
+            // the pair. That the answer here is the area's is the arm's whole claim.
+            Subject::Pane => &[Along::Rows, Along::Columns],
         }
     }
 
@@ -239,7 +302,10 @@ impl Subject {
                 0,
                 CollState::max_offset(usize::try_from(ROWS).unwrap_or(usize::MAX), H),
             ),
-            Subject::Area => area_max(),
+            // **The pane's clamp is the area's**, reached through the same function for the
+            // table's reason: the pane has no offset store of its own, so a second expression here
+            // would be a second answer to one question.
+            Subject::Area | Subject::Pane => area_max(),
         }
     }
 }
@@ -455,7 +521,11 @@ pub fn revealed(subject: Subject, reveal: Reveal, from: (i32, i32)) -> (i32, i32
         // through the same drain loop. That is the third instance of §6's sentence being checked
         // rather than trusted.
         Subject::Collection | Subject::Table => run.press(REVEAL_CHORD),
-        Subject::Area => run.ask(),
+        // **A pane's reveal is its body's**, exactly as an area's is, because the pane hands its
+        // rectangle to `scroll_area` and that component applies a delta and never asks for one.
+        // So the gesture is the same one and the arm is `Subject::Area`'s — which is what production
+        // 09 is checking rather than trusting.
+        Subject::Area | Subject::Pane => run.ask(),
     }
     run.play(play, |_| {});
     // Frame two: the widget that owns the offset applies the delta it was handed. **The application
@@ -561,6 +631,21 @@ struct Run {
     coll: CollState,
     table: TableState,
     area: AreaState,
+    /// **The pane's state and the task its answer came through.** Both inert on every other arm.
+    ///
+    /// The `Task` is held across the frames rather than minted inside one, which is
+    /// `Task::request`'s own contract — *call it unconditionally, every frame*, and the verb is
+    /// idempotent because the task remembers the key. A task per frame would ask [`PANE_FRAMES`]
+    /// questions for one document.
+    pane: PaneState<Doc>,
+    task: Task<Doc>,
+    /// **What the pane's body saw**, as `(first visible column, first visible row)`.
+    ///
+    /// The offset **read out of the coordinate system the component put the body in**, and not off
+    /// a getter: `PaneState::offset` answers the vertical axis alone, and the axis this gate is
+    /// about is the pair. It is also the stronger reading — a pane that clamped its offset and
+    /// scrolled its body to somewhere else would show up here and not in a field.
+    seen: (i32, i32),
     offset: (i32, i32),
     /// Whether the frame just played left a reveal request behind.
     asked: bool,
@@ -597,12 +682,31 @@ impl Run {
         coll.offset = offset.1;
         let mut table = TableState::new();
         table.coll.offset = offset.1;
+        // **The pane's document is landed before the first frame**, because a pane with nothing
+        // showing declares `(0, 0)` and admits no offset at all — see [`Subject::Pane`]. The
+        // `Worker::queueing` answers on this thread when told to, which is `Worker::queueing`'s own
+        // argument: a decode that finishes when the caller says so is a schedule and not a race.
+        let worker = Worker::queueing();
+        let task: Task<Doc> = Task::new(&worker);
+        let mut pane: PaneState<Doc> = PaneState::new();
+        if subject == Subject::Pane {
+            let _asked = task.request(PANE_FILE, |cancel| decode(PANE_FILE, cancel));
+            let _ran = worker.run(0);
+            let _landed = pane.land(&task);
+            // The offset was clamped to `[0, max]` above, so the conversion cannot fail — and a
+            // fallback to zero would silently start the run at the one offset every arm of this
+            // gate is documented as silent on.
+            pane.scroll_to(u32::try_from(offset.1).expect("clamped to a non-negative offset"));
+        }
         Run {
             driver: crate::runner::driver_at(W, H, Density::default()),
             subject,
             coll,
             table,
             area: AreaState { offset },
+            pane,
+            task,
+            seen: offset,
             offset,
             asked: false,
             once: false,
@@ -647,6 +751,9 @@ impl Run {
         let coll = &mut self.coll;
         let table = &mut self.table;
         let area = &mut self.area;
+        let pane = &mut self.pane;
+        let task = &self.task;
+        let seen = &mut self.seen;
         let once = &mut self.once;
         let armed = self.armed;
         self.driver.frame(|cx| {
@@ -655,12 +762,14 @@ impl Run {
                 Subject::Collection => collection_frame(cx, coll, play),
                 Subject::Area => area_frame(cx, area, play, once, armed),
                 Subject::Table => table_frame(cx, table, play),
+                Subject::Pane => pane_frame(cx, pane, task, play, once, armed, seen),
             }
         });
         self.offset = match subject {
             Subject::Collection => (0, self.coll.offset),
             Subject::Area => self.area.offset,
             Subject::Table => (0, self.table.coll.offset),
+            Subject::Pane => self.seen,
         };
         self.asked = self.driver.inspect().into_view().is_some();
         self.selected = match subject {
@@ -829,6 +938,63 @@ fn area_frame(cx: &mut Ctx<'_, '_>, st: &mut AreaState, play: Play, once: &mut b
         }
     });
 }
+
+/// One frame of the pane arm, **through the shipped component**.
+///
+/// [`area_frame`]'s shape, one family over, and the reveal is the **body's** for the same reason:
+/// `file_preview_pane` hands its rectangle to `scroll_area`, which applies a delta and never asks
+/// for one. So this arm needs no `crate::files::defective` entry at all — the three arms are three
+/// bodies, which is the measure of how much of §15's *a scroll area over a document* is true.
+///
+/// The offset is read **inside the body**, out of the coordinate system the component put it in.
+/// See this module's `Run` for why the reading is inside the body rather than off a getter.
+fn pane_frame(
+    cx: &mut Ctx<'_, '_>,
+    st: &mut PaneState<Doc>,
+    task: &Task<Doc>,
+    play: Play,
+    once: &mut bool,
+    armed: bool,
+    seen: &mut (i32, i32),
+) {
+    let rect = cx.area();
+    let opts = PaneOpts::default();
+    // **The line drawer is called once per visible document row**, and the reveal is asked on the
+    // first of them: a body asking on every row would ask seventy-four times a frame, which is one
+    // request the frame keeps and seventy-three the reader has to reason about.
+    let mut first = true;
+    let _ = file_preview_pane_with(
+        cx,
+        rect,
+        st,
+        task,
+        asking(PANE_FILE, |cancel| decode(PANE_FILE, cancel)),
+        &opts,
+        &mut |cx, row, _doc: &Doc, _i| {
+            let paint = cx.theme().paint(Role::Body);
+            let _ = cx.text(row.x, row.y, "·", paint);
+            if !std::mem::take(&mut first) {
+                return;
+            }
+            let rows = cx.visible_rows();
+            let cols = cx.visible_cols();
+            *seen = (cols.start, rows.start);
+            let ask = match play.reveal {
+                // [`area_frame`]'s three arms and its `Run::armed` cadence, unchanged.
+                Reveal::WhenAsked => armed && !std::mem::replace(once, true),
+                Reveal::EveryFrame => true,
+                Reveal::Never => false,
+            };
+            if ask {
+                cx.request_into_view(pull_rect(play.pull, &rows, &cols));
+            }
+        },
+    );
+}
+
+/// **How many frames a pane run plays.** [`CLICKS`] plus the opening frame and the settling one,
+/// which is [`wheeled`]'s cadence and not a second one.
+pub const PANE_FRAMES: u32 = CLICKS + 2;
 
 /// **The rectangle an unconditional reveal asks for, on one axis only.**
 ///
@@ -1146,6 +1312,114 @@ mod tests {
         }
     }
 
+    /// **Production 09: the same gate over the shipped `file_preview_pane`, and §15's sentence is
+    /// checked rather than trusted.**
+    ///
+    /// > The file preview pane: **a scroll area over a document that arrives from another thread**.
+    /// > … Everything else in its rectangle — the two reserved gutters, the corner and the cells
+    /// > past the extent — is `crate::scroll::scroll_area`'s, which is what makes the pane a
+    /// > partition of its rectangle without a single line of arithmetic here.
+    ///
+    /// That is `crate::files::file_preview_pane`'s own claim, and until this ticket nothing had
+    /// asked it a wheel question. The numbers are the area's to the click, **on both axes** — which
+    /// is the finding: a decode arriving from another thread costs the offset nothing, and a build
+    /// where it did would show up here as one of these arms disagreeing with its twin one component
+    /// down.
+    ///
+    /// # Written as a comparison and not as constants repeated
+    ///
+    /// Production 06's arrangement on the pair `table`/`collection`, and its reason: *the claim is
+    /// `the pane's offset is the area's` and a constant repeated on both sides cannot say whether
+    /// the two components reached it.* What it cost is one `match` arm in [`Run::play`], one
+    /// [`Subject`] variant and **no** `crate::files::defective` entry at all — the three reveal arms
+    /// are three bodies, because the pane's reveal is its body's.
+    #[test]
+    fn twenty_posted_clicks_move_a_panes_offset_twenty_and_the_numbers_are_the_areas() {
+        // **The document has to have landed**, or the pane declares `(0, 0)`, admits no offset and
+        // reports a dead wheel for a fixture's reason. `Run::new` lands it; this is the assertion
+        // that says so, and without it every number below would be `0` and agree with itself.
+        let opened = wheeled(Play::of(Subject::Pane, Reveal::WhenAsked));
+        assert_ne!(
+            opened.settled,
+            (0, 0),
+            "the pane is showing nothing, so its extent is `(0, 0)` and no offset is admissible — \
+             a dead wheel and a meaningless axis are the same number"
+        );
+
+        for along in [Along::Rows, Along::Columns] {
+            let free = Play::of(Subject::Pane, Reveal::WhenAsked).along(along);
+            assert_eq!(
+                wheeled(free).on(along),
+                MOVED,
+                "twenty clicks along the {}, twenty content cells",
+                along.word()
+            );
+        }
+
+        // **The blindness is per axis here too**, which is `Area::into_view`'s own property
+        // reached through a second component: a body asking for content row 0 every frame is dead
+        // downward and entirely healthy sideways.
+        let pull_rows = Play::of(Subject::Pane, Reveal::EveryFrame).pulling(Along::Rows);
+        assert_eq!(wheeled(pull_rows).on(Along::Rows), DRAGGED_BACK);
+        assert_eq!(
+            wheeled(pull_rows.along(Along::Columns)).on(Along::Columns),
+            MOVED
+        );
+
+        // **The three arms agree with `scroll_area`'s, arm for arm and axis for axis.**
+        for reveal in [Reveal::WhenAsked, Reveal::EveryFrame, Reveal::Never] {
+            for along in [Along::Rows, Along::Columns] {
+                let play = |subject| Play::of(subject, reveal).along(along).pulling(along);
+                let pane = wheeled(play(Subject::Pane));
+                let area = wheeled(play(Subject::Area));
+                assert_eq!(
+                    (pane.settled, pane.after_last_click, pane.reveals),
+                    (area.settled, area.after_last_click, area.reveals),
+                    "`file_preview_pane` and `scroll_area` disagree about the wheel on the `{}` \
+                     arm along the {}, so the pane's offset is not the one component reached by \
+                     the other",
+                    reveal.word(),
+                    along.word()
+                );
+            }
+            assert_eq!(
+                revealed(Subject::Pane, reveal, (0, SCROLLED_AWAY)),
+                revealed(Subject::Area, reveal, (0, SCROLLED_AWAY)),
+                "and they disagree about the reveal on the `{}` arm",
+                reveal.word()
+            );
+        }
+
+        // **The second direction**, and it is what stops the arm below being a fix.
+        assert_eq!(
+            revealed(Subject::Pane, Reveal::Never, (0, SCROLLED_AWAY)),
+            (0, 0),
+            "a body with no request left is a body nothing can reach"
+        );
+        assert_eq!(
+            wheeled(Play::of(Subject::Pane, Reveal::Never)).settled,
+            (0, MOVED),
+            "while passing the wheel half, which is why a one-directional gate is not a gate"
+        );
+        assert!(leaves_no_request(
+            Play::of(Subject::Pane, Reveal::WhenAsked),
+            (0, SCROLLED_AWAY)
+        ));
+        assert!(
+            !leaves_no_request(
+                Play::of(Subject::Pane, Reveal::EveryFrame),
+                (0, SCROLLED_AWAY)
+            ),
+            "two hundred rows down, the unconditional arm asks to be dragged back on this very \
+             frame"
+        );
+        assert!(
+            leaves_no_request(Play::of(Subject::Pane, Reveal::EveryFrame), (0, 0)),
+            "and at the origin it asks for nothing, which is the frame this defect is invisible on"
+        );
+        assert_eq!(PANE_FRAMES, CLICKS + 2);
+    }
+
     /// **Criterion 6: every subject this gate runs against declares the axis.**
     ///
     /// `INVENTORY`'s `owns_offset` column is `Axis::Wheeled`, so the two are one question — and
@@ -1176,6 +1450,21 @@ mod tests {
             "a collection owns rows and nothing else"
         );
         assert_eq!(Subject::Area.axes().len(), 2);
+        // **The pane's axes are the area's, and this pair really is two declarations**:
+        // `Subject::axes` writes a literal for each arm, so an edit to one of them fails here.
+        assert_eq!(
+            Subject::Pane.axes(),
+            Subject::Area.axes(),
+            "the pane's axes are the area's, because the pane's offset is the area's"
+        );
+
+        // **There is no assertion that the two clamps agree, and its absence is a finding.**
+        // `Subject::max_offset` answers them from **one** `Subject::Area | Subject::Pane` arm, so
+        // an equality between the two is one expression compared with itself — the trap
+        // `CLAUDE.md` names as *a gate that cannot fail*. What makes the clamps the same clamp is
+        // asserted where it can fail instead: `twenty_posted_clicks_move_a_panes_offset_twenty_        // and_the_numbers_are_the_areas` compares the offsets **two runs of the shipped
+        // components** came to rest at, on both axes and all three reveal arms. A review of this
+        // ticket's first draft found the equality here and it was deleted rather than repaired.
     }
 
     /// The area's content is larger than the clicks can exhaust, on both axes.
