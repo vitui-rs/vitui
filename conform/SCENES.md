@@ -28,6 +28,7 @@ fail on the edit instead: `scripts/page-order-gate.sh`, over a real pty. See `FI
 | **kitty** | kitty | `kitten @ get-text --ansi` over a unix socket. No automation grant, no clipboard, no z-order — and **the only *emulator* arm that can be handed a size**, in cells, which Ghostty's AppleScript surface cannot do |
 | **Terminal.app** | Terminal.app | `contents of selected tab`, over AppleScript, and **plain text only** — the `tab` class has no styled variant. **A fourth VT lineage**, and the first arm here that disagrees with the others. Scene 01 is `cannot ask` on all eleven rows; scenes 05 and 06 are answered **in full**, because a question asked in band needs no capture surface at all. The only *emulator* arm that can be **handed** a size and then insist on it |
 | **WezTerm** | WezTerm | `wezterm cli get-text --escapes`, over **this run's own GUI socket**. **A fifth family**, and the second that can be handed a size in cells. Its capture carries style but in a **classic** SGR repertoire — no SGR 53, no SGR 58, and sub-parameters normalised away — so two of scene 01's rows are `cannot ask`; and it is the first arm to answer scene 06 *wrongly* rather than not at all. **The socket is the whole of its setup risk**: `wezterm cli` prefers a background mux server, starts one if none is listening, and photographs that daemon's own shell — exiting 0, with valid JSON |
+| **Alacritty** | **what Alacritty stores** | `alacritty --ref-test`, and the `grid.json` it writes when its last window closes. **A sixth family and the first capture here that is not an escape stream**: the `Term`'s grid, one JSON object per cell, with no serialiser of the emulator's in the path — so an underline colour is a field of the cell rather than a sequence that has to survive a re-serialisation, and it is the first arm that could be *asked* about a dotted underline, and the one whose two bare rows are a `quirks.rs` entry rather than a `cannot ask`. What it costs is the tmux arm's caveat arriving on an emulator: a grid is what the terminal **stores**. **The capture is the window closing**, which is the whole of its shape — there is no socket to ask during a run |
 
 **Scenes 05 and 06 are answered by a different party than the rows above it**, and only one arm is
 affected. Their answers come back **in band**, on the scene's own tty, so they come from the
@@ -79,6 +80,14 @@ kitty's two bare rows became a `quirks.rs` entry because a second source existed
 capture; WezTerm's two have none, so `cannot ask` is not a softer reading of a disagreement here —
 it is the strongest thing the evidence supports. That is the cell earning its keep rather than
 excusing something: see §01.
+
+**And Alacritty is the arm where the cell was *ruled out* rather than settled for**, which is the
+other end of the same argument. Its scene 01 falls two rows short with the same shape as kitty's and
+WezTerm's, and neither of those readings is available: the capture is the `Term`'s own grid, so there
+is no serialiser to have lost anything, and two second sources outside it say what the grid says.
+The three arms together are what make this cell a judgement about *evidence* rather than a house
+style — same observation, three verdicts, and the difference is in what could be found outside the
+capture each time.
 
 **Terminal.app then arrived and constructed the cell it was predicted for, twelve rows of it — and
 also, separately, the first `cannot express` this directory has ever had.** The two land on different
@@ -163,6 +172,22 @@ one blob whose string table holds `OVERLINE` as a Unicode character name, so the
 settled kitty returns noise. **The difference between a `cannot ask` and a quirk is entirely in what
 evidence exists outside the capture**, and this arm is the case that says so.
 
+**The sixth family is where the difference between the two verdicts stopped being an argument.**
+Alacritty 0.17.0 renders nine and **stores** neither blink nor overline, and it earns `quirks.rs`
+its seventh entry where WezTerm's identical-looking shortfall earned nothing. The reason is entirely
+in the capture surface: `--ref-test` writes the `Term`'s grid out as JSON, so *not serialised* is not
+one of the readings available — a bare cell is a cell with nothing in it. Two second sources say the
+same thing from outside the capture anyway, and they say it about two different mechanisms:
+`alacritty_terminal::term::cell::Flags` has no bit for either, and a run under `alacritty -vvv`
+prints `Term got unhandled attr: BlinkSlow` for the one `vte` parses and **no `Setting attribute`
+line at all** for the one it does not. Parsed and discarded, against never parsed.
+
+**It is also the first arm that could be *asked* about a dotted underline**, and it answers. kitty
+renders one and spells it `CSI 4 : m`; WezTerm's capture has no spelling for it either; this grid has
+`DOTTED_UNDERLINE` as a bit of its own. The row that has been `cannot ask` on two arms is a plain
+agreement here — which is the sharpest available demonstration that those two rows were about the
+instrument, exactly as they were declared to be.
+
 **And the fifth entry is where reading across stopped being enough.** kitty's conceal and overline
 come back bare, which is exactly what tmux's overline looked like from one arm — and there is no
 further arm to add, because kitty is an endpoint and has no far side to read from. What settled it was
@@ -233,6 +258,7 @@ and the cluster written over its continuation does not:
 | tmux 3.7c | nothing — the SGR state in force |
 | Terminal.app 2.15 | **not askable**, 2026-08-30 — its capture surface carries no style at all |
 | WezTerm 20240203 | the orphan's own background, 2026-09-03 |
+| Alacritty 0.17.0 | the orphan's own background, 2026-09-03 |
 
 So a repair delegated to the terminal is a repair whose **result differs by terminal**, and no mirror
 state could be right on all of them. *The engine may as well repair* becomes *the engine must*.
@@ -243,6 +269,15 @@ against two invites the reading that kitty has a bug. WezTerm 20240203 keeps it 
 family and a different codebase — so these are **two designs**, both defensible, and the argument
 for repairing in the engine no longer rests on which side is the majority. Its other five text rows
 joined the unanimity on the same run.
+
+**The sixth arm made it three against two, and the direction of travel is the finding rather than
+the count.** Alacritty 0.17.0 keeps the orphan's background too, on a third codebase and through a
+capture surface with no serialiser in it — so the behaviour is read straight out of the cell rather
+than out of a re-spelling of one. Every askable arm added since the table had four has landed on the
+*keeping* side, which is not a majority argument either: what it says is that *kitty is the odd one
+out* was a reading available only while the sample was small, and the engine repairing the pair
+itself is right whichever way the next arm falls. Its other five text rows joined the unanimity on
+the same run, through the sixth kind of channel.
 
 **The fourth row is a fact about the instrument and is in the table anyway**, which is the rule this
 file's second section states: a row left out reads as a win. Terminal.app renders that background —
@@ -414,6 +449,34 @@ keycap row is the first in this survey where the two disagreeing arms disagree w
 Terminal.app widens it and WezTerm does not. **The decision is untouched** for the reason above:
 there is no mechanism here that would read such a `quirks.rs` row.
 
+### The seventh arm, 2026-09-03, and it answers the number the citation quotes
+
+**Alacritty 0.17.0 disagrees on four rows and one of them is `ucd.rs`'s own headline figure.** It
+answers **6** for the ZWJ family — which that file attributes to kitty, and which the kitty measured
+here answers 2 for. The survey it quotes is about a population, and this is the first capture in this
+directory to land on a number the citation names.
+
+**Three of six arms now disagree, and the three disagree by three mechanisms.** That is what the
+column was built to find out and it took a third one to see it, because the fourth arm had two
+decisions joined in a single behaviour:
+
+| | zero-width space | VS16 pair | ZWJ family | skin tone | keycap |
+|---|---|---|---|---|---|
+| the engine | 0 | 2 | 2 | 2 | 2 |
+| Terminal.app 2.15 | **1** | **1** | **8** | **4** | 2 |
+| WezTerm 20240203 | 0 | **1** | 2 | 2 | **1** |
+| Alacritty 0.17.0 | 0 | **1** | **6** | **4** | **1** |
+
+Terminal.app **sums** the cluster's code points and costs a zero-width one a column; Alacritty sums
+them and costs a zero-width one nothing — so its family is `2+0+2+0+2` where Terminal.app's is the
+same sum with the joiners counted. WezTerm does not sum at all: it takes the base's width and then
+lets no *variation selector* widen it. **Summing, and what a zero-width scalar is worth, are two
+decisions**, and with two disagreeing arms they looked like one.
+
+The three columns agree on exactly one thing besides the seven rows nobody disputes: **none of them
+widens a VS16 emoji.** Eight of Alacritty's twelve surveyed rows agree with the engine, which is the
+lowest figure this scene has produced and is still not a score.
+
 ## 06 — mode 2026, asked of the terminal rather than of its documentation
 
 No picture, no capture surface, and the second scene here whose answer comes back in band. It asks
@@ -580,6 +643,34 @@ so a probe can read a **leftover** and report it as an answer: the run this arm 
 doing its job; the rows above it are a log and must not be read as a measurement. Nothing here is
 gated — a timing is a report — and WezTerm gets **no force-flush row** in `quirks.rs`, which is
 consistent with what was observed: eight seconds with no flush at all.
+
+### The seventh arm, 2026-09-03, and the second terminal to answer wrongly — with the cause readable
+
+**Alacritty 0.17.0 answers all five and two of them are `FAILED`**, which is WezTerm's result on an
+unrelated codebase. What is new is not the disagreement but that its cause can be read:
+`Term::report_private_mode` answers `NamedPrivateMode::SyncUpdate` with a **constant**
+`ModeState::Reset`, while synchronised output is implemented one crate down in `vte`'s parser, which
+the `Term` never sees. **The flag and the reporter are in different layers**, and a second family
+arriving at the same wrong answer through a mechanism this legible is worth more than either arm
+alone: it says the shape is available to anyone who implements the buffering below the state machine.
+
+The same three control probes close the same innocent readings — `CSI ? 9999 $ p` answers `0`, so
+its `2` is a real reset; `CSI ? 2004 $ p` tracks correctly through an `h` and an `l`; and it really
+does hold a block. It earns **no `quirks.rs` entry**, for the reason WezTerm's earns none.
+
+**Part B measures the reply here, and that is a third fact this scene had no word for.** A bisection
+over *when did the terminal stop saying set* has nothing to bisect when the terminal never says set,
+so `flush_bracket` returns `AlreadyReset` — whose two documented causes, *the limit is under the
+floor* and *the open never took*, are both **false** on this arm. What the figure reports instead is
+when the **reply** arrived: a `CSI ? 2026 $ p` written 50 ms into an open block came back at 150,
+151 and 171 ms over three runs, so the question sat in the parser's buffer for about a tenth of a
+second and came out when the block force-flushed. `vte`'s shipped `SYNC_UPDATE_TIMEOUT` is 150 ms.
+
+That makes it the **first measurement beside a row of `quirks.rs`'s force-flush table**, whose four
+rows were all *the implementation, read* — and it is still not the paint, and the arming instant is
+still unobservable from inside, for the reason Ghostty's bracket sits below its own figure. The
+variant's documentation and the report's sentence both name the third cause now; the arm is what
+found it, and the first two were what they said until it ran.
 
 ### The refusals, and there are five
 

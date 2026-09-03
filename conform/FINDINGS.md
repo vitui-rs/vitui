@@ -3,6 +3,158 @@
 Hand-written and dated, because a number and what it means are two different artefacts with two
 different lifetimes. `REPORT.md` is generated; this is not.
 
+## 2026-09-03 — the sixth family, and its capture surface is not an escape stream
+
+The Alacritty arm — `conform/examples/alacritty.rs`, the seventh arm and the **sixth** emulator
+family. Production ticket 12, whose brief **predicted this arm would have no capture surface at
+all** — no remote-control socket, no screen dump, no AppleScript dictionary — and told the session
+to establish that rather than assume it. It was wrong, and what makes it wrong is on Alacritty's own
+command line.
+
+Alacritty 0.17.0, built with `cargo install alacritty --locked`: the Homebrew cask was **disabled on
+2026-09-01** for failing the macOS Gatekeeper check, so the binary here is the published crate built
+on this machine rather than the project's signed bundle. **9/9 on scene 01 with two `by design`,
+6/6 on scene 04, 3/3 and 8 of 12 surveyed on scene 05, and 3/5 on scene 06.** One new `quirks.rs`
+entry, one new `Dialect`, and three readings changed.
+
+### `--ref-test` is a capture surface and it is the strongest one here
+
+`alacritty --ref-test` serialises the `Term`'s grid to `./grid.json` when its last window closes —
+one JSON object per cell, with `c`, `fg`, `bg`, a `flags` bitfield and an `extra` carrying the
+underline colour and the cluster's combining marks. **There is no serialiser of the emulator's in
+the path at all**, which is the property no other arm has: kitty's *the dump has no spelling for a
+dotted underline* and WezTerm's *the serialiser reached a styled cell and dropped one attribute of
+it* are both structurally impossible against a grid.
+
+It costs the opposite thing and the report says so: **a grid is what the terminal stores**, which is
+the tmux arm's caveat arriving on an emulator. Storage is one step from paint, and that is why this
+arm's two missing attributes are argued from two more sources rather than from their absence.
+
+**Three properties of it had to be found by running it**, and each would have been a silent wrong
+answer:
+
+1. **The dump is written from one branch of the event loop** — the one where the last window has
+   closed and the process is about to exit. So the capture is taken by *ending* the run: the scene
+   is stopped, the window goes, the file is written. The engine is never detached, which is what
+   keeps the alternate screen in the grid; a scene asked to finish politely would hand back the
+   primary screen and the capture would be of an empty shell.
+2. **It writes to `./` and Alacritty `chdir`s to the home directory on macOS**, unconditionally,
+   before the event loop starts. The driver hands it a `HOME` of its own under `$TMPDIR`, which is
+   also this arm's `-f /dev/null`.
+3. **`scrolling.history` must be zero.** `write_ref_test_results` calls `Grid::initialize_all`
+   first, so the default 10 000-line history is materialised in full: the first probe wrote
+   **111 MB** for a four-row screen.
+
+The reader is `conform/src/grid.rs` and `Dialect` grew a third arm for it. Three shapes in that file
+are quotations rather than derivations, and the first is the one a wrong guess would have hidden:
+`Storage` is a **ring**, and `compute_index` is `(zero + visible_lines - line - 1) % len`, so
+`inner[0]` is the *bottom* row. A reader that took the array in order would hand back every row's
+text intact and every row in the wrong place — which is the shape a comparison passes on. The
+others: a double-width cluster occupies two cells and the second carries `WIDE_CHAR_SPACER`, dropped
+here so this arm's rows are comparable with the five that emit no padding cell at all; and a
+cluster's combining marks are in `extra.zerowidth` rather than in `c`.
+
+### The seventh quirk entry, and the first where `cannot ask` was ruled out rather than settled for
+
+Blink and overline come back bare. That is kitty's shape on one row and a new row on the other, and
+the verdict is kitty's rather than WezTerm's — **entirely because of what evidence exists outside
+the capture**, which is the rule those two arms established and this one is the third case of.
+
+- The capture is the grid, so *not serialised* is not one of the readings available.
+- `alacritty_terminal::term::cell::Flags` has no bit for blink and none for overline.
+- A run under `alacritty -vvv` prints `Term got unhandled attr: BlinkSlow` for the SGR that asks for
+  a blink, and **no `Setting attribute` line at all** for SGR 53. Two mechanisms: `vte` parses one
+  into an `Attr` the `Term` discards, and has no `Attr` variant for the other.
+
+**Recognised by `$ALACRITTY_WINDOW_ID`, and the two better options were both tried.** `CSI > 0 q` is
+answered with nothing, so there is no XTVERSION to key on the way tmux and kitty are keyed. And
+`TERM` is **not** `alacritty` here: `setup_env` picks that name only where the terminfo entry exists
+and this machine has none, so the scene saw `xterm-256color` — a name three other terminals answer
+to.
+
+**Those two rows were `FAILED` for exactly one run**, which is the kitty arm's trade: that run is
+`fixtures/alacritty-0.17.0-scene01-attrs.json`, captured while the engine still sent both bits, and
+the rows read `by design` from here on. Do not regenerate it.
+
+**And the row that was `cannot ask` on two arms is a plain agreement here.** kitty renders a dotted
+underline and spells it `CSI 4 : m`; WezTerm's capture has no spelling for it either. This grid has
+`DOTTED_UNDERLINE` as a bit of its own, so Alacritty is the first arm in the suite that could be
+**asked**, and it answers. That is the sharpest available evidence that those two declarations were
+about the instrument, exactly as they said.
+
+### The environment is load-bearing here, where the Terminal.app arm recorded it as luck
+
+That arm neutralises `TERM_PROGRAM` and the rest and notes that it moves no row *as this suite
+stands*. On this arm it moves every row of every scene. Alacritty execs the command it is handed
+with the environment it was started in, and this workspace is developed inside Ghostty — so an
+un-neutralised run detects **Ghostty** inside the Alacritty window, consults `quirks.rs` for
+Ghostty, and reports about a terminal that is not on the screen. Observed on the first probe.
+`TERMINFO` is on the list for a different reason than the rest: it is not read by the engine at all,
+and it is what Alacritty's own `terminfo_exists` consults to decide which `TERM` to set.
+
+### Scene 04: three families keep the orphan's background and two blank it
+
+Alacritty keeps it, joining kitty and WezTerm, so the split is now three against two — read out of
+the cell this time rather than out of a re-spelling of one. The count is not the finding and the
+direction is: every askable arm added since the table had four has landed on the *keeping* side, so
+*kitty is the odd one out* was a reading available only while the sample was small. Architecture
+ticket 20's answer is unaffected either way, which was the point of reporting the row and never
+comparing it. Its other five text rows joined the unanimity, through a sixth kind of channel.
+
+### Scene 05: a third mechanism, and it splits a decision the fourth arm had joined
+
+Eight of twelve surveyed — the lowest this scene has produced — and the four that differ are the
+VS16 pair, the ZWJ family, the skin tone and the keycap.
+
+| | zero-width space | VS16 pair | ZWJ family | skin tone | keycap |
+|---|---|---|---|---|---|
+| the engine | 0 | 2 | 2 | 2 | 2 |
+| Terminal.app 2.15 | **1** | **1** | **8** | **4** | 2 |
+| WezTerm 20240203 | 0 | **1** | 2 | 2 | **1** |
+| Alacritty 0.17.0 | 0 | **1** | **6** | **4** | **1** |
+
+**Alacritty answers 6 for the ZWJ family, which is the figure `ucd.rs`'s own citation attributes to
+kitty** — and the kitty measured in this directory answers 2. The survey that paragraph quotes is
+about a population; this is the first capture here to land on a number it names.
+
+And the two summing arms are told apart by the zero-width space: Terminal.app costs a zero-width
+code point a column and Alacritty costs it nothing, so the family is `2+1+2+1+2` there and
+`2+0+2+0+2` here. **Summing, and what a zero-width scalar is worth, are two decisions** — and with
+only two disagreeing arms they looked like one. Three of six arms now disagree, by three mechanisms,
+on three codebases. `ucd.rs` says so with the date and the fixture; the decision is untouched.
+
+### Scene 06: the second terminal to answer wrongly, and the first row of the flush table with a measurement
+
+Two `FAILED`, the same two rows as WezTerm's, and here the cause is readable rather than inferred:
+`Term::report_private_mode` answers `NamedPrivateMode::SyncUpdate` with a **constant**
+`ModeState::Reset`, while synchronised output lives one crate down in `vte`'s parser, which the
+`Term` never sees. The flag and the reporter are in different layers. The same three control probes
+close the same innocent readings — `CSI ? 9999 $ p` answers `0`, `CSI ? 2004 $ p` tracks through an
+`h` and an `l`, and the block really is held — and it earns **no quirk entry**, for WezTerm's
+reason: `Detected::mode` reads `1` and `2` alike as *available*, so nothing is degraded and there is
+no route to take around.
+
+**Part B found a third fact this scene had no word for.** `flush_bracket` returns `AlreadyReset`,
+whose two documented causes are *the limit is under the floor* and *the open never took* — and both
+are **false** here. The third is *the terminal's DECRQM never says set*, which leaves a bisection
+with nothing to bisect. What the figure measures on such a terminal is the **reply**: a
+`CSI ? 2026 $ p` written 50 ms into an open block came back at **150, 151 and 171 ms** over three
+runs, so the question sat in the parser's buffer and came out when the block force-flushed. `vte`'s
+shipped `SYNC_UPDATE_TIMEOUT` is 150 ms and `SYNC_BUFFER_SIZE` is 2 MiB, which are the two figures
+`quirks.rs` had quoted from documentation.
+
+So this is the **first row of that table with a measurement beside it** — and it is still not the
+paint, and the arming instant is still unobservable from inside, for the reason Ghostty's bracket
+sits below its own number. `Bracket::AlreadyReset`'s documentation, `FLUSH_FLOOR_MS`'s, and the
+report's own sentence all name the third cause now. The arm is what found it.
+
+### One transient failure, recorded because it will happen again
+
+One run in six failed with *the scene never reported a presented frame within 20s*. The window
+opened and the scene did not stamp; the next run of the same build was clean. It is not diagnosed
+and it is not hidden: an arm that occasionally fails to start is a fact about this arm, and the
+readiness timeout naming the cause is the machinery working rather than a flake to retry past.
+
 ## 2026-09-03 — the fifth family, and three of its four scenes changed a reading
 
 The WezTerm arm — `conform/examples/wezterm.rs`, the sixth arm and the **fifth** emulator family.

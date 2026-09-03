@@ -15,12 +15,12 @@ that arrangement cannot catch:
 This directory is the missing fourth party. It is
 [production ticket 04](../.scratch/vitui-engine-production/issues/04-the-conformance-harness.md).
 
-## Status: every stage, four scenes and five emulator families
+## Status: every stage, four scenes and six emulator families
 
-**Six arms, six committed reports, five emulator families, two `quirks.rs` entries, one closed
-architecture ticket, a citation that reproduces on two families, two parser defects and one defect in
-the engine's own output came out of them.** Eighty-nine tests, no emulator in the loop for any of
-them.
+**Seven arms, seven committed reports, six emulator families, three `quirks.rs` entries, one closed
+architecture ticket, a citation that reproduces on three families by three mechanisms, two parser
+defects and one defect in the engine's own output came out of them.** Ninety-seven tests, no emulator
+in the loop for any of them.
 
 | arm | scene 01 | scene 04 | scene 05 | scene 06 | what its rows are about |
 |---|---|---|---|---|---|
@@ -30,6 +30,7 @@ them.
 | `cargo run --example kitty` | **8/8**, one `cannot ask`, two `by design` | **6/6** | **3/3**, and 12 of 12 surveyed | **5/5**, flag reset 1985–2085 ms | kitty 0.48.2's own cell state |
 | `cargo run --example terminal` | **0/0**, eleven `cannot ask` | **6/6** | **3/3**, and **8 of 12** surveyed | **0/0**, five `cannot express` | Terminal.app 2.15's screen as plain text, and its own in-band answers |
 | `cargo run --example wezterm` | **9/9**, two `cannot ask` | **6/6** | **3/3**, and **10 of 12** surveyed | **3/5**, no bracket | WezTerm 20240203's own cell state, and the first arm to answer scene 06 **wrongly** |
+| `cargo run --example alacritty` | **9/9**, two `by design` | **6/6** | **3/3**, and **8 of 12** surveyed | **3/5**, reply held to 150 ms | what Alacritty 0.17.0 *stores* — `--ref-test` serialises the `Term`'s own grid, so no serialiser of the emulator's is in the path |
 
 **An arm runs every scene or it is not a run**, and one report per arm holds a section for each —
 same rule, same reason, as one file per arm: a section that is missing reads as a win. There is
@@ -38,11 +39,12 @@ deliberately no flag to run one scene.
 **Scene 04 closed [architecture ticket 20](../.scratch/vitui-engine-architecture/issues/20-a-pair-bisected-by-a-child-clip.md)**,
 which is the first decision on that map settled by asking a terminal rather than by argument. All four
 arms agree that a terminal blanks the orphaned half of a bisected pair itself, in both directions, and
-none of them has a clip to consult. **They disagree about what the blanked cell wears** — kitty and WezTerm keep the orphan's
-background, Ghostty and tmux blank to the SGR state in force — which is the finding that turned *the
-engine may as well repair* into *the engine must*. **The fifth family made it a two-two split**
-rather than one family against two, which is what stops *kitty has a bug* being a reading. See
-`FINDINGS.md`.
+none of them has a clip to consult. **They disagree about what the blanked cell wears** — kitty,
+WezTerm and Alacritty keep the orphan's background, Ghostty and tmux blank to the SGR state in force
+— which is the finding that turned *the engine may as well repair* into *the engine must*. **Three
+against two**, and the direction is the finding rather than the count: every askable arm added since
+the table had four has landed on the keeping side, so *kitty has a bug* was a reading available only
+while the sample was small. See `FINDINGS.md`.
 
 It is also the only scene that does **not** drive the engine, and it cannot: the engine repairs a
 bisected pair before it serialises anything, so an engine-driven scene could photograph only the
@@ -158,6 +160,24 @@ command, and `--class` is not the answer: on macOS it is a windowing-system clas
 nowhere. **It is the sharpest instance of *a missing row reads as a win* in this directory**, because
 the wrong version succeeds.
 
+**The Alacritty arm is the sixth family and the only one whose capture is not an escape stream.**
+`alacritty --ref-test` writes the `Term`'s grid to `./grid.json` when its last window closes, one
+JSON object per cell — so there is no serialiser of the emulator's between the cell and the reader,
+which is the property kitty's and WezTerm's `cannot ask` rows exist because their arms lack. It is
+read by `src/grid.rs` behind `Dialect::AlacrittyGrid`, and the fixtures are `.json` for the reason
+`.cpr` and `.decrqm` are named apart.
+
+What is unlike every other arm is **when** the capture happens: there is no socket to ask during a
+run, and the file is written from the one branch of the event loop where the last window has closed.
+So the arm stops the scene and waits for the process to exit, and it stops it with `SIGSTOP` and
+then `SIGKILL` rather than asking it to finish — a clean exit would leave the alternate screen and
+hand back a grid of the shell. Three more things it needs, each found by running it: a private
+`HOME`, because Alacritty `chdir`s there on macOS before writing `./grid.json`; `scrolling.history=0`,
+because the ref test materialises the whole scrollback and the first probe wrote 111 MB for a
+four-row screen; and a **built** environment, which on this arm is load-bearing rather than
+hygienic — an inherited `TERM_PROGRAM=ghostty` makes the engine inside the Alacritty window detect
+Ghostty.
+
 Its capture carries style, in a **classic** SGR repertoire — sub-parameters normalised away (`4:1`
 comes back as bare `4`, `4:2` as `21`), and no spelling at all for `4:3`, `4:4`, `4:5`, SGR 53 or
 SGR 58. Two of scene 01's rows are therefore `cannot ask`, and unlike kitty's they cannot be
@@ -203,8 +223,9 @@ text, and only scene 01 not at all — and it is the arm the survey needed. Thre
 cannot say whether they are agreeing with the engine's tables or reflecting them; **Terminal.app 2.15
 disagrees on four of scene 05's twelve surveyed rows**, all four by summing a cluster's code points
 where the others take the base's width. `ucd.rs`'s headline citation reproduces on it — and again on
-WezTerm 20240203 (2026-09-03), by a different mechanism, which is what makes it a population rather
-than an outlier. See
+WezTerm 20240203 and again on Alacritty 0.17.0 (both 2026-09-03), by two further mechanisms, which
+is what makes it a population rather than an outlier. **Alacritty answers 6 for a ZWJ family, the
+figure that citation attributes to kitty**, and the kitty measured here answers 2. See
 [ticket 04](../.scratch/vitui-engine-production/issues/04-the-conformance-harness.md) and
 `FINDINGS.md`, 2026-08-30.
 
@@ -254,6 +275,10 @@ form — the missing row hiding inside a green one.
 | `wezterm-20240203-110809-5046fc22-scene04-pairs.vt` | the same scene as WezTerm holds it: the four text rows agreeing with all four other families, and the blanked half wearing **the orphan's own background** — the fifth family, landing on kitty's side and turning that row into a two-two split |
 | `wezterm-20240203-110809-5046fc22-scene05-widths.cpr` | the same fifteen as WezTerm answered them. **Two of the twelve surveyed rows disagree and they are not Terminal.app's four**: a VS16 pair at **1** and a keycap sequence at **1**, where every summing case — ZWJ family, skin tone, zero-width space — matches the engine exactly. Terminal.app sums code points; this terminal takes the base's width and then lets no **variation selector** widen it |
 | `wezterm-20240203-110809-5046fc22-scene06-sync.decrqm` | **five answers and every one of them `reset`**, two of them given while the mode was set. The first capture here that is a *wrong* answer rather than a missing one, and the fixture the three control probes in `SCENES.md` §06 exist to interpret |
+| `alacritty-0.17.0-scene01-attrs.json` | the same scene as **Alacritty's own grid** holds it, and the first fixture here that is not an escape stream: nine of the eleven, **blink and overline with no flag at all**, and a dotted underline reported correctly — the row two other arms declared `cannot ask`. Captured while the engine still sent both missing bits, which is what makes it the evidence for `quirks.rs`'s seventh entry; the live arm reads `by design` now and this file is why it may not be regenerated |
+| `alacritty-0.17.0-scene04-pairs.json` | the same scene as Alacritty holds it: the four text rows agreeing with all five other families, the blanked half wearing **the orphan's own background** — the third family on that side — and a `WIDE_CHAR_SPACER` in the bytes, which is the cell the reader drops so this arm's rows are comparable with the five that emit no padding cell |
+| `alacritty-0.17.0-scene05-widths.cpr` | the same fifteen as Alacritty answered them. **Four of the twelve surveyed rows disagree and they are neither Terminal.app's four nor WezTerm's two**: a ZWJ family at **6** — the figure `ucd.rs` attributes to kitty — a skin tone at **4**, a VS16 pair at **1** and a keycap at **1**, with the zero-width space at **0**. It sums the code points like Terminal.app and costs a zero-width one nothing, which is the row that tells the two summers apart |
+| `alacritty-0.17.0-scene06-sync.decrqm` | **five answers and every one of them `reset`**, two given while the mode was set — the second capture of that misbehaviour, on an unrelated codebase, where `Term::report_private_mode` answers this mode with a constant |
 | `terminal-2.15-scene01-attrs.vt` | the same scene as **Terminal.app's AppleScript surface** hands it back: eleven labels and **not one attribute anywhere**, because `contents` is `type="text"`. The bytes the arm's eleven `cannot ask` rows rest on, and the reason the declaration is gated rather than only stated — no cluster in this file carries a style, and all eleven labels are where the scene put them |
 
 | `ghostty-1.3.1-scene04-pairs.vt` | scene 04 as Ghostty gave it back: the orphaned half blanked in both directions, and blanked **to the SGR state in force** rather than to the glyph's own red background |

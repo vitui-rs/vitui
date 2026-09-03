@@ -2121,9 +2121,15 @@ fn section06(arm: &Arm, answers: &ModeAnswers) -> (String, usize, usize) {
              say which."
         ),
         Ok(Bracket::AlreadyReset { floor }) => format!(
-            "**Already reset at {floor} ms.** Either the limit is under the floor or the open \
-             never took, and those are different facts — the floor is printed so the next question \
-             is obvious."
+            "**Already reset at {floor} ms**, and there are now **three** facts that look like \
+             this. The limit may be under the floor; the open may never have taken; or the \
+             terminal's DECRQM may never say *set* at all, in which case the bisection has nothing \
+             to bisect and this number is not a limit. **The third is what Alacritty 0.17.0 does** \
+             — see part A above, where the two rows asked inside an open block are `FAILED` — and \
+             it was the arm that found it: the first two were what this sentence said until then. \
+             What the figure measures on such a terminal is the **reply**, which is the only thing \
+             about a block it can still observe: a question asked inside one comes back when the \
+             block drains. See the arm's own notes."
         ),
         Err(why) => format!("**No bracket:** {why}"),
     };
@@ -2396,14 +2402,14 @@ pub fn publish(arm: &Arm, report: &str, asked: usize, failures: usize) -> Result
 ///
 /// The write failing. A capture that cannot be saved when saving was asked for is a failed run, not
 /// a run with a missing side effect.
-pub fn save_if_asked(which: &str, bytes: &[u8]) -> Result<(), String> {
+pub fn save_if_asked(which: &str, dialect: Dialect, bytes: &[u8]) -> Result<(), String> {
     let Ok(prefix) = std::env::var("CONFORM_SAVE_CAPTURE") else {
         return Ok(());
     };
     let to = format!(
         "{prefix}-scene{which}-{}.{}",
         scene_tag(which),
-        scene_ext(which)
+        scene_ext(which, dialect)
     );
     if std::fs::exists(&to).unwrap_or(false) {
         eprintln!(
@@ -2435,10 +2441,17 @@ fn scene_tag(which: &str) -> &'static str {
 /// a terminal's own answers and reads through [`cursor_reports`]. Handing either to the other
 /// produces a refusal rather than a wrong number, and naming them apart is what stops a reader
 /// having to find that out.
-fn scene_ext(which: &str) -> &'static str {
+///
+/// A photograph's extension is the **arm's**, because the sixth arm's is a `grid.json` rather than
+/// an escape stream — see [`Dialect::capture_ext`].
+fn scene_ext(which: &str, dialect: Dialect) -> &'static str {
     match which {
         "05" => "cpr",
         "06" => "decrqm",
-        _ => "vt",
+        // **The arm's serialisation and not a constant**, since the sixth arm's photographs are not
+        // an escape stream at all. The rule is the one this doc comment already states: handing a
+        // grid to the SGR parser produces a refusal rather than a wrong number, so the two are named
+        // apart. [`Dialect::capture_ext`] is where that mapping lives, beside the enum it is about.
+        _ => dialect.capture_ext(),
     }
 }

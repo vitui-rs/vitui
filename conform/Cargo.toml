@@ -51,5 +51,8 @@ name = "terminal"
 [[example]]
 name = "wezterm"
 
+[[example]]
+name = "alacritty"
+
 [lints.rust]
 warnings = "deny"

@@ -74,8 +74,8 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   (**all six standing**, by production 03 and 04),
   the fourteen hostile axes O5 still owed (**two left, and both `tree`'s**: `field`'s three taken by
   production 05, `table`'s two by 06, the overlay family's four by 08 and the scroll family's three
-  by 09), three tier-1 terminals nobody had run (**WezTerm now has**, by 11; Alacritty and iTerm2
-  are 12 and 13), and the release.
+  by 09), three tier-1 terminals nobody had run (**WezTerm and Alacritty now have**, by 11 and 12;
+  iTerm2 is 13), and the release.
   **Windows is last, as 16**, blocked by the publish — which carries the consequence that no shipped
   string may claim a terminal the conform suite has not asked. Everything on it was already true and
   already recorded; what was missing was that nothing scheduled any of it.
@@ -217,6 +217,32 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   records as deliberately not an entry. Two parser gaps came out of the same arm and neither grew
   `Dialect`: `ESC ( B` is three bytes (the two-byte fallback left the `B` as content and eleven rows
   read `Bbold`), and **ECMA-48's SGR 21 is *doubly underlined***, not bold-off.
+
+- **A capture surface is established by running the terminal, not by reading what it offers**
+  (production 12). The brief said Alacritty had none — no socket, no dump, no AppleScript — and told
+  the session to establish that rather than assume it. **`alacritty --ref-test`** writes the `Term`'s
+  own grid as JSON when its last window closes, one object per cell, so it is the **strongest**
+  capture surface here: no serialiser of the emulator's stands between the cell and the reader, which
+  makes kitty's and WezTerm's `cannot ask` structurally impossible and makes this the first arm that
+  could be *asked* about a dotted underline. What it costs is stated rather than mitigated — a grid
+  is what the terminal **stores** — which is why its two bare rows are argued from `Flags` having no
+  bit and from `alacritty -vvv` printing `Term got unhandled attr: BlinkSlow` for one and nothing at
+  all for the other. That is `quirks.rs`'s **seventh** entry, recognised by `$ALACRITTY_WINDOW_ID`
+  because there is no XTVERSION and `TERM` is `xterm-256color` where no `alacritty` terminfo exists.
+  Three shapes in `conform/src/grid.rs` are quotations rather than derivations and the first would
+  have been silent: `Storage` is a **ring**, so `inner[0]` is the bottom row and a reader taking the
+  array in order hands back every row's text intact and every row in the wrong place.
+
+- **A terminal whose DECRQM never says *set* is a third cause of `AlreadyReset`, and part B then
+  measures the reply** (production 12). Alacritty's `Term::report_private_mode` answers mode 2026
+  with a **constant** `ModeState::Reset` while synchronised output lives one crate down in `vte`'s
+  parser — the flag and the reporter in different layers — so it is the second family after WezTerm
+  to report the mode reset while it is set, and it earns no quirk row for WezTerm's reason. What is
+  left to measure is the **reply**: a DECRQM written 50 ms into an open block came back at 150, 151
+  and 171 ms over three runs against `vte`'s shipped 150 ms `SYNC_UPDATE_TIMEOUT`, which is the
+  **first measurement beside a row of the force-flush table** — still not the paint, and the arming
+  instant still unobservable from inside. `Bracket::AlreadyReset`'s two documented causes were both
+  false here, and its documentation now names the third.
 
 - **A crate's `description` is its README's first sentence, and a gate says so** (production 01,
   resolved 2026-09-01). Three places say what a crate is before a stranger reads a line of its code
@@ -421,10 +447,10 @@ examples/app-template     copy-this-directory starting point, and the home of §
 compare/                  comparative suite: SCENES.md normative, harness.py, run.sh, REPORT.md
                           committed, FINDINGS.md by hand. Nine scenes, five arms, two of them ours
                           └ detached workspace; reports, never gates. No deny.toml, deliberately
-conform/                  the only instrument that asks a real terminal: SCENES.md normative, six
-                          arms across five examples — Ghostty, Ghostty-via-tmux (the same binary
-                          behind `--through-tmux`), tmux, kitty, Terminal.app, WezTerm — one
-                          committed REPORT-<arm>.md each, FINDINGS.md by hand
+conform/                  the only instrument that asks a real terminal: SCENES.md normative, seven
+                          arms across six examples — Ghostty, Ghostty-via-tmux (the same binary
+                          behind `--through-tmux`), tmux, kitty, Terminal.app, WezTerm, Alacritty —
+                          one committed REPORT-<arm>.md each, FINDINGS.md by hand
                           └ Terminal.app is the fourth VT lineage and **the arm that disagrees**:
                             four of scene 05's twelve surveyed rows, all four by summing a cluster's
                             code points. Its capture surface carries no style at all, so scene 01 is
@@ -438,6 +464,15 @@ conform/                  the only instrument that asks a real terminal: SCENES.
                             — so two of scene 01's rows are `cannot ask` that **cannot** become a
                             quirk: no far side, no second source. `wezterm cli` will start a
                             mux-server daemon and photograph its shell, exiting 0
+                          └ Alacritty is the sixth family and **the arm whose capture is not an
+                            escape stream**: `--ref-test` writes the `Term`'s own grid as JSON, one
+                            object per cell, so no serialiser of the emulator's is in the path. It
+                            is read by `src/grid.rs` behind `Dialect::AlacrittyGrid`, the fixtures
+                            are `.json`, and it is the first arm that could be *asked* about a
+                            dotted underline. Two bare rows — blink and overline — that **are** a
+                            quirk, because the grid is the evidence and `Flags` and `-vvv` are two
+                            more. The capture is the window closing: there is no socket to ask
+                            during a run
                           └ four scenes, two of them not photographs: 05 asks the emulator's own
                             UAX #11 verdict via CSI 6n (twelve rows are a survey and never fail),
                             06 polls mode 2026 via DECRPM with five compared rows — and a terminal
@@ -467,6 +502,7 @@ cargo deny check                            # needs `cargo install cargo-deny`
 (cd conform && cargo run --example tmux)    # the one live arm that is headless
 (cd conform && cargo run --example terminal) # needs an AppleScript grant for Terminal.app
 (cd conform && cargo run --example wezterm)  # a window and a control socket; exits 1 on scene 06
+(cd conform && cargo run --example alacritty) # a window per scene, closed to take the capture; exits 1 on scene 06
 ```
 
 Applications (`cargo run -p vitui-apps --example NAME`), each with the key worth pressing; those

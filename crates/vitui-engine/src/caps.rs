@@ -383,6 +383,15 @@ pub(crate) struct Env {
     /// §10's refusal of terminfo does not reach here: this is not inferring a capability from a
     /// name, it is overriding one that was measured.
     pub(crate) terminal_emulator: Option<String>,
+    /// `ALACRITTY_WINDOW_ID`, which is how the quirk table recognises Alacritty.
+    ///
+    /// **The window id and not `TERM`**, and that is an observation rather than a preference.
+    /// Alacritty's `setup_env` sets `TERM=alacritty` only where that terminfo entry exists and
+    /// `xterm-256color` where it does not — and the machine `conform/`'s Alacritty arm was run on
+    /// has none, so the run that produced the entry saw `xterm-256color`. It answers no XTVERSION
+    /// either, so there is nothing in a query to recognise it by, which is VSCode's and JetBrains'
+    /// position. This variable is Alacritty's own and it sets one for every window it opens.
+    pub(crate) alacritty: Option<String>,
 }
 
 impl Env {
@@ -403,6 +412,7 @@ impl Env {
             term_program: var("TERM_PROGRAM"),
             termux: var("TERMUX_VERSION"),
             terminal_emulator: var("TERMINAL_EMULATOR"),
+            alacritty: var("ALACRITTY_WINDOW_ID"),
         }
     }
 
@@ -1665,6 +1675,65 @@ mod tests {
             Capabilities::identified_as("kitty(0.48.2)").attrs_dropped(),
             both
         );
+    }
+
+    /// **The seventh entry**: Alacritty stores neither blink nor overline.
+    ///
+    /// Recognised by `$ALACRITTY_WINDOW_ID`, and the two things that would have been better were
+    /// both tried and are both unavailable: it answers no XTVERSION, and `TERM` is `alacritty` only
+    /// where that terminfo entry exists — on the machine `conform/`'s sixth arm ran on it does not,
+    /// so the scene saw `xterm-256color`, which three other terminals also answer to.
+    ///
+    /// **The evidence is not a serialiser's silence**, which is what makes this entry different from
+    /// the fifth even though its shape is the same. `alacritty --ref-test` writes the `Term`'s grid
+    /// out as JSON, so *not serialised* is not one of the available readings; and `Flags` has no bit
+    /// for either attribute, while `alacritty -vvv` prints `Term got unhandled attr: BlinkSlow` for
+    /// one and no `Setting attribute` line at all for the other. See `quirks.rs`'s module docs.
+    #[test]
+    fn alacritty_drops_blink_and_overline_and_nothing_else() {
+        let alacritty = Env {
+            alacritty: Some("54608250112".to_string()),
+            // What the arm actually saw, and the reason the entry is not keyed on this.
+            term: Some("xterm-256color".to_string()),
+            colorterm: Some("truecolor".to_string()),
+            ..Env::default()
+        };
+        let both = crate::style::BLINK | crate::style::OVERLINE;
+        // No XTVERSION, which is the position the recognition rule is chosen for.
+        let quirks = Quirks::lookup(None, &alacritty);
+        assert_eq!(quirks.attrs_dropped, both);
+        assert_eq!(
+            quirks.attrs_dropped & !both,
+            0,
+            "two bits and no others — the nine that survived the same scene are still offered, and \
+             the dotted underline this arm reported correctly is not one of them"
+        );
+        assert!(
+            !quirks.legacy_sgr,
+            "Alacritty parses the colon form; the entry overrides the attributes and nothing else"
+        );
+        assert_eq!(quirks.name, Some("alacritty"));
+
+        // **Both directions.** An entry recognised by a variable nothing else sets must not fire on
+        // a terminal that does not set it, or every terminal in the table's blind spot silently
+        // loses two attributes it renders.
+        assert_eq!(Quirks::lookup(None, &Env::default()).attrs_dropped, 0);
+
+        // **A query beats the inherited variable, and here that is not hypothetical**: a tmux
+        // running inside an Alacritty window inherits this key, and the thing at the other end of
+        // that pty is tmux — whose own entry drops one bit rather than these two.
+        let tmux_inside = Quirks::lookup(Some("tmux 3.7c"), &alacritty);
+        assert_eq!(tmux_inside.attrs_dropped, crate::style::OVERLINE);
+
+        // The field the serialiser reads is the one the table lays over detection.
+        let caps = assemble(
+            Overrides::default(),
+            &alacritty,
+            Ground::Tty,
+            &modern(),
+            Quirks::lookup(None, &alacritty),
+        );
+        assert_eq!(caps.attrs_dropped() & both, both);
     }
 
     /// **The sixth entry**: JetBrains' IDE terminal takes the semicolon form of SGR 38/48.

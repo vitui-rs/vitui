@@ -808,6 +808,16 @@ fn every_family_blanks_the_orphaned_half_and_they_do_not_disagree_about_it() {
         // The fifth family, and the one that makes the *style* row below a two-two split where it
         // had been one against three. It agrees with every other arm on all six text rows.
         (WEZTERM_SCENE04, Dialect::Ecma48, "WezTerm 20240203"),
+        // **The sixth, and the first whose capture is not an escape stream at all.** It is read out
+        // of Alacritty's own grid, where a double-width cluster occupies two cells and the second
+        // carries `WIDE_CHAR_SPACER` — dropped by the reader, for the reason §02 gives about every
+        // other surface here emitting no padding cell. Six unanimous text rows through a channel
+        // with no serialiser in it is the strongest form this row has been asserted in.
+        (
+            ALACRITTY_SCENE04,
+            Dialect::AlacrittyGrid,
+            "Alacritty 0.17.0",
+        ),
     ] {
         let rows = scene04_text(bytes, dialect);
         for (i, (label, want)) in SCENE04_ROWS.iter().enumerate() {
@@ -822,10 +832,10 @@ fn the_families_disagree_about_what_the_blanked_half_wears_and_that_is_the_sharp
     // ticket 20's answer from *the engine may as well repair* into *the engine must*.
     //
     // The wide glyph carries a red background and the cluster written over its continuation does
-    // not. **kitty keeps the orphan's own background; Ghostty and tmux blank it to the SGR state in
-    // force.** So a repair delegated to the terminal is not merely a repair the mirror would not
-    // know about — it is a repair whose *result differs by terminal*, and there is no single mirror
-    // state that could be right on all three. The engine has to do it itself and serialise the
+    // not. **kitty, WezTerm and Alacritty keep the orphan's own background; Ghostty and tmux blank
+    // it to the SGR state in force.** So a repair delegated to the terminal is not merely a repair
+    // the mirror would not know about — it is a repair whose *result differs by terminal*, and
+    // there is no single mirror state that could be right on all five. The engine has to do it itself and serialise the
     // outcome, which is exactly what the answer makes it do.
     //
     // Asserted here rather than in the live arm's table, because a per-terminal fact belongs to a
@@ -833,16 +843,22 @@ fn the_families_disagree_about_what_the_blanked_half_wears_and_that_is_the_sharp
     let at = |bytes, dialect| {
         parse(bytes, SCENE04_ROWS.len(), dialect).unwrap().rows[4].clusters[2].style
     };
-    // **Two against three, and it was one against three until WezTerm ran.** A fifth family
-    // landing on the minority side is what stops *kitty is the odd one out* being the reading — the
-    // two behaviours are two designs, not one design and one bug, and no mirror state is right on
-    // both.
-    for (bytes, who) in [
-        (KITTY_SCENE04, "kitty 0.48.2"),
-        (WEZTERM_SCENE04, "WezTerm 20240203"),
+    // **Three families keep it and two blank it, and it was one against three until WezTerm ran.**
+    // The count is not the point and the direction of its travel is: each new askable arm has
+    // landed on the *keeping* side, so *kitty is the odd one out* — the reading available when
+    // there were four arms — is now the reading a majority would have to be wrong for. Two designs,
+    // not one design and one bug, and no mirror state is right on both.
+    for (bytes, dialect, who) in [
+        (KITTY_SCENE04, Dialect::Ecma48, "kitty 0.48.2"),
+        (WEZTERM_SCENE04, Dialect::Ecma48, "WezTerm 20240203"),
+        (
+            ALACRITTY_SCENE04,
+            Dialect::AlacrittyGrid,
+            "Alacritty 0.17.0",
+        ),
     ] {
         assert_eq!(
-            at(bytes, Dialect::Ecma48).bg,
+            at(bytes, dialect).bg,
             Colour::Indexed(1),
             "{who} keeps the background of the half it blanked"
         );
@@ -1490,16 +1506,18 @@ const SYNC_ARMS: [(&str, &[u8]); 4] = [
 ];
 
 #[test]
-fn every_arm_in_sync_arms_tracks_mode_2026_and_the_two_that_do_not_are_below() {
+fn every_arm_in_sync_arms_tracks_mode_2026_and_the_three_that_do_not_are_below() {
     // The three families of spec §10's tier 1, answering about themselves. `serial.rs` wraps every
     // frame in this mode where the terminal has it, and until this scene the evidence that any of
     // them does was `detect.rs` believing a reply it also wrote the parser for.
     //
-    // **The name of this test said *all three families* until a fourth and a fifth arrived**, and a
-    // stale name over a list that is now a minority is this repository's own recorded trap.
-    // Terminal.app 2.15 answers nothing at all and WezTerm 20240203 answers *reset* while the mode
-    // is set — two different facts, each with its own test at the end of this file, and neither of
-    // them is in `SYNC_ARMS`.
+    // **The name of this test has now been corrected twice** — it said *all three families* until a
+    // fourth and a fifth arrived, and *the two that do not* until a sixth did — and a stale name
+    // over a list that is now a minority is this repository's own recorded trap. Terminal.app 2.15
+    // answers nothing at all; WezTerm 20240203 and Alacritty 0.17.0 answer *reset* while the mode
+    // is set. Three facts and two of them the same one, each with its own test at the end of this
+    // file, and none of them in `SYNC_ARMS` — which stays at four, because it is the list of arms
+    // that answer DECRPM's own definitions.
     for (who, bytes) in SYNC_ARMS {
         let seen = mode_reports(bytes, 2026, SCENE06_STATES.len())
             .unwrap_or_else(|e| panic!("{who}: {e}"));
@@ -2151,4 +2169,341 @@ fn wezterm_is_a_fifth_terminal_and_the_sentinel_says_so() {
     assert_ne!(WEZTERM_SYNC, KITTY_SYNC);
     assert_ne!(WEZTERM_SYNC, TMUX_SYNC);
     assert_ne!(WEZTERM_SYNC, TERMINAL_SYNC);
+}
+
+// ── The sixth family, and the first capture here that is not an escape stream ────────────────────
+
+const ALACRITTY_SCENE01: &[u8] = include_bytes!("../fixtures/alacritty-0.17.0-scene01-attrs.json");
+const ALACRITTY_SCENE04: &[u8] = include_bytes!("../fixtures/alacritty-0.17.0-scene04-pairs.json");
+const ALACRITTY_WIDTHS: &[u8] = include_bytes!("../fixtures/alacritty-0.17.0-scene05-widths.cpr");
+const ALACRITTY_SYNC: &[u8] = include_bytes!("../fixtures/alacritty-0.17.0-scene06-sync.decrqm");
+
+/// What Alacritty 0.17.0 answered for the fifteen clusters, in the scene's order.
+///
+/// Four rows differ from [`OBSERVED`], and the interesting comparison is not against the engine but
+/// against [`TERMINAL_OBSERVED`]: both arms **sum** the cluster's code points, and they disagree
+/// about what a zero-width one costs.
+const ALACRITTY_OBSERVED: &[(&str, u16)] = &[
+    ("ascii", 1),
+    ("ascii-pair", 2),
+    ("cjk", 2),
+    ("hangul", 2),
+    ("fullwidth", 2),
+    ("ambiguous", 1),
+    ("combining", 1),
+    // Zero here, where Terminal.app says one. This is the row that separates the two summers.
+    ("zero-width", 0),
+    ("emoji", 2),
+    ("vs16", 1),
+    ("vs15", 1),
+    ("zwj-family", 6),
+    ("flag", 2),
+    ("skin-tone", 4),
+    ("keycap", 1),
+];
+
+#[test]
+fn alacritty_holds_nine_of_the_eleven_and_the_two_it_drops_are_a_quirk_entry() {
+    // **The sixth family**, and the third arm whose scene 01 falls short by two. The verdict is
+    // kitty's rather than WezTerm's, and the capture surface is why: `--ref-test` writes the
+    // `Term`'s **grid** out as JSON, so there is no serialiser between the cell and this reader and
+    // *not serialised* is not one of the readings available. A bare cell here is a cell with
+    // nothing in it.
+    //
+    // The second source says the same thing twice more. `alacritty_terminal::term::cell::Flags` has
+    // no bit for blink and none for overline, and a run under `alacritty -vvv` prints
+    // `Term got unhandled attr: BlinkSlow` for one and no `Setting attribute` line at all for the
+    // other — parsed and discarded, against not parsed. `quirks.rs`'s seventh entry.
+    //
+    // **The dotted underline is the row to read beside kitty's.** kitty renders one and its capture
+    // format cannot spell it; WezTerm's cannot either. This grid has `DOTTED_UNDERLINE` as a bit of
+    // its own, so this is the first arm in the suite that could be **asked**, and it answers.
+    let d = parse(ALACRITTY_SCENE01, 11, Dialect::AlacrittyGrid).expect("parses");
+    for (i, (label, attrs, underline)) in SCENE01_ROWS.iter().enumerate() {
+        let got = row_style(&d, i, label)
+            .unwrap_or_else(|| panic!("row {i} — {label} is not uniform across its clusters"));
+        if matches!(*label, "blink" | "overline") {
+            assert_eq!(
+                got,
+                Style::default(),
+                "row {i} — {label} is not stored, which is what the quirk entry rests on. A style \
+                 here would mean Alacritty grew the bit and the entry is now withholding an \
+                 attribute it renders"
+            );
+            continue;
+        }
+        let want = Style {
+            attrs: *attrs,
+            underline: *underline,
+            ..Style::default()
+        };
+        assert_eq!(got, want, "row {i} — {label}");
+    }
+}
+
+#[test]
+fn a_grid_is_not_an_escape_stream_and_neither_reader_will_take_the_other_s_capture() {
+    // **The reason the fixture's extension is `.json`.** Every refusal in this directory exists so a
+    // capture handed to the wrong reader produces an error rather than a number, and this is the
+    // pair that had never been possible before: the other five arms all write escape sequences.
+    //
+    // A grid read as ECMA-48 is a screen of one row — the whole document is content, with no
+    // newline in it — so the short-screen refusal is what catches it, which is the refusal this
+    // parser was written for first.
+    assert_eq!(
+        parse(ALACRITTY_SCENE01, 11, Dialect::Ecma48).unwrap_err(),
+        DumpError::ShortScreen {
+            expected: 11,
+            found: 1
+        },
+        "a grid handed to the SGR parser is refused rather than mis-read"
+    );
+    // And the other way, where the refusal is the one the grid reader added.
+    assert!(
+        matches!(
+            parse(SCENE01, 11, Dialect::AlacrittyGrid).unwrap_err(),
+            DumpError::Malformed(_)
+        ),
+        "an escape stream handed to the grid reader is refused"
+    );
+    assert_eq!(Dialect::AlacrittyGrid.capture_ext(), "json");
+    assert_eq!(Dialect::Ecma48.capture_ext(), "vt");
+    assert_eq!(Dialect::TmuxCapturePane.capture_ext(), "vt");
+}
+
+#[test]
+fn the_grid_reader_refuses_a_flag_and_a_colour_it_does_not_know() {
+    // **A refusal and not a tolerated field**, which matters more here than in the SGR parser: a
+    // reader that skipped an unrecognised flag would report a future Alacritty as a terminal that
+    // had *stopped* doing something, and the seventh quirk entry is exactly a claim of that shape.
+    let cell = |flags: &str, fg: &str| {
+        format!(
+            "{{\"raw\":{{\"inner\":[{{\"inner\":[{{\"c\":\"x\",\"fg\":{fg},\
+             \"bg\":{{\"Named\":\"Background\"}},\"flags\":\"{flags}\",\"extra\":null}}]}}],\
+             \"zero\":0,\"visible_lines\":1,\"len\":1}},\"columns\":1,\"lines\":1,\
+             \"display_offset\":0,\"max_scroll_limit\":0}}"
+        )
+    };
+    let ok = cell("BOLD", "{\"Named\":\"Red\"}");
+    let d = parse(ok.as_bytes(), 1, Dialect::AlacrittyGrid).expect("the shape this reader knows");
+    assert_eq!(d.rows[0].clusters[0].style.attrs, Attrs::BOLD);
+    assert_eq!(d.rows[0].clusters[0].style.fg, Colour::Indexed(1));
+
+    for (what, bytes) in [
+        (
+            "a flag nobody has defined",
+            cell("SPARKLES", "{\"Named\":\"Red\"}"),
+        ),
+        // `ALL_UNDERLINES` names five styles and identifies none, so it is refused rather than
+        // resolved to one of them.
+        (
+            "a composite that names five styles",
+            cell("ALL_UNDERLINES", "{\"Named\":\"Red\"}"),
+        ),
+        // The renderer resolves a cell to `DimRed`; a cell cannot hold one, because
+        // `terminal_attribute` stores the colour the SGR named.
+        (
+            "a colour only the renderer produces",
+            cell("", "{\"Named\":\"DimRed\"}"),
+        ),
+    ] {
+        assert!(
+            matches!(
+                parse(bytes.as_bytes(), 1, Dialect::AlacrittyGrid).unwrap_err(),
+                DumpError::Malformed(_)
+            ),
+            "{what} must be refused"
+        );
+    }
+}
+
+#[test]
+fn the_stored_rows_are_a_ring_and_reading_them_in_order_would_stand_the_scene_on_its_head() {
+    // `Storage` is a ring and `compute_index` is `(zero + visible_lines - line - 1) % len`, so
+    // `inner[0]` is the **bottom** row of a screen at `zero = 0`. A reader that took the array in
+    // order would hand back every row's text intact and every row in the wrong place — which is the
+    // shape a comparison passes on, because `judge` looks the label up by index.
+    //
+    // Asserted against the committed capture rather than synthetically: the eleven labels are in
+    // the scene's order here, and reversed they are not.
+    let d = parse(ALACRITTY_SCENE01, 11, Dialect::AlacrittyGrid).expect("parses");
+    let labels: Vec<String> = d
+        .rows
+        .iter()
+        .take(11)
+        .map(|r| r.text().trim_end().to_string())
+        .collect();
+    assert_eq!(
+        labels[0], "bold",
+        "the first row of the scene is the first row here"
+    );
+    assert_eq!(labels[10], "under-dot", "and the eleventh is the eleventh");
+    // The whole screen is stored, not just the payload — which is the other half of the difference
+    // from an escape-stream capture, and what makes the leak check in `judge` meaningful.
+    assert_eq!(
+        d.rows.len(),
+        24,
+        "a grid is the whole screen, blank rows included"
+    );
+    assert!(
+        d.rows[11..].iter().all(|r| r.text().trim().is_empty()),
+        "and the rows below the scene are blank"
+    );
+}
+
+#[test]
+fn a_wide_pair_is_one_cluster_in_the_grid_and_the_spacer_is_not_a_column() {
+    // **The one place this reader makes a decision rather than copying a field.** Alacritty stores a
+    // double-width cluster in two cells — the head with `WIDE_CHAR` and a `WIDE_CHAR_SPACER` after
+    // it — where every other capture surface here emits no padding cell at all (`SCENES.md` §02).
+    // Dropping the spacer is what makes this arm's six rows comparable with the other five's, and
+    // getting it wrong would show up as `AB漢 CD` against a scene that expects `AB漢CD`.
+    //
+    // The bytes are the evidence that the spacer is really there: a reader that had simply never
+    // met one would pass this test the same way.
+    assert!(
+        String::from_utf8_lossy(ALACRITTY_SCENE04).contains("WIDE_CHAR_SPACER"),
+        "the capture holds the spacer this reader drops"
+    );
+    let rows = scene04_text(ALACRITTY_SCENE04, Dialect::AlacrittyGrid);
+    assert_eq!(
+        rows[0], "AB漢CD",
+        "the pair is one cluster and the spacer is not a column"
+    );
+}
+
+#[test]
+fn alacritty_reports_mode_2026_reset_while_it_is_set_and_it_is_the_second_family_to() {
+    // **The same wrong answer as WezTerm's, on an unrelated codebase, with the cause readable.**
+    // `Term::report_private_mode` answers `NamedPrivateMode::SyncUpdate` with a constant
+    // `ModeState::Reset`, while synchronised output is implemented one crate down in `vte`'s parser
+    // — which the `Term` never sees. The flag and the reporter are in different layers.
+    //
+    // Three control probes, raw `printf` with no engine in them, close the innocent readings the
+    // same way they were closed for WezTerm: `CSI ? 9999 $ p` answers `0`, so a `2` here is a real
+    // *reset* and not a catch-all; `CSI ? 2004 $ p` answers `2`, then `1` after an `h`, then `2`
+    // after an `l`, so its DECRQM tracks a mode it implements; and it genuinely holds a block, which
+    // is a DECRQM written 50 ms into one coming back at 150 ms.
+    //
+    // **No `quirks.rs` entry, for WezTerm's reason**: `Detected::mode` reads `1` and `2` alike as
+    // *available*, so `sync_output` is true, every frame is wrapped, and the terminal really does
+    // synchronise. There is no route to take around it, and every row of that table is a route.
+    let seen = mode_reports(ALACRITTY_SYNC, 2026, SCENE06_STATES.len())
+        .expect("Alacritty answers all five and a sentinel");
+    assert_eq!(
+        seen.iter().map(|r| r.state).collect::<Vec<_>>(),
+        vec![ModeState::Reset; 5],
+        "reset five times, including twice while the mode was set"
+    );
+    assert!(
+        seen.iter().all(|r| r.state != ModeState::NotRecognised),
+        "and never `not recognised` — it knows the mode, which is what makes this a disagreement \
+         rather than a `cannot express`"
+    );
+    // The two arms that answer this way are not one capture, and the four that track it still do.
+    assert_ne!(ALACRITTY_SYNC, WEZTERM_SYNC);
+    for (who, bytes) in SYNC_ARMS {
+        assert_ne!(ALACRITTY_SYNC, bytes, "not {who}'s capture");
+    }
+}
+
+#[test]
+fn alacritty_sums_the_code_points_and_costs_a_zero_width_one_nothing() {
+    // **A third mechanism, and it splits a decision the fourth arm had made look like one.**
+    // Terminal.app sums a cluster's code points and counts a joiner as a column; Alacritty sums
+    // them and costs a zero-width one nothing. So the ZWJ family is **8** there and **6** here, and
+    // the zero-width space is **1** there and **0** here — the row that separates the two summers,
+    // and the one Alacritty gets right.
+    //
+    // **6 is the number `ucd.rs`'s own citation attributes to kitty**, and the kitty measured in
+    // this directory answers 2. The survey it quotes is about a population, and this is the first
+    // capture here that lands on the cited figure.
+    assert_eq!(
+        ALACRITTY_OBSERVED.len(),
+        OBSERVED.len(),
+        "the two tables must be the same length, or the join below stops at the shorter one"
+    );
+    assert!(
+        ALACRITTY_OBSERVED
+            .iter()
+            .zip(OBSERVED)
+            .all(|((a, _), (b, _))| a == b),
+        "the two tables must name the same fifteen clusters in the same order"
+    );
+    let advance = |bytes: &[u8]| -> Vec<u16> {
+        cursor_reports(bytes, OBSERVED.len())
+            .expect("a batch")
+            .iter()
+            .map(|r| r.column - 1)
+            .collect()
+    };
+    assert_eq!(
+        advance(ALACRITTY_WIDTHS),
+        ALACRITTY_OBSERVED
+            .iter()
+            .map(|(_, w)| *w)
+            .collect::<Vec<_>>(),
+        "the committed capture is what this table says it is"
+    );
+    let differs: Vec<&str> = OBSERVED
+        .iter()
+        .zip(ALACRITTY_OBSERVED)
+        .filter(|((_, ours), (_, theirs))| ours != theirs)
+        .map(|((label, _), _)| *label)
+        .collect();
+    assert_eq!(
+        differs,
+        vec!["vs16", "zwj-family", "skin-tone", "keycap"],
+        "the disagreement is these four rows and no others"
+    );
+    // The two summing arms, told apart on the two rows where their answers are not the same number.
+    let at = |table: &[(&str, u16)], label: &str| {
+        table
+            .iter()
+            .find(|(l, _)| *l == label)
+            .expect("a row of the scene")
+            .1
+    };
+    assert_eq!(
+        (
+            at(ALACRITTY_OBSERVED, "zwj-family"),
+            at(TERMINAL_OBSERVED, "zwj-family")
+        ),
+        (6, 8)
+    );
+    assert_eq!(
+        (
+            at(ALACRITTY_OBSERVED, "zero-width"),
+            at(TERMINAL_OBSERVED, "zero-width")
+        ),
+        (0, 1)
+    );
+}
+
+#[test]
+fn alacritty_is_a_sixth_terminal_and_the_sentinel_says_so() {
+    // Thirteen of Alacritty's fifteen widths are somebody's shared column, which is the shape of a
+    // fixture accidentally copied from another arm. The device-attributes reply behind the batch is
+    // what separates them, and this is a sixth distinct answer: a **VT102**, where WezTerm answers
+    // as a VT500 and tmux and Terminal.app as VT100s.
+    let da1 = |bytes: &[u8]| {
+        let text = String::from_utf8_lossy(bytes).to_string();
+        let at = text.rfind("\x1b[?").expect("a sentinel");
+        text[at..].to_string()
+    };
+    assert_eq!(
+        da1(ALACRITTY_WIDTHS),
+        "\x1b[?6c",
+        "Alacritty 0.17.0 answers as a VT102"
+    );
+    for (who, bytes) in [
+        ("Ghostty 1.3.1", GHOSTTY_WIDTHS),
+        ("kitty 0.48.2", KITTY_WIDTHS),
+        ("tmux 3.7c", TMUX_WIDTHS),
+        ("Terminal.app 2.15", TERMINAL_WIDTHS),
+        ("WezTerm 20240203", WEZTERM_WIDTHS),
+    ] {
+        assert_ne!(da1(ALACRITTY_WIDTHS), da1(bytes), "not {who}'s sentinel");
+        assert_ne!(ALACRITTY_WIDTHS, bytes, "not {who}'s capture");
+    }
 }

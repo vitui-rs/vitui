@@ -24,22 +24,24 @@ this section before the numbers below it.
 
 Three things a prospective user should know, stated here rather than discovered:
 
-- **Four terminal emulator families have been asked, and three tier-1 terminals have not.** Until
+- **Six terminal emulator families have been asked, and one tier-1 terminal has not.** Until
   2026-08-23 no instrument here had ever compared the engine's bytes against a real emulator's
   screen: the round-trip suite, the reference compositor and the terminal model they are checked
   against all live inside the crate, so a case where the model and the serializer are wrong *in the
-  same direction* was invisible to every gate. `conform/` is the missing fourth party — five arms
-  over Ghostty, Ghostty through tmux, tmux, kitty and Terminal.app, each with a committed report,
-  and Terminal.app is the arm that disagrees. WezTerm, Alacritty and iTerm2 have no arm, so the
-  attribute facts this workspace states for them are inference and are marked as such.
+  same direction* was invisible to every gate. `conform/` is the missing fourth party — seven arms
+  over Ghostty, Ghostty through tmux, tmux, kitty, Terminal.app, WezTerm and Alacritty, each with a
+  committed report. Terminal.app is the arm that disagrees, WezTerm is the arm that answers wrongly,
+  and Alacritty is the one whose capture is the terminal's own grid rather than an escape stream.
+  **iTerm2 has no arm**, so the attribute facts this workspace states for it are inference and are
+  marked as such.
 - **Windows has never been run.** `.github/workflows/ci.yml` declares a three-OS matrix and no hosted
   CI has been watched go green. Every green run behind the numbers below is a shared local GitLab on
   one machine: linux/arm64, one OS, one architecture.
-- **Four architecture questions are still open**, all four on the components map: whether a fold
+- **Five architecture questions are still open**, all five on the components map: whether a fold
   that costs the volume belongs to obligation O6 (19), the three indent glyphs `tree` declares and
-  cannot draw (20), `Esc` over a plain `collection` being crate-private on purpose (22), and
-  `file_picker`'s popup having no keyboard at all (23). The engine's and the runtime's maps have
-  none left.
+  cannot draw (20), `Esc` over a plain `collection` being crate-private on purpose (22),
+  `file_picker`'s popup having no keyboard at all (23), and a `table` whose columns do not fill the
+  band leaving the remainder unwritten (24). The engine's and the runtime's maps have none left.
 
 ## The frame, as a sequence
 

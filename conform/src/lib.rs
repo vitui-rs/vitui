@@ -120,8 +120,11 @@
 
 use std::fmt;
 
+mod grid;
+
 /// Which serialisation a capture is written in. See the module docs — this is not a formatting
-/// preference, the two disagree about what a colon means.
+/// preference, the first two disagree about what a colon means and the third is not an escape
+/// stream at all.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Dialect {
     /// ECMA-48, as a terminal emits it: `;` separates parameters and `:` separates a parameter's
@@ -137,6 +140,30 @@ pub enum Dialect {
     /// (`fixtures/tmux-3.7c-attrs-and-colours.vt`), so nothing is lost by refusing to guess there
     /// and a genuine colon colour would survive unmangled.
     TmuxCapturePane,
+    /// `alacritty --ref-test`'s `grid.json`: the `Term`'s own grid, one JSON object per cell, with
+    /// no SGR anywhere in the path.
+    ///
+    /// **A serialisation and not a dialect of the other two**, which is why it is on this enum
+    /// rather than beside it: [`parse`]'s callers ask *which capture format is this*, and an arm
+    /// that could not answer could not be trusted to have captured either. See `src/grid.rs` for
+    /// what it buys — no emulator serialiser between the cell and the reader — and what it costs:
+    /// a grid is what the terminal **stores**.
+    AlacrittyGrid,
+}
+
+impl Dialect {
+    /// The extension a capture in this serialisation is filed under.
+    ///
+    /// **Named apart for the reason `.cpr` and `.decrqm` are.** Handing a grid to the SGR parser
+    /// produces a refusal rather than a wrong number, and a reader should not have to open a file
+    /// to find out which it is.
+    #[must_use]
+    pub fn capture_ext(self) -> &'static str {
+        match self {
+            Self::Ecma48 | Self::TmuxCapturePane => "vt",
+            Self::AlacrittyGrid => "json",
+        }
+    }
 }
 
 impl Dialect {
@@ -178,6 +205,13 @@ pub enum DumpError {
     /// A CSI sequence ran to the end of the input without its final byte. Truncation, and the same
     /// class of defect as `Empty` one level down.
     UnterminatedEscape,
+    /// The capture is in a structured format and is not the shape this reader knows.
+    ///
+    /// **Only [`Dialect::AlacrittyGrid`] can produce one**, and it is a refusal rather than a
+    /// tolerated field: an Alacritty that grows an attribute flag, renames one, or serialises a
+    /// colour the renderer resolved must arrive as a failed run. A reader that skipped what it did
+    /// not recognise would report a terminal that stopped doing something.
+    Malformed(String),
 }
 
 impl fmt::Display for DumpError {
@@ -191,6 +225,9 @@ impl fmt::Display for DumpError {
                 )
             }
             Self::UnterminatedEscape => write!(f, "the capture ends inside an escape sequence"),
+            Self::Malformed(why) => {
+                write!(f, "the capture is not the shape this reader knows: {why}")
+            }
         }
     }
 }
@@ -370,6 +407,11 @@ pub struct Dump {
 /// [`DumpError::Empty`] for no rows at all, [`DumpError::ShortScreen`] for fewer than declared, and
 /// [`DumpError::UnterminatedEscape`] for a truncated CSI.
 pub fn parse(bytes: &[u8], expected_rows: usize, dialect: Dialect) -> Result<Dump, DumpError> {
+    // Dispatched before the emptiness check below, which is about an escape stream: a grid is
+    // refused as empty by its own reader, on the screen rather than on the bytes.
+    if dialect == Dialect::AlacrittyGrid {
+        return grid::parse(bytes, expected_rows);
+    }
     if bytes.iter().all(|b| matches!(b, b'\n' | b'\r' | b' ')) {
         return Err(DumpError::Empty);
     }
@@ -1205,8 +1247,18 @@ pub enum Bracket {
         /// anything, so the reply clock has nothing to bound.
         ceiling: u32,
     },
-    /// Already reset by the earliest reply this run saw. Either the limit is under the floor, or
-    /// the open never took, and those are different facts.
+    /// Already reset by the earliest reply this run saw.
+    ///
+    /// **Three facts look like this and the third arrived with the sixth arm.** The limit may be
+    /// under the floor; the open may never have taken; or the terminal's DECRQM may never report
+    /// the mode *set*, which makes a bisection over *when did it stop saying set* a search with
+    /// nothing to find. Alacritty 0.17.0 is the third — `Term::report_private_mode` answers mode
+    /// 2026 with a constant — and on such a terminal this figure is a fact about the **reply**
+    /// rather than about the flag: a question asked inside an open block comes back when the block
+    /// drains, so the floor is a bound on the force flush and not on the mode.
+    ///
+    /// Nothing here can tell the three apart, which is why the variant carries the number and the
+    /// arm carries the reading. [`FLUSH_FLOOR_MS`]'s own doc is where the first two are separated.
     AlreadyReset {
         /// The elapsed at which that earliest reply arrived.
         floor: u32,
@@ -1325,6 +1377,12 @@ pub fn flush_bracket(probes: &[Probe]) -> Result<Bracket, BracketError> {
 /// Small enough that no terminal's force-flush limit can be under it — the smallest documented one
 /// is Alacritty's 150 ms — so a floor that reports the mode already reset is evidence that the open
 /// never took, which is a different fact and gets its own row.
+///
+/// **That inference needs a terminal whose DECRQM tracks the mode, and the sixth arm is one whose
+/// does not.** Alacritty 0.17.0 answers `reset` inside an open block and outside one alike, so its
+/// floor is neither of the two facts above; see [`Bracket::AlreadyReset`], where the third is
+/// written down. The constant is unchanged — it is still below every documented limit — and what
+/// changed is the sentence a reader is entitled to draw from reaching it.
 pub const FLUSH_FLOOR_MS: u32 = 50;
 
 /// The largest, and the mode must be reset by there.

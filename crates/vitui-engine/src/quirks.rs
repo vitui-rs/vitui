@@ -9,10 +9,10 @@
 //! §15 put populating this table in the fog on purpose. **A quirk table is field work**: each entry
 //! is one terminal, one version range and one observed misbehaviour, and none of that can be
 //! established from a document. Three entries shipped on libvaxis's production experience; the
-//! fourth and fifth are the ones this repository gathered itself, and it took an instrument to get
-//! either.
+//! fourth, fifth and seventh are the ones this repository gathered itself, and it took an instrument
+//! to get any of them.
 //!
-//! The six, and how each is recognised, which is the part that matters:
+//! The seven, and how each is recognised, which is the part that matters:
 //!
 //! | terminal | recognised by | quirk |
 //! |---|---|---|
@@ -22,8 +22,9 @@
 //! | tmux | **XTVERSION answers `tmux …`** | overline is accepted, stored, and never forwarded |
 //! | kitty | **XTVERSION answers `kitty(…)`** | conceal and overline have no attribute to be stored in |
 //! | JetBrains' IDE terminal | `$TERMINAL_EMULATOR` starts `JetBrains-` | legacy SGR |
+//! | Alacritty | `$ALACRITTY_WINDOW_ID` is set | blink and overline have no bit to be stored in |
 //!
-//! **The first three and the sixth are not recognised by a query, and that is not an oversight**: they are
+//! **The first three, the sixth and the seventh are not recognised by a query, and that is not an oversight**: they are
 //! recognised the way libvaxis recognises them, because the misbehaviour is not something the
 //! terminal will admit to. This is the one place `$TERM_PROGRAM`-shaped evidence is legitimate, and
 //! it is legitimate precisely because it is not being used to *detect a capability* — spec §10's
@@ -75,6 +76,16 @@
 //!
 //! It also earns **no row of the force-flush table below**: those four rows are *limits*, and eight
 //! seconds with no flush is the absence of one rather than a number.
+//!
+//! **Alacritty 0.17.0 does the same thing and it is not a second finding — it is the mechanism of
+//! the first.** Its scene 06 answers `2` for the two rows asked immediately after a `CSI ? 2026 h`,
+//! exactly as WezTerm's does (production ticket 12). Here the cause is readable rather than
+//! inferred: `Term::report_private_mode` answers `NamedPrivateMode::SyncUpdate` with a **constant**
+//! `ModeState::Reset`, while synchronised output is implemented one crate down in `vte`'s parser,
+//! which the `Term` never sees. **The flag and the reporter are in different layers**, and that is
+//! a shape a second family arriving at the same wrong answer says more about than either arm alone.
+//! It is refused here for WezTerm's reason and it has this one's row below: the reply that was held
+//! is what put a **measurement** beside Alacritty's documented 150 ms.
 //!
 //! # The sixth entry, and it is the cheapest evidence in the table
 //!
@@ -172,6 +183,49 @@
 //! attribute that is not offered, where a missing one costs an attribute sent every frame and
 //! ignored every frame. The day a kitty renders either, the boundary arrives with the run that
 //! observed it — which is what [`Capabilities::identified_as`](crate::caps::Capabilities) gates.
+//!
+//! # The seventh entry, and it is the first where *cannot ask* was ruled out rather than settled for
+//!
+//! Alacritty 0.17.0 came sixth to `conform/`'s scene 01 and answered **nine of eleven** (production
+//! ticket 12). Blink and overline come back bare — kitty's shape, one row over on one and a new row
+//! on the other — and this is the entry where the difference between a `cannot ask` and a quirk is
+//! at its clearest, because the capture surface here is not a serialiser at all. `--ref-test` writes
+//! the `Term`'s **grid** out as JSON, one object per cell, so *not serialised* is not one of the
+//! available explanations: a bare cell is a cell with nothing in it.
+//!
+//! **Two second sources, and the two attributes fail differently.** `alacritty_terminal`'s
+//! `term::cell::Flags` enumerates every attribute a cell can carry — `INVERSE BOLD ITALIC UNDERLINE
+//! DIM HIDDEN STRIKEOUT DOUBLE_UNDERLINE UNDERCURL DOTTED_UNDERLINE DASHED_UNDERLINE`, plus three
+//! that are layout rather than style — and there is no bit for blink and none for overline. Then a
+//! run under `alacritty -vvv` says the same thing from the other side, and says it twice with two
+//! different sentences:
+//!
+//! ```text
+//! [TRACE] [alacritty_terminal] Setting attribute: BlinkSlow
+//! [DEBUG] [alacritty_terminal] Term got unhandled attr: BlinkSlow
+//! ```
+//!
+//! and for SGR 53, **no `Setting attribute` line at all**. So blink is parsed by `vte` into an
+//! `Attr` the `Term` then discards, and overline is not parsed into an `Attr` in the first place —
+//! `vte`'s own `Attr` enum has no variant for it. One outcome, two mechanisms, both observed rather
+//! than reasoned about.
+//!
+//! **Recognised by `$ALACRITTY_WINDOW_ID`, and the two obvious alternatives were both tried.**
+//! `CSI > 0 q` is answered with nothing, so there is no XTVERSION to key on the way tmux and kitty
+//! are keyed. And `TERM` is not `alacritty` here: `setup_env` picks that name only where the
+//! terminfo entry exists, and on the machine this ran on it does not, so the scene saw
+//! `xterm-256color` — which is a name three other terminals also use. The window id is Alacritty's
+//! own variable and it sets one for every window.
+//!
+//! **No version boundary, and it is kitty's bet rather than tmux's mechanism**: the cause is a
+//! `bitflags` declaration and a future Alacritty could grow either bit. The trade is the same one
+//! and in the same direction.
+//!
+//! **What this entry deliberately does not contain**: the two scene-06 rows above, which are a real
+//! misbehaviour with no route around it; and the dotted underline, which kitty's entry could not
+//! hold either — except that here it is not even a disagreement. This arm reports `4:4` correctly,
+//! because `DOTTED_UNDERLINE` is a bit of its own in the grid, and it is the first arm in the suite
+//! that could be asked.
 
 use crate::caps::{Capabilities, Env};
 
@@ -233,6 +287,16 @@ impl Underlines {
 /// finding is about the instrument rather than about any of these numbers: the obvious shape, one
 /// open polled repeatedly, puts Ghostty's reset before 517 ms and leaves the other two where they
 /// were, so a suite built that way would have reported a Ghostty defect that is the probe's.
+///
+/// **The fourth row has an observation too now, and it arrived through the other channel** —
+/// production ticket 12, 2026-09-03. Alacritty reports the mode reset while it is set, so there is
+/// no bracket to take: what it does instead is **hold the reply**. A DECRQM written 50 ms into an
+/// open block was answered **171 ms** after the open, so the question sat in the parser's buffer
+/// for 121 ms and came out when the block force-flushed — against a documented and now shipped-source
+/// 150 ms. It is a bound on the flush from the reply side and not a reading of the flag, which no
+/// probe on this terminal can take; and it is still not the paint. The arming instant is
+/// **unobservable from inside** here as it is on Ghostty: the terminal starts its timer when it
+/// parses the `h`, and the scene's clock starts when it wrote one.
 ///
 /// **No entry sets this field, and nothing reads it.** The engine's own block is opened and closed
 /// inside one `write` (§8's twenty bytes of fixed framing), so a frame cannot approach the smallest
@@ -322,6 +386,23 @@ impl Quirks {
                 ..Quirks::default()
             };
         }
+        // **Third, and after the two queries for their reason.** A tmux running inside Alacritty
+        // inherits `$ALACRITTY_WINDOW_ID`, and the thing at the other end of that pty is tmux — so
+        // the query above has to win, and it does by being asked first. Before the environment
+        // entries below it because it is the more specific: nothing sets this key but Alacritty.
+        if env.alacritty.is_some() {
+            return Quirks {
+                // Two bits, and neither is a capture format's limitation — see the module docs.
+                // `--ref-test` writes the grid itself, so a bare cell is a cell with nothing in it,
+                // and `Flags` has no bit for either attribute.
+                //
+                // The name is set because detection has no identity to print for this terminal:
+                // there is no XTVERSION to answer with one.
+                name: Some("alacritty"),
+                attrs_dropped: crate::style::BLINK | crate::style::OVERLINE,
+                ..Quirks::default()
+            };
+        }
         if env.termux.is_some() {
             return Quirks {
                 name: Some("termux"),
@@ -367,11 +448,11 @@ impl Quirks {
         // and a real observed misbehaviour will add — one entry at a time, each with the report that
         // produced it.
         //
-        // **Six is where the evidence stops, not where the need does.** The fourth and fifth are
-        // what the sentence is for: it took building `conform/` to get either, and the eleven
-        // attribute facts are now observed on **three** of spec §10's tier-1 terminals out of seven.
-        // The four that remain are inference from libvaxis's three entries, and none of the four is
-        // named by any of them.
+        // **Seven is where the evidence stops, not where the need does.** The fourth, fifth and
+        // seventh are what the sentence is for: it took building `conform/` to get any of them, and
+        // the eleven attribute facts are now observed on **four** of spec §10's tier-1 terminals out
+        // of seven. The three that remain are inference from libvaxis's three entries, and none of
+        // the three is named by any of them.
         //
         // **The sixth arrived from a user's screen rather than from an instrument**, and that is the
         // other way this table grows — the one §15 was describing when it called populating it field

@@ -34,16 +34,27 @@
 //!   base, which is a different defect from Terminal.app's and lands on the two rows of that corpus
 //!   where a selector is what asks for the second column.
 //!
+//! - **2026-09-03, a sixth, and it answers the cited number itself.** Alacritty 0.17.0 answers
+//!   **6** for the ZWJ family — the figure this paragraph's first sentence attributes to kitty, and
+//!   the one the kitty measured here does not produce. It also answers **1** for VS16, **1** for a
+//!   keycap, **4** for a skin tone and **0** for a zero-width space. That is a **third** mechanism
+//!   and it separates two things the fourth arm had joined: Alacritty sums the cluster's code
+//!   points like Terminal.app, and unlike Terminal.app it costs a zero-width code point **nothing**
+//!   — so its ZWJ family is 2+0+2+0+2 where Terminal.app's 8 is the same sum with the joiners
+//!   counted as columns. *Summing* and *what a zero-width scalar is worth* are two decisions, and
+//!   it took a third disagreeing arm to show they are.
+//!
 //! So the three families measured first are not the population the survey is about: they are recent
-//! reimplementations that all follow UAX #29, and neither the terminal Apple has shipped since NeXT
-//! nor WezTerm's stable release does. **Two of five is a population and one of four was an
-//! outlier**, and the second disagreeing arm is also the one that shows there is more than one way
-//! to get this wrong. The decision is unchanged — following the terminal was never the alternative
+//! reimplementations that all follow UAX #29, and none of the terminal Apple has shipped since
+//! NeXT, WezTerm's stable release and Alacritty's does. **Three of six is a population and one of
+//! four was an outlier**, and the second and third disagreeing arms are what show there is more
+//! than one way to get this wrong — three ways, on three codebases. The decision is unchanged — following the terminal was never the alternative
 //! — and the right reading of the three dates together is that **a terminal that agrees today is
 //! not a promise and a terminal that disagrees is still shipping.** See `conform/FINDINGS.md`,
 //! 2026-08-29, 2026-08-30 and 2026-09-03, and
-//! `conform/fixtures/terminal-2.15-scene05-widths.cpr` and
-//! `conform/fixtures/wezterm-20240203-110809-5046fc22-scene05-widths.cpr` for the bytes.
+//! `conform/fixtures/terminal-2.15-scene05-widths.cpr`,
+//! `conform/fixtures/wezterm-20240203-110809-5046fc22-scene05-widths.cpr` and
+//! `conform/fixtures/alacritty-0.17.0-scene05-widths.cpr` for the bytes.
 //!
 //! Three answers are policy rather than standard, and each is pinned by name in [`tests`]:
 //! ambiguous width (UAX #11 class `A`) is **narrow**; a cluster's width is its base's width,

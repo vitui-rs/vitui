@@ -236,7 +236,7 @@ fn capture_and_compare(
         capture_elapsed = started.elapsed();
         Ok(bytes)
     })?;
-    save_if_asked(which, &bytes)?;
+    save_if_asked(which, Dialect::TmuxCapturePane, &bytes)?;
 
     let default_terminal = tmux(socket, &["show-options", "-gv", "default-terminal"])
         .unwrap_or_else(|_| "unknown".into());

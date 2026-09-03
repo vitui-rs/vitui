@@ -346,7 +346,7 @@ fn capture_and_compare(
         capture_elapsed = elapsed;
         Ok(bytes)
     })?;
-    save_if_asked(which, &bytes)?;
+    save_if_asked(which, Dialect::Ecma48, &bytes)?;
     let mut notes = vec![
         match which {
             "05" | "06" => format!(

@@ -362,7 +362,7 @@ fn capture_and_compare(
         capture_elapsed = started.elapsed();
         Ok(bytes)
     })?;
-    save_if_asked(which, &bytes)?;
+    save_if_asked(which, Dialect::Ecma48, &bytes)?;
 
     let arm = Arm {
         title: "wezterm",
