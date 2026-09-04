@@ -1,6 +1,11 @@
-//! **The wheel gate, over three shipped components and both axes, as numbers.**
+//! **The wheel gate, over five shipped components and both axes, as numbers.**
 //!
-//! Components ticket 20. The convention is the runtime's — a file in `examples/` named
+//! Components ticket 20, production tickets 06, 09 and 07. **The opening sentence said *three* for
+//! two tickets after the fourth and fifth subjects landed** — `cargo test` does not run this file,
+//! so a false sentence here is compiled by `cargo clippy --all-targets` and read by nobody but a
+//! human. Production 07 corrected it while adding the fifth.
+//!
+//! The convention is the runtime's — a file in `examples/` named
 //! `<subject>_numbers.rs` that prints the numbers a human reads — and so is the rule about what an
 //! example may be: **`cargo test` does not run this file**, and no row of
 //! [`vitui_components::gates::REGISTER`] rests on it. Row 29 *cites* it and names two `#[test]`s
@@ -18,8 +23,19 @@
 //! 3. **The same three arms over a `table`**, which is production 06's, and every column of it is
 //!    asserted **equal to the collection's** rather than to a repeated constant — a table's row
 //!    axis is a collection's, and this is where that stops being a sentence in spec §6.
-//! 4. **What the two removed substitutions were**, because the figures moved when they came out and
+//! 4. **The same three arms over a `tree`**, which is production 07's, asserted equal to the
+//!    collection's the same way — and with the **press** clause beside them, because §7 adds a
+//!    second pointer gesture on the chevron column and a press over the middle of the screen must
+//!    therefore land exactly where it did before.
+//! 5. **What the two removed substitutions were**, because the figures moved when they came out and
 //!    a reader deserves to know which ones and why.
+//!
+//! # `Subject::Pane` has no section here and that is stated rather than hidden
+//!
+//! Production 09's fourth subject is `file_preview_pane` and its numbers are the area's arm for arm
+//! — `crate::wheel`'s own `twenty_posted_clicks_move_a_panes_offset_twenty_and_the_numbers_are_\
+//! the_areas` is the assertion. Adding a section for it is a report ticket's edit and not this
+//! one's; what production 07 owed was that the sentence above stop saying three.
 //!
 //! # It asserts the shape and not the timings
 //!
@@ -41,6 +57,7 @@ fn main() {
     the_collection();
     the_area_per_axis();
     the_table();
+    the_tree();
     what_the_substitutions_were();
 }
 
@@ -85,6 +102,64 @@ fn the_table() {
          number a reader has to compare by eye. The wheel notch reaches **one** axis: a table's\n  \
          horizontal offset is the caller's and is `examples/grid_numbers.rs`'s question.\n"
     );
+}
+
+/// 4. The same three arms over the shipped `tree`. **Production 07**, and the row that says how
+///    much of spec §7's opening sentence is true.
+fn the_tree() {
+    println!(
+        "report  a `tree` over a nested index, a million rows, {CLICKS} clicks down, beside the \
+         `collection`:"
+    );
+    println!(
+        "  {:<18}  {:>8}  {:>12}  {:>9}  {:>16}  {:>8}  {:>10}",
+        "reveal", "settled", "collection", "requests", "keyboard reveal", "press", "agree"
+    );
+    for reveal in [Reveal::WhenAsked, Reveal::EveryFrame, Reveal::Never] {
+        let tree = wheel::wheeled(Play::of(Subject::Tree, reveal));
+        let coll = wheel::wheeled(Play::of(Subject::Collection, reveal));
+        let keyboard = wheel::revealed(Subject::Tree, reveal, (0, SCROLLED_AWAY));
+        let tap = wheel::tapped(Play::of(Subject::Tree, reveal), (0, SCROLLED_AWAY));
+        let press_agrees =
+            tap == wheel::tapped(Play::of(Subject::Collection, reveal), (0, SCROLLED_AWAY));
+        let agree = tree.settled == coll.settled
+            && tree.after_last_click == coll.after_last_click
+            && tree.reveals == coll.reveals
+            && keyboard == wheel::revealed(Subject::Collection, reveal, (0, SCROLLED_AWAY))
+            && press_agrees;
+        println!(
+            "  {:<18}  {:>8}  {:>12}  {:>9}  {:>16}  {:>8}  {:>10}",
+            reveal.word(),
+            tree.settled.1,
+            coll.settled.1,
+            tree.reveals,
+            keyboard.1,
+            tap.selected,
+            agree,
+        );
+        assert!(
+            agree,
+            "`tree` and `collection` disagree on the {} arm",
+            reveal.word()
+        );
+    }
+    println!();
+    println!(
+        "  **The `agree` column is the finding and the other columns are how it is checked**,"
+    );
+    println!("  which is `the_table` one component up. §7 states the claim in more words than §6");
+    println!("  does — *no second selection store, no second scan cursor, no second `Mode`, no");
+    println!("  second offset and no second press edge* — so two verbs a row and a one-slot fold");
+    println!("  request cost the row axis nothing, and a build where they did would read `false`.");
+    println!();
+    println!("  **The `press` column is what the table arm did not have to check.** A tree adds a");
+    println!("  second pointer gesture on the chevron column, so *a press still selects a row and");
+    println!(
+        "  still refuses to pull the viewport* is a question rather than an inheritance. It is"
+    );
+    println!("  over the middle of the screen, nowhere near the chevron; the chevron's own column");
+    println!("  is scene 46's and is `examples/tree_numbers.rs`'s third table.");
+    println!();
 }
 
 /// 1. The three arms over the shipped `collection`, in both directions.
@@ -217,7 +292,11 @@ fn the_area_per_axis() {
     );
 }
 
-/// 3. What came out of the instrument, because the numbers moved when it did.
+/// 5. What came out of the instrument, because the numbers moved when it did.
+///
+/// **It read `3.` while `the_table` also read `3.`**, and had done since production 06 added that
+/// section without renumbering this one. Corrected by production 07 while adding the fifth subject
+/// — `cargo test` does not run this file, so nothing but a reader was ever going to catch it.
 fn what_the_substitutions_were() {
     println!("report  what components 20 took out of components 11's instrument:");
     println!("  the click     was the *delta* handed to the arithmetic `Response::scrolled` would");

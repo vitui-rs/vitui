@@ -516,6 +516,26 @@ pub const AXIS_SCENES: &[(&str, Axis)] = &[
     ("scroll_area", Axis::Shrunk),
     ("sticky", Axis::Scrolled),
     ("file_preview_pane", Axis::Wheeled),
+    // Scenes 46 and 47 — production 07's, and they are `tree`'s last two and this list's last two.
+    //
+    // **§21 carries two rows for this component and neither is a width or a wheel**: scene 8 is the
+    // flatten index at depth 59 999 and scene 9 is a fold. So these two pairs had no scene — and
+    // unlike every other group on this list they were **blocked** rather than merely unscheduled:
+    // components architecture 20 was open on whether `tree` draws the three indent guides its
+    // freeze row declared, and *a guide column takes cells from the label*. A narrow scene written
+    // before that answer would have been a scene of a different screen, which is the only edge on
+    // this backlog that a scenes ticket could not have argued its way past.
+    //
+    // 20 resolved by taking the three glyphs off the row, so the partition scene 46 reads is the
+    // one §7 always described: one `Ink::run` of spaces, one chevron cell and the label taking the
+    // rest.
+    //
+    // **Two files and two scenes**, production 06's rule: a screen is `crate::forest`, where this
+    // component's other two already live, and a wheel is `crate::wheel::Subject::Tree`.
+    //
+    // **Their position is scene order and not importance**, for scene 33's entry's reason.
+    ("tree", Axis::Narrow),
+    ("tree", Axis::Wheeled),
 ];
 
 /// **The ids whose data-volume cost has been measured and answers both of O6's bounds.** O6's
@@ -932,14 +952,17 @@ mod tests {
     /// [`o5`] actually reads. `crate::scenes` already gates the two against each other, so a pair
     /// present here and absent from a scene fails there instead of silently passing both.
     ///
-    /// # The pane joined `Subject::ALL` rather than a fourth source, and that is the shape holding
+    /// # The pane and the tree joined `Subject::ALL` rather than a fourth source, and that is the
+    /// shape holding twice
     ///
     /// Production 09's third scene is a **fourth arm of `crate::wheel`'s own drive loop**, not a
     /// screen of its own — a pane's notch has an area's cadence exactly, because the pane hands its
-    /// rectangle to `scroll_area`. So the join below is still over three sources and
-    /// [`crate::wheel::Subject::ALL`] is at four. **The rule is: a new cadence is a new source and a
-    /// new subject of an existing cadence is not**, and the two screens production 09 adds post no
-    /// notch at all.
+    /// rectangle to `scroll_area`. Production 07's second is the **fifth**, for the same reason one
+    /// family over: a tree's notch has a collection's cadence exactly, because `tree` hands its
+    /// rectangle to `collection_shaped`. So the join below is still over three sources and
+    /// [`crate::wheel::Subject::ALL`] is at **five**. **The rule is: a new cadence is a new source
+    /// and a new subject of an existing cadence is not** — the two screens production 09 adds post
+    /// no notch at all, and neither does production 07's narrow one.
     ///
     /// # The population is two gates' subject lists, not one, since production 05
     ///
@@ -1032,6 +1055,15 @@ mod tests {
     /// component and counts its steps. **O5 is the only one left**, and it is the one worth more
     /// than the other four together.
     #[test]
+    // **The name is stale since production 07 and this comment is what the policy requires of
+    // it.** All nine are met: that ticket claimed `tree`'s narrow and wheeled axes and O5's
+    // failing set emptied. The recorded rule is *a stale name that carries a note saying so stays;
+    // one that does not is corrected* — see
+    // `crate::scenes::tests::seventeen_of_the_thirty_four_axis_obligations_have_a_scene_and_seventeen_do_not`,
+    // which has carried such a note through five moves. **The rename is production ticket 10's**,
+    // together with this name's two register citations, `CLAUDE.md`'s sentence and the components
+    // README; what 07 edited here is only what a green build cannot be left without — the `met`
+    // vector below, the `Met` assertion, and `o5_fails_loudly`'s arm.
     fn eight_of_the_nine_obligation_queries_are_met_and_the_one_left_is_o5() {
         let declared = crate::consumer::declared(read);
         let all = [
@@ -1058,7 +1090,7 @@ mod tests {
             .collect();
         assert_eq!(
             met,
-            vec!["O1", "O2a", "O2b", "O3", "O4", "O6", "O7a", "O7b"],
+            vec!["O1", "O2a", "O2b", "O3", "O4", "O5", "O6", "O7a", "O7b"],
             "an obligation has changed colour. That is the point of the backlog and it is also a \
              deliberate edit to this test, to this module's header and to the ticket that inverted \
              it — the number is here so a green one cannot arrive unremarked"
@@ -1090,10 +1122,13 @@ mod tests {
     /// built, thirty-four axis obligations and thirty-four goldens owed.
     #[test]
     fn each_query_reports_the_population_it_could_not_answer_for() {
-        let unmet = |v: Verdict| match v {
-            Verdict::Unmet { over, failing, .. } => (over, failing),
-            Verdict::Met { .. } => panic!("met"),
-        };
+        // **The `unmet` reader is gone, and its absence is the record.** It unwrapped a
+        // `Verdict::Unmet` into `(over, failing)` and had exactly one caller left — O5's — because
+        // every other query on this list had already turned. Production 07 turned that one, so
+        // every assertion below is now *asserted from the other side*, which is what O1's comment
+        // has said since it turned: a met query has no failing set to report. Keeping the closure
+        // would leave a `warnings = "deny"` build failure or an `#[expect]` for a reader nothing
+        // reads.
         // **O1 is `Met` over the twenty-eight built rows**, so it has no failing set to report and
         // is asserted from the other side. See `o1` for why the population is `built` and not all
         // twenty-nine.
@@ -1143,7 +1178,15 @@ mod tests {
         // list where all three pairs already had an instrument that *could not fail on its own
         // axis*. **Two are left and they are `tree`'s**, blocked on components architecture 20. A
         // query that moves is a query that is measuring something.
-        assert_eq!(unmet(o5(AXIS_SCENES)), (34, 2), "O5");
+        // **Production 07 took `tree`'s last two and the failing set is empty**, so `o5` now
+        // answers `Met` over all thirty-four. **Turning the obligation is production ticket 10's**
+        // — its criteria are the summary list, the panicking watch, the two comments citing a test
+        // name that no longer exists, `CLAUDE.md`'s sentence and the components README — and what
+        // is edited here is only what a green build cannot be left without: this count, the `met`
+        // vector above and `o5_fails_loudly`'s expectation. A ticket may not leave CI red to keep a
+        // boundary tidy, so the boundary is recorded rather than silently crossed.
+        assert_eq!(o5(AXIS_SCENES), Verdict::Met { over: 34 }, "O5");
+        assert_eq!(AXIS_SCENES.len(), 34);
         // **O6 is `Met` over the seven rows that take a volume**, so it is asserted from the other
         // side too. The population is derived rather than written out — the `Layer::L2` column plus
         // the rows that keep a memo keyed on a data revision — and it answered **seven** where
@@ -1337,9 +1380,27 @@ mod tests {
     /// See [`o1_fails_loudly`]. **The one worth more than the other four together**, and the one
     /// whose population is `(component, axis)` pairs rather than scenes.
     #[test]
-    #[should_panic(expected = "O5 is unmet: 2 of 34")]
+    #[should_panic(expected = "O5 is unmet: 1 of 34")]
     fn o5_fails_loudly() {
-        o5(AXIS_SCENES).assert_met("O5");
+        // **Production 07 turned this arm and the header above says how**: *a `Met` verdict cannot
+        // be watched panicking, so the `#[should_panic]` moves from `the evidence is empty` to `the
+        // evidence is one row wrong`.* O1, O3, O4, O6 and O7 all made this move first; this is the
+        // sixth and last, and it is O6's expression with a pair struck instead of an id.
+        //
+        // **`(tree, wheeled)` is the pair it is taken from**, because it is the newest and because
+        // it is the one whose absence had no instrument at all: a wheel over a tree was not a
+        // subject of `crate::wheel`'s drive loop until this ticket, so a build that lost the arm
+        // would lose the evidence *and* the gate together. The query still notices.
+        //
+        // **This is the minimum a green build cannot be left without, and no more.** Production
+        // ticket 10 owns the rest — the summary test's own name, the two comments citing a test
+        // name that no longer exists, `CLAUDE.md`'s sentence and the components README.
+        let short: Vec<(&str, Axis)> = AXIS_SCENES
+            .iter()
+            .copied()
+            .filter(|pair| *pair != ("tree", Axis::Wheeled))
+            .collect();
+        o5(&short).assert_met("O5");
     }
 
     /// See [`o1_fails_loudly`]. **O6 is met, so it is watched failing over the shipped list with

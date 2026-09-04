@@ -658,6 +658,19 @@ pub const INVENTORY: &[Component] = &[
         // §16's cross-family collapse, which is `tree`'s: the shadow table's ASCII ellipsis was
         // `>`, exactly an ASCII `ArrowRight`, so **468 truncated labels ended in the collapsed-node
         // marker**. How many labels truncate is a function of the width.
+        //
+        // **Scene 46 is this axis** (production 07) and it decides the **partition**: exact at
+        // every width, with the two builds of the indent drawing the **same screen** at 300 columns
+        // *and* at 40, where the label is already cut from 21 columns to 19 and to 17. What
+        // separates them is the clamp binding, at 22 and at 21. See `crate::forest::MISDRAWN`.
+        //
+        // **It does not cover the collapse recorded above, and that is stated rather than implied.**
+        // §16's defect needs a *folded* row and an ASCII rung to put `>` on the end of a truncated
+        // label; scene 46 folds nothing and truncates through `layout::text::truncate`, which emits
+        // no ellipsis, so neither `Ellipsis` nor `ArrowRight` reaches a cell on it. That join is
+        // `crate::glyphs`'s — `the_detector_finds_c09s_collapse_and_not_a_corner_on_a_corner` and
+        // `tree_draws_both_halves_of_the_truncation_distinction` — and one axis carrying two
+        // defects is why the freeze's column and the scene list are different lists.
         narrow: true,
     },
     Component {

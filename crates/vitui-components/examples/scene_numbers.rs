@@ -8,25 +8,29 @@
 //!
 //! # What it prints, and why each half is here
 //!
-//! 1. **The scene list, one line a scene, in §21's column order.** **Two of the forty-five** print
+//! 1. **The scene list, one line a scene, in §21's column order.** **Two of the forty-seven** print
 //!    the ticket that will build their subject rather than a row of zeros — see
 //!    [`vitui_components::scenes::report`], which argues that at length. One is played by this
-//!    report and carries its own numbers, **forty-three are stood up on their own components**, and
+//!    report and carries its own numbers, **forty-five are stood up on their own components**, and
 //!    **none is pinned red** — row by row, the whole list has turned since components ticket 04
 //!    wrote it, and the counts here are the ones
-//!    `scenes::tests::two_scenes_have_nothing_to_run_over_none_is_red_and_forty_three_are_stood_up`
+//!    `scenes::tests::two_scenes_have_nothing_to_run_over_none_is_red_and_forty_five_are_stood_up`
 //!    asserts. **The paragraph this replaced was three tickets' worth of stale**, saying thirteen
 //!    of thirty-one and fifteen pinned red: production 01's defect in the one place a `#[test]`
 //!    cannot reach it, because `cargo test` does not run an example. Corrected in passing by
 //!    production 08 — and **re-introduced by production 09's first draft, which renamed the test on
 //!    the line below and left the two numbers above it**: a code review caught it, and it is the
-//!    same defect this paragraph is about, one ticket later.
+//!    same defect this paragraph is about, one ticket later. **Production 07 moved all four figures
+//!    together**, which is the only discipline this paragraph has ever needed.
 //! 2. **The four hostile axes, each caught.** *n cells over m rows*, beside what the defective build
 //!    cost — because the whole argument for an equality against a reference render is that **every
 //!    one of the four made the defective build look healthier**, and a report that printed only the
 //!    diff would leave the reader to take that on trust.
-//! 3. **O5's coverage**, **thirty-two of thirty-four**, with the **two** bare pairs named — both
-//!    `tree`'s, which are production 07's and are blocked on components architecture 20.
+//! 3. **O5's coverage**, **thirty-four of thirty-four**, with no bare pair left: production 07 took
+//!    `tree`'s last two, and it is the first ticket on this lineage whose edge was a *decision*
+//!    rather than an instrument — components architecture 20, on whether the component draws the
+//!    three indent guides its freeze row declared. **Turning the obligation is production 10's**,
+//!    which is why this line says the coverage and not the colour.
 //!
 //! # It asserts the shape and not the timings
 //!
@@ -180,13 +184,21 @@ fn main() {
         "  {covered} of {} declared (component, axis) pairs have a scene on this list.",
         coverage.len()
     );
-    println!(
-        "  The other {} are the per-component scenes tickets':",
-        coverage.len() - covered
-    );
-    for (id, axis, numbers) in &coverage {
-        if numbers.is_empty() {
-            println!("    {id:<20} {}", axis.name());
+    // **The empty case is a sentence and not a heading over nothing.** Production 07 took the last
+    // two pairs, so this list is empty for the first time — and *The other 0 are the per-component
+    // scenes tickets':* followed by no rows is the shape of stale sentence this whole file's header
+    // is about, arriving from the other direction. Turning O5 itself is production ticket 10's.
+    if covered == coverage.len() {
+        println!("  None are bare. `tree`'s narrow and wheeled were the last two (production 07).");
+    } else {
+        println!(
+            "  The other {} are the per-component scenes tickets':",
+            coverage.len() - covered
+        );
+        for (id, axis, numbers) in &coverage {
+            if numbers.is_empty() {
+                println!("    {id:<20} {}", axis.name());
+            }
         }
     }
     // **Twenty-three since production 05**, which claimed `field`'s scrolled, shrunk and wheeled
@@ -203,7 +215,7 @@ fn main() {
     // It said seventeen for four tickets, was resynced to twenty-five by components 36, and had
     // rotted again to five-behind by production 08 — because `cargo test` does not run an example,
     // so an `assert!` here is compiled by `cargo clippy --all-targets` and evaluated by nobody.
-    // `crate::obligations`'s own `unmet(o5(AXIS_SCENES)) == (34, 5)` is the gate and was green
+    // `crate::obligations`'s own `unmet(o5(AXIS_SCENES)) == (34, 0)` is the gate and was green
     // throughout, and it is strictly more than this line said. **Resyncing it a second time would
     // put the same trap back one number later**, which is this file's own recorded conclusion about
     // the standing counts two notes below — so it is deleted rather than corrected, and `covered`
@@ -265,7 +277,7 @@ fn main() {
     // it because `cargo test` does not run an example**: it is compiled by `cargo clippy
     // --all-targets` and evaluated by nothing. Resyncing them would put the same trap back one
     // number later, so they are deleted rather than corrected, and
-    // `scenes::tests::two_scenes_have_nothing_to_run_over_none_is_red_and_forty_three_are_stood_up`
+    // `scenes::tests::two_scenes_have_nothing_to_run_over_none_is_red_and_forty_five_are_stood_up`
     // owns those figures — it asserts the scene *numbers* and not only their count, which is
     // strictly more than these two lines said. Found by components 20.
 }

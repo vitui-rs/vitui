@@ -34,7 +34,7 @@
 //!
 //! [`Driver::post_mouse`]: vitui_runtime::Driver::post_mouse
 //!
-//! # Three subjects, run separately, because the blindness is per axis
+//! # Five subjects, run separately, because the blindness is per axis
 //!
 //! Ticket 20's fourth criterion: *the same gate runs over `scroll_area` and over a virtualised
 //! `collection` separately, because the watermark's blindness is per axis — a body dead downward and
@@ -48,6 +48,16 @@
 //! [`crate::collect::defective`] entries, and what it buys is that the claim is compared rather than
 //! trusted: the assertions are *`table` equals `collection`, arm for arm*, not three constants
 //! written twice.
+//!
+//! **The fourth is production 09's and the fifth production 07's, and both are the third's shape on
+//! another component.** [`Subject::Pane`] reaches its offset through `scroll_area` and
+//! [`Subject::Tree`] reaches its through `collection`, so the assertions on both are *equal to the
+//! component it calls, arm for arm* rather than constants written twice. Three instances make it a
+//! rule: **a component whose spec says *reached by calling it* is compared against the component it
+//! calls.** What each cost is one `match` arm; what the tree arm bought beyond the table's is the
+//! **press** clause, because §7 adds a second pointer gesture on the chevron column and *a press
+//! still selects a row and still refuses to pull the viewport* is therefore a question rather than
+//! an inheritance.
 //!
 //! A [`Subject::Collection`] owns one offset, in rows. A [`Subject::Area`] owns two, in content
 //! cells, and its reveal is the **body's** rather than the component's — `scroll_area` applies the
@@ -78,13 +88,13 @@ use vitui_runtime::{
 };
 
 use crate::collect::{
-    Cell, CollOpts, CollState, Column, TableOpts, TableState, collection_into,
-    defective as coll_defective, table_into,
+    Cell, CollOpts, CollState, Column, Node as TreeNode, TableOpts, TableState, TreeOpts,
+    TreeState, collection_into, defective as coll_defective, table_into, tree_into,
 };
 use crate::files::{PaneOpts, PaneState, Preview, asking, file_preview_pane_with};
 use crate::ink::{Direct, Ink};
 use crate::keys;
-use crate::order::Rows;
+use crate::order::{Order, Rows};
 use crate::scroll::{AreaOpts, AreaState, parts, scroll_area};
 use vitui_runtime::layout::Constraint;
 use vitui_runtime::work::{Cancel, Task, Worker};
@@ -234,6 +244,27 @@ pub enum Subject {
     /// earlier. The drive loop answers the pane's question and lands it before the first frame; see
     /// [`PANE_EXTENT`], which is [`EXTENT`] so that the two subjects share one clamp.
     Pane,
+    /// A [`crate::collect::tree`]: **one offset, in rows, and it is `collection`'s** — the row
+    /// axis, the wheel and the reveal are all reached by calling it, which is the sentence spec §7
+    /// opens with and which nothing had ever asked a wheel question of.
+    ///
+    /// **Production 07's, and it is [`Subject::Table`]'s shape on the third member of the same
+    /// family.** §7 states it in more words than §6 does — *there is no second selection store, no
+    /// second scan cursor, no second [`Mode`], **no second offset** and no second press edge* — so
+    /// the assertions here are *`tree` equals `collection`, arm for arm* rather than three
+    /// constants written twice. What it costs is one `match` arm and two
+    /// [`crate::collect::defective`] entries, which is the measure of how much of §7's sentence is
+    /// true.
+    ///
+    /// **The index is nested and that is deliberate rather than decorative.** `crate::forest`'s own
+    /// two scenes are built by [`crate::forest::index_for`], which puts *every* row at one depth —
+    /// so `has_children` is false on all of them, every row is a leaf, and the chevron `tree` draws
+    /// on scenes 8 and 9 is a **space** on every one of eighty rows. A wheel is an offset and would
+    /// not notice; a degenerate index is still a worse fixture than a nested one for the same
+    /// money, and [`crate::forest::nested`] is the builder both this arm and the narrow scene take.
+    ///
+    /// [`Mode`]: crate::collect::Mode
+    Tree,
 }
 
 impl Subject {
@@ -243,11 +274,12 @@ impl Subject {
     /// each side of the join a third subject escapes both halves while both stay green. This crate
     /// makes such populations values — `INVENTORY`, `SCENES`, `REGISTER` — and this is the same form
     /// at two rows.
-    pub const ALL: [Subject; 4] = [
+    pub const ALL: [Subject; 5] = [
         Subject::Collection,
         Subject::Area,
         Subject::Table,
         Subject::Pane,
+        Subject::Tree,
     ];
 
     /// The `INVENTORY` id, which is what makes criterion 6 a query rather than a claim.
@@ -257,6 +289,7 @@ impl Subject {
             Subject::Area => "scroll_area",
             Subject::Table => "table",
             Subject::Pane => "file_preview_pane",
+            Subject::Tree => "tree",
         }
     }
 
@@ -279,6 +312,11 @@ impl Subject {
             // document is [`PANE_EXTENT`] cells on each axis and `Scrollable::between` publishes
             // the pair. That the answer here is the area's is the arm's whole claim.
             Subject::Pane => &[Along::Rows, Along::Columns],
+            // **A tree owns one offset and it is in rows**, for [`Subject::Table`]'s reason and
+            // not a second one: `TreeState::coll` *is* a `CollState`, so `collection_shaped` is
+            // where the notch is consumed. §7's own sentence is *no second offset*, and naming a
+            // second axis here would make `wheeled` report a motionless offset as a dead wheel.
+            Subject::Tree => &[Along::Rows],
         }
     }
 
@@ -298,7 +336,10 @@ impl Subject {
             // **The table's clamp is the collection's**, and it is reached through the same
             // function rather than restated: `table` has no second row store, so a second
             // expression here would be a second answer to one question.
-            Subject::Collection | Subject::Table => (
+            // **A tree's clamp is the collection's**, joined into the same arm for the table's
+            // reason: a tree keeps no row store of its own, so a third expression here would be a
+            // third answer to one question.
+            Subject::Collection | Subject::Table | Subject::Tree => (
                 0,
                 CollState::max_offset(usize::try_from(ROWS).unwrap_or(usize::MAX), H),
             ),
@@ -520,7 +561,7 @@ pub fn revealed(subject: Subject, reveal: Reveal, from: (i32, i32)) -> (i32, i32
         // **A table's cursor is a collection's**, so the gesture is the same one and reaches it
         // through the same drain loop. That is the third instance of §6's sentence being checked
         // rather than trusted.
-        Subject::Collection | Subject::Table => run.press(REVEAL_CHORD),
+        Subject::Collection | Subject::Table | Subject::Tree => run.press(REVEAL_CHORD),
         // **A pane's reveal is its body's**, exactly as an area's is, because the pane hands its
         // rectangle to `scroll_area` and that component applies a delta and never asks for one.
         // So the gesture is the same one and the arm is `Subject::Area`'s — which is what production
@@ -639,6 +680,13 @@ struct Run {
     /// questions for one document.
     pane: PaneState<Doc>,
     task: Task<Doc>,
+    /// **The tree's state and the flatten index it reads.** Both inert on every other arm.
+    ///
+    /// The index is built in [`Run::new`] and not inside a frame, which is `crate::forest`'s own
+    /// rule and spec §10's price for the other spelling: materialising a million rows is
+    /// proportional to the data by construction, and doing it in a frame costs 211 frame budgets.
+    tree: TreeState,
+    index: Order,
     /// **What the pane's body saw**, as `(first visible column, first visible row)`.
     ///
     /// The offset **read out of the coordinate system the component put the body in**, and not off
@@ -698,6 +746,15 @@ impl Run {
             // gate is documented as silent on.
             pane.scroll_to(u32::try_from(offset.1).expect("clamped to a non-negative offset"));
         }
+        let mut tree = TreeState::new();
+        tree.coll.offset = offset.1;
+        // **Nested, and only on the arm that reads it.** A million-entry `Order` is 8 MB and every
+        // other subject would pay for it unread; `Order::built(Vec::new())` is what the others get.
+        let index = if subject == Subject::Tree {
+            crate::forest::nested(usize::try_from(ROWS).unwrap_or(usize::MAX))
+        } else {
+            Order::built(Vec::new())
+        };
         Run {
             driver: crate::runner::driver_at(W, H, Density::default()),
             subject,
@@ -706,6 +763,8 @@ impl Run {
             area: AreaState { offset },
             pane,
             task,
+            tree,
+            index,
             seen: offset,
             offset,
             asked: false,
@@ -753,6 +812,8 @@ impl Run {
         let area = &mut self.area;
         let pane = &mut self.pane;
         let task = &self.task;
+        let tree = &mut self.tree;
+        let index = &self.index;
         let seen = &mut self.seen;
         let once = &mut self.once;
         let armed = self.armed;
@@ -763,6 +824,7 @@ impl Run {
                 Subject::Area => area_frame(cx, area, play, once, armed),
                 Subject::Table => table_frame(cx, table, play),
                 Subject::Pane => pane_frame(cx, pane, task, play, once, armed, seen),
+                Subject::Tree => tree_frame(cx, tree, index, play),
             }
         });
         self.offset = match subject {
@@ -770,10 +832,12 @@ impl Run {
             Subject::Area => self.area.offset,
             Subject::Table => (0, self.table.coll.offset),
             Subject::Pane => self.seen,
+            Subject::Tree => (0, self.tree.coll.offset),
         };
         self.asked = self.driver.inspect().into_view().is_some();
         self.selected = match subject {
             Subject::Table => self.table.coll.sel.count(),
+            Subject::Tree => self.tree.coll.sel.count(),
             _ => self.coll.sel.count(),
         };
     }
@@ -907,6 +971,55 @@ fn table_frame(cx: &mut Ctx<'_, '_>, st: &mut TableState, play: Play) {
     };
     // [`collection_frame`]'s seating, for its reason: nothing holds the focus until an application
     // says so, and the id is the one the component answered.
+    if cx.focused().is_none() {
+        cx.focus(resp.id);
+    }
+}
+
+/// One frame of the tree arm, **through the shipped component**.
+///
+/// [`table_frame`]'s shape one component over and the same three arms, with the columns replaced by
+/// a flatten index — because that is exactly what the two components add to `collection` and
+/// neither addition is on the row axis. The row drawer writes one run a row, for `table_frame`'s
+/// reason: what this gate reads is an offset and not a screen, and `crate::forest` is where a
+/// tree's cells are compared against a reference render.
+fn tree_frame(cx: &mut Ctx<'_, '_>, st: &mut TreeState, index: &Order, play: Play) {
+    let area = cx.area();
+    let body = cx.theme().paint(Role::Body);
+    let opts = TreeOpts::default();
+    let mut find = |_: &str, _: std::ops::Range<usize>| None;
+    let mut row =
+        |ink: &mut Direct, cx: &mut Ctx<'_, '_>, r: Rect, _: TreeNode, _: crate::frame::Face| {
+            if r.w > 0 {
+                let _ = ink.run(cx, r.x, r.y, "\u{b7}", r.w, body);
+            }
+        };
+    let resp = match play.reveal {
+        Reveal::WhenAsked => {
+            tree_into(&mut Direct, cx, area, st, &opts, index, &mut find, &mut row)
+        }
+        Reveal::EveryFrame => coll_defective::tree_every_frame(
+            &mut Direct,
+            cx,
+            area,
+            st,
+            &opts,
+            index,
+            &mut find,
+            &mut row,
+        ),
+        Reveal::Never => coll_defective::tree_never_reveals(
+            &mut Direct,
+            cx,
+            area,
+            st,
+            &opts,
+            index,
+            &mut find,
+            &mut row,
+        ),
+    };
+    // [`collection_frame`]'s seating, for its reason.
     if cx.focused().is_none() {
         cx.focus(resp.id);
     }
@@ -1307,6 +1420,111 @@ mod tests {
                 revealed(Subject::Table, reveal, (0, SCROLLED_AWAY)),
                 revealed(Subject::Collection, reveal, (0, SCROLLED_AWAY)),
                 "and they disagree about the keyboard on the `{}` arm",
+                reveal.word()
+            );
+        }
+    }
+
+    /// **Production 07: the same gate over the shipped `tree`, and §7's sentence is checked rather
+    /// than trusted.**
+    ///
+    /// > There is **no second selection store**, **no second scan cursor** — the row's `Face`
+    /// > arrives from `collection`'s own lockstep `Scan` — **no second `Mode`**, **no second
+    /// > offset** and **no second press edge**. The row axis, the wheel, the keyboard, the
+    /// > type-ahead, the reveal, the tail below the content and the revision check are all
+    /// > `collection`'s, reached by calling it. What this function adds is two verbs a row and a
+    /// > one-slot request.
+    ///
+    /// That is `crate::collect::tree`'s own claim — **stated in more words than §6 states the
+    /// table's** — and until this ticket nothing had asked it a wheel question either. The numbers
+    /// are `collection`'s to the click, which is the finding: **two verbs a row and a one-slot fold
+    /// request cost the row axis nothing**, and a build where they did would show up here as one of
+    /// these arms disagreeing with its twin one component down.
+    ///
+    /// # It is production 06's arrangement and the third instance of it
+    ///
+    /// `table`/`collection` was the first and `file_preview_pane`/`scroll_area` the second, so the
+    /// shape is now a rule: **a component whose spec says *reached by calling it* is compared
+    /// against the component it calls, arm for arm, rather than against three constants written
+    /// twice.** What this one cost is one `match` arm in [`Run::play`], one [`Subject`] variant and
+    /// **two** `crate::collect::defective` entries — where the pane needed none, because its reveal
+    /// is its body's and a tree's is `collection`'s and therefore reachable through a field.
+    #[test]
+    fn twenty_posted_clicks_move_a_trees_offset_twenty_and_the_numbers_are_the_collections() {
+        let free = wheeled(Play::of(Subject::Tree, Reveal::WhenAsked));
+        assert_eq!(free.settled, (0, MOVED), "twenty clicks, twenty rows");
+        assert_eq!(free.after_last_click, (0, MOVED));
+        assert_eq!(free.reveals, 0, "nothing asked, so nothing was requested");
+
+        let dragged = wheeled(Play::of(Subject::Tree, Reveal::EveryFrame));
+        assert_eq!(
+            dragged.settled,
+            (0, DRAGGED_BACK),
+            "an unconditional `scroll_into_view` and the pointer is dead over a tree too"
+        );
+        assert_eq!(dragged.reveals, CLICKS);
+        assert_eq!(
+            dragged.after_last_click,
+            (0, 1),
+            "ADR 0015's residue, unchanged by the flatten index"
+        );
+
+        // **The second direction**, and it is what stops the arm below being a fix.
+        assert_eq!(
+            revealed(Subject::Tree, Reveal::WhenAsked, (0, SCROLLED_AWAY)),
+            (0, -SCROLLED_AWAY),
+            "a cursor moved to the top of the content brings the viewport with it"
+        );
+        assert_eq!(
+            revealed(Subject::Tree, Reveal::Never, (0, SCROLLED_AWAY)),
+            (0, 0),
+            "and deleting the call loses it"
+        );
+        assert_eq!(
+            wheeled(Play::of(Subject::Tree, Reveal::Never)).settled,
+            (0, MOVED),
+            "while passing the wheel half, which is why a one-directional gate is not a gate"
+        );
+
+        assert!(leaves_no_request(
+            Play::of(Subject::Tree, Reveal::WhenAsked),
+            (0, MOVED)
+        ));
+        assert!(
+            !leaves_no_request(Play::of(Subject::Tree, Reveal::EveryFrame), (0, MOVED)),
+            "twenty rows down, the unconditional arm asks to be dragged back on this very frame"
+        );
+
+        // **The three arms agree with `collection`'s, arm for arm**, and the press clause with it:
+        // a tree adds a *second* pointer gesture on the chevron column (§7's fold-by-press), so
+        // *does a press still select a row and still refuse to pull the viewport* is a question the
+        // table arm did not have to ask.
+        for reveal in [Reveal::WhenAsked, Reveal::EveryFrame, Reveal::Never] {
+            let tree = wheeled(Play::of(Subject::Tree, reveal));
+            let collection = wheeled(Play::of(Subject::Collection, reveal));
+            assert_eq!(
+                (tree.settled, tree.after_last_click, tree.reveals),
+                (
+                    collection.settled,
+                    collection.after_last_click,
+                    collection.reveals
+                ),
+                "`tree` and `collection` disagree about the wheel on the `{}` arm, so the row axis \
+                 is not the one component reached by the other",
+                reveal.word()
+            );
+            assert_eq!(
+                revealed(Subject::Tree, reveal, (0, SCROLLED_AWAY)),
+                revealed(Subject::Collection, reveal, (0, SCROLLED_AWAY)),
+                "and they disagree about the keyboard on the `{}` arm",
+                reveal.word()
+            );
+            assert_eq!(
+                tapped(Play::of(Subject::Tree, reveal), (0, SCROLLED_AWAY)),
+                tapped(Play::of(Subject::Collection, reveal), (0, SCROLLED_AWAY)),
+                "and they disagree about the press on the `{}` arm — a press over the middle of \
+                 the screen is nowhere near the chevron column, so a tree's extra gesture must \
+                 leave this one exactly as it was",
                 reveal.word()
             );
         }

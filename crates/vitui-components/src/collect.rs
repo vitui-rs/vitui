@@ -1491,10 +1491,10 @@ pub fn search_range(lead: usize, len: usize, budget: usize) -> Range<usize> {
 /// line and every one of them **passes at least one gate the correct build passes**.
 pub mod defective {
     use super::{
-        Band, BandShape, Cell, CellKeys, Code, ColVirt, CollOpts, CollShape, CollState, Column,
-        Ctx, Face, Gesture, HSign, Id, Indent, Ink, Node, Order, Pressed, Range, Rect, Response,
-        Reveal, Rows, Scan, Shape, TableOpts, TableShape, TableState, Tail, TreeOpts, TreeShape,
-        TreeState, draw_with, no_refusal, table_with, tree_with,
+        Band, BandShape, Cell, CellKeys, Chevron, Code, ColVirt, CollOpts, CollShape, CollState,
+        Column, Ctx, Face, Gesture, HSign, Id, Indent, Ink, Node, Order, Pressed, Range, Rect,
+        Response, Reveal, Rows, Scan, Shape, TableOpts, TableShape, TableState, Tail, TreeOpts,
+        TreeShape, TreeState, draw_with, no_refusal, table_with, tree_with,
     };
 
     /// **[`super::from_key`] reading `k.code` alone, which is how it shipped for thirty-seven
@@ -2012,6 +2012,141 @@ pub mod defective {
             row,
             TreeShape {
                 indent: Indent::Unclamped,
+                ..TreeShape::default()
+            },
+        )
+    }
+
+    /// **The tree that asks for a reveal on every frame.** [`super::defective::every_frame`]'s
+    /// refusal, one component up and reached through the same field.
+    ///
+    /// Production 07. `collection`'s own arm is `CollShape::reveal`, and a tree has no second
+    /// offset and no second reveal — so this is [`super::tree`] with one field of `TreeShape`
+    /// changed and the defect lands in `collection`'s body, which is exactly spec §7's claim:
+    /// *the wheel, the keyboard and the reveal are all `collection`'s, reached by calling it.*
+    ///
+    /// Twenty posted notches move the offset **0** under it. See `crate::wheel::Subject::Tree`.
+    #[track_caller]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "`tree_into`'s eight exactly, because a defective arm that took a different \
+                  signature would be a different function rather than the same one with one value \
+                  changed"
+    )]
+    pub fn tree_every_frame<I, F, R>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Rect,
+        st: &mut TreeState,
+        opts: &TreeOpts,
+        index: &Order,
+        find: F,
+        row: R,
+    ) -> Response
+    where
+        I: Ink,
+        F: FnMut(&str, Range<usize>) -> Option<usize>,
+        R: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, Node, Face),
+    {
+        tree_with(
+            ink,
+            cx,
+            area,
+            st,
+            opts,
+            index,
+            find,
+            row,
+            TreeShape {
+                reveal: Reveal::EveryFrame,
+                ..TreeShape::default()
+            },
+        )
+    }
+
+    /// **The tree that never asks for a reveal.** [`super::defective::never_reveals`]'s refusal,
+    /// one component up.
+    ///
+    /// Production 07, and it is the arm a one-directional wheel gate green-lights: deleting the
+    /// call passes the loud half. See `crate::wheel::Reveal::Never`.
+    #[track_caller]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "`tree_into`'s eight exactly, because a defective arm that took a different \
+                  signature would be a different function rather than the same one with one value \
+                  changed"
+    )]
+    pub fn tree_never_reveals<I, F, R>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Rect,
+        st: &mut TreeState,
+        opts: &TreeOpts,
+        index: &Order,
+        find: F,
+        row: R,
+    ) -> Response
+    where
+        I: Ink,
+        F: FnMut(&str, Range<usize>) -> Option<usize>,
+        R: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, Node, Face),
+    {
+        tree_with(
+            ink,
+            cx,
+            area,
+            st,
+            opts,
+            index,
+            find,
+            row,
+            TreeShape {
+                reveal: Reveal::Never,
+                ..TreeShape::default()
+            },
+        )
+    }
+
+    /// **The tree whose chevron is pressed at the column the *context* puts it at.**
+    ///
+    /// Production 07's narrow-axis refusal, and see [`Chevron`] for why nothing on this map could
+    /// have found it: the two widths are one number whenever the clamp binds on neither, and every
+    /// gate here draws a tree at the full width of its screen. The drawing is **identical** on both
+    /// arms — this arm changes no cell — so the only instrument that separates them is a press, and
+    /// `crate::forest::PRESSED` is where it is played.
+    #[track_caller]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "`tree_into`'s eight exactly, because a defective arm that took a different \
+                  signature would be a different function rather than the same one with one value \
+                  changed"
+    )]
+    pub fn chevron_from_the_context<I, F, R>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Rect,
+        st: &mut TreeState,
+        opts: &TreeOpts,
+        index: &Order,
+        find: F,
+        row: R,
+    ) -> Response
+    where
+        I: Ink,
+        F: FnMut(&str, Range<usize>) -> Option<usize>,
+        R: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, Node, Face),
+    {
+        tree_with(
+            ink,
+            cx,
+            area,
+            st,
+            opts,
+            index,
+            find,
+            row,
+            TreeShape {
+                chevron: Chevron::FromTheContext,
                 ..TreeShape::default()
             },
         )
@@ -3654,6 +3789,47 @@ impl Indent {
     }
 }
 
+/// **Which width the chevron's hit column is derived from. §7's pointer half, as one value.**
+///
+/// [`tree`] draws the chevron at the indent of the row rectangle it hands over, and decides whether
+/// a press landed on it from the indent of the rectangle *it* was handed. Those are two calls to
+/// [`indent_columns`] with two widths, and they agree because `collection`'s own `draw_with` gives
+/// a row the whole of `area.w` — a third fact, on the other component.
+///
+/// # It is a narrow-axis refusal and nothing else could have found it
+///
+/// `min(depth * 2, w - 2)` is the same number for two widths whenever the clamp binds on neither, so
+/// the two spellings differ **only** where one width clamps and the other does not. A `tree` drawn
+/// at the full width of its context has one width, and every gate on this map drew one that way —
+/// which is `header_row`'s recorded defect (*it drew from `x = 0` rather than from the rectangle it
+/// was given, and every gate passed because every one of them plays at `x == 0`*) on the pointer
+/// axis instead of the drawing axis. `crate::forest::PRESSED` is the reading: at a 21-column tree
+/// inside a 300-column screen the two columns are **19 and 20**, and a press on the chevron a reader
+/// can see does nothing under the refusal.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum Chevron {
+    /// **The rule.** The rectangle the component was handed, which is what [`Response::local`] is
+    /// measured from — the hit entry is `area`, so the local column and the indent are in one
+    /// coordinate system.
+    #[default]
+    FromTheRectangle,
+    /// **The defect.** [`Ctx::area`], which is the context's own rectangle rather than the
+    /// component's, and is the same number on every screen that draws a tree at full width.
+    ///
+    /// [`Ctx::area`]: vitui_runtime::Ctx::area
+    FromTheContext,
+}
+
+impl Chevron {
+    /// The word a report prints.
+    pub const fn word(self) -> &'static str {
+        match self {
+            Chevron::FromTheRectangle => "the rectangle",
+            Chevron::FromTheContext => "the context",
+        }
+    }
+}
+
 /// **How many columns a row at `depth` indents by, in a `w`-column rectangle. The one decision.**
 ///
 /// [`tree`] calls it and so does every instrument that wants to know what the component asked for,
@@ -3751,8 +3927,17 @@ impl Default for TreeOpts {
 ///
 /// **Hostile axes:** `scrolled`, `shrunk`, `wheeled`, `narrow`.
 ///
+/// **All four have a scene**, and the last two arrived last of the whole freeze (production 07).
+/// The line above is read by `crate::doc`'s O1 scan and joined against the freeze's own axis set,
+/// so it takes the four words and nothing else — a sentence appended to it is four axes and two
+/// fragments.
+///
 /// Scenes 8 and 9: a million-node forest at depth 59 999 windowed by the flatten index, and a fold
-/// and an unfold, which is content shrinking inside a rectangle that does not move.
+/// and an unfold, which is content shrinking inside a rectangle that does not move. Scene 46:
+/// the partition at 300, 40, 22 and 21 columns — where the **clamp binding** and not the label
+/// truncating is what makes the unclamped indent visible, and where the chevron's pressed column is
+/// the rectangle's and not the context's ([`Chevron`]). Scene 47: twenty posted notches, whose every
+/// number is [`collection`]'s.
 ///
 /// Spec §7, ADR 0028, ADR 0031. Spec §1's shape exactly: `fn(&mut Ctx, Rect, …) -> Response`.
 ///
@@ -3889,25 +4074,46 @@ where
     )
 }
 
-/// **The one way `tree = collection + a flatten index` can be false**, as one value.
+/// **The four ways `tree = collection + a flatten index` can be false**, as one value.
 ///
-/// One field and not a boolean in a signature, so a reviewer's diff between the shipped build and
-/// the refused one is a single line — [`TableShape`]'s arrangement one component over.
+/// One field apiece and not four booleans in a signature, so a reviewer's diff between the shipped
+/// build and any one refusal is a single line — [`TableShape`]'s arrangement one component over.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 struct TreeShape {
     /// **Which rows the body iterates.** See [`TableShape::coll`]: a tree is a collection plus a
     /// flatten index, and it inherits the same one-line mistake.
     ///
-    /// **It is [`Shape`] where the table's is the whole [`CollShape`], and that is deliberate rather
-    /// than half a migration.** Production 06 gave `table` the other two refusals because two
-    /// scenes play them; a `tree` arm for a tail nothing draws and a reveal nothing posts would be
-    /// a build no gate exercises, which is `crate::ink`'s complaint from the other end — a refusal
-    /// that is never played is a second implementation with no comparison behind it.
-    /// `tree_with` reconstitutes a `CollShape` from this field and [`CollShape::RULE`], so the day
-    /// production 07 plays `tree`'s axes the field widens and nothing else moves.
+    /// **It is [`Shape`] where the table's is the whole [`CollShape`], and that is deliberate
+    /// rather than half a migration.** Production 06 gave `table` the other two refusals because
+    /// two scenes play them; a `tree` arm for a tail nothing draws would be a build no gate
+    /// exercises, which is `crate::ink`'s complaint from the other end — a refusal that is never
+    /// played is a second implementation with no comparison behind it. `tree_with` reconstitutes a
+    /// `CollShape` from this field, [`TreeShape::reveal`] and [`CollShape::RULE`].
+    ///
+    /// **[`Tail`] is still not here and that is now a measured absence rather than a deferral.**
+    /// `tree`'s shrink axis is scene 9 — a fold, which removes rows from the *index* — so the rows
+    /// the content no longer reaches are `collection`'s tail and `crate::listing` is where the
+    /// omission is 71 of 80 rows. A second `Tail` arm here would be the same omission with a
+    /// second name.
     rows: Shape,
     /// Whether the indent is clamped to the rectangle.
     indent: Indent,
+    /// **When the reveal fires.** Production 07's, and it is the field the note above predicted.
+    ///
+    /// Widened for `crate::wheel::Subject::Tree` — spec §7's claim is that the wheel, the keyboard
+    /// and the reveal are all `collection`'s, *reached by calling it*, and until that arm nothing
+    /// had asked a `tree` a wheel question. The two refusals are `collection`'s own two, reached
+    /// through [`CollShape::reveal`] rather than restated: a tree has no second offset and no
+    /// second reveal, so a second expression here would be a second answer to one question.
+    reveal: Reveal,
+    /// **Which width the chevron's *hit* column is derived from.** Production 07's, and the narrow
+    /// axis's own.
+    ///
+    /// See [`Chevron`]. The drawn column comes from the row's rectangle and the pressed column from
+    /// the component's, and the two are equal only because [`draw_with`] hands a row the whole of
+    /// `area.w` — so this is two expressions that agree by a third fact, which is the shape of join
+    /// a scene can break.
+    chevron: Chevron,
 }
 
 /// **`#[track_caller]` all the way down**, for [`draw_with`]'s reason: `Ctx::id` mints from
@@ -4058,6 +4264,7 @@ where
         &mut refuse,
         CollShape {
             rows: shape.rows,
+            reveal: shape.reveal,
             ..CollShape::RULE
         },
     );
@@ -4071,11 +4278,20 @@ where
     // before `collection` sees it — the pointer's version of `Refusal`, and there is no shape for
     // it: `Response::local` is computed inside `declare`, so there is nothing to refuse until the
     // hit entry exists.
+    //
+    // **Which width the column is derived from is [`Chevron`]'s**, and the shipped answer is the one
+    // above: `w` is `area.w`, because `local` is measured from the hit entry and the hit entry is
+    // `area`. The refused answer is the *context's* width, which is the same number on every screen
+    // that draws a tree at full width — see `crate::forest::PRESSED`.
+    let hit_w = match shape.chevron {
+        Chevron::FromTheRectangle => w,
+        Chevron::FromTheContext => cx.area().w,
+    };
     if resp.press_began
         && let Some((lx, ly)) = resp.local
         && let Ok(i) = usize::try_from(coll.offset + ly)
         && let Some(e) = index.at(i)
-        && lx == i32::try_from(indent_columns(shape.indent, e.depth, w)).unwrap_or(i32::MAX)
+        && lx == i32::try_from(indent_columns(shape.indent, e.depth, hit_w)).unwrap_or(i32::MAX)
     {
         if e.is_folded() {
             ask.ask(Ask::Expand(u64::from(e.node)));

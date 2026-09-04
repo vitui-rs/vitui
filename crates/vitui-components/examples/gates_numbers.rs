@@ -328,8 +328,11 @@ fn obligations() {
         }
     }
     println!(
-        "\n          O5 is the one left, and §17 says it is worth more than the other four\n\
-         \x20         together. O6 is the sixth and O7 the seventh, both stated after the map\n\
+        "\n          O5 was the last one left, and §17 says it is worth more than the other four\n\
+         \x20         together. Production 07 took `tree`'s narrow and wheeled axes, which were\n\
+         \x20         the last two of the thirty-four pairs; **turning the obligation is\n\
+         \x20         production ticket 10's** and this line says the coverage, not the colour.\n\
+         \x20         O6 is the sixth and O7 the seventh, both stated after the map\n\
          \x20         closed; O6's population is derived from the freeze and O7's is read out of\n\
          \x20         the source, because the `built` column is a claim and it has been wrong."
     );

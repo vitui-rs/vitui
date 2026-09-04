@@ -1,15 +1,16 @@
-//! **The tree: a million nodes at depth 59 999, a fold over 349 524 rows, and the index, as
-//! numbers.**
+//! **The tree: a million nodes at depth 59 999, a fold over 349 524 rows, the index, and the
+//! partition at four widths, as numbers.**
 //!
-//! Components tickets 16 and 17. The convention is the runtime's — a file in `examples/` named
-//! `<subject>_numbers.rs` that prints the numbers a human reads — and so is the rule about what an
-//! example may be: **`cargo test` does not run this file**, and no row of
+//! Components tickets 16 and 17, and production ticket 07. The convention is the runtime's — a
+//! file in `examples/` named `<subject>_numbers.rs` that prints the numbers a human reads — and so
+//! is the rule about what an example may be: **`cargo test` does not run this file**, and no row of
 //! [`vitui_components::gates::REGISTER`] rests on it. The rows that *cite* it each name a `#[test]`
 //! in `src/forest.rs` beside the citation.
 //!
 //! # What it prints
 //!
-//! 1. **The two scenes**, with where each stands and which ticket inverts it.
+//! 1. **The four scenes** — `tree`'s three and the two galleries it is drawn on — with where each
+//!    stands and which ticket inverts it.
 //! 2. **The frame**, flat at 1k / 100k / 1M nodes and at depth 10 and 59 999, with §7's remembered
 //!    row beside it.
 //! 3. **The verb comparison**, one rectangle drawn three ways, with §6's remembered 418 / 640 /
@@ -21,7 +22,10 @@
 //! 6. **The flatten index** (components ticket 17): the record's size, the interval `depth` finds
 //!    against the one the data gives, the splice against the rebuild, and what the height prefix
 //!    sum costs.
-//! 7. **What does not reproduce**, said out loud rather than engineered away.
+//! 7. **The narrow axis** (production ticket 07): the partition at four widths, what the unclamped
+//!    indent misdraws at each, what the counters say about it — which is nothing, at any width —
+//!    and the chevron's two pressed columns.
+//! 8. **What does not reproduce**, said out loud rather than engineered away.
 //!
 //! # It asserts the shape and not the timings
 //!
@@ -32,6 +36,7 @@
 use std::time::Duration;
 
 use vitui_alloc_probe::{CountingAllocator, count_allocations};
+use vitui_components::collect::Chevron;
 use vitui_components::forest::{
     self, DEEP, Drawn, Flat, Forest, Indent, Plan, Policy, REMEMBERED_VERBS, Runs, SELECTED,
     SHALLOW, Straddle, VERBS_A_ROW,
@@ -53,7 +58,8 @@ const ROUNDS: u32 = 8;
 
 fn main() {
     println!(
-        "The forest — {}x{}, one tree, {} rows a window, and the two scenes `tree` is a screen of\n",
+        "The forest — {}x{}, one tree, {} rows a window, and the three scenes `tree` is a screen \
+         of\n",
         forest::W,
         forest::H,
         forest::H
@@ -65,12 +71,13 @@ fn main() {
     the_trap();
     the_fold();
     the_index();
+    the_narrow_axis();
     what_does_not_reproduce();
 }
 
-/// 1. The two scenes, and the ticket that inverts them.
+/// 1. The scenes `tree` is on, and the ticket that inverts them.
 fn scene_list() {
-    println!("report  the two scenes, and what each is waiting for:");
+    println!("report  the scenes `tree` is on, and what each is waiting for:");
     println!(
         "  {:>3}  {:<48}  {:<16}  inverted by",
         "#", "scene", "standing"
@@ -92,14 +99,17 @@ fn scene_list() {
         );
     }
     assert_eq!(
-        evaluated, 4,
-        "both stand on `tree` since components 17, and both galleries since components 40 and 41. \
-         **It read 3 for five tickets while the answer was 4** — `cargo test` does not run an \
-         example"
+        evaluated, 6,
+        "scenes 8 and 9 stand on `tree` since components 17, both galleries since components 40 \
+         and 41, and **scenes 46 and 47 since production 07** — the narrow partition and the \
+         posted notch, which are `tree`'s last two axes and the freeze's last two. **It read 3 for \
+         five tickets while the answer was 4** — `cargo test` does not run an example, so this \
+         line is compiled by `cargo clippy --all-targets` and evaluated by nobody, which is what \
+         this file's own header is about"
     );
     assert_eq!(
         SCENES.iter().filter(|s| s.stands.contains(&"tree")).count(),
-        4
+        6
     );
     println!(
         "\n  Both were pinned red on one fact — `tree` was not declared — and components ticket 17\n  \
@@ -517,7 +527,110 @@ fn staged_forest() -> (Vec<u16>, Vec<(usize, usize)>) {
     (depth, at)
 }
 
-/// 7. What does not reproduce, said out loud.
+/// 7. The narrow axis: the partition at four widths, and the chevron's two pressed columns.
+fn the_narrow_axis() {
+    println!(
+        "report  scene 46 — §7's partition at four widths, over {} rows at depth {} and {}:",
+        forest::NARROW_ROWS,
+        SHALLOW,
+        SHALLOW + 1
+    );
+    println!(
+        "  {:>6}  {:>7}  {:>8}  {:>7}  {:>14}  {:>7}  {:>7}  {:>17}",
+        "width", "ind(d)", "ind(d+1)", "exact?", "misdrawn", "writes", "verbs", "verbs (unclamped)"
+    );
+    for width in forest::WIDTHS {
+        let (subject, writes, verbs) = forest::narrow_screen(width, Indent::Clamped);
+        let (broken, broken_writes, broken_verbs) = forest::narrow_screen(width, Indent::Unclamped);
+        let reference = forest::narrow_reference(width);
+        let exact = subject.diff(&reference);
+        let misdrawn = broken.diff(&reference);
+        assert_eq!(
+            broken_writes, writes,
+            "the two arms wrote a different number of columns, which would make this axis visible \
+             to a counter"
+        );
+        println!(
+            "  {:>6}  {:>7}  {:>8}  {:>7}  {:>14}  {:>7}  {:>7}  {:>17}",
+            width,
+            forest::indent_columns(Indent::Clamped, SHALLOW, width),
+            forest::indent_columns(Indent::Clamped, SHALLOW + 1, width),
+            if exact.clean() { "yes" } else { "NO" },
+            format!("{} / {} rows", misdrawn.cells, misdrawn.rows),
+            writes,
+            verbs,
+            broken_verbs
+        );
+    }
+    println!(
+        "\n  The partition is exact at every width. **The unclamped indent is invisible at 300 and"
+    );
+    println!(
+        "  at 40** \u{2014} where the label is already cut from {} columns to 19 and to 17 \u{2014} and",
+        forest::LABEL.chars().count()
+    );
+    println!("  visible at 22 and 21, so it is the **clamp binding** and not the label truncating");
+    println!("  that separates the two builds.");
+    println!(
+        "\n  And `writes` is `w x {}` on both arms at every width, because the clip eats exactly",
+        forest::H
+    );
+    println!(
+        "  what the collapse loses: **no write counter can see this axis at any width**, which"
+    );
+    println!(
+        "  is a stronger reading than scene 8's, where *cells asked for* separates them. Verbs"
+    );
+    println!("  move, and move downward on the defect.\n");
+
+    println!("report  scene 46's third reading — the chevron's pressed column:");
+    println!(
+        "  {:>6}  {:>10}  {:>10}  {:>20}  {:>20}",
+        "width", "rectangle", "context", "shipped, at drawn", "refused, at drawn"
+    );
+    for width in forest::WIDTHS {
+        let rect = forest::indent_columns(Indent::Clamped, SHALLOW, width);
+        let context = forest::indent_columns(Indent::Clamped, SHALLOW, forest::W);
+        let at_rect = u16::try_from(rect).expect("a column");
+        let word = |a: Option<order::Ask>| match a {
+            Some(_) => "folds",
+            None => "nothing",
+        };
+        // **Both arms, pressed at the column the *rectangle* draws the chevron in.** The first
+        // draft printed the shipped build twice — at the drawn column and at the context's — and
+        // the prose under it then named an arm its own table never played, which a code review
+        // caught. The refused arm is the point of the table, so it is in it.
+        println!(
+            "  {:>6}  {:>10}  {:>10}  {:>20}  {:>20}",
+            width,
+            rect,
+            context,
+            word(forest::pressed(width, Chevron::FromTheRectangle, at_rect)),
+            word(forest::pressed(width, Chevron::FromTheContext, at_rect)),
+        );
+    }
+    println!(
+        "\n  A `w`-column tree inside a {}-column screen. The two indents are **one number at three",
+        forest::W
+    );
+    println!(
+        "  of the four widths**, and at {} they are 19 and 20 \u{2014} so under",
+        forest::BINDS_BOTH
+    );
+    println!("  `Chevron::FromTheContext` a press on the chevron a reader can see does nothing.");
+    println!("  That it folds on the blank column beside it instead is the half this table does");
+    println!("  not show, and it is asserted rather than printed: `forest::tests` carries it as a");
+    println!("  biconditional over both columns and both arms.");
+    println!(
+        "\n  **Every gate on this map draws a tree at the full width of its screen**, where the"
+    );
+    println!(
+        "  two are one number at every width \u{2014} which is `header_row`'s recorded defect with"
+    );
+    println!("  the width in place of the origin.\n");
+}
+
+/// 8. What does not reproduce, said out loud.
 fn what_does_not_reproduce() {
     println!("report  what does not reproduce, and why:");
     for (figure, why) in [

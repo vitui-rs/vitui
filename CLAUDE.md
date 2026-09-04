@@ -41,13 +41,17 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   and
   **no row pinned red** — row 112 was the last, inverted by runtime architecture 31 — beside
   5 unreachable across the crate line (ADR 0023) and **nothing unsubjected**: production 03 took
-  `table`'s two and production 04 took `field`'s four, which were the last. **Forty-three of the
-  forty-five scenes stand up, none is red and two have nothing to run over** —
+  `table`'s two and production 04 took `field`'s four, which were the last. **Forty-five of the
+  forty-seven scenes stand up, none is red and two have nothing to run over** —
   `scenes.rs`'s own gate names the numbers, and *every scene stood up* was a third stale summary
   sentence of production 01's kind, corrected by 04. That gate's own **name** has now been stale
-  twice and corrected twice — production 06 renamed it from three-and-thirty-three, production 08
-  from thirty-six — each time with its five register citations, which is the recorded policy: a
-  stale name carrying a note saying so stays, one that does not is corrected. Scenes **34, 35 and 36 are production 05's**,
+  four times and corrected four times — production 06 renamed it from three-and-thirty-three, 08
+  from thirty-six, 09 from forty and 07 from forty-three — each time with its five register
+  citations, which is the recorded policy: a stale name carrying a note saying so stays, one that
+  does not is corrected. **`SCENES`' own doc comment was the same defect one line up**, saying
+  thirty-six above an array of forty-five while its next paragraph said the count was a summary and
+  never the gate; 07 corrected it, because that note is what the gate is and not a licence for the
+  sentence beside it to be false. Scenes **34, 35 and 36 are production 05's**,
   all three in `crates/vitui-components/src/window.rs`: `field`'s scrolled, shrunk and wheeled axes,
   which §21 states over one narrow row and the freeze declares four of. Scenes **37 and 38 are
   production 06's** and they are `table`'s last two, in **two** files rather than one — a shrink is a
@@ -64,20 +68,30 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   bands beside it), and the wheel is a **posted notch**, so it is `crate::wheel::Subject::Pane`, that
   gate's fourth arm. **All three pairs already had an instrument and not one could fail on its own
   axis** — one frame over a state nothing had moved, a band gate played at offset `(0, 0)` where four
-  of five spellings agree, and a wheel gate the pane was not a subject of. Obligations
-  **O1–O4, O6 and O7 are `Met`; O5 is the one left**, at **32 of 34 `(component, axis)` pairs with a
-  scene**, and is watched panicking, because a query with no evidence must fail loudly rather than
-  pass. The two left are `tree`'s.
+  of five spellings agree, and a wheel gate the pane was not a subject of. Scenes **46 and 47 are
+  production 07's** and they are `tree`'s last two and the freeze's last two, in **two** files by
+  06's rule — a screen is `crate::forest`, where the component's other two already live, and a wheel
+  is `crate::wheel::Subject::Tree`, that gate's fifth arm. **They are the only pairs on this backlog
+  whose edge was a decision rather than an instrument**: components architecture 20 was open on
+  whether `tree` draws the three indent guides its row declared, and a guide column takes cells from
+  the label. Obligations **O1–O4 and O6–O7 are `Met`, and so is O5 by construction**, at **34 of 34
+  `(component, axis)` pairs with a scene**. O5's `#[should_panic]` moved from *the evidence is empty*
+  to *the evidence is one row wrong*, the sixth and last query to make that move. **Production 10 is
+  the ticket that turns O5 and two of its five criteria are already spent** — the `Met` verdict and
+  the inverted watch, neither of which a green build could be left without; what it still owns is
+  the two comments citing a test name that no longer exists, the components README's per-scenes-
+  ticket entries, and the rename of the obligation summary test, which carries the note the stale-
+  name policy requires.
 - **`vitui-apps` — 18 applications**, one file each in `examples/`. A component ticket ships one, and
   since ticket 45 that is obligation **O7** rather than a habit: `vitui_components::consumer` joins
   the freeze against the import paths here.
 - **Active work: `.scratch/vitui-production/`** (opened 2026-09-01) — the whole workspace's road to a
   published crate, sixteen tickets in five groups: the paperwork, the six unsubjected register rows
   (**all six standing**, by production 03 and 04),
-  the fourteen hostile axes O5 still owed (**two left, and both `tree`'s**: `field`'s three taken by
-  production 05, `table`'s two by 06, the overlay family's four by 08 and the scroll family's three
-  by 09), three tier-1 terminals nobody had run (**WezTerm and Alacritty now have**, by 11 and 12;
-  iTerm2 is 13), and the release.
+  the fourteen hostile axes O5 still owed (**none left**: `field`'s three taken by production 05,
+  `table`'s two by 06, the overlay family's four by 08, the scroll family's three by 09 and
+  **`tree`'s two by 07**, which unblocks 10), three tier-1 terminals nobody had run (**WezTerm and
+  Alacritty now have**, by 11 and 12; iTerm2 is 13), and the release.
   **Windows is last, as 16**, blocked by the publish — which carries the consequence that no shipped
   string may claim a terminal the conform suite has not asked. Everything on it was already true and
   already recorded; what was missing was that nothing scheduled any of it.
@@ -158,6 +172,22 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   *neither* offset), the strings separate all three only at a small offset, and the origin is the
   control. `sticky` has **one** body now — `sticky_shaped` — and `defective::arithmetic_band` is
   that body with one arm.
+
+- **The clamp binding and not the label truncating is what makes a tree's narrow axis visible, and
+  a chevron is pressed at the column its own rectangle puts it at** (production 07). §7 ends its
+  unclamped-indent paragraph *on a shallow tree the same flag is invisible: a statement about the
+  scene list*, which reads as a fact about the **depth** — and scene 8 fixes the width at 300 and
+  varies only the depth. It is a fact about the **pair**: at depth ten the two builds are the same
+  screen at 300 columns *and* at 40, where the label is already cut from 21 columns to 19 and to 17,
+  and they diverge at 22 (the depth-11 rows only, 40 cells over 40 of 80 rows) and at 21 (120 over
+  all 80, a parent losing its label cell and a leaf losing everything). **No write counter can see
+  this axis at any width** — both arms write `w × 80` at every one of the four, because the clip eats
+  exactly what the collapse loses — and `verbs` moves *downward* on the defect. And the third
+  reading changes **no cell**: `tree` draws the chevron at the indent of the **row** rectangle and
+  decides a press from the indent of the rectangle it was **handed**, two calls to `indent_columns`
+  agreeing because `collection` gives a row the whole of `area.w`. `min(2d, w − 2)` is one number
+  for two widths whenever the clamp binds on neither, so the spellings differ **only** at 21, where
+  they are 19 and 20.
 
 - **A component may ask about two colours, and a consumer may configure its own engine** (runtime
   architecture 34, resolved 2026-08-31). `Theme::colours_differ_on_wire(Rgb, Rgb)` is
@@ -356,7 +386,8 @@ itself, resolved 2026-09-01.
   cells of every row in `examples/ledger.rs` at three hundred columns, and none at eighty; filed by
   production 06, whose scene 37 is the same axis on the row side), **25** (five entries of §16's
   twenty are demanded by `table` and drawn by nothing — the box junctions, filed by 20's own new
-  join). **20 is resolved** (2026-09-04) and production 07 is unblocked.
+  join). **20 is resolved** (2026-09-04) and production **07 is resolved with it** — the narrow
+  scene it blocked reads the partition 20 settled, and it filed no new question.
 
 **The engine's architecture map has none left.** Issues 20, 21 and 23 read as open for a while and
 were closed by production tickets 06, 03 and 02 — do not re-file them.
@@ -400,6 +431,13 @@ instrument rather than in the code. Each of these has bitten at least twice.
   is documentation: rustdoc on stable ignores it.
 - **The recorder and the defect share a coordinate system**, so the gate cannot see it. Both recorders
   union in root coordinates for this reason.
+- **Every gate plays the component at the full size of its context**, so two expressions that differ
+  only when those two disagree are one expression. `crate::collect::header_row` drew from `x = 0`
+  rather than from the rectangle it was given and *every gate passed because every one of them plays
+  at `x == 0`*; production 07 met the same shape on the **width** — a tree's chevron is drawn from the
+  row rectangle's indent and pressed from the component rectangle's, and `min(2d, w − 2)` is one
+  number for two widths whenever the clamp binds on neither. Play the subject **inside** something
+  smaller than the screen, at a size where one clamp binds and the other does not.
 - **`Pen` records a clipped verb at the column it was *asked* for**, so a verb starting left of its
   clip lands in the recorder's arithmetic shifted by the discarded prefix (ADR 0022's
   clamp-and-discard; `Tally` carries the same caveat). Harmless while the subject writes inside its
@@ -433,6 +471,13 @@ crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers 
                           └ `gallery`: 29 panels as a value, where §21's rows 7 and 8 are measured
                           └ `dropped`: the two overlay owners' four axes, where a popup's interior
                             is drawn in the base pass because a layer body takes no ink
+                          └ `forest`: `tree`'s three scenes — the flatten index at depth 59 999, a
+                            fold, and §7's partition at 300, 40, 22 and 21 columns, where the clamp
+                            binding and not the label truncating is what separates the two indents,
+                            and where the chevron's *pressed* column is the rectangle's. Its first
+                            two scenes are built by `index_for`, which puts every row at one depth
+                            — so no row has a child and the chevron they draw is a **space** on all
+                            eighty rows; `nested` is what the third one takes
                           └ `surround`: what an area writes and its body does not — the tail past
                             `[extent, offset + viewport)` and the five bands beside it. The bands
                             are compared at two non-zero offsets with `(0, 0)` as the control; the

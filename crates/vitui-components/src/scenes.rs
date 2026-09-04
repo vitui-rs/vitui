@@ -36,10 +36,10 @@
 //! ([`Scene::owed`] and [`Scene::from_a_survived_defect`]), because the value can hold both and a
 //! count cannot.
 //!
-//! # Two scenes are `Unsubjected`, none is `Red` and forty-three are `Evaluated`
+//! # Two scenes are `Unsubjected`, none is `Red` and forty-five are `Evaluated`
 //!
 //! The count that is a gate is `tests::two_scenes_have_nothing_to_run_over_none_is_red_and_
-//! forty_three_are_stood_up`, which asserts the **numbers** each scene as well as the total; this
+//! forty_five_are_stood_up`, which asserts the **numbers** each scene as well as the total; this
 //! heading is a summary of it and the test is the authority.
 //!
 //! **Components ticket 40 stood scene 26 up — the assembled gallery — and it is the first row here
@@ -663,6 +663,51 @@ const BAND_SCREEN: &[&str] = crate::surround::BAND_SCREEN;
 /// **What scene 45 stands up: a `file_preview_pane`.** One component, for [`SELECT_SCREENS`]'
 /// reason: `crate::wheel::pane_frame` draws one.
 const PANE_SCREEN: &[&str] = &["file_preview_pane"];
+
+/// **What pins scene 46, `tree`'s partition read as a function of the width.**
+///
+/// Two beyond the pair, and they are the two halves of one axis that cannot see each other: the
+/// first is the picture — an equality against a reference render at four widths, with the unclamped
+/// indent's misdrawn cells beside it — and the second is the **press**, which changes no cell at
+/// all. A component whose chevron is drawn in the right column and pressed in the wrong one passes
+/// the first and fails the second, and the reverse cannot happen.
+///
+/// [`STANDS_ON_TREE`]'s two are reached rather than copied, for [`PINS_SCENE_8`]'s reason: the scan
+/// that opens the file the freeze homes `tree` in is one fact and four scenes rest on it.
+const PINS_SCENE_46: &[Instrument] = &[
+    Instrument::Unit {
+        file: FOREST,
+        name: "a_trees_partition_is_exact_at_every_width_and_the_clamp_is_what_the_flag_needs",
+    },
+    Instrument::Unit {
+        file: FOREST,
+        name: "a_chevron_is_pressed_at_the_column_its_own_rectangle_puts_it_at",
+    },
+    STANDS_ON_TREE[0],
+    STANDS_ON_TREE[1],
+];
+
+/// What pins scene 47, the posted notch over a `tree`. See [`PINS_SCENE_45`], which is this row's
+/// own shape one family over.
+///
+/// **Both are `crate::wheel`'s**, because this scene is a fifth subject of that gate rather than a
+/// screen of its own — production 06's arrangement for `table` and 09's for the pane, and its
+/// reason: a notch driven anywhere else would be a fifth copy of one drive loop. So
+/// [`STANDS_ON_TREE`]'s *second* is not here — the waiting message is scene 8's and 9's, and this
+/// screen has no owed arm to separate from a wrong one — but its **first** is, reached rather than
+/// copied for [`PINS_SCENE_45`]'s own reason: the scan that opens the file the freeze homes `tree`
+/// in is one fact and four scenes rest on it.
+const PINS_SCENE_47: &[Instrument] = &[
+    Instrument::Unit {
+        file: WHEEL,
+        name: "twenty_posted_clicks_move_a_trees_offset_twenty_and_the_numbers_are_the_collections",
+    },
+    Instrument::Unit {
+        file: WHEEL,
+        name: "every_subject_of_this_gate_declares_the_wheeled_axis",
+    },
+    STANDS_ON_TREE[0],
+];
 
 /// **What pins scene 39, the popup's window.**
 ///
@@ -1797,13 +1842,16 @@ const PINS_SCENE_22: &[Instrument] = &[
     },
 ];
 
-/// Spec §21's scene list, row for row, and this backlog's scenes beside it. **Thirty-six, of which
+/// Spec §21's scene list, row for row, and this backlog's scenes beside it. **Forty-seven, of which
 /// twenty-seven are §21's table and §21's table is the authority.**
 ///
 /// The count in this sentence is a summary and never the gate:
 /// `tests::the_specs_table_is_twenty_seven_rows_and_this_list_carries_them_all` reads §21's own
 /// rows off the spec file and asserts the split, and it caught this sentence going stale at 33.
-pub const SCENES: [Scene; 45] = [
+/// **It had gone stale again, at thirty-six, and production 07 corrected it** — the note above is
+/// what the gate is, and it is not a licence for the sentence beside it to be false. Production
+/// 01's finding is that a reader meets these three or four words before anything a gate can reach.
+pub const SCENES: [Scene; 47] = [
     Scene {
         number: 1,
         on_spec_table: true,
@@ -3256,6 +3304,81 @@ pub const SCENES: [Scene; 45] = [
         standing: Standing::Evaluated { by: PINS_SCENE_45 },
         rehearsed_by: &[],
     },
+    // ── production ticket 07's two, and they are `tree`'s last ───────────────────────────────────
+    //
+    // §21 carries **two** rows for this component and neither is a width or a wheel: scene 8 is the
+    // flatten index at depth 59 999 and scene 9 is a fold. So `(tree, narrow)` and `(tree, wheeled)`
+    // had no scene at all, and they were **blocked rather than merely unscheduled** — components
+    // architecture 20 was open on whether `tree` draws the three indent guides its freeze row
+    // declared, and a guide column takes cells from the label, so a narrow scene written before that
+    // answer would have been a scene of a different screen. 20 resolved on 2026-09-04 by taking the
+    // three glyphs off the row, and the partition this scene reads is the one §7 always described:
+    // one `Ink::run` of spaces, one chevron cell and the label taking the rest.
+    //
+    // **Two files and two scenes**, which is production 06's rule rather than a new one: a screen is
+    // a screen (`crate::forest`, where `tree`'s other two already live) and a wheel is a posted
+    // notch (`crate::wheel::Subject::Tree`, the fifth arm).
+    Scene {
+        number: 46,
+        on_spec_table: false,
+        name: "a tree's partition at 300, 40, 22 and 21 columns",
+        size: Size::Two {
+            wide: (crate::forest::W, crate::forest::H),
+            narrow: (crate::forest::BINDS_BOTH, crate::forest::H),
+        },
+        content: Content::Forest {
+            nodes: crate::forest::NARROW_ROWS as u64,
+            depth: crate::forest::SHALLOW as u32 + 1,
+        },
+        // **Four rigs and no residue**, which is why these are resizes and not shrinks: §17's
+        // `narrow` axis is *the construction is a function of the width*, so each width is its own
+        // frame and there is nothing for a stale cell to survive in. `Size::Two` names the two ends
+        // and these name the two the pair cannot — scene 13's arrangement one component over.
+        gestures: &[
+            Gesture::Resize {
+                w: crate::forest::TRUNCATES,
+                h: crate::forest::H,
+            },
+            Gesture::Resize {
+                w: crate::forest::BINDS_DEEPER,
+                h: crate::forest::H,
+            },
+            Gesture::Resize {
+                w: crate::forest::BINDS_BOTH,
+                h: crate::forest::H,
+            },
+        ],
+        decided: "that §7's partition is exact from three hundred columns down to twenty-one, and                   that **the label truncating is not what makes the unclamped indent visible — the                   clamp binding is**. Against a reference render the shipped tree is 0 cells over 0                   rows at all four widths; the unclamped arm is **0 at 300 and 0 at 40**, where the                   label is already cut from 21 columns to 19 and to 17, then **40 cells over 40 of                   the 80 rows at 22** — the depth-11 rows only, because the clamp binds on one row                   and not the other — and **120 cells over all 80 at 21**, where a parent loses its                   label cell and a leaf loses everything. A narrow scene played at one narrow width                   reports a number and names the wrong cause. **And no write counter can see this                   axis at any width**: both arms write `w x H` at every one of the four — 24 000,                   3 200, 1 760, 1 680 — because the clip eats exactly what the collapse loses,                   which is a stronger reading than scene 8's, where *cells asked for* separates                   them. Verbs move and move **downward** on the defect, 320/240/160/120 against                   320/240/240/240. The third reading changes **no cell at all**: a chevron is                   pressed at the column its own *rectangle* puts it at and not its context's, and                   those two are one number at three of the four widths — at 21 they are **19 and                   20**, so under the refusal a press on the chevron a reader can see does nothing                   and a press on the blank column beside it folds. Every gate on this map draws a                   tree at the full width of its screen, where the two are one number at *every*                   width; that is `header_row`'s recorded defect with the width in place of the                   origin",
+        covers: &[("tree", Axis::Narrow)],
+        stands: TREE,
+        from_a_survived_defect: false,
+        owed: false,
+        standing: Standing::Evaluated { by: PINS_SCENE_46 },
+        rehearsed_by: &[],
+    },
+    Scene {
+        number: 47,
+        on_spec_table: false,
+        name: "twenty posted notches over a virtualised tree",
+        size: Size::Screen {
+            w: crate::wheel::W,
+            h: crate::wheel::H,
+        },
+        content: Content::Forest {
+            nodes: crate::wheel::ROWS,
+            depth: crate::forest::SHALLOW as u32 + 1,
+        },
+        gestures: &[Gesture::Wheel {
+            clicks: crate::wheel::CLICKS,
+        }],
+        decided: "that §7's *the row axis, the wheel, the keyboard, the type-ahead, the reveal, the                   tail below the content and the revision check are all `collection`'s, reached by                   calling it* is a claim somebody has now asked. Twenty posted clicks settle a                   tree's offset at **20 against 0**, the unconditional reveal asks on all twenty                   frames and leaves ADR 0015's residue of 1 the frame before, and deleting the call                   passes the wheel half while moving the keyboard 0. Every one of those numbers is                   asserted **equal to `collection`'s own, arm for arm** rather than to a repeated                   constant — production 06's shape on the pair `table`/`collection` for the third                   time, which makes it a rule: *a component whose spec says `reached by calling it`                   is compared against the component it calls.* The press clause is compared too,                   which the table arm did not have to do: a tree adds a **second** pointer gesture                   on the chevron column, and *a press still selects a row and still refuses to pull                   the viewport* is therefore a question rather than an inheritance. What it cost is                   one `match` arm, one `Subject` variant and **two** `collect::defective` entries,                   where the pane needed none — a tree's reveal is `collection`'s and is reachable                   through a field, so both refusals land in `collection`'s body. **The index is                   nested and that is a finding about the two scenes above it**: `forest::index_for`                   puts every row at one depth, so `has_children` is false on all of them and the                   chevron scenes 8 and 9 draw is a **space** on every one of eighty rows",
+        covers: &[("tree", Axis::Wheeled)],
+        stands: TREE,
+        from_a_survived_defect: false,
+        owed: false,
+        standing: Standing::Evaluated { by: PINS_SCENE_47 },
+        rehearsed_by: &[],
+    },
 ];
 
 /// **Every scene that stands `component` up.** Criterion 2's enumeration, from the scene's side.
@@ -3452,9 +3575,9 @@ mod tests {
     /// has twenty-seven rows; the spec is the authority and the count below reads the spec.
     #[test]
     fn the_specs_table_is_twenty_seven_rows_and_this_list_carries_them_all() {
-        assert_eq!(SCENES.len(), 45);
+        assert_eq!(SCENES.len(), 47);
         let numbers: BTreeSet<u8> = SCENES.iter().map(|s| s.number).collect();
-        assert_eq!(numbers, (1..=45).collect::<BTreeSet<u8>>());
+        assert_eq!(numbers, (1..=47).collect::<BTreeSet<u8>>());
         let names: BTreeSet<&str> = SCENES.iter().map(|s| s.name).collect();
         assert_eq!(names.len(), SCENES.len(), "two scenes share a name");
 
@@ -3465,7 +3588,7 @@ mod tests {
         assert_eq!(on_table, 27);
         assert_eq!(
             SCENES.len() - on_table,
-            18,
+            20,
             "components 09's narrow axis, components 11's narrow collection, components 14's \
              equality under a horizontal offset, components 18's wrong pairing, components 23's \
              cluster corpus — the last of which this module's header predicted by name one ticket \
@@ -3474,8 +3597,11 @@ mod tests {
              05's three** — `field`'s scrolled, shrunk and wheeled axes, which §21 states over one \
              narrow row and the freeze declares four of — **production 06's two**: `table`'s \
              shrunk and wheeled, which §21 states over one row that covers the other two — \
-             production 08's four, the overlay family's, and **production 09's three**: the scroll \
-             area's shrink, the band's scroll and the pane's wheel, of which §21 states none"
+             production 08's four, the overlay family's, **production 09's three**: the scroll \
+             area's shrink, the band's scroll and the pane's wheel, of which §21 states none — and \
+             **production 07's two**, `tree`'s partition at four widths and the posted notch over \
+             it, which are the last two of the fourteen this backlog owed and the only two it \
+             could not have written first"
         );
         for (index, scene) in SCENES.iter().enumerate() {
             assert_eq!(
@@ -3554,7 +3680,7 @@ mod tests {
     /// keeps a red row's own report reachable from a test once the list has run out of red rows,
     /// and `crate::gates::Row`'s `Red` arm keeps the register's.
     #[test]
-    fn two_scenes_have_nothing_to_run_over_none_is_red_and_forty_three_are_stood_up() {
+    fn two_scenes_have_nothing_to_run_over_none_is_red_and_forty_five_are_stood_up() {
         let red: Vec<u8> = SCENES
             .iter()
             .filter(|s| matches!(s.standing, Standing::Red { .. }))
@@ -3588,7 +3714,8 @@ mod tests {
             evaluated,
             vec![
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 24, 25,
-                26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45
+                26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46,
+                47
             ],
             "**Scene 27 is components 41's**, and it is the last of §21's own twenty-seven to be \
              stood up: a theme swap over the assembled gallery, played against a second gallery at \
@@ -3828,7 +3955,7 @@ mod tests {
         // from forty**. Each time with its five register citations, which is the cost the policy
         // is priced against. The count is asserted either way, which is what makes the name a
         // pointer rather than the authority.
-        assert_eq!(evidence.len(), 32);
+        assert_eq!(evidence.len(), 34);
         assert_eq!(
             crate::obligations::AXIS_SCENES.to_vec(),
             evidence,
@@ -3839,7 +3966,7 @@ mod tests {
         assert_eq!(coverage.len(), 34, "the population §17 states");
         let bare = coverage.iter().filter(|(_, _, s)| s.is_empty()).count();
         assert_eq!(
-            bare, 2,
+            bare, 0,
             "it was eighteen until components 20 claimed `(scroll_area, wheeled)` — the pair §21's \
              single wheel row had no way to state, because an arithmetic click has no second axis \
              to be wrong on — seventeen until components 32 claimed the preview pane's two and the \
@@ -3852,8 +3979,12 @@ mod tests {
              for each, and nothing had scheduled the rest. Five until **production 09** claimed \
              the scroll family's three — the area's shrink, the band's scroll and the pane's wheel \
              — all three of which had an instrument that **could not fail on its own axis**, which \
-             is the sharpest form this backlog's argument has taken. The two left are `tree`'s \
-             (production 07, blocked on components architecture 20)"
+             is the sharpest form this backlog's argument has taken. And **none** since \
+             production 07 claimed `tree`'s narrow and wheeled — the only pair on this list whose \
+             edge was a *decision* rather than an instrument, because components architecture 20 \
+             was open on whether the component draws the three indent guides its freeze row \
+             declared and a guide column takes cells from the label. **The obligation is turned by \
+             production 10 and not here**: what this number says is the coverage"
         );
 
         // Every claimed pair is an axis its component actually declares. A scene covering an axis
@@ -4244,9 +4375,13 @@ mod tests {
         );
         assert_eq!(
             resizes,
-            vec![13, 15, 29],
+            vec![13, 15, 29, 46],
             "components ticket 11's narrow collection is a resize, and it stands **beside** scene \
-             5's shrink rather than instead of it — which is the pairing §21 sanctions"
+             5's shrink rather than instead of it — which is the pairing §21 sanctions. **Scene 46 \
+             is production 07's** and it is the first row here that carries *three* resizes and no \
+             shrink at all: §17's `narrow` axis is *the construction is a function of the width*, \
+             so its four widths are four rigs with nothing for a residue to survive in — where \
+             every shrink above is one rectangle over two frames"
         );
         assert!(
             shrinks.iter().all(|n| !resizes.contains(n)),
@@ -4301,9 +4436,9 @@ mod tests {
             printed
                 .matches("stood up on its own components, by ")
                 .count(),
-            42,
+            44,
             "a stood-up scene says what stands it up, rather than reading as unplayed. \
-             **Forty-three** are stood up since production 09 and forty-two say so here, \
+             **Forty-five** are stood up since production 07 and forty-four say so here, \
              because scene 12 is the one this report **plays** — a played line carries its own \
              numbers instead"
         );
@@ -4382,6 +4517,6 @@ mod tests {
             .map(|s| s.number)
             .collect();
         assert_eq!(still, vec![1, 2, 26]);
-        assert_eq!(SCENES.len() - still.len(), 42);
+        assert_eq!(SCENES.len() - still.len(), 44);
     }
 }

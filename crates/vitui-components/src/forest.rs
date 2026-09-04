@@ -1,13 +1,37 @@
-//! **The forest: a million nodes at depth 59 999, and a fold over 349 524 rows.**
+//! **The forest: a million nodes at depth 59 999, a fold over 349 524 rows, and §7's partition at
+//! four widths.**
 //!
-//! Components ticket 16. Spec §7, §21. This is the screen `tree`'s two scenes are scenes *of*, and
-//! it stands beside [`crate::listing`] one file over for the same reason that file stands beside
-//! [`crate::dense`]: **the scene list is what makes the defect catchable, not the gate.**
+//! Components ticket 16 and production ticket 07. Spec §7, §17 (O5), §21. This is the screen
+//! `tree`'s **three** scenes are scenes *of*, and it stands beside [`crate::listing`] one file over
+//! for the same reason that file stands beside [`crate::dense`]: **the scene list is what makes the
+//! defect catchable, not the gate.**
 //!
 //! | scene | what it decides |
 //! |---|---|
 //! | a million-node forest at depth 59 999 | the flatten index; and the unclamped indent, which asks for 400x the cells and measures **faster** |
 //! | a fold and an unfold over 349 524 rows | splice against permutation: **1 run** against a shattered list, and the round trip that comes back wrong |
+//! | the partition at 300, 40, 22 and 21 columns | that it is exact at every width; that the **clamp binding** and not the truncation makes the flag visible; that a chevron is *pressed* where its own rectangle draws it |
+//!
+//! # The width is the second dimension of §7's own statement about the scene list
+//!
+//! §7's sentence about the unclamped indent ends *on a shallow tree the same flag is invisible: a
+//! statement about the scene list (§21), not about the gate.* That reads as a fact about the
+//! **depth**, and the scene above it fixes the width at [`W`] and varies only the depth. Production
+//! 07's scene fixes the depth at [`SHALLOW`] — where scene 8 says the flag is invisible — and
+//! varies the **width**, and the flag reappears at twenty-two columns.
+//!
+//! So it is a fact about the **pair**, and the two halves are not interchangeable: at [`DEEP`] the
+//! arms are separated by *cells asked for* and by nothing else; at [`BINDS_BOTH`] they are
+//! separated by the **picture** and by nothing else, because [`WRITES`] is `w * H` on both arms at
+//! every one of the four widths. **The narrow axis has no counter at all.**
+//!
+//! # Three readings, and the third changes no cell
+//!
+//! [`narrow_screen`] against [`narrow_reference`] is the picture; [`MISDRAWN`], [`WRITES`] and
+//! [`VERBS`] are what the counters say about it; and [`pressed`] is the **chevron's hit column**,
+//! which is [`crate::collect::Chevron`]'s two spellings and is a reading no equality can reach. A
+//! build that draws the chevron in the right column and presses it in the wrong one is a correct
+//! screen a pointer cannot use, and it is invisible at three of the four widths.
 //!
 //! # The trap is the indent, and it is a statement about the scene list
 //!
@@ -66,14 +90,21 @@
 
 use std::time::{Duration, Instant};
 
-use vitui_runtime::{Ctx, Density, Id, Interest, Rect, Role, Scrollable};
+use vitui_runtime::ctx::Driver;
+use vitui_runtime::theme::Glyph;
+use vitui_runtime::{
+    Button, Buttons, Ctx, Density, Id, Interest, Mods, Mouse, MouseKind, Rect, Role, Scrollable,
+};
 
-use crate::collect::{TreeOpts, TreeState, defective as coll_defective, tree_into};
+use crate::collect::{
+    Chevron, TreeOpts, TreeState, defective as coll_defective, has_children, tree_into,
+};
 use crate::counters::Tally;
 use crate::frame::Face;
 use crate::ink::{Direct, Ink};
 use crate::obligations::Verdict;
-use crate::order::{Entry, Order};
+use crate::order::{Ask, Entry, Order};
+use crate::runner::{Canvas, Pen};
 
 // ── the screen ───────────────────────────────────────────────────────────────────────────────────
 
@@ -929,6 +960,36 @@ pub fn index_for(plan: Plan) -> Order {
     )
 }
 
+/// **A flatten index whose rows alternate between [`SHALLOW`] and one deeper, so half of them have
+/// a child.** Production 07's, and both of that ticket's scenes take it.
+///
+/// # Why [`index_for`] would not do, and it is a fact about scenes 8 and 9
+///
+/// `index_for` puts **every** row at one depth. [`crate::collect::has_children`] is *the next row is
+/// deeper or it is not*, so under it no row has a child, every row is a leaf, and §7's second verb
+/// — the chevron — is a **space** on every one of the eighty rows scenes 8 and 9 draw. That is
+/// correct for what those two scenes decide (the flatten index and a fold, neither of which is about
+/// a chevron) and it is the wrong fixture for an axis that is about the row's *partition*: an arm
+/// that lost the chevron entirely would be invisible on a screen where the chevron is a space.
+///
+/// A parent at depth *d* with one child at *d + 1*, repeated, is a real forest in pre-order display
+/// coordinates: `rows / 2` parents, each drawn with [`Glyph::ArrowDown`] because nothing here is
+/// folded, and `rows / 2` leaves drawn with a space. Nothing is [`Entry::FOLDED`], so
+/// [`Glyph::ArrowRight`] is not on this screen and [`crate::glyphs`] is where that half is joined.
+///
+/// [`Glyph::ArrowDown`]: vitui_runtime::theme::Glyph::ArrowDown
+/// [`Glyph::ArrowRight`]: vitui_runtime::theme::Glyph::ArrowRight
+pub fn nested(rows: usize) -> Order {
+    Order::built(
+        (0..rows)
+            .map(|i| {
+                let depth = if i % 2 == 0 { SHALLOW } else { SHALLOW + 1 };
+                Entry::of(u32::try_from(i).unwrap_or(u32::MAX)).at_depth(depth)
+            })
+            .collect(),
+    )
+}
+
 /// **Draw one frame of the forest.** Returns `(rows iterated, cells asked for)`.
 ///
 /// Generic over [`Ink`] so a [`Tally`] and a [`Direct`] measure the same drawing path rather than a
@@ -1229,6 +1290,284 @@ pub fn the_numbers(depth: u16) -> (Shape, Shape) {
     (frame(plan), frame(plan.unclamped()))
 }
 
+// ── the narrow axis: §7's partition read as a function of the width ──────────────────────────────
+
+/// **The four widths the narrow scene is played at.** Production 07.
+///
+/// [`W`] is the control, and the other three are the three regimes §7's clamp has. `min(depth * 2,
+/// w - 2)` reserves two columns — the chevron and one cell of label — so a row at depth *d* passes
+/// through three states as the rectangle narrows, and **which state it is in is a function of the
+/// row's own depth**:
+///
+/// | width | the indent | the label | the two arms |
+/// |---|---|---|---|
+/// | [`W`] = 300 | `2d` on both rows | whole, 21 of 279 columns | the **same screen** |
+/// | [`TRUNCATES`] = 40 | `2d` on both rows | truncated to 19 and to 17 | the **same screen** |
+/// | [`BINDS_DEEPER`] = 22 | clamped on the deeper row only | one column | 40 cells over 40 rows |
+/// | [`BINDS_BOTH`] = 21 | clamped on both | one column, or none | 120 cells over 80 rows |
+///
+/// **The label truncating is not what makes the flag visible; the clamp binding is** — which is the
+/// distinction a scene played at one narrow width cannot draw, and the reason there are four widths
+/// here rather than two. See [`MISDRAWN`].
+pub const WIDTHS: [u16; 4] = [W, TRUNCATES, BINDS_DEEPER, BINDS_BOTH];
+
+/// **The width where the label truncates and the clamp does not bind. Forty.**
+///
+/// At [`SHALLOW`] the indent is 20 and the deeper row's is 22, so the label gets 19 and 17 columns
+/// of the 21 it wants. The ticket's own criterion — *the width where the label truncates is one of
+/// them* — and it is the width that answers it while leaving the indent alone.
+pub const TRUNCATES: u16 = 40;
+
+/// **The width where the clamp binds on the deeper row and not on the shallower one.
+/// Twenty-two.**
+///
+/// `min(22, 20) = 20` against `min(20, 20) = 20`: the parents are unchanged and the leaves are not,
+/// so the unclamped arm is wrong on **half** the rows. That is the sharpest form the axis takes —
+/// a defect whose reach is a function of the row's depth *and* the rectangle's width at once.
+pub const BINDS_DEEPER: u16 = 22;
+
+/// **The width where the clamp binds on both rows. Twenty-one.**
+///
+/// `min(20, 19) = 19` and `min(22, 19) = 19`, so every row is drawn differently on the two arms —
+/// and in **two different ways**: a parent keeps its chevron and loses its label cell, a leaf loses
+/// everything. It is also the one width of the four where [`Chevron`]'s two spellings disagree; see
+/// [`PRESSED`].
+///
+/// [`Chevron`]: crate::collect::Chevron
+pub const BINDS_BOTH: u16 = 21;
+
+/// **How many rows the narrow screen's content holds. A hundred and sixty**, twice [`H`].
+///
+/// More than the viewport, so the tree is virtualised and the screen is a real one; **not** [`NODES`]
+/// , because the width is this scene's variable and the row count is scene 8's. A million-entry
+/// `Order` built four times over two arms would price the fixture and not the axis.
+pub const NARROW_ROWS: usize = 2 * H as usize;
+
+/// **What the unclamped indent misdraws at each of [`WIDTHS`], as `(cells, rows)`.**
+///
+/// Against [`narrow_reference`], which is the correct arm's own oracle. The first two entries are
+/// `(0, 0)` and that is the measurement rather than a gap: **at 300 and at 40 the two builds are
+/// the same screen, cell for cell** — §7's *on a shallow tree the same flag is invisible*, which
+/// that scene states as a fact about the **depth** and which is a fact about the **pair**.
+///
+/// The last two are 40 cells over 40 rows and 120 over 80. Neither is a cell count a reader can
+/// guess from the other: at 22 only the deeper half of the rows moves and each moves by one cell,
+/// at 21 every row moves and the parents move by two.
+pub const MISDRAWN: [(usize, usize); 4] = [(0, 0), (0, 0), (40, 40), (120, 80)];
+
+/// **What the correct arm writes at each of [`WIDTHS`], and the unclamped arm writes the same.**
+///
+/// `w * H` at every width — 24 000, 3 200, 1 760, 1 680 — **on both arms**, which is the narrow
+/// axis's own version of §7's finding and a stronger one. At [`DEEP`] the two arms differ by
+/// *cells asked for* and agree on everything the engine reports; here they agree on the engine's
+/// report at every width including the two where the pictures differ, because the clip eats exactly
+/// what the collapse loses. **No write counter can see this axis at any width.**
+pub const WRITES: [u64; 4] = [
+    W as u64 * H as u64,
+    TRUNCATES as u64 * H as u64,
+    BINDS_DEEPER as u64 * H as u64,
+    BINDS_BOTH as u64 * H as u64,
+];
+
+/// **What the two arms make of it in verbs, as `(clamped, unclamped)` per width.**
+///
+/// The one counter that moves, and **it moves the wrong way**: 320 → 240 → 160 → 120 on the
+/// defective arm against 320 → 240 → 240 → 240 on the correct one, so a verb *ceiling* approves of
+/// every arm it cannot see and prefers the two it can.
+///
+/// The correct arm's own figure moves too — 320 at [`W`] and 240 everywhere else — because a label
+/// that fills its room needs no trailing pad. So a verb count is not even a fixed expectation on
+/// this axis, which is what makes the equality the gate and this a report.
+pub const VERBS: [(u64, u64); 4] = [(320, 320), (240, 240), (240, 160), (240, 120)];
+
+/// **Which column a press has to land on for the chevron to fold, per width, as `(the rectangle's,
+/// the context's)`.**
+///
+/// The drawn column first — `indent_columns` of the rectangle `tree` was handed, which is what
+/// [`crate::collect::Chevron::FromTheRectangle`] reads — and the column
+/// [`crate::collect::Chevron::FromTheContext`] would read second, which is the indent of the
+/// **screen** the tree is drawn on. The rig is a `w`-column tree inside a [`W`]-column screen.
+///
+/// **They are the same number at three of the four widths**, and every gate on this map that draws
+/// a tree draws it at the full width of its screen — where they are the same number at *every*
+/// width. That is `header_row`'s recorded defect (*every gate passed because every one of them
+/// plays at `x == 0`*) on the pointer axis, and it is why this reading is the narrow scene's rather
+/// than a press scene's: the two spellings are indistinguishable until one width clamps and the
+/// other does not.
+pub const PRESSED: [(usize, usize); 4] = [(20, 20), (20, 20), (20, 20), (19, 20)];
+
+/// **One narrow frame, recorded through a [`Pen`].** Returns `(the screen, writes, verbs)`.
+///
+/// The tree is drawn into a `width`-column rectangle of a `width`-column screen, so this is the
+/// picture half and nothing about it depends on the context; [`pressed`] is the half that needs the
+/// two to differ.
+///
+/// The row drawer is `label_and_pad`'s arithmetic — truncate to the room, then fill it — because
+/// §2 gives the row drawer every cell of the rectangle it was handed and a caller that wrote past
+/// it would be measuring its own defect rather than the component's.
+pub fn narrow_screen(width: u16, indent: Indent) -> (Canvas, u64, u64) {
+    let index = nested(NARROW_ROWS);
+    let mut driver = crate::runner::driver_at(width, H, Density::default());
+    let mut pen = Pen::new(width, H);
+    let mut st = TreeState::new();
+    let opts = TreeOpts::default();
+    driver.frame(|cx| {
+        let area = cx.area();
+        let body = cx.theme().paint(Role::Body);
+        let mut find = |_: &str, _: std::ops::Range<usize>| None;
+        let mut row =
+            |ink: &mut Pen, cx: &mut Ctx<'_, '_>, r: Rect, _n: crate::collect::Node, _f: Face| {
+                let _ = label_and_pad(ink, cx, r.x, r.y, r.w, body);
+            };
+        let _ = match indent {
+            Indent::Clamped => tree_into(
+                &mut pen, cx, area, &mut st, &opts, &index, &mut find, &mut row,
+            ),
+            Indent::Unclamped => coll_defective::unclamped_indent(
+                &mut pen, cx, area, &mut st, &opts, &index, &mut find, &mut row,
+            ),
+        };
+    });
+    let (writes, verbs) = (pen.tally().writes(), pen.tally().verbs());
+    (pen.into_canvas(), writes, verbs)
+}
+
+/// **The obviously-correct, far-too-slow rendering of the same screen: one `Ctx::set` a cell.**
+///
+/// `crate::runner::reference`'s shape and its rule, restated for a tree: *share no code with the
+/// fast path*. It visits every cell of every row, decides what belongs there from the row's own
+/// depth, and writes it one cell at a time — where the component writes one run, one cell and one
+/// text a row.
+///
+/// # What it shares is [`indent_columns`], and that is this crate's own settled policy
+///
+/// > `tree` calls it and so does every instrument that wants to know what the component asked for,
+/// > which is what keeps the two from being a model and a copy of a model: the number the screen
+/// > sums and the number the run is drawn with come out of this function.
+///
+/// So the equality cannot fail *on the clamp's arithmetic*, and it can fail on everything the
+/// partition is made of: where the chevron goes, which glyph it is, how wide the label rectangle is,
+/// whether a collapsed row still draws one, and whether the pad reaches the edge. The unclamped arm
+/// is what proves it has teeth — [`MISDRAWN`]'s last two entries are this oracle catching it.
+pub fn narrow_reference(width: u16) -> Canvas {
+    let index = nested(NARROW_ROWS);
+    let mut driver = crate::runner::driver_at(width, H, Density::default());
+    let mut pen = Pen::new(width, H);
+    driver.frame(|cx| {
+        let body = cx.theme().paint(Role::Body);
+        let open = cx.theme().glyph(Glyph::ArrowDown).to_string();
+        let shut = cx.theme().glyph(Glyph::ArrowRight).to_string();
+        let label: Vec<String> = LABEL.chars().map(|c| c.to_string()).collect();
+        for y in 0..H {
+            let i = usize::from(y);
+            let Some(e) = index.at(i) else { continue };
+            let ind = indent_columns(Indent::Clamped, e.depth, width);
+            let chevron = if e.is_folded() {
+                shut.as_str()
+            } else if has_children(&index, i) {
+                open.as_str()
+            } else {
+                " "
+            };
+            let room = usize::from(width).saturating_sub(ind + 1);
+            for x in 0..usize::from(width) {
+                let cluster: &str = if x < ind {
+                    " "
+                } else if x == ind {
+                    chevron
+                } else {
+                    let k = x - ind - 1;
+                    if k < room.min(label.len()) {
+                        label[k].as_str()
+                    } else {
+                        " "
+                    }
+                };
+                let _ = pen.set(
+                    cx,
+                    i32::try_from(x).unwrap_or(i32::MAX),
+                    i32::from(y),
+                    cluster,
+                    body,
+                );
+            }
+        }
+    });
+    pen.into_canvas()
+}
+
+/// **Whether a press at column `col` folded the row under it**, on a `width`-column tree drawn
+/// inside a [`W`]-column screen.
+///
+/// # It takes four frames and every one of them is the runtime's cadence
+///
+/// `crate::wheel::tapped`'s cadence exactly, and for its reason: *the grab is awarded at `end` from
+/// the index that has just drawn, so `Response::pressed` is false on the frame that processes the
+/// `Down` and true on the one after* — and §7's fold reads `Response::press_began`. So the pointer
+/// needs a frame to have a position, the `Down` needs one to be processed, and the edge needs one to
+/// land. A gate that posted the press and read the answer off the next frame reads `None` on every
+/// arm and every column, which is a dead instrument reporting a clean refusal.
+pub fn pressed(width: u16, chevron: Chevron, col: u16) -> Option<Ask> {
+    let index = nested(NARROW_ROWS);
+    let mut driver = crate::runner::driver_at(W, H, Density::default());
+    let mut st = TreeState::new();
+    let rect = Rect::new(0, 0, width, H);
+    let opts = TreeOpts::default();
+    let once = |driver: &mut Driver, st: &mut TreeState| {
+        driver.frame(|cx| {
+            let body = cx.theme().paint(Role::Body);
+            let mut find = |_: &str, _: std::ops::Range<usize>| None;
+            let mut row = |ink: &mut Direct,
+                           cx: &mut Ctx<'_, '_>,
+                           r: Rect,
+                           _n: crate::collect::Node,
+                           _f: Face| {
+                let _ = label_and_pad(ink, cx, r.x, r.y, r.w, body);
+            };
+            let _ = match chevron {
+                Chevron::FromTheRectangle => tree_into(
+                    &mut Direct,
+                    cx,
+                    rect,
+                    st,
+                    &opts,
+                    &index,
+                    &mut find,
+                    &mut row,
+                ),
+                Chevron::FromTheContext => coll_defective::chevron_from_the_context(
+                    &mut Direct,
+                    cx,
+                    rect,
+                    st,
+                    &opts,
+                    &index,
+                    &mut find,
+                    &mut row,
+                ),
+            };
+        });
+    };
+    driver.post_mouse(pointer(col, MouseKind::Move));
+    once(&mut driver, &mut st);
+    driver.post_mouse(pointer(col, MouseKind::Down(Button::Left)));
+    once(&mut driver, &mut st);
+    once(&mut driver, &mut st);
+    st.ask.standing()
+}
+
+/// A pointer event on row 0 at `x`.
+fn pointer(x: u16, kind: MouseKind) -> Mouse {
+    Mouse {
+        x,
+        y: 0,
+        kind,
+        buttons: Buttons::NONE,
+        mods: Mods::NONE,
+        at: Instant::now(),
+    }
+}
+
 // ── the subject, and the scan that says whether it is here ───────────────────────────────────────
 
 /// **The component these two scenes are scenes of, and it is not declared yet.**
@@ -1476,6 +1815,214 @@ mod tests {
             shallow, shallow_broken,
             "at depth ten the indent fits, so the two arms are one frame and removing this scene \
              removes the ability to distinguish them"
+        );
+    }
+
+    /// **Scene 46: §7's partition is exact at every width, and the width is the second dimension
+    /// of §7's own statement about the scene list.**
+    ///
+    /// Production 07, `(tree, narrow)`. Three readings, and no one of them can see the other two.
+    ///
+    /// # The equality is the gate
+    ///
+    /// The shipped tree against [`narrow_reference`] at all four of [`WIDTHS`] — **0 cells over 0
+    /// rows** every time, which is §7's *one `Ink::run` of spaces, one chevron cell and the label
+    /// taking the rest* holding from three hundred columns down to twenty-one. The oracle writes
+    /// one cell at a time where the component writes one run, one cell and one text, so it can fail
+    /// on where the chevron goes, which glyph it is, how wide the label rectangle is and whether the
+    /// pad reaches the edge; [`MISDRAWN`]'s last two entries are it failing.
+    ///
+    /// # The counts say what the equality cannot, and what they say is that they are blind
+    ///
+    /// **[`WRITES`] is `w * H` on both arms at every width**, including the two where the pictures
+    /// differ — the clip eats exactly what the collapse loses. So this axis is invisible to every
+    /// write counter at every width, which is a stronger reading than §7's own: that scene needs
+    /// *cells asked for* to separate the arms at [`DEEP`], and here nothing separates them but the
+    /// picture. [`VERBS`] moves, downward, on the defective arm.
+    ///
+    /// # The label truncating is not what makes the flag visible
+    ///
+    /// [`MISDRAWN`] is `(0, 0)` at 300 **and at 40**, where the label is already cut from 21 columns
+    /// to 19 and 17. What makes it visible is the **clamp binding**, at 22 on half the rows and at
+    /// 21 on all of them — so a narrow scene played at one narrow width would report a number and
+    /// name the wrong cause.
+    #[test]
+    fn a_trees_partition_is_exact_at_every_width_and_the_clamp_is_what_the_flag_needs() {
+        assert_stands_up("the narrow forest");
+
+        for (k, width) in WIDTHS.into_iter().enumerate() {
+            let (subject, writes, verbs) = narrow_screen(width, Indent::Clamped);
+            let reference = narrow_reference(width);
+            subject
+                .diff(&reference)
+                .assert_clean(&format!("the tree's partition at {width} columns"));
+
+            let (broken, broken_writes, broken_verbs) = narrow_screen(width, Indent::Unclamped);
+            let misdrawn = broken.diff(&reference);
+            assert_eq!(
+                (misdrawn.cells, misdrawn.rows),
+                MISDRAWN[k],
+                "the unclamped indent misdraws a different amount at {width} columns"
+            );
+
+            assert_eq!(writes, WRITES[k], "the tree wrote its rectangle at {width}");
+            assert_eq!(
+                broken_writes, writes,
+                "the two arms wrote a different number of columns at {width}, which would make \
+                 this axis visible to a write counter — it is not, at any width"
+            );
+            assert_eq!((verbs, broken_verbs), VERBS[k], "verbs at {width}");
+        }
+
+        // **`MISDRAWN`'s first two entries are what says the two arms are one screen at 300 and at
+        // 40**, and a direct `unclamped.diff(clamped)` beside them was **deleted**: both arms are
+        // already asserted equal to the reference at every width, so the third comparison holds by
+        // transitivity and cannot fail. Production 09's precedent, and a code review caught this
+        // one — *the reading that can fail is the one the runs already make.*
+        let cut = narrow_screen(TRUNCATES, Indent::Clamped).0;
+        // **The head is derived and not typed**, because a needle written out beside a screen it is
+        // supposed to be read off is a second copy of the fixture: the room a depth-10 row has at
+        // this width is `w − (indent + 1)`, and the label is what fits it.
+        let room =
+            usize::from(TRUNCATES) - (indent_columns(Indent::Clamped, SHALLOW, TRUNCATES) + 1);
+        let head: String = LABEL.chars().take(room).collect();
+        assert!(
+            room < LABEL.chars().count(),
+            "the label has to be longer than the room, or this width is not the truncating one"
+        );
+        assert!(
+            cut.row_text(0).contains(&head),
+            "the label is truncated to {room} columns at {TRUNCATES} and this is the width that \
+             says so: {:?}",
+            cut.row_text(0)
+        );
+        assert!(
+            !cut.row_text(0).contains(LABEL),
+            "the whole label still fits at {TRUNCATES} columns, so this width is not the \
+             truncating one the ticket asked for"
+        );
+        assert!(
+            narrow_screen(W, Indent::Clamped)
+                .0
+                .row_text(0)
+                .contains(LABEL),
+            "and it is whole at three hundred, which is what makes the pair a reading"
+        );
+
+        // **A real chevron is on the screen and a leaf's is a space**, which is what [`nested`]
+        // buys over [`index_for`]: under that builder no row has a child, so an arm that lost the
+        // chevron entirely would be invisible. The glyph is read **off the cell** rather than
+        // compared against a literal — the theme owns the repertoire, and a gate naming `\u{25bc}`
+        // would fail on a correct build at the ASCII rung.
+        let clamped = narrow_screen(W, Indent::Clamped).0;
+        let at = |y: u16, depth: u16| {
+            let column = u16::try_from(indent_columns(Indent::Clamped, depth, W))
+                .expect("a column of this screen");
+            clamped
+                .get(column, y)
+                .map(|c| c.cluster.clone())
+                .unwrap_or_default()
+        };
+        let parent = at(0, SHALLOW);
+        let leaf = at(1, SHALLOW + 1);
+        assert_ne!(
+            parent, " ",
+            "row 0 has a child, so its chevron cell carries a glyph rather than a space"
+        );
+        assert_eq!(
+            leaf, " ",
+            "row 1 is a leaf, so its chevron is a space — the partition is the same partition on \
+             every row (§7), which is why it is a space and not nothing"
+        );
+    }
+
+    /// **Scene 46's third reading: the chevron's *pressed* column is the rectangle's and not the
+    /// context's, and the two are one number at every width a gate on this map has ever played.**
+    ///
+    /// [`crate::collect::Chevron`]. `tree` draws the chevron at the indent of the row rectangle it
+    /// hands over and decides whether a press landed on it from the indent of the rectangle *it* was
+    /// handed — two calls to [`indent_columns`] with two widths, agreeing because
+    /// `collect::draw_with` gives a row the whole of `area.w`. A third fact, on the other component.
+    ///
+    /// # It is a narrow-axis reading and could not have been anything else
+    ///
+    /// `min(depth * 2, w - 2)` is the same number for two widths whenever the clamp binds on
+    /// neither, so [`PRESSED`] is `(20, 20)` at three of the four widths and `(19, 20)` at
+    /// [`BINDS_BOTH`]. A tree drawn at the full width of its screen has **one** width and the two
+    /// spellings are then identical at every width — which is every gate on this map, and is
+    /// `header_row`'s own recorded defect (*every gate passed because every one of them plays at
+    /// `x == 0`*) with the width in place of the origin.
+    ///
+    /// What the refusal costs a user is stated as the reading: at twenty-one columns a press on the
+    /// chevron a reader can see does **nothing**, and a press on the blank column beside it folds.
+    #[test]
+    fn a_chevron_is_pressed_at_the_column_its_own_rectangle_puts_it_at() {
+        assert_stands_up("the narrow forest");
+
+        for (k, width) in WIDTHS.into_iter().enumerate() {
+            let rect = indent_columns(Indent::Clamped, SHALLOW, width);
+            let context = indent_columns(Indent::Clamped, SHALLOW, W);
+            assert_eq!(
+                (rect, context),
+                PRESSED[k],
+                "the two indents at {width} columns inside a {W}-column screen"
+            );
+
+            let at_rect = u16::try_from(rect).expect("a column of a screen");
+            let at_context = u16::try_from(context).expect("a column of a screen");
+
+            assert_eq!(
+                pressed(width, Chevron::FromTheRectangle, at_rect),
+                Some(Ask::Collapse(0)),
+                "the shipped tree folds row 0 when the chevron a reader can see is pressed, at \
+                 {width} columns"
+            );
+            assert_eq!(
+                pressed(width, Chevron::FromTheContext, at_context),
+                Some(Ask::Collapse(0)),
+                "and the refusal folds at the column the context puts it at"
+            );
+
+            // **The cross pair, as one biconditional a width and not as an `if`/`else`.**
+            //
+            // The branch this replaced asserted, on the three widths where the two indents agree,
+            // that the two builds answer the same thing at the same column — which the two
+            // assertions above had **already pinned to `Some(Ask::Collapse(0))` each**, so it could
+            // not fail once they passed. `crate::CLAUDE.md`'s trap, *an equality between two
+            // derivations of one declaration*, and a code review caught it. What replaces it is the
+            // reading that can fail in both directions at every width: **a build folds at the other
+            // build's column exactly when the two widths clamp to the same number.** Where they
+            // agree that is a second `Some`; where they do not it is `None`, and nothing about the
+            // assertion changes shape between the two cases.
+            let agree = rect == context;
+            assert_eq!(
+                pressed(width, Chevron::FromTheContext, at_rect).is_some(),
+                agree,
+                "the refusal folds at the column the *rectangle* draws the chevron in only where \
+                 the two widths clamp alike — at {width} columns they are {rect} and {context}"
+            );
+            assert_eq!(
+                pressed(width, Chevron::FromTheRectangle, at_context).is_some(),
+                agree,
+                "and the shipped build folds at the column the *context* would have used only \
+                 there too, at {width} columns"
+            );
+        }
+
+        // **Exactly one of the four widths separates the two builds**, which is the finding rather
+        // than a property of these four numbers: the pair moves only where one width clamps and the
+        // other does not.
+        let separating = WIDTHS
+            .into_iter()
+            .filter(|w| {
+                indent_columns(Indent::Clamped, SHALLOW, *w)
+                    != indent_columns(Indent::Clamped, SHALLOW, W)
+            })
+            .count();
+        assert_eq!(
+            separating, 1,
+            "the narrow scene has to play a width where the clamp binds on the component's \
+             rectangle and not on its context, or the press reading compares a build with itself"
         );
     }
 
