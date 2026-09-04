@@ -118,6 +118,307 @@ pub const fn family(g: Glyph) -> GlyphFamily {
     }
 }
 
+// ── the table joined to a drawer, which is the half components architecture 20 found missing ──────
+
+/// **How an entry of §16's twenty reaches a cell.**
+///
+/// Every draw in this crate goes through [`Theme::glyph`] (ADR 0018), so *is this entry drawn* is a
+/// question about that call and about nothing else. Two shapes exist and the second is why this is
+/// an enum rather than a needle.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Reach {
+    /// `…glyph(Glyph::X)`, the entry itself as the argument.
+    ///
+    /// **The needle is built from the entry and never written down here**, because this file holds
+    /// the table: a needle spelled as a literal beside the row it belongs to is a scanner its own
+    /// source satisfies, which is the trap this map has met more than once — and `Ellipsis` is the
+    /// row that would have sprung it, since [`elide`] is one screen below.
+    Literal,
+    /// The argument is computed, and this is the fragment the arm that names the entry is spelled
+    /// on.
+    ///
+    /// **One row uses it and it is `ArrowUp`.** `scrollbar`'s caps pick a pair by orientation, so
+    /// `glyph(Glyph::ArrowUp)` is written nowhere in the workspace — a literal-only join would
+    /// report the one arrow that *is* drawn as undrawn, and an entry wrongly in [`UNDRAWN`] is a
+    /// worse lie than the one this whole join exists to end.
+    Computed(&'static str),
+}
+
+/// **The call that puts an entry of the table on a cell**, as a row a test can open the file for.
+#[derive(Clone, Copy, Debug)]
+pub struct Drawer {
+    /// The entry.
+    pub glyph: Glyph,
+    /// The file under `crates/vitui-components/src/` the call is in.
+    pub file: &'static str,
+    /// How the entry reaches the call.
+    pub reach: Reach,
+}
+
+/// **Fifteen of §16's twenty, and the line each is drawn on.**
+///
+/// The freeze's `glyphs` column says which component *demands* an entry; it never said which line
+/// *draws* one, and `the_glyph_table_is_twenty_entries_and_every_one_of_them_has_a_demander` joins a
+/// declaration to a declaration — so an entry demanded by a row that draws nothing satisfied it.
+/// Four such entries stood for four tickets and components architecture 20 struck them; five more
+/// are real and are [`UNDRAWN`].
+///
+/// **One site per entry, not every site.** The question is *does anything draw this*, and a second
+/// call adds a place for the table to go stale without adding an answer.
+pub const DRAWERS: &[Drawer] = &[
+    Drawer {
+        glyph: Glyph::ArrowUp,
+        file: "scroll.rs",
+        reach: Reach::Computed("Orient::Vertical => (Glyph::ArrowUp, Glyph::ArrowDown),"),
+    },
+    // The tree's chevron pair, open and shut.
+    Drawer {
+        glyph: Glyph::ArrowDown,
+        file: "collect.rs",
+        reach: Reach::Literal,
+    },
+    Drawer {
+        glyph: Glyph::ArrowRight,
+        file: "collect.rs",
+        reach: Reach::Literal,
+    },
+    // The pager's left cap. Its right cap is the line above.
+    Drawer {
+        glyph: Glyph::ArrowLeft,
+        file: "collect.rs",
+        reach: Reach::Literal,
+    },
+    // The block's border: two rules and four corners, all six in one function.
+    Drawer {
+        glyph: Glyph::HLine,
+        file: "frame.rs",
+        reach: Reach::Literal,
+    },
+    Drawer {
+        glyph: Glyph::VLine,
+        file: "frame.rs",
+        reach: Reach::Literal,
+    },
+    Drawer {
+        glyph: Glyph::TopLeft,
+        file: "frame.rs",
+        reach: Reach::Literal,
+    },
+    Drawer {
+        glyph: Glyph::TopRight,
+        file: "frame.rs",
+        reach: Reach::Literal,
+    },
+    Drawer {
+        glyph: Glyph::BottomLeft,
+        file: "frame.rs",
+        reach: Reach::Literal,
+    },
+    Drawer {
+        glyph: Glyph::BottomRight,
+        file: "frame.rs",
+        reach: Reach::Literal,
+    },
+    // The legend's marker and the option list's tick.
+    Drawer {
+        glyph: Glyph::Bullet,
+        file: "series.rs",
+        reach: Reach::Literal,
+    },
+    Drawer {
+        glyph: Glyph::Tick,
+        file: "input.rs",
+        reach: Reach::Literal,
+    },
+    // The bar's two halves.
+    Drawer {
+        glyph: Glyph::Thumb,
+        file: "scroll.rs",
+        reach: Reach::Literal,
+    },
+    Drawer {
+        glyph: Glyph::Track,
+        file: "scroll.rs",
+        reach: Reach::Literal,
+    },
+    // The one cell a truncated label ends in, one screen below.
+    Drawer {
+        glyph: Glyph::Ellipsis,
+        file: "glyphs.rs",
+        reach: Reach::Literal,
+    },
+];
+
+/// **An entry of §16's twenty that a row of the freeze demands and nothing in this crate draws.**
+///
+/// Held as a table rather than as prose for ADR 0033's reason — *a table holds a disagreement that
+/// prose cannot* — and it is a disagreement rather than a defect: no picture is wrong, because an
+/// entry nothing draws cannot collapse onto anything on a screen. What is wrong is a reader of the
+/// freeze being told a component draws it.
+///
+/// **All five are one set and one missing construction: the box junctions.** A junction exists where
+/// two rules meet, `panel` draws a border and no component in this crate draws two rules that meet —
+/// `table` draws no rule at all, and its cells' separators are its caller's. They are demanded by
+/// `table`'s row alone, which is where the remaining question is filed.
+#[derive(Clone, Copy, Debug)]
+pub struct Undrawn {
+    /// The entry.
+    pub glyph: Glyph,
+    /// Which row demands it, so the disagreement names a place and not a mood.
+    pub demanded_by: &'static str,
+}
+
+/// The five entries of the table this crate does not draw. See [`Undrawn`].
+pub const UNDRAWN: &[Undrawn] = &[
+    Undrawn {
+        glyph: Glyph::TeeTop,
+        demanded_by: "table",
+    },
+    Undrawn {
+        glyph: Glyph::TeeBottom,
+        demanded_by: "table",
+    },
+    Undrawn {
+        glyph: Glyph::TeeLeft,
+        demanded_by: "table",
+    },
+    Undrawn {
+        glyph: Glyph::TeeRight,
+        demanded_by: "table",
+    },
+    Undrawn {
+        glyph: Glyph::Cross,
+        demanded_by: "table",
+    },
+];
+
+/// The needle a [`Drawer`] is looked for with, assembled rather than written down.
+///
+/// `glyph(` and not `theme.glyph(`, because the receiver is `theme` in one function and
+/// `cx.theme()` in the next and the difference is not what is being asked about.
+pub fn needle(d: &Drawer) -> String {
+    match d.reach {
+        Reach::Literal => format!("glyph(Glyph::{:?})", d.glyph),
+        Reach::Computed(fragment) => fragment.to_string(),
+    }
+}
+
+/// A file with its test modules removed, which is the region a [`Drawer`] has to be found in.
+///
+/// [`composed`](crate::composed)'s rule, for its reason: a test that spells a call is not the crate
+/// making it. `Ellipsis` is why this is not optional — its drawer is [`elide`], and the test module
+/// below spells `theme.glyph(Glyph::Ellipsis)` in the one-cell gate, so without the cut that row
+/// would have been green over a test rather than over the component.
+///
+/// **Every block, not everything after the first.** `input.rs` homes five components and interleaves
+/// five test modules with their code, the first of them at line 192 — cutting at the first marker
+/// would have thrown away the whole file and reported `Tick` as undrawn, which is what the first
+/// draft of this did.
+///
+/// **The anchor is the attribute, a newline and `mod `, and it has to be all three.** An attribute
+/// alone appears in prose — including in this paragraph — so a cut on it deletes whatever follows
+/// the first *sentence* that mentions it, which in this file was `shipped` itself. Joined to the
+/// newline before it and the `mod ` after it, the anchor cannot occur inside a `///` line, which is
+/// what makes the doc safe to write. A module is then closed by a brace in the **first column**,
+/// which is what `rustfmt` guarantees for a top-level item, and
+/// `tests::the_shipped_region_drops_a_test_module_and_keeps_what_follows_it` holds both halves.
+pub fn shipped(source: &str) -> String {
+    const OPEN: &str = "\n#[cfg(test)]\nmod ";
+    let mut out = String::with_capacity(source.len());
+    let mut rest = source;
+    while let Some(at) = rest.find(OPEN) {
+        out.push_str(&rest[..at]);
+        let after = &rest[at + 1..];
+        rest = match after.find("\n}\n") {
+            Some(close) => &after[close + 3..],
+            None => "",
+        };
+    }
+    out.push_str(rest);
+    out
+}
+
+/// Regions of shipped source that **name** an entry of the table without drawing one.
+///
+/// The [`UNDRAWN`] half asks *does any shipped line name this entry*, which is the loose question on
+/// purpose: a drawer whose argument is computed writes the name on an arm rather than in the call,
+/// and [`Reach::Computed`] exists because one of them does. That looseness needs somewhere to put
+/// the places that legitimately name an entry and put nothing on a cell, and it is five, each with
+/// its reason rather than a whole file waved through:
+///
+/// - `inventory.rs`, `INVENTORY` — the **demand** side. A freeze row is what the join is comparing
+///   against, so reading it as evidence would be the declaration-to-declaration vacuity again.
+/// - `glyphs.rs`, `family` — the classifier, exhaustive over `Glyph::ALL` by design.
+/// - `glyphs.rs`, `DRAWERS` — this table's other half. [`Reach::Computed`]'s one fragment quotes an
+///   arm verbatim.
+/// - `glyphs.rs`, `UNDRAWN` — the five names themselves. Without this the scan reports every one of
+///   them and the gate can never be green.
+/// - `glyphs.rs`, `gutter` — a `Vec<String>` corpus for the memo-key measurement. It calls
+///   [`Theme::glyph`] and **nothing reaches a cell**: the value is a string a test reads, which is
+///   the distinction [`UNDRAWN`] is about and the reason this is an exception rather than a
+///   [`Drawer`].
+///
+/// Each row is `(file, head, tail)` — the file below `src/`, and the declaration's marker split in
+/// two for the reason the last paragraph gives.
+///
+/// The first draft excluded `inventory.rs` and `glyphs.rs` whole, and a review caught what that
+/// bought: `gutter` names `TeeLeft` on a shipped line, so the one thing the exclusion hid was an
+/// entry [`UNDRAWN`] claims nothing names. Five regions is that exception argued rather than
+/// assumed, and a junction drawer landing anywhere else in either file now fails.
+///
+/// # The marker is two fragments, and the first draft of *this* was the trap it is named for
+///
+/// A whole marker written here is a line of `glyphs.rs` containing it, so `find` located the row
+/// rather than the function and cut the table instead of the body — `gutter`'s `TeeLeft` survived
+/// and the gate went red for the wrong reason. Splitting each marker at the space after `pub fn` or
+/// `pub const` makes the joined needle occur nowhere but the declaration, which is
+/// [`Reach::Literal`]'s remedy one level up, met again in the machinery that was written to apply
+/// it.
+pub const NAMES_WITHOUT_DRAWING: &[(&str, &str, &str)] = &[
+    ("inventory.rs", "pub const ", "INVENTORY: &[Component] = &["),
+    (
+        "glyphs.rs",
+        "pub const fn ",
+        "family(g: Glyph) -> GlyphFamily {",
+    ),
+    ("glyphs.rs", "pub const ", "DRAWERS: &[Drawer] = &["),
+    ("glyphs.rs", "pub const ", "UNDRAWN: &[Undrawn] = &["),
+    (
+        "glyphs.rs",
+        "pub fn ",
+        "gutter(theme: &Theme, rows: usize) -> Vec<String> {",
+    ),
+];
+
+/// `source` with every [`NAMES_WITHOUT_DRAWING`] region for `file` cut out of it.
+///
+/// A region runs from its marker to whichever of a closing brace and a closing bracket in the first
+/// column comes first — a function and a table, and this crate's two shapes for *a thing closed in
+/// the first column*. The test modules go first, which is [`shipped`].
+pub fn drawing_region(file: &str, source: &str) -> String {
+    let mut out = shipped(source);
+    for (f, head, tail) in NAMES_WITHOUT_DRAWING {
+        if *f != file {
+            continue;
+        }
+        let marker = format!("{head}{tail}");
+        let Some(at) = out.find(&marker) else {
+            continue;
+        };
+        let after = &out[at..];
+        let close = [after.find("\n}\n"), after.find("\n];\n")]
+            .into_iter()
+            .flatten()
+            .min();
+        let rest = match close {
+            Some(c) => after[c..].to_string(),
+            None => String::new(),
+        };
+        out = format!("{}{rest}", &out[..at]);
+    }
+    out
+}
+
 /// One cell of §16's repertoire × tier matrix, as four counts.
 ///
 /// **A count, not a screenshot.** §16 is explicit that nine screens is not the instrument: what a
@@ -376,6 +677,12 @@ pub fn glyph_memo_key(theme: &Theme, data: vitui_runtime::Revision) -> vitui_run
 /// Two of the rows are roots and draw no indent guide, so the count is `198 × 3 + 2 × 2` rather than
 /// `200 × 3`. That is the corpus §10 priced the repertoire-blind memo key against, and it is built
 /// here rather than in the test so that the report and the gate measure the same thing.
+///
+/// **It is a corpus and not `tree`'s output.** `collect::tree` draws no guide at all — components
+/// architecture 20, and [`UNDRAWN`] is the table that now says so — so this is *a value made of
+/// glyphs* of the right size and shape for a memo-key measurement, and nothing on any screen this
+/// crate draws. Which is why the memo rule it prices is stated over the value rather than over the
+/// component.
 pub fn gutter(theme: &Theme, rows: usize) -> Vec<String> {
     (0..rows)
         .map(|i| {
@@ -476,6 +783,14 @@ mod tests {
         // And every distinction with a glyph carrier has at least one component that draws both of
         // its halves. A carrier nobody draws is a bit nobody reads, which is the mirror of an entry
         // nobody demands.
+        //
+        // **`Distinction::Guide` passes this vacuously and components architecture 25 owns it.**
+        // The loop reads the freeze's `glyphs` column, so *draws* here means *declares*. Until
+        // architecture 20 the pair `(VLine, TeeLeft)` was carried by `tree`, which drew neither; it
+        // is now carried by `table`, which draws neither either — both entries are in
+        // [`UNDRAWN`]. Striking them would turn this assertion red, which is the honest reason it
+        // is 25's to do and not this ticket's: whether a distinction no component draws should be a
+        // distinction is the same question as whether `table` should draw a rule.
         for d in Distinction::ALL {
             if d.carried_by().is_none() {
                 continue;
@@ -572,21 +887,324 @@ mod tests {
             distinctions_of(tree).contains(&Distinction::Truncation),
             "`tree` draws both halves of the carrier and the join does not report the dependency"
         );
-        // It needs no entry of its own: the chevron pair *is* `ArrowDown`/`ArrowRight` and the
-        // indent guides are `VLine`, `TeeLeft`, `BottomLeft` (§16).
-        for g in [
-            Glyph::ArrowDown,
-            Glyph::ArrowRight,
-            Glyph::VLine,
-            Glyph::TeeLeft,
-            Glyph::BottomLeft,
-            Glyph::Ellipsis,
-        ] {
+        // It needs no entry of its own: the chevron pair *is* `ArrowDown`/`ArrowRight` (§16).
+        for g in [Glyph::ArrowDown, Glyph::ArrowRight, Glyph::Ellipsis] {
             assert!(tree.glyphs.contains(&g), "`tree` no longer draws {g:?}");
+        }
+        // **And the three it declared for four tickets and drew never** — components architecture
+        // 20. The positive half above is what stops this reading green on a row that has lost
+        // everything.
+        for g in [Glyph::VLine, Glyph::TeeLeft, Glyph::BottomLeft] {
+            assert!(
+                !tree.glyphs.contains(&g),
+                "`tree` demands {g:?} again. If the guides are now drawn this is the right \
+                 failure and components architecture 20 is what to reopen — the strike was a \
+                 decision, not a tidy-up"
+            );
         }
         // The disclosure carrier is the same arrow pair the scrollbar's steppers come from, which
         // is why entering the two mechanisms separately would have been a collapse.
         assert!(distinctions_of(tree).contains(&Distinction::Disclosure));
+    }
+
+    /// Every `.rs` file under this crate's `src/`, so a scan for an absence cannot pass by looking
+    /// in the wrong place.
+    ///
+    /// **Keyed by its path below `src/`, not by its basename.** This crate nests — `media/player.rs`
+    /// — and the module convention here is `foo.rs` beside `foo/`, so two files sharing a basename
+    /// is a matter of time; keying on one would make `read` pick whichever `read_dir` handed over
+    /// first, which is unspecified and differs by filesystem.
+    fn sources() -> Vec<(String, String)> {
+        fn walk(dir: &std::path::Path, out: &mut Vec<(String, String)>) {
+            let entries =
+                std::fs::read_dir(dir).unwrap_or_else(|e| panic!("{}: {e}", dir.display()));
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    walk(&path, out);
+                } else if path.extension().is_some_and(|e| e == "rs") {
+                    let root =
+                        std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/src"));
+                    let name = path
+                        .strip_prefix(&root)
+                        .expect("a file under `src/`")
+                        .to_string_lossy()
+                        .into_owned();
+                    let body = std::fs::read_to_string(&path)
+                        .unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+                    out.push((name, body));
+                }
+            }
+        }
+        let mut out = Vec::new();
+        walk(
+            &std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/src")),
+            &mut out,
+        );
+        assert!(
+            out.len() > 40,
+            "the src walk found only {} files",
+            out.len()
+        );
+        out
+    }
+
+    /// **§16's twenty, partitioned into what this crate draws and what it does not — and the first
+    /// half joined to a line rather than to another declaration.**
+    ///
+    /// The freeze's own tripwire asks *does some row demand this entry*, and a row demanding an
+    /// entry it draws nothing of answers yes. That is how `tree` carried three indent guides and
+    /// `select` a stepper `ArrowUp` for four tickets, and it is why nothing here could see the four
+    /// tees and the `Cross` — which are still demanded, by `table`, and are [`UNDRAWN`].
+    ///
+    /// Both directions, because each half alone is vacuous: [`DRAWERS`] goes green on a table that
+    /// has lost rows and [`UNDRAWN`] goes green on a crate that has lost files.
+    #[test]
+    fn every_entry_of_the_table_is_drawn_on_a_line_or_recorded_as_undrawn() {
+        let files = sources();
+        let read = |name: &str| -> String {
+            files
+                .iter()
+                .find(|(n, _)| n == name)
+                .unwrap_or_else(|| panic!("`src/{name}` is gone and a row of `DRAWERS` names it"))
+                .1
+                .clone()
+        };
+
+        // The partition is total and disjoint over the table, so a twenty-first entry lands in
+        // neither and fails here rather than being filed under something.
+        let mut seen = std::collections::BTreeSet::new();
+        for d in DRAWERS {
+            assert!(seen.insert(format!("{:?}", d.glyph)), "{:?} twice", d.glyph);
+        }
+        for u in UNDRAWN {
+            assert!(seen.insert(format!("{:?}", u.glyph)), "{:?} twice", u.glyph);
+        }
+        assert_eq!(
+            seen.len(),
+            Glyph::ALL.len(),
+            "an entry of §16's twenty is in neither `DRAWERS` nor `UNDRAWN`"
+        );
+        assert_eq!(
+            (DRAWERS.len(), UNDRAWN.len()),
+            (15, 5),
+            "fifteen of the twenty are drawn and five are not, and the five are the box junctions"
+        );
+
+        // **The drawn half, joined to the line.** The needle is assembled, so this file's own table
+        // does not satisfy it — which is exactly what `Ellipsis` would have done.
+        for d in DRAWERS {
+            let n = needle(d);
+            assert!(
+                crate::dense::declares(&shipped(&read(d.file)), &n),
+                "`src/{}` no longer carries `{n}`, so {:?} is drawn somewhere else, drawn \
+                 nowhere, or — for a `Computed` row — spelled differently after a reformat. The \
+                 first two are what this row exists for; the third is a one-line correction here",
+                d.file,
+                d.glyph
+            );
+        }
+
+        // **The undrawn half, over the whole crate and over the loose needle.** A bare name and not
+        // a call, because a computed drawer writes the entry on an arm — `Reach::Computed` is there
+        // because one of them does — so an entry that reaches a cell some other way still fails
+        // here. What that looseness costs is paid in `NAMES_WITHOUT_DRAWING`, four named regions
+        // with four reasons, rather than in two waved-through files: the first draft excepted this
+        // file whole, and `gutter` names `TeeLeft` inside it on a shipped line.
+        //
+        // Both halves read the same region now. A test that spells `Glyph::Cross` while writing a
+        // hostile fixture for this very gate would otherwise have failed it with *`Cross` is drawn
+        // now*, which is the wrong diagnosis for the right observation.
+        for u in UNDRAWN {
+            let name = format!("Glyph::{:?}", u.glyph);
+            let carriers: Vec<&str> = files
+                .iter()
+                .filter(|(n, body)| crate::dense::declares(&drawing_region(n, body), &name))
+                .map(|(n, _)| n.as_str())
+                .collect();
+            assert_eq!(
+                carriers,
+                Vec::<&str>::new(),
+                "{name} is drawn now, so it belongs in `DRAWERS` and `{}`'s row is no longer a \
+                 disagreement",
+                u.demanded_by
+            );
+            assert!(
+                INVENTORY.iter().any(|c| c.id == u.demanded_by),
+                "`{}` demands {name} and is not a row of the freeze",
+                u.demanded_by
+            );
+            assert!(
+                INVENTORY
+                    .iter()
+                    .any(|c| c.id == u.demanded_by && c.glyphs.contains(&u.glyph)),
+                "`{}` no longer demands {name}, so this row records a disagreement that has ended",
+                u.demanded_by
+            );
+        }
+
+        // **The cut is watched too**, because a region that drops everything is a scan that
+        // passes on nothing: `Ellipsis`'s drawer is in this file and so is a test that spells it.
+        assert!(
+            shipped(&read("glyphs.rs")).contains(&needle(&Drawer {
+                glyph: Glyph::Ellipsis,
+                file: "glyphs.rs",
+                reach: Reach::Literal,
+            })),
+            "the shipped region of this file no longer holds `elide`'s own call"
+        );
+
+        // **Watched in both directions**, on the one predicate the scan uses rather than on a
+        // second copy of it.
+        assert!(crate::dense::declares(
+            "let open = cx.theme().glyph(Glyph::ArrowDown);",
+            "glyph(Glyph::ArrowDown)"
+        ));
+        assert!(!crate::dense::declares(
+            "/// the chevron is `cx.theme().glyph(Glyph::ArrowDown)`",
+            "glyph(Glyph::ArrowDown)"
+        ));
+    }
+
+    /// This file's own source, for the one assertion that is about this file.
+    fn read_here() -> String {
+        std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/glyphs.rs"))
+            .expect("this file")
+    }
+
+    /// **A test module is dropped and what follows it is kept**, which is [`shipped`]'s whole claim
+    /// and the half its first draft got wrong.
+    ///
+    /// `input.rs` interleaves five test modules with the code of the five components it homes, the
+    /// first of them at line 192 — a region that stopped at the first marker threw the file away and
+    /// reported `Tick` as drawn by nothing. The closing brace is in the first column because
+    /// `rustfmt` puts it there for a top-level item.
+    #[test]
+    fn the_shipped_region_drops_a_test_module_and_keeps_what_follows_it() {
+        let file = "fn a() {}\n#[cfg(test)]\nmod tests {\n    fn inner() {}\n}\nfn b() {}\n";
+        let kept = shipped(file);
+        assert!(kept.contains("fn a()") && kept.contains("fn b()"));
+        assert!(
+            !kept.contains("fn inner()"),
+            "the test module survived the cut"
+        );
+        // **A doc comment that mentions the attribute is not a module**, which is the half the
+        // first draft got wrong: it anchored on the attribute alone, and this file's own prose
+        // carries it, so `shipped` deleted itself out of the region before reaching `mod tests`.
+        let prose = "/// removes its #[cfg(test)] modules.\nfn c() {}\nfn d() {}\n";
+        assert_eq!(
+            shipped(prose),
+            prose,
+            "a doc comment naming the attribute was read as a module"
+        );
+        // And the file this is actually about still holds the function the prose describes.
+        assert!(
+            shipped(&read_here()).contains("pub fn shipped(source: &str) -> String {"),
+            "`shipped` has cut itself out of its own file's region again"
+        );
+        // And the real file it was written for: five modules gone, five components' code kept.
+        let files = sources();
+        let input = shipped(
+            &files
+                .iter()
+                .find(|(n, _)| n == "input.rs")
+                .expect("`src/input.rs`")
+                .1,
+        );
+        assert!(input.contains("glyph(Glyph::Tick)"));
+        assert!(
+            !input.contains("mod slider_tests"),
+            "a test module of `input.rs` survived the cut"
+        );
+    }
+
+    /// **`tree`'s own body draws the chevrons and names no guide, and `select`'s names no
+    /// stepper** — components architecture 20's decision, where it is falsifiable.
+    ///
+    /// [`DRAWERS`] is crate-wide and cannot see this: `VLine` is drawn, by `frame`, and `ArrowUp` is
+    /// drawn, by `scrollbar`. What was false was that *these two components* draw them, and the
+    /// smallest region that can answer is the component's own body.
+    ///
+    /// # The region is the function, not the file, and a review is why
+    ///
+    /// The first draft read whole files. `collect.rs` homes four components and `input.rs` five, and
+    /// two of the other eight are the reason that could not stand: `table`'s freeze row still
+    /// demands `VLine`, `TeeLeft` and `BottomLeft`, and **components architecture 25 — filed by this
+    /// very ticket — is the question of whether `table` should draw its own rules**. The day it is
+    /// answered yes, a file-wide scan fires an assertion whose message says `tree` has learned to
+    /// draw indent guides and sends the reader to reopen architecture 20. A `slider` gaining an
+    /// up-arrow would do the same to `select`'s half.
+    ///
+    /// So each half reads one function body, taken from its declaration to the brace that closes it
+    /// in the first column. It is the same bounded form `crate::composed` uses and the same one
+    /// `collect.rs` already takes for `tree_with` in its own scan.
+    ///
+    /// The positive half is not decoration. A scan for absences alone goes green the day the body is
+    /// emptied, and these two bodies are where the chevrons are actually written.
+    #[test]
+    fn trees_body_draws_chevrons_and_no_guides_and_selects_has_no_steppers() {
+        let files = sources();
+        let read = |name: &str| -> String {
+            files
+                .iter()
+                .find(|(n, _)| n == name)
+                .unwrap_or_else(|| panic!("`src/{name}` is gone"))
+                .1
+                .clone()
+        };
+        /// One function body: from its declaration to the brace that closes it in the first column.
+        ///
+        /// The needle is assembled, for [`Reach::Literal`]'s reason — this test names both bodies
+        /// and would otherwise find its own source.
+        fn body(source: &str, head: &str, tail: &str) -> String {
+            let marker = format!("{head}{tail}");
+            let at = source
+                .find(&marker)
+                .unwrap_or_else(|| panic!("`{marker}` is not declared where this gate looks"));
+            let after = &source[at..];
+            let close = after
+                .find("\n}\n")
+                .unwrap_or_else(|| panic!("`{marker}` has no closing brace in the first column"));
+            after[..close].to_string()
+        }
+
+        // `tree_with` is where both verbs are written — the indent run and the chevron cell — and
+        // it is what `tree` and `tree_into` are, so a guide could not arrive anywhere else.
+        let tree_body = body(&read("collect.rs"), "fn ", "tree_with<I, F, R>(");
+        // `select_shaped` is the popup owner's body; its gutter is `overlay`'s reserved bar.
+        let select_body = body(&read("input.rs"), "fn ", "select_shaped<'f, I: Ink>(");
+        assert!(
+            tree_body.len() > 400 && select_body.len() > 400,
+            "a body this short is a marker that has moved, not a component that has shrunk"
+        );
+
+        for g in [Glyph::ArrowDown, Glyph::ArrowRight] {
+            let n = format!("glyph(Glyph::{g:?})");
+            assert!(
+                crate::dense::declares(&tree_body, &n),
+                "`tree_with` no longer draws {g:?}, so the negative half below is over nothing"
+            );
+        }
+        for g in [Glyph::VLine, Glyph::TeeLeft, Glyph::BottomLeft] {
+            let n = format!("Glyph::{g:?}");
+            assert!(
+                !crate::dense::declares(&tree_body, &n),
+                "`tree_with` names {n}. If `tree` has learned to draw its indent guides then §7's \
+                 record and its two-verb row have moved with it, and components architecture 20 is \
+                 what says so — reopen it rather than putting the entry back"
+            );
+        }
+        // The popup's own arrow is written in this body, and the stepper is not.
+        assert!(
+            crate::dense::declares(&select_body, "Glyph::ArrowDown"),
+            "`select_shaped` no longer names the popup's chevron"
+        );
+        assert!(
+            !crate::dense::declares(&select_body, "Glyph::ArrowUp"),
+            "`select_shaped` names `Glyph::ArrowUp`. A popup's gutter is `scroll::bar_into` — \
+             `Thumb` and `Track` — and stepper caps are `scroll::scrollbar`'s; if that has changed, \
+             so has ADR 0029's reserved-bar decision"
+        );
     }
 
     /// **The marker is one cell, and the three-cell form moves the surface without moving a

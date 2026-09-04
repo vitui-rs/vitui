@@ -56,10 +56,13 @@
 //!
 //! # What it cannot say, and it is the surface's to fix
 //!
-//! 1. **There are no indent guides.** `INVENTORY` declares `VLine`, `TeeLeft` and `BottomLeft` for
-//!    `tree` and the component draws none of them: a guide column at depth *d* is a fact about *d*
-//!    ancestors, so a correct guide run is either data-proportional per row or a fifth field on a
-//!    record §7 fixes at eight bytes. Filed rather than faked — see this ticket's answer.
+//! 1. **There are no indent guides, and that is now a decision rather than a gap.** A guide column
+//!    at depth *d* is a fact about *d* ancestors, so a correct guide run is either data-proportional
+//!    per row or a fifth field on a record §7 fixes at eight bytes — four routes, all refused.
+//!    Components architecture 20 settled it by striking `VLine`, `TeeLeft` and `BottomLeft` from
+//!    `INVENTORY`'s `tree` row, which had declared them as *the indent guides* while the component
+//!    drew none: the freeze's glyph column is what a component draws. The shipped indent is one
+//!    `Ink::run` of spaces.
 //! 2. **A fold cannot be animated.** §8's `Collapse` is components ticket 22's, and until it lands a
 //!    fold is one frame.
 //!

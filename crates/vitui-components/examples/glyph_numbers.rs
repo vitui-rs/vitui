@@ -17,8 +17,8 @@
 
 use vitui_components::INVENTORY;
 use vitui_components::glyphs::{
-    GLYPH_PAIRS, GlyphFamily, ROLE_PAIRS, SIGNAL_PAIRS, SIGNALS, census, cross_family_collapses,
-    distinctions_lost, distinctions_of, family, glyph_collapses, gutter,
+    DRAWERS, GLYPH_PAIRS, GlyphFamily, ROLE_PAIRS, SIGNAL_PAIRS, SIGNALS, UNDRAWN, census,
+    cross_family_collapses, distinctions_lost, distinctions_of, family, glyph_collapses, gutter,
     within_component_collapses,
 };
 use vitui_runtime::ctx::Driver;
@@ -150,9 +150,30 @@ fn main() {
         Glyph::ALL.len()
     );
     println!("        has a caller. `tree` needs no entry of its own: its chevron pair *is*");
+    println!("        `ArrowDown`/`ArrowRight`, and it draws no indent guide at all.");
     println!(
-        "        `ArrowDown`/`ArrowRight` and its guides are `VLine`, `TeeLeft`, `BottomLeft`."
+        "\n        And the join a demand column cannot make on its own — is anything *drawing*"
     );
+    println!(
+        "        this entry? {} of the {} are drawn on a named line and {} are not:",
+        DRAWERS.len(),
+        Glyph::ALL.len(),
+        UNDRAWN.len()
+    );
+    for u in UNDRAWN {
+        println!(
+            "          {:<12} demanded by `{}`, drawn by nothing",
+            format!("{:?}", u.glyph),
+            u.demanded_by
+        );
+    }
+    println!(
+        "        All five are the box junctions, and a junction is where two rules meet: `panel`"
+    );
+    println!(
+        "        draws a border, `table` draws no rule at all, and no component here draws two"
+    );
+    println!("        rules that meet. Components architecture 25.");
 
     // ── 4. the two rules that leave §16 ──────────────────────────────────────────────────────────
     let extended = &themes[0];

@@ -641,7 +641,7 @@ pub const SPEC_ROWS: usize = 32;
 /// **The four `gate` strings are §21's own words and were left alone**, which is a rule this ticket
 /// nearly broke: extending row 15's to *at both ends and across an edit* and row 17's to *over five
 /// hundred edits* reads as clarification and is a **spec edit**, arriving as a one-line diff in this
-/// file, exactly what `tests::thirty_two_rows_are_the_specs_and_two_hundred_and_one_are_this_\
+/// file, exactly what `tests::thirty_two_rows_are_the_specs_and_two_hundred_and_two_are_this_\
 /// lineages` exists to make deliberate. What a ticket adds to a spec row goes in its comment.
 ///
 /// **Production ticket 03 moved it from two hundred and twenty-two to two hundred and twenty-four,
@@ -654,6 +654,13 @@ pub const SPEC_ROWS: usize = 32;
 /// are **four different tables** before asserting they draw one screen, and carries the clip-only
 /// sweep beside it as the control that steps at every arm. **Six unsubjected became four**, and all
 /// four of those are on §21's table too — they are the field's, and production ticket 04 takes them.
+///
+/// **Components architecture 20 moved it from two hundred and twenty-eight to two hundred and
+/// twenty-nine**, and it is not an inversion: row 234 is a property the freeze had been asserting
+/// with a join that could not fail on it. Its `glyphs` column was joined to another declaration, so
+/// a row demanding an entry it draws nothing of satisfied *every entry has a demander* — four such
+/// entries stood for four tickets and five more are still standing, held in `crate::glyphs::UNDRAWN`
+/// with the issue that owns them.
 ///
 /// **Runtime architecture issue 34 moved it from two hundred and twenty-one to two hundred and
 /// twenty-two, and it is the second of those** — one crate down again, and this time it lifted a
@@ -681,7 +688,7 @@ pub const SPEC_ROWS: usize = 32;
 /// it. Row 30's own instrument compares two lists of *ids*, which is the most a query over the
 /// freeze can ask; the chord-for-chord equality needs a value with a machine in it, and
 /// `crate::contract::Contract::live` is that machine — it runs the shipped component.
-pub const EVALUATED: usize = 228;
+pub const EVALUATED: usize = 229;
 
 /// Spec §21's register, row for row, and this ticket's gates beside it.
 #[expect(
@@ -691,7 +698,7 @@ pub const EVALUATED: usize = 228;
               array is read at compile time by nothing and at run time by tests, so the copy the \
               lint is warning about is one a test makes once"
 )]
-pub const REGISTER: [Row; 233] = [
+pub const REGISTER: [Row; 234] = [
     // ── spec §21's table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -8661,6 +8668,56 @@ pub const REGISTER: [Row; 233] = [
             ],
         },
     },
+    Row {
+        number: 234,
+        on_spec_table: false,
+        gate: "every entry of §16's twenty is drawn on a named line or recorded as undrawn: 15 and \
+               5, partitioned",
+        kind: Kind::Count,
+        owner: "C10, corrected by components architecture 20",
+        section: "spec §16, §17",
+        // **The join the freeze had was declaration to declaration**, and that is the whole reason
+        // this row exists. `the_glyph_table_is_twenty_entries_and_every_one_of_them_has_a_demander`
+        // asks *does some row demand this entry*, and a row demanding an entry it draws nothing of
+        // answers yes — so `tree` carried three indent guides and `select` a stepper `ArrowUp` for
+        // four tickets, and five more went unseen behind `table`'s row.
+        //
+        // **The needle is assembled from the entry rather than written beside it.** `DRAWERS` lives
+        // in the same file as `elide`, which is `Ellipsis`'s drawer, so a literal needle there is a
+        // scanner its own source satisfies — this map's most-repeated trap, and the one row that
+        // would have sprung it.
+        //
+        // **One row is `Reach::Computed` and it is `ArrowUp`**: `scrollbar` picks its cap pair by
+        // orientation, so `glyph(Glyph::ArrowUp)` is written nowhere and a literal-only join would
+        // have put the one arrow that *is* drawn into `UNDRAWN`. An entry wrongly recorded as
+        // undrawn is a worse lie than the one this join exists to end.
+        //
+        // The five that are genuinely undrawn are `table`'s and are one family — the box junctions,
+        // and no component here draws two rules that meet. Components architecture 25.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/glyphs.rs",
+                    name: "every_entry_of_the_table_is_drawn_on_a_line_or_recorded_as_undrawn",
+                },
+                // **The bounded half.** Crate-wide, `VLine` is drawn and `ArrowUp` is drawn — by
+                // `frame` and by `scrollbar`. What was false was that *these two components* draw
+                // them, and the smallest region that can say so is the component's own body — one
+                // function, not one file, because `collect.rs` homes four components and one of
+                // them is `table`, whose row still demands all three and whose rules are components
+                // architecture 25's open question. A positive half stops an absence scan passing on
+                // an emptied body.
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/glyphs.rs",
+                    name: "trees_body_draws_chevrons_and_no_guides_and_selects_has_no_steppers",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-components/src/inventory.rs",
+                    name: "the_glyph_table_is_twenty_entries_and_every_one_of_them_has_a_demander",
+                },
+            ],
+        },
+    },
 ];
 /// **The compile-outcome pair row 31 names, and its positive twin.**
 ///
@@ -9043,7 +9100,7 @@ mod tests {
              domain and needs no component to be run against, and its row had been citing spec §13 \
              and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 233);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 234);
     }
 
     /// **The split, not the total.**
@@ -9054,10 +9111,10 @@ mod tests {
     /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_two_hundred_and_one_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_two_hundred_and_two_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 201);
+        assert_eq!(REGISTER.len() - on_table, 202);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,

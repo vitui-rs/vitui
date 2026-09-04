@@ -125,10 +125,14 @@ fn within_component_cross_family_collapse_is_zero_at_every_rung() {
         .collect();
     assert_eq!(
         pairwise.len(),
-        43,
-        "the pairwise gate fires forty-three times at ASCII — six on `panel`, thirty-six on \
-         `table` and one on `tree` — and every one of them is a corner or a tee against another \
-         corner or tee: {pairwise:?}"
+        42,
+        "the pairwise gate fires forty-two times at ASCII — six on `panel` and thirty-six on \
+         `table` — and every one of them is a corner or a tee against another corner or tee: \
+         {pairwise:?}. **It was forty-three until components architecture 20**, and the one that \
+         went was `tree`'s `TeeLeft` against its `BottomLeft`: two entries of a demand set the \
+         component drew nothing of, so the pair the pairwise form fired on was a pair no screen \
+         ever showed. Thirty-six of the forty-two are still `table`'s and they are the same \
+         shape — see `glyphs::UNDRAWN`"
     );
     for (_, a, b) in &pairwise {
         assert_eq!(

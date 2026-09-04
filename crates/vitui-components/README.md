@@ -11,15 +11,14 @@ Windows, panels, charts, lists, trees, forms and pickers built on
 a value, `INVENTORY`, that the tests iterate rather than a list a reader is asked to trust. Its
 seven documentation and verification obligations are functions over that value: O1, O2, O3, O4, O6
 and O7 are met, and O5 — *every component stands up under every hostile axis it can meet* — is the
-one left, at 23 of 34 `(component, axis)` pairs. A query with no evidence behind it panics here
-rather than returning green over an empty population.
+one left, at 32 of 34 `(component, axis)` pairs, and the two left are `tree`'s. A query with no
+evidence behind it panics here rather than returning green over an empty population.
 
-§21's register is 233 rows, 228 of them evaluated and **none pinned red**, beside 5 that are
+§21's register is 234 rows, 229 of them evaluated and **none pinned red**, beside 5 that are
 unreachable across the crate line (`docs/adr/0023`) and **none left with nothing to run over**.
-Thirty-three
-scenes stand behind them, each with the size it is played at and the property it decides; three
-exist because a defect survived every gate then in force by not being on any screen anybody had
-built.
+Forty-five scenes stand behind them, forty-three of which stand up and two of which have nothing to
+run over, each with the size it is played at and the property it decides; three exist because a
+defect survived every gate then in force by not being on any screen anybody had built.
 
 The `media` family ships with no members, and that is spec §14 rather than an omission: it is the
 one family with no v1 component.

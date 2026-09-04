@@ -36,7 +36,9 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   rather than counted: `crates/vitui-components/tests/crate_line.rs` cannot name the engine.
 - **`vitui-components` — implementation-complete.** All 46 tickets; spec §17's freeze is **29 of 29
   built**, as a value (`INVENTORY`) that tests iterate, with the documentation and verification
-  obligations as functions over it. Register 233 rows, 228 evaluated and
+  obligations as functions over it. Register **234 rows, 229 evaluated** — 234 is components
+  architecture 20's, *every entry of §16's twenty is drawn on a named line or recorded as undrawn* —
+  and
   **no row pinned red** — row 112 was the last, inverted by runtime architecture 31 — beside
   5 unreachable across the crate line (ADR 0023) and **nothing unsubjected**: production 03 took
   `table`'s two and production 04 took `field`'s four, which were the last. **Forty-three of the
@@ -300,6 +302,20 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   ids arithmetically (`Id::keyed`), because `Ctx::id` is `Location::caller()`.
 - **A component names a `Role`, never a colour** (ADR 0018); the one constructor that takes colours is
   on the `Theme` and carries no tier guarantee.
+- **The freeze's `glyphs` column is what a component draws, and `tree` draws no indent guide**
+  (components architecture 20, resolved 2026-09-04). `VLine`, `TeeLeft` and `BottomLeft` stood in
+  `INVENTORY`'s `tree` row for four tickets and were drawn by nothing: a guide column at depth *d* is
+  a fact about *d* ancestors, and **four** routes to it are refused — a per-row ancestor walk, a
+  fifth field wider than §7's eight bytes, `VLine` repeated (wrong under an ended subtree), and one
+  `O(n)` reverse pass whose output is that fifth field stored elsewhere and which cannot be cut to
+  the viewport, because a visible row's guide is a fact about rows below it. The caller's free
+  `flags` bits do not buy it: seeding a forward walk's stack at the first visible row is a backward
+  scan to the nearest depth-0 row. `select`'s stepper `ArrowUp` went with them — a popup's gutter is
+  `scroll::bar_into`, no caps — and its `ArrowDown` stays, drawn as the chevron. The old tripwire
+  joined a **declaration to a declaration**, which is why it could not see this;
+  `crate::glyphs::DRAWERS`/`UNDRAWN` partition §16's twenty into **15 drawn on a named line and 5
+  not**, the needle assembled from the entry rather than written beside it. The five left are
+  `table`'s and are one family (architecture 25).
 - **`SHIFT` is intent for a key and not for a character** (ADR 0053, runtime architecture 28, resolved
   2026-08-30). `Chord::typed(c)` compares `keys::TYPED_INTENT`, the five intent bits that are not
   `SHIFT`, and is what to bind on `+`, `?`, `:` or `_` — a US-layout `+` cannot be typed without
@@ -334,12 +350,13 @@ Five stand open, all of them the components map's and all filed by the layer abo
 in. **The runtime's architecture map has none left**: 36, the only one that map ever filed against
 itself, resolved 2026-09-01.
 
-- **Components architecture 19** (does a fold that costs the volume belong to O6), **20** (`tree`
-  declares three glyphs it cannot draw), **22** (`Esc` over a plain `collection` is crate-private on
-  purpose), **23** (`file_picker`'s popup has no keyboard at all), **24** (a `table` whose columns do
-  not fill the band leaves the remainder **unwritten** — 66 cells of every row in
-  `examples/ledger.rs` at three hundred columns, and none at eighty; filed by production 06, whose
-  scene 37 is the same axis on the row side).
+- **Components architecture 19** (does a fold that costs the volume belong to O6), **22** (`Esc` over
+  a plain `collection` is crate-private on purpose), **23** (`file_picker`'s popup has no keyboard at
+  all), **24** (a `table` whose columns do not fill the band leaves the remainder **unwritten** — 66
+  cells of every row in `examples/ledger.rs` at three hundred columns, and none at eighty; filed by
+  production 06, whose scene 37 is the same axis on the row side), **25** (five entries of §16's
+  twenty are demanded by `table` and drawn by nothing — the box junctions, filed by 20's own new
+  join). **20 is resolved** (2026-09-04) and production 07 is unblocked.
 
 **The engine's architecture map has none left.** Issues 20, 21 and 23 read as open for a while and
 were closed by production tickets 06, 03 and 02 — do not re-file them.

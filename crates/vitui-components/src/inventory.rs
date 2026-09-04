@@ -180,8 +180,15 @@ pub struct Component {
     /// `tests::the_glyph_table_is_twenty_entries_and_every_one_of_them_has_a_demander`, holding the
     /// same shape one number further on.
     ///
-    /// `tree` needed no new entry of its own: its chevron pair *is* `ArrowDown`/`ArrowRight` and its
-    /// indent guides are `VLine`, `TeeLeft`, `BottomLeft` (§16).
+    /// `tree` needed no new entry of its own: its chevron pair *is* `ArrowDown`/`ArrowRight` (§16).
+    ///
+    /// **The column is what a component draws, and components architecture 20 is where that stopped
+    /// being an assumption.** It had also carried §16's *allocation* — which row owns which entry of
+    /// the table — and the two readings are the same sentence only while every allocated entry has
+    /// a drawer. Four did not: `tree`'s three indent guides and `select`'s stepper `ArrowUp`, struck
+    /// there. [`crate::glyphs::UNDRAWN`] is the disagreement that is left, held as a table rather
+    /// than as prose (ADR 0033), because the join below is declaration-to-declaration and cannot see
+    /// it.
     pub glyphs: &'static [Glyph],
     /// How many **different things** it builds across the three declared repertoires, 1..=3.
     ///
@@ -634,16 +641,14 @@ pub const INVENTORY: &[Component] = &[
         built: true,
         layer: Layer::L2,
         families: &[Family::F7Collections],
-        // The indent guides. Its chevron pair *is* `ArrowDown`/`ArrowRight` (§16), and only the
-        // first of those exists in the table today.
-        glyphs: &[
-            Glyph::VLine,
-            Glyph::TeeLeft,
-            Glyph::BottomLeft,
-            Glyph::ArrowDown,
-            Glyph::ArrowRight,
-            Glyph::Ellipsis,
-        ],
+        // **The chevron pair and the cut, and no indent guide** — components architecture 20,
+        // resolved. `VLine`, `TeeLeft` and `BottomLeft` stood here for four tickets as *the indent
+        // guides* and were drawn by nothing: the shipped indent is one `Ink::run` of spaces, and
+        // §7 forbids every route to a correct guide column (see `crate::glyphs::UNDRAWN` for the
+        // four that were refuted). A demand for a glyph that never reaches a cell is a sentence
+        // about a screen this crate does not draw, so the column lost them rather than the
+        // component gaining a fifth field.
+        glyphs: &[Glyph::ArrowDown, Glyph::ArrowRight, Glyph::Ellipsis],
         constructions: 1,
         // §20's scene 9: a fold over 349 524 rows, splice against permutation — 1 run / 0.04 us
         // against 297 180 / 24 338.
@@ -663,13 +668,16 @@ pub const INVENTORY: &[Component] = &[
         // and swallows a click, against 2 592 bytes and two clicks for blur.
         layer: Layer::L4,
         families: &[Family::F6Input, Family::F9Overlays],
-        // The chevron pair and the steppers are **one family**, which is §16's reason for four
-        // arrow ends and not eight: `ArrowRight`/`ArrowDown` says closed or open, `ArrowUp`/
-        // `ArrowDown` steps the popup's list. It is the second row after `tree` to draw both
-        // `Ellipsis` and `ArrowRight`, so it is the second component C09's `>` would have put the
-        // collapsed marker on the end of a truncated option in.
+        // The chevron pair and the cut. `ArrowRight`/`ArrowDown` says closed or open, and it is
+        // the second row after `tree` to draw both `Ellipsis` and `ArrowRight`, so it is the second
+        // component C09's `>` would have put the collapsed marker on the end of a truncated option
+        // in.
+        //
+        // **`ArrowUp` went with `tree`'s three** (components architecture 20). §16's *`ArrowUp`/
+        // `ArrowDown` steps the popup's list* describes `scroll::scrollbar`'s stepper caps, and a
+        // popup's gutter is `scroll::bar_into` — `Thumb` and `Track`, no caps. `ArrowDown` stays
+        // because it is drawn, as the **chevron** rather than as a stepper.
         glyphs: &[
-            Glyph::ArrowUp,
             Glyph::ArrowDown,
             Glyph::ArrowRight,
             Glyph::Tick,
