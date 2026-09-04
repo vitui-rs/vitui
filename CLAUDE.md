@@ -74,24 +74,49 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   is `crate::wheel::Subject::Tree`, that gate's fifth arm. **They are the only pairs on this backlog
   whose edge was a decision rather than an instrument**: components architecture 20 was open on
   whether `tree` draws the three indent guides its row declared, and a guide column takes cells from
-  the label. Obligations **O1–O4 and O6–O7 are `Met`, and so is O5 by construction**, at **34 of 34
-  `(component, axis)` pairs with a scene**. O5's `#[should_panic]` moved from *the evidence is empty*
-  to *the evidence is one row wrong*, the sixth and last query to make that move. **Production 10 is
-  the ticket that turns O5 and two of its five criteria are already spent** — the `Met` verdict and
-  the inverted watch, neither of which a green build could be left without; what it still owns is
-  the two comments citing a test name that no longer exists, the components README's per-scenes-
-  ticket entries, and the rename of the obligation summary test, which carries the note the stale-
-  name policy requires.
+  the label. **All seven obligations are `Met`** — O1–O4, O6 and O7 since the components backlog,
+  **O5 since production 07** — which is seven of seven, nine of nine queries, and **every one of the
+  thirty-four `(component, axis)` pairs the freeze declares has a scene**: none is bare, and the
+  fourteen that production 05 to 09 took were the pairs *without* one. O5's `#[should_panic]` moved
+  from *the evidence is empty* to *the evidence is one row wrong*, the sixth and last query to make
+  that move, so nothing here is watched on the vacuity arm any more. **Production 10 is resolved**
+  (2026-09-04) and it was paperwork rather than a verdict: two of its five criteria were spent by
+  07, and what it owned was the summary test's rename to
+  `all_nine_obligation_queries_are_met_and_o5_was_the_last_to_turn` with its two register citations
+  and this sentence, the two comments citing a test name that no longer exists, and the components
+  README's five per-scenes-ticket entries. **It found a third stale count one file over** — the live
+  coverage test's own doc heading read *O5 moves from 34 of 34 to 11 of 34*, a sentence no build
+  could make true, left when a search-and-replace moved the first number and not the second — and it
+  **measured the population the ticket had assumed was two**: a scan of every `` `…tests::name` ``
+  citation in prose across the workspace finds **210, of which 15 sites over 14 distinct names point
+  at no function anywhere** (13 sites in components, one each in the engine and the runtime) — **17
+  sites over 15 names** counting the two this ticket fixed. That is unowned, because none of them is
+  a count and a prose citation is invisible to `cargo doc`; it is the shape a gate would close —
+  `gates::declares_a_live_test` is already the needle — and no ticket schedules one. **The two this
+  ticket was handed were a rename left behind and not a careless citation**, which a review of the
+  ticket's own answer established: the name was declared at `scenes.rs:1710` in `2a1ade2`, so the
+  unpaid cost is the one the stale-name policy names. **That review corrected three of 10's own
+  sentences and the sharpest is a warning about this policy**: 10's first draft read the two arms as
+  a *price comparison* — renamed because it had two citations where the kept one has five — and the
+  measurement runs the other way. The renamed name had **two** register rows, the kept one has
+  **one**, and **the five are a third test's** (`two_scenes_have_nothing_to_run_over_…`, the one
+  actually renamed three times). So the citation count separates nothing here: what keeps a name is
+  `PINS_SCENE_22`'s reason — *a register row and the scene list are read together* — and what buys a
+  rename is a deferral note that already named the ticket. 10 also left *seven `should_panic` tests*
+  standing over nine arms in the file it was opened to de-stale.
 - **`vitui-apps` — 18 applications**, one file each in `examples/`. A component ticket ships one, and
   since ticket 45 that is obligation **O7** rather than a habit: `vitui_components::consumer` joins
   the freeze against the import paths here.
 - **Active work: `.scratch/vitui-production/`** (opened 2026-09-01) — the whole workspace's road to a
   published crate, sixteen tickets in five groups: the paperwork, the six unsubjected register rows
   (**all six standing**, by production 03 and 04),
-  the fourteen hostile axes O5 still owed (**none left**: `field`'s three taken by production 05,
-  `table`'s two by 06, the overlay family's four by 08, the scroll family's three by 09 and
-  **`tree`'s two by 07**, which unblocks 10), three tier-1 terminals nobody had run (**WezTerm and
-  Alacritty now have**, by 11 and 12; iTerm2 is 13), and the release.
+  the fourteen hostile axes O5 still owed (**the group is closed**: `field`'s three taken by
+  production 05, `table`'s two by 06, the overlay family's four by 08, the scroll family's three by
+  09 and **`tree`'s two by 07**, which turned O5; **10 closed the paperwork behind it**), three
+  tier-1 terminals nobody had run (**WezTerm and Alacritty now have**, by 11 and 12; iTerm2 is 13),
+  and the release.
+  **Two of the sixteen can start today, 02 and 13** — 02 is `ready-for-human` (it needs a public
+  repository) and 13 is the last unrun terminal.
   **Windows is last, as 16**, blocked by the publish — which carries the consequence that no shipped
   string may claim a terminal the conform suite has not asked. Everything on it was already true and
   already recorded; what was missing was that nothing scheduled any of it.

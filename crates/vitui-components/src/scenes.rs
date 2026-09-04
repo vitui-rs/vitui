@@ -426,9 +426,9 @@ pub struct Scene {
     /// [`Scene::covers`] is O5's join and it is `(component, axis)`, so a component that declares no
     /// hostile axis can never appear in it — `panel` and `button` declare none, and a `(panel, …)`
     /// pair would fail
-    /// `tests::fourteen_of_the_thirty_four_axis_obligations_have_a_scene_and_twenty_do_not`'s check
-    /// that every claimed pair is an axis its component actually declares. That check is the reason
-    /// this is a second field rather than a loosened first one: **a scene stands a component up; O5
+    /// `tests::seventeen_of_the_thirty_four_axis_obligations_have_a_scene_and_seventeen_do_not`'s
+    /// check that every claimed pair is an axis its component actually declares. That check is the
+    /// reason this is a second field rather than a loosened first one: **a scene stands a component up; O5
     /// asks whether an axis has a scene, and the two are different questions about the same screen.**
     ///
     /// [`scenes_for`] reads both, because criterion 2's enumeration is *which scenes stand this
@@ -2670,7 +2670,7 @@ pub const SCENES: [Scene; 47] = [
         // this component's defects; the fourth is not — a collection's rows truncate through
         // `text::fit`, which is `text`'s flag*, and scene 28 already carries `(text, narrow)`. A
         // scene covering an axis the freeze does not set would inflate O5 silently, which
-        // `tests::fourteen_of_the_thirty_four_axis_obligations_have_a_scene_and_twenty_do_not`
+        // `tests::seventeen_of_the_thirty_four_axis_obligations_have_a_scene_and_seventeen_do_not`
         // refuses. What this row does is *stand `collection` up*, which is the other question.
         covers: &[],
         stands: COLLECTION,
@@ -3916,13 +3916,22 @@ mod tests {
         );
     }
 
-    /// **O5 moves from 34 of 34 to 11 of 34, and it still fails loudly.**
+    /// **All thirty-four `(component, axis)` pairs have a scene, and this test is the coverage
+    /// rather than the verdict.**
     ///
-    /// This ticket cannot turn O5 and does not pretend to. Sixteen of the thirty-four
-    /// `(component, axis)` pairs have a scene in §21's own list; the other twenty-two are the
-    /// per-component scenes tickets' — `.scratch/vitui-components-impl/README.md` slices one before
-    /// each component's drawing ticket, and *a scenes ticket is red on purpose until its component
-    /// ticket lands*.
+    /// O5 is turned in `crate::obligations` and never here: this test reads `coverage()` and
+    /// asserts the population and the bare count, and [`crate::obligations::o5`] is the query.
+    /// Sixteen of the thirty-four were claimed by §21's own list; the other eighteen arrived one
+    /// scenes ticket at a time — `.scratch/vitui-components-impl/README.md` sliced one before each
+    /// component's drawing ticket and *a scenes ticket is red on purpose until its component ticket
+    /// lands*, and the last fourteen were production 05 to 09, which is the lineage the `bare`
+    /// assertion below spells out.
+    ///
+    /// **This heading was itself a stale count and production 10 corrected it**, reading *O5 moves
+    /// from 34 of 34 to 11 of 34* — a sentence no build could have made true, left by a
+    /// search-and-replace over the first number when production 06 moved the second. It is the same
+    /// defect the ticket was opened for, one file over, and it is why the count is asserted twice
+    /// below rather than described once.
     ///
     /// The claim is narrow on purpose. A pair is claimed only where §21's row names the component
     /// **and** the axis's mechanism, because O5's whole argument is that *C11 can write a perfect
@@ -3953,8 +3962,21 @@ mod tests {
         // name said three and thirty-three while its assertions said two and thirty-four — so
         // production 06 renamed it, 08 renamed it again from thirty-six, and **09 a third time,
         // from forty**. Each time with its five register citations, which is the cost the policy
-        // is priced against. The count is asserted either way, which is what makes the name a
-        // pointer rather than the authority.
+        // is priced against.
+        //
+        // **Production 10 took the other arm on a name in `crate::obligations`**:
+        // `obligations::tests::all_nine_obligation_queries_are_met_and_o5_was_the_last_to_turn`
+        // was renamed rather than annotated, because production 07's note had already named the
+        // ticket that would do it — a deferral note prices its own rename.
+        //
+        // **The two arms are not separated by the citation count, and the five above are not this
+        // name's.** A review of production 10's first draft measured them: the renamed name had
+        // **two** register rows, this one has **one**, and the **five** belong to
+        // `two_scenes_have_nothing_to_run_over_…`, which is the test that was renamed three times.
+        // So the sentence four lines up — *a name is how a reader and five register citations find
+        // a row* — is about that third test and never about this one. What keeps this name is
+        // `PINS_SCENE_22`'s reason and the note, not a price. The count is asserted either way,
+        // which is what makes the name a pointer rather than the authority.
         assert_eq!(evidence.len(), 34);
         assert_eq!(
             crate::obligations::AXIS_SCENES.to_vec(),
@@ -3983,8 +4005,9 @@ mod tests {
              production 07 claimed `tree`'s narrow and wheeled — the only pair on this list whose \
              edge was a *decision* rather than an instrument, because components architecture 20 \
              was open on whether the component draws the three indent guides its freeze row \
-             declared and a guide column takes cells from the label. **The obligation is turned by \
-             production 10 and not here**: what this number says is the coverage"
+             declared and a guide column takes cells from the label. **The verdict is \
+             `crate::obligations`' and never this test's**: what this number says is the coverage, \
+             and production 07 is what turned the colour"
         );
 
         // Every claimed pair is an axis its component actually declares. A scene covering an axis

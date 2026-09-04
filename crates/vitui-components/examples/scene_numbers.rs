@@ -29,8 +29,9 @@
 //! 3. **O5's coverage**, **thirty-four of thirty-four**, with no bare pair left: production 07 took
 //!    `tree`'s last two, and it is the first ticket on this lineage whose edge was a *decision*
 //!    rather than an instrument — components architecture 20, on whether the component draws the
-//!    three indent guides its freeze row declared. **Turning the obligation is production 10's**,
-//!    which is why this line says the coverage and not the colour.
+//!    three indent guides its freeze row declared. O5 answers `Met` over the population as of
+//!    that ticket, and **this line says the coverage and not the colour** — the verdict is
+//!    `crate::obligations`' and the paperwork behind it was production 10's.
 //!
 //! # It asserts the shape and not the timings
 //!
@@ -187,7 +188,8 @@ fn main() {
     // **The empty case is a sentence and not a heading over nothing.** Production 07 took the last
     // two pairs, so this list is empty for the first time — and *The other 0 are the per-component
     // scenes tickets':* followed by no rows is the shape of stale sentence this whole file's header
-    // is about, arriving from the other direction. Turning O5 itself is production ticket 10's.
+    // is about, arriving from the other direction. O5's verdict is `crate::obligations`' and
+    // production 10 closed the paperwork the count left behind.
     if covered == coverage.len() {
         println!("  None are bare. `tree`'s narrow and wheeled were the last two (production 07).");
     } else {

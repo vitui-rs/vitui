@@ -4,13 +4,14 @@
 //! > Every documentation and verification obligation is a query over it, not a sentence in a
 //! > document. (ADR 0033)
 //!
-//! # One of the seven still cannot run, and that is the load-bearing half of this file
+//! # All seven run, and why that does not make the vacuity refusal a spare part
 //!
 //! **O1 is green since components ticket 36, O3 since 37, O4 since 38, O2 — both halves — since 39,
-//! O6 since 44 and O7 — both halves — since 45**, eight of the nine queries. Only O5 is left, and
-//! it is the one §17 says is worth more than the other four together. **A query over an obligation
-//! nobody has met yet is the exact shape that returns green by accident**, and three of them had
-//! it:
+//! O6 since 44, O7 — both halves — since 45, and O5 since production 07**, which is all nine
+//! queries. O5 was last on purpose: it is the one §17 says is worth more than the other four
+//! together, its evidence is thirty-four `(component, axis)` pairs, and production tickets 05 to 09
+//! took the fourteen of them that had no scene. **A query over an obligation nobody has met yet is
+//! the exact shape that returns green by accident**, and three of them had it:
 //!
 //! - *every panel in the gallery is in the freeze* over an empty gallery is **vacuously true** —
 //!   which is what [`PANELS`] read until ticket 39, and the reason the query is written over the
@@ -50,12 +51,17 @@
 //! [`Verdict::assert_met`] panics with the failing set and the ticket that inverts it. Each of the
 //! nine is watched panicking by a `#[should_panic]` test below, because **a gate nobody has watched
 //! fail is not a gate** — §21's own three-for-three finding, from the other direction.
-//! `tests::eight_of_the_nine_obligation_queries_are_met_and_the_one_left_is_o5` writes the number
-//! down, so
-//! each one that turns is a deliberate edit here rather than a silent change of colour. **Five have
-//! turned and each cost that edit**; what changes when one does is the arm it is watched failing on
-//! — a `Met` verdict cannot be watched panicking, so the `#[should_panic]` moves from *the evidence
-//! is empty* to *the evidence is one row wrong*, and for O2 and O7 that is one arm per direction.
+//! `tests::all_nine_obligation_queries_are_met_and_o5_was_the_last_to_turn` writes the number down,
+//! so each one that turns is a deliberate edit here rather than a silent change of colour. **All
+//! seven have turned and each cost that edit** — and this sentence itself said *five* while six
+//! were green, which is the defect production 10 was opened for, met inside the file it was opened
+//! about. What changes when one turns is the arm it is watched failing on: a `Met` verdict cannot
+//! be watched panicking, so the `#[should_panic]` moves from
+//! *the evidence is empty* to *the evidence is one row wrong*, and for O2 and O7 that is one arm
+//! per direction. **Every one of the nine is now watched on the second arm**, so the refusal above
+//! is no longer load-bearing for any live verdict — and it stays, because the population an
+//! obligation is asked about can go empty on its own: [`o6`] derives its from the freeze, and a
+//! component that stops declaring a memo census leaves it smaller with no failing set.
 //!
 //! # The evidence is an argument, not a file read
 //!
@@ -1033,12 +1039,14 @@ mod tests {
         );
     }
 
-    /// **Six of the seven are met, and the number is written down.**
+    /// **Seven of the seven are met, and the number is written down.**
     ///
     /// The runtime `register.rs`'s arrangement, one crate up: a list that says how many are green
-    /// makes the next change a deliberate edit rather than a quiet one. Today the answer is **six of
-    /// seven** queries — six obligations, of which O2 is two equalities — and the one that is not
-    /// names the ticket that inverts it.
+    /// makes the next change a deliberate edit rather than a quiet one. Today the answer is **seven
+    /// of seven** obligations — nine queries, because O2 and O7 are two equalities each — and the
+    /// list below is written out rather than counted, so that an obligation going *red* is a
+    /// deliberate edit too. There is no longer a query that names the ticket which inverts it,
+    /// which is what this test existed to make impossible to reach quietly.
     ///
     /// **O1 was the first**, and components ticket 36 was the deliberate edit this test was written
     /// to force: it stood at zero for thirty-five tickets, twenty-five of which shipped a component
@@ -1052,19 +1060,39 @@ mod tests {
     /// [`crate::gallery::panel_ids`] derives so that the two lists are two sources rather than one
     /// read twice. **O6 is the fifth**, and components ticket 44 is its edit — seven rows that take
     /// a data volume, each measured at a million inputs by an instrument that runs the shipped
-    /// component and counts its steps. **O5 is the only one left**, and it is the one worth more
-    /// than the other four together.
+    /// component and counts its steps. **O5 was the last and it is the one worth more than the
+    /// other four together** — production tickets 05 to 09 took the fourteen `(component, axis)`
+    /// pairs that had no scene, and production 07's `tree` pair was the one that emptied the
+    /// failing set. Nothing here turned it: [`o5`] is a query and its evidence is
+    /// [`AXIS_SCENES`], so the edit that turned it was a scene.
     #[test]
-    // **The name is stale since production 07 and this comment is what the policy requires of
-    // it.** All nine are met: that ticket claimed `tree`'s narrow and wheeled axes and O5's
-    // failing set emptied. The recorded rule is *a stale name that carries a note saying so stays;
-    // one that does not is corrected* — see
+    // **Renamed by production 10, from
+    // `eight_of_the_nine_obligation_queries_are_met_and_the_one_left_is_o5`.** Production 07
+    // emptied O5's failing set and left the name stale on purpose, carrying the note the recorded
+    // policy requires — *a stale name that carries a note saying so stays; one that does not is
+    // corrected* — because a name is also how a reader and its register citations find a row, and
+    // 07 edited here only what a green build cannot be left without: the `met` vector below, the
+    // `Met` assertion, and `o5_fails_loudly`'s arm. This ticket is what the note deferred to, and
+    // the rename is not free: it is this line, the module header above, the two register citations
+    // in `crate::gates`, `CLAUDE.md`'s sentence and the components README. The other lineage on
+    // this file chose the other arm and kept its name — see
     // `crate::scenes::tests::seventeen_of_the_thirty_four_axis_obligations_have_a_scene_and_seventeen_do_not`,
-    // which has carried such a note through five moves. **The rename is production ticket 10's**,
-    // together with this name's two register citations, `CLAUDE.md`'s sentence and the components
-    // README; what 07 edited here is only what a green build cannot be left without — the `met`
-    // vector below, the `Met` assertion, and `o5_fails_loudly`'s arm.
-    fn eight_of_the_nine_obligation_queries_are_met_and_the_one_left_is_o5() {
+    // stale through five moves and still carrying its note.
+    //
+    // **What separates the two arms is not the citation count, and a review of this ticket's first
+    // draft is what established that.** That draft said *renamed because it had two citations where
+    // the other has five*, and the measurement runs the other way: this name has **two** register
+    // rows and the kept one has **one**. The five belong to a third test,
+    // `two_scenes_have_nothing_to_run_over_…`, which is the one that *was* renamed — three times —
+    // so the five was never the kept name's price. What buys the keep is `PINS_SCENE_22`'s stated
+    // reason, *`crate::gates`'s row and that list are read together and a rename would make the two
+    // look like two different scenes*, plus the note the policy requires. The rename here is bought
+    // by neither: 07's note named this ticket, so the deferral was already priced.
+    //
+    // **The name is a summary sentence and the assertion is the authority.** Nine of nine is
+    // asserted below whatever this line says, which is what makes a stale name a wrong pointer
+    // rather than a wrong gate.
+    fn all_nine_obligation_queries_are_met_and_o5_was_the_last_to_turn() {
         let declared = crate::consumer::declared(read);
         let all = [
             ("O1", o1(DOC_TESTED)),
@@ -1176,15 +1204,21 @@ mod tests {
         // unexpressible and none of which anything had scheduled. 06 took `table`'s two, 08 the
         // overlay family's four, and **09 the scroll family's three**, which are the first on this
         // list where all three pairs already had an instrument that *could not fail on its own
-        // axis*. **Two are left and they are `tree`'s**, blocked on components architecture 20. A
-        // query that moves is a query that is measuring something.
-        // **Production 07 took `tree`'s last two and the failing set is empty**, so `o5` now
-        // answers `Met` over all thirty-four. **Turning the obligation is production ticket 10's**
-        // — its criteria are the summary list, the panicking watch, the two comments citing a test
-        // name that no longer exists, `CLAUDE.md`'s sentence and the components README — and what
-        // is edited here is only what a green build cannot be left without: this count, the `met`
-        // vector above and `o5_fails_loudly`'s expectation. A ticket may not leave CI red to keep a
-        // boundary tidy, so the boundary is recorded rather than silently crossed.
+        // axis*. And **production 07 took the last two, which were `tree`'s** — the only pair on
+        // the list whose edge was a *decision* rather than an instrument, because components
+        // architecture 20 was open on whether the component draws the three indent guides its
+        // freeze row declared. A query that moves is a query that is measuring something, and this
+        // one has stopped moving because the population is exhausted rather than because nothing
+        // is asking.
+        //
+        // **07 could not leave CI red to keep a boundary tidy**, so it wrote this count, the `met`
+        // vector above and `o5_fails_loudly`'s expectation, and deferred the rest to production 10
+        // — the summary test's name, the two comments citing a test name that no longer exists,
+        // `CLAUDE.md`'s sentence and the components README. **10 has taken them**, and the sentence
+        // it replaced here was *Two are left and they are `tree`'s, blocked on components
+        // architecture 20*, sitting directly above the line that contradicted it. A deferral note
+        // is worth its space until the ticket it names lands; after that it is one more summary
+        // sentence disagreeing with the assertion beside it.
         assert_eq!(o5(AXIS_SCENES), Verdict::Met { over: 34 }, "O5");
         assert_eq!(AXIS_SCENES.len(), 34);
         // **O6 is `Met` over the seven rows that take a volume**, so it is asserted from the other
@@ -1392,9 +1426,18 @@ mod tests {
         // subject of `crate::wheel`'s drive loop until this ticket, so a build that lost the arm
         // would lose the evidence *and* the gate together. The query still notices.
         //
-        // **This is the minimum a green build cannot be left without, and no more.** Production
-        // ticket 10 owns the rest — the summary test's own name, the two comments citing a test
-        // name that no longer exists, `CLAUDE.md`'s sentence and the components README.
+        // **07 wrote the minimum a green build cannot be left without and no more, and production
+        // 10 took the rest**: the summary test's own name and its two register citations, the two
+        // comments citing a test name that no longer exists, `CLAUDE.md`'s sentence and the components
+        // README. Nothing on this arm moved with them — a paperwork ticket that edits a watch is a
+        // paperwork ticket that has changed a gate.
+        //
+        // **The population growing is caught elsewhere and not here.** This arm strikes a pair from
+        // the evidence; a freeze that declares a thirty-fifth axis leaves the evidence untouched
+        // and is caught by the coverage test in `crate::scenes`
+        // (`seventeen_of_the_thirty_four_axis_obligations_have_a_scene_and_seventeen_do_not`),
+        // which asserts `coverage().len()` against 34 and the bare count against 0. Two
+        // directions, two instruments.
         let short: Vec<(&str, Axis)> = AXIS_SCENES
             .iter()
             .copied()
@@ -1452,7 +1495,10 @@ mod tests {
     }
 
     /// **A met verdict does not panic**, which is the other direction of `assert_met` and the
-    /// reason the seven `should_panic` tests above are evidence rather than decoration.
+    /// reason the nine `should_panic` tests above are evidence rather than decoration. **This line
+    /// said seven while nine arms stood above it** — one per query, since O2 and O7 are watched in
+    /// both directions — and production 10 corrected it: the same stale count, in the same file,
+    /// as the header two hundred lines up that it was opened to fix.
     #[test]
     fn a_met_obligation_is_silent() {
         Verdict::of(1, 0, "-", "components 00").assert_met("a met obligation");

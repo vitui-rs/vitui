@@ -1847,7 +1847,7 @@ pub const REGISTER: [Row; 234] = [
             by: &[
                 Instrument::Unit {
                     file: "crates/vitui-components/src/obligations.rs",
-                    name: "eight_of_the_nine_obligation_queries_are_met_and_the_one_left_is_o5",
+                    name: "all_nine_obligation_queries_are_met_and_o5_was_the_last_to_turn",
                 },
                 Instrument::Unit {
                     file: "crates/vitui-components/src/obligations.rs",
@@ -8036,7 +8036,7 @@ pub const REGISTER: [Row; 234] = [
                 },
                 Instrument::Unit {
                     file: OBLIGATIONS,
-                    name: "eight_of_the_nine_obligation_queries_are_met_and_the_one_left_is_o5",
+                    name: "all_nine_obligation_queries_are_met_and_o5_was_the_last_to_turn",
                 },
                 Instrument::Unit {
                     file: OBLIGATIONS,
