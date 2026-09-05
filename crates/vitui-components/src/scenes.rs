@@ -1247,12 +1247,14 @@ const PINS_SCENE_37: &[Instrument] = &[
         file: GRID,
         name: "the_stale_tail_is_cheaper_on_every_counter_that_moves_and_nothing_rises",
     },
-    // **The finding this scene turned up and does not repair**, kept as a standing instrument
+    // **The finding this scene turned up and could not repair**, kept as a standing instrument
     // because a measurement with no test under it is a sentence — production 05's `pointless_oracle`
-    // one component over, and the same review finding behind it.
+    // one component over, and the same review finding behind it. It was a tripwire reading *written
+    // by nothing*; architecture issue 24 answered the question and it fired, so it is now the
+    // repaired gate under its own name.
     Instrument::Unit {
         file: GRID,
-        name: "the_bands_slack_is_written_by_nothing",
+        name: "the_bands_slack_is_written_by_the_band",
     },
     STANDS_ON_TABLE[0],
     STANDS_ON_TABLE[1],
@@ -2409,7 +2411,7 @@ pub const SCENES: [Scene; 47] = [
         gestures: &[Gesture::Swap {
             what: Swap::Repertoire,
         }],
-        decided: "21 -> 1 677 signal pairs; 2 distinctions of 10 lost",
+        decided: "21 -> 1 677 signal pairs; 2 distinctions of 9 lost",
         covers: &[],
         stands: &[],
         owed: false,
@@ -3071,10 +3073,14 @@ pub const SCENES: [Scene; 47] = [
                   writes, 71 fewer verbs — one run a tail row — and `distinct` is 24 000 on both \
                   arms because it is cumulative. The spelling §21 refuses is refused as a number: \
                   played into a rectangle the shrink has already resized, the same refusal is clean. \
-                  **And the axis has a second surface nothing writes**: a band whose columns do not \
-                  fill it leaves the remainder untouched on every arm — 21 760 of 24 000 cells at \
-                  three narrow columns, 66 cells a row in `examples/ledger.rs` — which is \
-                  components architecture 24 and not this ticket's to repair",
+                  **And the axis had a second surface nothing wrote**: a band whose columns do not \
+                  fill it left the remainder untouched on every arm — 21 760 of 24 000 cells at \
+                  three narrow columns, 66 cells a row in `examples/ledger.rs`. Components \
+                  architecture 24 answered it with §2's rule and the band writes its own slack now, \
+                  so the figure is `Slack::Unwritten`'s and the shipped screen leaves 0 untouched. \
+                  **This scene's own numbers did not move**, and could not: every column list here \
+                  exists to put horizontal overflow on the screen, so there was never any slack to \
+                  write — which is also why the defect survived twelve tickets",
         covers: &[("table", Axis::Shrunk)],
         stands: TABLE,
         from_a_survived_defect: false,

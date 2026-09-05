@@ -113,8 +113,12 @@ fn within_component_cross_family_collapse_is_zero_at_every_rung() {
         .iter()
         .flat_map(|c| {
             let mut out = Vec::new();
-            for (i, &a) in c.glyphs.iter().enumerate() {
-                for &b in &c.glyphs[i + 1..] {
+            // The union of what the row draws and what it hands its caller — architecture 25, and
+            // `within_component_collapses`'s own population, for its reason: a collapse is about a
+            // screen and a table's caller draws its separators onto the table's.
+            let on = vitui_components::glyphs::on_screen(c.id);
+            for (i, &a) in on.iter().enumerate() {
+                for &b in &on[i + 1..] {
                     if ascii.glyph(a) == ascii.glyph(b) {
                         out.push((c.id, a, b));
                     }
@@ -167,11 +171,17 @@ fn the_ascii_ellipsis_is_not_an_arrow() {
 /// **Nothing carried by a glyph is ever lost**, which is the half of ADR 0032 the repertoire
 /// decides.
 ///
-/// §16 puts the losses at `0 / 1 / 2 of 10` across the tiers. The tier axis is the barrier this file
-/// opens with, so what is gated here is the invariant that holds down every column: seven of the ten
+/// §16 puts the losses at `0 / 1 / 2 of 9` across the tiers. The tier axis is the barrier this file
+/// opens with, so what is gated here is the invariant that holds down every column: six of the nine
 /// distinctions are carried by a glyph pair, and at the tier this crate can reach not one of them
 /// goes dark at any rung. A spelling that collapsed inside a carrier would show up here rather than
 /// in a screenshot.
+///
+/// **Ten and seven until components architecture 25**, which struck `Distinction::Guide`: its pair
+/// was `(VLine, TeeLeft)` and its drawing is a tree's indent guide, which architecture 20
+/// established this library does not make. The denominator moved and the **table** did not, which is
+/// the point — a glyph is what a theme can spell and a distinction is what a screen can still tell
+/// apart.
 #[test]
 fn no_glyph_carried_distinction_is_lost_at_any_rung() {
     for rung in RUNGS {
@@ -185,7 +195,7 @@ fn no_glyph_carried_distinction_is_lost_at_any_rung() {
             .into_iter()
             .filter(|d| d.carried_by().is_some())
             .count();
-        assert_eq!(carried, 7);
+        assert_eq!(carried, 6);
         for d in Distinction::ALL {
             if let Some((a, b)) = d.carried_by() {
                 assert_ne!(

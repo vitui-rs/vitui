@@ -171,7 +171,7 @@ pub use crate::collect::visible_columns as visible;
 /// against a copy of the code tests the copy.** `ColSpec` keeps its spelling because §21's scene and
 /// this module's whole vocabulary use it; the component calls it [`crate::collect::Column`], and the
 /// two are one type.
-pub use crate::collect::{Band, Column as ColSpec, MAX_COLS, Pin, Solved, solve_columns};
+pub use crate::collect::{Band, Column as ColSpec, MAX_COLS, Pin, Slack, Solved, solve_columns};
 
 /// **The twelve columns of §21's scene**, or the sweep's forty, hundred-and-twenty or
 /// two-hundred-and-forty.
@@ -530,6 +530,8 @@ pub struct Opts {
     pub hsign: HSign,
     /// Whether the tail below the content is written.
     pub tail: TailShape,
+    /// Whether the band writes the part of itself no column claims (architecture issue 24).
+    pub slack: Slack,
 }
 
 impl Default for Opts {
@@ -540,6 +542,7 @@ impl Default for Opts {
             cols: ColVirt::Virtualised,
             hsign: HSign::Plus,
             tail: TailShape::Written,
+            slack: Slack::Written,
         }
     }
 }
@@ -655,29 +658,64 @@ pub fn draw_into<I: Ink>(
     let mut find = |_: &str, _: std::ops::Range<usize>| None;
     let rows = Rows::of(len);
     let area = cx.area();
-    match (o.band, o.cols, o.hsign, o.tail) {
-        (BandShape::View, ColVirt::Virtualised, HSign::Plus, TailShape::Written) => {
+    match (o.band, o.cols, o.hsign, o.tail, o.slack) {
+        (
+            BandShape::View,
+            ColVirt::Virtualised,
+            HSign::Plus,
+            TailShape::Written,
+            Slack::Written,
+        ) => {
             let _ = table_into(
                 ink, cx, area, &mut st, &opts, specs, rows, &mut find, &mut cell,
             );
         }
-        (BandShape::Arithmetic, ColVirt::Virtualised, HSign::Plus, TailShape::Written) => {
+        (
+            BandShape::Arithmetic,
+            ColVirt::Virtualised,
+            HSign::Plus,
+            TailShape::Written,
+            Slack::Written,
+        ) => {
             let _ = coll_defective::arithmetic_band(
                 ink, cx, area, &mut st, &opts, specs, rows, &mut find, &mut cell,
             );
         }
-        (BandShape::View, ColVirt::ClipOnly, HSign::Plus, TailShape::Written) => {
+        (BandShape::View, ColVirt::ClipOnly, HSign::Plus, TailShape::Written, Slack::Written) => {
             let _ = coll_defective::clip_only(
                 ink, cx, area, &mut st, &opts, specs, rows, &mut find, &mut cell,
             );
         }
-        (BandShape::View, ColVirt::Virtualised, HSign::Minus, TailShape::Written) => {
+        (
+            BandShape::View,
+            ColVirt::Virtualised,
+            HSign::Minus,
+            TailShape::Written,
+            Slack::Written,
+        ) => {
             let _ = coll_defective::inverted_sign(
                 ink, cx, area, &mut st, &opts, specs, rows, &mut find, &mut cell,
             );
         }
-        (BandShape::View, ColVirt::Virtualised, HSign::Plus, TailShape::Omitted) => {
+        (
+            BandShape::View,
+            ColVirt::Virtualised,
+            HSign::Plus,
+            TailShape::Omitted,
+            Slack::Written,
+        ) => {
             let _ = coll_defective::table_stale_tail(
+                ink, cx, area, &mut st, &opts, specs, rows, &mut find, &mut cell,
+            );
+        }
+        (
+            BandShape::View,
+            ColVirt::Virtualised,
+            HSign::Plus,
+            TailShape::Written,
+            Slack::Unwritten,
+        ) => {
+            let _ = coll_defective::an_unwritten_band_slack(
                 ink, cx, area, &mut st, &opts, specs, rows, &mut find, &mut cell,
             );
         }
@@ -1192,19 +1230,40 @@ pub fn narrow_columns() -> Vec<ColSpec> {
 /// open today — and that figure is [`ledger_columns`]'s, read off the application's own source and
 /// solved, rather than a number this file typed.
 ///
-/// # Why it is a constant here and not a repair
+/// # It was 21 760 and the repair took it to zero
 ///
-/// Filed as `.scratch/vitui-components-architecture/issues/24`. Deciding it is deciding whether §2's
-/// *a component owes every cell of the rectangle* binds the band's slack to the component or to the
-/// caller's cell drawer, and either answer moves scene 7's own numbers — a band that filled its
-/// remainder would write [`CELLS`] on a screen where it writes fewer, which is
-/// [`VERBS_TWELVE`]'s neighbourhood. A scenes ticket has no standing to move a normative figure.
+/// Architecture issue 24, resolved 2026-09-05, and the answer is §2's: **a component handed a
+/// rectangle writes all of it**, so the band's slack is the component's and `table_with` writes one
+/// run a row from the last column's right edge to the band's. It is `collection`'s tail one axis
+/// over, down to the paint — [`crate::collect::CollOpts::tail`]'s Role — which is what made it a
+/// repair rather than a new drawing.
 ///
-/// **This assertion is a tripwire and it fails when the defect is repaired**, which is the register's
-/// own *pinned red* shape one instrument down: `tests::the_bands_slack_is_written_by_nothing` says so
-/// in as many words, so the day issue 24 is answered the number is a deliberate edit rather than a
-/// quiet one.
-pub const COLUMN_RESIDUE: usize = 21_760;
+/// What decided it against *the caller owes it* was the failure mode rather than the rule: an
+/// untouched cell keeps **whatever was there**, so the first frame after a column set narrows keeps
+/// the wider set's *data* on the screen. That is §17's `shrunk` axis and not a background gap, and
+/// §2's second half is already pinned red on six panels for cases that really are background.
+///
+/// **This assertion was a tripwire and it fired**, which is the register's own *pinned red* shape
+/// one instrument down: it said in as many words that failing meant the defect had been repaired,
+/// and the number moved by a deliberate edit rather than a quiet one. It is kept at 0 rather than
+/// deleted, because the gate that reads it is what would catch the slack going unwritten again.
+///
+/// [`COLUMN_RESIDUE_PER_ROW`] did **not** move, and the two being independent is what makes that
+/// legible: this one counts cells nobody touched on a drawn screen, and that one is the band's
+/// viewport less what its columns claim. The slack is the same size; it is now written.
+pub const COLUMN_RESIDUE: usize = 0;
+
+/// **What the band's slack left untouched before architecture issue 24. 21 760 of 24 000.**
+///
+/// Kept as the *defective* arm's figure rather than as history in a sentence: the repair is
+/// measured against [`crate::collect::defective::an_unwritten_band_slack`], which is the shipped
+/// table with `Slack::Unwritten` — one field — so the two numbers are two runs of one instrument and
+/// not a claim beside a memory.
+///
+/// It is [`COLUMN_RESIDUE_PER_ROW`] over every row of the screen, and that is the product the
+/// repaired build can no longer make: the slack is still 272 cells a row and the drawn screen leaves
+/// **0** untouched, which is only possible if something writes them.
+pub const COLUMN_RESIDUE_WAS: usize = 21_760;
 
 /// **How many cells of a row the narrow band leaves unwritten. Two hundred and seventy-two** —
 /// [`VIEW_W`]'s viewport less the two ten-cell columns inside it.
@@ -1217,6 +1276,10 @@ pub const COLUMN_RESIDUE: usize = 21_760;
 ///
 /// The row figure is the one that transfers: the ledger application's is 66 on the same arithmetic
 /// and a different column list.
+///
+/// **It is unchanged by architecture issue 24**, and that is the point of it being read off the
+/// solve: the slack is still 272 cells wide, and since the repair the component *writes* them. What
+/// moved is [`COLUMN_RESIDUE`], which counts what nobody touched.
 pub const COLUMN_RESIDUE_PER_ROW: usize = 272;
 
 /// **Cells of every row `crates/vitui-apps/examples/ledger.rs` leaves unwritten at [`W`]. Sixty-six.**
@@ -1316,10 +1379,15 @@ pub fn slack_per_row(specs: &[ColSpec], width: u16) -> usize {
 /// can answer: *never touched is its own value and not a blank*, so it is the one instrument here
 /// that can tell a cell painted with a space from a cell nobody wrote.
 pub fn unwritten(specs: &[ColSpec], rows: u64) -> usize {
+    unwritten_with(specs, rows, Opts::correct())
+}
+
+/// [`unwritten`], with the arm named — architecture issue 24's two builds over one instrument.
+pub fn unwritten_with(specs: &[ColSpec], rows: u64, opts: Opts) -> usize {
     let mut driver = crate::runner::driver_at(W, H, Density::default());
     let mut pen = Pen::new(W, H);
     driver.frame(|cx| {
-        let _ = draw_into(&mut pen, cx, specs, Opts::correct(), rows, OFFSET, 0);
+        let _ = draw_into(&mut pen, cx, specs, opts, rows, OFFSET, 0);
     });
     let canvas = pen.into_canvas();
     (0..H)
@@ -1847,15 +1915,16 @@ mod tests {
         }
     }
 
-    /// **The shipped table leaves the band's slack unwritten, and this assertion fails the day that
-    /// is repaired.**
+    /// **The shipped table writes the band's slack, and this assertion was the tripwire that said
+    /// so when it stopped being true.**
     ///
-    /// A **tripwire** and not an approval. It is the shrink axis's second surface — *the rectangle
-    /// loses columns and keeps what was drawn in them* — and unlike the tail no refusal is involved:
-    /// the component does not write those cells on any arm. See [`COLUMN_RESIDUE`] for the
-    /// arithmetic and `.scratch/vitui-components-architecture/issues/24` for the question, which is
-    /// whether §2's *a component owes every cell of the rectangle* binds the slack to the component
-    /// or to the caller's cell drawer.
+    /// It read *written by nothing* until architecture issue 24, and it was a **tripwire** and not
+    /// an approval: 21 760 untouched cells of 24 000, with its own failure message saying that
+    /// failing meant the defect had been repaired. It fired. §2's rule is what decided it — *a
+    /// component handed a rectangle writes all of it* — and the failure mode is what made the
+    /// decision easy rather than close: an untouched cell keeps whatever was there, so this is the
+    /// shrink axis's second surface, *the rectangle loses columns and keeps the wider set's data*,
+    /// and not a background gap.
     ///
     /// The control is what makes it a finding rather than an artefact of this fixture: at
     /// [`columns`]'s twelve the band overflows and **every cell is written**, so the gap is the
@@ -1866,19 +1935,19 @@ mod tests {
     /// documents with nothing computing it; [`ledger_columns`] reads that application's own column
     /// list off disk now, so the figure moves with the list rather than going quietly stale.
     #[test]
-    fn the_bands_slack_is_written_by_nothing() {
+    fn the_bands_slack_is_written_by_the_band() {
         assert_eq!(
             unwritten(&columns(12), VOLUMES[0]),
             0,
-            "a band that overflows its viewport writes every cell of the rectangle, which is the \
-             control this finding needs"
+            "a band that overflows its viewport writes every cell of the rectangle, which was the \
+             control this finding needed and is now the same answer as the other arm"
         );
         assert_eq!(
             unwritten(&narrow_columns(), VOLUMES[0]),
             COLUMN_RESIDUE,
-            "**this failing means the defect was repaired**, not that it arrived: a table whose \
-             columns do not fill the band leaves the remainder untouched, and issues/24 is the \
-             ticket that decides whose those cells are"
+            "a table whose columns do not fill the band writes the remainder itself since \
+             architecture issue 24, so **both** column lists leave nothing untouched — the control \
+             and the subject agree, and what tells them apart is `slack_per_row` below"
         );
         // **The per-row figure is read off the solve and not divided out of the one above**, which
         // is what it was until a review said so: `COLUMN_RESIDUE / H` multiplied back by `H` is one
@@ -1890,10 +1959,29 @@ mod tests {
             COLUMN_RESIDUE_PER_ROW,
             "the slack is the viewport less what the columns claim"
         );
+        // **The product is the defective arm's now, and that is the whole repair as a
+        // measurement.** While the slack was unwritten these two were one fact in two units;
+        // since the repair the shipped build breaks the identity — the solve still says 272 cells
+        // a row belong to no column, and the drawn screen leaves **0** untouched — which is only
+        // possible if the band writes them. So the product moves to the arm that still satisfies
+        // it, and the two arms differ by exactly the slack.
         assert_eq!(
             COLUMN_RESIDUE_PER_ROW * H as usize,
-            COLUMN_RESIDUE,
-            "the solve's slack over every row is the screen's untouched cells"
+            COLUMN_RESIDUE_WAS,
+            "the solve's slack over every row is what the unrepaired band left untouched"
+        );
+        assert_eq!(
+            unwritten_with(
+                &narrow_columns(),
+                VOLUMES[0],
+                Opts {
+                    slack: Slack::Unwritten,
+                    ..Opts::correct()
+                }
+            ),
+            COLUMN_RESIDUE_WAS,
+            "and `Slack::Unwritten` is that build, so the figure is a run of the instrument rather \
+             than a number this file remembers"
         );
         assert_eq!(
             slack_per_row(&columns(12), W),

@@ -26,7 +26,7 @@
 //! # `t` is not cosmetic, and this screen is where it is cheap enough to be a key
 //!
 //! `t` re-imports and re-resolves the whole theme on a live frame — fourteen schemes, thirteen
-//! roles, ten distinctions, both axes of §16's matrix. That is the test of *degradation is resolved
+//! roles, nine distinctions, both axes of §16's matrix. That is the test of *degradation is resolved
 //! at construction, never branched at the draw* (ADR 0032): if construction quietly meant *at
 //! start-up*, this key would stutter. `examples/gallery_numbers.rs` prints what it costs.
 //!

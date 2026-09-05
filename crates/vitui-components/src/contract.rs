@@ -594,10 +594,34 @@ mod live {
         Rect::new(0, 0, 24, 1)
     }
 
+    /// **A collection is swept twice, with a selection and without** — architecture issue 22.
+    ///
+    /// `Escape` is answered only when there is something to clear. It is the one chord in §5's table
+    /// whose default owner is the *container* rather than the widget, so a collection with nothing
+    /// selected declines it and a modal dialog gets its key. A sweep that only ever drives a fresh
+    /// [`CollState`] therefore reports the binding dead, which is a gate playing a conditional
+    /// binding in the one state its condition is false in.
+    ///
+    /// The answer is the **OR** over the two states, which is [`select`]'s own arrangement one
+    /// component over: `select_seated` opens the popup because `Esc` means *close it* only while it
+    /// is open. Every other chord is answered from the unseeded arm exactly as before, so the OR
+    /// adds `Escape` and nothing else — which
+    /// `super::tests::the_selection_decides_only_a_collections_escape` is the check of.
     pub fn collection(t: Trigger) -> bool {
+        collection_holding(t, false) || collection_holding(t, true)
+    }
+
+    /// [`collection`]'s sweep, with the selection seeded or empty.
+    pub fn collection_holding(t: Trigger, holding: bool) -> bool {
         probe(
             t,
-            CollState::new,
+            move || {
+                let mut st = CollState::new();
+                if holding {
+                    st.sel.select_only(1);
+                }
+                st
+            },
             |pen: &mut Pen, cx: &mut Ctx<'_, '_>, st: &mut CollState| {
                 // **`Mode::Multi`, which is where §5's pointer half is whole.** The default is
                 // `Mode::Single`, where `apply` answers `Plain` and `Toggle` with the same call —
@@ -627,9 +651,21 @@ mod live {
     }
 
     pub fn table(t: Trigger) -> bool {
+        table_holding(t, false) || table_holding(t, true)
+    }
+
+    /// [`table`]'s sweep, with the selection seeded or empty. See [`collection`] for why a
+    /// collection-backed component is swept twice.
+    pub fn table_holding(t: Trigger, holding: bool) -> bool {
         probe(
             t,
-            TableState::new,
+            move || {
+                let mut st = TableState::new();
+                if holding {
+                    st.coll.sel.select_only(1);
+                }
+                st
+            },
             |pen: &mut Pen, cx: &mut Ctx<'_, '_>, st: &mut TableState| {
                 let cols = [
                     Column::new(0, "id", Constraint::Fixed(4)),
@@ -662,9 +698,15 @@ mod live {
     }
 
     pub fn tree(t: Trigger) -> bool {
+        tree_holding(t, false) || tree_holding(t, true)
+    }
+
+    /// [`tree`]'s sweep, with the selection seeded or empty. See [`collection`] for why a
+    /// collection-backed component is swept twice.
+    pub fn tree_holding(t: Trigger, holding: bool) -> bool {
         probe(
             t,
-            || {
+            move || {
                 // **The index is state and not a local**, which is ADR 0031's own rule arriving in
                 // a gate: `Order::built` stamps `Revision::fresh()`, and a collection handed a
                 // revision it has not seen **clears the selection**, because every field of the
@@ -672,8 +714,12 @@ mod live {
                 // it is a new order every frame, so the three pointer gestures read dead — a
                 // ctrl-click and a plain click leave the same picture, for the same reason a
                 // caller who rebuilds its index every frame has no selection.
+                let mut seeded = TreeState::new();
+                if holding {
+                    seeded.coll.sel.select_only(1);
+                }
                 (
-                    TreeState::new(),
+                    seeded,
                     // **Six, like every other list-shaped probe**: the type-ahead's corpus is
                     // `NAMES`, and a four-row index leaves `zeta` unreachable, so the text *class*
                     // comes apart into two answers on one component.
@@ -715,9 +761,21 @@ mod live {
     }
 
     pub fn pagination(t: Trigger) -> bool {
+        pagination_holding(t, false) || pagination_holding(t, true)
+    }
+
+    /// [`pagination`]'s sweep, with the selection seeded or empty. See [`collection`] for why a
+    /// collection-backed component is swept twice.
+    pub fn pagination_holding(t: Trigger, holding: bool) -> bool {
         probe(
             t,
-            CollState::new,
+            move || {
+                let mut st = CollState::new();
+                if holding {
+                    st.sel.select_only(1);
+                }
+                st
+            },
             |pen: &mut Pen, cx: &mut Ctx<'_, '_>, st: &mut CollState| {
                 let opts = PageOpts::default();
                 pagination_into(pen, cx, strip(), st, 9, &opts).id
@@ -1221,12 +1279,24 @@ const COLLECTION_FULL: &[Bind] = &[
     ),
     key(Code::Char(' '), 21, "Toggle the row under the cursor"),
     deaf(Code::Char('a'), Mods::CTRL, 22, "Select every row"),
-    key(Code::Escape, 23, "Clear the selection"),
-    // ── and the four a pager does not have ────────────────────────────────────────────────────────
+    // ── and the five a pager does not have ────────────────────────────────────────────────────────
     //
     // `pagination` reaches `CollState` and the thirteen arms of `apply` and reaches neither the
     // type-ahead nor `from_click`: it has no labels to seek and reads `Gesture::Plain` from its own
     // arithmetic, so a modified click on a page number is a plain one (components 35).
+    //
+    // **`Escape` is the fifth and it joined this group by being answered rather than by being
+    // declared** (architecture issue 22). A pager is `Mode::Options` — *exactly one, and it can
+    // never become zero* — so `apply` ignores `Gesture::Nothing` there and there has never been
+    // anything for the key to clear. It was declared, swallowed and did nothing for the whole of
+    // this crate's life, which is the defect issue 22 is about in its purest form: the sweep could
+    // not see it, because a key that is consumed reads as answered whatever it did. Clearing a
+    // selection that can be empty is a **listing's** property and this is where it belongs.
+    key(
+        Code::Escape,
+        23,
+        "Clear the selection; with nothing selected the key goes to whatever this is inside",
+    ),
     // **The deadline is in the words**, because the ticket names the contract as *type-ahead with a
     // deadline* and a buffer that lapses is the half a user notices. [`TYPE_AHEAD_LAPSES`] holds
     // the sentence to `crate::nav::WINDOW`, so the prose cannot drift from the constant.
@@ -1240,36 +1310,35 @@ const COLLECTION_FULL: &[Bind] = &[
 ];
 
 /// Where [`COLLECTION_FULL`] stops being a pager's contract and starts being a listing's.
-const PAGER_BINDS: usize = 23;
+///
+/// **Twenty-two since architecture issue 22**, which moved `Escape` across the line: a pager is
+/// [`crate::collect::Mode::Options`] and `apply` ignores [`crate::collect::Gesture::Nothing`] there,
+/// so the key it declared could never clear anything.
+const PAGER_BINDS: usize = 22;
 
-/// **What a pager declares: [`COLLECTION_FULL`] without the listing's four.**
+/// **What a pager declares: [`COLLECTION_FULL`] without the listing's five.**
 ///
 /// The other half — the type-ahead and the three pointer gestures — has no constant of its own,
 /// because nothing declares it: it is what a row loop *adds*, and
 /// `tests::the_three_collections_declare_the_pager_plus_the_listing` takes it off the same slice.
 const COLLECTION: &[Bind] = COLLECTION_FULL.split_at(PAGER_BINDS).0;
 
-/// **§12's overlay family, from the owner's side.** Open it, and close it while it is open.
-///
-/// This is `file_picker`'s whole contract and only the first four rows of [`SELECT`]'s, which is a
-/// **defect** rather than a design and is stated as a number — see [`PICKER_IS_MISSING`].
-const OVERLAY_OWNER: &[Bind] = &[
-    key(Code::Enter, 1, "Open the list"),
-    key(Code::Char(' '), 2, "Open the list"),
-    // **`Shift+Down` opens it too**, where `select` reads the same chord as *extend the selection*
-    // — the difference between `key` and `only` here is the whole of [`PICKER_IS_MISSING`] in one
-    // line: a picker's popup has no selection to extend.
-    key(Code::Down, 3, "Open the list"),
-    key(Code::Escape, 4, "Close it"),
-];
-
-/// **`select`: the owner's four, and the popup's list underneath them.**
+/// **§12's overlay family: the owner's four, and the popup's list underneath them.**
 ///
 /// A component with two keyboards, and the contract is the **union** because a help bar is about a
 /// component and not about one of its states: shut, the owner's drain loop runs; open, *the popup
 /// takes the keyboard from its owner* (components 26), and what answers is §5's collection at
 /// `Mode::Single` plus the popup's own `Enter` and `Esc`. Three lines therefore name both meanings,
 /// because one spelling does two things across the two states.
+///
+/// **Both owners declare it, since architecture issue 23.** They were one drawing (components 32)
+/// and two declarations, and the second was an `OVERLAY_OWNER` of four binds — the picker's *owner*,
+/// with its popup declaring nothing, because its popup answered nothing. That constant is gone and
+/// the equality is the type system's; what is still asserted is that the two **bodies** answer the
+/// same spellings, which is
+/// `tests::the_two_overlay_owners_declare_one_contract`'s second half.
+///
+/// The words say *row* and both read it: a `select`'s row is an option and a picker's is a file.
 const SELECT: &[Bind] = &[
     key(
         Code::Enter,
@@ -1427,7 +1496,7 @@ pub const CONTRACTS: &[Contract] = &[
     },
     Contract {
         id: "file_picker",
-        binds: OVERLAY_OWNER,
+        binds: SELECT,
         live: live::file_picker,
     },
     Contract {
@@ -1516,15 +1585,21 @@ pub const REGISTERED: [(&str, usize); 13] = [
     ("collection", 34),
     ("table", 34),
     ("tree", 34),
-    // **Four fewer, and the four are the listing's**: a pager has no labels to seek and reads
+    // **Six fewer, and the six are the listing's**: a pager has no labels to seek and reads
     // `Gesture::Plain` from its own arithmetic, so the type-ahead and the three pointer gestures
-    // are `collection`'s and not the store's.
-    ("pagination", 30),
+    // are `collection`'s and not the store's — and since architecture issue 22, `Escape` and its
+    // `Shift` twin are too. A pager is `Mode::Options`, where `apply` ignores `Gesture::Nothing`,
+    // so the key had nothing to clear and was swallowed anyway; it now reaches whatever the pager
+    // is inside. **Thirty was this number for the whole of the crate's life and two of it were a
+    // key that did nothing.**
+    ("pagination", 28),
     // **Thirty-five, and the popup's twenty-seven are most of it**: open, the list takes the
     // keyboard from its owner and answers §5's collection at `Mode::Single`.
     ("select", 35),
-    // **Eight, and the gap is [`PICKER_IS_MISSING`]** rather than a smaller component.
-    ("file_picker", 8),
+    // **Thirty-five, the same as `select`**, since architecture issue 23 gave the picker's popup a
+    // keyboard. Eight until then, and the gap was [`PICKER_IS_MISSING`] rather than a smaller
+    // component: an open picker could only be used with a mouse and the eight were its *owner's*.
+    ("file_picker", 35),
     ("field", 25),
     ("form", 17),
     ("collapsible", 4),
@@ -1556,23 +1631,28 @@ pub const RULER_REMOVES: usize = 6;
 /// back against [`crate::nav::WINDOW`].
 pub const TYPE_AHEAD_LAPSES: &str = "the buffer lapses after a second";
 
-/// **What a `file_picker`'s open popup does not answer that a `select`'s does. 27.**
+/// **What a `file_picker`'s open popup does not answer that a `select`'s does. 0 — it was 27.**
 ///
-/// The two are one family and, until this ticket, one declaration. They are not: `select`'s popup
-/// **takes the keyboard from its owner** — `if cx.is_focused(owner) { cx.focus(list) }`, which is
-/// components 26's repair after `console` found the arrows dead — and reads `Enter` and `Esc`
-/// through `collect::Refusal`. `file_picker`'s popup does neither: it draws a `collection_into`,
-/// never seats a focus and declares no refusal, so **an open picker can only be used with a
-/// mouse**. Its list has no arrows, no `Home`, no type-ahead and no way to choose a file.
+/// The two are one family and one drawing (components 32) and were **two keyboards** for eight
+/// tickets, which is what components architecture issue 23 was filed about. `select`'s popup takes
+/// the keyboard from its owner — `if cx.is_focused(owner) { cx.focus(list) }`, components 26's
+/// repair after `console` found the arrows dead — and reads `Enter` and `Esc` through
+/// `collect::Refusal`. `file_picker`'s popup did neither: it drew a collection, seated no focus and
+/// declared no refusal, so **an open picker could only be used with a mouse**. No arrows, no
+/// `Home`, no type-ahead and no way to choose a file. **35 against 8 over one family**, and the 8
+/// were the *owner's* four binds, which went on working because nothing had taken the keyboard off
+/// it.
 ///
-/// **35 against 8 over one family**, and the shape is components 32's own sentence from the other
-/// side: that ticket made the shut face *one drawing* because two copies of a drawing that has
-/// already been wrong once is one copy too many — and the keyboard was the half that stayed
-/// transcribed. Filed as components architecture issue 23 rather than repaired here: seating a
-/// focus and minting a refusal inside `picker_body` is a component's keyboard being designed, which
-/// is `files.rs`'s ticket and not this one. `crate::contract::tests::the_two_overlay_owners_do_not_declare_one_contract`
-/// is the number, so the day it is repaired the count fails rather than the gate quietly widening.
-pub const PICKER_IS_MISSING: usize = 27;
+/// It rendered perfectly, which is why nothing caught it: every gate in `crate::files` and
+/// `crate::preview` drives the picker with a pointer or asserts about the pane.
+///
+/// **Issue 23 repaired it and this constant is kept at 0 rather than deleted**, because the gate
+/// that reads it — `tests::the_two_overlay_owners_declare_one_contract` — is what would catch the
+/// two coming apart again, and a number that records a repair carries the reason a deleted one
+/// cannot. The repair also settled the pointer half nobody had named: the picker answered a click
+/// on `Response::clicked` where `select` answers `press_began`, so a drive that ends at the press
+/// never reached it, and the two click gestures were 2 of the 27.
+pub const PICKER_IS_MISSING: usize = 0;
 
 /// **What survives a collection's pointer half at `Mode::Single`. 2 of 3.**
 ///
@@ -1799,7 +1879,10 @@ mod tests {
             .iter()
             .flat_map(Bind::spellings)
             .collect();
-        assert_eq!(listing.len(), 4);
+        // **Six spellings over five binds**, and it was four over four until architecture issue 22
+        // moved `Escape` into this group: `key` declares a chord and its `Shift` twin, so the one
+        // bind that is not a click or the text class carries two.
+        assert_eq!(listing.len(), 6);
         assert_eq!(
             full,
             pager
@@ -1939,15 +2022,19 @@ mod tests {
     /// row, so the widget was swallowing the accelerator *and* answering it with a cluster.
     #[test]
     fn the_four_chord_leaks_are_shut() {
-        let leaks: [(&str, Trigger); 7] = [
+        let leaks: [(&str, Trigger); 8] = [
             ("field", Trigger::Key(Chord::new(Code::Left).ctrl())),
             ("field", Trigger::Key(Chord::new(Code::Backspace).ctrl())),
-            // **Not `Ctrl+Down` for `select`**: open, its popup's `ctrl_step` owns that chord, and
-            // a leak test that named it would be asserting the absence of a shipped binding. The
-            // two below are the owner's own keys with a modifier on them, which nothing here binds.
+            // **Not `Ctrl+Down` for either overlay owner**: open, the popup's `ctrl_step` owns that
+            // chord, and a leak test that named it would be asserting the absence of a shipped
+            // binding. It *was* named for `file_picker` until architecture issue 23, and it was a
+            // true statement about a component with no keyboard rather than a leak being shut —
+            // which is the same sentence as the issue itself. The four below are the two owners'
+            // own keys with a modifier on them, which nothing binds on either.
             ("select", Trigger::Key(Chord::new(Code::Enter).ctrl())),
             ("select", Trigger::Key(Chord::key(' ').ctrl())),
-            ("file_picker", Trigger::Key(Chord::new(Code::Down).ctrl())),
+            ("file_picker", Trigger::Key(Chord::new(Code::Enter).ctrl())),
+            ("file_picker", Trigger::Key(Chord::key(' ').ctrl())),
             ("collection", Trigger::Key(Chord::new(Code::Escape).ctrl())),
             ("collection", Trigger::Key(Chord::key(' ').alt())),
         ];
@@ -2022,34 +2109,39 @@ mod tests {
         );
     }
 
-    /// **`select` and `file_picker` do *not* declare one contract, and the difference is a
-    /// defect** — see [`PICKER_IS_MISSING`].
+    /// **`select` and `file_picker` declare one contract, and the day they stopped was the defect.**
     ///
-    /// They are one family and one drawing (components 32), and the keyboard is the half that
-    /// stayed transcribed: `select`'s popup takes the keyboard and reads `Enter` and `Esc`;
-    /// `file_picker`'s seats no focus and declares no refusal, so an open picker can only be used
-    /// with a mouse. The equality is asserted on the **owner's four** — which really are one
-    /// contract — and the rest is a count, so the day issue 23 is answered this fails rather than
-    /// quietly widening.
+    /// They are one family and one drawing (components 32), and until architecture issue 23 the
+    /// keyboard was the half that stayed transcribed: `select`'s popup takes the keyboard and reads
+    /// `Enter` and `Esc`, and `file_picker`'s seated no focus and declared no refusal, so an open
+    /// picker could only be used with a mouse. **35 against 8 over one family**, held here as
+    /// [`PICKER_IS_MISSING`] so that the repair would fail this gate rather than quietly widen it.
+    ///
+    /// Issue 23 repaired it and this is the gate the other way up: the two share **one `&[Bind]`**,
+    /// so the equality is now the type system's and what is left to assert is that the *sweep*
+    /// agrees — two components running two different bodies answering the same thirty-five
+    /// spellings. `PICKER_IS_MISSING` stays as the number, at **0**, because a count that records a
+    /// repair is worth more than a deleted constant: the gate that reads it is what would catch the
+    /// two coming apart again.
     #[test]
-    fn the_two_overlay_owners_do_not_declare_one_contract() {
+    fn the_two_overlay_owners_declare_one_contract() {
         let picker = contract("file_picker").documented();
         let select = contract("select").documented();
-        assert_eq!(picker.len(), 8, "the picker's owner is four binds");
+        assert_eq!(picker, select, "one family, one declaration");
         assert_eq!(select.len() - picker.len(), PICKER_IS_MISSING);
-        assert_eq!(PICKER_IS_MISSING, 27);
-        // The owner's half is shared, and *that* is the equality components 32 earned: the three
-        // opening keys and the close, in the same order, with the same words.
-        for (a, b) in OVERLAY_OWNER.iter().zip(SELECT) {
-            assert_eq!(
-                a.trigger.chord().map(|c| c.code),
-                b.trigger.chord().map(|c| c.code)
-            );
-        }
-        // And the one line where the two spellings differ is `Down`, because a picker's popup has
-        // no selection for `Shift+Down` to extend.
+        assert_eq!(PICKER_IS_MISSING, 0);
+        assert_eq!(picker.len(), 35, "and thirty-five is what both answer");
+        // **Both are swept, not just declared.** The declaration being one slice makes the equality
+        // above free; this is the half that still costs something, and it is the half issue 23 was
+        // about — `registered()` runs the shipped component.
+        assert_eq!(
+            contract("file_picker").registered(),
+            contract("select").registered(),
+            "the two owners run different bodies and must answer the same spellings"
+        );
+        // And `Shift+Down` is a spelling both carry, which was the one line where they differed:
+        // a picker's popup now has a selection for it to extend, because it has a keyboard at all.
         assert!(picker.contains(&"Shift+Down".to_string()));
-        assert!(select.contains(&"Shift+Down".to_string()));
     }
 
     /// **One text class, two mechanisms — and only one of them has a deadline to state.**
@@ -2078,9 +2170,21 @@ mod tests {
                 }
             }
         }
-        // The three collections share one declaration; `select`'s popup and `form` have their own.
-        // `pagination` has no labels to seek and declares no text bind at all.
-        assert_eq!(seeks, vec!["collection", "table", "tree", "select", "form"]);
+        // The three collections share one declaration, and since architecture issue 23 `select` and
+        // `file_picker` share a second one — the overlay family's, whose popup list seeks its own
+        // labels. `form` has its own. `pagination` has no labels to seek and declares no text bind
+        // at all.
+        assert_eq!(
+            seeks,
+            vec![
+                "collection",
+                "table",
+                "tree",
+                "select",
+                "file_picker",
+                "form"
+            ]
+        );
         assert_eq!(types, vec!["field"]);
     }
 

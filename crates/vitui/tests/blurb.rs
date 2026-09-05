@@ -371,3 +371,42 @@ fn no_status_section_describes_a_finished_crate_as_unfinished() {
         }
     }
 }
+
+/// **The data-volume invariant is the engine's, and the repository README is where a stranger meets
+/// it first.** The engine never iterates application data, so the invariant holds there without
+/// exception; a component that must fold does not, and states the same budget as a split instead.
+/// A page that gives a reader the first half alone tells them something `chart` does not do — which
+/// is components architecture 19, filed because the sentence is quoted in twenty-odd places and
+/// none of them is where a stranger reads it.
+///
+/// **The join is prose against a mechanism and it fails from either side**: the split going missing
+/// from the page, or [`population`] emptying, which would make the exception a limitation this
+/// library no longer has and the paragraph an apology for nothing. Both needles are assembled from
+/// halves, for this file's stated reason.
+///
+/// [`population`]: vitui::components::volume::population
+#[test]
+fn the_data_volume_invariant_is_never_stated_without_its_exception() {
+    let folding = vitui::components::volume::population();
+    assert!(
+        !folding.is_empty(),
+        "no row of the freeze takes a data volume any more, so the repository README's exception \
+         describes a limitation this library does not have: strike the sentence and this gate with \
+         it, rather than leaving prose that is merely no longer wrong"
+    );
+    let repository = std::fs::read_to_string(root().join("README.md")).expect("repository README");
+    let opening = opening_paragraph(&repository);
+    let invariant = needle("never to data", " volume");
+    let split = needle("the edit costs", " the data");
+    assert!(
+        opening.contains(&invariant),
+        "the repository README's opening paragraph no longer states the data-volume invariant, so \
+         this gate is watching a sentence that has moved:\n  {opening}"
+    );
+    assert!(
+        opening.contains(&split),
+        "the repository README states the data-volume invariant without the split that {} rows of \
+         the freeze live under ({folding:?}) — components architecture 19:\n  {opening}",
+        folding.len()
+    );
+}

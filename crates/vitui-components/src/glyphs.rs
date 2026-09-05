@@ -1,4 +1,4 @@
-//! Spec §16's catalogue as a value: **six families over twenty entries, ten distinctions, and the
+//! Spec §16's catalogue as a value: **six families over twenty entries, nine distinctions, and the
 //! nine-cell matrix as a count rather than as nine screenshots.**
 //!
 //! > A distinction survives the whole matrix iff it is carried on both axes. (ADR 0032)
@@ -258,8 +258,14 @@ pub const DRAWERS: &[Drawer] = &[
 ///
 /// **All five are one set and one missing construction: the box junctions.** A junction exists where
 /// two rules meet, `panel` draws a border and no component in this crate draws two rules that meet —
-/// `table` draws no rule at all, and its cells' separators are its caller's. They are demanded by
-/// `table`'s row alone, which is where the remaining question is filed.
+/// `table` draws no rule at all, and its cells' separators are its caller's.
+///
+/// **Since architecture 25 they are `table`'s [`DELEGATED`] entries and not its demand column's**,
+/// which is the answer to the question that used to be filed here: this crate not drawing them is a
+/// fact about this crate, and the entries exist so a **caller** drawing a table's separators can get
+/// them from the theme instead of hard-coding a `┼` that breaks at `Repertoire::Ascii`. `UNDRAWN` is
+/// unchanged as a value — it is still *what no line of `vitui-components` draws* — and what changed
+/// is that it no longer reads as a disagreement with the freeze.
 #[derive(Clone, Copy, Debug)]
 pub struct Undrawn {
     /// The entry.
@@ -291,6 +297,118 @@ pub const UNDRAWN: &[Undrawn] = &[
         demanded_by: "table",
     },
 ];
+
+/// **An entry a component's *caller* must be able to spell, and the component that hands it over.**
+///
+/// Architecture issue 25's answer, and it exists because the freeze's `glyphs` column turned out to
+/// be answering two questions with one list. Issue 20 settled the column's verb — it is **draws** —
+/// and then five entries were left demanded by `table` and drawn by nothing, which read as the same
+/// false claim one row over. It is not the same claim, and the difference is §6:
+///
+/// > A table draws its **columns**. Its column separators are its caller's cells (§2: the cell
+/// > drawer owes every cell of its rectangle).
+///
+/// So a caller drawing a table's separators needs a rule down, a rule across where the header
+/// divides, and a **junction** wherever the two meet — and it needs them from the *theme*, because
+/// a caller that hard-codes `│` and `┼` is a caller whose table breaks at `Repertoire::Ascii`.
+/// That is what [`Glyph`] is for. The entries are not undrawn debt; they are vocabulary handed over
+/// with the job.
+///
+/// # Why this is not the reading architecture 20 refused to invent
+///
+/// 20 struck `tree`'s `VLine`, `TeeLeft` and `BottomLeft` rather than re-homing them, and refused to
+/// invent an *allocation* meaning for the column silently. The two cases differ on one fact and it
+/// is decisive: **a tree's indent guide cannot be drawn by anyone**, because a guide column at depth
+/// *d* is a fact about *d* ancestors and §7 refuses all four routes to it — so there is no caller to
+/// delegate to and the entries were owed to nobody. A table's separators can be drawn, by exactly
+/// the caller §6 assigns them to, in the cell drawer it already has.
+///
+/// Inventing it **deliberately** was the third option issue 25 named, and this is it, with the
+/// column split rather than overloaded: `Component::glyphs` stays *what this component draws* and
+/// this is *what its caller must be able to spell*. Two lists, two verbs, and
+/// `tests::the_demand_column_is_filled_and_joined_against_the_table` reads their union — so no
+/// entry of [`Glyph::ALL`] is unowned and none of them is claimed as a drawing.
+///
+/// **The collapse gate reads the union too**, and that is not bookkeeping: a caller's separators and
+/// the table's own ellipsis land on **one screen**, which is exactly the question
+/// *within-component cross-family collapse* asks.
+#[derive(Clone, Copy, Debug)]
+pub struct Delegated {
+    /// The row that hands it over.
+    pub component: &'static str,
+    /// The entry its caller must be able to spell.
+    pub glyph: Glyph,
+}
+
+/// The eleven entries [`crate::INVENTORY`] hands to a caller rather than drawing. See [`Delegated`].
+///
+/// All of them are `table`'s and they are §16's `rule` family, its four corners and its five
+/// junctions — the whole vocabulary of a box drawn around and between a table's columns.
+pub const DELEGATED: &[Delegated] = &[
+    Delegated {
+        component: "table",
+        glyph: Glyph::HLine,
+    },
+    Delegated {
+        component: "table",
+        glyph: Glyph::VLine,
+    },
+    Delegated {
+        component: "table",
+        glyph: Glyph::TopLeft,
+    },
+    Delegated {
+        component: "table",
+        glyph: Glyph::TopRight,
+    },
+    Delegated {
+        component: "table",
+        glyph: Glyph::BottomLeft,
+    },
+    Delegated {
+        component: "table",
+        glyph: Glyph::BottomRight,
+    },
+    Delegated {
+        component: "table",
+        glyph: Glyph::TeeTop,
+    },
+    Delegated {
+        component: "table",
+        glyph: Glyph::TeeBottom,
+    },
+    Delegated {
+        component: "table",
+        glyph: Glyph::TeeLeft,
+    },
+    Delegated {
+        component: "table",
+        glyph: Glyph::TeeRight,
+    },
+    Delegated {
+        component: "table",
+        glyph: Glyph::Cross,
+    },
+];
+
+/// **Everything one row of the freeze puts on one screen**: what it draws and what its caller draws
+/// with the entries it hands over.
+///
+/// The population every gate about *one component's glyphs* reads, because a collapse is a question
+/// about a screen and a caller's separators are on the component's screen.
+pub fn on_screen(id: &str) -> Vec<Glyph> {
+    let mut out: Vec<Glyph> = crate::INVENTORY
+        .iter()
+        .find(|c| c.id == id)
+        .map(|c| c.glyphs.to_vec())
+        .unwrap_or_default();
+    for d in DELEGATED {
+        if d.component == id && !out.contains(&d.glyph) {
+            out.push(d.glyph);
+        }
+    }
+    out
+}
 
 /// The needle a [`Drawer`] is looked for with, assembled rather than written down.
 ///
@@ -383,6 +501,12 @@ pub const NAMES_WITHOUT_DRAWING: &[(&str, &str, &str)] = &[
     ),
     ("glyphs.rs", "pub const ", "DRAWERS: &[Drawer] = &["),
     ("glyphs.rs", "pub const ", "UNDRAWN: &[Undrawn] = &["),
+    // **Architecture 25's second list, and it is this trap's fifth instance.** `DELEGATED` names
+    // every entry `table` hands to its caller, and the `UNDRAWN` scan's needle is the *bare*
+    // `Glyph::…` path rather than a call — deliberately, because *is this drawn anywhere* is a
+    // broader question than *is it called here*. So the table satisfied the scan the moment it
+    // existed: a scanner looking for a literal contains that literal.
+    ("glyphs.rs", "pub const ", "DELEGATED: &[Delegated] = &["),
     (
         "glyphs.rs",
         "pub fn ",
@@ -491,8 +615,14 @@ pub fn cross_family_collapses(theme: &Theme) -> Vec<(Glyph, Glyph)> {
 pub fn within_component_collapses(theme: &Theme) -> Vec<(&'static str, Glyph, Glyph)> {
     let mut out = Vec::new();
     for c in INVENTORY {
-        for (i, &a) in c.glyphs.iter().enumerate() {
-            for &b in &c.glyphs[i + 1..] {
+        // **[`on_screen`] and not `c.glyphs`**, since architecture 25 split the column: a collapse
+        // is a question about *one screen*, and a table's caller draws its separators onto the
+        // table's screen. Reading the drawn set alone would have taken this crate's loudest figure
+        // from forty-two pairs to six by moving eleven entries to another list — which is a report
+        // about bookkeeping and not about a screen.
+        let on = on_screen(c.id);
+        for (i, &a) in on.iter().enumerate() {
+            for &b in &on[i + 1..] {
                 if family(a) != family(b) && theme.glyph(a) == theme.glyph(b) {
                     out.push((c.id, a, b));
                 }
@@ -565,7 +695,7 @@ pub fn signal_collapses(theme: &Theme) -> usize {
 /// The distinctions this theme no longer shows, of ten.
 ///
 /// **The number a component acts on**, and §16's point is that it is far smaller than the pair
-/// count — 2 of 10 against 13 of 78 — because most role pairs are never asked to be told apart.
+/// count — 2 of 9 against 13 of 78 — because most role pairs are never asked to be told apart.
 pub fn distinctions_lost(theme: &Theme) -> Vec<Distinction> {
     Distinction::ALL
         .into_iter()
@@ -764,12 +894,37 @@ mod tests {
                 }
             }
         }
-        // Every debt §16 records closed is a debt something now draws. An entry nobody asks for is
-        // a table row written for a reader rather than for a caller.
+        // Every debt §16 records closed is a debt something now draws **or hands to a caller**. An
+        // entry nobody asks for on either count is a table row written for a reader rather than for
+        // a caller, which is the sentence this loop has always been.
+        //
+        // The union is architecture 25's: the column answers *draws* and [`DELEGATED`] answers
+        // *what this component's caller must be able to spell*, and `table`'s eleven are the second
+        // — §6 gives a table's separators to the cell drawer, and a caller that hard-codes `│` and
+        // `┼` has a table that breaks at `Repertoire::Ascii`.
+        for d in DELEGATED {
+            assert!(
+                INVENTORY.iter().any(|c| c.id == d.component),
+                "`{}` delegates {:?} and is not a row of the freeze",
+                d.component,
+                d.glyph
+            );
+            assert!(
+                !INVENTORY
+                    .iter()
+                    .any(|c| c.id == d.component && c.glyphs.contains(&d.glyph)),
+                "`{}` both draws and delegates {:?}, so one of the two lists is wrong about it",
+                d.component,
+                d.glyph
+            );
+            if !demanded.contains(&d.glyph) {
+                demanded.push(d.glyph);
+            }
+        }
         for g in Glyph::ALL {
             assert!(
                 demanded.contains(&g),
-                "{g:?} is in the table and no row of the freeze draws it"
+                "{g:?} is in the table and no row of the freeze draws it or hands it to a caller"
             );
         }
         let drawing = INVENTORY.iter().filter(|c| !c.glyphs.is_empty()).count();
@@ -784,13 +939,19 @@ mod tests {
         // its halves. A carrier nobody draws is a bit nobody reads, which is the mirror of an entry
         // nobody demands.
         //
-        // **`Distinction::Guide` passes this vacuously and components architecture 25 owns it.**
-        // The loop reads the freeze's `glyphs` column, so *draws* here means *declares*. Until
-        // architecture 20 the pair `(VLine, TeeLeft)` was carried by `tree`, which drew neither; it
-        // is now carried by `table`, which draws neither either — both entries are in
-        // [`UNDRAWN`]. Striking them would turn this assertion red, which is the honest reason it
-        // is 25's to do and not this ticket's: whether a distinction no component draws should be a
-        // distinction is the same question as whether `table` should draw a rule.
+        // **It is not vacuous any more, and that is components architecture 25's other half.** The
+        // loop reads the freeze's `glyphs` column, which since architecture 20 means *draws* and
+        // since 25 means it for every row: `table`'s eleven undrawn entries are in [`DELEGATED`] and
+        // out of the column, so a distinction can no longer be carried by a declaration nobody
+        // honours. `Distinction::Guide` was exactly that — `(VLine, TeeLeft)`, carried first by
+        // `tree` and then, when 20 struck `tree`'s row, by `table`, neither of which drew either
+        // half — and the runtime struck it, because its drawing is an indent guide and §7 refuses
+        // every route to one.
+        //
+        // **`DELEGATED` is deliberately not read here.** A caller *can* spell those entries, which
+        // is why they stay in the table; whether a caller's screen keeps a distinction alive is a
+        // question about a screen this crate does not draw, and answering it from a list would be
+        // the vacuity again with one more indirection.
         for d in Distinction::ALL {
             if d.carried_by().is_none() {
                 continue;
@@ -1034,11 +1195,13 @@ mod tests {
                 "`{}` demands {name} and is not a row of the freeze",
                 u.demanded_by
             );
+            // **The union, since architecture 25.** A row asks for an entry by drawing it or by
+            // handing it to its caller, and these five are the second: `table` delegates them, so
+            // `on_screen` is where the demand now lives and `c.glyphs` no longer holds it.
             assert!(
-                INVENTORY
-                    .iter()
-                    .any(|c| c.id == u.demanded_by && c.glyphs.contains(&u.glyph)),
-                "`{}` no longer demands {name}, so this row records a disagreement that has ended",
+                on_screen(u.demanded_by).contains(&u.glyph),
+                "`{name}` is asked for by nothing — neither drawn nor delegated by `{}` — so this \
+                 row records a disagreement that has ended",
                 u.demanded_by
             );
         }
@@ -1264,12 +1427,12 @@ mod tests {
     /// **A component branches on a bool and names neither axis**, which is what `shows` is for —
     /// and `shows(Hover)` **is** R10's `hover_distinct`.
     #[test]
-    fn a_resolved_theme_answers_ten_bits_and_an_unresolved_one_answers_none() {
-        assert_eq!(Distinction::ALL.len(), 10);
+    fn a_resolved_theme_answers_nine_bits_and_an_unresolved_one_answers_none() {
+        assert_eq!(Distinction::ALL.len(), 9);
         assert_eq!(
             distinctions_lost(&Theme::default()).len(),
-            10,
-            "a theme nobody resolved must promise nothing, and seven of the ten are now carried by \
+            9,
+            "a theme nobody resolved must promise nothing, and six of the nine are now carried by \
              a glyph pair that a repertoire alone would have been enough to set"
         );
         let theme = declared();

@@ -223,7 +223,7 @@ fn main() {
         println!("{line}");
     }
     println!(
-        "  distinctions lost 0 / 1 / 2 of 10   the first column reproduces here: {} lost at truecolor.",
+        "  distinctions lost 0 / 1 / 2 of 9    the first column reproduces here: {} lost at truecolor.",
         distinctions_lost(extended).len()
     );
     for line in [
@@ -245,7 +245,7 @@ fn main() {
     // The **shape**, so that a report which has quietly started measuring something smaller fails
     // rather than looking good. R15's rule, and the reason a report is allowed to carry asserts.
     assert_eq!(Glyph::ALL.len(), 20);
-    assert_eq!(Distinction::ALL.len(), 10);
+    assert_eq!(Distinction::ALL.len(), 9);
     assert_eq!(glyph_collapses(ascii).len(), 36);
     assert_eq!(cross_family_collapses(ascii).len(), 0);
     assert_eq!(within_component_collapses(ascii).len(), 0);

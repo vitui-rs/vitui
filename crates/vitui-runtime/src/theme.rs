@@ -537,7 +537,7 @@ impl Density {
 ///
 /// > **A distinction survives the whole matrix iff it is carried on both axes.**
 ///
-/// [`Distinction::carried_by`] is that sentence as a value. **Seven of the ten name a glyph pair and
+/// [`Distinction::carried_by`] is that sentence as a value. **Six of the nine name a glyph pair and
 /// three do not**, and the three that do not are exactly the three that die: [`Distinction::Fade`]
 /// below truecolor, [`Distinction::Status`] where the palette's three signals quantise together, and
 /// [`Distinction::Hover`] wherever the two faces land on one index. Everything glyph-bearing survives
@@ -547,8 +547,13 @@ impl Density {
 /// The carrier pairs are **cross-family wherever a family can collapse**. All nine box-drawing
 /// entries spell `+` at ASCII on purpose, so no distinction is carried by two of them: a tree's
 /// *last child* — `TeeLeft` against `BottomLeft` — is a real difference that ASCII loses, and it is
-/// not on this list for that reason. What a tree asks instead is [`Distinction::Guide`], `VLine`
-/// against `TeeLeft`, which crosses a family and survives.
+/// not on this list for that reason.
+///
+/// **A tree used to ask one more and no longer asks anything here.** `Distinction::Guide` was
+/// `VLine` against `TeeLeft`, which crosses a family and survives — and components architecture 20
+/// then established that no component draws an indent guide at all, because a guide column at depth
+/// *d* is a fact about *d* ancestors and the components spec's §7 refuses every route to it. A
+/// distinction is a claim about a screen somebody draws; components architecture 25 struck it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Distinction {
     /// A face under the pointer looks different from one at rest.
@@ -563,9 +568,6 @@ pub enum Distinction {
     /// steppers, and **entering it twice under two names would be the collapse the pair gate
     /// catches**.
     Disclosure,
-    /// A tree's indent guide says *this row has a sibling below* rather than merely *there is depth
-    /// here* (spec §7).
-    Guide,
     /// A rule across is not a rule down (spec §3's `frame::block`, §6's column rectangles).
     Separator,
     /// A scrollbar's thumb is distinguishable from its track (spec §9).
@@ -582,14 +584,23 @@ pub enum Distinction {
 }
 
 impl Distinction {
-    /// Every distinction. **Ten**, which is the denominator spec §16's matrix reports against.
-    pub const ALL: [Distinction; 10] = [
+    /// Every distinction. **Nine**, which is the denominator spec §16's matrix reports against.
+    ///
+    /// **It was ten until components architecture 25** (2026-09-05). `Distinction::Guide` was *a
+    /// tree's indent guide says this row has a sibling below rather than merely there is depth
+    /// here*, carried by `(VLine, TeeLeft)` — and components architecture 20 established that this
+    /// library **does not draw an indent guide and cannot**: a guide column at depth *d* is a fact
+    /// about *d* ancestors, and spec §7 refuses all four routes to it. A distinction is a claim
+    /// about what a narrowed repertoire can still tell apart on a screen somebody draws; a bit
+    /// whose drawing does not exist is not one. `TeeLeft` reaching no screen was the symptom, and
+    /// the components-side gate that would have caught it was passing vacuously because it read
+    /// *declares* where it meant *draws*.
+    pub const ALL: [Distinction; 9] = [
         Distinction::Hover,
         Distinction::Fade,
         Distinction::Status,
         Distinction::Stepper,
         Distinction::Disclosure,
-        Distinction::Guide,
         Distinction::Separator,
         Distinction::Thumb,
         Distinction::Truncation,
@@ -607,7 +618,6 @@ impl Distinction {
             Distinction::Hover | Distinction::Fade | Distinction::Status => None,
             Distinction::Stepper => Some((Glyph::ArrowUp, Glyph::ArrowDown)),
             Distinction::Disclosure => Some((Glyph::ArrowRight, Glyph::ArrowDown)),
-            Distinction::Guide => Some((Glyph::VLine, Glyph::TeeLeft)),
             Distinction::Separator => Some((Glyph::HLine, Glyph::VLine)),
             Distinction::Thumb => Some((Glyph::Thumb, Glyph::Track)),
             Distinction::Truncation => Some((Glyph::Ellipsis, Glyph::ArrowRight)),
@@ -1037,7 +1047,7 @@ impl Theme {
 
     /// Declare a glyph repertoire. **Declared, never probed** (ADR 0010).
     ///
-    /// It re-narrows the [`Distinction`] bits, because seven of the ten are carried by a glyph pair
+    /// It re-narrows the [`Distinction`] bits, because six of the nine are carried by a glyph pair
     /// and the repertoire is half of what ADR 0032's *both axes* names. **Order is therefore not
     /// load-bearing**: `with_glyphs(..).resolve(..)` and `resolve(..).with_glyphs(..)` reach the same
     /// theme, which the version that narrowed only inside `resolve` did not.
@@ -1847,16 +1857,22 @@ mod tests {
         );
     }
 
-    /// **The table is twenty entries and the distinction set is ten**, which are the two denominators
-    /// spec §16's matrix reports against.
+    /// **The table is twenty entries and the distinction set is nine**, which are the two
+    /// denominators spec §16's matrix reports against.
     ///
     /// A count rather than a sentence, because the whole of components ticket 05 is that the demand
     /// set is a value: the day an entry is added without §16 moving, the number a report divides by
     /// stops being the number it prints.
+    ///
+    /// **The distinction set was ten until components architecture 25**, which struck
+    /// `Distinction::Guide`. The **table** did not move with it: the five box junctions stay,
+    /// because they are what a table's caller spells to draw the separators §6 gives it, and an
+    /// entry a caller needs in order to degrade with the theme is not a claim about what any
+    /// component draws. The two counts moving apart is the point — they answer different questions.
     #[test]
-    fn the_table_is_twenty_entries_and_the_distinction_set_is_ten() {
+    fn the_table_is_twenty_entries_and_the_distinction_set_is_nine() {
         assert_eq!(Glyph::ALL.len(), 20);
-        assert_eq!(Distinction::ALL.len(), 10);
+        assert_eq!(Distinction::ALL.len(), 9);
         // No entry appears twice, which the four arrows make a live risk: §9's steppers and §7's
         // disclosure markers are one family, and entering them twice under two names is a collapse
         // rather than two entries.
@@ -1873,19 +1889,23 @@ mod tests {
         );
     }
 
-    /// **Seven distinctions name a glyph pair and three do not, and the three are the ones that
+    /// **Six distinctions name a glyph pair and three do not, and the three are the ones that
     /// die.**
+    ///
+    /// Seven until components architecture 25 struck `Distinction::Guide`, whose pair was
+    /// `(VLine, TeeLeft)` and whose drawing — a tree's indent guide — components architecture 20
+    /// established this library does not make.
     ///
     /// ADR 0032's sentence as a count. The gate is the *partition*, not the membership: a
     /// distinction quietly losing its carrier would go on reading as carried on both axes while
     /// being carried on one.
     #[test]
-    fn seven_distinctions_are_carried_by_a_glyph_and_three_by_the_palette_alone() {
+    fn six_distinctions_are_carried_by_a_glyph_and_three_by_the_palette_alone() {
         let carried: Vec<Distinction> = Distinction::ALL
             .into_iter()
             .filter(|d| d.carried_by().is_some())
             .collect();
-        assert_eq!(carried.len(), 7);
+        assert_eq!(carried.len(), 6);
         let uncarried: Vec<Distinction> = Distinction::ALL
             .into_iter()
             .filter(|d| d.carried_by().is_none())
@@ -1898,7 +1918,8 @@ mod tests {
         // And every carrier is distinguishable at every rung, which is what *survives all nine
         // cells* means. A pair drawn from inside the box-drawing family would fail here at ASCII —
         // which is why `TeeLeft`/`BottomLeft`, a tree's real *last child* difference, is not a
-        // `Distinction` and `VLine`/`TeeLeft` is.
+        // `Distinction`. `VLine`/`TeeLeft` was one for the same reason and is gone for a different
+        // one: it survived every rung and named a drawing no component makes.
         for set in [GlyphSet::Ascii, GlyphSet::Unicode, GlyphSet::Extended] {
             for d in carried.iter().copied() {
                 let (a, b) = d.carried_by().expect("filtered above");

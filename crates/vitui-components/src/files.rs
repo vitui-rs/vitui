@@ -35,7 +35,7 @@
 //! `Task` and `Worker` by path, so that neither half can go green by the other's mechanism.
 
 use vitui_runtime::data::{Revision, Versioned};
-use vitui_runtime::keys::{Code, Edge};
+use vitui_runtime::keys::{Code, Edge, Pressed};
 use vitui_runtime::work::{Cancel, Requested, Task};
 use vitui_runtime::{Ctx, Glyph, Id, Interest, Rect, Response, Role};
 
@@ -748,6 +748,17 @@ pub struct PickerBody<T> {
     pane: PaneState<T>,
     /// What the body chose, read once by the owner on the next frame.
     answer: Option<u64>,
+    /// **That the body was dismissed with nothing chosen**, read once by the owner on the next
+    /// frame beside [`PickerBody::answer`].
+    ///
+    /// Two slots and not one, and the reason is that this family's two owners hold their choice in
+    /// different shapes (architecture issue 23). `select`'s popup answers the *previously chosen*
+    /// index on `Esc`, which works because a `SelectState` always has one; a picker's
+    /// [`PickerState::chosen`] is an `Option<u64>` that starts empty, so *answer what was already
+    /// there* is `None` on the first open — indistinguishable from *nothing has been decided yet*,
+    /// which is the state the owner uses to decide whether to close at all. Cancelling is therefore
+    /// its own fact rather than an answer with a special value.
+    cancelled: bool,
     /// Whether the focus was inside the body when it last ran.
     inside: bool,
     /// Whether the pointer was over it when it last ran.
@@ -768,6 +779,7 @@ impl<T> PickerBody<T> {
             list: CollState::new(),
             pane: PaneState::new(),
             answer: None,
+            cancelled: false,
             inside: false,
             over: false,
         }
@@ -944,6 +956,29 @@ where
 pub(crate) struct PickerShape {
     /// What the list refuses. [`CollShape::RULE`] is what the shipped picker passes.
     pub(crate) list: CollShape,
+    /// Whether the body takes the keyboard from its owner. See [`Keyboard`].
+    pub(crate) keyboard: Keyboard,
+}
+
+/// **Whether the picker's body has a keyboard at all**, and the refused arm is what shipped.
+///
+/// Architecture issue 23. Until it was answered, `picker_body` seated no focus and declared no
+/// [`crate::collect::Refusal`], so **an open `file_picker` could only be used with a mouse**: no
+/// arrows, no `Home`/`End`, no type-ahead and no way to choose a file from the keyboard. It rendered
+/// perfectly, which is why nothing caught it — every gate in this module and in [`crate::preview`]
+/// drives the picker with a pointer or asserts about the pane.
+///
+/// It is an axis rather than a deleted branch for [`CollShape`]'s reason: a gate written against
+/// *the same screen with one thing changed* separates a keyboard from its absence, where a gate
+/// written against a second implementation would test the second implementation.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub(crate) enum Keyboard {
+    /// **The rule.** The body takes the keyboard from its owner exactly once and reads `Enter` and
+    /// `Esc` through the collection's one drain loop.
+    #[default]
+    Seated,
+    /// **What shipped until issue 23**: no focus, no refusal, a pointer-only popup.
+    Unseated,
 }
 
 /// **[`file_picker`]'s shut face, drawn through an [`Ink`] and under an id its caller minted.**
@@ -1030,11 +1065,19 @@ where
     }
 
     // **The inbox, taken first**, which is what makes `PickerState` single-writer.
+    //
+    // **Two slots, and cancelling leaves `chosen` alone** — which is how a dismissal *restores*
+    // rather than clears here, where `select`'s popup has to say the previous index out loud to get
+    // the same effect (architecture issue 23).
+    let dismissed = std::mem::take(&mut body.cancelled);
     if let Some(chosen) = body.answer.take() {
         st.chosen = Some(chosen);
         st.close();
         // **On the way out the owner refocuses itself** (§12): the keyboard is on an id minted
         // inside a body that will not run again, so left alone the vanish rule picks a neighbour.
+        cx.focus(id);
+    } else if dismissed {
+        st.close();
         cx.focus(id);
     }
 
@@ -1134,6 +1177,7 @@ where
                 picker_body(
                     &mut Direct,
                     cx,
+                    id,
                     body,
                     files,
                     task,
@@ -1164,6 +1208,7 @@ where
 pub(crate) fn picker_body<'f, I: Ink, T>(
     ink: &mut I,
     cx: &mut Ctx<'f, '_>,
+    owner: Id,
     body: &mut PickerBody<T>,
     files: &[Entry<'_>],
     task: &Task<T>,
@@ -1182,6 +1227,7 @@ pub(crate) fn picker_body<'f, I: Ink, T>(
     let area = cx.area();
     let rows = u32::try_from(files.len()).unwrap_or(u32::MAX);
     let mut answer = None;
+    let mut cancelled = false;
     let shell_id = cx.id();
     // **The shell goes through the seam and not through `Direct`** — `crate::input::popup_body`'s
     // one production 08 change, and its reason: everything a popup drew was invisible to a
@@ -1220,6 +1266,40 @@ pub(crate) fn picker_body<'f, I: Ink, T>(
         mode: Mode::Single,
         ..CollOpts::default()
     };
+    // **First refusal, inside the one drain loop** — `crate::input::popup_body`'s arrangement and
+    // its reason: `Ctx::decline` hands a key back *and ends the level's turn at the queue*, so a
+    // body that read `Enter` before the collection would leave it nothing and one that read it
+    // after would find the queue closed. `Enter` and `Esc` are the body's two; `crate::nav::step`
+    // and the type-ahead own the rest.
+    //
+    // **It is this function's own two decisions and not `select`'s transcribed** (architecture
+    // issue 23, which refused a second transcription by name). `Enter` answers **the cursor's file
+    // id**, which is the same expression a press already answers with, so one meaning has two
+    // triggers rather than two meanings one each. `Esc` **cancels** and answers nothing, because a
+    // picker's `chosen` is an `Option` that starts empty and *answer what was already there* would
+    // be indistinguishable from *nothing decided yet* — see [`PickerBody::cancelled`].
+    let seated = shape.keyboard == Keyboard::Seated;
+    let mut mine = |k: &Pressed, cursor: usize| {
+        if !seated {
+            return false;
+        }
+        // **A chord belongs to the application**, here as much as at the owner (spec §3), and
+        // components ticket 38 found both of this family's loops missing the guard together.
+        if crate::keys::is_chord(k) {
+            return false;
+        }
+        match k.code {
+            Code::Enter => {
+                answer = files.get(cursor).map(|f| f.id);
+                true
+            }
+            Code::Escape => {
+                cancelled = true;
+                true
+            }
+            _ => false,
+        }
+    };
     let list_resp = collection_shaped(
         ink,
         cx,
@@ -1234,11 +1314,33 @@ pub(crate) fn picker_body<'f, I: Ink, T>(
             let paint = face_paint(cx.theme(), face);
             let _ = ink.pad_to(cx, r.x, r.y, files[i].name, r.w, paint);
         },
-        &mut |_, _| false,
+        &mut mine,
         shape.list,
     );
+    // **The body takes the keyboard from its owner, exactly once**, and the id it goes to is the
+    // **list** — architecture issue 23's first decision. The pane is not a candidate: its document
+    // is a function of the cursor, so it has nothing of its own to answer, and `body.inside` is
+    // already defined as *the list has the focus*, which the owner's blur clause reads to decide
+    // whether the popup is still wanted. Seating anywhere else would leave `inside` false while the
+    // body held the keyboard and shut the popup under the user on the frame after.
+    //
+    // `if cx.is_focused(owner)` and never `if !cx.is_focused(list)`: the second drags the keyboard
+    // back every frame the user has tabbed away, which is architecture issue 25's refused spelling.
+    if seated && cx.is_focused(owner) {
+        cx.focus(list_resp.id);
+    }
     body.inside = cx.is_focused(list_resp.id);
-    if list_resp.clicked {
+    // **The press edge and not `Response::clicked`**, which is `crate::input::popup_body`'s
+    // spelling and its stated reason: a row selects on the *press*, so by the time a click has
+    // completed the collection has already moved its cursor and a release-driven choice arrives a
+    // frame late.
+    //
+    // This body read `clicked` until architecture issue 23, and it is the **pointer** half of that
+    // issue's own sentence — *the family's two owners are one drawing and not one keyboard*. The
+    // measurement is O4's sweep: `select` answers `Shift+Click` and `Ctrl+Shift+Click` and this
+    // component answered neither, because a drive that ends at the press never reaches a
+    // release-driven reader at all. Two spellings of the twenty-seven, found by declaring the rest.
+    if list_resp.press_began {
         answer = files.get(body.list.sel.lead).map(|f| f.id);
     }
 
@@ -1257,6 +1359,19 @@ pub(crate) fn picker_body<'f, I: Ink, T>(
     );
 
     body.answer = answer;
+    body.cancelled = cancelled;
+    // **A body that answers through the inbox owes the frame that delivers it.** The owner reads
+    // both slots at the top of the *next* frame and an application parks on `Driver::wait`, so
+    // without a wake the choice lands on whatever input happens next — which for the keystroke that
+    // made it means **never**. `crate::input::popup_body`'s finding, and this body did not have it:
+    // the pointer path was latent because a pointer usually moves again, and `Enter` would have
+    // made it certain.
+    //
+    // Conditional, and that is the whole of why it is not a wake loop: a frame with nothing in
+    // either slot asks for nothing, and the frame that delivers empties them.
+    if answer.is_some() || cancelled {
+        cx.request_frame();
+    }
 }
 
 // ── the auto traits, as a pair ───────────────────────────────────────────────────────────────────
@@ -1450,6 +1565,7 @@ pub mod defective {
                     reveal: crate::collect::Reveal::EveryFrame,
                     ..crate::collect::CollShape::RULE
                 },
+                ..super::PickerShape::default()
             },
         )
     }
@@ -1499,6 +1615,60 @@ pub mod defective {
                     reveal: crate::collect::Reveal::Never,
                     ..crate::collect::CollShape::RULE
                 },
+                ..super::PickerShape::default()
+            },
+        )
+    }
+
+    /// **A picker whose popup has no keyboard at all** — architecture issue 23, and it is what
+    /// shipped for eight tickets.
+    ///
+    /// `Keyboard::Unseated`: the body seats no focus and declares no
+    /// `collect::Refusal`, so an open picker answers a pointer and nothing else.
+    /// No arrows, no `Home`/`End`, no type-ahead, and no way to choose a file from the keyboard.
+    ///
+    /// **It renders perfectly**, which is the whole reason nothing caught it: every other gate here
+    /// and in [`crate::preview`] drives the picker with a pointer or asserts about the pane, and a
+    /// keyboard that is never pressed leaves no mark on a canvas. So the instrument that separates
+    /// the two arms is not a screen — see
+    /// `crate::dropped::tests::an_open_picker_answers_the_keyboard_and_the_arm_that_shipped_answered_none_of_it`.
+    #[track_caller]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "[`a_stale_list_tail`]'s eleven, unchanged"
+    )]
+    pub fn a_popup_with_no_keyboard<'f, I, T>(
+        ink: &mut I,
+        cx: &mut vitui_runtime::Ctx<'f, '_>,
+        id: vitui_runtime::Id,
+        area: vitui_runtime::Rect,
+        st: &mut super::PickerState,
+        body: &'f mut super::PickerBody<T>,
+        files: &'f [super::Entry<'f>],
+        task: &'f Task<T>,
+        decode: fn(u64, &vitui_runtime::work::Cancel) -> T,
+        line: fn(&mut vitui_runtime::Ctx<'_, '_>, vitui_runtime::Rect, &T, u32),
+        opts: &super::PickerOpts,
+    ) -> vitui_runtime::Response
+    where
+        I: crate::ink::Ink,
+        T: Preview + Send + 'static,
+    {
+        super::file_picker_shaped(
+            ink,
+            cx,
+            id,
+            area,
+            st,
+            body,
+            files,
+            task,
+            decode,
+            line,
+            opts,
+            super::PickerShape {
+                keyboard: super::Keyboard::Unseated,
+                ..super::PickerShape::default()
             },
         )
     }

@@ -445,22 +445,40 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
 - **Bars are reserved, never overlaid** (ADR 0029) — the parts of a reserved area tile the rectangle
   exactly, which an overlay bar cannot satisfy.
 
-**Open questions — do not "fix" code to match one sentence of a spec without resolving the ticket.**
-Five stand open, all of them the components map's and all filed by the layer above the one they land
-in. **The runtime's architecture map has none left**: 36, the only one that map ever filed against
-itself, resolved 2026-09-01.
+**No architecture question is open on any of the three maps** (2026-09-05). The runtime's closed with
+36 on 2026-09-01; the engine's issues 20, 21 and 23 read as open for a while and were closed by
+production tickets 06, 03 and 02 — do not re-file them; and the components map's last five all
+resolved together. What they decided, because each is a rule a session can undo by accident:
 
-- **Components architecture 19** (does a fold that costs the volume belong to O6), **22** (`Esc` over
-  a plain `collection` is crate-private on purpose), **23** (`file_picker`'s popup has no keyboard at
-  all), **24** (a `table` whose columns do not fill the band leaves the remainder **unwritten** — 66
-  cells of every row in `examples/ledger.rs` at three hundred columns, and none at eighty; filed by
-  production 06, whose scene 37 is the same axis on the row side), **25** (five entries of §16's
-  twenty are demanded by `table` and drawn by nothing — the box junctions, filed by 20's own new
-  join). **20 is resolved** (2026-09-04) and production **07 is resolved with it** — the narrow
-  scene it blocked reads the partition 20 settled, and it filed no new question.
-
-**The engine's architecture map has none left.** Issues 20, 21 and 23 read as open for a while and
-were closed by production tickets 06, 03 and 02 — do not re-file them.
+- **19 — an edit that costs the volume is O6's other half, not a seventh obligation.** *The frame is
+  flat in `n`* and *the edit is linear with a stated constant* are two **gates joined by an `iff`**:
+  a covered row's ceiling has `per_input == 0.0` exactly when it is `Layer::L2`, read both ways, so a
+  virtualised row cannot start folding unnoticed and a folding row cannot claim its fold is free.
+  Both numbers are **step counts over the fold at a fixed `n`**, never a clock, so *fold less often*
+  does not pass them; 16.7 ms is a denominator in `volume_numbers.rs` and a pass mark nowhere. The
+  data-volume invariant is the **engine's** and holds there without exception — a component that must
+  fold states §13's split instead, and the repository README and `CONTEXT.md` now carry both halves.
+- **22 — `Esc` is the container's key until a collection has a selection to clear.** `owns_escape`:
+  the component owns it exactly when `apply` would clear something, and declines it otherwise, so a
+  `collection` in a modal no longer swallows the one key a dialog must answer. The two-stage
+  dismissal falls out. `collection_shaped` stays crate-private — publishing the hook leaves the
+  *default* wrong.
+- **23 — `file_picker`'s popup has a keyboard.** The focus goes to the **list**; `Enter` answers the
+  cursor's file and `Esc` cancels and answers nothing (a picker's `chosen` starts empty, so *answer
+  what was there* would say nothing); **the preview pane has no keyboard and will not** — its
+  document is replaced by the next arrow press. The two overlay owners share one `&[Bind]` and
+  `PICKER_IS_MISSING` is 0.
+- **24 — a table's band writes its own slack**, one run a row in `CollOpts::tail`'s Role, which is
+  §2's *a component handed a rectangle writes all of it*. What ruled out *the caller owes it* is the
+  failure mode: an untouched cell keeps the **previous column set's data**, where §2's six pinned
+  panels are background. `COLUMN_RESIDUE` is 0 and `Slack::Unwritten` is the refusal it is measured
+  against.
+- **25 — the demand column answers *draws*, and `glyphs::DELEGATED` answers *what a caller must
+  spell*.** `table`'s row is `Ellipsis` alone; its eleven box entries move, because §6 assigns a
+  table's separators to the caller and that caller needs them from the theme. Every ownership gate
+  and the collapse gate read the **union**, which keeps the pairwise ASCII figure at 42.
+  `Distinction::Guide` is **struck** — its drawing is a tree's indent guide, which 20 established
+  cannot exist — so `Distinction::ALL` is **nine** while `Glyph::ALL` stays at twenty.
 
 ## Traps this map has met more than once
 
@@ -522,6 +540,11 @@ instrument rather than in the code. Each of these has bitten at least twice.
 - **Counters on the wrong side of the question.** `changed > 0` is green on the exact set it exists to
   catch; every *output* counter is blind to work that produces no output (a fold at 476 ns a point
   drew the identical picture) — pair a work counter with a per-input ceiling.
+  **A consumption counter is the same shape one axis over** (components architecture 22): O4's sweep
+  asks *was the key consumed*, and a key consumed to do **nothing** reads exactly like a key consumed
+  to do something — `pagination` declared `Escape`, is `Mode::Options` where `apply` ignores
+  `Gesture::Nothing`, and the binding was reported answered for the whole life of the crate. Ask what
+  the component did with it, not whether it took it.
 - **Cumulative ledgers must be read as deltas**, and allocation windows counted **per frame** and
   warmed on the *shape* rather than on two identical frames.
 - **A figure quoted from a spec is usually a prototype's screen.** Measure it; assert what reproduces

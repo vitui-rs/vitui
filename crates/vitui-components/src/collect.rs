@@ -510,6 +510,35 @@ fn single(sel: &mut Selection, i: usize) {
     }
 }
 
+/// **The modes in which `Escape` has something to clear**, and the whole of what makes it this
+/// component's key rather than its container's.
+///
+/// [`apply`]'s thirteen arms answer [`Gesture::Nothing`] in two of the four modes and ignore it in
+/// the other two, and the ignoring is not an oversight: [`Mode::Cursor`] never selects anything, and
+/// [`Mode::Options`] is *exactly one, and it can never become zero*. So in half the freeze's
+/// collection families `Escape` was consumed unconditionally to do **nothing at all**.
+///
+/// Written down rather than derived at the call site, because deriving it means cloning a
+/// [`Selection`] on every press and this crate counts allocations per frame.
+/// `tests::the_modes_that_clear_are_the_modes_apply_clears_in` is the join that stops it drifting
+/// from [`apply`], probed over [`Mode::ALL`] rather than over these two — a constant that named its
+/// own members would be a list checked against itself.
+pub const MODES_THAT_CLEAR: [Mode; 2] = [Mode::Single, Mode::Multi];
+
+/// **Whether this collection owns `Escape` right now**, which is architecture issue 22's answer as
+/// a predicate.
+///
+/// True when [`apply`] would actually clear something: the mode acts on [`Gesture::Nothing`] **and**
+/// there is a selection to lose. False in every other case, and then the key is declined and reaches
+/// the container — which is what lets a `collection` sit inside a modal dialog and let `Esc` close
+/// it.
+///
+/// The two-stage behaviour that falls out of this is the one every file manager has: the first
+/// `Esc` drops the selection, the second closes the dialog.
+fn owns_escape(mode: Mode, sel: &Selection) -> bool {
+    !sel.is_empty() && MODES_THAT_CLEAR.contains(&mode)
+}
+
 /// **How many match arms [`apply`] has. Thirteen**, and it is read out of this file rather than
 /// declared: see [`arms_in_apply`].
 pub const ARMS: usize = 13;
@@ -907,6 +936,13 @@ fn no_refusal(_: &Pressed, _: usize) -> bool {
 /// because the hook is **not** part of spec §1's component shape — it is the seam one component
 /// reaches another through, and a public one would invite an application to spell a keyboard for a
 /// collection it did not write.
+///
+/// **Architecture issue 22 was the test of that sentence and it survived.** The issue is the case
+/// the visibility costs: a plain `collection` inside a modal swallowed `Esc`, and publishing this
+/// hook was one of its three candidate answers. It was refused, and the narrowing in [`owns_escape`]
+/// was taken instead — because publishing the hook makes the behaviour every application expects
+/// something every application has to *know about*, and leaves the default wrong. A seam is the
+/// right shape for a component reaching another; it is the wrong shape for a default.
 ///
 /// **The arm existed for one caller of three**, which is what [`crate::volume`] found: `table` and
 /// `tree` *are* `collection` plus a rectangle split and a flatten index, so the single most
@@ -1392,6 +1428,16 @@ where
             out.changed = true;
         }
         match from_key(&k, st.sel.lead, moved) {
+            // **`Escape` is the container's key until this collection has a selection to clear**,
+            // which is architecture issue 22. Every other key in §5's table is the widget's by
+            // default; `Esc` is the one whose default owner is whatever the widget is *inside*, and
+            // a collection that swallowed it unconditionally made `cx.overlay` + `Kind::Dialog` a
+            // modal no keypress could dismiss — found by running `crates/vitui-apps/examples/
+            // console.rs`, where the palette needed a chord because `Esc` never reached
+            // `Driver::unhandled`.
+            //
+            // Declined and not dropped: the application's key map is exactly who should get it.
+            Some(Gesture::Nothing) if !owns_escape(opts.mode, &st.sel) => cx.decline(k),
             Some(g) => {
                 apply(opts.mode, &mut st.sel, len, g);
                 out.changed = true;
@@ -1769,6 +1815,58 @@ pub mod defective {
     }
 
     // ── `table`'s two hostile axes, production 06 ────────────────────────────────────────────────
+
+    /// **The table whose band draws its columns and not itself.** Architecture issue 24, and it is
+    /// what shipped until that issue was answered.
+    ///
+    /// `super::Slack::Unwritten`, one field of `TableShape`, and it is the **column** axis's
+    /// spelling of the stale tail: a column list whose widths do not reach the viewport leaves the
+    /// remainder of every row untouched, so the first frame after a column set narrows keeps the
+    /// wider set's *data* on the screen. `crate::grid::COLUMN_RESIDUE_WAS` is what it costs — 21 760
+    /// cells of 24 000 — against **0** for the shipped arm and 0 for a column list that overflows,
+    /// which is why the defect appears when the terminal gets *wider*.
+    ///
+    /// Unlike [`table_stale_tail`] this one was never a refusal the component could express: it
+    /// wrote the slack on **no** arm, so this wrapper is what gives the repair a second arm to be
+    /// measured against.
+    #[track_caller]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "[`table_stale_tail`]'s nine, unchanged: the component's own plus the one value \
+                  carrying every refused spelling"
+    )]
+    pub fn an_unwritten_band_slack<I, F, C>(
+        ink: &mut I,
+        cx: &mut Ctx<'_, '_>,
+        area: Rect,
+        st: &mut TableState,
+        opts: &TableOpts,
+        cols: &[Column],
+        rows: Rows,
+        find: F,
+        cell: C,
+    ) -> Response
+    where
+        I: Ink,
+        F: FnMut(&str, Range<usize>) -> Option<usize>,
+        C: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, Cell, Face),
+    {
+        table_with(
+            ink,
+            cx,
+            area,
+            st,
+            opts,
+            cols,
+            rows,
+            find,
+            cell,
+            TableShape {
+                slack: super::Slack::Unwritten,
+                ..TableShape::default()
+            },
+        )
+    }
 
     /// **The table that draws the rows its content reaches and nothing else.** §17's `shrunk` axis.
     ///
@@ -3514,6 +3612,30 @@ struct TableShape {
     keys: CellKeys,
     /// The sign of the horizontal offset.
     hsign: HSign,
+    /// Whether the band writes the part of itself no column claims. See [`Slack`].
+    slack: Slack,
+}
+
+/// **Whether a band writes the part of itself no column claims**, and the refused arm is what
+/// shipped until architecture issue 24.
+///
+/// A band draws its **columns**, and until issue 24 nothing drew the band: a column list whose
+/// widths do not reach the viewport left the remainder of every row **untouched** —
+/// `crate::runner::Canvas`'s own distinction, so those cells kept whatever was already there.
+/// `crate::grid::COLUMN_RESIDUE` carried the number as a tripwire, at **21 760 of 24 000**, with a
+/// control at twelve columns where the band overflows and the figure is 0.
+///
+/// It is the row axis's `Tail` with **columns** in the sentence, and the difference that decided
+/// it is that no refusal was involved: `collection` writes its tail on one arm and omits it on
+/// another, and a table's band wrote its slack on **no** arm. This enum is what gives it the second
+/// arm, so the repair is measured rather than asserted.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum Slack {
+    /// **The rule** (§2): a component handed a rectangle writes all of it.
+    #[default]
+    Written,
+    /// **What shipped until issue 24**: the columns are drawn and the rest of the band is nobody's.
+    Unwritten,
 }
 
 /// How the scrolling band reaches the surface.
@@ -3617,7 +3739,16 @@ where
     // The header, and the body's rectangle beneath it. §6's one `cut`.
     let body = if opts.header {
         let (head, rest) = split_header(area);
-        header_row(ink, cx, &solved, cols, head, signed, (vlo, vhi));
+        header_row(
+            ink,
+            cx,
+            &solved,
+            cols,
+            head,
+            signed,
+            (vlo, vhi),
+            shape.slack,
+        );
         rest
     } else {
         area
@@ -3654,6 +3785,10 @@ where
             // sites with one `child` between them.
             let band_x = i32::from(solved.left_w);
             let right_x = band_x + i32::from(solved.view_w);
+            // **The band's slack is painted in the collection's own tail role** — architecture
+            // issue 24. Not a new option: `opts.coll.tail` is the Role `collection` already paints
+            // the rows below its content with, and the slack is the same fact one axis over.
+            let tail = cx.theme().paint(opts.coll.tail);
             let in_band =
                 |ink: &mut I,
                  cx: &mut Ctx<'_, '_>,
@@ -3667,6 +3802,21 @@ where
                     let mut view = clipped.scrolled(-rect.x, -rect.y);
                     for slot in range.0..range.1 {
                         draw(ink, &mut view, slot, at + solved.x[slot] - shift);
+                    }
+                    // **The band writes its own slack** — architecture issue 24, and it is §2's
+                    // rule with **columns** in the sentence instead of rows: *a component handed a
+                    // rectangle writes all of it.* A band draws its columns and nothing drew the
+                    // band, so a column list whose widths do not reach the viewport left the
+                    // remainder of every row **untouched** — not painted with a space, which is
+                    // `crate::runner::Canvas`'s own distinction, so the cells kept whatever was
+                    // there. That is a stale-content defect and not a background gap: the first
+                    // frame after a column set narrows keeps the wider set's *data* on screen.
+                    //
+                    // It is `collection`'s tail one axis over, down to the paint, which is what
+                    // makes it a repair rather than a new drawing.
+                    let end = band_end(at, w, &solved, range, shift);
+                    if end.1 > 0 && shape.slack == Slack::Written {
+                        let _ = ink.run(&mut view, end.0, r.y, " ", end.1, tail);
                     }
                 };
             in_band(ink, cx, 0, solved.left_w, solved.left, 0, &mut draw);
@@ -3698,6 +3848,27 @@ where
     )
 }
 
+/// **Where a band's columns stop and how much of the band is left**, as `(x, width)`.
+///
+/// Architecture issue 24's arithmetic, in one function because the body and the header open the
+/// same three bands and a slack computed twice is a slack that can disagree with itself — which is
+/// exactly the class of defect §6's *a column's title and its cells cannot disagree about where the
+/// column is* already guards against on the other side.
+///
+/// Zero whenever the columns reach or overrun the band, which is every column list that exists to
+/// put horizontal overflow on the screen — and is why this had never been seen: [`crate::grid`]'s
+/// own twelve-column fixture overflows by 135 columns.
+fn band_end(at: i32, w: u16, s: &Solved, range: (usize, usize), shift: i32) -> (i32, u16) {
+    let end = if range.0 < range.1 {
+        let last = range.1 - 1;
+        at + s.x[last] + i32::from(s.w[last]) - shift
+    } else {
+        at
+    };
+    let left = (at + i32::from(w) - end).max(0);
+    (end, u16::try_from(left).unwrap_or(u16::MAX))
+}
+
 /// The header's row and the body's rectangle beneath it. §6's one `cut`.
 fn split_header(area: Rect) -> (Rect, Rect) {
     let h = area.h.min(1);
@@ -3712,6 +3883,12 @@ fn split_header(area: Rect) -> (Rect, Rect) {
 /// The same three bands and the same window, so a column's title and its cells cannot disagree about
 /// where the column is. It writes a partition of `head` — the title, then the padding after it — for
 /// the same reason a cell does.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the seven it already had plus architecture issue 24's arm, which the header takes \
+              for the body's reason: a header that stopped short of the band while the body filled \
+              it would be the same defect wearing a smaller number"
+)]
 fn header_row<I: Ink>(
     ink: &mut I,
     cx: &mut Ctx<'_, '_>,
@@ -3720,6 +3897,7 @@ fn header_row<I: Ink>(
     head: Rect,
     signed: i32,
     window: (usize, usize),
+    slack: Slack,
 ) {
     if head.is_empty() {
         return;
@@ -3755,6 +3933,13 @@ fn header_row<I: Ink>(
         let mut view = clipped.scrolled(-rect.x, -rect.y);
         for slot in range.0..range.1 {
             write(ink, &mut view, slot, at + s.x[slot] - shift);
+        }
+        // **The header's band owes its slack too** (architecture issue 24). One row, and it is the
+        // row a reader looks at first — a header that stopped short of the band while the body
+        // filled it would be the same defect wearing a smaller number.
+        let end = band_end(at, w, s, range, shift);
+        if end.1 > 0 && slack == Slack::Written {
+            let _ = ink.run(&mut view, end.0, y, " ", end.1, paint);
         }
     };
     in_band(ink, cx, base, s.left_w, s.left, 0, &mut write);
@@ -5862,6 +6047,108 @@ mod tests {
     ///
     /// The other direction is on the same screen: an unmodified `z` **is** taken, so the decline is
     /// a discrimination rather than a component that declines everything.
+    /// **[`MODES_THAT_CLEAR`] is a claim about [`apply`], and this is the join.**
+    ///
+    /// The constant is written down rather than derived at the call site, because deriving it there
+    /// means cloning a [`Selection`] on every press. What that costs is the possibility of drift, and
+    /// this is what pays it: the probe is over [`Mode::ALL`] and not over the constant's own members,
+    /// so a mode that starts or stops answering [`Gesture::Nothing`] fails here rather than silently
+    /// changing which key a container gets.
+    ///
+    /// The selection under the probe is deliberately **non-empty**, because an empty one is cleared
+    /// by nothing and every mode would read as ignoring the gesture.
+    #[test]
+    fn the_modes_that_clear_are_the_modes_apply_clears_in() {
+        let mut observed = Vec::new();
+        for mode in Mode::ALL {
+            let mut sel = Selection::default();
+            sel.select_only(3);
+            assert!(!sel.is_empty(), "the probe needs something to lose");
+            let before = sel.clone();
+            apply(mode, &mut sel, 16, Gesture::Nothing);
+            if sel != before {
+                observed.push(mode);
+            }
+        }
+        assert_eq!(
+            observed,
+            MODES_THAT_CLEAR.to_vec(),
+            "`MODES_THAT_CLEAR` disagrees with `apply`: a collection is now handing `Esc` to its \
+             container in a mode that would have cleared something, or eating it in a mode that \
+             would not"
+        );
+    }
+
+    /// **`Esc` is the container's key until the collection has a selection to clear** — architecture
+    /// issue 22, found by running `crates/vitui-apps/examples/console.rs` and pressing `Esc` in a
+    /// modal that could not close.
+    ///
+    /// Both directions, because the decline is a discrimination and not a component that stopped
+    /// reading the key: with a row selected `Esc` is consumed and the selection is gone, and with
+    /// nothing selected it reaches `Driver::unhandled` and the selection is still empty. The second
+    /// press of a two-stage dismissal is the same call as the first.
+    ///
+    /// Played at [`Mode::Multi`], which is one of the two modes that clear at all; the other two are
+    /// [`the_modes_that_clear_are_the_modes_apply_clears_in`]'s.
+    #[test]
+    fn a_collection_declines_escape_when_it_has_no_selection_to_clear() {
+        fn escape_into(select_first: bool) -> (usize, usize) {
+            let mut driver = crate::runner::driver_at(40, 8, vitui_runtime::Density::default());
+            let mut st = CollState::new();
+            if select_first {
+                st.sel.select_only(2);
+            }
+            let labels: Vec<&str> = (0..64).map(label).collect();
+            let opts = CollOpts {
+                mode: Mode::Multi,
+                ..CollOpts::default()
+            };
+            // Frame one seats the focus, frame two carries the key.
+            for frame in 0..2 {
+                if frame == 1 {
+                    driver.post_key(crate::keys::press(vitui_runtime::Chord::new(Code::Escape)));
+                }
+                driver.frame(|cx| {
+                    let area = cx.area();
+                    let resp = collection(
+                        cx,
+                        area,
+                        &mut st,
+                        &opts,
+                        Rows::of(labels.len()),
+                        &mut |buf: &str, range: Range<usize>| {
+                            crate::nav::matched(buf, &labels[range.clone()])
+                                .map(|hit| range.start + hit)
+                        },
+                        &mut |_cx: &mut Ctx<'_, '_>, _r: Rect, _i: usize, _f: Face| {},
+                    );
+                    if cx.focused().is_none() {
+                        cx.focus(resp.id);
+                    }
+                });
+            }
+            (driver.unhandled().len(), st.sel.count())
+        }
+
+        // **Something to clear: the collection owns the key.**
+        let (declined, selected) = escape_into(true);
+        assert_eq!(
+            declined, 0,
+            "`Esc` clears a selection and is not handed back"
+        );
+        assert_eq!(selected, 0, "and the selection is what it cleared");
+
+        // **Nothing to clear: the container gets it.** This is the arm `console`'s palette needed
+        // and had to spell as a chord instead.
+        let (declined, selected) = escape_into(false);
+        assert_eq!(
+            declined, 1,
+            "`Esc` over an empty selection reaches the application, so a `collection` in a modal \
+             does not swallow the one key a dialog is expected to answer"
+        );
+        assert_eq!(selected, 0, "and nothing was selected either way");
+    }
+
     #[test]
     fn a_collection_declines_a_chord_and_swallows_no_accelerator() {
         use vitui_runtime::Chord;

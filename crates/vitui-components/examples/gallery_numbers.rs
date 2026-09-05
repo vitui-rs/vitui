@@ -303,7 +303,7 @@ fn what_t_costs() {
             at = (at + 1) % of;
             registry.select(black_box(at));
         })
-        .case("shows, ten distinctions", 20_000, || {
+        .case("shows, nine distinctions", 20_000, || {
             for d in Distinction::ALL {
                 black_box(black_box(base).shows(black_box(d)));
             }
@@ -311,7 +311,7 @@ fn what_t_costs() {
         .run();
     print!("{report}");
     println!(
-        "  The criterion states `Theme::…resolve()` including all ten distinctions at **291 ns,\n  \
+        "  The criterion states `Theme::…resolve()` including all nine distinctions at **291 ns,\n  \
          once per theme, off the frame path**. What `t` actually presses is the third row — an\n  \
          import plus a resolve, ~70 ns — so the key is four times cheaper than the criterion asks\n  \
          for. The figure that does *not* reproduce is the second: `with_glyphs` before `resolve` is\n  \

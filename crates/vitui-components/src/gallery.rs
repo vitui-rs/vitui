@@ -2568,7 +2568,7 @@ pub struct MatrixCell {
     /// **Pairs of the thirteen roles that are one colour on the wire.** The colour axis, measured on
     /// the theme because it is not measurable on the screen.
     pub roles_collapsed: usize,
-    /// **How many of the ten distinctions the theme does not show.** The colour axis again, at the
+    /// **How many of the nine distinctions the theme does not show.** The colour axis again, at the
     /// level a component actually asks about (ADR 0032).
     pub distinctions_lost: usize,
 }

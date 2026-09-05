@@ -89,7 +89,7 @@
 //!   the four primitives do not exist would now be asserting they are gone.
 //! - [`glyphs`] — §16's catalogue as a value: **six families over twenty entries and ten
 //!   distinctions**, with the demand column of [`INVENTORY`] joined against it. A distinction
-//!   survives the whole matrix iff it is carried on both axes (ADR 0032), and seven of the ten name
+//!   survives the whole matrix iff it is carried on both axes (ADR 0032), and six of the nine name
 //!   a glyph pair — so the gate that matters is **cross-family** collapse and not the pairwise
 //!   version, which fires on every border because the nine box-drawing entries are all `+` at ASCII
 //!   on purpose.

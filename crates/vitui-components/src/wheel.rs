@@ -906,10 +906,12 @@ fn collection_frame(cx: &mut Ctx<'_, '_>, st: &mut CollState, play: Play) {
 /// axis under a column split is still `collection`'s, not to price the split. `crate::grid` is
 /// where the columns are the question, at twelve of them and three hundred cells wide.
 ///
-/// The elastic middle is what makes the row a partition of [`W`] with no gap in it: a band whose
-/// columns are all `Fixed` and sum to less than the viewport leaves the remainder unwritten, which
-/// is a **second** shrink surface and is `crate::grid::COLUMN_RESIDUE`'s measurement rather than
-/// this gate's.
+/// The elastic middle is what makes the row a partition of [`W`] with no column *boundary* falling
+/// short of it. A band whose columns are all `Fixed` and sum to less than the viewport used to leave
+/// the remainder unwritten — a **second** shrink surface, and `crate::grid::COLUMN_RESIDUE_WAS`'s
+/// measurement rather than this gate's. Architecture issue 24 answered it: the band writes its own
+/// slack now, so an all-`Fixed` list is no longer a partition defect, and the elastic middle here is
+/// about where the columns *are* rather than about which cells get written.
 fn columns() -> [Column; 3] {
     [
         Column::new(0, "id", Constraint::Fixed(6)).pinned_left(6),

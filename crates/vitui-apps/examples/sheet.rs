@@ -71,11 +71,18 @@
 //!
 //! # What this application cannot say
 //!
-//! **The picker's popup has no keyboard at all**, so a file can be opened with `Enter` and chosen
-//! only with the mouse. That is components architecture issue 23, found by ticket 38's sweep and
-//! reproduced here by a person pressing keys: the list draws a plain `collection_into`, seats no
-//! focus and declares no refusal, so an open picker has no arrows, no `Home`/`End`, no type-ahead
-//! and no way to choose a file — on a screen that renders perfectly.
+//! **The picker's popup had no keyboard at all**, and this screen is where a person pressing keys
+//! reproduced it: the list drew a plain collection, seated no focus and declared no refusal, so an
+//! open picker had no arrows, no `Home`/`End`, no type-ahead and no way to choose a file — on a
+//! screen that rendered perfectly. Found by ticket 38's sweep, filed as components architecture
+//! issue 23, and **repaired there**: the popup now takes the keyboard from its owner, `Enter`
+//! chooses the file under the cursor and `Esc` cancels without disturbing what was chosen before.
+//! Nothing in this file changed for it, which is the point — the keyboard belongs to the component.
+//!
+//! What is still true here, and is a decision rather than a gap: **the preview pane inside the
+//! popup has no keyboard either**, and it is not going to. Its document is a function of the list's
+//! cursor, so a key that scrolled the pane would be operating on something the next arrow press
+//! replaces; the pane is scrolled with the pointer. See issue 23's third decision.
 //!
 //! **There is no reveal.** `Ctx::request_into_view` addresses the widget that owns the offset, and
 //! here that is an application rather than a widget: nothing declared a scroll scope's id to ask

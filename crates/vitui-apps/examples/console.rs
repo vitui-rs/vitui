@@ -59,15 +59,25 @@
 //! the ones it stole after the resume. `SIGTSTP` is what makes the other case work — it stops every
 //! thread in the process, the reader included.
 //!
-//! # `Esc` cannot close the palette, and that is §5 rather than a bug here
+//! # `Esc` closes the palette, and this file is why it does
 //!
-//! **A `collection` claims `Esc` for itself** — `from_key` reads it as `Gesture::Nothing`, *clear the
-//! selection* — so the key is consumed inside the modal and never reaches `Driver::unhandled`. The
-//! shipped `select` closes its own popup on `Esc` because its body takes **first refusal** through
-//! `collect::collection_shaped`, and that hook is crate-private on purpose: *a public one would
-//! invite an application to spell a keyboard for a collection it did not write.* So an application
-//! that puts a collection in a dialog owns a chord and not `Esc`, and this one owns `Ctrl+P`. Filed
-//! as components architecture issue 22 with the three answers rather than worked around silently.
+//! **It did not, and finding that here is what opened components architecture issue 22.** A
+//! `collection` read `Esc` as `Gesture::Nothing` — *clear the selection* — and consumed it whatever
+//! the selection was, so the key died inside the modal and never reached `Driver::unhandled`. The
+//! palette had to close on `Ctrl+P` both ways, because a chord is what `nav::step` and `from_key`
+//! both refuse by rule and was the only thing that could get out of the trap.
+//!
+//! The issue resolved by **narrowing §5's claim rather than publishing the hook**: a collection owns
+//! `Esc` exactly when `apply` would clear something, and declines it otherwise. `select` still closes
+//! its own popup through `collect::collection_shaped`'s first refusal, and that hook stays
+//! crate-private for the reason its own documentation gives — *a public one would invite an
+//! application to spell a keyboard for a collection it did not write.* What changed is that an
+//! application no longer needs it to get the behaviour everybody expects.
+//!
+//! So the palette now closes on `Esc`, in the same `take_unhandled` window as everything else, and
+//! `Ctrl+P` still closes it too. **With a row selected the first `Esc` clears the selection and the
+//! second closes the palette**, which is the two-stage dismissal every file manager has and is a
+//! consequence of the rule rather than a special case in this file.
 //!
 //! `Esc` with nothing open **does** quit, and that took a fix in the component: a shut `select` used
 //! to consume `Esc` too, so an application whose quit key is `Esc` had none — with nothing on screen
@@ -567,11 +577,12 @@ impl App {
         for key in keys {
             let chord = key.mods.chord();
             match key.code {
-                // **`Ctrl+P` both ways, because `Esc` cannot get out of the palette at all**: a
-                // `collection` claims it as `Gesture::Nothing` and the trap has nobody to hand a
-                // declined key to. A chord is what `nav::step` and `from_key` both refuse by rule, so
-                // it reaches this window from inside the modal. See this file's header and components
-                // architecture issue 22.
+                // **`Ctrl+P` both ways**, which was once the only way out of the palette: a
+                // `collection` claimed `Esc` as `Gesture::Nothing` whatever the selection was, and
+                // the trap has nobody to hand a declined key to. A chord is what `nav::step` and
+                // `from_key` both refuse by rule, so it reaches this window from inside the modal.
+                // It is kept because it is a good binding, not because `Esc` still cannot — see
+                // this file's header and components architecture issue 22.
                 Code::Char('p') if chord.contains(Mods::CTRL) => self.palette = !self.palette,
                 Code::Char('q') if chord.contains(Mods::CTRL) => self.exit = true,
                 // **The one the runtime could not reach until issue 35.** `Ctrl+Z` arrives here as
@@ -579,11 +590,17 @@ impl App {
                 // clears `ISIG` — so an application that wants the shell's `Ctrl+Z` has to spell
                 // it, and could not.
                 Code::Char('z') if chord.contains(Mods::CTRL) => self.handoff = true,
-                // `Esc` reaches here only when nothing took it first — a *shut* `select` declines it,
-                // and an open popup's own body consumes it as *cancel*. That is why it is safe to
-                // quit on, and it is only safe because the component was fixed: a shut `select` used
-                // to eat `Esc`, which left this application with no quit key at all.
-                Code::Escape if !self.palette => self.exit = true,
+                // **`Esc` closes the palette, and it is the same key that quits.** It reaches here
+                // only when nothing took it first — a *shut* `select` declines it, an open popup's
+                // own body consumes it as *cancel*, and since architecture issue 22 the palette's
+                // own `collection` declines it whenever it has no selection to clear. So with a row
+                // selected the first press clears the selection and the second lands here, which is
+                // the two-stage dismissal and not a missed key.
+                //
+                // It is safe to quit on only because the component was fixed twice: a shut `select`
+                // used to eat `Esc`, which left this application with no quit key at all.
+                Code::Escape if self.palette => self.palette = false,
+                Code::Escape => self.exit = true,
                 _ => {}
             }
         }

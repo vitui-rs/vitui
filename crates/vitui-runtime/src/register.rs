@@ -723,18 +723,25 @@ pub const REGISTER: [Entry; 48] = [
                     file: "crates/vitui-runtime/src/theme.rs",
                     name: "the_glyph_table_has_two_rows_and_not_three",
                 },
-                // Components ticket 05's half: the table is twenty and the distinction set is ten,
-                // and **seven of the ten are carried by a glyph pair whose two halves must stay
-                // apart at every rung**. A carrier collapsing is how a bit a component reads goes
-                // quiet with no spelling missing and no width wrong — which is the failure the two
-                // counts above structurally cannot see.
+                // Components ticket 05's half: the table is twenty and the distinction set is
+                // **nine**, and **six of the nine are carried by a glyph pair whose two halves must
+                // stay apart at every rung**. A carrier collapsing is how a bit a component reads
+                // goes quiet with no spelling missing and no width wrong — which is the failure the
+                // two counts above structurally cannot see.
+                //
+                // **Ten and seven until components architecture 25**, which struck
+                // `Distinction::Guide`: its drawing is a tree's indent guide and components
+                // architecture 20 established this library does not make one. The **table** stayed
+                // at twenty, and the two denominators moving apart is the finding rather than an
+                // inconsistency — a glyph is what a theme can spell and a distinction is what a
+                // screen can still tell apart.
                 Instrument::Unit {
                     file: "crates/vitui-runtime/src/theme.rs",
-                    name: "the_table_is_twenty_entries_and_the_distinction_set_is_ten",
+                    name: "the_table_is_twenty_entries_and_the_distinction_set_is_nine",
                 },
                 Instrument::Unit {
                     file: "crates/vitui-runtime/src/theme.rs",
-                    name: "seven_distinctions_are_carried_by_a_glyph_and_three_by_the_palette_alone",
+                    name: "six_distinctions_are_carried_by_a_glyph_and_three_by_the_palette_alone",
                 },
             ],
         },

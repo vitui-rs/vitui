@@ -610,22 +610,17 @@ pub const INVENTORY: &[Component] = &[
         built: true,
         layer: Layer::L2,
         families: &[Family::F7Collections, Family::F13System],
-        // The header rule and the column separators. §16's four tees and `Cross` are the rest and
-        // are not nameable yet.
-        glyphs: &[
-            Glyph::HLine,
-            Glyph::VLine,
-            Glyph::TopLeft,
-            Glyph::TopRight,
-            Glyph::BottomLeft,
-            Glyph::BottomRight,
-            Glyph::TeeTop,
-            Glyph::TeeBottom,
-            Glyph::TeeLeft,
-            Glyph::TeeRight,
-            Glyph::Cross,
-            Glyph::Ellipsis,
-        ],
+        // **The cut, and no rule at all** — components architecture 25, resolved. Eleven entries
+        // stood here for the whole life of the freeze — the two rules, the four corners and the
+        // five junctions — and `collect.rs` names none of them on any line: a table draws its
+        // **columns**, and §6 puts its separators in the caller's cells. That is the same false
+        // claim architecture 20 struck from `tree`'s row and it is struck for the same reason,
+        // because the column's operative verb is *draws*.
+        //
+        // They did not vanish: [`crate::glyphs::DELEGATED`] is where they went, because unlike a
+        // tree's indent guide they are vocabulary a caller **can** spell — §6 hands it the job — and
+        // an entry a caller needs to degrade with the theme is not an entry nobody asks for.
+        glyphs: &[Glyph::Ellipsis],
         constructions: 1,
         can_shrink: true,
         owns_offset: true,
@@ -1747,10 +1742,17 @@ mod tests {
                 demanded.insert(format!("{g:?}"));
             }
         }
+        // **The union with `DELEGATED`**, since components architecture 25 split the column: a row
+        // declares what it *draws*, and what a caller must be able to spell to finish the job the
+        // component hands over is the second list. `table`'s eleven are there — §6 puts a table's
+        // column separators in the caller's cells — and without them this count is fifteen.
+        for d in crate::glyphs::DELEGATED {
+            demanded.insert(format!("{:?}", d.glyph));
+        }
         assert_eq!(
             demanded.len(),
             Glyph::ALL.len(),
-            "an entry of the table is drawn by no row of the freeze"
+            "an entry of the table is drawn by no row of the freeze and handed to no caller"
         );
         assert_eq!(
             INVENTORY.iter().filter(|c| !c.glyphs.is_empty()).count(),

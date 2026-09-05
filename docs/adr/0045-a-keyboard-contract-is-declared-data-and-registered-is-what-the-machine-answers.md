@@ -128,6 +128,15 @@ that owns `files.rs` — and transcribing `select`'s three lines would be compon
 mirror image. `contract::PICKER_IS_MISSING` is 27 and is asserted exactly; components architecture
 issue 23 carries the question.
 
+> **Amended 2026-09-05.** Issue 23 resolved: the picker's body takes the keyboard from its owner and
+> reads `Enter` and `Esc` through a `Refusal` of its own — not `select`'s transcribed, because the
+> two owners' inboxes are different shapes. The two now share **one `&[Bind]`** and
+> `PICKER_IS_MISSING` is **0**, kept rather than deleted because the gate that reads it is what
+> would catch them coming apart again. Declaring the keyboard also found the **pointer** half:
+> the picker answered a press on `Response::clicked` where `select` answers `press_began`, so a
+> drive that ends at the press never reached it, and `Shift+Click` and `Ctrl+Shift+Click` were 2 of
+> the 27. Everything above stands as the record of what the sweep found.
+
 A sixth was found in the gate rather than in the code, and it is ADR 0031's own rule arriving in an
 instrument: `Order::built` stamps `Revision::fresh()`, and a collection handed a revision it has not
 seen **clears the selection** — so a probe that rebuilt its index inside the draw reported `tree` deaf

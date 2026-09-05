@@ -1,7 +1,11 @@
 # vitui
 
 A Rust TUI library: layered terminal rendering with damage tracking, built so that **frame cost is
-proportional to visible cells, never to data volume**.
+proportional to visible cells, never to data volume**. That is the engine's invariant and it holds
+there without exception. Above it, a component that cannot know which of a million points land in
+its rectangle without looking at them splits the cost instead — **the frame costs the rectangle,
+the edit costs the data**, behind a memo — and every component that takes a data volume is gated on
+both halves.
 
 Three crates behind one facade. `vitui-engine` is everything that touches the terminal — cells,
 surfaces, layers, compositing, damage, input, and the bytes on the wire. `vitui-runtime` is
@@ -38,11 +42,13 @@ Three things a prospective user should know, stated here rather than discovered:
 - **Windows has never been run.** `.github/workflows/ci.yml` declares a three-OS matrix and no hosted
   CI has been watched go green. Every green run behind the numbers below is a shared local GitLab on
   one machine: linux/arm64, one OS, one architecture.
-- **Five architecture questions are still open**, all five on the components map: whether a fold
-  that costs the volume belongs to obligation O6 (19), the three indent glyphs `tree` declares and
-  cannot draw (20), `Esc` over a plain `collection` being crate-private on purpose (22),
-  `file_picker`'s popup having no keyboard at all (23), and a `table` whose columns do not fill the
-  band leaving the remainder unwritten (24). The engine's and the runtime's maps have none left.
+- **No architecture question is open on any of the three maps.** The last five were the components
+  map's and all five resolved on 2026-09-05: an edit that costs the data volume is obligation O6's
+  other half and not a seventh obligation (19); `Esc` over a plain `collection` is now declined
+  whenever there is no selection to clear, so a list in a modal no longer swallows it (22);
+  `file_picker`'s popup has a keyboard (23); a `table` writes the part of its band no column claims
+  (24); and the demand column answers *draws*, with what a caller must be able to spell kept beside
+  it (25).
 
 ## The frame, as a sequence
 

@@ -489,8 +489,9 @@ fn the_shrink() {
         grid::STALE_CELLS
     );
     println!(
-        "\n  **The same axis has a second surface and nothing writes it.** A band whose columns do \
-         not\n  fill it leaves the remainder untouched — on the shipped build, not on a refusal:"
+        "\n  **The same axis has a second surface and the band writes it.** A band whose columns do \
+         not\n  fill it left the remainder untouched on every arm until architecture issue 24; it \
+         is a\n  refusal now, and the shipped build leaves nothing:"
     );
     println!(
         "  {:<34}{} of {} cells, {} a row",
@@ -506,10 +507,24 @@ fn the_shrink() {
         grid::CELLS
     );
     println!(
+        "  {:<34}{} of {} cells, the arm architecture 24 repaired",
+        "the same, with `Slack::Unwritten`",
+        grid::unwritten_with(
+            &grid::narrow_columns(),
+            grid::VOLUMES[0],
+            grid::Opts {
+                slack: grid::Slack::Unwritten,
+                ..grid::Opts::correct()
+            }
+        ),
+        grid::CELLS
+    );
+    println!(
         "  `examples/ledger.rs` declares twelve fixed columns summing to 197 in a 263-cell band, so\n  \
-         **66 cells of every row are unwritten** at this width and none are at eighty. Filed as\n  \
-         components architecture 24; deciding it moves scene 7's own verb figures, so it is not a\n  \
-         scenes ticket's to repair.\n"
+         **66 cells of every row are its band's slack** at this width and none are at eighty. They\n  \
+         were unwritten until components architecture 24, which answered it with spec §2: a\n  \
+         component handed a rectangle writes all of it. Scene 7's verb figures did **not** move,\n  \
+         because every column list on this screen overflows and had no slack to write.\n"
     );
     assert_eq!(
         grid::unwritten(&grid::narrow_columns(), grid::VOLUMES[0]),

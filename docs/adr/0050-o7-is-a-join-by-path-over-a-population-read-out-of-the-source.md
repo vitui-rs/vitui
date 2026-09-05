@@ -100,7 +100,9 @@ them. `crates/vitui-apps/examples/sheet.rs` is the application, and what it make
 four things `scroll_area` does for nothing: the clamp, the tail, the wheel and the reveal. The last
 of those it **cannot** buy back — `Ctx::request_into_view` addresses the widget that owns the
 offset, and here that is an application — and the picker on the same screen reproduces components
-architecture issue 23 by being pressed: an open picker has no keyboard at all.
+architecture issue 23 by being pressed: an open picker had no keyboard at all. (Issue 23 resolved
+2026-09-05 and it has one now; this application is where a person found that it did not, which is
+the claim this ADR is making about consumers.)
 
 ## Consequences
 

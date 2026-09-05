@@ -68,7 +68,12 @@ conversation. Definitions only. The specs and ADRs carry the arguments and the n
   resolved at pack time into a side table it owns, so the app thread may sweep while a frame is written. A lease is
   never invalidated from outside; a frame a resize made wrong is discarded and the buffer returns.
 - **Damage** — the region that changed. The central optimisation, and the central invariant: *frame cost is
-  proportional to visible cells, never to data volume.*
+  proportional to visible cells, never to data volume.* **The invariant is the engine's and it holds there without
+  exception**, because the engine never iterates application data at all. A component above it that must fold — one
+  that cannot know which of a million points reach its rectangle without looking at them — states the same budget as
+  a split instead: *the frame costs the rectangle, the edit costs the data*, behind a memo (components spec §13).
+  Quoting this line at a component without that half is how a reader ends up wrong about `chart`; the split is
+  obligation O6's subject and is gated on both halves.
 - **Run** — one damaged span on one row, inclusive both ends; the only shape the serializer sees, and their order *is*
   the byte order. **The word is the engine's** — a contiguous interval of selected indices is a **`Span`**.
 - **Serialize** — snapshot to bytes. The engine writes its own escape sequences; the backend is input and terminal

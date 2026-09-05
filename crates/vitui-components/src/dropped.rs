@@ -460,7 +460,8 @@ fn picker_screen(steps: &[usize], shape: PickerShape) -> Canvas {
             }
             let mut child = cx.child(Rect::new(0, 0, W, H));
             picker_body(
-                &mut pen, &mut child, body, &files, &task, decode, line, LIST_W, &pane_opts, shape,
+                &mut pen, &mut child, PICKER, body, &files, &task, decode, line, LIST_W,
+                &pane_opts, shape,
             );
         });
         pen.end_frame();
@@ -507,6 +508,7 @@ fn omitted_tail() -> PickerShape {
             tail: crate::collect::Tail::Omitted,
             ..crate::collect::CollShape::RULE
         },
+        ..PickerShape::default()
     }
 }
 
@@ -553,7 +555,8 @@ fn picker_screen_in(steps: &[usize], shape: PickerShape, h: u16) -> Canvas {
             }
             let mut child = cx.child(Rect::new(0, 0, W, h));
             picker_body(
-                &mut pen, &mut child, body, &files, &task, decode, line, LIST_W, &pane_opts, shape,
+                &mut pen, &mut child, PICKER, body, &files, &task, decode, line, LIST_W,
+                &pane_opts, shape,
             );
         });
         pen.end_frame();
@@ -915,6 +918,7 @@ pub fn counters_approve(on: On, allocations: Allocations) -> (Counters, Counters
                         tail: crate::collect::Tail::Omitted,
                         ..crate::collect::CollShape::RULE
                     },
+                    ..PickerShape::default()
                 },
                 allocations,
             ),
@@ -993,7 +997,8 @@ fn picker_counters(shape: PickerShape, allocations: Allocations) -> Counters {
             }
             let mut child = cx.child(Rect::new(0, 0, W, H));
             picker_body(
-                &mut pen, &mut child, body, &files, &task, decode, line, LIST_W, &pane_opts, shape,
+                &mut pen, &mut child, PICKER, body, &files, &task, decode, line, LIST_W,
+                &pane_opts, shape,
             );
         });
     }
@@ -1433,5 +1438,195 @@ mod tests {
         );
         assert_eq!(STALE_ROWS, usize::from(H) - SHRUNK_TO);
         assert_eq!(WHEEL_FRAMES, 23);
+    }
+
+    /// **An open `file_picker` answers the keyboard, and the arm that shipped answered none of it.**
+    ///
+    /// Architecture issue 23, and the population it repairs is *the whole keyboard*: until it was
+    /// answered `picker_body` seated no focus and declared no [`Refusal`](crate::collect::Refusal),
+    /// so a picker could only be used with a mouse. **It rendered perfectly**, which is why nothing
+    /// caught it — every other gate over this component drives it with a pointer or asserts about
+    /// the pane, and a key that is never answered leaves no mark on a canvas. So this is the one
+    /// instrument in the file that is not a screen comparison, and the defective arm is
+    /// [`crate::files::defective::a_popup_with_no_keyboard`]: the same function with one field
+    /// changed, which is this crate's rule about second implementations.
+    ///
+    /// Four properties, one per decision the issue left open plus the wake:
+    ///
+    /// - **the cursor moves and the type-ahead seeks**, which is the focus being seated on the
+    ///   *list* — issue 23's first decision, and the pane is not a candidate because its document is
+    ///   a function of that cursor;
+    /// - **`Enter` answers the cursor's file**, which is the same expression a click answers with,
+    ///   so one meaning has two triggers;
+    /// - **`Esc` closes and leaves `chosen` alone**, which is how a dismissal restores here — the
+    ///   second decision, and it is not `select`'s, because a picker's `chosen` starts empty and
+    ///   *answer what was already there* would say nothing;
+    /// - **nothing is declined on the seated arm**, and every key is declined on the other, which is
+    ///   what *pointer-only* means as a number.
+    #[test]
+    fn an_open_picker_answers_the_keyboard_and_the_arm_that_shipped_answered_none_of_it() {
+        /// `(cursor, chosen, still open, keys the application saw)`.
+        fn drive(seated: bool, chords: &[Chord]) -> (usize, Option<u64>, bool, usize) {
+            const NAMES: [&str; 4] = ["alpha", "beta", "gamma", "delta"];
+            let files: Vec<Entry<'_>> = NAMES
+                .iter()
+                .enumerate()
+                .map(|(i, n)| Entry {
+                    id: i as u64,
+                    name: n,
+                })
+                .collect();
+            let worker = Worker::queueing();
+            let task: Task<Doc> = Task::new(&worker);
+            let mut body: PickerBody<Doc> = PickerBody::new();
+            let mut st = PickerState::new();
+            st.open();
+            let opts = PickerOpts::default();
+            let mut driver = driver_at(W, H, Density::default());
+            let mut declined = 0;
+
+            let frame = |driver: &mut Driver,
+                         st: &mut PickerState,
+                         body: &mut PickerBody<Doc>,
+                         files: &Vec<Entry<'_>>,
+                         seat: bool,
+                         declined: &mut usize| {
+                driver.frame(|cx| {
+                    if seat {
+                        cx.focus(PICKER);
+                    }
+                    let area = Rect::new(0, 0, W, 1);
+                    let _ = if seated {
+                        file_picker_into(
+                            &mut Direct,
+                            cx,
+                            PICKER,
+                            area,
+                            st,
+                            body,
+                            files,
+                            &task,
+                            decode,
+                            line,
+                            &opts,
+                        )
+                    } else {
+                        files_defective::a_popup_with_no_keyboard(
+                            &mut Direct,
+                            cx,
+                            PICKER,
+                            area,
+                            st,
+                            body,
+                            files,
+                            &task,
+                            decode,
+                            line,
+                            &opts,
+                        )
+                    };
+                });
+                *declined += driver.unhandled().len();
+            };
+
+            // **Two opening frames**, which is `crate::wheel`'s own finding one family over: the
+            // owner is focused on the first, the body takes the keyboard on it, and `next_key`
+            // answers the *previous* frame's focus — so the first key can only land on the third.
+            frame(&mut driver, &mut st, &mut body, &files, true, &mut declined);
+            frame(
+                &mut driver,
+                &mut st,
+                &mut body,
+                &files,
+                false,
+                &mut declined,
+            );
+            for &c in chords {
+                driver.post_key(keys::press(c));
+                frame(
+                    &mut driver,
+                    &mut st,
+                    &mut body,
+                    &files,
+                    false,
+                    &mut declined,
+                );
+            }
+            // **The delivery frame the body asked for.** A body answers through the inbox and the
+            // owner reads the slot at the *top* of the next frame, so the frame that carries the
+            // keystroke is never the frame that acts on it — which is why `picker_body` calls
+            // `Ctx::request_frame` when either slot fills, and why an application that parks on
+            // `Driver::wait` would otherwise see the choice land on whatever input happened next.
+            frame(
+                &mut driver,
+                &mut st,
+                &mut body,
+                &files,
+                false,
+                &mut declined,
+            );
+            (body.list.sel.lead, st.chosen(), st.is_open(), declined)
+        }
+
+        // ── the cursor moves, and a letter seeks ──────────────────────────────────────────────
+        let (lead, chosen, open, declined) = drive(true, &[Chord::new(Code::Down)]);
+        assert_eq!(lead, 1, "`Down` moves the picker's cursor");
+        assert_eq!(chosen, None, "and chooses nothing on its own");
+        assert!(open, "and leaves the popup standing");
+        assert_eq!(declined, 0, "and the application never saw the key");
+
+        let (lead, ..) = drive(true, &[Chord::typed('g')]);
+        assert_eq!(
+            lead, 2,
+            "the type-ahead finds `gamma`, which is the list's own `find`"
+        );
+
+        // ── `Enter` answers the cursor's file, and the owner takes it ─────────────────────────
+        let (_, chosen, open, _) = drive(true, &[Chord::new(Code::Down), Chord::new(Code::Enter)]);
+        assert_eq!(chosen, Some(1), "`Enter` answers the file under the cursor");
+        assert!(
+            !open,
+            "and the owner closes the popup when it takes the answer"
+        );
+
+        // ── `Esc` closes and restores by saying nothing ───────────────────────────────────────
+        let (_, chosen, open, _) = drive(true, &[Chord::new(Code::Down), Chord::new(Code::Escape)]);
+        assert_eq!(
+            chosen, None,
+            "`Esc` leaves `chosen` exactly as it was, which is the restore"
+        );
+        assert!(!open, "and closes the popup");
+
+        // ── and the arm that shipped answers none of it ───────────────────────────────────────
+        //
+        // **The keys do not vanish — they stay with the *owner*.** Nothing seats a focus inside the
+        // body, so the owner's own drain loop is still what `next_key` answers, and its four binds
+        // go on meaning *open* and *close*: `Down` and `Enter` are `st.open()` on a picker that is
+        // already open, which is a no-op, and only the letter is declined. Those four are exactly
+        // `contract::OVERLAY_OWNER`, and they are the 8 in `PICKER_IS_MISSING`'s *35 against 8*.
+        let keys = [
+            Chord::new(Code::Down),
+            Chord::typed('g'),
+            Chord::new(Code::Enter),
+        ];
+        let (lead, chosen, open, declined) = drive(false, &keys);
+        assert_eq!(lead, 0, "pointer-only: the cursor never moved");
+        assert_eq!(chosen, None, "pointer-only: `Enter` chooses no file");
+        assert!(open, "pointer-only: and nothing here shut the popup");
+        assert_eq!(
+            declined, 1,
+            "only the letter reaches the application: the other two are the *owner's* binds \
+             answered at the owner, which is what makes the gap 27 rather than 35"
+        );
+
+        // And `Esc` on that arm is the owner's *close it*, not the body's *cancel* — the same
+        // keystroke, a different reader, which is the half of the defect a spelling count cannot
+        // see and the reason the seated arm asserts `chosen` and not just `open`.
+        let (_, chosen, open, _) = drive(false, &[Chord::new(Code::Escape)]);
+        assert!(
+            !open,
+            "the owner closes on `Esc` whether the body has a keyboard or not"
+        );
+        assert_eq!(chosen, None, "and chooses nothing either way");
     }
 }

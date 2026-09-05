@@ -7936,13 +7936,14 @@ pub const REGISTER: [Row; 234] = [
         // components 35's store-without-a-row-loop as the difference: four binds, the type-ahead
         // and the three pointer gestures.
         //
-        // **And the overlay family's two owners do *not* declare one contract, which is a defect
-        // and is filed as components architecture issue 23.** `select`'s popup takes the keyboard
-        // from its owner and reads `Enter` and `Esc` through a `Refusal`; `file_picker`'s seats no
-        // focus and declares none, so **an open picker can only be used with a mouse** — 35 against
-        // 8 over one family, on a screen that renders perfectly. The owner's four are asserted
-        // equal, because those really are one contract; the rest is `PICKER_IS_MISSING`, so the day
-        // the issue is answered the count fails rather than the gate quietly widening.
+        // **And the overlay family's two owners declare one contract, since components architecture
+        // issue 23.** They did not for eight tickets and that was the defect: `select`'s popup takes
+        // the keyboard from its owner and reads `Enter` and `Esc` through a `Refusal`, and
+        // `file_picker`'s seated no focus and declared none, so **an open picker could only be used
+        // with a mouse** — 35 against 8 over one family, on a screen that rendered perfectly. The
+        // two now share one `&[Bind]`, so the declaration's equality is the type system's; what this
+        // row still asserts is that the two **bodies** answer the same thirty-five spellings, and
+        // `PICKER_IS_MISSING` is kept at **0** as the number that records the repair.
         //
         // And the text class is a class, asked of three letters rather than of one — with a
         // collection's own refusal beside it, because `seek` declines a letter no row starts with.
@@ -7966,7 +7967,7 @@ pub const REGISTER: [Row; 234] = [
                 },
                 Instrument::Unit {
                     file: CONTRACT,
-                    name: "the_two_overlay_owners_do_not_declare_one_contract",
+                    name: "the_two_overlay_owners_declare_one_contract",
                 },
                 Instrument::Unit {
                     file: CONTRACT,

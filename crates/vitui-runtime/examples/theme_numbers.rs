@@ -255,11 +255,11 @@ fn the_pair_table() {
     );
     println!(
         "        **The distinctions-lost column, which is the tier axis of spec §16's matrix.**\n\
-        \x20       Components ticket 05 took the set from three to ten and seven of the ten are\n\
+        \x20       Components ticket 05 took the set from three to ten, architecture 25 struck one, and six of the nine are\n\
         \x20       carried by a **glyph** pair, so they survive every tier: what is lost is only\n\
         \x20       ever `Fade`, `Status` and `Hover`, in that order, which is the same three the\n\
         \x20       colour axis was carrying alone.\n\
-        \x20       §16 records 0 / 1 / **2** of 10 across True / C256 / C16 and this palette gives\n\
+        \x20       §16 records 0 / 1 / **2** of 9 across True / C256 / C16 and this palette gives\n\
         \x20       0 / 1 / **3** — its two face backgrounds land on one index at sixteen colours, so\n\
         \x20       `Hover` goes with the other two. That is the same divergence as the pair count\n\
         \x20       above and it has the same cause, so it is measured rather than engineered away.\n\

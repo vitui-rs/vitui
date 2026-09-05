@@ -82,7 +82,9 @@ terminal can show, which is ADR 0018 (*a component names a role and never a colo
 than a hole in it.
 
 So the colour half of the matrix is `Theme::roles_differ_on_wire` and `Theme::shows`: 66, 9 and 0
-collapsed role pairs of 78, and 3, 2 and 0 distinctions lost of 10. The screen's own paint count is
+collapsed role pairs of 78, and 3, 2 and 0 distinctions lost of 10 (**of 9** since components
+architecture 25 struck `Distinction::Guide`; none of the three figures was carried by it). The
+screen's own paint count is
 reported beside them and reads **ten in all nine cells** — a column that moves on neither axis, which
 is §21's refinement 1 as a table: *a counter on the wrong side of the question is not a weak gate, it
 is a green one.*
