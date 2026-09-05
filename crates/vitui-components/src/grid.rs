@@ -1265,14 +1265,17 @@ pub const COLUMN_RESIDUE: usize = 0;
 /// **0** untouched, which is only possible if something writes them.
 pub const COLUMN_RESIDUE_WAS: usize = 21_760;
 
-/// **How many cells of a row the narrow band leaves unwritten. Two hundred and seventy-two** —
+/// **How many cells of a row the narrow band's columns do not claim. Two hundred and seventy-two** —
 /// [`VIEW_W`]'s viewport less the two ten-cell columns inside it.
+///
+/// *Left unwritten* until architecture issue 24; **written by the band** since. The number is the
+/// same either way, because it is read off the solve rather than off a screen.
 ///
 /// **A literal and not `COLUMN_RESIDUE / H`**, which is what it was until a review said so: a
 /// constant divided by a number and multiplied back by it is one declaration round-tripped, and the
 /// assertion under it could only ever have failed on non-divisibility. Written out, the two are
 /// independent and the test that relates them relates a measurement to the **solve** — see
-/// `tests::the_bands_slack_is_written_by_nothing`.
+/// `tests::the_bands_slack_is_written_by_the_band`.
 ///
 /// The row figure is the one that transfers: the ledger application's is 66 on the same arithmetic
 /// and a different column list.
