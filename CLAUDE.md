@@ -118,8 +118,8 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   the group's paperwork behind them),
   and the release.
   **One of the sixteen can start today and it is 02**, which is `ready-for-human` — it needs a public
-  repository. **15 is the frontier and it cannot start**: 02 is unresolved and four components
-  architecture questions are open.
+  repository. **15 is the frontier and it cannot start**: 02 is unresolved and **five** components
+  architecture questions are open — 19, 22, 23, 24 and 25, the five this file lists below.
   **Windows is last, as 16**, blocked by the publish — which carries the consequence that no shipped
   string may claim a terminal the conform suite has not asked. Everything on it was already true and
   already recorded; what was missing was that nothing scheduled any of it.
