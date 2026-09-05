@@ -22,6 +22,13 @@
 //! numeric timeout alone is fragile, and a real bug — `terminal-light` against iTerm2 — is why that
 //! is stated rather than assumed.
 //!
+//! **That citation was checked against the terminal it names, 2026-09-04** (production ticket 13),
+//! and it does not reproduce as a slow terminal: `caps` on iTerm2 3.6.11's own tty attached three
+//! times in **73, 94 and 80 ms**, whole batch and sentinel, against [`CEILING`]'s 250. What the
+//! citation demonstrates is that a *fixed* number is fragile — the machine and the load are in it
+//! too — and a sentinel is unaffected by which of those is true, which is the reason it is the
+//! mechanism. Spec §10 carries the run.
+//!
 //! **The seventeen queries the degradation model added cost no extra round trip**, because they sit
 //! in the same batch ahead of the sentinel. That is the whole argument for asking sixteen palette
 //! entries at all.

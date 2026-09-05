@@ -54,5 +54,8 @@ name = "wezterm"
 [[example]]
 name = "alacritty"
 
+[[example]]
+name = "iterm2"
+
 [lints.rust]
 warnings = "deny"

@@ -24,16 +24,17 @@ this section before the numbers below it.
 
 Three things a prospective user should know, stated here rather than discovered:
 
-- **Six terminal emulator families have been asked, and one tier-1 terminal has not.** Until
-  2026-08-23 no instrument here had ever compared the engine's bytes against a real emulator's
-  screen: the round-trip suite, the reference compositor and the terminal model they are checked
-  against all live inside the crate, so a case where the model and the serializer are wrong *in the
-  same direction* was invisible to every gate. `conform/` is the missing fourth party — seven arms
-  over Ghostty, Ghostty through tmux, tmux, kitty, Terminal.app, WezTerm and Alacritty, each with a
-  committed report. Terminal.app is the arm that disagrees, WezTerm is the arm that answers wrongly,
-  and Alacritty is the one whose capture is the terminal's own grid rather than an escape stream.
-  **iTerm2 has no arm**, so the attribute facts this workspace states for it are inference and are
-  marked as such.
+- **Seven terminal emulator families have been asked, and the one tier-1 terminal left needs
+  Windows.** Until 2026-08-23 no instrument here had ever compared the engine's bytes against a real
+  emulator's screen: the round-trip suite, the reference compositor and the terminal model they are
+  checked against all live inside the crate, so a case where the model and the serializer are wrong
+  *in the same direction* was invisible to every gate. `conform/` is the missing fourth party —
+  eight arms over Ghostty, Ghostty through tmux, tmux, kitty, Terminal.app, WezTerm, Alacritty and
+  iTerm2, each with a committed report. Terminal.app is the arm that disagrees, WezTerm is the arm
+  that answers wrongly, Alacritty is the one whose capture is the terminal's own grid rather than an
+  escape stream, and iTerm2 is the one whose capture is a **projection** of the cell — which is why
+  its three unanswered rows split one and two across *the terminal cannot* and *this suite cannot
+  see*. Windows Terminal is the one that remains, and its attribute facts are still inference.
 - **Windows has never been run.** `.github/workflows/ci.yml` declares a three-OS matrix and no hosted
   CI has been watched go green. Every green run behind the numbers below is a shared local GitLab on
   one machine: linux/arm64, one OS, one architecture.

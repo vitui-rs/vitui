@@ -226,6 +226,52 @@
 //! hold either — except that here it is not even a disagreement. This arm reports `4:4` correctly,
 //! because `DOTTED_UNDERLINE` is a bit of its own in the grid, and it is the first arm in the suite
 //! that could be asked.
+//!
+//! # The eighth entry, and it is the one where the second source is an absence
+//!
+//! iTerm2 3.6.11 came seventh to `conform/`'s scene 01 and answered **eight of eleven** (production
+//! ticket 13). Two of the three it did not answer are the instrument's — see below — and the third
+//! is overline, which is this entry.
+//!
+//! **The capture surface could not have earned it and the arm says so.** iTerm2's Python API answers
+//! a `GetBufferRequest` with a `CellStyle` per run of cells, and a `CellStyle` is a **projection** of
+//! iTerm2's cell rather than the cell itself: a bit the cell holds and the projection drops looks
+//! exactly like a bit the cell never had. That is WezTerm's situation, and WezTerm earned nothing.
+//!
+//! What separates them is the second source, and here it is an **absence** in the shipped binary
+//! rather than a declaration in one. iTerm2's own cell struct is readable straight out of the
+//! Objective-C type encoding it compiles in:
+//!
+//! ```text
+//! screen_char_t = code, foregroundColor, fgGreen, fgBlue, backgroundColor, bgGreen, bgBlue,
+//!                 foregroundColorMode:2, backgroundColorMode:2, complexChar:1,
+//!                 bold:1, faint:1, italic:1, blink:1, underline:1, image:1, strikethrough:1,
+//!                 underlineStyle0:2, invisible:1, inverse:1, guarded:1, virtualPlaceholder:1,
+//!                 rtlStatus:2, underlineStyle1:1, unused:11
+//! ```
+//!
+//! There is no bit for an overline, and the eleven spare bits beside the ones there are make that a
+//! decision rather than a shortage. Then the absence says it a second time from a second place: the
+//! string `overline` occurs **zero** times in the whole 88 MB binary — not as an attribute name, not
+//! as a preference key, not as a help string — where `4:3  Curly underline` is in there as help text
+//! for the underline styles the same cell does carry. A terminal that renders something usually has
+//! a word for it.
+//!
+//! **Recognised by XTVERSION**, which is the strongest of the three recognition kinds this table
+//! uses and the one Alacritty could not have: iTerm2 answers `DCS >| iTerm2 3.6.11 ST`, so the
+//! identity is a query rather than an inherited variable and a tmux inside iTerm2 does not pick it
+//! up.
+//!
+//! **No version boundary, and it is kitty's bet rather than tmux's mechanism**: the cause is a bit
+//! field and a future iTerm2 could grow the bit. The trade is the same one and in the same
+//! direction.
+//!
+//! **What this entry deliberately does not contain**: the double and the dotted underline. iTerm2
+//! renders both — its cell spends three bits on `underlineStyle` and its own help text names the
+//! curly one — and `CellStyle.underline` is a `bool`, so the API says only *underlined*. That is
+//! kitty's `CSI 4 : m` reached through a completely different surface, it is a fact about the
+//! instrument, and [`Quirks::attrs_dropped`] could not hold it in any case: this field is the eight
+//! flags and not the three-bit underline enumeration.
 
 use crate::caps::{Capabilities, Env};
 
@@ -386,7 +432,30 @@ impl Quirks {
                 ..Quirks::default()
             };
         }
-        // **Third, and after the two queries for their reason.** A tmux running inside Alacritty
+        // **Third, and a query like the two above it.** iTerm2 answers XTVERSION
+        // `DCS >| iTerm2 3.6.11 ST`, so the version arrives with the identity and there is no need
+        // to key on `$TERM_PROGRAM` — which a tmux inside iTerm2 inherits, and which would then
+        // withhold an attribute from the wrong terminal.
+        //
+        // **`"iTerm2 "` with the space, because that is the spelling that was observed.** kitty's
+        // entry keys on `"kitty("` for the same reason: these are the two shapes XTVERSION comes in
+        // and each entry takes the one its own run brought back. A parenthesised `iTerm2(3.5)` is
+        // believed to exist for older releases and has never been seen here, so it is not matched —
+        // the miss is in the safe direction, costing an attribute sent and ignored.
+        if version.is_some_and(|v| v.starts_with("iTerm2 ")) {
+            return Quirks {
+                // One bit, and it is not a dump's inference — see the module docs. iTerm2's own
+                // cell has no overline, and the word is not in its binary at all.
+                //
+                // The scene's other two disagreements, a double and a dotted underline, are
+                // deliberately **not** here: iTerm2 renders both and it is the API's `bool` that
+                // cannot spell them, and an underline style is not a bit this field could clear
+                // even if it were.
+                attrs_dropped: crate::style::OVERLINE,
+                ..Quirks::default()
+            };
+        }
+        // **Fourth, and after the three queries for their reason.** A tmux running inside Alacritty
         // inherits `$ALACRITTY_WINDOW_ID`, and the thing at the other end of that pty is tmux — so
         // the query above has to win, and it does by being asked first. Before the environment
         // entries below it because it is the more specific: nothing sets this key but Alacritty.
@@ -448,11 +517,18 @@ impl Quirks {
         // and a real observed misbehaviour will add — one entry at a time, each with the report that
         // produced it.
         //
-        // **Seven is where the evidence stops, not where the need does.** The fourth, fifth and
-        // seventh are what the sentence is for: it took building `conform/` to get any of them, and
-        // the eleven attribute facts are now observed on **four** of spec §10's tier-1 terminals out
-        // of seven. The three that remain are inference from libvaxis's three entries, and none of
-        // the three is named by any of them.
+        // **Eight is where the evidence stops, not where the need does.** The fourth, fifth,
+        // seventh and eighth are what the sentence is for: it took building `conform/` to get any
+        // of them, and scene 01 has now been run against **six** of spec §10's seven tier-1
+        // terminals — kitty, Ghostty, WezTerm, Alacritty, tmux and iTerm2. **The one that remains
+        // is Windows Terminal**, whose attribute facts are still inference from libvaxis's three
+        // entries, and production ticket 16 is what owns it.
+        //
+        // That count read **four** and *three that remain* until production ticket 13, which is one
+        // arm stale in each direction: WezTerm's arm landed with no entry to write, so the
+        // paragraph beside the entries was not the file anybody edited. A count with nothing
+        // watching it is this repository's own recurring defect and it is recorded here rather than
+        // quietly corrected.
         //
         // **The sixth arrived from a user's screen rather than from an instrument**, and that is the
         // other way this table grows — the one §15 was describing when it called populating it field

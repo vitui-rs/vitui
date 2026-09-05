@@ -818,6 +818,12 @@ fn every_family_blanks_the_orphaned_half_and_they_do_not_disagree_about_it() {
             Dialect::AlacrittyGrid,
             "Alacritty 0.17.0",
         ),
+        // **The seventh, and it agrees only because the reader projects one cell.** iTerm2 stores a
+        // cell it emptied as `U+0000` and a space somebody wrote as `U+0020`, so the raw capture of
+        // these rows is `AB\0xCD` — the only surface here that tells the two apart. It reads as the
+        // other six once the empty cell is a space, and the test below asserts both halves of that
+        // projection so this row cannot start agreeing for the wrong reason.
+        (ITERM2_SCENE04, Dialect::Iterm2Buffer, "iTerm2 3.6.11"),
     ] {
         let rows = scene04_text(bytes, dialect);
         for (i, (label, want)) in SCENE04_ROWS.iter().enumerate() {
@@ -832,22 +838,28 @@ fn the_families_disagree_about_what_the_blanked_half_wears_and_that_is_the_sharp
     // ticket 20's answer from *the engine may as well repair* into *the engine must*.
     //
     // The wide glyph carries a red background and the cluster written over its continuation does
-    // not. **kitty, WezTerm and Alacritty keep the orphan's own background; Ghostty and tmux blank
-    // it to the SGR state in force.** So a repair delegated to the terminal is not merely a repair
-    // the mirror would not know about — it is a repair whose *result differs by terminal*, and
-    // there is no single mirror state that could be right on all five. The engine has to do it itself and serialise the
-    // outcome, which is exactly what the answer makes it do.
+    // not. **kitty, WezTerm, Alacritty and iTerm2 keep the orphan's own background; Ghostty and
+    // tmux blank it to the SGR state in force.** So a repair delegated to the terminal is not merely
+    // a repair the mirror would not know about — it is a repair whose *result differs by terminal*,
+    // and there is no single mirror state that could be right on all six. The engine has to do it
+    // itself and serialise the outcome, which is exactly what the answer makes it do.
     //
     // Asserted here rather than in the live arm's table, because a per-terminal fact belongs to a
     // capture: the arm reports what it saw and the fixture is what holds it still.
     let at = |bytes, dialect| {
         parse(bytes, SCENE04_ROWS.len(), dialect).unwrap().rows[4].clusters[2].style
     };
-    // **Three families keep it and two blank it, and it was one against three until WezTerm ran.**
-    // The count is not the point and the direction of its travel is: each new askable arm has
+    // **Four families keep it and two blank it, and it was one against three until WezTerm ran.**
+    // The count is not the point and the direction of its travel is: **every** new askable arm has
     // landed on the *keeping* side, so *kitty is the odd one out* — the reading available when
     // there were four arms — is now the reading a majority would have to be wrong for. Two designs,
     // not one design and one bug, and no mirror state is right on both.
+    //
+    // The number in this comment has now been wrong once, which is worth the sentence: iTerm2's
+    // capture carries style and its row was documented in `conform/README.md` before it was added
+    // here, so for one session a per-terminal fact had a README claim and a gate saying a smaller
+    // number. That is the *count with nothing watching it* defect, arriving in the file that watches
+    // the counts.
     for (bytes, dialect, who) in [
         (KITTY_SCENE04, Dialect::Ecma48, "kitty 0.48.2"),
         (WEZTERM_SCENE04, Dialect::Ecma48, "WezTerm 20240203"),
@@ -856,6 +868,7 @@ fn the_families_disagree_about_what_the_blanked_half_wears_and_that_is_the_sharp
             Dialect::AlacrittyGrid,
             "Alacritty 0.17.0",
         ),
+        (ITERM2_SCENE04, Dialect::Iterm2Buffer, "iTerm2 3.6.11"),
     ] {
         assert_eq!(
             at(bytes, dialect).bg,
@@ -1498,11 +1511,12 @@ const TMUX_SYNC: &[u8] = include_bytes!("../fixtures/tmux-3.7c-scene06-sync.decr
 const VIA_TMUX_SYNC: &[u8] =
     include_bytes!("../fixtures/ghostty-1.3.1-via-tmux-3.7c-scene06-sync.decrqm");
 
-const SYNC_ARMS: [(&str, &[u8]); 4] = [
+const SYNC_ARMS: [(&str, &[u8]); 5] = [
     ("Ghostty 1.3.1", GHOSTTY_SYNC),
     ("kitty 0.48.2", KITTY_SYNC),
     ("tmux 3.7c", TMUX_SYNC),
     ("Ghostty 1.3.1 via tmux 3.7c", VIA_TMUX_SYNC),
+    ("iTerm2 3.6.11", ITERM2_SYNC),
 ];
 
 #[test]
@@ -1516,8 +1530,10 @@ fn every_arm_in_sync_arms_tracks_mode_2026_and_the_three_that_do_not_are_below()
     // over a list that is now a minority is this repository's own recorded trap. Terminal.app 2.15
     // answers nothing at all; WezTerm 20240203 and Alacritty 0.17.0 answer *reset* while the mode
     // is set. Three facts and two of them the same one, each with its own test at the end of this
-    // file, and none of them in `SYNC_ARMS` — which stays at four, because it is the list of arms
-    // that answer DECRPM's own definitions.
+    // file, and none of them in `SYNC_ARMS` — which is the list of arms that answer DECRPM's own
+    // definitions, and iTerm2 3.6.11 joined it as the fifth. **The three that do not is still
+    // three**, which is why this name has not needed a third correction: a seventh arm arrived and
+    // landed on the majority side.
     for (who, bytes) in SYNC_ARMS {
         let seen = mode_reports(bytes, 2026, SCENE06_STATES.len())
             .unwrap_or_else(|e| panic!("{who}: {e}"));
@@ -2505,5 +2521,432 @@ fn alacritty_is_a_sixth_terminal_and_the_sentinel_says_so() {
     ] {
         assert_ne!(da1(ALACRITTY_WIDTHS), da1(bytes), "not {who}'s sentinel");
         assert_ne!(ALACRITTY_WIDTHS, bytes, "not {who}'s capture");
+    }
+}
+
+// ── The seventh family, and the second capture here that is not an escape stream ─────────────────
+
+const ITERM2_SCENE01: &[u8] = include_bytes!("../fixtures/iterm2-3.6.11-scene01-attrs.pb");
+const ITERM2_SCENE04: &[u8] = include_bytes!("../fixtures/iterm2-3.6.11-scene04-pairs.pb");
+const ITERM2_WIDTHS: &[u8] = include_bytes!("../fixtures/iterm2-3.6.11-scene05-widths.cpr");
+const ITERM2_SYNC: &[u8] = include_bytes!("../fixtures/iterm2-3.6.11-scene06-sync.decrqm");
+
+/// What iTerm2 3.6.11 answered for the fifteen clusters, in the scene's order.
+///
+/// Two rows differ from [`OBSERVED`], and the pair is what makes this arm worth its column: it is
+/// the **first here to get `vs16` right and `keycap` wrong**, where WezTerm gets both wrong and
+/// Terminal.app gets `vs16` wrong and `keycap` right. Three arms, three combinations — so the two
+/// rows are decided by different code in every family that has been asked, and a suite that had read
+/// them as one question would have been wrong about all three.
+const ITERM2_OBSERVED: &[(&str, u16)] = &[
+    ("ascii", 1),
+    ("ascii-pair", 2),
+    ("cjk", 2),
+    ("hangul", 2),
+    ("fullwidth", 2),
+    ("ambiguous", 1),
+    ("combining", 1),
+    // One here, where the engine says none. Terminal.app also says one — and this arm is **not** a
+    // summer, which is what that row was previously read as evidence of.
+    ("zero-width", 1),
+    ("emoji", 2),
+    // Correct, and it is the row `ucd.rs`'s citation says only 7 of 23 surveyed get right.
+    ("vs16", 2),
+    ("vs15", 1),
+    ("zwj-family", 2),
+    ("flag", 2),
+    ("skin-tone", 2),
+    // One, where the same selector one row up bought two columns. An ASCII base does not reach this
+    // terminal's VS16 rule.
+    ("keycap", 1),
+];
+
+#[test]
+fn iterm2_holds_eight_of_the_eleven_and_the_one_it_drops_is_a_quirk_entry() {
+    // **The seventh family**, and the fourth arm whose scene 01 falls short. It falls short by
+    // three, which is the most of any arm here, and the three are **not one story**: one is the
+    // terminal, two are the instrument.
+    //
+    // Overline is the terminal's. The capture is a *projection* of iTerm2's cell rather than the
+    // cell itself, so it could not have earned an entry on its own — that is WezTerm's position
+    // exactly, and WezTerm earned nothing. What earned this one is a second source outside the
+    // capture, and it is an **absence** in both halves: `screen_char_t` enumerates fourteen bit
+    // fields and eleven spare bits with no overline among them, and the string `overline` occurs
+    // zero times in the whole shipped binary. `quirks.rs`'s eighth entry.
+    //
+    // The double and the dotted underline are the instrument's. `CellStyle.underline` is a `bool`
+    // where the cell carries three bits, so both come back as a plain underline — kitty's
+    // `CSI 4 : m` reached through a completely different surface, and asserted here as exactly that
+    // rather than excused: the row **is** `Underline::Single` in this capture, and saying so is what
+    // stops a future reader believing the arm merely declined to look.
+    let d = parse(ITERM2_SCENE01, 11, Dialect::Iterm2Buffer).expect("parses");
+    for (i, (label, attrs, underline)) in SCENE01_ROWS.iter().enumerate() {
+        let got = row_style(&d, i, label)
+            .unwrap_or_else(|| panic!("row {i} — {label} is not uniform across its clusters"));
+        if *label == "overline" {
+            assert_eq!(
+                got,
+                Style::default(),
+                "row {i} — {label} is not in the cell, which is what the quirk entry rests on. A \
+                 style here would mean iTerm2 grew the bit and the entry is now withholding an \
+                 attribute it renders"
+            );
+            continue;
+        }
+        if matches!(*label, "under-dbl" | "under-dot") {
+            assert_eq!(
+                got,
+                Style {
+                    underline: Underline::Single,
+                    ..Style::default()
+                },
+                "row {i} — {label} comes back as a plain underline, because the API's field is a \
+                 `bool`. Anything else here would mean the projection grew the three bits the cell \
+                 has always had, and the arm's `cannot ask` would be hiding an answer"
+            );
+            continue;
+        }
+        let want = Style {
+            attrs: *attrs,
+            underline: *underline,
+            ..Style::default()
+        };
+        assert_eq!(got, want, "row {i} — {label}");
+    }
+}
+
+#[test]
+fn a_protobuf_buffer_is_neither_an_escape_stream_nor_a_grid_and_no_reader_takes_another_s() {
+    // **Three capture formats now, and the rule is the one the extensions exist for**: a capture
+    // handed to the wrong reader produces a refusal rather than a number. The grid pair was the
+    // first that could be written; this makes it a triangle, and every one of the six directions is
+    // checked because a reader that happened to be permissive in one of them is a reader that would
+    // report a screen nobody captured.
+    // **Five of the six are a refusal and this one is not, which is worth a paragraph rather than a
+    // weaker assertion.** A grid handed to the SGR parser is one row — the whole document, with no
+    // newline in it — so the short-screen refusal catches it. A protobuf is not so lucky: `0x0a` is
+    // the tag of field 1 with wire type 2, which is the commonest byte in this encoding and is also
+    // `\n`, so the SGR parser finds plenty of rows and hands back a screen of control characters.
+    //
+    // What that costs is bounded and it is **loud**: every row's label is garbage, so scene 01 would
+    // report eleven `WrongText` disagreements rather than a quiet pass. It is asserted here as the
+    // behaviour it is, because a `matches!` that accepted either outcome would be a gate that cannot
+    // fail — and because the protection against it is the arm naming its own dialect, which is a
+    // rule about the arms and not a property of the parser.
+    let as_escapes = parse(ITERM2_SCENE01, 11, Dialect::Ecma48)
+        .expect("a protobuf has newlines in it, so the SGR parser finds rows — see above");
+    assert!(
+        as_escapes.rows[0].text() != "bold",
+        "and what it finds is not the scene: the first row is control characters, so every row of \
+         the comparison would be a loud disagreement rather than a quiet pass"
+    );
+    assert!(
+        matches!(
+            parse(ITERM2_SCENE01, 11, Dialect::AlacrittyGrid).unwrap_err(),
+            DumpError::Malformed(_)
+        ),
+        "a protobuf buffer handed to the grid reader is refused"
+    );
+    assert!(
+        matches!(
+            parse(SCENE01, 11, Dialect::Iterm2Buffer).unwrap_err(),
+            DumpError::Malformed(_) | DumpError::UnterminatedEscape
+        ),
+        "an escape stream handed to the buffer reader is refused"
+    );
+    assert!(
+        matches!(
+            parse(ALACRITTY_SCENE01, 11, Dialect::Iterm2Buffer).unwrap_err(),
+            DumpError::Malformed(_) | DumpError::UnterminatedEscape
+        ),
+        "a grid handed to the buffer reader is refused"
+    );
+    assert_eq!(Dialect::Iterm2Buffer.capture_ext(), "pb");
+}
+
+#[test]
+fn the_buffer_reader_refuses_a_style_field_and_an_alternate_colour_it_does_not_know() {
+    // **A refusal and not a tolerated field**, for the grid reader's reason and with more at stake:
+    // this capture is a *projection*, so a future iTerm2 that starts serialising the underline style
+    // would add a field — and a reader that skipped it would go on reporting `cannot ask` for two
+    // rows the API had begun to answer. The declaration would outlive what earned it, silently,
+    // which is the exact failure the `STALE` rule exists to make loud.
+    //
+    // The messages are built here rather than mutated out of the fixture, because a byte flipped in
+    // a protobuf usually changes a length rather than a field number.
+    fn base128(mut v: u64) -> Vec<u8> {
+        let mut out = Vec::new();
+        loop {
+            let byte = (v & 0x7f) as u8;
+            v >>= 7;
+            if v == 0 {
+                out.push(byte);
+                return out;
+            }
+            out.push(byte | 0x80);
+        }
+    }
+    let varint = |n: u32, v: u64| {
+        let mut out = base128(u64::from(n) << 3);
+        out.extend(base128(v));
+        out
+    };
+    // **The tag is a varint and not a byte**, which the first draft of this helper got wrong:
+    // `get_buffer_response` is field 100, so its tag is 802 and a `u8` push truncates it into a
+    // field number that message does not have. The reader refused it correctly and the test read
+    // the refusal as the one it was setting up.
+    let delimited = |n: u32, body: &[u8]| {
+        let mut out = base128((u64::from(n) << 3) | 2);
+        out.extend(base128(body.len() as u64));
+        out.extend_from_slice(body);
+        out
+    };
+    // One row, one cell, one style — the smallest capture this reader will look at.
+    let message = |style: Vec<u8>| {
+        let mut line = delimited(1, b"x");
+        line.extend(delimited(2, &[varint(1, 1), varint(2, 1)].concat()));
+        line.extend(delimited(4, &style));
+        let mut response = varint(1, 0);
+        response.extend(delimited(3, &line));
+        delimited(100, &response)
+    };
+    let plain = [varint(22, 1)].concat();
+    assert!(
+        parse(&message(plain.clone()), 1, Dialect::Iterm2Buffer).is_ok(),
+        "the shape the refusals below are one field away from must itself parse"
+    );
+
+    let unknown = [varint(23, 1), varint(22, 1)].concat();
+    let Err(DumpError::Malformed(why)) = parse(&message(unknown), 1, Dialect::Iterm2Buffer) else {
+        panic!("a `CellStyle` field this reader does not know must be refused");
+    };
+    assert!(why.contains("23"), "the refusal names the field: {why}");
+
+    // `SYSTEM_MESSAGE`, which is iTerm2 colouring a line it wrote itself — the renderer, and not a
+    // colour a cell can hold. The grid reader refuses `DimRed` in the same words.
+    let system = [varint(2, 4), varint(22, 1)].concat();
+    assert!(
+        matches!(
+            parse(&message(system), 1, Dialect::Iterm2Buffer),
+            Err(DumpError::Malformed(_))
+        ),
+        "`SYSTEM_MESSAGE` is the renderer's resolution and cannot be a cell's colour"
+    );
+
+    // **`REVERSED_DEFAULT` is the one that is not a resolution**, and the first draft of the reader
+    // refused it — scene 01's `reverse` row is what said otherwise. It is the default colour *of a
+    // reversed cell*, the flag is reported beside it, and it resolves to `Colour::Default`. Without
+    // the flag it is a shape this reader has never seen, and that stays a refusal.
+    let reversed = [varint(2, 3), varint(6, 3), varint(16, 1), varint(22, 1)].concat();
+    let dump = parse(&message(reversed), 1, Dialect::Iterm2Buffer)
+        .expect("a reversed cell's default colours are default colours");
+    assert_eq!(
+        dump.rows[0].clusters[0].style,
+        Style {
+            attrs: Attrs::REVERSE,
+            ..Style::default()
+        }
+    );
+    let orphaned = [varint(2, 3), varint(22, 1)].concat();
+    assert!(
+        matches!(
+            parse(&message(orphaned), 1, Dialect::Iterm2Buffer),
+            Err(DumpError::Malformed(_))
+        ),
+        "`REVERSED_DEFAULT` without the `inverse` bit is a shape this reader was not written for"
+    );
+
+    // **A row describes its own width twice and the two must agree**, which is refused in both
+    // directions. `code_points_per_cell` says how many cells there are and the style runs say it
+    // again; a reader that took the shorter would hand back a row whose styles are all correct and
+    // some of them in the wrong place, which is the defect this format's whole join can produce.
+    let two_cells = [varint(22, 2)].concat();
+    assert!(
+        matches!(
+            parse(&message(two_cells), 1, Dialect::Iterm2Buffer),
+            Err(DumpError::Malformed(_))
+        ),
+        "style runs covering more cells than the spans do is a disagreement, not a longer row"
+    );
+    let no_style = Vec::new();
+    assert!(
+        matches!(
+            parse(&message(no_style), 1, Dialect::Iterm2Buffer),
+            Err(DumpError::Malformed(_))
+        ),
+        "and covering fewer is the same disagreement from the other side"
+    );
+
+    // **A cell with no code points consumes nothing from `text`, so an absurd `repeats` is the one
+    // malformed shape that could have spun rather than been refused.** Every other overrun in the
+    // reader is an explicit refusal — a varint past sixty-four bits, a length past the buffer, an
+    // unknown wire type — and this was the gap. The bound is the row's own two accounts of its own
+    // width, so it costs nothing on an honest capture and this assertion is what says it is there.
+    let huge = {
+        let mut line = delimited(1, b"x");
+        line.extend(delimited(2, &[varint(1, 0), varint(2, 1 << 40)].concat()));
+        line.extend(delimited(4, &[varint(22, 1)].concat()));
+        let mut response = varint(1, 0);
+        response.extend(delimited(3, &line));
+        delimited(100, &response)
+    };
+    let Err(DumpError::Malformed(why)) = parse(&huge, 1, Dialect::Iterm2Buffer) else {
+        panic!("a span claiming a trillion cells must be refused, not walked");
+    };
+    assert!(
+        why.contains("at most"),
+        "the refusal names the ceiling: {why}"
+    );
+}
+
+#[test]
+fn iterm2_is_the_only_arm_that_says_a_blanked_cell_and_a_space_are_different_things() {
+    // **The finding this format has and no other capture here can express.** iTerm2 stores a cell it
+    // emptied as code zero and a space somebody wrote as U+0020, and the API reports both — so
+    // scene 04's orphaned halves arrive as `AB\0xCD` where every other arm's re-serialisation writes
+    // `AB xCD`. A probe with an explicit space beside a blanked orphan is what separated them:
+    // `A B` came back as `A B` and the orphan came back as a NUL, in the same capture.
+    //
+    // The reader projects it down to a space, because the alternative is to report *iTerm2 does not
+    // blank the head of a bisected pair* about a terminal that blanks it harder than anyone. **What
+    // the projection costs is asserted here rather than left to the prose**: the raw capture still
+    // holds the NUL, and this is the test that would go red if a future reader stopped projecting or
+    // a future iTerm2 stopped distinguishing.
+    assert!(
+        ITERM2_SCENE04.windows(6).any(|w| w == b"AB\0xCD"),
+        "the committed capture holds the orphan as a NUL, which is the evidence for the projection"
+    );
+    // **`scene04_text` and `SCENE04_ROWS`, not a second copy of either.** The first draft of this
+    // test re-implemented the helper inline and re-typed the six expected strings, which is a gate
+    // written against a copy — this crate's own recorded trap — and it also left this arm out of the
+    // cross-arm unanimity loop above. It is in that loop now; what stays here is the one thing that
+    // loop cannot say, which is that the rows agree only *because* of the projection.
+    let rows = scene04_text(ITERM2_SCENE04, Dialect::Iterm2Buffer);
+    for (i, (label, want)) in SCENE04_ROWS.iter().enumerate() {
+        assert_eq!(
+            &rows[i], want,
+            "row {label}, once the empty cell is a space"
+        );
+    }
+}
+
+#[test]
+fn iterm2_splits_vs16_from_keycap_the_other_way_round() {
+    // **Four families, four combinations of two rows** — which is the finding, and it is about the
+    // scene rather than about any one terminal. `vs16` and `keycap` both ask *does U+FE0F widen the
+    // thing before it*, and they are decided by different code in every family that has been asked:
+    // Ghostty, kitty and tmux answer 2 and 2; Terminal.app answers 1 and 2; WezTerm and Alacritty
+    // answer 1 and 1; and iTerm2 answers **2 and 1**, which is the combination that had not appeared
+    // and the one that completes the set. **All four combinations of two booleans are now observed**,
+    // so neither row can be read as a proxy for the other in either direction.
+    //
+    // It also unpicks a reading the sixth arm's test states. `zero-width` was *the row that
+    // separates the two summers* — Terminal.app costs a joiner a column and Alacritty costs it
+    // nothing. iTerm2 costs it a column and is **not a summer**: its ZWJ family is 2 and its
+    // skin tone is 2, both correct. So that row separates something narrower than summing.
+    assert_eq!(
+        ITERM2_OBSERVED.len(),
+        OBSERVED.len(),
+        "the two tables must be the same length, or the join below stops at the shorter one"
+    );
+    assert!(
+        ITERM2_OBSERVED
+            .iter()
+            .zip(OBSERVED)
+            .all(|((a, _), (b, _))| a == b),
+        "the two tables must name the same fifteen clusters in the same order"
+    );
+    let advance = |bytes: &[u8]| -> Vec<u16> {
+        cursor_reports(bytes, OBSERVED.len())
+            .expect("a batch")
+            .iter()
+            .map(|r| r.column - 1)
+            .collect()
+    };
+    assert_eq!(
+        advance(ITERM2_WIDTHS),
+        ITERM2_OBSERVED.iter().map(|(_, w)| *w).collect::<Vec<_>>(),
+        "the committed capture is what this table says it is"
+    );
+    let differs: Vec<&str> = OBSERVED
+        .iter()
+        .zip(ITERM2_OBSERVED)
+        .filter(|((_, ours), (_, theirs))| ours != theirs)
+        .map(|((label, _), _)| *label)
+        .collect();
+    assert_eq!(
+        differs,
+        vec!["zero-width", "keycap"],
+        "the disagreement is these two rows and no others"
+    );
+    let at = |table: &[(&str, u16)], label: &str| {
+        table
+            .iter()
+            .find(|(l, _)| *l == label)
+            .expect("a row of the scene")
+            .1
+    };
+    // The three combinations, side by side, in the order they were observed.
+    for (who, table, want) in [
+        ("the engine's tables", OBSERVED, (2, 2)),
+        ("Terminal.app 2.15", TERMINAL_OBSERVED, (1, 2)),
+        ("WezTerm 20240203", WEZTERM_OBSERVED, (1, 1)),
+        ("iTerm2 3.6.11", ITERM2_OBSERVED, (2, 1)),
+    ] {
+        assert_eq!(
+            (at(table, "vs16"), at(table, "keycap")),
+            want,
+            "{who} answers the two selector rows this way"
+        );
+    }
+    // And the row that is not a summer's symptom after all.
+    assert_eq!(at(ITERM2_OBSERVED, "zero-width"), 1);
+    assert_eq!(at(ITERM2_OBSERVED, "zwj-family"), 2);
+    assert_eq!(at(ITERM2_OBSERVED, "skin-tone"), 2);
+}
+
+#[test]
+fn iterm2_is_a_seventh_terminal_and_the_sentinel_says_so() {
+    // Thirteen of iTerm2's fifteen widths are somebody's shared column, which is the shape of a
+    // fixture accidentally copied from another arm. The device-attributes reply behind the batch is
+    // what separates them, and this is a seventh distinct answer: a **VT500 with nine extensions**,
+    // where WezTerm answers as a VT500 with four and Alacritty as a bare VT102.
+    let da1 = |bytes: &[u8]| {
+        let text = String::from_utf8_lossy(bytes).to_string();
+        let at = text.rfind("\x1b[?").expect("a sentinel");
+        text[at..].to_string()
+    };
+    assert_eq!(
+        da1(ITERM2_WIDTHS),
+        "\x1b[?64;1;2;4;6;17;18;21;22;52c",
+        "iTerm2 3.6.11 answers as a VT500 with nine extensions"
+    );
+    for (who, bytes) in [
+        ("Ghostty 1.3.1", GHOSTTY_WIDTHS),
+        ("kitty 0.48.2", KITTY_WIDTHS),
+        ("tmux 3.7c", TMUX_WIDTHS),
+        ("Terminal.app 2.15", TERMINAL_WIDTHS),
+        ("WezTerm 20240203", WEZTERM_WIDTHS),
+        ("Alacritty 0.17.0", ALACRITTY_WIDTHS),
+    ] {
+        assert_ne!(da1(ITERM2_WIDTHS), da1(bytes), "not {who}'s sentinel");
+        assert_ne!(ITERM2_WIDTHS, bytes, "not {who}'s capture");
+    }
+    // **The scene-06 capture is checked against the other arms' scene-06 captures**, which is not
+    // the same loop and was written as one in the first draft: `ITERM2_SYNC` compared with the
+    // `*_WIDTHS` above it is a DECRQM batch compared with a CPR batch, and no two of those could
+    // ever be equal. A gate that cannot fail, in the test whose whole subject is telling captures
+    // apart. This is the comparison it was meant to be, and it is the one that would notice
+    // `iterm2-3.6.11-scene06-sync.decrqm` being an accidental copy.
+    for (who, bytes) in [
+        ("Ghostty 1.3.1", GHOSTTY_SYNC),
+        ("kitty 0.48.2", KITTY_SYNC),
+        ("tmux 3.7c", TMUX_SYNC),
+        ("Ghostty 1.3.1 via tmux 3.7c", VIA_TMUX_SYNC),
+        ("Terminal.app 2.15", TERMINAL_SYNC),
+        ("WezTerm 20240203", WEZTERM_SYNC),
+        ("Alacritty 0.17.0", ALACRITTY_SYNC),
+    ] {
+        assert_ne!(ITERM2_SYNC, bytes, "not {who}'s sync capture");
     }
 }

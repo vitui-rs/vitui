@@ -15,12 +15,12 @@ that arrangement cannot catch:
 This directory is the missing fourth party. It is
 [production ticket 04](../.scratch/vitui-engine-production/issues/04-the-conformance-harness.md).
 
-## Status: every stage, four scenes and six emulator families
+## Status: every stage, four scenes and seven emulator families
 
-**Seven arms, seven committed reports, six emulator families, three `quirks.rs` entries, one closed
-architecture ticket, a citation that reproduces on three families by three mechanisms, two parser
-defects and one defect in the engine's own output came out of them.** Ninety-seven tests, no emulator
-in the loop for any of them.
+**Eight arms, eight committed reports, seven emulator families, four `quirks.rs` entries, one closed
+architecture ticket, two citations checked against the terminals they name, two parser defects and one
+defect in the engine's own output came out of them.** A hundred and three tests, no emulator in the
+loop for any of them.
 
 | arm | scene 01 | scene 04 | scene 05 | scene 06 | what its rows are about |
 |---|---|---|---|---|---|
@@ -31,6 +31,7 @@ in the loop for any of them.
 | `cargo run --example terminal` | **0/0**, eleven `cannot ask` | **6/6** | **3/3**, and **8 of 12** surveyed | **0/0**, five `cannot express` | Terminal.app 2.15's screen as plain text, and its own in-band answers |
 | `cargo run --example wezterm` | **9/9**, two `cannot ask` | **6/6** | **3/3**, and **10 of 12** surveyed | **3/5**, no bracket | WezTerm 20240203's own cell state, and the first arm to answer scene 06 **wrongly** |
 | `cargo run --example alacritty` | **9/9**, two `by design` | **6/6** | **3/3**, and **8 of 12** surveyed | **3/5**, reply held to 150 ms | what Alacritty 0.17.0 *stores* — `--ref-test` serialises the `Term`'s own grid, so no serialiser of the emulator's is in the path |
+| `cargo run --example iterm2` | **8/8**, two `cannot ask`, one `by design` | **6/6** | **3/3**, and **10 of 12** surveyed | **5/5**, still set at 3000 ms | iTerm2 3.6.11's own cells, as its Python API **projects** them — no serialiser in the path, and a projection rather than the struct, which is why its three unanswered rows split one and two across the two kinds |
 
 **An arm runs every scene or it is not a run**, and one report per arm holds a section for each —
 same rule, same reason, as one file per arm: a section that is missing reads as a win. There is
@@ -119,6 +120,8 @@ cd conform && cargo run --example ghostty         # the soak that needs a window
 cd conform && cargo run --example ghostty -- --through-tmux   # tmux in the middle
 cd conform && cargo run --example terminal        # a window, an automation grant, and no style
 cd conform && cargo run --example wezterm         # a window, a control socket, and no grant
+cd conform && cargo run --example alacritty       # a window per scene, closed to take the capture
+cd conform && cargo run --example iterm2          # a window, a grant, and the Python API switched on
 ```
 
 **One report file per arm**, `REPORT-<arm>.md`, and that is not filing. Two arms writing one
@@ -178,7 +181,25 @@ four-row screen; and a **built** environment, which on this arm is load-bearing 
 hygienic — an inherited `TERM_PROGRAM=ghostty` makes the engine inside the Alacritty window detect
 Ghostty.
 
-Its capture carries style, in a **classic** SGR repertoire — sub-parameters normalised away (`4:1`
+**The iTerm2 arm is the seventh family and the one whose capture surface was *chosen*.** Production
+ticket 13 named two candidates and refused to pick: `iTerm2.sdef` offers `contents` and `text` on the
+`session` class as `type="text"` with no styled variant — Terminal.app's surface, and eleven
+`cannot ask` rows — while the Python API's `GetBufferRequest` takes an `include_styles` flag and
+answers with a `CellStyle` per run of cells. Eight of the eleven rows become answerable, so the arm
+speaks the API and uses AppleScript only for the window's life, its geometry and the cookie.
+
+The transport is **protobuf behind an RFC 6455 handshake on a unix socket**, hand-rolled, because this
+directory has no dependencies and does not want one for a request this size. The decoding is in the
+library — `src/buffer.rs`, behind `Dialect::Iterm2Buffer` — so the committed `.pb` fixtures are gated
+by `cargo test` the way every other arm's capture is.
+
+Two things an operator must do that no failure message can do for them: the API is **off by default**
+(`defaults write com.googlecode.iterm2 EnableAPIServer -bool true`, or *Preferences → General →
+Magic*), and the arm needs a macOS automation grant for iTerm2. A cookie is minted per run and never
+cached — a stale one fails the handshake with a 401 that reads exactly like the API being switched
+off.
+
+**WezTerm's** capture carries style, in a **classic** SGR repertoire — sub-parameters normalised away (`4:1`
 comes back as bare `4`, `4:2` as `21`), and no spelling at all for `4:3`, `4:4`, `4:5`, SGR 53 or
 SGR 58. Two of scene 01's rows are therefore `cannot ask`, and unlike kitty's they cannot be
 promoted to a `quirks.rs` row: there is no far side and no second source. It is also the first arm
@@ -279,6 +300,10 @@ form — the missing row hiding inside a green one.
 | `alacritty-0.17.0-scene04-pairs.json` | the same scene as Alacritty holds it: the four text rows agreeing with all five other families, the blanked half wearing **the orphan's own background** — the third family on that side — and a `WIDE_CHAR_SPACER` in the bytes, which is the cell the reader drops so this arm's rows are comparable with the five that emit no padding cell |
 | `alacritty-0.17.0-scene05-widths.cpr` | the same fifteen as Alacritty answered them. **Four of the twelve surveyed rows disagree and they are neither Terminal.app's four nor WezTerm's two**: a ZWJ family at **6** — the figure `ucd.rs` attributes to kitty — a skin tone at **4**, a VS16 pair at **1** and a keycap at **1**, with the zero-width space at **0**. It sums the code points like Terminal.app and costs a zero-width one nothing, which is the row that tells the two summers apart |
 | `alacritty-0.17.0-scene06-sync.decrqm` | **five answers and every one of them `reset`**, two given while the mode was set — the second capture of that misbehaviour, on an unrelated codebase, where `Term::report_private_mode` answers this mode with a constant |
+| `iterm2-3.6.11-scene01-attrs.pb` | the same scene as **iTerm2's Python API projects it**, and the first fixture here that is neither an escape stream nor a grid: ten of the eleven rendered, with **overline absent from the cell** and the double and dotted underlines both flattened to a plain `underline` by a `bool` the cell spends three bits behind. Captured while the engine still sent SGR 53, which is what makes it the evidence for `quirks.rs`'s eighth entry; the live arm reads `by design` now and this file is why it may not be regenerated |
+| `iterm2-3.6.11-scene04-pairs.pb` | the same scene as iTerm2 holds it, and **the only fixture here in which a blanked cell is not a space**: the orphaned halves are `U+0000` where all six other families write `U+0020`, because this is the one surface that distinguishes a cell the terminal emptied from a space somebody wrote. The reader projects it down, and `tests.rs` asserts both halves of that so the loss cannot go quiet. The blanked half wears **the orphan's own background** — the fourth family on that side, making it four against two |
+| `iterm2-3.6.11-scene05-widths.cpr` | the same fifteen as iTerm2 answered them. **Two of the twelve surveyed rows disagree and the pair is a combination no other arm produced**: a zero-width space at **1** with a keycap at **1**, while the VS16 pair is **2** — correct, which the three arms before it were not. So it widens a VS16 emoji and does not widen a keycap, the reverse of Terminal.app, and it costs a zero-width scalar a column without summing anything |
+| `iterm2-3.6.11-scene06-sync.decrqm` | **five answers and all five right**, which after two arms of wrong ones is worth its own row. The flag was still set at 3000 ms, the largest delay opened here, so the force-flush table gains no iTerm2 number rather than a guessed one |
 | `terminal-2.15-scene01-attrs.vt` | the same scene as **Terminal.app's AppleScript surface** hands it back: eleven labels and **not one attribute anywhere**, because `contents` is `type="text"`. The bytes the arm's eleven `cannot ask` rows rest on, and the reason the declaration is gated rather than only stated — no cluster in this file carries a style, and all eleven labels are where the scene put them |
 
 | `ghostty-1.3.1-scene04-pairs.vt` | scene 04 as Ghostty gave it back: the orphaned half blanked in both directions, and blanked **to the SGR state in force** rather than to the glyph's own red background |

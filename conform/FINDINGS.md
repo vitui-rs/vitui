@@ -3,6 +3,256 @@
 Hand-written and dated, because a number and what it means are two different artefacts with two
 different lifetimes. `REPORT.md` is generated; this is not.
 
+## 2026-09-04 — the seventh family, and the surface was chosen rather than found
+
+The iTerm2 arm — `conform/examples/iterm2.rs`, the **eighth** arm and the **seventh** emulator
+family. Production ticket 13, whose brief named two candidate capture surfaces, refused to pick
+between them, and told the session to establish which was better rather than assume. Both were read
+before a line of the arm was written and they are not close.
+
+iTerm2 3.6.11, installed from the Homebrew cask for this run. **8/8 on scene 01 with one `by design`
+and two `cannot ask`, 6/6 on scene 04, 3/3 and 10 of 12 surveyed on scene 05, and 5/5 on scene 06
+with the flag still set at 3000 ms.** One new `quirks.rs` entry, one new `Dialect`, one spec citation
+checked, and three readings this directory had already written down turn out to be narrower than
+they looked.
+
+### AppleScript carries no style and the Python API carries the cell, so the choice was not close
+
+`iTerm2.sdef` offers `contents` and `text` on the `session` class, both `type="text"`, and there is
+no styled variant anywhere on that class. That is Terminal.app's surface exactly, and an arm built on
+it would have reported **eleven `cannot ask`** on scene 01 — a seventh family whose headline finding
+was that it could not be asked anything.
+
+The Python API is a different instrument. `GetBufferRequest` takes an `include_styles` flag, and with
+it set each `LineContents` carries a run-length-encoded `CellStyle` per cell: `bold`, `faint`,
+`italic`, `blink`, `underline`, `strikethrough`, `invisible`, `inverse`, and `underlineColor` as a
+colour of its own. **Eight of the eleven become answerable**, and one of the three that does not
+becomes a quirk entry.
+
+**What it costs is a dependency-free websocket**, and that is worth stating as a cost rather than
+skipping past. The API is protobuf over an RFC 6455 handshake on a unix socket in the user's own home
+directory; `conform/Cargo.toml` has no dependencies, matching the engine's and the runtime's posture,
+so the arm speaks both by hand — about two hundred lines, of which the decoding lives in the
+**library** so that `cargo test` gates the committed fixture the way it gates every other arm's. The
+handshake's `Sec-WebSocket-Accept` is deliberately not verified: it is a SHA-1 of a nonce this client
+chose, over a local socket, and what is checked instead is the status line, the negotiated
+subprotocol, and that the answer decodes as the message that was asked for.
+
+**Two operator prerequisites, and neither is discoverable from a failure.** The API is off by default
+(`defaults write com.googlecode.iterm2 EnableAPIServer -bool true`, or *Preferences → General →
+Magic*), and the connection needs a cookie minted per run by
+`tell application "iTerm2" to request cookie and key for app named …`. A stale cookie fails the
+handshake with a 401 that reads exactly like the API being switched off, which is why the arm never
+caches one.
+
+### Overline is a quirk entry and the second source is an absence
+
+Scene 01 came back with the overline row bare. On a **projection** — and `CellStyle` is a projection
+of iTerm2's cell rather than the cell itself — that is WezTerm's position exactly, and WezTerm earned
+nothing: a bit the cell holds and the projection drops looks identical to a bit the cell never had.
+
+What settles it is a second source outside the capture, and here both halves of it are an *absence*.
+iTerm2's own cell struct is readable straight out of the Objective-C type encoding the shipped binary
+compiles in:
+
+```text
+screen_char_t = code, foregroundColor, fgGreen, fgBlue, backgroundColor, bgGreen, bgBlue,
+                foregroundColorMode:2, backgroundColorMode:2, complexChar:1,
+                bold:1, faint:1, italic:1, blink:1, underline:1, image:1, strikethrough:1,
+                underlineStyle0:2, invisible:1, inverse:1, guarded:1, virtualPlaceholder:1,
+                rtlStatus:2, underlineStyle1:1, unused:11
+```
+
+No bit for an overline, and **eleven spare bits** beside the ones that are there — so it is a
+decision and not a shortage. Then the absence says it again from somewhere else: the string
+`overline` occurs **zero** times in the whole 88 MB binary, not as an attribute name, not as a
+preference key, not as a help string, where `4:3  Curly underline` is in there as help text for the
+underline styles the same cell *does* carry. A terminal that renders something usually has a word
+for it.
+
+`quirks.rs`'s **eighth** entry, recognised by XTVERSION — `DCS >| iTerm2 3.6.11 ST` — which is the
+strongest of the three recognition kinds this table uses and the one Alacritty's entry could not
+have. The fixture `iterm2-3.6.11-scene01-attrs.pb` was captured while the engine still sent SGR 53
+and may not be regenerated.
+
+### The double and the dotted underline are the instrument's, and that is the pair to read across
+
+`CellStyle.underline` is a `bool` where the cell spends three bits on `underlineStyle`. So iTerm2
+renders a double underline and a dotted one — its own help text names the curly one — and the API
+says only *underlined*. Two `cannot ask` rows, and they are kitty's `CSI 4 : m` reached through a
+completely different surface.
+
+**The suite now has all three readings of one question**, which is the argument for having asked
+seven families rather than three:
+
+| arm | the dotted underline | why |
+|---|---|---|
+| kitty 0.48.2 | `cannot ask` | rendered, and the serialiser writes `CSI 4 : m` — an empty sub-parameter |
+| WezTerm 20240203 | `cannot ask` | rendered, and the serialiser has no spelling at all |
+| Alacritty 0.17.0 | **agrees** | `DOTTED_UNDERLINE` is a bit of the stored cell |
+| iTerm2 3.6.11 | `cannot ask` | rendered, and the API projects three bits down to a `bool` |
+
+Three mechanisms behind one cell, and only the grid answers. The row is about the instrument in every
+case, which is what the kind was invented to say.
+
+### A blanked cell and a space are different things here, and nowhere else
+
+Scene 04's first run reported four `FAILED` rows, all of them `"AB\0xCD"` where every other arm
+reads `"AB xCD"`. **iTerm2 stores a cell it emptied as code zero and a space somebody wrote as
+U+0020, and the API reports both.** A probe with the two side by side settled it in one capture:
+`A B` came back as `A B`, and the orphaned half of a bisected pair came back as a NUL.
+
+Every other capture surface here conflates them — an escape-stream re-serialisation writes a space
+for an empty cell, and Alacritty's grid stores one. So this is **more** information than the suite
+has ever had, and the comparison throws it away: the reader projects the NUL down to a space, because
+the alternative is to report *iTerm2 does not blank the head of a bisected pair* about a terminal
+that blanks it harder than anyone — the cell is not spaced, it is empty.
+
+That the projection is a loss is asserted rather than left to this paragraph:
+`iterm2_is_the_only_arm_that_says_a_blanked_cell_and_a_space_are_different_things` checks the raw
+fixture still holds the NUL and the parsed rows still hold the space, so it goes red if either half
+stops being true.
+
+**And the blanked half wears the orphan's own background** — `bg Indexed(1)` on the `keeps-style`
+row. That was a two-two split when Terminal.app could not be asked and it is now **four against
+two**: kitty, WezTerm, Alacritty and iTerm2 keep the orphan's background; Ghostty and tmux blank to
+the SGR state in force. The direction is the finding rather than the count, and every askable family
+added since the split appeared has landed on the same side.
+
+### A reversed cell's colours come back already swapped, and the first reader refused them
+
+The arm's first run failed on scene 01's `reverse` row with *`fgAlternate` is 3, which is the
+renderer's own resolution and cannot be a cell's colour*. That refusal was modelled on the grid
+reader's — Alacritty's `DimRed` is the renderer resolving at paint time and no cell can hold one —
+and it was wrong about this enum.
+
+`REVERSED_DEFAULT` is what iTerm2 calls the default colour **of a cell whose `inverse` bit is set**,
+and the flag is reported beside it on the same style. Nothing has been resolved away. A cell written
+`SGR 7 ; 31` comes back as `fgAlternate: REVERSED_DEFAULT` with `bgStandard: 1` — the red has moved
+to the *background*, because the projection applies the reverse and then reports the result.
+
+So the reader resolves it to `Colour::Default` and requires the flag beside it. What it will **not**
+do is undo the swap for a coloured reversed cell: that is one line, no scene here produces one, and
+un-exercised code deciding a comparison nobody has watched fail is this directory's own recurring
+defect. It is a refusal, and the scene that adds one is the run that earns it.
+
+### iTerm2 splits `vs16` from `keycap` the other way round, and that unpicks two readings
+
+Scene 05: ten of the twelve surveyed rows agree with the engine's tables. The two that do not are
+`zero-width` at **1** where the engine says 0, and `keycap` at **1** where it says 2.
+
+The `keycap` row is the interesting one, because `vs16` — the same variation selector, one row up —
+**agrees at 2**. Four different answers to what looks like one question now exist:
+
+| arm | `vs16` | `keycap` |
+|---|---|---|
+| the engine's tables, Ghostty, kitty, tmux | 2 | 2 |
+| Terminal.app 2.15 | 1 | 2 |
+| WezTerm 20240203, Alacritty 0.17.0 | 1 | 1 |
+| **iTerm2 3.6.11** | **2** | **1** |
+
+**All four combinations of two booleans, observed**, and iTerm2 is the one that completed the set.
+**The two rows are decided by different code in every family that has been asked**, and the combination iTerm2 supplies is the one that rules
+out reading either row as a proxy for the other: an ASCII base does not reach this terminal's VS16
+rule, though a default-text emoji base does. `ucd.rs`'s citation — *only 7 of 23 surveyed widen a
+VS16 emoji correctly* — now has a fourth family on the correct side of it and the same family on the
+wrong side of the neighbouring row.
+
+**And `zero-width` is not a summer's symptom after all.** The Alacritty entry above reads that row as
+*the row that separates the two summers*, because Terminal.app costs a zero-width space a column and
+Alacritty costs it nothing. iTerm2 costs it a column and is **not a summer**: its ZWJ family is 2 and
+its skin tone is 2, both correct, where a summer gives 6 or 8 and 4. So the row separates something
+narrower than summing, and the earlier sentence was a two-point line through a population of two.
+
+### The first arm that could be asked about an underline colour, and the answer has a hole in it
+
+Both SGR spellings, probed with a raw `printf` and read back through the API — scene 03 is normative
+in `SCENES.md` and in no arm's run list, so this is a control probe the way ticket 11 did it.
+
+| sent | comes back as |
+|---|---|
+| `38:2::10:120:200` and `38;2;10;120;200` | `fgRgb (10, 120, 200)`, both |
+| `38:5:9` and `38;5;9` | `fgStandard 9`, both |
+| `58:2::200:30:40` and `58;2;200;30;40` | `underlineColor (200, 30, 40)`, both |
+| `58:5:9` and `58;5;9` | `underlineColor (9, 0, 0)`, both |
+
+**The two spellings agree everywhere**, which for 58 is something this directory has never been able
+to say. WezTerm's serialiser has no spelling for SGR 58, kitty's has none, and Alacritty's grid has
+the field but no scene sends the sequence — so four arms in, this is the first capture that carries an
+underline colour at all.
+
+**The last row is the projection again, and it is the same evidence the quirk entry rests on.** The
+type encoding in iTerm2's binary gives the cell's underline colour as `{red, green, blue, mode}`; the
+API's `RGBColor` has three channels and no mode. An indexed underline colour therefore arrives with
+the index sitting in the red channel — palette entry 9 is `#d07e78` on this profile, so `(9, 0, 0)` is
+the number and not the colour. **That is not a claim about what iTerm2 renders.** It is a third place
+where a projection drops a distinction the cell keeps, after the underline style and the empty cell,
+and the three of them are the same fact about this surface said three times.
+
+It costs no row, because no scene sends SGR 58. It is written down because the scene that does would
+otherwise discover it as a wrong number.
+
+### The spec's iTerm2 citation does not reproduce as a slow terminal
+
+Spec §10 supports *the timeout problem is solved by the sentinel, not by tuning a number* with a real
+bug — `terminal-light` against iTerm2 — and that citation had never been checked against the terminal
+it names. The last time this repository looked at one of its own citations with an instrument, the
+surveyed claim failed to reproduce on three families and then reproduced on the fourth, so it was
+worth the run either way.
+
+`vitui-apps`' `caps` on iTerm2 3.6.11's own tty, three times: the whole attach — seventeen queries,
+sixteen palette entries, both OSC colour probes, five DECRQM modes, the kitty keyboard flags and the
+DA1 sentinel — took **73, 94 and 80 ms**, against `detect.rs`'s idle ceiling of 250. Every answer
+arrived ahead of the sentinel and in order: the report came back with an identity from XTVERSION, a
+full sixteen-entry palette and `sync_output true`, none of which a run cut short at the sentinel would
+have carried.
+
+**The rule is untouched and the citation is narrower than it reads.** What `terminal-light`
+demonstrates is that a *fixed* number is fragile, and the machine, the load and the emulator's own
+startup are all inside that number; nothing about it required iTerm2 to be slow. A sentinel is
+unaffected by which of those is true, which is the whole reason it is the mechanism. Spec §10 and
+`detect.rs` both carry the date and the numbers now.
+
+**The same run is what proves the eighth quirk entry reaches an application**, which no test in this
+workspace can: `caps` printed `identity iTerm2 3.6.11` and `attrs_dropped 0x80000000000000`, which is
+the overline bit, withheld, on a real terminal.
+
+### `.gitattributes` had no line for the new format, and none for the last one either
+
+`core.autocrlf = input` on this machine, and this directory has a whole paragraph about what that did
+to the first committed capture: 1949 bytes of what Ghostty sent became 1926, and every test passed.
+`*.vt`, `*.cpr` and `*.decrqm` are `-text` because of it.
+
+`*.pb` was missing, and so was `*.json` — which means the Alacritty arm landed without its line the
+day before. **A protobuf is the format with the most to lose to a rewrite**: a `.vt` carries CR where
+a terminal sent one and a rewrite drops a separator the parser skips anyway, while a protobuf carries
+`0x0d` wherever a length, a field number or a palette index happens to be thirteen, so the same
+rewrite corrupts a *structure*. That at least fails loudly.
+
+No damage: none of the six captures involved contains a carriage return. **That is luck rather than
+safety**, which is the sentence the `.decrqm` paragraph in `.gitattributes` already had to write, and
+this is now the third format in a row to arrive without its line. It is a pattern, and the thing that
+would end it — a gate asserting every extension under `fixtures/` is named — does not exist. Recorded
+rather than built, on the grounds that a fifth format is what earns it.
+
+### Two smaller things the run produced
+
+**`COLORTERM` is iTerm2's own here, and the Terminal.app arm's refusal must not be copied.** That arm
+unsets `COLORTERM` because `do script` runs a login shell whose profile exports `truecolor` to a
+256-colour terminal. Neither half is true here: `create window … command` execs the command with no
+shell at all, `launchctl getenv COLORTERM` is empty, and the string and the value are both in
+iTerm2's binary. It is the terminal's own true statement about itself, like `TERM_PROGRAM`, and
+unsetting it would be the lie the other arm avoids by leaving that one alone.
+
+**A protobuf handed to the SGR parser is the one direction of six that is not a refusal.** With three
+capture formats there are six wrong pairings, and five of them refuse. A grid read as ECMA-48 is one
+row — the whole document, no newline in it — and the short-screen refusal catches it. `0x0a` is the
+tag of protobuf field 1 with wire type 2, which is the commonest byte in this encoding and is also
+`\n`, so the SGR parser finds plenty of rows and hands back a screen of control characters. What
+bounds it is that the result is **loud**: every label is garbage, so the comparison reports eleven
+disagreements rather than a quiet pass. It is asserted as the behaviour it is, because a `matches!`
+that accepted either outcome would be a gate that cannot fail.
+
 ## 2026-09-03 — the sixth family, and its capture surface is not an escape stream
 
 The Alacritty arm — `conform/examples/alacritty.rs`, the seventh arm and the **sixth** emulator

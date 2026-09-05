@@ -113,10 +113,11 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   the fourteen hostile axes O5 still owed (**the group is closed**: `field`'s three taken by
   production 05, `table`'s two by 06, the overlay family's four by 08, the scroll family's three by
   09 and **`tree`'s two by 07**, which turned O5; **10 closed the paperwork behind it**), three
-  tier-1 terminals nobody had run (**WezTerm and Alacritty now have**, by 11 and 12; iTerm2 is 13),
+  tier-1 terminals nobody had run (**the group is closed on this machine**: WezTerm by 11, Alacritty
+  by 12 and **iTerm2 by 13**, which was the last one reachable without Windows),
   and the release.
-  **Two of the sixteen can start today, 02 and 13** — 02 is `ready-for-human` (it needs a public
-  repository) and 13 is the last unrun terminal.
+  **Two of the sixteen can start today, 02 and 14** — 02 is `ready-for-human` (it needs a public
+  repository) and **14 is the frontier**, unblocked by 13.
   **Windows is last, as 16**, blocked by the publish — which carries the consequence that no shipped
   string may claim a terminal the conform suite has not asked. Everything on it was already true and
   already recorded; what was missing was that nothing scheduled any of it.
@@ -343,6 +344,26 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   this said *offset* and a review caught it** — the two readings send a session to different places,
   because aligning the two arms' offsets changes nothing and the extent is the only lever.
 
+- **A projection is not a grid, and a quirk's second source may be an absence** (production 13).
+  iTerm2's Python API answers `GetBufferRequest` with a `CellStyle` per run of cells — no serialiser
+  in the path, which is Alacritty's property — but a `CellStyle` is a **projection** of
+  `screen_char_t` rather than the struct, so *the projection dropped it* and *the cell never had it*
+  look identical, which is WezTerm's position. The three unanswered rows of scene 01 split **one and
+  two** across exactly that line. Overline is the cell's and earns `quirks.rs`'s **eighth** entry,
+  recognised by XTVERSION (`iTerm2 3.6.11`) — the evidence is an **absence in two places**: the type
+  encoding enumerates fourteen bit fields and eleven spare bits with no overline, and the string
+  occurs zero times in the binary. The double and dotted underlines are `cannot ask`, three bits
+  projected to a `bool`. **The dotted underline now has all four readings** — spelled wrongly
+  (kitty), unspelled (WezTerm), stored as a bit (Alacritty), projected away (iTerm2). Three further
+  things the arm found: it is the **only** surface here that tells a cell the terminal *emptied*
+  (`U+0000`) from a space somebody wrote (`U+0020`), projected away on purpose with a test asserting
+  both halves; a reversed cell's colours come back **already swapped**, so `REVERSED_DEFAULT` is not
+  a renderer resolution and a *coloured* reversed cell is refused rather than un-swapped; and it
+  splits `vs16` from `keycap` the other way round from Terminal.app, which retires *none of them
+  widens a VS16 emoji* and shows `zero-width` was never a summer's symptom. Spec §10's
+  `terminal-light` citation was checked and **does not reproduce as a slow terminal**: the whole
+  attach in 73, 94 and 80 ms against a 250 ms ceiling.
+
 - **Nothing holds the focus until an application seats it** (issue 25): `if cx.focused().is_none()`
   inside the draw. A runtime that seats the first stop was refused.
 - **`Driver::unhandled` is read *after* the frame**, never before — it is a window onto the same
@@ -534,9 +555,10 @@ examples/app-template     copy-this-directory starting point, and the home of §
 compare/                  comparative suite: SCENES.md normative, harness.py, run.sh, REPORT.md
                           committed, FINDINGS.md by hand. Nine scenes, five arms, two of them ours
                           └ detached workspace; reports, never gates. No deny.toml, deliberately
-conform/                  the only instrument that asks a real terminal: SCENES.md normative, seven
-                          arms across six examples — Ghostty, Ghostty-via-tmux (the same binary
-                          behind `--through-tmux`), tmux, kitty, Terminal.app, WezTerm, Alacritty —
+conform/                  the only instrument that asks a real terminal: SCENES.md normative, eight
+                          arms across seven examples — Ghostty, Ghostty-via-tmux (the same binary
+                          behind `--through-tmux`), tmux, kitty, Terminal.app, WezTerm, Alacritty,
+                          iTerm2 —
                           one committed REPORT-<arm>.md each, FINDINGS.md by hand
                           └ Terminal.app is the fourth VT lineage and **the arm that disagrees**:
                             four of scene 05's twelve surveyed rows, all four by summing a cluster's
@@ -560,6 +582,20 @@ conform/                  the only instrument that asks a real terminal: SCENES.
                             quirk, because the grid is the evidence and `Flags` and `-vvv` are two
                             more. The capture is the window closing: there is no socket to ask
                             during a run
+                          └ iTerm2 is the seventh family and **the arm whose capture surface was
+                            chosen rather than found**: AppleScript is Terminal.app's `type="text"`
+                            and would have given eleven `cannot ask`, so the arm speaks the Python
+                            API's `GetBufferRequest` with `include_styles` — protobuf behind an RFC
+                            6455 handshake on a unix socket, hand-rolled because this directory has
+                            no dependencies, read by `src/buffer.rs` behind `Dialect::Iterm2Buffer`
+                            with `.pb` fixtures. A `CellStyle` is a **projection** of iTerm2's
+                            `screen_char_t`, not the struct, so its three unanswered rows split one
+                            and two across the two kinds: overline is a quirk entry (the cell has no
+                            bit and the binary has no such string), and the double and dotted
+                            underlines are `cannot ask` (three bits projected to a `bool`). **The
+                            only surface here that tells a cell the terminal emptied from a space
+                            somebody wrote** — `U+0000` against `U+0020` — and the reader projects
+                            that away on purpose. Needs the API switched on and a grant
                           └ four scenes, two of them not photographs: 05 asks the emulator's own
                             UAX #11 verdict via CSI 6n (twelve rows are a survey and never fail),
                             06 polls mode 2026 via DECRPM with five compared rows — and a terminal
@@ -590,6 +626,7 @@ cargo deny check                            # needs `cargo install cargo-deny`
 (cd conform && cargo run --example terminal) # needs an AppleScript grant for Terminal.app
 (cd conform && cargo run --example wezterm)  # a window and a control socket; exits 1 on scene 06
 (cd conform && cargo run --example alacritty) # a window per scene, closed to take the capture; exits 1 on scene 06
+(cd conform && cargo run --example iterm2)   # needs `EnableAPIServer` and a grant; 22/22
 ```
 
 Applications (`cargo run -p vitui-apps --example NAME`), each with the key worth pressing; those

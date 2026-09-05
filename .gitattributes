@@ -27,3 +27,26 @@ fuzz/corpus/** -text
 # safety, which is the same sentence the rule above was written to stop anyone having to say. The
 # gap was found by the session that added a fifth `.decrqm`, which is one arm's worth of notice.
 *.decrqm -text
+
+# A protobuf is not text either, and this is the fourth format and the fifth time. `.pb` is the
+# scene-01 and scene-04 channel for the iTerm2 arm: a `GetBufferResponse`, read by `Dialect::
+# Iterm2Buffer`. It is the format with the **most** to lose to `core.autocrlf` — a `.vt` carries CR
+# where a terminal sent one, and a protobuf carries `0x0d` wherever a length, a field number or a
+# palette index happens to be thirteen, so a rewrite would corrupt a *structure* rather than drop a
+# separator, and the reader would refuse it loudly rather than pass quietly.
+#
+# **The four captures committed with this line contain no CR**, which is luck rather than safety —
+# the same sentence the `.decrqm` paragraph above had to write, for the same reason: the gap is
+# found by whoever adds the *next* format, and one arm's worth of notice is all the warning there
+# has ever been.
+*.pb -text
+
+# And a grid is not text, which was missing from 2026-09-03 — when the Alacritty arm landed — until
+# 2026-09-04, found the same way as the two gaps above and by the same session that added `*.pb`.
+# `.json` is the scene-01 and scene-04 channel for that arm. No damage: neither committed grid
+# contains a carriage return, because `serde` does not write one.
+#
+# **Three formats in a row have arrived without their line**, which makes this a pattern rather than
+# three oversights. What would end it is a gate — every extension under `fixtures/` is named here —
+# and none exists; it is recorded rather than built, because a fifth format is what would earn it.
+*.json -text

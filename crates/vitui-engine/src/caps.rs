@@ -1736,6 +1736,76 @@ mod tests {
         assert_eq!(caps.attrs_dropped() & both, both);
     }
 
+    /// **The eighth entry**: iTerm2's cell has no overline, so it never renders one.
+    ///
+    /// Recognised by XTVERSION — `DCS >| iTerm2 3.6.11 ST` — which is the strongest of the three
+    /// kinds this table uses and the one Alacritty's entry could not have.
+    ///
+    /// **The second source is an absence rather than a declaration**, which is what separates this
+    /// from WezTerm's identical-looking shortfall two arms earlier. The capture is a *projection* of
+    /// iTerm2's cell, so it could not have earned an entry on its own; what earned it is the cell
+    /// struct the shipped binary compiles its Objective-C type encoding for — `bold faint italic
+    /// blink underline image strikethrough underlineStyle0 invisible inverse guarded
+    /// virtualPlaceholder rtlStatus underlineStyle1`, eleven spare bits and no overline — and the
+    /// string `overline` occurring zero times in the whole binary. See `quirks.rs`'s module docs.
+    #[test]
+    fn iterm2_drops_overline_and_nothing_else() {
+        let env = Env::default();
+        let quirks = Quirks::lookup(Some("iTerm2 3.6.11"), &env);
+        assert_eq!(quirks.attrs_dropped, crate::style::OVERLINE);
+        // **The `& !OVERLINE == 0` line the two entries above this one carry is deliberately not
+        // here**, and its absence is the assertion. It reads as *one bit and no others*, it is
+        // implied by the equality one line up, and it cannot fail independently — an equality
+        // between two derivations of one declaration, which this crate's own trap list names. The
+        // two older entries carry it because it was copied; it is recorded here rather than removed
+        // from them, because changing a passing test in an entry this ticket did not touch is a
+        // different session's edit. What is *not* implied is that the mask survives the constructor
+        // the serializer goes through, and that is asserted at the end of this test.
+        assert!(
+            !quirks.legacy_sgr,
+            "iTerm2 parses the colon form; the entry overrides the attribute and nothing else"
+        );
+        assert_eq!(
+            quirks.name, None,
+            "detection has an identity of its own for this terminal, so the entry does not supply \
+             one — unlike Alacritty's, which is recognised by a variable precisely because there is \
+             no XTVERSION to print"
+        );
+
+        // No version boundary, and unlike tmux's that is a bet rather than a mechanism — so the
+        // entry has to apply to an iTerm2 this repository never measured, and does.
+        assert_eq!(
+            Quirks::lookup(Some("iTerm2 3.7.0"), &env).attrs_dropped,
+            crate::style::OVERLINE
+        );
+
+        // **The spelling that was observed, and only it.** A parenthesised `iTerm2(3.5)` is believed
+        // to exist for older releases and has never been seen here; the miss is in the safe
+        // direction, costing an attribute sent and ignored rather than one withheld from a terminal
+        // that renders it.
+        assert_eq!(Quirks::lookup(Some("iTerm2(3.5)"), &env).attrs_dropped, 0);
+
+        // **A query beats an inherited variable, about the right terminal**, and here that is not
+        // hypothetical either: a tmux inside iTerm2 inherits `$TERM_PROGRAM=iTerm.app`, which is why
+        // this entry is not keyed on it. tmux's own entry drops the same one bit for a different
+        // reason, so the assertion that separates them is `name`.
+        let inherited = Env {
+            term_program: Some("iTerm.app".to_string()),
+            ..Env::default()
+        };
+        assert_eq!(
+            Quirks::lookup(None, &inherited),
+            Quirks::default(),
+            "the variable alone recognises nothing — a tmux inside iTerm2 must not be read as iTerm2"
+        );
+
+        // The constructor the serializer's gate goes through, on the same version string.
+        assert_eq!(
+            Capabilities::identified_as("iTerm2 3.6.11").attrs_dropped(),
+            crate::style::OVERLINE
+        );
+    }
+
     /// **The sixth entry**: JetBrains' IDE terminal takes the semicolon form of SGR 38/48.
     ///
     /// Recognised by `$TERMINAL_EMULATOR`, because there is nothing in a query to recognise it by —

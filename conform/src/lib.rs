@@ -120,6 +120,7 @@
 
 use std::fmt;
 
+mod buffer;
 mod grid;
 
 /// Which serialisation a capture is written in. See the module docs — this is not a formatting
@@ -149,6 +150,16 @@ pub enum Dialect {
     /// what it buys — no emulator serialiser between the cell and the reader — and what it costs:
     /// a grid is what the terminal **stores**.
     AlacrittyGrid,
+    /// iTerm2's Python API answering a `GetBufferRequest`: a protobuf `GetBufferResponse`, one
+    /// `LineContents` per row, with one `CellStyle` per run of cells.
+    ///
+    /// **The second capture here that is not an escape stream, and it is not the third dialect
+    /// either** — see `src/buffer.rs`. What it shares with [`Dialect::AlacrittyGrid`] is that no
+    /// serialiser of the emulator's stands between the cell and the reader; what it does not share
+    /// is that a `CellStyle` is a *projection* of iTerm2's own `screen_char_t` rather than the
+    /// struct itself, so a bit the cell holds and the projection drops is a reading this format has
+    /// and a grid does not.
+    Iterm2Buffer,
 }
 
 impl Dialect {
@@ -162,6 +173,10 @@ impl Dialect {
         match self {
             Self::Ecma48 | Self::TmuxCapturePane => "vt",
             Self::AlacrittyGrid => "json",
+            // **Not `.json` and not `.vt`.** A `GetBufferResponse` is protobuf: a reader that opened
+            // it expecting either would find neither, and the rule this method exists for is that a
+            // capture handed to the wrong reader produces a refusal rather than a number.
+            Self::Iterm2Buffer => "pb",
         }
     }
 }
@@ -207,10 +222,11 @@ pub enum DumpError {
     UnterminatedEscape,
     /// The capture is in a structured format and is not the shape this reader knows.
     ///
-    /// **Only [`Dialect::AlacrittyGrid`] can produce one**, and it is a refusal rather than a
-    /// tolerated field: an Alacritty that grows an attribute flag, renames one, or serialises a
-    /// colour the renderer resolved must arrive as a failed run. A reader that skipped what it did
-    /// not recognise would report a terminal that stopped doing something.
+    /// **Only the two structured formats can produce one** — [`Dialect::AlacrittyGrid`] and
+    /// [`Dialect::Iterm2Buffer`] — and it is a refusal rather than a tolerated field: a terminal that
+    /// grows an attribute flag, renames one, or serialises a colour the renderer resolved must arrive
+    /// as a failed run. A reader that skipped what it did not recognise would report a terminal that
+    /// stopped doing something.
     Malformed(String),
 }
 
@@ -411,6 +427,9 @@ pub fn parse(bytes: &[u8], expected_rows: usize, dialect: Dialect) -> Result<Dum
     // refused as empty by its own reader, on the screen rather than on the bytes.
     if dialect == Dialect::AlacrittyGrid {
         return grid::parse(bytes, expected_rows);
+    }
+    if dialect == Dialect::Iterm2Buffer {
+        return buffer::parse(bytes, expected_rows);
     }
     if bytes.iter().all(|b| matches!(b, b'\n' | b'\r' | b' ')) {
         return Err(DumpError::Empty);

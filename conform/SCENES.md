@@ -29,6 +29,7 @@ fail on the edit instead: `scripts/page-order-gate.sh`, over a real pty. See `FI
 | **Terminal.app** | Terminal.app | `contents of selected tab`, over AppleScript, and **plain text only** — the `tab` class has no styled variant. **A fourth VT lineage**, and the first arm here that disagrees with the others. Scene 01 is `cannot ask` on all eleven rows; scenes 05 and 06 are answered **in full**, because a question asked in band needs no capture surface at all. The only *emulator* arm that can be **handed** a size and then insist on it |
 | **WezTerm** | WezTerm | `wezterm cli get-text --escapes`, over **this run's own GUI socket**. **A fifth family**, and the second that can be handed a size in cells. Its capture carries style but in a **classic** SGR repertoire — no SGR 53, no SGR 58, and sub-parameters normalised away — so two of scene 01's rows are `cannot ask`; and it is the first arm to answer scene 06 *wrongly* rather than not at all. **The socket is the whole of its setup risk**: `wezterm cli` prefers a background mux server, starts one if none is listening, and photographs that daemon's own shell — exiting 0, with valid JSON |
 | **Alacritty** | **what Alacritty stores** | `alacritty --ref-test`, and the `grid.json` it writes when its last window closes. **A sixth family and the first capture here that is not an escape stream**: the `Term`'s grid, one JSON object per cell, with no serialiser of the emulator's in the path — so an underline colour is a field of the cell rather than a sequence that has to survive a re-serialisation, and it is the first arm that could be *asked* about a dotted underline, and the one whose two bare rows are a `quirks.rs` entry rather than a `cannot ask`. What it costs is the tmux arm's caveat arriving on an emulator: a grid is what the terminal **stores**. **The capture is the window closing**, which is the whole of its shape — there is no socket to ask during a run |
+| **iTerm2** | iTerm2 | `GetBufferRequest` with `include_styles`, over the Python API's unix socket — protobuf behind an RFC 6455 handshake, and **the second capture here that is not an escape stream**. A `CellStyle` per run of cells is the cell's own fields, so no serialiser of the emulator's is in the path; what it is not is the cell *itself*, which is the difference from a grid — `CellStyle` is a **projection** of `screen_char_t`, and a bit the cell holds and the projection drops is a reading this format has and Alacritty's does not. Its two `cannot ask` rows and its one quirk entry are the two sides of that. **The only surface here that distinguishes a cell the terminal emptied from a space somebody wrote**, and the comparison throws that away on purpose. The second *emulator* arm that can be handed a size and then insist on it |
 
 **Scenes 05 and 06 are answered by a different party than the rows above it**, and only one arm is
 affected. Their answers come back **in band**, on the scene's own tty, so they come from the
@@ -188,6 +189,27 @@ renders one and spells it `CSI 4 : m`; WezTerm's capture has no spelling for it 
 agreement here — which is the sharpest available demonstration that those two rows were about the
 instrument, exactly as they were declared to be.
 
+**The seventh family is where the two verdicts arrived on one arm, and it is the sharpest statement
+of the difference this scene has.** iTerm2 3.6.11 renders ten of the eleven, and its three unanswered
+rows split **one and two** across exactly the line the two kinds are drawn on. Its capture is the
+Python API's `GetBufferRequest`, which carries a `CellStyle` per run of cells — the cell's fields,
+with no serialiser in the path, but a **projection** of iTerm2's `screen_char_t` rather than the
+struct. So *the projection dropped it* and *the cell never had it* look identical here, which is
+WezTerm's position, and one row is settled each way.
+
+Overline is the cell's. The type encoding the shipped binary compiles in enumerates fourteen bit
+fields and eleven spare bits with no overline among them, and the string `overline` occurs **zero**
+times in the whole binary — an absence in two places, outside the capture, which is what a
+`quirks.rs` entry needs and what WezTerm had none of. The **eighth** entry.
+
+The double and the dotted underline are the projection's. `CellStyle.underline` is a `bool` where the
+cell spends three bits on `underlineStyle`, and iTerm2's own help text names `4:3  Curly underline`,
+so the terminal renders both and the message says only *underlined*. **That completes the dotted
+underline's set**: kitty renders it and spells it `CSI 4 : m`, WezTerm renders it and spells it
+nothing, Alacritty stores it as a bit and answers, and iTerm2 renders it and projects three bits down
+to one. Four families, four mechanisms, one row — and the three `cannot ask` verdicts are about three
+different instruments, which is the whole of what the kind was invented to say.
+
 **And the fifth entry is where reading across stopped being enough.** kitty's conceal and overline
 come back bare, which is exactly what tmux's overline looked like from one arm — and there is no
 further arm to add, because kitty is an endpoint and has no far side to read from. What settled it was
@@ -223,6 +245,23 @@ a string comparison, with no width in the measuring loop.
 | `over-wide` | `漢` at column 3 | `AB 漢D` |
 | `keeps-style` | `x` at column 3, over a red-backed glyph | `AB xCD`, and the cell at 2 **reported** |
 | `ruler` | none | `0123456789` |
+
+### The eighth arm reads a blank the other seven cannot spell
+
+iTerm2's capture distinguishes **a cell the terminal emptied** from **a space somebody wrote**: the
+first is code zero and the second is U+0020, and the API reports both. Every other surface here
+conflates them — an escape-stream re-serialisation writes a space for an empty cell, and a grid stores
+one — so this scene's four overwrite rows come back as `AB\0xCD` where the rest of the table reads
+`AB xCD`.
+
+The reader projects the NUL down to a space, and the alternative is what justifies it: comparing the
+raw row would report *iTerm2 does not blank the head of a bisected pair*, about the one terminal here
+that blanks it hardest. The cell is not spaced; it is empty.
+
+**What the projection costs is a loss and is asserted rather than described.** `tests.rs` checks that
+the committed capture still holds the NUL and that the parsed row still holds the space, so a future
+reader that stopped projecting and a future iTerm2 that stopped distinguishing are both a red test
+rather than a quiet change of meaning.
 
 ### It is the only scene here that does not drive the engine, and it cannot
 
@@ -477,6 +516,39 @@ The three columns agree on exactly one thing besides the seven rows nobody dispu
 widens a VS16 emoji.** Eight of Alacritty's twelve surveyed rows agree with the engine, which is the
 lowest figure this scene has produced and is still not a score.
 
+### The eighth arm, 2026-09-04, and it is the one that breaks the sentence above
+
+**iTerm2 3.6.11 widens a VS16 emoji**, which is what the paragraph directly above had just said no
+disagreeing arm does — and it disagrees anyway, on the row beside it. Ten of its twelve surveyed rows
+agree; the two that do not are the zero-width space at **1** and the keycap at **1**.
+
+| | zero-width space | VS16 pair | ZWJ family | skin tone | keycap |
+|---|---|---|---|---|---|
+| the engine | 0 | 2 | 2 | 2 | 2 |
+| Terminal.app 2.15 | **1** | **1** | **8** | **4** | 2 |
+| WezTerm 20240203 | 0 | **1** | 2 | 2 | **1** |
+| Alacritty 0.17.0 | 0 | **1** | **6** | **4** | **1** |
+| iTerm2 3.6.11 | **1** | 2 | 2 | 2 | **1** |
+
+**Two readings this file had written down get narrower.**
+
+*Summing and what a zero-width scalar is worth are two decisions* is right, and `zero-width` is not
+the row that tells the summers apart — it is not a symptom of summing at all. iTerm2 costs a
+zero-width space a column and sums nothing: its family is 2 and its skin tone is 2, both correct. Two
+disagreeing arms made that row look like a summer's signature; a third that is not a summer takes the
+signature away.
+
+*None of them widens a VS16 emoji* survived three arms and does not survive a fourth. What iTerm2
+supplies is the fourth combination of `vs16` and `keycap` — 2 and 1, where Terminal.app is 1 and 2,
+WezTerm and Alacritty are 1 and 1, and the agreeing families are 2 and 2. **All four combinations of
+two booleans, observed** — the table above is the four, and iTerm2 is the one that completed them. **The two rows are decided by different code in every family that has been
+asked**, so neither is a proxy for the other: an ASCII base does not reach iTerm2's VS16 rule and a
+default-text emoji base does.
+
+That is what a survey is for, and it is why a `FAILED` here would be the instrument inventing a
+defect. Every one of these terminals is entitled to its answer; what the column buys is knowing that
+the question has at least three independent parts.
+
 ## 06 — mode 2026, asked of the terminal rather than of its documentation
 
 No picture, no capture surface, and the second scene here whose answer comes back in band. It asks
@@ -671,6 +743,20 @@ rows were all *the implementation, read* — and it is still not the paint, and 
 still unobservable from inside, for the reason Ghostty's bracket sits below its own figure. The
 variant's documentation and the report's sentence both name the third cause now; the arm is what
 found it, and the first two were what they said until it ran.
+
+### The eighth arm, 2026-09-04, and the majority side gains a member
+
+**iTerm2 3.6.11 answers 5/5** — reset, set, reset, set, reset — so the two families that answer
+wrongly stay two, and the arms that track DECRPM's own definitions become five. That is worth one
+line rather than a section, and the section is here because the *silence* it breaks is a pattern:
+this scene's last three new arms were a `cannot express`, a wrong answer and a second wrong answer,
+and a reader arriving at that run of three would be entitled to wonder whether the scene had stopped
+being able to pass.
+
+**Its flag was still set at 3000 ms**, the largest delay this run opened a block for, so iTerm2's
+force-flush limit is beyond that or it has none and this run cannot say which. That is a row of the
+`quirks.rs` force-flush table with **no** number rather than a wrong one — the table's iTerm2 row is
+unpopulated and stays so, because *beyond 3000* is not a limit.
 
 ### The refusals, and there are five
 
