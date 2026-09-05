@@ -33,6 +33,15 @@ loop for any of them.
 | `cargo run --example alacritty` | **9/9**, two `by design` | **6/6** | **3/3**, and **8 of 12** surveyed | **3/5**, reply held to 150 ms | what Alacritty 0.17.0 *stores* — `--ref-test` serialises the `Term`'s own grid, so no serialiser of the emulator's is in the path |
 | `cargo run --example iterm2` | **8/8**, two `cannot ask`, one `by design` | **6/6** | **3/3**, and **10 of 12** surveyed | **5/5**, still set at 3000 ms | iTerm2 3.6.11's own cells, as its Python API **projects** them — no serialiser in the path, and a projection rather than the struct, which is why its three unanswered rows split one and two across the two kinds |
 
+**Six of spec §10's seven tier-1 terminals have been asked, and the one that remains is Windows
+Terminal.** kitty, Ghostty, WezTerm, Alacritty, tmux and iTerm2 are the six; Terminal.app is here as
+a fourth VT lineage and is not one of the seven. Windows Terminal needs a Windows machine, which no
+run behind anything in this repository has ever had, and **production ticket 16** is what owns it —
+along with `quirks.rs`'s ConPTY entry, the one row of that table inherited from libvaxis and never
+observed here. Two counts and they count different things: **terminals run** is six of seven, and
+**attribute facts** is eleven per terminal, of which five rows across three of the six arms come
+back `cannot ask`.
+
 **An arm runs every scene or it is not a run**, and one report per arm holds a section for each —
 same rule, same reason, as one file per arm: a section that is missing reads as a win. There is
 deliberately no flag to run one scene.
@@ -93,8 +102,10 @@ tmux's one disagreement was overline, and it took three arms to attribute: tmux 
 it, hands it back when asked, and never puts it on the wire. kitty's two are conceal and overline, and
 **no arm could have attributed either** — a dump cannot tell *not stored* from *not serialised*, and a
 terminal endpoint has no far side to read from. What settled those is kitty's shipped binary, whose
-`Cursor` carries neither attribute. They are `quirks.rs`'s fourth and fifth entries, the only two this
-repository gathered rather than inherited — see `FINDINGS.md`, and production tickets 05 and 04.
+`Cursor` carries neither attribute. They are `quirks.rs`'s fourth and fifth entries, the **first two
+of the four** this repository gathered rather than inherited — Alacritty's and iTerm2's are the
+seventh and eighth, and this directory is what earned all four. See `FINDINGS.md`, and production
+tickets 04, 05, 12 and 13.
 
 **Every one of those disagreements is now a `by design` cell, and that is the most important sentence
 here.** Production ticket 10 wired `attrs_dropped` on to the wire, so the engine consults the table

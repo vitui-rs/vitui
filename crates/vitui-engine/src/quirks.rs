@@ -8,21 +8,47 @@
 //!
 //! §15 put populating this table in the fog on purpose. **A quirk table is field work**: each entry
 //! is one terminal, one version range and one observed misbehaviour, and none of that can be
-//! established from a document. Three entries shipped on libvaxis's production experience; the
-//! fourth, fifth and seventh are the ones this repository gathered itself, and it took an instrument
-//! to get any of them.
+//! established from a document. Three entries shipped on libvaxis's production experience; the sixth
+//! arrived from a user's screen; and the fourth, fifth, seventh and eighth are the ones this
+//! repository gathered with an instrument, which it had to build first.
 //!
-//! The seven, and how each is recognised, which is the part that matters:
+//! The eight, and how each is recognised, which is the part that matters. The ordinal is the order
+//! they **arrived** in, which is what every *nth entry* heading below counts, and it is not the
+//! order [`Quirks::lookup`] tries them in — that order is an argument of its own and is made there:
 //!
-//! | terminal | recognised by | quirk |
-//! |---|---|---|
-//! | ConPTY | the target is Windows and nothing answered XTVERSION | legacy SGR, and its own underline-colour form |
-//! | Termux | `$TERMUX_VERSION` is set | legacy SGR |
-//! | VSCode's integrated terminal | `$TERM_PROGRAM` is `vscode` | legacy SGR |
-//! | tmux | **XTVERSION answers `tmux …`** | overline is accepted, stored, and never forwarded |
-//! | kitty | **XTVERSION answers `kitty(…)`** | conceal and overline have no attribute to be stored in |
-//! | JetBrains' IDE terminal | `$TERMINAL_EMULATOR` starts `JetBrains-` | legacy SGR |
-//! | Alacritty | `$ALACRITTY_WINDOW_ID` is set | blink and overline have no bit to be stored in |
+//! | # | terminal | recognised by | quirk |
+//! |---|---|---|---|
+//! | 1 | ConPTY | the target is Windows and nothing answered XTVERSION | legacy SGR, and its own underline-colour form |
+//! | 2 | Termux | `$TERMUX_VERSION` is set | legacy SGR |
+//! | 3 | VSCode's integrated terminal | `$TERM_PROGRAM` is `vscode` | legacy SGR |
+//! | 4 | tmux | **XTVERSION answers `tmux …`** | overline is accepted, stored, and never forwarded |
+//! | 5 | kitty | **XTVERSION answers `kitty(…)`** | conceal and overline have no attribute to be stored in |
+//! | 6 | JetBrains' IDE terminal | `$TERMINAL_EMULATOR` starts `JetBrains-` | legacy SGR |
+//! | 7 | Alacritty | `$ALACRITTY_WINDOW_ID` is set | blink and overline have no bit to be stored in |
+//! | 8 | iTerm2 | **XTVERSION answers `iTerm2 …`** | overline has no bit in the cell to be stored in |
+//!
+//! **One of the eight has never been observed from this repository, and it is the first.** The
+//! ConPTY entry is libvaxis's, inherited whole: no run of this engine has ever happened on Windows,
+//! so both halves of it — the legacy SGR spelling and [`Underlines::ConPty`] — are inference. It is
+//! left exactly as it came, because a guess corrected by a second guess is worse than a guess with
+//! its provenance written on it; **production ticket 16 is where it is confirmed, corrected or
+//! removed**, by the first execution of this engine on Windows. The other two libvaxis entries,
+//! Termux and VSCode, are inherited on the same terms and neither has been run here either — but
+//! neither is a tier-1 terminal, so neither is what the count below is about.
+//!
+//! **Four of the eight force the legacy SGR spelling, and this is where that number lives.**
+//! ConPTY, Termux, VSCode's integrated terminal and JetBrains' — every entry whose quirk column
+//! above reads *legacy SGR*. §10 makes the colon form the default and names three levers that can
+//! move it: `Overrides::legacy_sgr`, `VITUI_FORCE_LEGACY_SGR`, and these four entries. That is an
+//! argument about a **one-way** field — [`Quirks::legacy_sgr`] is a `bool` and [`Quirks::apply`]
+//! can only ever set it to `true`, so a default of `true` would need the four to force a value
+//! their terminals already have — and the argument is only as good as the number.
+//!
+//! **Eight sentences across three files said *three*** — `caps.rs` twice, `serial.rs` three times
+//! and the engine spec three times — until production ticket 14 counted them against
+//! [`Quirks::lookup`]. The sixth entry arrived and none of the eight moved with it, which is why
+//! the number is stated **once**, here, and joined to the arms that set the flag by
+//! `crate::gates::the_quirk_tables_prose_is_joined_to_its_entries`.
 //!
 //! **The first three, the sixth and the seventh are not recognised by a query, and that is not an oversight**: they are
 //! recognised the way libvaxis recognises them, because the misbehaviour is not something the
@@ -31,7 +57,7 @@
 //! refusal of terminfo is a refusal to infer capabilities from a name, and an entry here overrides
 //! a capability that was measured.
 //!
-//! # What is deliberately **not** a seventh entry, and there are two of them
+//! # What is deliberately **not** a ninth entry, and there are two of them
 //!
 //! Both were found by `conform/`, both are real misbehaviours, and neither belongs here. The rule
 //! they are both refused by is worth stating once rather than re-deriving: **every entry in this
@@ -519,16 +545,33 @@ impl Quirks {
         //
         // **Eight is where the evidence stops, not where the need does.** The fourth, fifth,
         // seventh and eighth are what the sentence is for: it took building `conform/` to get any
-        // of them, and scene 01 has now been run against **six** of spec §10's seven tier-1
-        // terminals — kitty, Ghostty, WezTerm, Alacritty, tmux and iTerm2. **The one that remains
-        // is Windows Terminal**, whose attribute facts are still inference from libvaxis's three
-        // entries, and production ticket 16 is what owns it.
+        // of them.
         //
-        // That count read **four** and *three that remain* until production ticket 13, which is one
-        // arm stale in each direction: WezTerm's arm landed with no entry to write, so the
-        // paragraph beside the entries was not the file anybody edited. A count with nothing
-        // watching it is this repository's own recurring defect and it is recorded here rather than
-        // quietly corrected.
+        // **Two counts live here and they count different things.** A reader deciding how far to
+        // trust this table needs both, and taking one for the other reads a whole terminal as
+        // observed or a whole suite as inference.
+        //
+        // *Terminals run*: scene 01 has been driven against **six of spec §10's seven tier-1
+        // terminals** — kitty, Ghostty, WezTerm, Alacritty, tmux and iTerm2. **The one that
+        // remains is Windows Terminal**, and production ticket 16 is what owns it. Its eleven
+        // attribute facts are still inference from libvaxis's three entries, none of which names
+        // it.
+        //
+        // *Attribute facts answered*: the scene asks **eleven per terminal**, and running a
+        // terminal is not the same as answering all eleven of them. Ghostty answers eleven;
+        // **five rows across three of the six arms come back `cannot ask`** — one on kitty, two on
+        // WezTerm, two on iTerm2 — which is a limit of that arm's capture surface and never a
+        // statement about what the terminal draws. Those five are the reason `cannot ask` is a
+        // reported cell in `conform/` rather than a failure, and the reason two of the eight
+        // entries above rest on a second source instead of on a photograph.
+        //
+        // The terminals-run count read **four** and *three that remain* until production ticket
+        // 13, which is one arm stale in each direction: WezTerm's arm landed with no entry to
+        // write, so the paragraph beside the entries was not the file anybody edited. A count with
+        // nothing watching it is this repository's own recurring defect and it is recorded here
+        // rather than quietly corrected — which is what
+        // `crate::gates::the_quirk_tables_prose_is_joined_to_its_entries` now watches, and it is
+        // the join and not the sentence that makes the ordinals above checkable.
         //
         // **The sixth arrived from a user's screen rather than from an instrument**, and that is the
         // other way this table grows — the one §15 was describing when it called populating it field

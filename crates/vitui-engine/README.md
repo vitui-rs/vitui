@@ -40,9 +40,11 @@ knowing before you depend on this: **Windows has never been run.** Every green r
 numbers here is one machine, one OS, one architecture.
 
 Beside the gates that live inside the crate is `conform/`, the only instrument that asks a real
-terminal rather than this crate's model of one: five arms across four emulator families, each with
-a committed report. It is the source of the later entries in the quirk table. The MSRV is 1.88,
-verified by a CI job pinned to it rather than declared.
+terminal rather than this crate's model of one: **eight arms across seven emulator families**, each
+with a committed report, and **six of spec §10's seven tier-1 terminals** have now been driven
+through its attribute scene. It is the source of four of the quirk table's eight entries. **The one
+tier-1 terminal that remains is Windows Terminal**, whose eleven attribute facts are still
+inference. The MSRV is 1.88, verified by a CI job pinned to it rather than declared.
 
 ## Dependencies
 

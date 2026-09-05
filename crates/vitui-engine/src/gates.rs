@@ -13,6 +13,12 @@
 //! of its own because **none of §14's twelve produces the case** — which is exactly why it was
 //! filed rather than found.
 //!
+//! Two more at the end of the file are neither a register entry nor a frame: they read a **source
+//! file** and join two statements in it. [`the_detector_reaches_for_nothing_in_the_crate`] is one
+//! and [`the_quirk_tables_prose_is_joined_to_its_entries`] is the other, and the second is here
+//! rather than in [`crate::quirks`] because a gate that lives inside the thing it counts is one
+//! edit away from being changed alongside it.
+//!
 //! # The birth frame is presented and then left behind
 //!
 //! Adding a layer damages its whole rectangle, because nothing beneath it has been asked to repaint
@@ -7004,4 +7010,156 @@ fn stall_on_purpose() {
     std::thread::sleep(std::time::Duration::from_secs(5));
     // Unreachable unless the observer is missing, and then it is the diagnosis rather than a hang.
     std::process::exit(NEVER_FIRED);
+}
+
+/// The cardinal words the quirk table's prose states a count in, smallest first.
+const CARDINALS: [&str; 9] = [
+    "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+];
+
+/// The ordinal words the quirk table's prose numbers its entries in, smallest first.
+///
+/// Nine and not eight, because the heading that refuses an entry is one past the last one made —
+/// see [`the_quirk_tables_prose_is_joined_to_its_entries`].
+const ORDINALS: [&str; 9] = [
+    "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth",
+];
+
+/// **Gate: the quirk table's prose and its entries are the same number of things.**
+///
+/// [`crate::quirks`] is a mechanism whose documentation is most of its value — an entry is one
+/// terminal, one version range and one observed misbehaviour, and none of that survives being
+/// summarised. So the module carries a numbered table of the entries, a `# The nth entry` section
+/// for each one it gathered itself, and a heading naming the ordinal it **refuses**. Three
+/// statements about a count, in prose, beside a `lookup` that returns the entries.
+///
+/// **Every one of them has been stale at least once.** Production ticket 13 landed an arm and left
+/// the paragraph beside the entries reading one lower in one direction and one higher in the other;
+/// production ticket 14 found the table itself a row short of the code, with the eighth entry
+/// described in a section, returned by `lookup`, and absent from the list of what exists. *A count
+/// with nothing watching it* is this repository's own recurring defect, and the four places it
+/// lives here had nothing watching them.
+///
+/// **It is a join and not a restatement**, which is the property that makes it able to fail. The
+/// rows are prose, the sections are prose, the refusal is prose, and the arms are code; none is
+/// derived from another, and the ordinal order is not even `lookup`'s order — that one is a
+/// precedence argument made at the call site, where this one is arrival. So what is compared is
+/// **how many**, three times, and never which.
+///
+/// **A fourth comparison is over a different number, and it is joined for a different reason.**
+/// Four of the eight entries force the legacy SGR spelling, and **eight sentences across three
+/// files said *three*** — `caps.rs` twice, `serial.rs` three times and the engine spec three
+/// times — because the sixth entry arrived and none of them moved with it. §10's argument for the
+/// colon default rests on that number: a one-way field that *n* entries force, so a default of
+/// `true` would need those *n* to force a value their terminals already have. A wrong *n* miscounts
+/// the things that argument quantifies over, in the only record of why the default is what it is —
+/// all eight sites are `pub(crate)`, so this is the documentation a maintainer reads rather than
+/// docs.rs, which is what makes it worth a gate rather than a proofread. The number is stated once,
+/// in [`crate::quirks`]'s module doc, and joined here to the arms that set the flag.
+///
+/// What it deliberately does not reach: whether a row's *recognition rule* matches the arm's
+/// condition. That is a second gate over a different join, and writing it as string matching over
+/// a table cell would be the kind of instrument this crate has twice had to delete.
+#[test]
+fn the_quirk_tables_prose_is_joined_to_its_entries() {
+    let source = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/quirks.rs"))
+        .expect("the table is beside this file");
+
+    // The numbered rows of the module doc's table, as the ordinals they claim. A header row's
+    // `#` and a separator's dashes do not parse, so the filter is the parse.
+    let rows: Vec<usize> = source
+        .lines()
+        .filter_map(|line| line.trim_start().strip_prefix("//! |"))
+        .filter_map(|row| row.split('|').next()?.trim().parse::<usize>().ok())
+        .collect();
+    assert!(
+        !rows.is_empty(),
+        "the quirk table's numbered rows were not found, so this gate is reading nothing"
+    );
+    assert!(
+        rows.iter().copied().eq(1..=rows.len()),
+        "the quirk table's rows are numbered {rows:?}, which is not 1..={}",
+        rows.len()
+    );
+
+    // The arms of `lookup`, bounded to that function's own body rather than to the file: a needle
+    // over the whole file would be satisfied by a doc comment quoting one.
+    let opener = "pub(crate) fn lookup(";
+    let start = source.find(opener).expect("`lookup` is in this file");
+    let body = &source[start..];
+    let end = body.find("\n    }\n").expect("`lookup` ends") + 1;
+    let arms = body[..end]
+        .matches(&["return ", "Quirks {"].concat())
+        .count();
+    assert_eq!(
+        arms,
+        rows.len(),
+        "`quirks::lookup` returns {arms} entries and the module doc's table lists {}. \
+         Every entry is a row and every row is an entry — see the gate's own docs for why the \
+         two are compared by count and never by name",
+        rows.len()
+    );
+
+    // The flag-forcing arms, against the one sentence that states how many there are. Bounded to
+    // `lookup` for the reason above, and the sentence is matched by its number word rather than by
+    // its shape, so a reworded paragraph that keeps the number still passes.
+    let forcing = body[..end]
+        .matches(&["legacy_sgr", ": true"].concat())
+        .count();
+    let claim = source
+        .lines()
+        .find(|line| line.contains(&["force the legacy ", "SGR spelling"].concat()))
+        .expect("the module doc says how many entries force the legacy SGR spelling")
+        .to_lowercase();
+    let claimed = CARDINALS
+        .iter()
+        .position(|word| claim.contains(&[*word, " of the "].concat()))
+        .map(|index| index + 1)
+        .expect("that sentence opens with a number word");
+    assert_eq!(
+        forcing, claimed,
+        "`quirks::lookup` forces the legacy SGR spelling in {forcing} arms and the module doc \
+         claims {claimed}. §10's argument for the colon default is *n entries force a one-way \
+         field*, so this number is load-bearing in `caps.rs`, `serial.rs` and the spec"
+    );
+
+    // The `# The nth entry` sections, which are the third statement of the same number. Only the
+    // entries this repository gathered have one, so the highest is what is joined, not the count.
+    let sections: Vec<usize> = ORDINALS
+        .iter()
+        .enumerate()
+        .filter(|(_, word)| source.contains(&["//! # The ", word, " entry"].concat()))
+        .map(|(index, _)| index + 1)
+        .collect();
+    let deepest = *sections.last().expect("at least one entry has a section");
+    assert_eq!(
+        deepest,
+        rows.len(),
+        "the deepest `# The nth entry` section is the {}, and the table has {} rows. An entry \
+         described and not listed is the shape production ticket 14 found",
+        ORDINALS[deepest - 1],
+        rows.len()
+    );
+
+    // And the heading that refuses one is exactly one past the last entry made.
+    let refusal = source
+        .lines()
+        .find(|line| {
+            let heading = line.trim_start();
+            heading.starts_with("//! # ") && heading.contains("not") && heading.contains(" entry")
+        })
+        .expect("a heading refuses an ordinal");
+    let refused = ORDINALS
+        .iter()
+        .position(|word| refusal.contains(&[" ", word, " entry"].concat()))
+        .map(|index| index + 1)
+        .expect("the refusal heading names an ordinal");
+    assert_eq!(
+        refused,
+        rows.len() + 1,
+        "the refusal heading says {} where the table has {} rows, so it is refusing an entry that \
+         already exists or skipping one that does not",
+        ORDINALS[refused - 1],
+        rows.len()
+    );
 }

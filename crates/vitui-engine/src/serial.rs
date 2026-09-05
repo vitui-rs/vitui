@@ -1994,12 +1994,13 @@ const UNDERLINE: Channel = Channel {
 /// The parameterised forms exist twice over. **Modern** is ITU-T T.416's colon form —
 /// `38:2::r:g:b`, with the empty colour-space id the standard puts there — and **legacy** is xterm's
 /// pre-ITU-T semicolon form, `38;2;r;g;b`. The modern one is what goes out unless something says
-/// otherwise, and `Overrides::legacy_sgr`, `VITUI_FORCE_LEGACY_SGR` and three quirk entries are the
-/// somethings: ConPTY, Termux and VSCode's integrated terminal all mis-parse the colon form.
+/// otherwise, and `Overrides::legacy_sgr`, `VITUI_FORCE_LEGACY_SGR` and four quirk entries are the
+/// somethings: ConPTY, Termux, VSCode's integrated terminal and JetBrains' all mis-parse the colon
+/// form. [`crate::quirks`] is where the four are, and where the count is joined to them.
 ///
 /// **§8's own table spells the semicolon form and §10 names the legacy one *pre-ITU-T*, and the two
 /// sentences cannot both be about the default.** The reading taken here is §10's, because it is the
-/// one with a mechanism: three quirk entries force `legacy` on terminals that parse only semicolons,
+/// one with a mechanism: four quirk entries force `legacy` on terminals that parse only semicolons,
 /// so `legacy` cannot be what a terminal with no quirk entry receives. §8's spellings are the
 /// configuration its byte tables were measured on, which is why the colon form's one extra byte per
 /// parameterised colour shows up as a wire-budget number that had to be re-measured. Recorded in
@@ -2525,7 +2526,7 @@ mod tests {
         assert!(!out.contains("58:"), "{out}");
     }
 
-    /// The pre-ITU-T spelling of 38 and 48, which three quirk entries force.
+    /// The pre-ITU-T spelling of 38 and 48, which four quirk entries force.
     #[test]
     fn legacy_sgr_spells_a_colour_the_way_xterm_did() {
         let legacy =

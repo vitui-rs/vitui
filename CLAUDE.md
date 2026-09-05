@@ -114,10 +114,12 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   production 05, `table`'s two by 06, the overlay family's four by 08, the scroll family's three by
   09 and **`tree`'s two by 07**, which turned O5; **10 closed the paperwork behind it**), three
   tier-1 terminals nobody had run (**the group is closed on this machine**: WezTerm by 11, Alacritty
-  by 12 and **iTerm2 by 13**, which was the last one reachable without Windows),
+  by 12 and **iTerm2 by 13**, which was the last one reachable without Windows, with **14** closing
+  the group's paperwork behind them),
   and the release.
-  **Two of the sixteen can start today, 02 and 14** — 02 is `ready-for-human` (it needs a public
-  repository) and **14 is the frontier**, unblocked by 13.
+  **One of the sixteen can start today and it is 02**, which is `ready-for-human` — it needs a public
+  repository. **15 is the frontier and it cannot start**: 02 is unresolved and four components
+  architecture questions are open.
   **Windows is last, as 16**, blocked by the publish — which carries the consequence that no shipped
   string may claim a terminal the conform suite has not asked. Everything on it was already true and
   already recorded; what was missing was that nothing scheduled any of it.
@@ -261,6 +263,28 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   claimed this and nothing watched it — and no instrument inside the crate can, since `Tty::open`
   panics under `cfg(test)` and the thread the claim is about is never spawned by a test here. It is
   a **tripwire**: it goes red if the reader ever learns to stop.
+
+- **Three counts sat on the denominator *seven tier-1 terminals* and nothing separated them**
+  (production 14). §15's out-of-scope entry said **five have never been run** where one has —
+  Windows Terminal, owned by ticket 16 — `quirks.rs` says **six run**, and §10's `legacy_sgr`
+  paragraph says **two observed**, which is *correct* and counts a third thing: the **colon SGR
+  spelling**, whose scene (`conform/SCENES.md` 03) is proposed and unbuilt. All three now name what
+  they count, because two figures differing by four on one denominator are a defect report unless the
+  reason is beside them. *Terminals run* is also not *attribute facts answered*: the scene asks
+  **eleven per terminal** and **five rows across three of the six arms are `cannot ask`**. **The
+  quirk table itself listed seven entries while `lookup` returned eight** — iTerm2 had a section, an
+  arm, a fixture and a report and no row — so
+  `crate::gates::the_quirk_tables_prose_is_joined_to_its_entries` joins four statements about that
+  number: the table's rows, `lookup`'s arms counted **inside that function's body**, the deepest
+  `# The nth entry` section, and the refusal heading, which must be one past the last. Over **how
+  many** and never **which**: the doc's ordinals are arrival order and `lookup`'s are a precedence
+  argument. It is not a register entry, for the reason `the_detector_reaches_for_nothing_in_the_crate`
+  is not. **The ConPTY entry is the one row no run here has ever touched** and says so, pointing at
+  16. **A fourth count was wrong wherever §10's default is argued for**: four of the eight entries
+  force the legacy SGR spelling and **eight sentences across three files said three** — `caps.rs`,
+  `serial.rs` and the spec — the sixth entry having arrived without them. §10's argument that the
+  colon spelling is the default *is* that number (*a one-way field N entries force*), so it now has
+  one home in `quirks.rs` and is the gate's fifth comparison.
 
 - **A `cannot ask` becomes a quirk only when evidence exists outside the capture, and a real
   misbehaviour with no route around it is no entry at all** (production 11). Two rows of `conform/`'s

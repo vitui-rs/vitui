@@ -803,13 +803,13 @@ impl Capabilities {
     /// The parameterised forms exist twice over: ITU-T T.416's colon spelling, `38:2::r:g:b` and
     /// `38:5:n`, and xterm's pre-ITU-T semicolon spelling, `38;2;r;g;b` and `38;5;n`. **The colon
     /// spelling is the default** — this returns `false` unless something moved it, and the only
-    /// things that can are `Overrides::legacy_sgr`, `VITUI_FORCE_LEGACY_SGR` and the three quirk
+    /// things that can are `Overrides::legacy_sgr`, `VITUI_FORCE_LEGACY_SGR` and the four quirk
     /// entries.
     ///
     /// The argument is the type rather than the prose, which is why the spec could disagree with
     /// itself about it for as long as it did (arch 23): [`crate::quirks::Quirks::legacy_sgr`] is a
     /// `bool` and `apply` can only ever set it to `true`, so a one-way override is coherent in
-    /// exactly one direction. A default of `true` would need the three entries to force a value
+    /// exactly one direction. A default of `true` would need the four entries to force a value
     /// their terminals already have.
     ///
     /// **SGR 58 is a separate axis** — see [`Self::underlines`] — because a terminal can want the
