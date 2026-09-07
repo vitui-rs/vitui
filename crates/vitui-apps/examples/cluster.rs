@@ -23,7 +23,7 @@
 //!
 //! k9s is a stack of views and `Esc` is *pop*. So is this: `Enter` on a pod pushes its containers,
 //! `l` pushes its logs, `y` its YAML and `d` its description, and the crumb row is
-//! `App::stack` drawn with one [`chip`] a level. A text view — logs, YAML, describe — is a level
+//! `App::stack` drawn with one [`chip_with`] a level. A text view — logs, YAML, describe — is a level
 //! like any other, which is why it scrolls with the same keys the table does and leaves with the
 //! same `Esc`.
 //!
@@ -38,18 +38,23 @@
 //!    here it is a panel of its own that replaces the header's rows, because an overlay would put
 //!    a scrim over a screen that is not modal.
 //!
-//! # Three keys k9s binds that a `collection` eats, and the one reading behind all three
+//! # Three keys k9s binds that a `collection` ate, and the one reading behind all three
 //!
 //! `crate::collect::from_key` answers a bare `Space` with `Gesture::Toggle` and `Ctrl+A` with
 //! `Gesture::All` in **every** [`Mode`], and `apply` then ignores both at [`Mode::Cursor`] — so the
-//! key is consumed to do nothing and never reaches this application. `crate::nav::step` reads `←`
-//! and `→` as `↑` and `↓`, so those two go the same way.
+//! key was consumed to do nothing and never reached this application. `crate::nav::step` reads `←`
+//! and `→` as `↑` and `↓`, so those two still go that way.
 //!
-//! **It is `owns_escape`'s defect one key over.** Components architecture 22 taught `Escape` to
+//! **It was `owns_escape`'s defect one key over.** Components architecture 22 taught `Escape` to
 //! decline when `apply` would clear nothing — *the component owns it exactly when it would clear
-//! something* — and `Space` and `Ctrl+A` were left as they were. So k9s's `space` is `Ctrl+Space`
-//! here, because a chord is declined (`crate::keys::is_chord`) and arrives. `commander` met the
-//! same wall on its shell prompt and `spf` on `Shift+↓`; three ports, one reading.
+//! something* — and left `Space` and `Ctrl+A` as they were, so k9s's `space` was `Ctrl+Space` here
+//! for the life of this port. `crate::collect::owns` is that narrowing said of the whole
+//! vocabulary and the bare key arrives now; the chord stays bound beside it.
+//!
+//! **`←` and `→` are still the collection's**, and that one is a fact about `nav::step` rather than
+//! about ownership: a tab strip is a horizontal collection and needs them, and nothing on the
+//! surface says which axis a list runs on. `commander` binds `Alt+←`/`Alt+→` around it and `spf`
+//! meets it too; three ports, one reading.
 //!
 //! # The letters are commands, so the table's type-ahead must never match
 //!
@@ -68,7 +73,7 @@
 //! | `Enter` | drill in: a pod's containers, a deployment's pods, a namespace's pods |
 //! | `Esc` | pop one level; from the root, clear the filter |
 //! | `d` `y` `l` | describe · YAML · logs, each a level of its own |
-//! | `Ctrl+Space` | mark. **Not `space`** — a `collection` consumes that in every mode (see below) · `Ctrl+\` clears |
+//! | `space` · `Ctrl+Space` | mark — the bare key is k9s's own and arrives now, the chord stays bound beside it (see below) · `Ctrl+\` clears |
 //! | `Ctrl+D` | delete what is marked, or the row under the cursor. **`Tab` or `←`/`→`, then
 //!   `Enter`** — the dialog opens on `Cancel`, which is k9s's own *requires TAB and ENTER
 //!   confirmation* |
@@ -629,7 +634,7 @@ const HELP: [(&str, &str); 16] = [
     ("d", "describe"),
     ("y", "YAML"),
     ("l", "logs"),
-    ("ctrl-space", "mark a row — `space` is eaten by the table"),
+    ("space", "mark a row · `ctrl-space` does the same"),
     ("ctrl-\\", "clear the marks"),
     (
         "ctrl-d",
@@ -712,6 +717,26 @@ enum Act {
 /// **Order is precedence** ([`KeyMap::match_first`] takes the first match), and it is load-bearing
 /// twice: `?` is bound before `/` and `Shift+N` before anything reading a bare `n`, or the alternate
 /// for the shifted key would be swallowed by the unshifted one.
+/// **`?`, on every wire spelling ADR 0053 names, in one place.**
+///
+/// [`key_map`]'s own `shifted` helper is a closure inside that function and is not reachable from a
+/// draw, so the help modal's *close* arm re-spelled the pair by hand — a second place for one of the
+/// two arms to go missing, in a file written to record that exact defect. Worse, the hand-written
+/// version was a `match` on `k.code`, which misses a spelling [`Chord::typed`] catches: a terminal
+/// speaking the enhanced protocol may report the base key `/` **and** the text `?`, and
+/// `Code::Char('?')` sees neither half of that.
+const HELP_KEYS: [Chord; 2] = [Chord::typed('?'), Chord::key('/').shift()];
+
+/// Whether a keystroke is one of [`HELP_KEYS`].
+///
+/// `MatchMode::Masked` is what ships and what [`KeyMap`] uses, so the two readings of `?` in this
+/// file cannot disagree about the lock bits either.
+fn is_help_key(k: &Pressed) -> bool {
+    HELP_KEYS
+        .iter()
+        .any(|c| c.matches(k, vitui_runtime::keys::MatchMode::Masked))
+}
+
 fn key_map() -> KeyMap {
     let ctrl = |c: char| Chord::key(c).ctrl();
     // A shifted character: what the terminal produced, and the base key beside it for the spelling
@@ -725,7 +750,12 @@ fn key_map() -> KeyMap {
         .bind(&[ctrl('g')], CRUMBS, "Toggle breadcrumbs")
         .bind(&[ctrl('d')], DELETE, "Delete")
         .bind(&[ctrl('\\')], CLEAR, "Clear marks")
-        .bind(&[ctrl(' ')], MARK, "Mark")
+        // **`space`, which is k9s's own key, since `crate::collect::owns` landed.** It was
+        // `Ctrl+Space` for the life of this port: a bare `Space` was answered with
+        // `Gesture::Toggle` in every mode and ignored by `apply` at `Mode::Cursor`, so it was
+        // consumed to do nothing and never arrived. The chord stays bound beside it — a port's
+        // muscle memory is the point, and nothing else in this application wants it.
+        .bind(&[Chord::key(' '), ctrl(' ')], MARK, "Mark")
         // **Before `/`.** `Chord::key('/').shift()` and `Chord::typed('/')` both answer the fourth
         // spelling of `?`, and the first binding wins.
         .bind(&shifted('?', '/'), SHOW_HELP, "Help")
@@ -768,6 +798,52 @@ const POP: ActionId = 19;
 /// `<0> all` through `<5> flux-system`, contiguous so the digit is the offset.
 const NS0: ActionId = 20;
 const NS5: ActionId = 25;
+
+/// **Every [`ActionId`] above is distinct and none of them lands in the digit row, and the compiler
+/// says so.**
+///
+/// Two things a copy-paste breaks silently here, because a wrong verb draws a perfectly good screen
+/// and [`KeyMap`] has no reason to object. The first is a plain duplicate. The second is this file's
+/// own: `NS0..=NS5` is a **span** — the digit is the offset, so 21, 22, 23 and 24 are ids nothing
+/// writes down — and an id landing inside it collides with a namespace nobody would think to look
+/// for.
+const _: () = {
+    let ids = [
+        QUIT,
+        REFRESH,
+        WIDE,
+        HEADER,
+        CRUMBS,
+        DELETE,
+        CLEAR,
+        MARK,
+        SHOW_HELP,
+        COMMAND,
+        FILTER,
+        SORT_NAME,
+        SORT_AGE,
+        SORT_STATUS,
+        DESCRIBE,
+        YAML,
+        LOGS,
+        DRILL,
+        POP,
+    ];
+    let mut i = 0;
+    while i < ids.len() {
+        assert!(
+            ids[i] < NS0 || ids[i] > NS5,
+            "an action landed inside the `NS0..=NS5` digit row"
+        );
+        let mut j = i + 1;
+        while j < ids.len() {
+            assert!(ids[i] != ids[j], "two actions share one `ActionId`");
+            j += 1;
+        }
+        i += 1;
+    }
+    assert!(NS0 < NS5, "the digit row runs upward");
+};
 
 // ── the application ──────────────────────────────────────────────────────────────────────────────
 
@@ -1346,7 +1422,7 @@ impl App {
         id
     }
 
-    /// The breadcrumb trail, one [`chip`] a level, and the marks count at the right.
+    /// The breadcrumb trail, one [`chip_with`] a level, and the marks count at the right.
     fn draw_crumbs(&mut self, cx: &mut Ctx<'_, '_>, area: Rect) {
         let mut x = area.x;
         let last = self.stack.len() - 1;
@@ -1562,13 +1638,14 @@ fn draw_help(cx: &mut Ctx<'_, '_>, r: Rect, pending: &mut Option<Act>) {
         cx.focus(id);
     }
     while let Some(k) = cx.next_key(id) {
-        match k.code {
-            // **The alternate is here too.** This is `key_map`'s reading one level down: `?` on a
-            // terminal that reports the base key arrives as `/` with the shift bit, so the modal
-            // that `?` opened could not be closed by pressing it again.
-            Code::Escape | Code::Enter | Code::Char('?') => *pending = Some(Act::Close),
-            Code::Char('/') if k.mods.shift() => *pending = Some(Act::Close),
-            _ => cx.decline(k),
+        // **The alternate is here too, and read from one home.** `?` on a terminal that reports
+        // the base key arrives as `/` with the shift bit, so the modal that `?` opened could not be
+        // closed by pressing it again — see [`HELP_KEYS`], which is why this is a call and not a
+        // second pair of match arms.
+        if matches!(k.code, Code::Escape | Code::Enter) || is_help_key(&k) {
+            *pending = Some(Act::Close);
+        } else {
+            cx.decline(k);
         }
     }
 }
@@ -2046,13 +2123,13 @@ impl App {
                 self.marks.clear();
                 self.flash = "marks cleared".to_owned();
             }
-            // **`Ctrl+Space` and not `space`, and that is a component finding rather than a
+            // **`space`, and `Ctrl+Space` beside it, which is a component finding rather than a
             // taste.** k9s marks with `space`; `crate::collect::from_key` answers a bare `Space`
             // with `Gesture::Toggle` in **every** mode, and `apply` then ignores it at
-            // `Mode::Cursor` — so the key is consumed to do nothing and never reaches this window.
-            // It is `owns_escape`'s defect one key over: components architecture 22 taught `Escape`
-            // to decline when `apply` would clear nothing, and `Space` and `Ctrl+A` were left as
-            // they were. A chord is declined (`crate::keys::is_chord`), so this one arrives.
+            // `Mode::Cursor` — so the key was consumed to do nothing and never reached this
+            // window, and the chord was bound because a chord is declined
+            // (`crate::keys::is_chord`) and arrives. `crate::collect::owns` narrowed the gesture to
+            // the modes `apply` acts in, so the bare key arrives too and the port has its own.
             MARK => {
                 let lead = self.st.coll.sel.lead;
                 let len = self.rows.len();
@@ -2234,8 +2311,6 @@ fn main() {
 
     driver.frame(|cx| app.ui(cx));
     let _ = app.answer();
-    // **Where the focus ended, remembered across the park.** See the loop below.
-    let mut seated = driver.inspect().focused();
 
     loop {
         driver.frame(|cx| app.ui(cx));
@@ -2251,20 +2326,16 @@ fn main() {
         // **A frame is owed whenever the inbox moved**, and not only when a key arrived: the
         // decision is acted on *after* the draw, so the screen showing a dialog that has just been
         // answered is one frame stale — and with nothing else pending, `wait` would park on it.
-        // **A `Tab` that moved the focus owes a frame, and nothing asks for one.** The ring
-        // resolves the walk in `settle`, *after* the draw — so the frame that consumed the `Tab`
-        // painted the old focus ring and `unhandled` is empty, and `wait` would park on a screen
-        // that is a keystroke behind. `Frame::resolve_into_view` asks when a reveal is pending
-        // (runtime architecture 33) and a bare focus move asks for nothing, so the application
-        // notices the move itself. The comparison is against the *previous* frame's answer, which
-        // is why it is a `let mut` outside the loop rather than a read inside it.
-        let focus = driver.inspect().focused();
-        let focus_moved = focus != seated;
-        seated = focus;
-        // **A frame is owed whenever the inbox moved or the ring moved the focus**, and not only
-        // when a key arrived: both are acted on *after* the draw, so the screen is one frame stale
-        // and `wait` would park on it.
-        if acted || focus_moved || !unhandled.is_empty() {
+        //
+        // **A focus move owes a frame too, and this loop deliberately no longer counts it.** The
+        // ring resolves its walk in `settle`, *after* the draw, so the frame that consumed a `Tab`
+        // painted the old focus ring with an empty `unhandled` — and this file used to compare
+        // `Driver::inspect().focused()` across frames because nothing else asked. Register entry 50
+        // put the ask where the decision is made: `Frame::resolve_award` calls
+        // `wants_another_frame`, which is `deadline(now)`, so `wait` returns at once rather than
+        // parking on a screen a keystroke behind. Comparing here as well would be a second spelling
+        // of one rule, in the place least able to keep it true.
+        if acted || !unhandled.is_empty() {
             continue;
         }
         match driver.wait() {

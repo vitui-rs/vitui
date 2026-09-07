@@ -32,7 +32,7 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   a real terminal rather than our model of one, and the source of `quirks.rs`'s later entries.
 - **`vitui-runtime` — implementation-complete.** 21 tickets. `data`, `layout`, `theme` (fourteen
   schemes), `keys`, `ctx`, `id`, `route`, `focus`, `sizing`, `work`, `anim`, `overlay`, `scroll`.
-  Register 48 entries and the 20-scene list, both green. The component-facing crate line is *built*
+  Register 50 entries and the 20-scene list, both green. The component-facing crate line is *built*
   rather than counted: `crates/vitui-components/tests/crate_line.rs` cannot name the engine.
 - **`vitui-components` — implementation-complete.** All 46 tickets; spec §17's freeze is **29 of 29
   built**, as a value (`INVENTORY`) that tests iterate, with the documentation and verification
@@ -108,7 +108,7 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   since ticket 45 that is obligation **O7** rather than a habit: `vitui_components::consumer` joins
   the freeze against the import paths here.
 - **Active work: `.scratch/vitui-production/`** (opened 2026-09-01) — the whole workspace's road to a
-  published crate, sixteen tickets in five groups: the paperwork, the six unsubjected register rows
+  published crate, eighteen tickets in six groups: the paperwork, the six unsubjected register rows
   (**all six standing**, by production 03 and 04),
   the fourteen hostile axes O5 still owed (**the group is closed**: `field`'s three taken by
   production 05, `table`'s two by 06, the overlay family's four by 08, the scroll family's three by
@@ -116,10 +116,18 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   tier-1 terminals nobody had run (**the group is closed on this machine**: WezTerm by 11, Alacritty
   by 12 and **iTerm2 by 13**, which was the last one reachable without Windows, with **14** closing
   the group's paperwork behind them),
-  and the release.
-  **One of the sixteen can start today and it is 02**, which is `ready-for-human` — it needs a public
-  repository. **15 is the frontier and it cannot start**: 02 is unresolved and **five** components
-  architecture questions are open — 19, 22, 23, 24 and 25, the five this file lists below.
+  the release, and — added 2026-09-07 — **the two surface gaps the three ports found and nothing
+  scheduled**: 17 is the keyboard boundary asked about twice (`collect::Refusal` is `pub(crate)`, so
+  a container cannot read in-frame what a `collection` declined, and `nav::step` reads `←`/`→` as
+  `↑`/`↓`) and 18 is five option fields, two of which three separate applications reached for. Both
+  were already recorded in `crates/vitui-apps/README.md`'s *What they cannot say* table, and
+  recorded is not scheduled — the same sentence this backlog was opened with, one surface over.
+  **Neither is on 15's `Blocked by:` line**: a widened visibility and a field on a `Default` struct
+  are compatible additions, so both can land in 0.1.x.
+  **One of the eighteen can start today and it is still 02**, which is `ready-for-human` — it needs a
+  public repository. **15 is the frontier and it cannot start**, and by 2026-09-05 the only edge left
+  into it is 02: the five components architecture questions it also waited on — 19, 22, 23, 24 and
+  25 — all resolved, and what they decided is listed below.
   **Windows is last, as 16**, blocked by the publish — which carries the consequence that no shipped
   string may claim a terminal the conform suite has not asked. Everything on it was already true and
   already recorded; what was missing was that nothing scheduled any of it.
@@ -388,6 +396,15 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   `terminal-light` citation was checked and **does not reproduce as a slow terminal**: the whole
   attach in 73, 94 and 80 ms against a 250 ms ceiling.
 
+- **A key release is never routed, and a frame that decides something asks for the frame that draws
+  it** (2026-09-07, register entries 49 and 50). Both are one keystroke away from every application
+  and both are recorded in full under *Traps* below. In short: `Frame::begin` drops
+  `KeyKind::Release` — kitty flag 2 reports both edges and a release is intent for nothing this
+  crate routes — and `Frame::resolve_award` calls `wants_another_frame` when the pointer award
+  carries a press, a release, a click or a cancelled drag, or when the focus ends the frame
+  somewhere other than it started. Do not "simplify" either by moving the filter into the readers or
+  the ask into `Driver::frame`: the first is the one place a key enters a frame from both doors, and
+  the second is the one place that knows what `end` decided.
 - **Nothing holds the focus until an application seats it** (issue 25): `if cx.focused().is_none()`
   inside the draw. A runtime that seats the first stop was refused.
 - **`Driver::unhandled` is read *after* the frame**, never before — it is a window onto the same
@@ -567,16 +584,24 @@ instrument rather than in the code. Each of these has bitten at least twice.
   a menu bar walks its pull-downs with. `commander` binds `Alt+←`/`Alt+→` instead — a collection
   declines a chord and swallows no accelerator — and records that `mc`'s own binding is one this
   surface cannot have.
-- **`owns_escape`'s defect is still live one key over.** Components architecture 22 taught `Escape`
-  to decline when `apply` would clear nothing — *the component owns it exactly when it would clear
-  something*. `collect::from_key` still answers a bare `Space` with `Gesture::Toggle` and `Ctrl+A`
-  with `Gesture::All` in **every** [`Mode`], and `apply` ignores both at `Mode::Cursor` and one of
-  them at `Mode::Options` — so the key is consumed to do nothing, `out.changed` is set for a frame
-  that changed nothing, and the container above never sees it. Three ports met it from three
-  directions: `commander` cannot type a space at its shell prompt, `cluster` had to move k9s's
-  `space` mark to `Ctrl+Space`, and `spf`'s `Shift+↓` moves the cursor and extends nothing. **Not
-  fixed** — `contract.rs`'s O4 sweep and the register both key off what a collection consumes, so
-  it is a map decision rather than a patch.
+- **`owns_escape`'s defect was live one key over, and `collect::owns` is the rule said of the whole
+  vocabulary** (2026-09-07). Components architecture 22 taught `Escape` to decline when `apply`
+  would clear nothing — *the component owns it exactly when it would do something* — and left the
+  other two keys `from_key` answers with no cursor move behind them: a bare `Space` was
+  `Gesture::Toggle` in **every** `Mode` and `Ctrl+A` was `Gesture::All` in every one, where `apply`
+  acts on the first in every mode but `Mode::Cursor` and on the second in `Mode::Multi` **alone**.
+  So the key was consumed to do nothing, `out.changed` was set for a frame that changed nothing, and
+  the container above never saw it. `owns` is now the one predicate and `owns_escape` is its first
+  arm; **the three movers are owned unconditionally** and that is not an exception — by the time a
+  `Plain` arrives the caller has already moved the cursor. **What it cost was the paperwork the old
+  note called a map decision, and it was two numbers**: `Ctrl+A` came off `PAGER_BINDS` (22 → 21)
+  and off `SELECT`, because a pager is `Mode::Options` and a popup's list is `Mode::Single` and
+  neither answers `Gesture::All` — *select every row* was a help line no press could perform, which
+  is exactly the sentence issue 22 wrote about `Escape`. `Space` did **not** move: a pager toggles
+  with it. `commander` takes its spaces at the shell prompt now and `cluster` binds k9s's own
+  `space` beside the `Ctrl+Space` it had to invent. `spf`'s `Shift+↓` is **not** this defect — the
+  cursor moves, so the key did something, and routing `Extend` into its own marks is the
+  application's.
 - **A dialog that closes does not give the keyboard back, and the vanish rule decides where it
   goes.** The focused widget stopped drawing, so the focus moves to *the nearest surviving entry in
   the previous frame's ring order* — which for a screen with two panels is **the other panel**.
@@ -600,25 +625,41 @@ instrument rather than in the code. Each of these has bitten at least twice.
   a base key with. `KeyMap` works outside the draw — `match_first` takes a `&Key` — which is what
   makes it usable from the unhandled window. A headless gate cannot see any of this, because a
   headless gate posts the spelling the test author typed.
-- **An overlay that appears is not on the screen until a second frame, and the application cannot
-  supply it.** `Ctx::overlay`'s body is entered on the frame the overlay is added — the pass runs,
-  the body draws into its granted rectangle — and the cells do not reach the terminal; the next real
-  input event of any kind brings them, and `Ctx::request_frame` from inside the draw does **not**.
-  Found by `commander`'s menu bar, where a pull-down opened from `Response::clicked` looked like a
-  click on nothing and the same pull-down opened from `Response::press_began` works — because the
-  *release* is then the second event. Every other overlay in this workspace is opened from a key and
-  meets the accounting by accident, which is why it took an application with a mouse-driven menu to
-  see it.
-- **A `Tab` that moves the focus does not ask for the frame that would draw the move.** The ring
-  resolves the walk in `settle`, *after* the draw, so the frame that consumed the `Tab` painted the
-  old ring; `Frame::resolve_into_view` asks for another frame only when a reveal is pending (runtime
-  architecture 33), and a bare focus move asks for nothing. `wait` then parks on a screen one
-  keystroke behind — measured in `commander`, where `Tab` appeared not to switch panels at all until
-  the next key arrived. The one-line home is `Frame::resolve_tab`, beside `resolve_into_view`'s own
-  `wants_another_frame`; until then the three ports notice the move themselves by comparing
-  `Driver::inspect().focused()` across frames. **And the same staleness has an application half**: a
-  value derived from the focus must be read at the *top* of the draw, because everything below it is
-  what the reader sees.
+- **An overlay that appears IS on the screen on its own frame, and the sentence that said otherwise
+  named the wrong mechanism** (2026-09-07). What stood here for four documents was *the body draws
+  into its granted rectangle and the cells do not reach the terminal; the next real input event of
+  any kind brings them*. The pass runs inside the `frame` call, before `end` and before `present`,
+  and `present` composites its layer — the frame that adds an overlay writes bytes where an
+  identical repaint writes **0**, which is
+  `ctx::overlay_tests::an_overlay_that_appears_is_on_the_screen_on_its_own_frame` and is the byte
+  count rather than `Presented::submitted`, because damage is marked by the verbs and a boolean
+  there cannot fail. **The mechanism was the award**, below. `commander`'s pull-down opened from
+  `Response::clicked` looked like a click on nothing because the *click* was a frame late, and
+  `press_began` appeared to work because the release was then the event that brought the next frame.
+- **Everything `end` decides is drawn on the next frame, and until 2026-09-07 nothing asked for
+  it** — `Frame::resolve_award`, register entry 50. The award is resolved *from the index that has
+  just drawn* and rotated into `delivered` by the next `begin`; the ring resolves its walk in the
+  same place. Every application here parks in `Driver::wait`, so **the press drew nothing, the
+  release drew the press, and the click waited for whatever the user did next**, and a `Tab`
+  appeared not to switch panels until the next key arrived. Reported from outside as *the release
+  fires and not the press*, which is what it looks like from a trackpad. The ask is now beside
+  `resolve_into_view`'s (runtime architecture 33, the same shape) and has two producers: the pointer
+  award — a press, a release, a click or a cancelled drag — and **the focus ending the frame
+  somewhere other than it started**, which covers the ring, a trap's pull, the vanish rule and a
+  press that landed on nothing interested. A long press is excluded and says so: it already asks,
+  and `a.long_pressed` stays `Some` for every frame a grab stands. **The application half of the
+  staleness stands**: a value derived from the focus must be read at the *top* of the draw, because
+  everything below it is what the reader sees.
+- **A key release is not routed, and it was a keystroke counted twice** (2026-09-07, register entry
+  49). `crate::actuate` pushes kitty flag 31 and bit 2 of that is *report event types*, so on
+  Ghostty, kitty, WezTerm and iTerm2 every keystroke arrives as two events. Components guard it in
+  eight drain loops; **nothing above them did**, so one `j` scrolled two lines in the fifteen of
+  twenty-one applications that match on `KeyCode` rather than through a `KeyMap` — and read
+  perfectly on a legacy terminal. It is dropped in `Frame::begin`, the one place a key enters a
+  frame from the tty and from `Driver::post_key` alike; `Driver::report_key_releases` keeps the wire
+  reachable for an application that wants a key-up. **No gate in this workspace could see it**, and
+  that is the instrument rather than the coverage: a gate posts the spelling its author typed, and
+  `crate::keys::press` builds a press.
 
 ## Workspace
 
@@ -746,6 +787,7 @@ cargo clippy --workspace --all-targets
 cargo clippy -p vitui-engine --all-targets --features fuzz   # the config `cargo test` misses
 cargo fmt --all
 cargo doc --workspace --no-deps             # a gate: a broken intra-doc link fails the job
+cargo rustdoc -p vitui-apps --example NAME  # the same lint over an example, which the gate misses
 cargo deny check                            # needs `cargo install cargo-deny`
 (cd fuzz && cargo deny check)               # detached workspace: its own graph, its own gate
 (cd conform && cargo test)                  # the conformance gate, over committed captures
@@ -778,6 +820,12 @@ marked `--probe` print one headless frame and what it cost:
 
 Warnings are denied workspace-wide (`[workspace.lints.rust] warnings = "deny"`), so an enum variant
 nothing constructs is a build failure rather than a spare part.
+
+**`cargo doc` does not document an example**, so the intra-doc lint above is a gate over the four
+libraries and over nothing in `examples/`. Four of the twenty-one applications had accumulated a
+broken or private-item link that no job in this repository asked about — the same shape as the
+`cargo test` does not run an example trap one lint over, and the sweep is the `cargo rustdoc` line
+above run per example. All twenty-one are clean as of 2026-09-07; nothing keeps them that way.
 
 There are **no `cargo bench` targets** — criterion was removed and replaced by `vitui-bench`. Timing
 lives in examples that print a report, and every gated or reported number has one home in its crate's

@@ -539,6 +539,42 @@ fn owns_escape(mode: Mode, sel: &Selection) -> bool {
     !sel.is_empty() && MODES_THAT_CLEAR.contains(&mode)
 }
 
+/// **Whether this collection owns the key that produced `g`**, which is [`owns_escape`]'s rule said
+/// of the whole vocabulary instead of one key.
+///
+/// Architecture issue 22 answered it for `Escape` — *the component owns the key exactly when
+/// [`apply`] would do something with it* — and left the other two keys [`apply`] ignores exactly
+/// where they were. [`from_key`] answers a bare `Space` with [`Gesture::Toggle`] and `Ctrl+A` with
+/// [`Gesture::All`] in **every** [`Mode`], and [`apply`]'s thirteen arms act on
+///
+/// | gesture | the modes that act |
+/// |---|---|
+/// | [`Gesture::All`] | [`Mode::Multi`] alone |
+/// | [`Gesture::Toggle`] | every mode but [`Mode::Cursor`] |
+/// | [`Gesture::Nothing`] | [`MODES_THAT_CLEAR`], and only with something to lose |
+///
+/// so in a menu (`Mode::Cursor`) a bare `Space` was consumed to do nothing, and outside
+/// [`Mode::Multi`] so was `Ctrl+A` — `out.changed` set on a frame that changed nothing, and the
+/// container above never told. **This is the consumption counter's own blind spot as a defect**:
+/// the O4 sweep asks *was the key consumed*, and a key consumed to do nothing reads exactly like a
+/// key consumed to do something. Three ports met it from three directions — `commander` at its
+/// shell prompt, `cluster` moving k9s's `space` mark to `Ctrl+Space`, `spf` extending nothing.
+///
+/// **The movers are owned unconditionally**, and that is not an exception to the rule: by the time
+/// one of them arrives the caller has already moved the cursor, so the key did something whatever
+/// [`apply`] does with the gesture beside it. [`Mode::Options`]'s `Space` is owned for the same
+/// reason read the other way — `select_only` on the row that is already the only one is idempotent
+/// and *is* how a radio set is picked, which is the mode's own contract rather than a key doing
+/// nothing.
+fn owns(mode: Mode, sel: &Selection, g: Gesture) -> bool {
+    match g {
+        Gesture::Nothing => owns_escape(mode, sel),
+        Gesture::All => mode == Mode::Multi,
+        Gesture::Toggle(_) => mode != Mode::Cursor,
+        Gesture::Plain(_) | Gesture::Extend(_) | Gesture::ExtendAdd(_) => true,
+    }
+}
+
 /// **How many match arms [`apply`] has. Thirteen**, and it is read out of this file rather than
 /// declared: see [`arms_in_apply`].
 pub const ARMS: usize = 13;
@@ -1437,7 +1473,7 @@ where
             // `Driver::unhandled`.
             //
             // Declined and not dropped: the application's key map is exactly who should get it.
-            Some(Gesture::Nothing) if !owns_escape(opts.mode, &st.sel) => cx.decline(k),
+            Some(g) if !owns(opts.mode, &st.sel, g) => cx.decline(k),
             Some(g) => {
                 apply(opts.mode, &mut st.sel, len, g);
                 out.changed = true;
@@ -6077,6 +6113,137 @@ mod tests {
              container in a mode that would have cleared something, or eating it in a mode that \
              would not"
         );
+    }
+
+    /// **The gestures a collection owns are the gestures [`apply`] acts on**, which is
+    /// [`the_modes_that_clear_are_the_modes_apply_clears_in`] said of the whole vocabulary rather
+    /// than of one key.
+    ///
+    /// Architecture issue 22 narrowed `Escape` and left the other two keys [`from_key`] answers
+    /// without a cursor move behind them: a bare `Space` and `Ctrl+A`, produced in **every**
+    /// [`Mode`] and ignored by [`apply`] in three of the four for one of them and one of the four
+    /// for the other. So a menu ate `Space` and every mode but [`Mode::Multi`] ate `Ctrl+A` — the
+    /// key consumed to do nothing, `out.changed` set on a frame that changed nothing, and the
+    /// container above never told.
+    ///
+    /// **The probe runs [`apply`] rather than reading a table**, so the two sides are not two
+    /// derivations of one declaration: the left is [`owns`]'s answer and the right is whether a
+    /// [`Selection`] moved. Over [`Mode::ALL`] and not over the modes [`owns`] names, for the
+    /// reason its neighbour states — a constant that named its own members would be a list checked
+    /// against itself.
+    ///
+    /// **The three movers are not here and cannot be**: by the time a [`Gesture::Plain`] arrives
+    /// the caller has already moved the cursor, so the key did something whatever [`apply`] does
+    /// with it, and a join over them would be measuring the wrong half. The one place the join
+    /// deliberately parts company with [`apply`] is asserted underneath rather than excluded.
+    #[test]
+    fn the_gestures_a_collection_owns_are_the_gestures_apply_acts_on() {
+        // **Row 5 and not row 3**, which is the whole reason this probe has a number in it: a
+        // `Toggle` of the row that is *already* the only selected row is idempotent at
+        // [`Mode::Options`], and the exception below is what says so.
+        for g in [Gesture::Nothing, Gesture::Toggle(5), Gesture::All] {
+            for mode in Mode::ALL {
+                let mut sel = Selection::default();
+                sel.select_only(3);
+                assert!(!sel.is_empty(), "`Nothing` needs something to lose");
+                let before = sel.clone();
+                apply(mode, &mut sel, 16, g);
+                assert_eq!(
+                    owns(mode, &before, g),
+                    sel != before,
+                    "at {} the component {} {g:?} and `apply` {} it",
+                    mode.word(),
+                    if owns(mode, &before, g) {
+                        "takes"
+                    } else {
+                        "declines"
+                    },
+                    if sel == before { "ignores" } else { "acts on" },
+                );
+            }
+        }
+
+        // **The one deliberate parting**, and it is the mode's own contract rather than a key doing
+        // nothing: picking the radio option that is already picked is how a radio set is used.
+        let mut sel = Selection::default();
+        sel.select_only(3);
+        let before = sel.clone();
+        apply(Mode::Options, &mut sel, 16, Gesture::Toggle(3));
+        assert_eq!(
+            sel, before,
+            "`select_only` on the only selected row is idempotent"
+        );
+        assert!(
+            owns(Mode::Options, &before, Gesture::Toggle(3)),
+            "and it is still the component's key"
+        );
+    }
+
+    /// **`Space` in a menu and `Ctrl+A` outside multi-select reach the application**, which is the
+    /// frame-level half of [`the_gestures_a_collection_owns_are_the_gestures_apply_acts_on`].
+    ///
+    /// Both directions over one call, the way the `Esc` gate beside it is built: the mode that acts
+    /// consumes the key and the mode that does not hands it back. Without the second half this is a
+    /// component that stopped reading two keys.
+    #[test]
+    fn a_collection_declines_the_two_keys_its_mode_would_ignore() {
+        fn into(mode: Mode, chord: vitui_runtime::Chord) -> usize {
+            let mut driver = crate::runner::driver_at(40, 8, vitui_runtime::Density::default());
+            let mut st = CollState::new();
+            let labels: Vec<&str> = (0..64).map(label).collect();
+            let opts = CollOpts {
+                mode,
+                ..CollOpts::default()
+            };
+            // Frame one seats the focus, frame two carries the key.
+            for frame in 0..2 {
+                if frame == 1 {
+                    driver.post_key(crate::keys::press(chord));
+                }
+                driver.frame(|cx| {
+                    let area = cx.area();
+                    let resp = collection(
+                        cx,
+                        area,
+                        &mut st,
+                        &opts,
+                        Rows::of(labels.len()),
+                        &mut |buf: &str, range: Range<usize>| {
+                            crate::nav::matched(buf, &labels[range.clone()])
+                                .map(|hit| range.start + hit)
+                        },
+                        &mut |_cx: &mut Ctx<'_, '_>, _r: Rect, _i: usize, _f: Face| {},
+                    );
+                    if cx.focused().is_none() {
+                        cx.focus(resp.id);
+                    }
+                });
+            }
+            driver.unhandled().len()
+        }
+
+        let space = vitui_runtime::Chord::key(' ');
+        let all = vitui_runtime::Chord::key('a').ctrl();
+
+        assert_eq!(
+            into(Mode::Cursor, space),
+            1,
+            "a menu selects nothing, so `Space` is the application's — `commander` could not type \
+             one at its shell prompt"
+        );
+        assert_eq!(
+            into(Mode::Multi, space),
+            0,
+            "and a multi-select toggles with it"
+        );
+
+        assert_eq!(
+            into(Mode::Single, all),
+            1,
+            "`apply` answers `All` in `Mode::Multi` alone, so everywhere else `Ctrl+A` is an \
+             accelerator the container is owed"
+        );
+        assert_eq!(into(Mode::Multi, all), 0, "and there it selects all");
     }
 
     /// **`Esc` is the container's key until the collection has a selection to clear** — architecture

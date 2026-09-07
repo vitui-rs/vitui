@@ -48,7 +48,7 @@
 //! the terminal never turns it into a `SIGTSTP` — an application that wants the shell's `Ctrl+Z`
 //! has to send the signal itself, and *how* is the application's own dependency policy rather than
 //! the runtime's. This one shells out to `kill(1)`, which costs nothing and works everywhere; see
-//! [`hand_over`] for why it is `-TSTP` and not `-STOP`. `fg` brings it back and the screen is
+//! `hand_over` for why it is `-TSTP` and not `-STOP`. `fg` brings it back and the screen is
 //! repainted in full.
 //!
 //! **There is no `$EDITOR` key beside it, and the absence is the finding.** The issue names two

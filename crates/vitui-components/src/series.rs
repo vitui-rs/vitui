@@ -843,6 +843,38 @@ pub const WIDE_LEGEND_CELLS: usize = 0;
 /// **A 60x20 raster, in bytes. 2 400 — at every data volume**, which is the whole claim.
 pub const RASTER_BYTES_60X20: usize = 2 * 60 * 20;
 
+/// **One [`plot_with`](crate::chart::plot_with) call at 80x24 in release, in microseconds, at each
+/// of [`VOLUMES`]. 46, 830 and 8 218.**
+///
+/// A **report and never a gate** — a timing is a report, and a gate only at cliff granularity with
+/// the headroom written beside it, which these have no room for. Measured on the development
+/// machine: Apple M1 Max, 10 cores, `--release`, unloaded. Named in words rather than linked to the
+/// engine's `Machine::M1Max`, because this crate may not name the engine — `tests/crate_line.rs`.
+///
+/// # Why it lives here and not where it is displayed
+///
+/// `vitui-apps`' `latency` example is what puts these three in front of a person, and it held them
+/// as three digits in a paragraph — which is the shape the audit behind this section found nine
+/// copies of one threshold in. The call being timed is **this module's**, so this is the module
+/// that owes the number a home; the application cites it.
+///
+/// # What the three say
+///
+/// **The fold moves by two orders of magnitude and not three** over the thousandfold volume the
+/// application offers — [`FOLD_RATIO`] — because a fold walks the points and *then* writes a raster
+/// whose size is the rectangle, and only the first half is in `n`. §13's 1 849 000x is a **different
+/// axis**: one fold against a memo that skipped it, which is the chain's ratio and not the volume's.
+/// Quoting it as this one is how the sentence acquired a third order it never had.
+///
+/// The companion number is [`WRITES`], which does **not** move across the same three volumes. One
+/// figure moving while the other does not is the entire claim, and it is why both live in one place.
+pub const FOLD_MICROS: [u64; 3] = [46, 830, 8_218];
+
+/// **What a thousandfold volume costs one fold. 178x**, from [`FOLD_MICROS`]' ends.
+///
+/// Derived rather than measured, so it cannot drift from the three it is read off.
+pub const FOLD_RATIO: u64 = FOLD_MICROS[2] / FOLD_MICROS[0];
+
 /// The data volume the surface comparisons are taken at.
 ///
 /// **Two hundred thousand and not a million**, and the reason is the instrument rather than the

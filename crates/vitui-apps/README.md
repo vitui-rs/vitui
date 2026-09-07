@@ -153,12 +153,22 @@ different random draw.
 - **A band the application composes is a rectangle the application owes in full** (spec §2). The
   seventh row of `cluster`'s namespace column has no namespace in it, and left unwritten it kept
   whatever the previous frame put there — a pod's `Running`, in the middle of the header.
-- **`owns_escape`'s defect is still live one key over.** `collect::from_key` answers a bare `Space`
-  with `Gesture::Toggle` and `Ctrl+A` with `Gesture::All` in *every* `Mode`, and `apply` ignores
-  both at `Mode::Cursor` — so the key is consumed to do nothing and the container above never sees
-  it. `commander` cannot type a space at its shell prompt, `cluster` moved k9s's `space` mark to
-  `Ctrl+Space`, and `spf`'s `Shift+↓` moves the cursor and extends nothing. All three use the
-  letters upstream also binds (`J`/`K`) or a chord, because a chord is declined.
+- **`owns_escape`'s defect was live one key over, and it is fixed.** `collect::from_key` answered a
+  bare `Space` with `Gesture::Toggle` and `Ctrl+A` with `Gesture::All` in *every* `Mode`, where
+  `apply` acts on the first in every mode but `Mode::Cursor` and on the second in `Mode::Multi`
+  alone — so the key was consumed to do nothing, `out.changed` was set for a frame that changed
+  nothing, and the container above never saw it. `commander` could not type a space at its shell
+  prompt and `cluster` had moved k9s's `space` mark to `Ctrl+Space` for the life of the port.
+  `collect::owns` is components architecture 22's narrowing said of the whole vocabulary — the
+  component owns a key exactly when `apply` would do something with it, and the three cursor movers
+  are owned unconditionally, because by the time a `Plain` arrives the caller has already moved the
+  cursor. `commander`'s prompt takes its spaces now and `cluster` binds k9s's own `space` beside the
+  `Ctrl+Space` it had to invent. What it cost was two numbers: `Ctrl+A` came off `PAGER_BINDS`
+  (22 → 21) and off `SELECT`, because a pager is `Mode::Options` and a popup's list is
+  `Mode::Single` and neither answers `Gesture::All` — *select every row* was a help line no press
+  could perform. `Space` did **not** move: a pager toggles with it. `spf`'s `Shift+↓` is **not**
+  this defect — the cursor moves, so the key did something, and routing `Extend` into its own marks
+  is the application's.
 - **A dialog that closes does not give the keyboard back.** The focused widget stopped drawing, so
   the vanish rule moves the focus to *the nearest surviving entry in the previous frame's ring
   order* — which is never where the application wants it. `commander`'s `F5` on the left panel came
@@ -184,19 +194,29 @@ different random draw.
   `Chord::key(base).shift()` alternate ADR 0053 names, resolved with `KeyMap::match_first` from the
   unhandled window. `commander` was unaffected and that is instructive: its only character route is
   `keys::text`, which reads what the terminal *says was produced*.
-- **An overlay that appears is not on the screen until a second frame carries it**, and that frame
-  has to come from the terminal. `Ctx::overlay`'s body is entered on the frame the overlay is added
-  — with its granted rectangle, drawing normally — and the cells do not arrive; the next real event
-  of any kind brings them, and a frame the application asks for with `Ctx::request_frame` does not.
-  `commander`'s menu bar found it: opening a pull-down on `Response::clicked` looked like clicking
-  on nothing, and opening it on `Response::press_began` works, because the *release* then supplies
-  the frame. Everything else here opens a modal from a key, where the same accounting is satisfied
-  by accident.
-- **A `Tab` that moves the focus does not ask for the frame that draws it.** The ring resolves the
-  walk in `settle`, after the draw; nothing asks for another frame, so `wait` parks on the old
-  ring. `commander`'s `Tab` looked like it did nothing at all until the next keystroke. All three
-  compare `Driver::inspect().focused()` across frames and redraw — and read anything derived from
-  the focus at the *top* of the draw, not the bottom.
+- **An overlay that appears IS on the screen on its own frame, and the sentence that stood here
+  named the wrong mechanism.** `Ctx::overlay`'s body is entered on the frame the overlay is added,
+  with its granted rectangle, and the pass runs inside the `frame` call — before `end` and before
+  `present`, which composites its layer. The frame that adds an overlay writes bytes where an
+  identical repaint writes **0**, which is
+  `ctx::overlay_tests::an_overlay_that_appears_is_on_the_screen_on_its_own_frame`, and it is the
+  byte count rather than `Presented::submitted` because damage is marked by the verbs and a boolean
+  there cannot fail. What `commander`'s menu bar actually found was **the award**, which is the
+  bullet below: a pull-down opened from `Response::clicked` looked like a click on nothing because
+  the *click* was a frame late, and `Response::press_began` appeared to work because the release was
+  then the event that brought the next frame.
+- **Everything `end` decides is drawn on the next frame, and until register entry 50 nothing asked
+  for it.** The award is resolved from the index that has just drawn and rotated into `delivered` by
+  the next `begin`; the ring resolves its walk in the same place. Every application here parks in
+  `Driver::wait`, so the press drew nothing, the release drew the press, the click waited for
+  whatever the user did next, and `commander`'s `Tab` looked like it did nothing at all until the
+  next keystroke. `Frame::resolve_award` now asks, beside `resolve_into_view`'s ask for the same
+  reason, over two producers: **the pointer award** — a press, a release, a click or a cancelled
+  drag — and **the focus ending the frame somewhere other than it started**, which covers the ring,
+  a trap's pull, the vanish rule and a press that landed on nothing interested. So no application
+  here compares `Driver::inspect().focused()` across frames any more. **The application half of the
+  staleness stands**: read anything derived from the focus at the *top* of the draw, not the
+  bottom, because everything below it is what the reader sees.
 
 ### What they cannot say, in one list
 

@@ -1314,7 +1314,16 @@ const COLLECTION_FULL: &[Bind] = &[
 /// **Twenty-two since architecture issue 22**, which moved `Escape` across the line: a pager is
 /// [`crate::collect::Mode::Options`] and `apply` ignores [`crate::collect::Gesture::Nothing`] there,
 /// so the key it declared could never clear anything.
-const PAGER_BINDS: usize = 22;
+///
+/// **Twenty-one since the applications**, which moved `Ctrl+A` across it for the same sentence one
+/// gesture over: `apply` answers [`crate::collect::Gesture::All`] in
+/// [`crate::collect::Mode::Multi`] **alone**, so *select every row* was a line in a pager's help bar
+/// that no press could ever perform. Issue 22 narrowed one key and left the two beside it, and
+/// `crate::collect::owns` is that narrowing said of the whole vocabulary — this constant is the
+/// half of it a help bar can see. `Space` did **not** move: a pager toggles with it, because
+/// `apply` answers [`crate::collect::Gesture::Toggle`] in every mode but
+/// [`crate::collect::Mode::Cursor`], and a menu is the mode with no pager.
+const PAGER_BINDS: usize = 21;
 
 /// **What a pager declares: [`COLLECTION_FULL`] without the listing's five.**
 ///
@@ -1381,16 +1390,22 @@ const SELECT: &[Bind] = &[
         23,
         "Move without selecting, to the last row",
     ),
-    deaf(Code::Char('a'), Mods::CTRL, 24, "Select every row"),
+    // **`Ctrl+A` is not here, and it is the same sentence as the `Ctrl+Click` two lines down.**
+    // The popup's list is `Mode::Single` and `apply` answers `Gesture::All` in `Mode::Multi`
+    // **alone**, so *select every row* was a help line no press in this component could perform —
+    // declared, swallowed, and doing nothing for the whole of this crate's life. It came off with
+    // `PAGER_BINDS`' second move: architecture issue 22 narrowed `Escape` on exactly this argument
+    // and left the two keys beside it, and `crate::collect::owns` is that narrowing said of the
+    // whole vocabulary.
     text(
-        25,
+        24,
         "Jump to the row that starts with what you type; the buffer lapses after a second",
     ),
     // **Two and not three**, and the missing one is `Ctrl+Click`: the popup's list is
     // `Mode::Single`, where `apply` answers `Plain` and `Toggle` with the same call — see
     // [`SINGLE_KEEPS`], which is the same fact one component over.
-    click(Mods::SHIFT, 26, "Extend the selection to here"),
-    click(CTRL_SHIFT, 27, "Add the range up to here"),
+    click(Mods::SHIFT, 25, "Extend the selection to here"),
+    click(CTRL_SHIFT, 26, "Add the range up to here"),
 ];
 
 /// **§11's field: the cluster steps, the edits, and the two chords it owns.**
@@ -1585,21 +1600,28 @@ pub const REGISTERED: [(&str, usize); 13] = [
     ("collection", 34),
     ("table", 34),
     ("tree", 34),
-    // **Six fewer, and the six are the listing's**: a pager has no labels to seek and reads
+    // **Eight fewer, and the eight are the listing's**: a pager has no labels to seek and reads
     // `Gesture::Plain` from its own arithmetic, so the type-ahead and the three pointer gestures
     // are `collection`'s and not the store's — and since architecture issue 22, `Escape` and its
     // `Shift` twin are too. A pager is `Mode::Options`, where `apply` ignores `Gesture::Nothing`,
     // so the key had nothing to clear and was swallowed anyway; it now reaches whatever the pager
     // is inside. **Thirty was this number for the whole of the crate's life and two of it were a
-    // key that did nothing.**
-    ("pagination", 28),
-    // **Thirty-five, and the popup's twenty-seven are most of it**: open, the list takes the
-    // keyboard from its owner and answers §5's collection at `Mode::Single`.
-    ("select", 35),
-    // **Thirty-five, the same as `select`**, since architecture issue 23 gave the picker's popup a
+    // key that did nothing** — and **twenty-six since the applications**, because `Ctrl+A` and its
+    // `Shift` twin were two more of exactly the same: `apply` answers `Gesture::All` in
+    // `Mode::Multi` alone, so *select every row* was a line in a pager's help bar that no press
+    // could perform.
+    ("pagination", 26),
+    // **Thirty-three, and the popup's are most of it**: open, the list takes the keyboard from its
+    // owner and answers §5's collection at `Mode::Single`. Thirty-five until the applications, and
+    // the two that went are `Ctrl+A`'s — `Mode::Single` ignores `Gesture::All` for the same reason
+    // it answers `Plain` and `Toggle` with one call, which is the fact that already took
+    // `Ctrl+Click` off this contract.
+    ("select", 33),
+    // **Thirty-three, the same as `select`**, since architecture issue 23 gave the picker's popup a
     // keyboard. Eight until then, and the gap was [`PICKER_IS_MISSING`] rather than a smaller
     // component: an open picker could only be used with a mouse and the eight were its *owner's*.
-    ("file_picker", 35),
+    // The two it lost since are `select`'s two, because the two share one `&[Bind]` and one body.
+    ("file_picker", 33),
     ("field", 25),
     ("form", 17),
     ("collapsible", 4),
@@ -1879,10 +1901,11 @@ mod tests {
             .iter()
             .flat_map(Bind::spellings)
             .collect();
-        // **Six spellings over five binds**, and it was four over four until architecture issue 22
-        // moved `Escape` into this group: `key` declares a chord and its `Shift` twin, so the one
-        // bind that is not a click or the text class carries two.
-        assert_eq!(listing.len(), 6);
+        // **Eight spellings over six binds**, and it was four over four until architecture issue 22
+        // moved `Escape` into this group and the applications moved `Ctrl+A` after it: `key`
+        // declares a chord and its `Shift` twin and `deaf` declares both too, so the two binds that
+        // are not a click or the text class carry two each.
+        assert_eq!(listing.len(), 8);
         assert_eq!(
             full,
             pager
@@ -2119,7 +2142,7 @@ mod tests {
     ///
     /// Issue 23 repaired it and this is the gate the other way up: the two share **one `&[Bind]`**,
     /// so the equality is now the type system's and what is left to assert is that the *sweep*
-    /// agrees — two components running two different bodies answering the same thirty-five
+    /// agrees — two components running two different bodies answering the same thirty-three
     /// spellings. `PICKER_IS_MISSING` stays as the number, at **0**, because a count that records a
     /// repair is worth more than a deleted constant: the gate that reads it is what would catch the
     /// two coming apart again.
@@ -2130,7 +2153,7 @@ mod tests {
         assert_eq!(picker, select, "one family, one declaration");
         assert_eq!(select.len() - picker.len(), PICKER_IS_MISSING);
         assert_eq!(PICKER_IS_MISSING, 0);
-        assert_eq!(picker.len(), 35, "and thirty-five is what both answer");
+        assert_eq!(picker.len(), 33, "and thirty-three is what both answer");
         // **Both are swept, not just declared.** The declaration being one slice makes the equality
         // above free; this is the half that still costs something, and it is the half issue 23 was
         // about — `registered()` runs the shipped component.

@@ -50,12 +50,14 @@
 //! and still asks for the expiry deadline, so a burst of typing costs one extra wake per keystroke.
 //! Nothing is ever drawn from that buffer, because nothing ever matches.
 //!
-//! **And one printable key does not get through: `Space`.** `crate::collect::from_key` answers a
-//! bare space with `Gesture::Toggle` in *every* [`Mode`], and `apply` ignores it at
-//! [`Mode::Cursor`] — so it is consumed to do nothing and the prompt never sees it. That is
-//! `owns_escape`'s defect one key over: components architecture 22 taught `Escape` to decline when
-//! `apply` would clear nothing, and `Space` and `Ctrl+A` were left as they were. It is recorded
-//! rather than worked around, which is why the prompt below runs words together.
+//! **`Space` used to be the one printable key that did not get through, and this is where it was
+//! found.** `crate::collect::from_key` answers a bare space with `Gesture::Toggle` in *every*
+//! [`Mode`], and `apply` ignores it at [`Mode::Cursor`] — so it was consumed to do nothing and the
+//! prompt never saw it, and this file recorded the words running together rather than working
+//! around it. It was `owns_escape`'s defect one key over: components architecture 22 taught
+//! `Escape` to decline when `apply` would clear nothing and left `Space` and `Ctrl+A` as they
+//! were. `crate::collect::owns` is that narrowing said of the whole vocabulary, so the panel
+//! declines both here and the prompt takes its spaces.
 //!
 //! # An overlay body may not capture a local, so what a dialog decides goes in a field
 //!
@@ -79,7 +81,7 @@
 //! | `Ctrl+R` | re-read: fresh sizes and timestamps for the active directory |
 //! | `Ctrl+U` | swap the panels, as `mc` does |
 //! | `Ctrl+Q` | quit, because `q` is a character and characters go to the prompt |
-//! | printable · `Backspace` | the shell prompt. **`Space` never arrives** — see the note above |
+//! | printable · `Backspace` | the shell prompt, **`Space` included** — see the note above |
 //! | `Esc` | close whatever is open, or clear the prompt |
 
 use std::fmt::Write as _;
@@ -1509,6 +1511,28 @@ fn draw_edit(cx: &mut Ctx<'_, '_>, r: Rect, buf: &mut Text) {
     );
 }
 
+/// **Drain a dialog's buttons**, each answering with the act it stands for.
+///
+/// **A button reads no key** — it is a rectangle, a face and a response — so `Enter` on a *focused*
+/// button is the caller's to drain, which is what makes `Tab` then `Enter` work. The field's own
+/// `Enter` and `Esc` are declined and arrive in `Driver::unhandled`; a sink beside a focused field
+/// would never be routed to, because `next_key` answers only the focused id.
+///
+/// **It is a function because two dialogs here wrote it identically and a third would have written
+/// it again.** The arms are three — `Enter`, `Space`, `Escape` — and a copy that gets one of them
+/// wrong is a dialog answering differently from its neighbour for no reason a reader can see.
+fn drain_buttons(cx: &mut Ctx<'_, '_>, buttons: &[(Id, Act)], pending: &mut Option<Act>) {
+    for (id, act) in buttons {
+        while let Some(k) = cx.next_key(*id) {
+            match k.code {
+                Code::Enter | Code::Char(' ') => *pending = Some(*act),
+                Code::Escape => *pending = Some(Act::Close),
+                _ => cx.decline(k),
+            }
+        }
+    }
+}
+
 /// `F5`, `F6`, `F7`.
 fn draw_ask(
     cx: &mut Ctx<'_, '_>,
@@ -1560,19 +1584,11 @@ fn draw_ask(
     if ![f.id, ok.id, cancel.id].iter().any(|id| cx.is_focused(*id)) {
         cx.focus(f.id);
     }
-    // **A button reads no key** — it is a rectangle, a face and a response — so `Enter` on a
-    // *focused* button is the caller's to drain, which is what makes `Tab` then `Enter` work. The
-    // field's own `Enter` and `Esc` are declined and arrive in `Driver::unhandled`; a sink here
-    // would never be routed to, because `next_key` answers only the focused id.
-    for (id, act) in [(ok.id, Act::Commit), (cancel.id, Act::Close)] {
-        while let Some(k) = cx.next_key(id) {
-            match k.code {
-                Code::Enter | Code::Char(' ') => *pending = Some(act),
-                Code::Escape => *pending = Some(Act::Close),
-                _ => cx.decline(k),
-            }
-        }
-    }
+    drain_buttons(
+        cx,
+        &[(ok.id, Act::Commit), (cancel.id, Act::Close)],
+        pending,
+    );
 }
 
 /// `F8`.
@@ -1607,15 +1623,7 @@ fn draw_delete(cx: &mut Ctx<'_, '_>, r: Rect, n: usize, pending: &mut Option<Act
     if ![yes.id, no.id].iter().any(|id| cx.is_focused(*id)) {
         cx.focus(no.id);
     }
-    for (id, act) in [(yes.id, Act::Delete), (no.id, Act::Close)] {
-        while let Some(k) = cx.next_key(id) {
-            match k.code {
-                Code::Enter | Code::Char(' ') => *pending = Some(act),
-                Code::Escape => *pending = Some(Act::Close),
-                _ => cx.decline(k),
-            }
-        }
-    }
+    drain_buttons(cx, &[(yes.id, Act::Delete), (no.id, Act::Close)], pending);
 }
 
 /// `F9`, or a click on the menu bar.
@@ -2112,8 +2120,6 @@ fn main() {
 
     driver.frame(|cx| app.ui(cx));
     let _ = app.answer();
-    // **Where the focus ended, remembered across the park.** See the loop below.
-    let mut seated = driver.inspect().focused();
 
     loop {
         driver.frame(|cx| app.ui(cx));
@@ -2131,20 +2137,16 @@ fn main() {
         // **A frame is owed whenever the inbox moved**, and not only when a key arrived: the
         // decision is acted on *after* the draw, so the screen showing a dialog that has just been
         // answered is one frame stale — and with nothing else pending, `wait` would park on it.
-        // **A `Tab` that moved the focus owes a frame, and nothing asks for one.** The ring
-        // resolves the walk in `settle`, *after* the draw — so the frame that consumed the `Tab`
-        // painted the old focus ring and `unhandled` is empty, and `wait` would park on a screen
-        // that is a keystroke behind. `Frame::resolve_into_view` asks when a reveal is pending
-        // (runtime architecture 33) and a bare focus move asks for nothing, so the application
-        // notices the move itself. The comparison is against the *previous* frame's answer, which
-        // is why it is a `let mut` outside the loop rather than a read inside it.
-        let focus = driver.inspect().focused();
-        let focus_moved = focus != seated;
-        seated = focus;
-        // **A frame is owed whenever the inbox moved or the ring moved the focus**, and not only
-        // when a key arrived: both are acted on *after* the draw, so the screen is one frame stale
-        // and `wait` would park on it.
-        if acted || focus_moved || !unhandled.is_empty() {
+        //
+        // **A focus move owes a frame too, and this loop deliberately no longer counts it.** The
+        // ring resolves its walk in `settle`, *after* the draw, so the frame that consumed a `Tab`
+        // painted the old focus ring with an empty `unhandled` — and this file used to compare
+        // `Driver::inspect().focused()` across frames because nothing else asked. Register entry 50
+        // put the ask where the decision is made: `Frame::resolve_award` calls
+        // `wants_another_frame`, which is `deadline(now)`, so `wait` returns at once rather than
+        // parking on a screen a keystroke behind. Comparing here as well would be a second spelling
+        // of one rule, in the place least able to keep it true.
+        if acted || !unhandled.is_empty() {
             continue;
         }
         match driver.wait() {

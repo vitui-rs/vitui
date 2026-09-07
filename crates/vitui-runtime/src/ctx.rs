@@ -441,6 +441,26 @@ pub struct Frame {
     /// was a keyboard-driven move*. A press does not set it, and an unconditional pull is the list's
     /// old bug: it drags the viewport back to the selection every time the wheel moves away from it.
     tab_moved: bool,
+    /// Whether a **key release** is routed like any other key.
+    ///
+    /// **Off, and off is the decision.** The engine pushes kitty flag 31 and bit 2 of that is
+    /// *report event types*, so on a terminal that speaks the protocol every keystroke arrives
+    /// twice — once pressed, once released. A release is not intent for anything this crate routes:
+    /// it moves no focus (`route::edge_of` says so of `Tab` already), completes no gesture, and
+    /// types no character. Delivered, it is a keystroke counted twice by every reader that matches
+    /// on [`vitui_engine::KeyCode`] rather than through a [`crate::keys::KeyMap`] — which is every
+    /// application in this workspace and was the whole of the defect.
+    ///
+    /// **Filtered here rather than in each reader**, because *here* is the one place a key enters a
+    /// frame, from the tty and from [`Driver::post_key`] alike. The component guards that predate
+    /// this — `if k.kind == Edge::Release { continue }`, in eight drain loops — are left where they
+    /// are: they are correct, they are cheap, and with this flag on they are the only thing
+    /// standing between a component and the defect.
+    ///
+    /// [`Driver::report_key_releases`] turns it on for the one application that wants a key-up:
+    /// nothing in this workspace does, and a surface that cannot express it at all would be a hole
+    /// rather than a default.
+    key_releases: bool,
 
     // ── the drawn extent, maintained only while something is asking for it (spec §12) ───────────
     /// How far the verbs reached, and **`None` in a real frame**: maintaining it costs a display
@@ -623,6 +643,7 @@ impl Frame {
             into_view: None,
             into_view_asked: None,
             tab_moved: false,
+            key_releases: false,
             extent: None,
             measure_extent: false,
             consulted: Consulted::NONE,
@@ -726,7 +747,14 @@ impl Frame {
         self.modal_from = None;
         for event in batch {
             match event {
-                vitui_engine::Event::Key(k) => self.keys.push(*k),
+                // **A release is dropped here and nowhere else.** See [`Frame::key_releases`]:
+                // one keystroke is two events at kitty flag 2, and the second of them is intent for
+                // nothing this crate routes.
+                vitui_engine::Event::Key(k) => {
+                    if self.key_releases || k.kind != vitui_engine::KeyKind::Release {
+                        self.keys.push(*k);
+                    }
+                }
                 // The pointer's own batch updates the position as it goes, so that `over` is
                 // computed against the pointer **as it was when this frame drew**.
                 vitui_engine::Event::Mouse(m) => {
@@ -865,6 +893,9 @@ impl Frame {
     /// Six of these steps are named no-ops belonging to later tickets, and they are steps rather than
     /// comments so that filling one is not also deciding where it goes.
     fn end(&mut self, now: Instant) -> Option<Instant> {
+        // **Where the focus was before anything below moved it.** Four things here can: the press
+        // award, the vanish rule, the ring and a trap. Read once, compared once, at the bottom.
+        let focus_before = self.focused;
         self.award();
         // **Absence before the walk**: a `Tab` pressed on the frame a row disappears has to start
         // from where the vanish rule put the focus, not from a position belonging to an id that is
@@ -878,6 +909,7 @@ impl Frame {
         // because every one above it can move the focus.
         self.ring.note(self.focused);
         self.resolve_into_view(now);
+        self.resolve_award(focus_before, now);
 
         // **The one wake, read from the one sink.** 08 folded a `repaint` flag in here and 06 folded
         // the flag itself away: `request_frame()` is `deadline(now)`, so there is nothing left to
@@ -887,6 +919,63 @@ impl Frame {
         let wake = self.deadline;
         self.wakes.note(wake, now);
         wake
+    }
+
+    /// **Ask for the frame that draws what `end` has just decided.**
+    ///
+    /// Everything above this line resolves against *the index that has just drawn* and is therefore
+    /// delivered on the **next** frame: `Awarded` is rotated into `delivered` by the next `begin`,
+    /// and a focus this frame moved is a focus the next frame draws. Until this line nothing asked
+    /// for that frame, and the loop every application in this workspace writes parks in
+    /// [`Driver::wait`] — so the effect of a gesture appeared on whatever the user did *next*:
+    ///
+    /// | the user does | the frame it woke drew |
+    /// |---|---|
+    /// | presses a button | nothing |
+    /// | releases it | the button pressed |
+    /// | anything at all | the click |
+    ///
+    /// That is a button that lights up when it is let go and fires on the keystroke after, and it
+    /// was true of every pointer gesture in the crate. It is the same defect runtime architecture 33
+    /// fixed for a reveal and the same fix — the ask belongs where the decision is made, not where
+    /// it is read — and it is stated over two producers rather than one:
+    ///
+    /// - **the pointer award**, when it carries a press, a release, a click or a cancelled drag;
+    /// - **the focus**, whenever it ends the frame somewhere other than it started, which covers the
+    ///   ring's `Tab`, a trap's pull, the vanish rule and a press that defocused by landing on
+    ///   nothing interested.
+    ///
+    /// # Three refusals
+    ///
+    /// **A long press asks for nothing here**, because it already asks: `award` sets a deadline at
+    /// `now + long_press` for as long as a grab stands, and `a.long_pressed` stays `Some` on every
+    /// frame after the interval passes — an ask on that field is an ask every frame the button is
+    /// held, which is a spin and not a gesture.
+    ///
+    /// **A hover asks for nothing**, because a hover cannot change without a pointer event, and a
+    /// pointer event is a frame. `hover_guess` is a frame old on purpose and `hover_to_apply` lands
+    /// in the frame that drew it.
+    ///
+    /// **The wheel asks for nothing**, because it is not awarded here at all: it is resolved in
+    /// `begin` and read during the draw by the widget that owns the offset.
+    ///
+    /// # What it costs the census
+    ///
+    /// One line per gesture in [`WakeLedger::runaway`](crate::anim::WakeLedger::runaway), the same
+    /// way `resolve_into_view` costs one per reveal. A press is a streak of **one**: the frame this
+    /// asks for carries no pointer event of its own, awards nothing, and moves no focus, so it asks
+    /// for nothing and the loop parks. A drag is bounded by the motion events driving it, which are
+    /// frames regardless.
+    fn resolve_award(&mut self, focus_before: Option<Id>, now: Instant) {
+        let pointer = self.awarded.is_some_and(|a| {
+            a.pressed.is_some()
+                || a.released.is_some()
+                || a.clicked.is_some()
+                || a.cancelled.is_some()
+        });
+        if pointer || self.focused != focus_before {
+            self.wants_another_frame(now);
+        }
     }
 
     /// **Award the pointer, from the index that has just drawn.**
@@ -3731,6 +3820,22 @@ impl Driver {
         self.frame.measure_extent = on;
     }
 
+    /// **Route key releases like any other key.** Off by default, and the default is the decision.
+    ///
+    /// The engine pushes kitty flag 31 and bit 2 of that is *report event types*, so on Ghostty,
+    /// kitty, WezTerm or iTerm2 one keystroke arrives as **two** events. A release completes no
+    /// gesture, types no character and moves no focus, so the runtime drops it before it reaches
+    /// [`Ctx::next_key`] or [`Driver::unhandled`] — without which every reader that matches on
+    /// [`vitui_engine::KeyCode`] counts one keystroke twice, and reads perfectly on a legacy
+    /// terminal that reports one edge.
+    ///
+    /// Turn it on for an application that genuinely wants a key-up — a held-to-fire control, a
+    /// modifier watched as a level. Nothing in this workspace does; the switch exists so that the
+    /// wire stays reachable rather than merely filtered.
+    pub fn report_key_releases(&mut self, on: bool) {
+        self.frame.key_releases = on;
+    }
+
     /// The frame, for the gates that count its structures.
     pub fn inspect(&self) -> &Frame {
         &self.frame
@@ -4531,9 +4636,21 @@ mod tests {
     /// **A context knows where it is, and its origin is where a verb called on it lands.**
     ///
     /// Runtime architecture issue 32, and the assertion is the one an instrument needs: writing at
-    /// `(x, y)` on a narrowed, scrolled context reaches the surface at `origin + (x, y)`. It is
-    /// checked against the surface rather than against the field, so a change to `child` or
-    /// `scrolled` that moved one and not the other fails here.
+    /// `(x, y)` on a narrowed, scrolled context reaches the surface at `origin + (x, y)`.
+    ///
+    /// **The ruler is the clip, and the arithmetic may not be done twice on the same side.** Adding
+    /// the origin to the position the test just wrote and comparing the sum with the rectangle the
+    /// test just chose is one declaration compared with itself, and `Written::cells` is a *count* —
+    /// neither says where a run landed. What the engine reports independently is **which runs land
+    /// at all**: `cells` is zero exactly when the run fell outside the rectangle this context was
+    /// given. So the origin names the four content coordinates on either side of that rectangle's
+    /// edges, and the engine says whether a run there was written or discarded.
+    ///
+    /// The literals `7`, `3`, `20` and `5` are the test's *input*; `origin()` is the field and
+    /// `cells` is the clip, which are two outputs of it. Watched failing two ways: a clip a row and
+    /// a column smaller than the rectangle the context reports, and a `scrolled` whose view takes a
+    /// translation its origin does not. Each puts the predicted edge off the real one, and the
+    /// probe on the inside of that edge comes back discarded.
     #[test]
     fn a_context_knows_where_a_verb_called_on_it_lands() {
         let mut d = Driver::headless(40, 10).expect("a sink attaches");
@@ -4547,14 +4664,40 @@ mod tests {
                 (7, -97),
                 "a scroll moves the origin, and by the translation rather than by the position"
             );
-            // What the origin claims, against what the engine reports: a run at content row 100
-            // lands on the child's first row, which is row 3 of the surface.
+
             let paint = scrolled.theme().paint(crate::theme::Role::Body);
-            let written = scrolled.text(0, 100, "abcde", paint);
-            assert_eq!(written.cells, 5, "it landed");
             let (ox, oy) = scrolled.origin();
-            let at = (ox, 100 + oy);
-            assert_eq!(at, (7, 3), "and it landed where the origin says");
+            // Where the origin says the child's own four edges are, in this context's coordinates.
+            let (first_row, last_row) = (3 - oy, 3 + 5 - 1 - oy);
+            let (first_col, last_col) = (7 - ox, 7 + 20 - 1 - ox);
+
+            for (y, expected, edge) in [
+                (first_row, 5, "the child's first row"),
+                (last_row, 5, "the child's last row"),
+                (first_row - 1, 0, "one row above it"),
+                (last_row + 1, 0, "one row below it"),
+            ] {
+                assert_eq!(
+                    scrolled.text(first_col, y, "abcde", paint).cells,
+                    expected,
+                    "{edge}: the origin puts content row {y} at surface row {}, and the clip \
+                     disagrees",
+                    y + oy
+                );
+            }
+
+            for (x, expected, edge) in [
+                (last_col, 1, "the child's last column"),
+                (last_col + 1, 0, "one column past it"),
+            ] {
+                assert_eq!(
+                    scrolled.text(x, first_row, "a", paint).cells,
+                    expected,
+                    "{edge}: the origin puts content column {x} at surface column {}, and the \
+                     clip disagrees",
+                    x + ox
+                );
+            }
         });
     }
 
@@ -5320,6 +5463,109 @@ mod pointer_tests {
         assert_eq!(a, 160, "eighty rows, two targets each");
     }
 
+    /// **Every pointer gesture asks for the frame that draws it.**
+    ///
+    /// The regression for the defect this test's own sibling above documents without watching: an
+    /// award is made at `end` and delivered by the next `begin`, and until [`Frame::resolve_award`]
+    /// **nothing asked for that next frame**. Every application in this workspace parks in
+    /// [`Driver::wait`], so what a person at the terminal actually saw was
+    ///
+    /// | the gesture | what the frame it woke drew |
+    /// |---|---|
+    /// | the press | nothing |
+    /// | the release | the button pressed |
+    /// | the next keystroke, whatever it was | the click |
+    ///
+    /// — a button that lights up when it is let go and fires on whatever you do next. Reported from
+    /// outside as *the release fires and not the press*, which is exactly what it looks like.
+    ///
+    /// **One frame per arm, and the wakeup sink is the question**, for `scroll`'s reason: every
+    /// other test of this path drives its own second frame and therefore supplies the thing under
+    /// test. The first arm is the control — a frame with no pointer event parks — so the two below
+    /// measure a gesture rather than a driver that always wants another frame.
+    #[test]
+    fn a_press_and_a_release_each_ask_for_the_frame_that_draws_them() {
+        let button = Id::from_raw(1);
+        let draw = |cx: &mut Ctx<'_, '_>| {
+            cx.interact(button, Rect::new(10, 5, 6, 1), Interest::CLICK);
+        };
+
+        let mut d = driver();
+        d.frame(draw);
+        assert_eq!(
+            d.inspect().wakes().pending(),
+            None,
+            "a frame with no pointer event parks"
+        );
+
+        // The press. The frame that consumes it draws nothing new — the award is made after the
+        // draw — so the frame that shows the button pressed has to be asked for here.
+        d.post_mouse(down(12, 5));
+        let mut during = None;
+        d.frame(|cx| {
+            let r = cx.interact(button, Rect::new(10, 5, 6, 1), Interest::CLICK);
+            during = Some((r.press_began, r.pressed));
+        });
+        assert_eq!(during, Some((false, false)), "the award is made at `end`");
+        assert!(
+            d.inspect().wakes().pending().is_some(),
+            "nothing else will ask for the frame that draws the press"
+        );
+
+        // And it is the frame **the ask bought** that draws it.
+        let mut drawn = None;
+        d.frame(|cx| {
+            let r = cx.interact(button, Rect::new(10, 5, 6, 1), Interest::CLICK);
+            drawn = Some((r.press_began, r.pressed));
+        });
+        assert_eq!(drawn, Some((true, true)), "the edge and the level together");
+
+        // The release. Same shape, and this is the arm that had no wake at all: a grab released
+        // sets no deadline, so the click waited for whatever the user did next.
+        d.post_mouse(up(12, 5));
+        d.frame(draw);
+        assert!(
+            d.inspect().wakes().pending().is_some(),
+            "a click is delivered on the next frame and has to ask for it"
+        );
+        let mut clicked = None;
+        d.frame(|cx| {
+            let r = cx.interact(button, Rect::new(10, 5, 6, 1), Interest::CLICK);
+            clicked = Some(r.clicked);
+        });
+        assert_eq!(clicked, Some(true));
+        assert_eq!(
+            d.inspect().wakes().pending(),
+            None,
+            "and the gesture is over, so the loop parks — a press is a streak of one"
+        );
+    }
+
+    /// **A press that lands on nothing interested asks too**, because it moves the focus.
+    ///
+    /// `award`'s `None => self.focused = None` arm: the user meant to defocus. It awards no press
+    /// and no click, so the pointer half of [`Frame::resolve_award`] cannot see it and the focus
+    /// half is the whole reason that half exists.
+    #[test]
+    fn a_press_on_nothing_asks_for_the_frame_that_draws_the_defocus() {
+        let stop = Id::from_raw(1);
+        let draw = |cx: &mut Ctx<'_, '_>| {
+            cx.interact(stop, Rect::new(0, 0, 6, 1), Interest::FOCUS);
+        };
+        let mut d = driver();
+        d.plant(None, Some(stop), None);
+        d.frame(draw);
+        assert_eq!(d.inspect().wakes().pending(), None, "the control");
+
+        d.post_mouse(down(50, 50));
+        d.frame(draw);
+        assert_eq!(d.inspect().focused(), None, "the press defocused");
+        assert!(
+            d.inspect().wakes().pending().is_some(),
+            "and the frame that draws the widget unfocused has to be asked for"
+        );
+    }
+
     /// **The press is awarded at `end`, from the index that has just drawn** — so a press arriving
     /// where no frame has been told the pointer is still finds its widget.
     ///
@@ -5928,6 +6174,71 @@ mod focus_tests {
             text: KeyText::EMPTY,
             at: Instant::now(),
         }
+    }
+
+    /// **One keystroke is one key, and the terminal reports two edges.**
+    ///
+    /// `crate::actuate` pushes kitty flag 31 and bit 2 of that is *report event types*, so on
+    /// Ghostty, kitty, WezTerm or iTerm2 a press and a release arrive for every keystroke. A
+    /// release completes no gesture, types no character and moves no focus — `route::edge_of`
+    /// already says so of `Tab` — so the runtime drops it at the one place a key enters a frame.
+    ///
+    /// **Unguarded it was a keystroke counted twice**, for every reader that matches on
+    /// [`KeyCode`] rather than through a [`KeyMap`]: one `Down` moved a cursor two rows, one `q`
+    /// quit twice, one `j` scrolled two lines. Fifteen of the twenty-one applications in
+    /// `vitui-apps` match on the code, and the defect is invisible on a legacy terminal, which
+    /// reports one edge — and invisible to every gate in this workspace, because a gate posts the
+    /// spelling its author typed and `crate::keys::press` builds a press.
+    ///
+    /// Watched in both directions, and over both readers: the press arrives and the release does
+    /// not, at [`Ctx::next_key`] and at [`Driver::unhandled`].
+    #[test]
+    fn a_release_is_not_routed_and_a_press_still_is() {
+        let sink = Id::from_raw(1);
+        let released = |code| Key {
+            code,
+            mods: vitui_engine::Mods::NONE,
+            kind: KeyKind::Release,
+            text: KeyText::EMPTY,
+            at: Instant::now(),
+        };
+
+        let mut taken = Vec::new();
+        let mut unhandled = 0;
+        let mut d = driver();
+        d.plant(None, Some(sink), None);
+        for k in [key(KeyCode::Char('j')), released(KeyCode::Char('j'))] {
+            d.post_key(k);
+            d.frame(|cx| {
+                cx.interact(sink, Rect::new(0, 0, 10, 1), Interest::FOCUS);
+                while let Some(k) = cx.next_key(sink) {
+                    taken.push(k.kind);
+                }
+            });
+            unhandled += d.unhandled().len();
+        }
+        assert_eq!(taken, [KeyKind::Press], "one keystroke, one routed key");
+        assert_eq!(
+            unhandled, 0,
+            "and the release is not left for the application"
+        );
+
+        // **And the wire stays reachable**, which is what makes this a default rather than a hole:
+        // an application that wants a key-up asks for one.
+        let mut both = Vec::new();
+        let mut d = driver();
+        d.report_key_releases(true);
+        d.plant(None, Some(sink), None);
+        for k in [key(KeyCode::Char('j')), released(KeyCode::Char('j'))] {
+            d.post_key(k);
+            d.frame(|cx| {
+                cx.interact(sink, Rect::new(0, 0, 10, 1), Interest::FOCUS);
+                while let Some(k) = cx.next_key(sink) {
+                    both.push(k.kind);
+                }
+            });
+        }
+        assert_eq!(both, [KeyKind::Press, KeyKind::Release]);
     }
 
     fn press(x: u16, y: u16) -> Mouse {
@@ -6787,6 +7098,10 @@ mod overlay_tests {
     //! tickets before overlays needed it. What is here is the pass: the owner rooting identity, the
     //! layer lifecycle and its census, the barrier that stops the pointer and only the pointer, the
     //! nested band, and the bound that makes a self-requesting body a limit rather than a hang.
+    //!
+    //! **And one thing that turned out not to be true**, kept here as a gate because the sentence
+    //! survived four documents:
+    //! [`an_overlay_that_appears_is_on_the_screen_on_its_own_frame`].
 
     use std::cell::RefCell;
     use std::rc::Rc;
@@ -7412,6 +7727,93 @@ mod overlay_tests {
     /// `(32, 119)` is: a report that quietly started measuring a smaller screen would otherwise look
     /// good rather than fail.
     const PAD_FIRST_TWICE: u32 = 5_902;
+
+    /// **An overlay that appears IS on the screen on the frame it appeared**, and the sentence
+    /// that said otherwise was a misreading of a different defect.
+    ///
+    /// What was recorded — in this repository's own map, and believed for as long as an
+    /// application had a mouse-driven menu — was that `Ctx::overlay`'s body draws into its granted
+    /// rectangle and *the cells do not reach the terminal*, so a pull-down opened from
+    /// [`Response::clicked`] looked like a click on nothing and the next real input event of any
+    /// kind brought it. The mechanism named was the overlay pass; **the mechanism was the award**.
+    /// A click is decided at `end` from the index that has just drawn and delivered by the next
+    /// `begin`, and nothing asked for that frame — see
+    /// [`Frame::resolve_award`] and register entry 50 — so the frame that *opened* the menu was
+    /// the one the next keystroke brought, and the overlay was on screen the instant it ran.
+    ///
+    /// **The proof is the bytes**, and `Presented::submitted` is not it: damage is marked by the
+    /// verbs and never derived by diffing (ADR 0002's neighbour), so a frame that repaints an
+    /// identical base submits, and an assertion on that boolean is a gate that cannot fail. What
+    /// separates the two arms is what reaches the **sink** — the serializer runs against its
+    /// mirror, so an unchanged repaint costs almost nothing and the overlay's cells are the
+    /// difference. Two drivers rather than two frames of one, because a mirror that has already
+    /// seen the overlay would make the second arm cheap for the wrong reason.
+    #[test]
+    fn an_overlay_that_appears_is_on_the_screen_on_its_own_frame() {
+        /// A sink that keeps what was written to it, so the gate can weigh a frame.
+        #[derive(Clone, Default)]
+        struct Tap(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+        impl std::io::Write for Tap {
+            fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                self.0.lock().expect("not poisoned").extend_from_slice(buf);
+                Ok(buf.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+
+        let owner = Id::from_raw(1);
+        let base = |cx: &mut Ctx<'_, '_>| {
+            let p = cx.theme().paint(Role::Body);
+            cx.fill(Rect::new(0, 0, 40, 10), " ", p);
+        };
+
+        // `with = false` is the control: the identical second frame, and the only difference
+        // between the two arms is the overlay.
+        let weigh = |with: bool| -> usize {
+            let tap = Tap::default();
+            let mut d = Driver::attach(
+                Config {
+                    clock: Clock::Manual,
+                    output: vitui_engine::Output::Sink(Box::new(tap.clone())),
+                    size: (40, 10),
+                    ..Default::default()
+                },
+                Theme::default().resolve(vitui_engine::ColorDepth::TrueColor),
+            )
+            .expect("a sink attaches");
+            d.frame(base);
+            let warm = tap.0.lock().expect("not poisoned").len();
+            d.frame(|cx| {
+                base(cx);
+                if with {
+                    cx.overlay(
+                        owner,
+                        Rect::new(2, 2, 10, 3),
+                        OverlayOpts::sized(10, 3),
+                        |cx| {
+                            let a = cx.area();
+                            let p = cx.theme().paint(Role::Focus);
+                            cx.fill(a, "#", p);
+                        },
+                    );
+                }
+            });
+            if with {
+                assert_eq!(d.inspect().overlays_placed(), 1, "the pass ran");
+            }
+            tap.0.lock().expect("not poisoned").len() - warm
+        };
+
+        let without = weigh(false);
+        let with = weigh(true);
+        assert!(
+            with > without,
+            "the frame that added the overlay wrote {with} bytes against a control of {without}, \
+             so its cells did not reach the terminal until some later frame"
+        );
+    }
 }
 
 #[cfg(test)]

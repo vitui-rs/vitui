@@ -1,7 +1,7 @@
 //! A build log of 120 000 entries in a scroll area whose bars are reserved and whose bands are views.
 //!
 //! Components ticket 19's application, and the sixth in this crate. It is the first thing to put a
-//! [`scroll_area`] anywhere, and it exists for the reason every file here exists: **the surface's
+//! `scroll_area` anywhere, and it exists for the reason every file here exists: **the surface's
 //! only consumer is an application**, and five of the six before it found a defect their own gates
 //! could not see.
 //!

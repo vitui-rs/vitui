@@ -958,6 +958,14 @@ mod tests {
         // different driver, and it moves no focus, declares no stop and settles no caret. Six tabs
         // land on rows 0..=5, every one of them inside the window, so the ring pulls nothing and
         // this frame is the same frame as the one below in everything but that.
+        //
+        // **The wake is no longer what separates the two arms, and that is a fix rather than a
+        // loss.** `Frame::resolve_award` asks for a frame whenever the focus ends somewhere other
+        // than it started, so a `Tab` that moves it asks whether or not anything is revealed — the
+        // trap `commander` met, where a `Tab` consumed by the frame that painted the *old* ring
+        // parked and the panels appeared not to swap until the next keystroke. So this control
+        // states the wake it now expects, and the discriminator below is [`Frame::into_view`],
+        // which is what this test is about.
         for _ in 0..6 {
             d.post_key(tab());
             while d.queued() > 0 {
@@ -966,10 +974,17 @@ mod tests {
         }
         assert_eq!(d.inspect().focused(), Some(field(5)));
         assert!(d.inspect().into_view().is_none(), "row 5 is already in");
+        assert!(
+            d.inspect().wakes().pending().is_some(),
+            "a tab that reveals nothing still asks for the frame that draws the move"
+        );
+        // And a frame that moves nothing parks, which is what stops the line above being green on a
+        // driver that always wants another frame.
+        d.frame(draw);
         assert_eq!(
             d.inspect().wakes().pending(),
             None,
-            "a tab that reveals nothing parks, so the seventh below is the request and not the tab"
+            "the frame the tab asked for drew the move and asks for nothing itself"
         );
 
         // The seventh stop is row 6, one below the window.

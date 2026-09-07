@@ -1,4 +1,4 @@
-//! Spec §20's register: fifteen gates as a table, and the twenty-nine more the backlog wrote.
+//! Spec §20's register: fifteen gates as a table, and the thirty-five more the backlog wrote.
 //!
 //! > **A gate is a count, a ratio, an equality or a compile outcome. A timing is a report, and a
 //! > gate only at cliff granularity, with the headroom written next to the number.**
@@ -8,7 +8,7 @@
 //! *this* crate's: **a property that quietly never arrives is indistinguishable from one that was
 //! decided against**, so every gate is here and every one of them is in exactly one of two states —
 //! [`State::Wired`], naming the instruments that run it, or [`State::Red`], naming the
-//! implementation ticket that inverts it. **Forty-seven wired, none red.** Ticket 19 left this
+//! implementation ticket that inverts it. **Fifty wired, none red.** Ticket 19 left this
 //! register at thirty-eight and one — entry 12, the dense frame, which was *measured* in two places
 //! and *gated* in neither — and ticket 20 built the gate rather than reworded the row. What made
 //! that possible is that the red row named the missing instrument precisely enough to build it: a
@@ -239,7 +239,7 @@ pub const SPEC_ROWS: usize = 15;
 /// stated from two sides, and twenty-four survive deduplication against §20's fifteen. A row is
 /// here when it is a gate somebody can break; a bullet that restates a neighbour is not a second
 /// row.
-pub const REGISTER: [Entry; 48] = [
+pub const REGISTER: [Entry; 50] = [
     // ── spec §20's table, in its order ───────────────────────────────────────────────────────────
     Entry {
         number: 1,
@@ -1399,6 +1399,71 @@ pub const REGISTER: [Entry; 48] = [
             }],
         },
     },
+    Entry {
+        number: 49,
+        on_spec_table: false,
+        property: "One keystroke is one routed key on a terminal that reports both edges",
+        kind: Kind::Gate,
+        qualifier: "equality \u{2014} between *the kinds `Ctx::next_key` hands out* and *the one \
+                    kind that was pressed*, over a press and its release posted as the wire \
+                    delivers them. The engine pushes kitty flag 31 and bit 2 of that is *report \
+                    event types*, so on Ghostty, kitty, WezTerm and iTerm2 every keystroke is two \
+                    events; a release completes no gesture, types no character and moves no focus, \
+                    and delivered it is **a keystroke counted twice** by every reader that matches \
+                    on `KeyCode`. It is a property of the **mechanism** and not of the data: one \
+                    key is posted, the two sides are *what the wire carried* and *what the router \
+                    handed out*, and nothing varies but the edge. The reader it costs is every \
+                    one that matches on `KeyCode` rather than through a `KeyMap`, which is fifteen \
+                    of the twenty-one applications here. **No gate in this workspace could \
+                    see it**, and the reason is the instrument rather than the coverage: a gate \
+                    posts the spelling its author typed, and `crate::keys::press` builds a press \
+                    \u{2014} so a hostile arm here is not an extra case but the whole of the \
+                    evidence. Asked of **both** readers, because the queue has two mouths: the \
+                    widget's `next_key` and the application's `Driver::unhandled`. The second \
+                    instrument is the switch that keeps the wire reachable, so the row is a \
+                    default rather than a hole",
+        source: "the applications",
+        state: State::Wired {
+            by: &[Instrument::Unit {
+                file: "crates/vitui-runtime/src/ctx.rs",
+                name: "a_release_is_not_routed_and_a_press_still_is",
+            }],
+        },
+    },
+    Entry {
+        number: 50,
+        on_spec_table: false,
+        property: "A frame that decides a pointer gesture or moves the focus asks for the frame \
+                   that draws it",
+        kind: Kind::Gate,
+        qualifier: "count \u{2014} of the one wakeup sink after one frame per arm, which is the \
+                    only question an application's `wait` will ever ask. Everything `end` resolves \
+                    is resolved *from the index that has just drawn* and is therefore delivered by \
+                    the next `begin`, and until this row **nothing asked for that frame**: a press \
+                    drew nothing, the release drew the press, and the click waited for whatever \
+                    the user did next. **One frame per arm and a control that parks**, for entry \
+                    46's reason \u{2014} every other test of this path drives its own second frame \
+                    and so supplies the thing under test. Two producers rather than one, and they \
+                    are not the same claim: the pointer award covers a press, a release, a click \
+                    and a cancelled drag, and the focus covers the ring's `Tab`, a trap's pull, \
+                    the vanish rule and **a press that defocused by landing on nothing \
+                    interested**, which awards nothing at all and is the second arm. A long press \
+                    is excluded and stated: it already asks, and it stays `Some` for every frame a \
+                    grab stands, so asking on it is a spin",
+        source: "the applications",
+        state: State::Wired {
+            by: &[
+                Instrument::Unit {
+                    file: "crates/vitui-runtime/src/ctx.rs",
+                    name: "a_press_and_a_release_each_ask_for_the_frame_that_draws_them",
+                },
+                Instrument::Unit {
+                    file: "crates/vitui-runtime/src/ctx.rs",
+                    name: "a_press_on_nothing_asks_for_the_frame_that_draws_the_defocus",
+                },
+            ],
+        },
+    },
 ];
 
 /// How many `compile_fail` fences the crate carries.
@@ -1732,7 +1797,15 @@ mod tests {
             assert!(
                 entry.source.starts_with("R ")
                     || entry.source.starts_with("issue ")
-                    || entry.source == "all",
+                    || entry.source == "all"
+                    // **A fourth destination, and it is a directory rather than a document.**
+                    // Rows 49 and 50 were found by somebody pressing a key in
+                    // `crates/vitui-apps/examples/`, with no ticket and no architecture issue
+                    // behind them — every backlog on this map was closed. Naming a ticket that
+                    // does not exist is the citation-to-a-missing-file this test was written
+                    // against; naming the applications is somewhere to look, which is what the
+                    // test is for.
+                    || entry.source == "the applications",
                 "entry #{}'s source `{}` is neither an implementation ticket, an architecture \
                  issue, nor `all`",
                 entry.number,
@@ -1770,7 +1843,7 @@ mod tests {
         assert_eq!(seen, expected, "the numbers are not 1..={}", REGISTER.len());
     }
 
-    /// **Forty-eight wired, none red.**
+    /// **Fifty wired, none red.**
     ///
     /// This register was thirty-eight and one from ticket 19 until ticket 20 built the gate entry
     /// 12 was red for the absence of; forty since architecture issue 23 — the first row here whose
@@ -1797,13 +1870,25 @@ mod tests {
     /// is a compile error at the call site, and a suspend that silently did nothing would draw a
     /// screen into a terminal somebody else is holding — and **forty-eight since issue 36**, the
     /// ninth and the first this map filed against itself, found by resolving 31: that ticket fixed
-    /// the two verbs that *childed* at `Ctx::area` and left the two that *read* it. Saying *how
+    /// the two verbs that *childed* at `Ctx::area` and left the two that *read* it.
+    ///
+    /// **Fifty since the applications**, and the last two rows are the first here whose source is
+    /// neither a ticket nor an architecture issue but *somebody pressing a key*. Both are the
+    /// same shape as issue 33's and could not have been written any other way for the same
+    /// reason — an instrument that drives its own second frame supplies the thing under test, and
+    /// an instrument that posts its own key posts the spelling its author typed. **49** is the
+    /// keystroke counted twice: kitty flag 2 reports both edges, and a release routed like a press
+    /// is one `j` scrolling two lines in fifteen of the twenty-one applications in this workspace,
+    /// on four of the terminals `conform/` asks and on none of the ones a gate imitates. **50** is
+    /// the gesture drawn one event late: the press drew nothing, the release drew the press, and
+    /// the click waited for the next keystroke — reported from outside as *the release fires and
+    /// not the press*, which is what it looks like from a trackpad. Saying *how
     /// many* is
     /// what stops a red row arriving unremarked, and it
     /// has the second job the engine's has: **a register at all-green says so**, so the next red row
     /// is a deliberate edit to this number rather than a quiet one.
     #[test]
-    fn forty_eight_are_wired_and_none_are_red() {
+    fn fifty_are_wired_and_none_are_red() {
         let red: Vec<u8> = REGISTER
             .iter()
             .filter(|e| matches!(e.state, State::Red { .. }))
@@ -1816,7 +1901,7 @@ mod tests {
              documentation, and in the module comment above — the count is the thing that stops it \
              arriving unremarked"
         );
-        assert_eq!(REGISTER.len() - red.len(), 48);
+        assert_eq!(REGISTER.len() - red.len(), 50);
     }
 
     /// **The split, not the total.**
@@ -1831,9 +1916,9 @@ mod tests {
         assert_eq!(on_table, SPEC_ROWS, "spec §20's table is fifteen rows");
         assert_eq!(
             REGISTER.len() - on_table,
-            33,
+            35,
             "the backlog's gates, deduplicated against §20's fifteen, plus issues 23's, 25's, \
-             26's, 28's, 29's, 31's, 33's, 35's and 36's"
+             26's, 28's, 29's, 31's, 33's, 35's and 36's, and the applications' two"
         );
         // And §20's fifteen come first, so the table reads in the spec's order.
         for (index, entry) in REGISTER.iter().enumerate() {

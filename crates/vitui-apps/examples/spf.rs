@@ -31,8 +31,13 @@
 //! 3. **A panel's border cannot carry the search bar either**, and superfile puts one there. It is
 //!    a row of the interior here, shown only while `/` is open.
 //! 4. **Every process row spins on one phase.** `SpinState` is an anchor and the clock is
-//!    `Ctx::now` (ADR 0051), which is right — and it means two processes running at once are in
-//!    step, where superfile gives each its own model.
+//!    `Ctx::now` (ADR 0051) — and it means two processes running at once are in step, where
+//!    superfile gives each its own model. **The anchor is seeded inside the draw and not where the
+//!    process is started**, which is the only place that sentence can be true: `Ctrl+V` is answered
+//!    out in the loop, where nothing holds a `Ctx`, so `paste` pushes a stopped spinner and
+//!    `App::tick` starts it from the frame's own `now`. Seeding it from `Instant::now()` out
+//!    there draws the identical screen and puts every phase in the program outside
+//!    `Driver::pin_clock`, which is the entire test regime of this workspace.
 //! 5. **`→` and `←` are not *open* and *parent* here.** `hotkeys.toml` binds
 //!    `confirm = ['enter', 'right', 'l']` and `parent_directory = ['h', 'left', 'backspace']`, and
 //!    `crate::nav::step` reads `←` and `→` as `↑` and `↓` — so a focused `collection` or `table`
@@ -43,7 +48,7 @@
 //!
 //! # What a process is here, and why it needs a deadline
 //!
-//! `Ctrl+V` starts a copy: a [`Process`] with a total, a done count and a spinner. It advances one
+//! `Ctrl+V` starts a copy: a `Process` with a total, a done count and a spinner. It advances one
 //! step every 140 ms, and the frame that advances it **asks for the next wake itself** —
 //! `Ctx::deadline`, because a paused application must cost zero wakeups (spec §11) and a process
 //! that finished must stop asking. That is the whole of the animation contract in an application:
@@ -66,7 +71,7 @@
 //! | `L` `H` | the next / previous file panel · `Tab` is the ring's walk over every pane · `n` opens one · `w` closes one |
 //! | `s` `p` `m` | focus the sidebar · the process bar · the metadata |
 //! | `v` | browser mode ⇄ select mode · `A` selects everything |
-//! | `J` `K` | extend the selection in select mode · `Ctrl+Space` toggles one row. **Not `Shift+↓`/`Shift+↑`** — the table consumes those |
+//! | `J` `K` | extend the selection in select mode · `Ctrl+Space` toggles one row. **Not `Shift+↓`/`Shift+↑`**, which move the collection's own cursor and extend its own marks — routing that into this application's marks is work nobody has asked for, and it is not `collect::owns`'s defect: the key does something |
 //! | `Ctrl+C` `Ctrl+X` `Ctrl+V` | copy · cut · paste, which starts a process |
 //! | `Ctrl+N` `Ctrl+R` `Ctrl+D` | create · rename in place · delete |
 //! | `o` `R` | the sort menu · reverse it |
@@ -518,11 +523,19 @@ const META_COLS: [Column; 2] = [
 
 // ── the footer ───────────────────────────────────────────────────────────────────────────────────
 
+/// **One ladder frame per this**, for every process bar in the program.
+///
+/// One constant rather than a literal at the `start` call, because two processes running at once
+/// are in step here — note 4 in the header — and a second literal is how that stops being true.
+const SPIN_PER: Duration = Duration::from_millis(120);
+
 /// One running operation, which is what `Ctrl+V` starts.
 struct Process {
     what: String,
     done: u32,
     total: u32,
+    /// **Stopped when the process is pushed**, and started by `App::tick` from the frame's own
+    /// `Ctx::now`: an anchor is the application's and a clock is not (ADR 0051).
     spin: SpinState,
 }
 
@@ -614,6 +627,26 @@ const HELP: [(&str, &str); 19] = [
 /// for every one of the five shifted/unshifted pairs: `J` before `j`, `L` before `l`, `H` before
 /// `h`, `?` before `/`. The alternate for the shifted key is a chord on the *unshifted* one, so the
 /// unshifted binding would otherwise swallow it.
+/// **`?`, on every wire spelling ADR 0053 names, in one place.**
+///
+/// [`key_map`]'s own `shifted` helper is a closure inside that function and is not reachable from a
+/// draw, so the help modal's *close* arm re-spelled the pair by hand — a second place for one of the
+/// two arms to go missing, in a file written to record that exact defect. Worse, the hand-written
+/// version was a `match` on `k.code`, which misses a spelling [`Chord::typed`] catches: a terminal
+/// speaking the enhanced protocol may report the base key `/` **and** the text `?`, and
+/// `Code::Char('?')` sees neither half of that.
+const HELP_KEYS: [Chord; 2] = [Chord::typed('?'), Chord::key('/').shift()];
+
+/// Whether a keystroke is one of [`HELP_KEYS`].
+///
+/// `MatchMode::Masked` is what ships and what [`KeyMap`] uses, so the two readings of `?` in this
+/// file cannot disagree about the lock bits either.
+fn is_help_key(k: &Pressed) -> bool {
+    HELP_KEYS
+        .iter()
+        .any(|c| c.matches(k, vitui_runtime::keys::MatchMode::Masked))
+}
+
 fn key_map() -> KeyMap {
     let ctrl = |c: char| Chord::key(c).ctrl();
     let shifted = |shift: char, base: char| [Chord::typed(shift), Chord::key(base).shift()];
@@ -687,6 +720,56 @@ const SORT: ActionId = 27;
 const DOTS: ActionId = 28;
 const SEARCH: ActionId = 29;
 const BACK: ActionId = 30;
+
+/// **Every [`ActionId`] above is distinct, and the compiler says so.**
+///
+/// Hand-numbered ids are the one place in this file where a copy-paste is silent: two actions on one
+/// number is a chord that fires the wrong verb, and nothing objects — [`KeyMap`] has no reason to,
+/// and a wrong verb draws a perfectly good screen. A `const` block is the cheapest instrument that
+/// cannot be forgotten, and it is the shape `latency`'s two word-table length asserts already have.
+const _: () = {
+    let ids = [
+        QUIT,
+        COPY,
+        CUT,
+        PASTE,
+        DELETE,
+        CREATE,
+        RENAME,
+        TOGGLE,
+        EXTEND_DOWN,
+        EXTEND_UP,
+        NEXT_PANEL,
+        PREV_PANEL,
+        SELECT_ALL,
+        REVERSE,
+        FOOTER,
+        SHOW_HELP,
+        DOWN,
+        UP,
+        OPEN,
+        PARENT,
+        NEW_PANEL,
+        CLOSE_PANEL,
+        FOCUS_SIDEBAR,
+        PROCESS,
+        METADATA,
+        MODE,
+        SORT,
+        DOTS,
+        SEARCH,
+        BACK,
+    ];
+    let mut i = 0;
+    while i < ids.len() {
+        let mut j = i + 1;
+        while j < ids.len() {
+            assert!(ids[i] != ids[j], "two actions share one `ActionId`");
+            j += 1;
+        }
+        i += 1;
+    }
+};
 
 // ── the application ──────────────────────────────────────────────────────────────────────────────
 
@@ -817,6 +900,16 @@ impl App {
         let mut running = false;
         for p in &mut self.processes {
             if p.done < p.total {
+                // **The anchor is seeded here and nowhere else**, because this is the only place in
+                // the program holding a `Ctx`. A `SpinState` started from `Instant::now()` in the
+                // driver loop is a phase the application sampled itself, and ADR 0051's whole point
+                // is that such a phase is invisible to `Driver::pin_clock` — the frame would still
+                // draw, and every spinner in it would be outside the one instrument that can hold a
+                // clock still. `SpinState::spinning` is what makes the seeding idempotent, so the
+                // frame a process is pushed on is also the frame it starts turning on.
+                if !p.spin.spinning() {
+                    p.spin.start(now, SPIN_PER);
+                }
                 p.done += 1;
                 running = true;
                 if p.done >= p.total {
@@ -1537,20 +1630,19 @@ fn draw_help(cx: &mut Ctx<'_, '_>, r: Rect, pending: &mut Option<Act>) {
         cx.focus(id);
     }
     while let Some(k) = cx.next_key(id) {
-        match k.code {
-            // **`!k.mods.ctrl()` is load-bearing.** Written as `Code::Char('q')` alone, this arm
-            // also catches `Ctrl+Q` — so the application's quit chord closed the help instead of
-            // quitting, and the help then swallowed it. It is the shape components ticket 38 found
-            // one crate down: *`Esc` and `Space` are keys and not chords*, and a match on the code
-            // alone eats every accelerator built on it.
-            Code::Escape | Code::Enter | Code::Char('?' | 'q') if !k.mods.ctrl() => {
-                *pending = Some(Act::Close);
-            }
-            // **The alternate is here too**, for `key_map`'s reason one level down: `?` on a
-            // terminal that reports the base key arrives as `/` with the shift bit, so the modal
-            // that `?` opened could not be closed by pressing it again.
-            Code::Char('/') if k.mods.shift() => *pending = Some(Act::Close),
-            _ => cx.decline(k),
+        // **`!k.mods.ctrl()` is load-bearing.** Written as `Code::Char('q')` alone, the arm below
+        // also catches `Ctrl+Q` — so the application's quit chord closed the help instead of
+        // quitting, and the help then swallowed it. It is the shape components ticket 38 found one
+        // crate down: *`Esc` and `Space` are keys and not chords*, and a match on the code alone
+        // eats every accelerator built on it.
+        //
+        // **The `?` alternate is read from one home** rather than re-spelled here: see
+        // [`HELP_KEYS`].
+        let plain_close = matches!(k.code, Code::Escape | Code::Enter | Code::Char('q'));
+        if (plain_close && !k.mods.ctrl()) || is_help_key(&k) {
+            *pending = Some(Act::Close);
+        } else {
+            cx.decline(k);
         }
     }
 }
@@ -1754,7 +1846,11 @@ impl App {
     }
 
     /// `Ctrl+V`: start a copy, which is what the process bar is for.
-    fn paste(&mut self, now: std::time::Instant) {
+    ///
+    /// **The process is pushed with a stopped spinner and `App::tick` starts it**, which is the
+    /// only arrangement ADR 0051 leaves: nothing out here has a `Ctx`, so nothing out here has a
+    /// clock to seed an anchor from.
+    fn paste(&mut self) {
         if self.clipboard.items.is_empty() {
             self.flash = "clipboard is empty".to_owned();
             return;
@@ -1771,8 +1867,6 @@ impl App {
                 self.tree.add(dest, &name, dir);
             }
         }
-        let mut spin = SpinState::new();
-        spin.start(now, Duration::from_millis(120));
         self.processes.push(Process {
             what: format!(
                 "{} {} item{}",
@@ -1782,7 +1876,7 @@ impl App {
             ),
             done: 0,
             total,
-            spin,
+            spin: SpinState::new(),
         });
         self.clipboard.cut = false;
         self.relist_all();
@@ -1847,7 +1941,7 @@ impl App {
     }
 
     /// **What nothing wanted, read from the frame that has just drawn.**
-    fn take_unhandled(&mut self, keys: &[Pressed], now: std::time::Instant) {
+    fn take_unhandled(&mut self, keys: &[Pressed]) {
         // **The quit chord is answered before anything else claims the keyboard.** Every branch
         // below returns early for whatever is open, and an application whose way out depends on
         // which dialog is up is an application people cannot leave.
@@ -1924,13 +2018,13 @@ impl App {
         }
         for k in keys {
             if let Some(action) = self.keys.match_first(k) {
-                self.act(action, now);
+                self.act(action);
             }
         }
     }
 
     /// One action, whichever chord produced it.
-    fn act(&mut self, action: ActionId, now: std::time::Instant) {
+    fn act(&mut self, action: ActionId) {
         let (dots, which) = (self.dots, self.panel);
         match action {
             QUIT => self.exit = true,
@@ -1943,7 +2037,7 @@ impl App {
                     self.clipboard.items.len()
                 );
             }
-            PASTE => self.paste(now),
+            PASTE => self.paste(),
             DELETE => {
                 let n = self.panels[which].targets().len();
                 if n == 0 {
@@ -2136,8 +2230,6 @@ fn main() {
 
     driver.frame(|cx| app.ui(cx));
     let _ = app.answer();
-    // **Where the focus ended, remembered across the park.** See the loop below.
-    let mut seated = driver.inspect().focused();
 
     loop {
         driver.frame(|cx| app.ui(cx));
@@ -2147,27 +2239,23 @@ fn main() {
         // **The window onto the frame that has just drawn**, never the one before it: `unhandled`
         // is valid until the next frame begins, and reading it first acts one wake late.
         let unhandled: Vec<Pressed> = driver.unhandled().to_vec();
-        app.take_unhandled(&unhandled, std::time::Instant::now());
+        app.take_unhandled(&unhandled);
         if app.exit {
             break;
         }
         // **A frame is owed whenever the inbox moved**, and not only when a key arrived: the
         // decision is acted on *after* the draw, so the screen showing a dialog that has just been
         // answered is one frame stale — and with nothing else pending, `wait` would park on it.
-        // **A `Tab` that moved the focus owes a frame, and nothing asks for one.** The ring
-        // resolves the walk in `settle`, *after* the draw — so the frame that consumed the `Tab`
-        // painted the old focus ring and `unhandled` is empty, and `wait` would park on a screen
-        // that is a keystroke behind. `Frame::resolve_into_view` asks when a reveal is pending
-        // (runtime architecture 33) and a bare focus move asks for nothing, so the application
-        // notices the move itself. The comparison is against the *previous* frame's answer, which
-        // is why it is a `let mut` outside the loop rather than a read inside it.
-        let focus = driver.inspect().focused();
-        let focus_moved = focus != seated;
-        seated = focus;
-        // **A frame is owed whenever the inbox moved or the ring moved the focus**, and not only
-        // when a key arrived: both are acted on *after* the draw, so the screen is one frame stale
-        // and `wait` would park on it.
-        if acted || focus_moved || !unhandled.is_empty() {
+        //
+        // **A focus move owes a frame too, and this loop deliberately no longer counts it.** The
+        // ring resolves its walk in `settle`, *after* the draw, so the frame that consumed a `Tab`
+        // painted the old focus ring with an empty `unhandled` — and this file used to compare
+        // `Driver::inspect().focused()` across frames because nothing else asked. Register entry 50
+        // put the ask where the decision is made: `Frame::resolve_award` calls
+        // `wants_another_frame`, which is `deadline(now)`, so `wait` returns at once rather than
+        // parking on a screen a keystroke behind. Comparing here as well would be a second spelling
+        // of one rule, in the place least able to keep it true.
+        if acted || !unhandled.is_empty() {
             continue;
         }
         match driver.wait() {
