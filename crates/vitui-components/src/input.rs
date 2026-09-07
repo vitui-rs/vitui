@@ -11,7 +11,7 @@
 //! the component *and* the join that would have caught it —
 //! `inventory::tests::every_built_row_is_declared_in_the_module_that_homes_it`.
 //!
-//! The reductions are R1, R2 and R3 (spec §18). §11's one flag absorbs sixteen named input
+//! The reductions are R1, R2 and R3. §11's one flag absorbs sixteen named input
 //! variants including `textarea`; §5's `Mode` absorbs the radio set and the segmented control;
 //! a `Role` absorbs every button variant. The colour wheel, the dial and the font picker are R4 —
 //! sub-cell rasterisation, one rasteriser and a different mapping.
@@ -19,7 +19,7 @@
 //! **~~Two entries are open rather than reduced~~ — closed by runtime ticket 10.** It read:
 //! *ctrl-click and shift-click, because `rt::Input` carries no modifier byte on a pointer event.
 //! The keyboard half of multi-select is complete; the pointer half is inexpressible, and that is
-//! the runtime map's to change (§22).* `Response` carries `mods: Mods` — one byte on a sixteen-byte
+//! the runtime map's to change.* `Response` carries `mods: Mods` — one byte on a sixteen-byte
 //! hit entry — `crate::collect::from_click` reads it, and components ticket 38 declares the three
 //! modified clicks as bindings like any other (`crate::contract`). The engine had been reporting
 //! modifiers on every pointer event all along; dropping them was a runtime omission and not a
@@ -529,7 +529,7 @@ pub fn field_into<I: Ink>(
 ///
 /// Crate-private, because an id is not part of spec §1's component shape: a public one would let an
 /// application spell a field's identity, and identity comes from the call site and may never be
-/// persisted (ADR 0013).
+/// persisted.
 #[track_caller]
 pub(crate) fn field_keyed<I: Ink>(
     ink: &mut I,
@@ -2803,13 +2803,13 @@ pub const FORM_IS: [&str; 3] = ["field", "nav::cursor", "the focus ring"];
 ///
 /// [`crate::nav::cursor`] takes `&[&str]`. A form written over a slice of records — a label and a
 /// `Text` in one struct, which is the obvious spelling — has to **build** that slice every frame,
-/// and a `Vec<&str>` a frame is one allocation a frame against a budget of zero (spec §20). The
+/// and a `Vec<&str>` a frame is one allocation a frame against a budget of zero. The
 /// refused shape is kept runnable at [`defective::form_collecting_labels`] and priced by
 /// `tests::a_form_allocates_nothing_and_the_record_shaped_spelling_allocates_a_frame`.
 ///
 /// # Two entries that do not fit are two entries nobody drew
 ///
-/// Density is theme data and it changes rectangles (spec §3), so the same form inside the same panel
+/// Density is theme data and it changes rectangles, so the same form inside the same panel
 /// stands a different number of fields at `Compact` and at `Cosy`. That is **reported rather than
 /// hidden**: the count that falls off the bottom is `labels.len()` minus the hit entries the frame
 /// declared, and `tests::the_same_form_stands_fewer_fields_at_cosy_and_neither_writes_a_cell_twice`
@@ -3480,7 +3480,7 @@ pub mod defective {
     /// [`crate::nav::cursor`] takes `&[&str]`. A form written over a slice of *records* — a label
     /// and a [`crate::edit::Text`] in one struct, which reads better and is the shape a reviewer
     /// expects — cannot hand it one without building it, and a `Vec<&str>` a frame is **one
-    /// allocation a frame** against a budget of zero (spec §20).
+    /// allocation a frame** against a budget of zero.
     ///
     /// The two arms differ by the one line below, and the picture is **identical** either way —
     /// which is why the allocation window is the only instrument that can tell them apart, exactly
@@ -4035,7 +4035,7 @@ mod field_tests {
 
     /// **A wheel notch over a field moves its window, and the field consumes it.**
     ///
-    /// A field declares `Interest::SCROLL` and owns its offset (§17), so a notch it did not consume
+    /// A field declares `Interest::SCROLL` and owns its offset, so a notch it did not consume
     /// is worse than one it never declared: it is the topmost region over its rectangle, so an
     /// enclosing `scroll_area` would never see the notch either. Components ticket 20's defect
     /// class, played through a posted notch over the previous frame's hit index rather than through
@@ -6026,7 +6026,7 @@ mod form_tests {
     /// writes a cell twice, and the widget count that falls off the bottom is stated.
     ///
     /// Density is theme data and it changes rectangles, and [`crate::frame::block`] is where that
-    /// lands (spec §3) — so the form is drawn inside a panel, which is the only way a density can
+    /// lands — so the form is drawn inside a panel, which is the only way a density can
     /// reach it at all. What falls off the bottom is `LABELS.len()` minus the hit entries the frame
     /// declared, which is a **count of drawn fields** rather than an inference from a height.
     #[test]

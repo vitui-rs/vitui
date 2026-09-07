@@ -15,7 +15,7 @@
 //! # Where they live
 //!
 //! Beside the interner, in [`Tables`](crate::tables::Tables) — one set per layer stack, minted by
-//! `attach` and reached by the verbs through the draw context (ADR 0011). A `Surface` outside a
+//! `attach` and reached by the verbs through the draw context. A `Surface` outside a
 //! stack carries its own set, and both tables stay empty for every cell that is neither hyperlinked
 //! nor coloured-underlined, which is nearly all of them: `Vec::new` and `HashMap::new` take no
 //! allocation until the first insert.
@@ -106,7 +106,7 @@ impl Links {
     ///
     /// The donation walk re-mints these into the stack's table before it touches an extended-style
     /// entry, because an entry names a `LinkId` and re-interning it against the donor's id would
-    /// dedup on the wrong key (ticket 10).
+    /// dedup on the wrong key.
     pub(crate) fn entries(&self) -> impl ExactSizeIterator<Item = &str> {
         self.uris.iter().map(|u| &**u)
     }
@@ -147,7 +147,7 @@ pub(crate) struct ExtStyles {
     /// **This is the table that can grow without bound**, and the only one: a caller whose
     /// descriptor names a *changing* colour over hyperlinked cells — or a [`Mix`](crate::Mix) whose
     /// `amount` moves — mints one entry per distinct result per frame. A fade is about 1 700 entries
-    /// and a pulsing dim about 5 700 a second (spec §3). A settled one converges after a single
+    /// and a pulsing dim about 5 700 a second. A settled one converges after a single
     /// frame, which is the common case and what `tests/alloc.rs` gates; [`crate::sweep`] is what
     /// bounds the other.
     entries: Vec<ExtStyle>,
@@ -210,8 +210,8 @@ impl ExtStyles {
     /// entry was dropped — or `None` when no survivor moved, which is the case a sweep does not have
     /// to rewrite a single cell for.
     ///
-    /// **The `link` inside a surviving entry is left alone**, because the URI table is not swept
-    /// (spec §3). The reason it *was* not swept — an application holds [`LinkId`]s across frames —
+    /// **The `link` inside a surviving entry is left alone**, because the URI table is not swept.
+    /// The reason it *was* not swept — an application holds [`LinkId`]s across frames —
     /// stopped being true at architecture ticket 21, which took the handle off the public surface;
     /// the decision stands on the measurement, which is that link ids are few and nothing suggests
     /// it matters. See [`crate::sweep`].
@@ -245,7 +245,7 @@ impl ExtStyles {
     /// Every extended style this table holds, in handle order.
     ///
     /// Read by the donation walk, which re-interns each entry — with its `link` already renumbered
-    /// — into the stack's table and indexes the result by the donor's own handle (ticket 10).
+    /// — into the stack's table and indexes the result by the donor's own handle.
     pub(crate) fn entries(&self) -> impl ExactSizeIterator<Item = ExtStyle> {
         self.entries.iter().copied()
     }

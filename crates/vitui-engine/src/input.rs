@@ -90,7 +90,7 @@ pub(crate) mod parse {
     //! Nothing on the wire tells the two apart, so an implementation picks one of three costs:
     //!
     //! 1. **A timer** — hold the `ESC` for 25 ms and emit it if nothing follows. Refused: it is a timer
-    //!    in a crate whose idle guarantee is `0.00 user 0.00 sys` over thirty seconds (ADR 0004), bought
+    //!    in a crate whose idle guarantee is `0.00 user 0.00 sys` over thirty seconds, bought
     //!    to disambiguate a keystroke.
     //! 2. **Hold it until the next read** — correct, and it makes Escape undeliverable on an idle
     //!    application until the user presses something else. Escape is how a dialog closes; forever is

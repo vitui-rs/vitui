@@ -9,7 +9,7 @@
 //!
 //! [`Screen::set_mouse`](crate::Screen::set_mouse) and
 //! [`Screen::set_cursor`](crate::Screen::set_cursor) both **record** rather than write. The write
-//! direction belongs to the render thread (spec §7), so what these produce is an [`Actuation`] that
+//! direction belongs to the render thread, so what these produce is an [`Actuation`] that
 //! rides the next packet, and the delta is computed on the app thread rather than on the render
 //! thread — which is what makes *free when unchanged* free at the right end: an unchanged setter
 //! does not merely emit nothing, it does not cause a frame.
@@ -48,7 +48,7 @@ use crate::input::{InputConfig, MouseMode};
 ///
 /// **Screen coordinates**, because the caret is one thing on the whole terminal and a layer is not
 /// the whole terminal. The runtime translates from layer coordinates, which it can, because it
-/// brought the layer's rectangle (spec §12).
+/// brought the layer's rectangle.
 ///
 /// ```
 /// use vitui_engine::{Cursor, CursorShape};
@@ -155,8 +155,8 @@ impl Actuation {
 /// can disagree about.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) struct Actuators {
-    /// [`Config::input`](crate::Config::input)'s mouse level, clamped. **A floor, not a setting**
-    /// (spec §9): the union of what the frame's components want is known only after a draw, so an
+    /// [`Config::input`](crate::Config::input)'s mouse level, clamped. **A floor, not a setting**:
+    /// the union of what the frame's components want is known only after a draw, so an
     /// application that knows it wants the mouse says so once and has no blind frame.
     floor: MouseMode,
     /// The highest level this terminal answered for. Everything above it is clamped away silently —
@@ -218,8 +218,8 @@ impl Actuators {
     /// Only the clamp needs redoing, and it is worth being exact about why nothing else does. The
     /// terminal's *modes* survive a reflow — `DECTCEM` and `DECSCUSR` are not reset by `SIGWINCH` —
     /// so the visibility and the shape the terminal was last told are still true. Its cursor
-    /// *position* is anybody's guess, and that needs nothing here either: a resize damages every cell
-    /// (spec §6), so the frame that follows opens and re-places the caret against a fresh mirror that
+    /// *position* is anybody's guess, and that needs nothing here either: a resize damages every cell,
+    /// so the frame that follows opens and re-places the caret against a fresh mirror that
     /// knows nothing, which is an absolute move.
     pub(crate) fn resized(&mut self, size: (u16, u16)) {
         let caret = self.caret;
@@ -288,7 +288,7 @@ impl Actuators {
 /// The highest tracking level this terminal answered for.
 ///
 /// **Mode 1002 has no query of its own**, and §10's probe set is not widened for one: `Capabilities`
-/// carries eight input booleans and eight is a decision (ADR 0010). So a terminal that reported 1000
+/// carries eight input booleans and eight is a decision. So a terminal that reported 1000
 /// and not 1003 is still asked for 1002, and ADR 0025's rule is what decides that direction — a
 /// terminal that ignores the request reports buttons only, which is wrong in *degree*, where
 /// clamping to [`MouseMode::Buttons`] would deny drag to every terminal that has it and be wrong in
@@ -549,7 +549,7 @@ const MODE_FOCUS: u32 = 1004;
 /// Mode 2004.
 const MODE_BRACKETED_PASTE: u32 = 2004;
 
-/// DECAWM off. Once, on entering the alt screen (spec §8).
+/// DECAWM off. Once, on entering the alt screen.
 pub(crate) const DISABLE_AUTO_WRAP: &[u8] = b"\x1b[?7l";
 /// DECAWM on, which is what the terminal had before this process took it.
 pub(crate) const ENABLE_AUTO_WRAP: &[u8] = b"\x1b[?7h";

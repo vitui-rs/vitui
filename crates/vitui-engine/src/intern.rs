@@ -12,7 +12,7 @@
 //!
 //! # Interning is identity for single scalars, and that is what makes the rule free
 //!
-//! A cell holding `a` or `漢` *is* its own handle, with no table and no hash (spec §3). The table is
+//! A cell holding `a` or `漢` *is* its own handle, with no table and no hash. The table is
 //! reached only by a cluster of more than one scalar — a combining mark, a ZWJ sequence, a flag, an
 //! Indic conjunct, a VS16 emoji — which is well under 1% of the cells on a realistic screen. An
 //! empty interner holds no allocation at all: `Vec::new` and `HashMap::new` both take none until the
@@ -21,7 +21,7 @@
 //! # The bytes are stored twice, deliberately
 //!
 //! Once in `clusters` to resolve a handle, once as the map's key to find one. The alternative is a
-//! shared `Arc<str>` and `Surface` holds no `Arc` (spec §4) — so the copy is the price of keeping
+//! shared `Arc<str>` and `Surface` holds no `Arc` — so the copy is the price of keeping
 //! the surface donatable. It is paid per *distinct* cluster, of which a hyperlinked full screen has
 //! about a hundred, and never per cell.
 
@@ -49,7 +49,7 @@ impl Interner {
     /// Whether this table has never been reached.
     ///
     /// What `add_content_with` tests before walking a donated surface: an empty table means no cell
-    /// carries a handle that needs renumbering, which is the common case (ticket 10).
+    /// carries a handle that needs renumbering, which is the common case.
     pub(crate) fn is_empty(&self) -> bool {
         self.clusters.is_empty()
     }

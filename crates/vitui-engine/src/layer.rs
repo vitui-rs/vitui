@@ -2,11 +2,10 @@
 //!
 //! A layer is a rectangle positioned in the stack with a z-order. A window, a popup, a shadow and a
 //! modal dim are all layers; nothing else is. Rows of a virtualised tree are not layers, which is
-//! why `n` here is tens and the stack is a sorted `Vec` rather than a tree or a skip list
-//! (spec §5).
+//! why `n` here is tens and the stack is a sorted `Vec` rather than a tree or a skip list.
 //!
 //! A tree was rejected because a `z` local to a parent *is* a scene, and the scene lives above the
-//! engine (ADR 0002). A skip list was rejected for three reasons and each is worth keeping: **n is
+//! engine. A skip list was rejected for three reasons and each is worth keeping: **n is
 //! tens**; **the dominant operation is an ordered traversal of the whole stack every frame**, which
 //! is what a contiguous `Vec` is best at and a skip list worst at; and a skip list's real modern
 //! advantage is lock-free concurrent ordered access, and there is no concurrency here — plus a node
@@ -16,9 +15,9 @@
 //!
 //! # Scope
 //!
-//! The whole of spec §12's `LayerStack` is here (ticket 10), the bottom-up composite of the damaged
-//! runs with the wide-glyph corruption bug closed at its third and last edge (ticket 11), and the
-//! operator layer with the atomic-glyph rule (ticket 12).
+//! The whole of spec §12's `LayerStack` is here, the bottom-up composite of the damaged
+//! runs with the wide-glyph corruption bug closed at its third and last edge, and the
+//! operator layer with the atomic-glyph rule.
 //!
 //! **What a `Mix` does to a style word is [`crate::mix`]'s, and where it lands is this file's.**
 //! That is the seam worth naming, because every defect in this area has been a placement defect: a
@@ -60,7 +59,7 @@ pub struct LayerId(u32);
 /// One layer, as the reference compositor and the gates need to see it.
 ///
 /// Gated because spec §12's public surface names none of it: a caller cannot read back what is
-/// already on screen (ADR 0023), and an oracle is not an exception to that — it is simply inside the
+/// already on screen, and an oracle is not an exception to that — it is simply inside the
 /// crate. **The `cfg` is `any(test, feature = "fuzz")` since ticket 25**, which is where the
 /// reference compositor became the oracle for a fuzz target as well as for gate #1, and a fuzz
 /// target compiles this crate without `cfg(test)`.
@@ -218,7 +217,7 @@ impl Layer {
 /// screen.layers().add_content(0, Rect::new(0, 0, 4, 2), true, 0.5);
 /// ```
 ///
-/// **No flattened layer cache** (ADR 0024). There is nothing to flatten into and nothing to
+/// **No flattened layer cache**. There is nothing to flatten into and nothing to
 /// invalidate: the composite runs over the damaged rows bottom-up every frame, and a cache would
 /// have to be invalidated by exactly the events that already bound the work:
 ///
@@ -339,7 +338,7 @@ impl LayerStack {
     /// `opaque` says whether every cell of the surface paints. A caller who draws only a border
     /// into an opaque layer gets a rectangle of opaque spaces that erases what is underneath —
     /// rounded corners, a tooltip with a transparent gutter and any overlay over a chart all want
-    /// `opaque: false`, and pay 4.1x for the skip test (spec §5).
+    /// `opaque: false`, and pay 4.1x for the skip test.
     ///
     /// The new layer damages its whole rectangle, because nothing beneath it has been asked to
     /// repaint what it now covers.
@@ -403,7 +402,7 @@ impl LayerStack {
     ///
     /// # An operator layer is the most expensive thing the compositor can be asked to do
     ///
-    /// **12.7× a content layer** — 78.2 against 6.14 µs full-screen (§5): it read-modify-writes
+    /// **12.7× a content layer** — 78.2 against 6.14 µs full-screen: it read-modify-writes
     /// every cell and resolves two colours per cell, where an opaque content layer is a
     /// `copy_from_slice`. A full-screen modal dim is therefore a frame-pacing consideration and not
     /// only a visual one, and the number is reported by
@@ -431,7 +430,7 @@ impl LayerStack {
     ///
     /// The shadow is **not** tied to the window afterwards: moving the window does not move it. A
     /// layer that tracked another would be a scene, and the scene lives above the engine
-    /// (ADR 0002) — the runtime brings a rectangle for every layer every frame (spec §12).
+    /// — the runtime brings a rectangle for every layer every frame.
     pub fn add_shadow(
         &mut self,
         under: LayerId,
@@ -454,7 +453,7 @@ impl LayerStack {
     /// What was underneath is exposed and repainted; the layer's surface, and the cells in it, are
     /// dropped. The handle-table entries those cells named are **not** reclaimed here — that is the
     /// mark-and-compact sweep's job, and it runs where allocation is permitted rather than inside a
-    /// verb (spec §3, ticket 08).
+    /// verb.
     pub fn remove(&mut self, id: LayerId) -> bool {
         let Some(at) = self.find(id) else {
             return false;
@@ -495,7 +494,7 @@ impl LayerStack {
     /// size and every cell of it goes back to the layer's ground, so the caller redraws. Carrying
     /// the old cells across would leave a window that has changed shape holding a picture drawn for
     /// the shape it used to be, which is worse than a blank one — and the runtime brings a
-    /// rectangle and a draw for every layer every frame anyway (spec §12).
+    /// rectangle and a draw for every layer every frame anyway.
     ///
     /// The rectangle the layer came from is exposed, and the one it goes to is damaged.
     pub fn set_rect(&mut self, id: LayerId, rect: Rect) -> bool {
@@ -802,7 +801,7 @@ impl LayerStack {
     /// Paint the damaged runs of `frame`, bottom-up.
     ///
     /// Cost is damaged area times depth, which is the claim a flattened prefix cache would have
-    /// existed to deliver — delivered by damage rectangles instead (ADR 0024).
+    /// existed to deliver — delivered by damage rectangles instead.
     ///
     /// # The ground, and the floor
     ///
@@ -816,7 +815,7 @@ impl LayerStack {
     /// # The wide-glyph hazard, at a layer edge
     ///
     /// A content layer overwrites, so ticket 06's five repair rules move from write time to
-    /// composite time (spec §5). Every paint below is a contiguous span, and a span has exactly two
+    /// composite time. Every paint below is a contiguous span, and a span has exactly two
     /// seams — so the fixes are **four O(1) ones per row** rather than a scan: the copied content's
     /// own halves at each end, a wide head left orphaned outside the left edge, and a continuation
     /// left orphaned outside the right.
@@ -902,7 +901,7 @@ impl LayerStack {
     /// column out **if and only if** what the layers paint one column in is its continuation*. That
     /// sentence is only true while every layer surface pairs.
     ///
-    /// It used not to be. [`View::child`](crate::View::child) could not widen its clip (spec §4), so
+    /// It used not to be. [`View::child`](crate::View::child) could not widen its clip, so
     /// a pair the clip bisected kept the half outside it and a layer surface could arrive here
     /// already violating §3 — and then whether the orphan survived depended on where the *damaged
     /// span* happened to end, which is one question answered both ways on alternate frames.
@@ -1106,7 +1105,7 @@ impl LayerStack {
     ///
     /// §5's invariant is that *every surface in one layer stack belongs to one engine*, and it is
     /// what replaces the per-cell remap the alternatives needed — 4.9x on a realistic layer and 46x
-    /// on a hostile one (ADR 0011). It holds by construction rather than by checking:
+    /// on a hostile one. It holds by construction rather than by checking:
     /// [`add_content`](LayerStack::add_content) mints a surface whose own tables are empty, and
     /// [`add_content_with`](LayerStack::add_content_with) renumbers a donated surface into this
     /// stack's space and empties the table it came with. So a surface still carrying a handle space
@@ -1280,7 +1279,7 @@ fn glyph_below(below: &[Layer], x: i32, y: i32) -> Option<GraphemeId> {
 ///
 /// `width` is the frame's, and [`pair_survives`]'s two bounds tests are a **defect fix and not a
 /// tidy-up**. `glyph_below` asks the *layers*, which extend past the screen — a layer at `x = -1` is
-/// intersected, not rejected (§5) — so a pair the **frame's** clamp bisected still looked whole from
+/// intersected, not rejected — so a pair the **frame's** clamp bisected still looked whole from
 /// here: a half in column `-1` is a cell the layer has and the frame does not.
 ///
 /// Two wrong cells, in mirror positions, each one cell wide and each invisible to every gate on the
@@ -1397,7 +1396,7 @@ fn fit(rect: Rect, size: (u16, u16)) -> Rect {
 ///
 /// **Not always another handle, which is the whole reason this is a type.** On a terminal with no
 /// OSC 8 an entry that was extended only because of a hyperlink loses its one extended channel, and
-/// then the cell goes back **inline** — *extended is a cost, not a state* (spec §3, §10). A donor
+/// then the cell goes back **inline** — *extended is a cost, not a state*. A donor
 /// surface cannot know that, because it knows no terminal, so the decision belongs here and not at
 /// the verb that drew it.
 #[derive(Clone, Copy, Debug)]
@@ -2561,7 +2560,7 @@ mod tests {
     /// fill being wrong after the mechanism behind it is replaced.
     ///
     /// The twelve scenes are a normative list and none of them removes a layer, so this drives the
-    /// same oracle from here rather than adding a thirteenth (spec §14).
+    /// same oracle from here rather than adding a thirteenth.
     fn agrees_with_the_oracle(
         stack: &mut LayerStack,
         frame: &mut Surface,
@@ -2572,7 +2571,7 @@ mod tests {
     }
 
     /// The same, against a named terminal — which an operator layer needs, because whether it moves
-    /// a cell at all depends on what the terminal answered (ADR 0025).
+    /// a cell at all depends on what the terminal answered.
     fn agrees_with_the_oracle_on(
         caps: &Capabilities,
         stack: &mut LayerStack,
@@ -3400,7 +3399,7 @@ mod tests {
     /// A pair a child clip bisects arrives here already mended, and the oracle agrees about that.
     ///
     /// This test used to say *a pair that arrives broken stays broken*: `View::child` could not
-    /// widen its clip (spec §4), so the layer's own surface held a bare `CONTINUATION` and the two
+    /// widen its clip, so the layer's own surface held a bare `CONTINUATION` and the two
     /// compositors had to take the same position on it or gate #1's equality would be false for a
     /// program nobody had written yet. Architecture ticket 20 answered it: the drawing verbs' repair
     /// is bounded by the surface, so the continuation at column 4 is blanked by the verb and nothing
@@ -3445,7 +3444,7 @@ mod tests {
     ///
     /// The child's write orphans the continuation at column 4 and the verb blanks it — to `EMPTY`
     /// here rather than to a space, because the layer is non-opaque and that is the whole of
-    /// `opaque: false` (spec §5). So the boundary this exercises is a *skip* boundary, which is the
+    /// `opaque: false`. So the boundary this exercises is a *skip* boundary, which is the
     /// one the non-opaque arm has to reason about, and the base's fill shows through it.
     #[test]
     fn the_skip_boundary_a_repaired_pair_leaves_is_handled_the_same_by_both_compositors() {

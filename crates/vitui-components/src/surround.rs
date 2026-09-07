@@ -56,7 +56,7 @@
 //! its reason: **a defect in that arithmetic cannot hide in both**.
 //!
 //! **What the band oracle cannot share is the body and the two thumbs**, and that is a *partition*
-//! rather than a judgement: §9's parts tile the rectangle exactly (ADR 0029), so the five bands are
+//! rather than a judgement: §9's parts tile the rectangle exactly, so the five bands are
 //! disjoint from both. [`body_and_bars`] is the excluded number, measured rather than assumed —
 //! where [`crate::dropped::window_interior`] had to cut a column out of the middle of its subject
 //! to reach the same position.
@@ -250,7 +250,7 @@ pub const GUTTER_CELLS: usize = PINNED as usize * 2;
 ///
 /// The body and the two thumbs, which the reference render cannot share because it is drawn at the
 /// origin. Reported rather than excluded silently, for [`crate::dropped::BAR_CELLS`]' reason — and
-/// it is a **partition** rather than a judgement: §9's parts tile the rectangle exactly (ADR 0029),
+/// it is a **partition** rather than a judgement: §9's parts tile the rectangle exactly,
 /// so not one of these cells is inside a band.
 pub const BODY_AND_BARS: (usize, usize) = (1_137, 22);
 
@@ -616,7 +616,7 @@ pub fn aligned(offset: (i32, i32), refused: Refused) -> Misaligned {
 /// The reference is drawn at the origin, so its body draws content `[0, view)` where the subject's
 /// draws content `[offset, offset + view)`, and its thumbs sit at the start of their tracks. Both
 /// are outside the five band rectangles by construction — §9's parts tile the rectangle exactly
-/// (ADR 0029) — which is why the exclusion here is a *partition* and not a judgement, where
+/// — which is why the exclusion here is a *partition* and not a judgement, where
 /// [`crate::dropped::window_interior`]'s had to cut a column out of the middle of its own subject.
 ///
 /// It is measured rather than argued: a reader told a region was left out is owed the number.

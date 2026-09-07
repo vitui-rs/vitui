@@ -5,7 +5,7 @@
 //! is also why goldens are secondary here rather than primary: a golden byte string would pin the
 //! encoding, and the encoding is exactly the part ticket 15 has still to change.
 //!
-//! Four properties of the format are load-bearing (spec §14):
+//! Four properties of the format are load-bearing:
 //!
 //! - **Two planes, not one.** A cell carries a cluster and a style word and they change
 //!   independently, so a single rendering can only make one of them diff legibly.

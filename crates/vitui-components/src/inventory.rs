@@ -62,7 +62,7 @@ pub enum Tier {
 
 /// One of `COMPONENT-HIERARCHY.md` §4's six layers.
 ///
-/// > **A component is one of six layers and may depend only on lower ones** (spec §1).
+/// > **A component is one of six layers and may depend only on lower ones**.
 ///
 /// Read strictly, that sentence refuses spec §6's own `table` = `collection` + column rectangles —
 /// `architecture.md` puts both at L2 and §6 states the edge. So the gate implements this ticket's
@@ -94,7 +94,7 @@ impl Layer {
 
 /// One of the four hostile axes, each named by the defect that established it.
 ///
-/// **O5 is worth more than the other four obligations together** (§17), and this enum is why it can
+/// **O5 is worth more than the other four obligations together**, and this enum is why it can
 /// be a count. Every arm's documentation carries the figures, because the argument for the axis
 /// *is* the figures: in three of the four cases the defective build was **faster and marked less**,
 /// so no counter in the stack disapproved of it and three of the four were caught only by an
@@ -180,14 +180,14 @@ pub struct Component {
     /// `tests::the_glyph_table_is_twenty_entries_and_every_one_of_them_has_a_demander`, holding the
     /// same shape one number further on.
     ///
-    /// `tree` needed no new entry of its own: its chevron pair *is* `ArrowDown`/`ArrowRight` (§16).
+    /// `tree` needed no new entry of its own: its chevron pair *is* `ArrowDown`/`ArrowRight`.
     ///
     /// **The column is what a component draws, and components architecture 20 is where that stopped
     /// being an assumption.** It had also carried §16's *allocation* — which row owns which entry of
     /// the table — and the two readings are the same sentence only while every allocated entry has
     /// a drawer. Four did not: `tree`'s three indent guides and `select`'s stepper `ArrowUp`, struck
     /// there. [`crate::glyphs::UNDRAWN`] is the disagreement that is left, held as a table rather
-    /// than as prose (ADR 0033), because the join below is declaration-to-declaration and cannot see
+    /// than as prose, because the join below is declaration-to-declaration and cannot see
     /// it.
     pub glyphs: &'static [Glyph],
     /// How many **different things** it builds across the three declared repertoires, 1..=3.
@@ -471,7 +471,7 @@ pub const COMPOSITIONS: &[Composition] = &[
 /// # Three additions no frequency count produces
 ///
 /// `chip` (built three times, the subject of three defects), `plot` (§13: the chart pane is 0 cells
-/// different at Extended and the plot pane differs in 882) and `sticky` (§9). **None appears in any
+/// different at Extended and the plot pane differs in 882) and `sticky`. **None appears in any
 /// inventory's core list**, which is what makes the freeze a decision rather than an arithmetic —
 /// and the inherited frequency rule does not reproduce anyway: re-run against the only population
 /// that can carry it, with a deliberately generous synonym set so the count is an *upper* bound, it

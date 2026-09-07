@@ -50,7 +50,7 @@
 //! **4.16 ns, once, at construction**: it narrows every role to what the terminal will show and sets
 //! the [`Distinction`] bits from *that*, so a component branches on a bool and names neither axis.
 //!
-//! **The runtime does not edit a declared interest** (ADR 0021). The component reads
+//! **The runtime does not edit a declared interest**. The component reads
 //! [`Theme::hover_interest`] and writes what it says; a component that ignores it still gets
 //! `Motion`, and is therefore **visibly wrong rather than invisibly corrected.**
 //!
@@ -562,15 +562,15 @@ pub enum Distinction {
     Fade,
     /// [`Role::Danger`], [`Role::Warn`] and [`Role::Ok`] are three different things.
     Status,
-    /// A scrollbar's two steppers point opposite ways (spec §9).
+    /// A scrollbar's two steppers point opposite ways.
     Stepper,
-    /// A disclosure marker says open or closed (spec §7, §8) — the same arrow family as the
+    /// A disclosure marker says open or closed — the same arrow family as the
     /// steppers, and **entering it twice under two names would be the collapse the pair gate
     /// catches**.
     Disclosure,
     /// A rule across is not a rule down (spec §3's `frame::block`, §6's column rectangles).
     Separator,
-    /// A scrollbar's thumb is distinguishable from its track (spec §9).
+    /// A scrollbar's thumb is distinguishable from its track.
     Thumb,
     /// A label that was **cut** is distinguishable from one that ended — and, specifically, from a
     /// collapsed-node marker.
@@ -579,7 +579,7 @@ pub enum Distinction {
     /// exactly an ASCII `ArrowRight`, so 468 truncated labels ended in the collapsed-node marker and
     /// `tree` draws both. Spelled `~`, the carrier crosses a family and the bit stands.
     Truncation,
-    /// A list marker is not a checkmark (spec §5, §12).
+    /// A list marker is not a checkmark.
     Marker,
 }
 
@@ -1045,7 +1045,7 @@ impl Theme {
         self
     }
 
-    /// Declare a glyph repertoire. **Declared, never probed** (ADR 0010).
+    /// Declare a glyph repertoire. **Declared, never probed**.
     ///
     /// It re-narrows the [`Distinction`] bits, because six of the nine are carried by a glyph pair
     /// and the repertoire is half of what ADR 0032's *both axes* names. **Order is therefore not
@@ -1271,7 +1271,7 @@ impl Theme {
 
     /// What a component should declare when it registers a hoverable region.
     ///
-    /// **The runtime does not edit a declared interest** (ADR 0021). This is an answer, not a
+    /// **The runtime does not edit a declared interest**. This is an answer, not a
     /// correction: a component that writes `Interest::HOVER` against a flat theme still gets motion
     /// tracking, and is therefore visibly wrong rather than invisibly fixed.
     pub const fn hover_interest(&self) -> Interest {
@@ -2069,7 +2069,7 @@ mod tests {
 mod seam {
     //! Gates about what this module is *not*, which is the half that needs a scan rather than a call.
 
-    /// **Nothing in `theme` names crossterm** (ADR 0001), and nothing in it names a Unicode table
+    /// **Nothing in `theme` names crossterm**, and nothing in it names a Unicode table
     /// either.
     ///
     /// A source scan, because both are claims about absent code. The needles are split and joined at

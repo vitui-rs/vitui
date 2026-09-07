@@ -99,7 +99,7 @@ pub struct Faces {
     pub hover: Role,
     /// While a button is down on it.
     pub active: Role,
-    /// While it holds the focus. **This is where `frame::focus_ring` went** (spec §3).
+    /// While it holds the focus. **This is where `frame::focus_ring` went**.
     pub focus: Role,
 }
 

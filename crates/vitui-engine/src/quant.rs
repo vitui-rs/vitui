@@ -21,7 +21,7 @@
 //!
 //! - Quantisation is wire-specific, and everything wire-specific lives below the packet.
 //! - **A mirror holding colours the terminal was never sent is not a mirror.**
-//! - The app thread's budget is the scarce one (spec §8); the render thread has slack.
+//! - The app thread's budget is the scarce one; the render thread has slack.
 //!
 //! # The correction nobody was looking for
 //!
@@ -86,7 +86,7 @@ use crate::style::{Color, Style, TAG_DEFAULT, TAG_INDEXED, TAG_RGB};
 /// xterm's default sixteen, used for an entry OSC 4 did not answer for.
 ///
 /// **Wrong only in degree**, which is what makes defaulting right here and refusing right for the
-/// default background (spec §10). Entries 0..8 are xterm's dimmed set and 8..16 its bright one;
+/// default background. Entries 0..8 are xterm's dimmed set and 8..16 its bright one;
 /// these are the values `xterm` itself compiles in, not a re-derivation.
 ///
 /// One copy, read by both the compositor — which *resolves* an index a caller named — and the
@@ -366,7 +366,7 @@ impl Quantiser {
 
     /// One cell, narrowed.
     ///
-    /// The grapheme is never touched — the engine substitutes no glyph anywhere (spec §10), and a
+    /// The grapheme is never touched — the engine substitutes no glyph anywhere, and a
     /// glyph set is not a colour depth.
     ///
     /// **It exists so that two comparisons are provably the same predicate.**

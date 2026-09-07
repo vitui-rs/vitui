@@ -32,13 +32,13 @@
 //! of a page with nothing changing. Both defects are the same sentence read twice.
 //!
 //! A **content-keyed** packet, deriving each key from the entry's content so a sweep would be
-//! invisible to the mirror, was built and refused (§7): it buys a probability rather than a
+//! invisible to the mirror, was built and refused: it buys a probability rather than a
 //! property, its cost lands on the app thread to save the render thread, and identity is simpler to
 //! reason about. The flag is what replaces it.
 //!
 //! # Why the cluster bytes are copied in rather than pointed at
 //!
-//! The render thread must hold no handle into an engine table (ADR 0011), so at pack time every
+//! The render thread must hold no handle into an engine table, so at pack time every
 //! handle a cell carries is resolved into a side table **the packet owns**, keyed by the handle
 //! rather than written into the cell. The cell is copied byte for byte, which is what keeps a packed
 //! cell byte-identical to the surface cell — and that is what makes the equality filter exact.
@@ -59,7 +59,7 @@
 //! same packet must not collide with it.
 //!
 //! The vectors grow to the handle tables' high-water mark and never shrink, which is what makes
-//! `pack` allocation-free on warm tables at every density (register entry #6). §3's mark-and-compact
+//! `pack` allocation-free on warm tables at every density. §3's mark-and-compact
 //! sweep is what bounds that mark; a table that could grow without one would grow these with it.
 
 use crate::actuate::Actuation;
@@ -92,7 +92,7 @@ pub(crate) struct Packet {
     /// What this frame has to say to the terminal besides its cells: the mouse tracking level and
     /// the caret.
     ///
-    /// It rides the packet because **the render thread owns the write direction** (spec §7) and
+    /// It rides the packet because **the render thread owns the write direction** and
     /// these are writes. It is already a delta where a delta is what the wire needs — see
     /// [`Actuation`] — so the render thread still holds no state of its own about either setter, and
     /// ADR 0011's *no application state on the render thread* is undisturbed.
@@ -295,7 +295,7 @@ impl Packet {
     ///
     /// True when a sweep renumbered a table since the last packet went out. The serializer's answer
     /// is to mark every mirror row unknown, which is how a full repaint expresses itself without a
-    /// separate mode (§8, ADR 0006).
+    /// separate mode.
     pub(crate) fn repaint(&self) -> bool {
         self.repaint
     }

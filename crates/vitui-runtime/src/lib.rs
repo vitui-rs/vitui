@@ -1,72 +1,82 @@
 //! Everything between the engine and a component: layout, identity, focus, hit-testing, routing,
 //! key maps, theming, overlays and the data contract.
 //!
-//! There is **no scene tree** and no retained structure of any kind — the clip stack is the call
-//! stack and the id path is the closure tree. What the runtime keeps for one draw and rebuilds on
-//! the next is five flat structures; `CONTEXT.md` calls them the frame state. Reactivity is not
-//! here either: it is an application's, and it is above this crate rather than inside it.
+//! There is **no scene tree** and no retained structure of any kind: the clip stack is the call
+//! stack, the id path is the closure tree, and what survives one draw is five flat structures
+//! rebuilt from the next one. Reactivity is not here either — it is an application's concern, and
+//! it sits above this crate rather than inside it.
 //!
-//! Replaceable in principle — a different runtime should be able to sit on the same engine. That
-//! claim is tested by the engine↔runtime seam ticket, not assumed.
+//! A different runtime should be able to sit on the same engine, and that is enforced rather than
+//! asserted: this crate takes no dependency beyond `vitui-engine`, and the engine has nothing to
+//! call upward.
+//!
+//! # Examples
+//!
+//! A draw is a function of a [`ctx::Ctx`], and everything a widget needs — its rectangle, its
+//! identity, the keys addressed to it, what the pointer did — arrives through that one value:
+//!
+//! ```
+//! use vitui_runtime::Rect;
+//! use vitui_runtime::layout::{Constraint::*, Col, Row};
+//!
+//! // Layout is pure functions over integer rectangles: no solver state, no allocation, no floats.
+//! let screen = Rect::new(0, 0, 80, 24);
+//! let [header, body, footer] = Col::new().split(screen, [Fixed(1), Weight(1), Fixed(1)]);
+//! assert_eq!((header.h, body.h, footer.y), (1, 22, 23));
+//!
+//! // Lanes are contiguous by construction, so a split never leaves a cell belonging to nobody:
+//! // two 50% lanes on an odd width are 51 and 50, not 50 and 50.
+//! let [left, right] = Row::new().split(Rect::new(0, 0, 101, 1), [Percent(50), Percent(50)]);
+//! assert_eq!((left.w, right.w), (51, 50));
+//! ```
+//!
+//! # The modules
+//!
+//! - [`data`] — `Revision`, `Versioned`, `Edit`, `Memo`. `std` only: it reaches for neither the
+//!   engine nor the frame, which is why it comes first.
+//! - [`layout`] — the constraint solver and the rectangle algebra. Pure functions over integer
+//!   rectangles: no solver state, no allocation, and no floats anywhere.
+//! - [`theme`] — `Paint`, `Role`, `Roles`, `Theme`, `Repaint`, `Glyph`, `Distinction`, `Density`. A
+//!   component names a role and can never construct a paint.
+//! - [`theme::registry`] — `Scheme`, `Themes`, and the fourteen shipped palettes. Importing one is
+//!   a `const fn`, so a theme lives in `.rodata`; the registry itself is application state, because
+//!   a theme picker reads the set inside the frame while the loop writes it between frames.
+//! - [`keys`] — `Chord`, `Binding`, `KeyMap`, key sequences and generated help. Chords are stored
+//!   inline because a `&'static [Chord]` cannot be written at a call site, and a chord matches on
+//!   the intent half of the modifier bits rather than on all of them.
+//! - [`ctx`] — `Ctx<'f, 'v>`, `Frame`, `Env`, `Response`, `Interest`, `Driver`. Five flat
+//!   structures rebuilt from the draw, four id-keyed facts, and a `begin` that cannot be skipped.
+//! - [`id`] — `Id`, `IdTable`, the id stack. The call site is the identity, hashed with FNV-1a and
+//!   no finalizer, and three of the four id-keyed facts are swept when a widget stops drawing.
+//! - [`focus`] — `ScopeKind`, `Stop`, the focus ring and the vanish rule that decides where the
+//!   keyboard goes when the focused widget stops being drawn.
+//! - [`route`] — `Edge`, `edge_of`, `batch_len`, and the key queue behind `Ctx::next_key`. **A
+//!   frame consumes at most one routing edge**, there are no per-id inboxes, and bubbling happens
+//!   after a scope's body rather than by walking the id path.
+//! - [`scroll`] — `Scrollable`, `IntoView`, `Area`, `Wheel`. **Two mechanisms that must never be
+//!   conflated**: a scroll area costs what the content costs, and a virtualised collection costs
+//!   what the window costs.
+//! - [`sizing`] — the sizing-function contract, `Ctx::measured` and the mismatch detector. No trait
+//!   and no type a component implements: a sizing function is a shape.
+//! - [`anim`] — `Easing`, `Tween`, `Steps`, `Spring`, `WakeLedger`. There is no animation object:
+//!   every helper is a closed form over `(now, start, duration)`, a `Tween` is 48 bytes of the
+//!   component's own state, and the runtime keeps only the wake accounting — unconditionally, since
+//!   a detector armed in debug builds alone never sees the application.
+//! - [`overlay`] — `Z`, `Placement`, `place`, `Scrim`, `OverlayOpts` and the body queue. **Request
+//!   during the draw, satisfy after it, answer next frame.**
+//! - [`work`] — `Slot` (the engine's, re-exported), `Drain`, `Task`, `Worker`, `Landing`, `Cancel`.
+//!   A worker is a noun rather than a spawned future: this crate has no executor, so the handoff is
+//!   a resident thread with a one-slot inbox.
 //!
 //! # Status
 //!
-//! Implementation-complete: twenty-one tickets against
-//! `.scratch/vitui-runtime-architecture/spec.md`, whose map is closed, with spec §20's register at
-//! forty-eight entries and its twenty scenes green. What the crate is, module by module:
-//!
-//! - [`data`] — `Revision`, `Versioned`, `Edit`, `Memo`. Spec §14, ADR 0019. **`std` only**: it
-//!   reaches for neither the engine nor the frame, which is why it is first.
-//! - [`layout`] — the constraint solver and the rect algebra. Spec §11. Pure functions over integer
-//!   rectangles: no solver state, no allocation, and no floats anywhere.
-//! - [`theme`] — `Paint`, `Role`, `Roles`, `Theme`, `Repaint`, `Glyph`, `Distinction`, `Density`.
-//!   Spec §3 and §10; ADR 0018, 0021, 0010. A component names a role and can never construct a
-//!   paint.
-//! - [`theme::registry`] — `Scheme`, `Themes`, and the fourteen shipped palettes. Spec §15. The
-//!   import is a `const fn`, so a theme is `.rodata`; the registry is **application state**, because
-//!   a picker reads the set inside the frame while the loop writes it between frames.
-//! - [`keys`] — `Chord`, `Binding`, `KeyMap`, sequences and help. Spec §9. Chords stored inline
-//!   because `&'static [Chord]` cannot be written at a call site, and matching on the intent half of
-//!   eight modifier bits.
-//! - [`ctx`] — `Ctx<'f, 'v>`, `Frame`, `Env`, `Response`, `Interest`, `Driver`. Spec §1, §3, §6;
-//!   ADR 0012. Five flat structures rebuilt from the draw, four id-keyed facts, and a `begin` that
-//!   cannot be skipped.
-//! - [`id`] — `Id`, `IdTable`, the id stack. Spec §5; ADR 0013. The call site is the source, FNV-1a
-//!   with no finalizer, and three of the four id-keyed facts swept when a widget stops drawing.
-//! - [`focus`] — `ScopeKind`, `Stop`, the ring and the vanish rule. Spec §8. A sixth interest bit,
-//!   three scope answers as frame-local ranges, and the previous frame's ring as one more swapped
-//!   buffer.
-//! - [`route`] — `Edge`, `edge_of`, `batch_len`, and the one key queue behind `Ctx::next_key`. Spec
-//!   §7; ADR 0016. **A frame consumes at most one routing edge**, there are no per-id inboxes, and
-//!   bubbling is `Ctx::scope`'s after-the-body moment rather than a walk of the id path.
-//! - [`scroll`] — `Scrollable`, `IntoView`, `Area`, `Wheel`. Spec §13; ADR 0015. **Two mechanisms
-//!   that must never be conflated** — a scroll area costs the content and a virtualised collection
-//!   costs the window — four direction bits rather than two axis bools, and the one sixteen-byte
-//!   fact that crosses a frame.
-//! - [`sizing`] — the sizing-function contract, `Ctx::measured` and the detector. Spec §12; ADR
-//!   0014. **No trait and no type a component implements**: a sizing function is a shape, and the
-//!   dry run survives only as the test that keeps one honest against the component beside it.
-//! - [`anim`] — `Easing`, `Tween`, `Steps`, `Spring`, `WakeLedger`. Spec §16. **No animation
-//!   object**: every helper is a closed form over `(now, start, duration)`, a `Tween` is 48 bytes of
-//!   the component's own state, and the runtime holds nothing but the wake accounting — which is
-//!   unconditional, because a detector armed only in a debug build never sees the application.
-//! - [`overlay`] — `Z`, `Placement`, `place`, `Scrim`, `OverlayOpts` and the body queue. Spec §10;
-//!   ADR 0017 and ADR 0034. **Request during the draw, satisfy after it, answer next frame**, with
-//!   the owner id handed over rather than derived. A body is one `Box` in a queue the frame call
-//!   owns; the bump region that held it with its type erased was this crate's only `unsafe`, and
-//!   ticket 21 traded *the overlay frame allocates nothing* for the attribute below.
-//! - [`work`] — `Slot` (the engine's, re-exported), `Drain`, `Task`, `Worker`, `Landing`, `Cancel`.
-//!   Spec §17. **A worker is a noun, not a spawned future**: the runtime has no executor to lean on,
-//!   so the handoff is a resident thread with a one-slot inbox and eight bytes of generation that
-//!   say which question an answer answers.
+//! Implementation-complete, and there is no stability promise before 0.x. Minimum supported Rust
+//! version 1.88.
 
-// **No `unsafe` in any shipped crate above the engine** (ticket 21, ADR 0034). `forbid` and not
-// `deny`, so nothing inside the crate can turn it back on with an `allow` — and it subsumes the
-// `unsafe_op_in_unsafe_fn` this line used to carry, which only shaped `unsafe` that was allowed to
-// exist. It is the whole gate: a compile outcome, with no test to write and no number to tune. The one
-// place `unsafe` bought something is recorded where it was given up — `crate::overlay`, on the frame
-// arena — and `vitui-alloc-probe` is the stated exemption, because `GlobalAlloc` cannot be
-// implemented in safe Rust and it is `publish = false`.
+// No `unsafe` in any shipped crate above the engine. `forbid` and not `deny`, so nothing inside the
+// crate can turn it back on with an `allow`. It is the whole gate: a compile outcome, with no test
+// to write and no number to tune. The one place `unsafe` bought something is recorded where it was
+// given up, in `crate::overlay`, on the frame arena.
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
@@ -105,33 +115,31 @@ pub mod work;
 #[path = "screen.rs"]
 mod screen;
 
-// **The headroom ledger, as an assertion.** Ticket 20. Every gated or reported number in this crate
-// has exactly one home and this is it — most importantly the frame budget itself, which spec §19 says
-// may not move without a new map decision and which was written out eleven times across `examples/`
-// before this file existed. `#[cfg(test)]` for `screen`'s reason and the engine's; the examples
-// `#[path]`-include it, which is how a report reads the budget it divides by.
+// The headroom ledger, as an assertion. Every gated or reported number in this crate has exactly one
+// home and this is it — most importantly the frame budget, which may not move without a new
+// architecture decision and which had been written out eleven times across `examples/` before this
+// file existed. The examples `#[path]`-include it, which is how a report reads the budget it divides
+// by.
 #[cfg(test)]
 #[allow(dead_code)]
 #[path = "ledger.rs"]
 mod ledger;
 
-// **Spec §20's register, as a value.** Ticket 19. Every gate this crate ships, each naming the
-// instruments that run it — and every instrument is checked against the source, which is the whole
-// difference between a register and a document. `#[cfg(test)]` for `crate::line`'s reason and the
-// engine's (`crates/vitui-engine/src/audit.rs`): an instrument is not part of the library.
+// The verification register, as a value: every gate this crate ships, each naming the instruments
+// that run it, with every instrument checked against the source. That check is the whole difference
+// between a register and a document. Behind `cfg(test)`, because an instrument is not part of the
+// library.
 #[cfg(test)]
 mod register;
 
-// **Spec §20's twenty scenes, as a normative list.** Ticket 19, and `#[cfg(test)]` on the same
-// terms. A scene is removed only by a ticket naming the property it can no longer distinguish.
+// The scenes, as a normative list, on the same terms. A scene is removed only by a change that names
+// the property it can no longer distinguish.
 #[cfg(test)]
 mod scenes;
 
-// **The crate line, as a value.** Ticket 17's module map, the visibility count and the four manifest
-// decisions that had been comments — `#[cfg(test)]` for `screen`'s reason and for the engine's
-// (`crates/vitui-engine/src/audit.rs`): an instrument is not part of the library. The *build* behind
-// the count is `crates/vitui-components/tests/crate_line.rs`, which is a crate that cannot name the
-// engine.
+// The crate line, as a value: the module map, the visibility count and the manifest decisions that
+// had been comments. The *build* behind the count is `crates/vitui-components/tests/crate_line.rs`,
+// which is a crate that cannot name the engine.
 #[cfg(test)]
 mod line;
 

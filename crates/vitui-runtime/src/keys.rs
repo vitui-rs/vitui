@@ -59,8 +59,8 @@
 //!
 //! **Matching never consults the terminal's keyboard at all**, and [`base_layout_reported`] is the
 //! whole of what is readable — one boolean, not a tier. Two reasons, and the second is the sharper:
-//! a binding is not rewritten because the terminal is poor, any more than a declared interest is
-//! (ADR 0021); and **which legacy terminal we are in is unobservable**, both cases being silence on
+//! a binding is not rewritten because the terminal is poor, any more than a declared interest is;
+//! and **which legacy terminal we are in is unobservable**, both cases being silence on
 //! the wire, so a ladder's middle rungs cannot be told apart. ADR 0010 refuses `KeyboardTier` by name
 //! and this is why.
 
@@ -859,7 +859,7 @@ mod tests {
     ///
     /// **The one place this module builds a `Key`**, and the only helper that can build one whose
     /// `code` and `text` **disagree** — which is what a terminal at kitty flag 4 plus flag 16 sends,
-    /// and what nothing in this crate could express before `KeyText::of` (issue 28).
+    /// and what nothing in this crate could express before `KeyText::of`.
     fn wire(code: KeyCode, mods: Mods, text: Option<char>) -> Key {
         Key {
             code,

@@ -3,7 +3,7 @@
 //!
 //! > **O1 catches an API that cannot be called from outside the crate** — which was C01's actual
 //! > question — and O2 catches an inventory that has drifted from what ships. Neither catches a
-//! > wrong cell; that is O3 and O5. (spec §17)
+//! > wrong cell; that is O3 and O5.
 //!
 //! O1 is stated as two gates that do not substitute for each other, and this module carries both.
 //! The first is a **compile outcome** — `#![deny(missing_docs)]` on this crate, plus the doctests
@@ -663,7 +663,7 @@ mod tests {
 
     /// **The scan is watched failing on a page that is missing each of the four things it owes.**
     ///
-    /// A gate nobody has watched fail is not a gate (§21), and this one has five clauses that all
+    /// A gate nobody has watched fail is not a gate, and this one has five clauses that all
     /// read `true` on the shipped crate.
     #[test]
     fn a_page_missing_any_one_of_the_four_does_not_hold() {

@@ -15,7 +15,7 @@
 //! # The width is the second dimension of §7's own statement about the scene list
 //!
 //! §7's sentence about the unclamped indent ends *on a shallow tree the same flag is invisible: a
-//! statement about the scene list (§21), not about the gate.* That reads as a fact about the
+//! statement about the scene list, not about the gate.* That reads as a fact about the
 //! **depth**, and the scene above it fixes the width at [`W`] and varies only the depth. Production
 //! 07's scene fixes the depth at [`SHALLOW`] — where scene 8 says the flag is invisible — and
 //! varies the **width**, and the flag reappears at twenty-two columns.
@@ -38,7 +38,7 @@
 //! > **An unclamped indent makes a row's cost proportional to its depth** — 3 812 970 cells asked
 //! > for against 23 030, **165x** — and it measures **18% faster**, because the clip eats them and
 //! > the label rectangle collapses. On a shallow tree the same flag is invisible: a statement about
-//! > the scene list (§21), not about the gate. (spec §7)
+//! > the scene list, not about the gate.
 //!
 //! Everything in that sentence except the magnitudes reproduces here, and the magnitudes are this
 //! screen's rather than the prototype's — see [`the_numbers`]. What matters is the **direction**:
@@ -180,7 +180,7 @@ pub const PERMUTED_RUNS: usize = 249_940;
 
 /// **How many `Run`s a half-tree fold parks under `Policy::Stash`. One — sixteen bytes.**
 ///
-/// > The parked runs are bounded by runs, not rows. (spec §7)
+/// > The parked runs are bounded by runs, not rows.
 pub const PARKED_RUNS: usize = 1;
 
 /// How wide one column of the twelve-column control is. `300 / 12`.
@@ -396,7 +396,7 @@ pub struct Flat {
 /// **What a fold or an unfold did to the index**, in the three numbers the component knows exactly.
 ///
 /// > A subtree is contiguous in pre-order display coordinates, so the edit is
-/// > `Splice { at, removed, inserted }` and the component *performed* it. (spec §7)
+/// > `Splice { at, removed, inserted }` and the component *performed* it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub struct Splice {
     /// Where in the index.
@@ -557,7 +557,7 @@ impl Run {
 ///
 /// All three real policies are O(runs) and all three are free — 0.00 / 0.08 / 0.04 µs — so the
 /// choice is behavioural rather than forced, which is the opposite of a sort's, where the cost
-/// decides. See spec §7.
+/// decides.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Policy {
     /// **The default.** The selected rows inside the fold are forgotten.

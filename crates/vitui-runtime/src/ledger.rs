@@ -1,6 +1,6 @@
 //! **Every gated or reported number in this crate has exactly one home, and this is it.**
 //!
-//! Ticket 20. The engine's `crate::ledger` is the same instrument for the same reason, and the
+//!The engine's `crate::ledger` is the same instrument for the same reason, and the
 //! reason is a measured one: the audit that produced the engine's found its watchdog threshold
 //! copied into nine files. This crate had the same defect in a more embarrassing place — **the
 //! frame budget itself, `const FRAME_NS: f64 = 100_000.0`, written out twelve times across
@@ -28,7 +28,7 @@
 //!
 //! The engine's ledger totals its `Cost` rows and compares the total to a budget, because on the
 //! app thread every row *is* the engine's own work. Here the same arithmetic would lie. **92% of the
-//! dense frame is the engine serialising 7 488 damaged cells** (ticket 17), which is work this
+//! dense frame is the engine serialising 7 488 damaged cells**, which is work this
 //! crate causes and does not do. So the rows below sum to [`runtime_share_ns`] — the runtime's own
 //! declared work, **≈8.6 µs** — and the difference between that and the measured frame belongs to
 //! the engine's budget, not to this one.

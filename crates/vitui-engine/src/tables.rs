@@ -1,7 +1,7 @@
 //! The handle tables, as one thing: what a drawing verb reaches through.
 //!
 //! Spec §3 calls them *the handle tables* in the plural and treats them as a set — **one set per
-//! layer stack**, minted by `attach`, reached by the verbs through the draw context (ADR 0011).
+//! layer stack**, minted by `attach`, reached by the verbs through the draw context.
 //! They travel together everywhere in this crate: `text` needs the interner, `restyle` needs the
 //! extended-style table and the link table, and `pack` needs all three at once. So they are one
 //! struct rather than three arguments threaded past each other, and a `View` borrows one field

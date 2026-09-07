@@ -1494,7 +1494,7 @@ pub const NEGATIVE_CASES: usize = 31;
 /// crate — [`Driver::suspend`](crate::ctx::Driver::suspend)'s, giving the terminal to `vi` — and it
 /// is `no_run` for a reason unrelated to [`Driver::wait`](crate::ctx::Driver::wait)'s: a doctest
 /// that ran it would hand the test harness's terminal to an editor.
-pub const RUNNABLE_EXAMPLES: usize = 61;
+pub const RUNNABLE_EXAMPLES: usize = 62;
 
 #[cfg(test)]
 mod tests {

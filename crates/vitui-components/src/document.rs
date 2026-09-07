@@ -463,7 +463,7 @@ fn edit(base: &str, at: usize, inserted: &str) -> String {
 /// comparable; the component's arm is the one the register cites first.
 ///
 /// The caret is walked to the trial's offset with `Text::right` from the start of its own row,
-/// because there is no expression for *put the caret at byte N* (§11) and a gate may not invent
+/// because there is no expression for *put the caret at byte N* and a gate may not invent
 /// one — [`edit_walk`]'s [`Seat::AtByte`] is the door, and it is a defect rather than a fixture.
 pub fn component_splice_sweep() -> Splices {
     let base = splice_document();
@@ -589,7 +589,7 @@ pub const WALK_SEATS: usize = 144;
 pub const WALK_INSIDE: usize = 45;
 
 /// **How a caret is seated between the edits of [`edit_walk`]** — one function, two arms, one value
-/// between them, which is this file's rule for a defect (ADR 0026).
+/// between them, which is this file's rule for a defect.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Seat {
     /// **The shipped verbs.** A caret is placed by a click's column, a cluster step, `Home` or

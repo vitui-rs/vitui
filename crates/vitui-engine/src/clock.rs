@@ -83,8 +83,8 @@ pub enum Wake {
     /// [`WakeHandle::quit`](crate::WakeHandle::quit) was called, **or the terminal went away**.
     /// Never paced.
     ///
-    /// The second reason is not a second variant, and that is a decision rather than an economy
-    /// (spec §7): when the input thread's read end closes, the terminal this process was drawing on
+    /// The second reason is not a second variant, and that is a decision rather than an economy:
+    /// when the input thread's read end closes, the terminal this process was drawing on
     /// is gone. Every write after that is discarded — the frame path has no `Result` in it — so
     /// `present` would go on answering `submitted: true` for ever while an application parked in
     /// [`Screen::wait`](crate::Screen::wait) waited on a keyboard that cannot send another byte. An

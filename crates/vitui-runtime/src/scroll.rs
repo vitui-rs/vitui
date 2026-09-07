@@ -49,7 +49,7 @@
 //!
 //! The innermost scrollable under the pointer **that can still move the way the wheel is going**
 //! consumes the click; otherwise it passes outward. Every other pointer outcome is awarded at `end`
-//! from the index that has just drawn (ADR 0015), and this one cannot be: **the offset is read during
+//! from the index that has just drawn, and this one cannot be: **the offset is read during
 //! the draw by the widget that owns it**, so an answer that arrives after the draw arrives after the
 //! only reader.
 //!
@@ -279,7 +279,7 @@ pub struct IntoView {
 /// user stopped asking for anything, which is the one thing an idle application may not cost — so
 /// what is configurable is how many rows a click is worth, and nothing else.
 ///
-/// **One row and one column by default**, because a notch is intent (ADR 0008) and the runtime has no
+/// **One row and one column by default**, because a notch is intent and the runtime has no
 /// standing to multiply somebody's intent by three. An application whose terminal reports coarse
 /// clicks raises it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

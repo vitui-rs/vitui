@@ -16,8 +16,8 @@
 //!
 //! Exactly 64 bits with nothing spare. Bit 63 says where the two colours are: clear, and they are
 //! inline in bits 51..0; set, and bits 51..0 are a handle into the extended-style table, which
-//! carries the colours together with the underline colour and the OSC 8 hyperlink that did not fit
-//! (ticket 07). Nothing on this type can reach the bit — [`View::restyle`](crate::View::restyle) is
+//! carries the colours together with the underline colour and the OSC 8 hyperlink that did not fit.
+//! Nothing on this type can reach the bit — [`View::restyle`](crate::View::restyle) is
 //! the only verb that sets or clears it, because it is the only one that owns the table.
 
 /// Bit 63: set, and bits 51..0 are a handle into the extended-style table rather than two colours.
@@ -119,7 +119,7 @@ impl Color {
 /// # The two methods that are absent, and why the compiler is the right place to say so
 ///
 /// `Style::with_bg` and `Style::with_fg_bg` were **removed** rather than documented, because both
-/// were silently wrong on an extended style (spec §3). `with_bg` returned an extended style
+/// were silently wrong on an extended style. `with_bg` returned an extended style
 /// unchanged, so a selection would highlight everything except the hyperlink. `with_fg_bg` kept
 /// bits 62..52 and rewrote the rest, so it cleared bit 63 and overwrote the 52-bit handle with
 /// colours — **a shadow falling across a hyperlink deleted the hyperlink**, with no error and

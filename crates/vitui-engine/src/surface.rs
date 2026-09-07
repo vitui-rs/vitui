@@ -10,8 +10,8 @@ use crate::view::View;
 ///
 /// The engine's central primitive. A layer usually owns one; a caller constructs one directly only
 /// to draw somewhere off-screen. What a surface holds is cells and damage: the handle tables belong
-/// to the layer stack, and that is what lets one layer be composited into another as a plain copy
-/// (spec §3). The `tables` field below is the standalone door's exception and is empty for every
+/// to the layer stack, and that is what lets one layer be composited into another as a plain copy.
+/// The `tables` field below is the standalone door's exception and is empty for every
 /// surface the stack minted.
 ///
 /// # Threading
@@ -32,7 +32,7 @@ use crate::view::View;
 /// # There is no `set_eq_filter`, and the reason is `clear`-then-draw
 ///
 /// A write-time equality filter — *do not mark damage for a write whose value is already there* —
-/// is free in time and was measured and refused (spec §4, §8). **It is defeated by the idiom every
+/// is free in time and was measured and refused. **It is defeated by the idiom every
 /// component library uses:** immediate mode blanks a region before it draws into it, so the filter
 /// sees blank-over-text and then text-over-blank, and both of those are changes. It strips nothing on
 /// the frames that matter.
@@ -83,13 +83,13 @@ pub struct Surface {
     damage: RowBits,
     /// What an untouched cell of this surface holds: a blank for an opaque surface, `EMPTY` for a
     /// non-opaque one. A repair blanks half a pair back to *this*, not to a space — blanking to a
-    /// space inside a non-opaque layer punches exactly the hole `opaque: false` exists to prevent
-    /// (spec §5), in a cell the caller never asked for.
+    /// space inside a non-opaque layer punches exactly the hole `opaque: false` exists to prevent,
+    /// in a cell the caller never asked for.
     ground: GraphemeId,
     /// The handle space of a surface **outside** a layer stack, and nothing else.
     ///
     /// `Surface::new` and `Surface::root` are public, and a `View` from that door has no engine to
-    /// reach through — so the standalone door brings its own tables (spec §3, ticket 19). A surface
+    /// reach through — so the standalone door brings its own tables. A surface
     /// the stack minted never touches these: `LayerStack::view` hands the *stack's* tables to the
     /// `View`, which is what keeps one handle space per stack and compositing a `copy_from_slice`.
     /// An untouched table holds no allocation, so the field costs a layer surface nothing but its
@@ -134,7 +134,7 @@ impl Surface {
     ///
     /// The standalone door. A surface reached this way is not in a layer stack, so it interns into
     /// the tables it carries; `add_content_with` renumbers those handles into the stack's when the
-    /// surface is donated (ticket 10). The fields are taken apart here rather than passed as
+    /// surface is donated. The fields are taken apart here rather than passed as
     /// `&mut self` because the verbs need the cells, the damage **and** the tables at once, and
     /// they come from one struct.
     pub fn root(&mut self) -> View<'_> {
@@ -152,7 +152,7 @@ impl Surface {
     /// A view of the whole surface, drawing into a handle space that is not this surface's.
     ///
     /// What [`LayerStack::view`](crate::LayerStack::view) hands out: one set of tables per stack,
-    /// so a handle crossing a surface boundary inside the stack needs no translation (ADR 0011).
+    /// so a handle crossing a surface boundary inside the stack needs no translation.
     pub(crate) fn draw<'a>(&'a mut self, tables: &'a mut Tables) -> View<'a> {
         let clip = Rect::new(0, 0, self.width, self.height);
         View::new(

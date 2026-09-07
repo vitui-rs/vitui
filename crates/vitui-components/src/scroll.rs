@@ -1,7 +1,7 @@
 //! **F3 scrolling**, 18 entries, expressed by `scroll_area`, `scrollbar`, `sticky` and
 //! `collection` — and [`bar`], the helper every one of them draws.
 //!
-//! The reduction is R2 and R5 (spec §18); `pull-to-refresh` is the family's one residue entry, a
+//! The reduction is R2 and R5; `pull-to-refresh` is the family's one residue entry, a
 //! touch gesture with no terminal meaning and nobody who could change that.
 //!
 //! `collection` declares this family and is homed under F7. Spec §9's C21 is why the distinction
@@ -59,7 +59,7 @@ pub enum Orient {
 pub struct Span {
     /// How many content cells are visible along this axis.
     pub viewport: u32,
-    /// How many content cells there are in total. **`Σ h`, never a row count** (spec §9).
+    /// How many content cells there are in total. **`Σ h`, never a row count**.
     pub extent: u32,
     /// The first visible content cell.
     pub offset: u32,
@@ -96,7 +96,7 @@ impl Default for BarOpts {
 /// Three cases, and the first two are the ones a bar drawn by hand gets wrong:
 ///
 /// - **content that fits** is a thumb filling the whole track, not an absent bar — the bar is
-///   reserved either way (ADR 0029), so the groove has to say *there is nothing below*;
+///   reserved either way, so the groove has to say *there is nothing below*;
 /// - **a thumb is never shorter than one cell**, or a million-row area has no thumb at all;
 /// - **the travel is `track - length`**, so the last content cell puts the thumb against the far
 ///   end exactly rather than one short of it.
@@ -122,7 +122,7 @@ pub fn thumb(track: u16, span: Span) -> (u16, u16) {
 ///
 /// # It returns the thumb and not a remainder, because a bar has none
 ///
-/// Every other helper on this map returns *the cells it did not write* (spec §2). A bar writes all
+/// Every other helper on this map returns *the cells it did not write*. A bar writes all
 /// of its rectangle, so the return value would always be empty — and the one rectangle a caller
 /// needs afterwards is the thumb, which is the drag target.
 ///
@@ -453,7 +453,7 @@ pub mod defective {
     /// and a review caught it: this function did not carry the attribute, so `cx.id()` mints *its
     /// own* line, and adding one would have made it mint the caller's — a change to a shipped
     /// signature's behaviour, unasked and ungated. It changes nothing observable, because a band
-    /// declares nothing (§9), and *changes nothing observable* is not a reason to make it.
+    /// declares nothing, and *changes nothing observable* is not a reason to make it.
     pub fn arithmetic_band(
         cx: &mut Ctx<'_, '_>,
         band: Rect,
@@ -854,7 +854,7 @@ pub struct ScrollbarOpts {
     /// How the groove and the thumb are drawn. [`bar`]'s own options.
     pub bar: BarOpts,
     /// **A stepper at each end**, drawn in the four arrow glyphs the freeze declares for this
-    /// component (spec §17). Dropped when the bar is shorter than [`CAPS`] + 1 cells, because a
+    /// component. Dropped when the bar is shorter than [`CAPS`] + 1 cells, because a
     /// bar with no track left is two buttons and a lie.
     pub caps: bool,
     /// The role the steppers are drawn in.
@@ -1579,7 +1579,7 @@ pub const THUMB_V: u16 = 1;
 /// The horizontal thumb: `299 * 299 / 400`.
 pub const THUMB_H: u16 = 223;
 
-/// The vertical bar's rectangle on the two-bar screen. Reserved, never overlaid (ADR 0029).
+/// The vertical bar's rectangle on the two-bar screen. Reserved, never overlaid.
 pub fn vertical() -> Rect {
     Rect::new(i32::from(W - 1), 0, 1, H - 1)
 }

@@ -11,7 +11,7 @@
 //! one rectangle inside one frame, which is a thing a function can obey. This one is a statement
 //! about a *sequence* of frames — *once, and then never again until the size changes* — so it needs
 //! a value that survives a frame, and the only such value in a runtime with no retained structure
-//! (ADR 0012) is one the application owns. [`Clears`] is that value: two words, kept by the caller,
+//! is one the application owns. [`Clears`] is that value: two words, kept by the caller,
 //! passed a `Ctx` once a frame.
 //!
 //! # Both directions are defects, and that is why the equality is what proves this

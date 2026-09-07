@@ -3,7 +3,7 @@
 //! A [`Surface`] owns cells and damage; a borrowed `View` draws into it. A view is an origin, a
 //! clip region and a content offset, with no cells of its own — its clip stack **is** the call
 //! stack, which is what makes zero allocation structural rather than disciplined, and what makes a
-//! child unable to widen its parent (spec §4).
+//! child unable to widen its parent.
 //!
 //! # Scope
 //!
@@ -37,7 +37,7 @@ pub enum Stop {
 
 /// What a drawing verb did.
 ///
-/// The escape hatch is this, not a `Result` (ADR 0022). A caller that needs to know where a verb
+/// The escape hatch is this, not a `Result`. A caller that needs to know where a verb
 /// stopped is told; a caller that does not pays nothing. `bytes` is how much of the string was
 /// consumed, which is what a caller that wraps or paginates would otherwise have to re-segment to
 /// find out.
@@ -75,7 +75,7 @@ impl Written {
 /// The cells, the damage and the handle tables, taken apart rather than reached through a
 /// `&mut Surface`. Every write verb needs all three at once and they do not come from one owner:
 /// a surface in a layer stack draws into the **stack's** handle space, while a standalone surface
-/// draws into its own (spec §3, ticket 19).
+/// draws into its own.
 ///
 /// # Threading
 ///
@@ -94,7 +94,7 @@ impl Written {
 /// The case never materialised: in a single-threaded immediate-mode pass no scenario was found
 /// where two siblings must be held at the same *moment* rather than one after another, and
 /// [`child`](View::child) already gives each a clip it cannot widen. None of the five hostile
-/// components missed it. The price of building it is recorded rather than forgotten (spec §4):
+/// components missed it. The price of building it is recorded rather than forgotten:
 ///
 /// - A **row-band** split is expressible safely, but only after redesigning the hottest type in
 ///   the engine — the verbs would need the cells, the damage and the tables behind interior
@@ -107,7 +107,7 @@ impl Written {
 /// - A scoped sequential `panes(&[r], |i, v|)` is safe and cheap and expresses only what `child`
 ///   already expresses, one call less clearly.
 ///
-/// Asserted rather than argued, and it is **two** `E0499`s against the real `Surface` (spec §4) —
+/// Asserted rather than argued, and it is **two** `E0499`s against the real `Surface` —
 /// one at each door a split could be built from. At the surface's:
 ///
 /// ```compile_fail,E0499
@@ -244,7 +244,7 @@ pub struct View<'a> {
     /// verb**. `child` moves it to the child's rectangle, `scrolled` moves it by the scroll — and
     /// because the clip stays absolute, libvaxis's accumulate-only-negative-offsets trick is not
     /// needed: the intersection does the same work and also survives a child whose parent is
-    /// scrolled (spec §4).
+    /// scrolled.
     origin: (i32, i32),
     /// What an untouched cell of the surface holds; see [`Row::blank`].
     ground: GraphemeId,
@@ -342,7 +342,7 @@ impl<'r> Row<'r> {
     ///
     /// A write landing on a `CONTINUATION` blanks its head at `x - 1`; a write landing on a wide
     /// head blanks its continuation at `x + 1`. Both halves are damaged, which is what deletes
-    /// ratatui's two bug-driven workarounds rather than porting them (spec §6).
+    /// ratatui's two bug-driven workarounds rather than porting them.
     ///
     /// **The bound is the row, not the clip** — see [`Row`] for why, and for what it does not hand
     /// a caller. The returned span is what actually changed, so a repair that reached past the clip
@@ -453,7 +453,7 @@ impl<'a> View<'a> {
     ///
     /// Both shapes were written and benchmarked and **they cost the same** — 54.1 against 54.3 us
     /// on full-screen text, 54.5 against 56.3 at nesting depth 8 — so the choice rests entirely on
-    /// what each makes *impossible* (spec §4):
+    /// what each makes *impossible*:
     ///
     /// - **A child cannot widen its clip.** In the painter shape a callee holds the whole surface
     ///   and a `pop_region` it can call more times than it pushed, which is a component painting
@@ -541,7 +541,7 @@ impl<'a> View<'a> {
     /// # Why a free discard is not enough
     ///
     /// A discarded write costs 3.6 ns against an accepted one's 540 ns — **149x cheaper, and
-    /// categorically insufficient** (spec §4). A component drawing all 1 000 000 rows of a tree
+    /// categorically insufficient**. A component drawing all 1 000 000 rows of a tree
     /// burns **3.68 ms in pure rejection, 3.7x the entire frame budget**, before it has formatted a
     /// single string. Bounded by this query the same component is **54 us at 1 000 rows, at 100 000
     /// and at 1 000 000 — flat to three significant figures.**
@@ -576,7 +576,7 @@ impl<'a> View<'a> {
     ///
     /// Saturating, for the reason [`Rect::right`] is: a coordinate at the far end of the space
     /// stays at the far end rather than wrapping round to the other one. A caller may hand any
-    /// `i32` to any verb (ADR 0022), so the far end is reachable input rather than a hypothetical.
+    /// `i32` to any verb, so the far end is reachable input rather than a hypothetical.
     fn at(&self, x: i32, y: i32) -> (i32, i32) {
         (
             x.saturating_add(self.origin.0),
@@ -599,11 +599,11 @@ impl<'a> View<'a> {
     ///
     /// Out-of-bounds writes are discarded silently — no panic, no `Result`, not even a
     /// `debug_assert`. A virtualised component writes far outside a surface as a matter of course,
-    /// and that is normal traffic rather than an error (ADR 0022).
+    /// and that is normal traffic rather than an error.
     ///
     /// # The five repair rules
     ///
-    /// A double-width glyph can never be cut in half by a write (spec §3). Landing on a
+    /// A double-width glyph can never be cut in half by a write. Landing on a
     /// `CONTINUATION` blanks its head; landing on a wide head blanks its continuation; a blanked
     /// half keeps the **old** cell's style; a wide glyph that does not fit is written as a space,
     /// never as half a glyph; and a wide glyph landing across an existing pair repairs at both ends
@@ -726,7 +726,7 @@ impl<'a> View<'a> {
     /// Write one cluster at `(x, y)`. The same call as [`text`](Self::text).
     ///
     /// Kept because `set(x, y, "▀", st)` reads better at a chart's call site than the same string
-    /// passed to a verb named for prose (spec §4).
+    /// passed to a verb named for prose.
     pub fn set(&mut self, x: i32, y: i32, cluster: &str, style: Style) -> Written {
         self.text(x, y, cluster, style)
     }
@@ -734,7 +734,7 @@ impl<'a> View<'a> {
     /// Fill `r` with `cluster`, in the given style.
     ///
     /// Seventeen times cheaper than the same cells written with [`text`](Self::text), because a
-    /// narrow cluster is a `slice::fill` of a sixteen-byte `Copy` with two edge repairs (spec §4).
+    /// narrow cluster is a `slice::fill` of a sixteen-byte `Copy` with two edge repairs.
     /// Expressing a fill as repeated text throws that away.
     ///
     /// A **wide** cluster fills in pairs, and an odd last column gets a space rather than half a
@@ -791,7 +791,7 @@ impl<'a> View<'a> {
     /// Change how the cells in `r` are painted, without touching what is drawn there.
     ///
     /// Moving a selection bar one row costs **205 ns against 1.36 µs** for redrawing the same row,
-    /// 6.6x (spec §4). Without this verb, changing a background means re-segmenting UTF-8 and
+    /// 6.6x. Without this verb, changing a background means re-segmenting UTF-8 and
     /// re-interning every cluster on the row to write back the text that was already there.
     ///
     /// # What it promises
@@ -832,7 +832,7 @@ impl<'a> View<'a> {
     /// skips the continuation, so the terminal paints both columns from one SGR. Restyling one half
     /// of a pair would leave the frame saying something the wire cannot express. A pair bisected by
     /// the rectangle is therefore restyled whole — and left alone when its other half is outside
-    /// the clip, because a view may not widen itself (spec §4).
+    /// the clip, because a view may not widen itself.
     ///
     /// **This verb is where that sentence still bites**, and after architecture ticket 20 it is the
     /// only place it does: the drawing verbs' repair now reaches past the clip, because a bisected

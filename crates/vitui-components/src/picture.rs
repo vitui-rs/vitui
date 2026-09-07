@@ -878,7 +878,7 @@ pub fn cost(build: Build, frames: u32) -> Duration {
 /// function did exactly that and recorded the cost as gone; the number is here so the next reader
 /// does not have to take the sentence on trust.
 ///
-/// A report and not a gate — a timing is a report (§21) — and the ratio is the point rather than
+/// A report and not a gate — a timing is a report — and the ratio is the point rather than
 /// the digits.
 ///
 /// The contrivance is worth recording rather than deleting the memory of: `Roles::from_palette` maps

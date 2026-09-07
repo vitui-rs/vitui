@@ -16,7 +16,7 @@
 //! **Two of the three panels overflow and the third does not**, and both halves are load-bearing:
 //!
 //! - The two that overflow are what makes the density measurement mean something. `Compact` pads one
-//!   cell and `Cosy` two (spec §3), so a `Cosy` panel is **two rows shorter** and two of its widgets
+//!   cell and `Cosy` two, so a `Cosy` panel is **two rows shorter** and two of its widgets
 //!   fall off the bottom. Two panels, two rows each: **four widgets**, which is the number spec §3
 //!   reports beside `20 804 / 267` against `20 992 / 263`. It is a consequence of `pad_y` and of the
 //!   panel count, not a tuned figure.
@@ -683,7 +683,7 @@ mod tests {
     ///
     /// Register row 7 — *every cell of the rectangle written at least once* — was pinned red at
     /// 9 956 cells of 53 280 over six panels of twelve when this was written, with the note that its
-    /// detector was unreachable from this crate (ADR 0023). **Components 40 inverted it, and this
+    /// detector was unreachable from this crate. **Components 40 inverted it, and this
     /// tail is deliberately still here**: the count is read off `crate::runner::Pen` — the same
     /// recorder `distinct` below comes from — and the row's population is *components* and the
     /// assembled gallery, not every screen this crate can draw. This form is a fixture, and its tail

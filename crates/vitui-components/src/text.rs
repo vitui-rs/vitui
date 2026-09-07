@@ -1,6 +1,6 @@
 //! **F1 text**, ~48 entries, expressed by `text`, `chip`, `field` and the [`fit`] helper.
 //!
-//! The reduction is R1 and R5 (spec §18): markdown needs its own wrap pass and is §22's, and there
+//! The reduction is R1 and R5: markdown needs its own wrap pass and is §22's, and there
 //! is no bidi — a stated non-goal with the engine's tables named as the reason.
 //!
 //! `field` declares this family and is **not** homed here: its first family is F6, which is where
@@ -13,7 +13,7 @@
 //! the remainder; there is no verb on it that fills first.** That sentence is the whole helper. A
 //! label centred in a rectangle is three writes that touch every cell of its row exactly once — the
 //! lead, the text, the trail — and never a fill followed by a draw, which is R07's original defect
-//! and 26 of 48 cells on a steady dropdown frame (ADR 0026).
+//! and 26 of 48 cells on a steady dropdown frame.
 //!
 //! **Routing through it costs nothing against the discipline**, and that is the measurement spec
 //! §3's table owed rather than a claim about ergonomics: `crate::form` renders one screen twice, once

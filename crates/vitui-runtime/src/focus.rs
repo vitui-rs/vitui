@@ -36,7 +36,7 @@
 //! # A scope is a range, and the negative case is that it cannot become anything else
 //!
 //! `start`, `end`, `parent` — built during the draw and cleared by `begin`, so nothing about a scope
-//! survives a frame except the ring position it produced. The four id-keyed facts (ADR 0012) are
+//! survives a frame except the ring position it produced. The four id-keyed facts are
 //! still four: the grab, the press origin, the focus and the click record.
 //!
 //! # The vanish rule, and the number that made it a structure rather than a loop
@@ -84,7 +84,7 @@ pub enum ScopeKind {
 /// # The rectangle, and why it is not on the hit index
 ///
 /// `rect` is in **the enclosing scroll area's content coordinates**, read at `end` and never across
-/// a frame (ADR 0015). Ticket 14's scroll-into-view resolves from the ring that has just drawn —
+/// a frame. Ticket 14's scroll-into-view resolves from the ring that has just drawn —
 /// exactly where the press award already is — so the *next* frame is already scrolled, and what
 /// crosses the frame boundary is a scroll offset naming no `Rect`.
 ///

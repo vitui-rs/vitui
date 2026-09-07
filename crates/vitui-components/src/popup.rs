@@ -40,7 +40,7 @@
 //!
 //! | | regions | stops | why |
 //! |---|---|---|---|
-//! | a dropdown | +2 | +1 | one hit entry per collection (§5) plus the blur position (§12) |
+//! | a dropdown | +2 | +1 | one hit entry per collection plus the blur position |
 //! | a menu and its submenu | +6 | +6 | a menu row is a target, and there are three of them twice |
 //! | a modal | +2 | +2 | two buttons inside a `Trap`, and a scope declares no region |
 //!
@@ -51,8 +51,8 @@
 //! # What does not reproduce, and both are findings rather than misses
 //!
 //! **`allocations` is not 0 and cannot be.** §12's table reads `0` in all five rows. That table was
-//! measured on the prototype's crate-private bump arena, which runtime ticket 21 **deleted**
-//! (ADR 0034): a body is now one `Box` in a queue the frame call owns, so a frame with `n` overlays
+//! measured on the prototype's crate-private bump arena, which runtime ticket 21 **deleted**:
+//! a body is now one `Box` in a queue the frame call owns, so a frame with `n` overlays
 //! standing costs `n + 1` allocations and a frame with none costs nothing. The runtime's own gate is
 //! the marginal equality — *one more overlay standing is exactly one more allocation a frame* — and
 //! it is the shipped number. Bending it back would mean restoring seven `unsafe` blocks to a
@@ -143,8 +143,8 @@ pub const DIALOG: (u16, u16) = crate::dense::DIALOG;
 /// The dialog's buttons, which are its two tab stops and the trap's whole range.
 pub const BUTTONS: usize = 2;
 
-/// **What a dropdown adds: two regions and one stop.** One hit entry for the option list (§5) and one
-/// over the whole rectangle for the blur position (§12), which asks for the pointer and not the ring.
+/// **What a dropdown adds: two regions and one stop.** One hit entry for the option list and one
+/// over the whole rectangle for the blur position, which asks for the pointer and not the ring.
 pub const DROPDOWN_DELTA: (usize, usize) = (2, 1);
 /// **What a menu with its submenu adds: four regions and two stops — and §12 says six and six.**
 ///
@@ -199,7 +199,7 @@ pub const SCREEN: u64 = W as u64 * H as u64;
 /// **Allocations a frame with `n` overlays standing costs: `n + 1`, and `0` for none.**
 ///
 /// §12's table reads **0** in every row, and that was true of the prototype's crate-private bump
-/// arena. Runtime ticket 21 deleted it (ADR 0034): a body is one `Box` in a queue the frame call owns,
+/// arena. Runtime ticket 21 deleted it: a body is one `Box` in a queue the frame call owns,
 /// and the queue is the `+ 1`. The `+ 1` is not slack — a stored body is `+ 'f` and safe Rust cannot
 /// put a `'f`-bounded value inside the thing borrowed for `'f`, so the queue is a local of
 /// `Driver::frame` rather than a field.
@@ -232,7 +232,7 @@ pub const LAYERS: [(&str, usize, usize); 4] = [
 /// what puts a popup at `h = 0` in the first place: a popup has no frame before the one it opens on,
 /// so its extent there is 0 and stays 0.
 ///
-/// **It is small only because a collection declares one hit entry however many rows it has** (§5).
+/// **It is small only because a collection declares one hit entry however many rows it has**.
 /// [`PER_ROW_ENTRIES`] is what the other spelling costs on the same screen.
 pub const CLOSED_DECLARES: (usize, usize) =
     (REGIONS + 2 * DROPDOWN_DELTA.0, STOPS + 2 * DROPDOWN_DELTA.1);
@@ -470,7 +470,7 @@ pub const TITLE_ROOT: Id = Id::named("popup.title");
 pub const SELECT_ROOT: Id = Id::named("popup.select");
 /// The root the 312 chips are keyed off.
 pub const CHIP_ROOT: Id = Id::named("popup.chip");
-/// The root a dropdown's option list is keyed off — **one entry for the whole collection** (§5).
+/// The root a dropdown's option list is keyed off — **one entry for the whole collection**.
 ///
 /// **Keyed and not bare, and that is §12's own sentence arriving inside a body.** Two `select`s
 /// standing at once are two overlays, and the two bodies are one function; with a bare `Id::named`
@@ -487,7 +487,7 @@ pub const BLUR: Id = Id::named("popup.blur");
 pub const ROW_ROOT: Id = Id::named("popup.row");
 /// The menu's own rows.
 pub const MENU_ROOT: Id = Id::named("popup.menurow");
-/// **The submenu's owner, minted rather than shared** (§12, §4): a component with two overlays
+/// **The submenu's owner, minted rather than shared**: a component with two overlays
 /// standing must mint a second id, and shared they get one slot resized.
 pub const SUBMENU_OWNER: Id = Id::named("popup.submenu");
 /// The submenu's own rows.
@@ -560,7 +560,7 @@ pub struct Shape {
     /// How many overlay bodies the frame boxed. One allocation each, and the queue is one more.
     pub bodies: u32,
     /// How many overlay requests named an owner that had already asked. **Zero, or two overlays are
-    /// sharing one slot** (§12).
+    /// sharing one slot**.
     pub merged: u32,
     /// **How many claims landed on an id that had already claimed this frame.** §21's register row 3,
     /// and the counter that catches a defect [`Shape::merged`] cannot see: two overlays with distinct
@@ -1626,7 +1626,7 @@ pub struct Walk {
     pub inside: usize,
     /// How many stops the frame declared.
     pub declared: usize,
-    /// How many traps were standing. **The only thing that can name the exception** (§21).
+    /// How many traps were standing. **The only thing that can name the exception**.
     pub traps: usize,
 }
 

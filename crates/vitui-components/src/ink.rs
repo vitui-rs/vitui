@@ -4,7 +4,7 @@
 //! come from two different places: `writes` is the engine's own report — the `cells` field of what
 //! `Ctx::text` returns — and `distinct` is [`crate::counters::Tally`]'s union over the spans those
 //! verbs reported. That only works if the tally **sees the verbs**. A component's shape is
-//! `fn(&mut Ctx, …) -> Response` (spec §1) and nothing on this map has decided that a component
+//! `fn(&mut Ctx, …) -> Response` and nothing on this map has decided that a component
 //! draws through a wrapper, so `fit` and `block` cannot take a `Tally`.
 //!
 //! The alternative that was not taken is a second implementation of `fit` and `block` written

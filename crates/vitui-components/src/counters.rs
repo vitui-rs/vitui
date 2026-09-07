@@ -169,7 +169,7 @@ impl Reading {
 ///
 /// Every component prototype reported `allocs / n` with `n` between 40 and 200, so a frame
 /// allocating on `n − 1` of `n` frames reported **0**. Run as a total, eleven panels are 0 and one
-/// is **40 over 40** — `player::chrome` collecting a `Vec<f32>` on the draw path (§20).
+/// is **40 over 40** — `player::chrome` collecting a `Vec<f32>` on the draw path.
 ///
 /// **This type has no `mean` and that is the encoding.** The rule cannot live in a comment beside a
 /// division, because the division is what a reader writes when the number looks large; it lives here,
@@ -538,7 +538,7 @@ mod tests {
         );
     }
 
-    /// **`marked` fails loudly.** A gate nobody has watched fail is not a gate (§21).
+    /// **`marked` fails loudly.** A gate nobody has watched fail is not a gate.
     #[test]
     #[should_panic(expected = "`marked` is unreachable across the crate line")]
     fn marked_panics_rather_than_answering_zero() {

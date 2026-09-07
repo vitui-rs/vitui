@@ -2,7 +2,7 @@
 //!
 //! # Why this is not a method on `Screen`
 //!
-//! **"Only the render thread writes" narrows to *only the render thread writes frames*** (spec §7).
+//! **"Only the render thread writes" narrows to *only the render thread writes frames***.
 //! A panic hook runs on whichever thread panicked, and joining the render thread from inside it
 //! deadlocks when the render thread is the one that panicked — so restoration cannot be something
 //! the app thread does on its way out. It is an **idempotent function guarded by one atomic**, and

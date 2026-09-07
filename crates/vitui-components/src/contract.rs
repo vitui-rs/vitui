@@ -2,7 +2,7 @@
 //! from that data, and a sweep that asks the machine what it actually takes.**
 //!
 //! > O4 — a declared keyboard contract, rendered as help | equality (documented == R12-registered),
-//! > plus §21's walkthrough and *a chord types nothing*. (spec §17)
+//! > plus §21's walkthrough and *a chord types nothing*.
 //!
 //! Three checks, and this module carries the first. The other two were already green when it was
 //! written and are cited here rather than rebuilt: the walkthrough is register rows 34 and 88 —
@@ -1017,7 +1017,7 @@ mod live {
     }
 
     /// The one preview a probe needs: an identity and an extent. [`crate::golden`]'s, for its
-    /// reason — a decode is a free function over an identity and never a closure (spec §15).
+    /// reason — a decode is a free function over an identity and never a closure.
     struct Doc(u64);
 
     impl Preview for Doc {
@@ -1145,7 +1145,7 @@ mod live {
         )
     }
 
-    /// **One machine and three configurations** (ADR 0041), so the three probes are one call with
+    /// **One machine and three configurations**, so the three probes are one call with
     /// one field changed — and three contracts that must agree is a gate rather than a repetition.
     fn toggle(t: Trigger, kind: Toggle) -> bool {
         probe(
@@ -1471,7 +1471,7 @@ const SLIDER: &[Bind] = &[
     key(Code::End, 8, "The maximum"),
 ];
 
-/// **The three toggles are one machine** (ADR 0041), so they are one contract and three rows.
+/// **The three toggles are one machine**, so they are one contract and three rows.
 const TOGGLE: &[Bind] = &[
     key(Code::Char(' '), 1, "Flip it"),
     key(Code::Enter, 2, "Flip it"),
@@ -1572,7 +1572,7 @@ pub struct Absent {
 /// It needs UAX #29's word-boundary half, which the engine's export does not offer — engine ticket
 /// 06 ships `graphemes()` and `width_of()` and no word iterator, and nothing above the engine may
 /// re-derive one, because a cell holds an interned grapheme-cluster handle and no cell, handle or
-/// style bit is readable from outside the engine (ADR 0023).
+/// style bit is readable from outside the engine.
 pub const ABSENT: &[Absent] = &[Absent {
     what: "word motion",
     spellings: &["Ctrl+Left", "Ctrl+Right", "Ctrl+Backspace", "Ctrl+Delete"],
@@ -1916,7 +1916,7 @@ mod tests {
         );
     }
 
-    /// **The three toggles are one machine** (ADR 0041), so they declare one contract.
+    /// **The three toggles are one machine**, so they declare one contract.
     #[test]
     fn the_three_toggles_declare_one_contract() {
         let want = contract("checkbox").documented();
@@ -1985,7 +1985,7 @@ mod tests {
     }
 
     /// **§11's one flag takes three binds away, and the field declines them rather than eating
-    /// them** (ADR 0042).
+    /// them**.
     ///
     /// `Up`, `Down` and `Enter`: a one-row `input` has no row to step to and its `Enter` is the
     /// caller's submit. Six spellings, because each ignores `Shift`. Probed at `Ruler` the contract

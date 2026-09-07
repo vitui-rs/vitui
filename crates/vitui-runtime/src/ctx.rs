@@ -104,7 +104,7 @@ pub type Caps = Capabilities;
 ///
 /// # A declaration is not a correction
 ///
-/// The runtime never edits one (ADR 0021). A widget that declares `HOVER` against a theme whose
+/// The runtime never edits one. A widget that declares `HOVER` against a theme whose
 /// hover is invisible still gets motion tracking, and is therefore visibly wrong rather than
 /// invisibly fixed — which is why [`Theme::hover_interest`] is an *answer* a component reads.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
@@ -327,7 +327,7 @@ pub struct Frame {
     /// 4. The deadline sink: **the earliest requested wake, and one value rather than a list**,
     ///    because `end` folds it into one wake anyway.
     ///
-    ///    **It is the only wakeup sink there is** (ticket 06). It used to have a `repaint: bool`
+    ///    **It is the only wakeup sink there is**. It used to have a `repaint: bool`
     ///    beside it and `end` flushed one of the two, which is how `[Tab, Key(a)]` stranded its
     ///    second key: `request_frame()` **is** `deadline(now)`, and the split-batch drain asks the
     ///    same way a component does.
@@ -466,7 +466,7 @@ pub struct Frame {
     /// How far the verbs reached, and **`None` in a real frame**: maintaining it costs a display
     /// width measurement per verb — 7% of the frame budget — so a frame pays it only when something
     /// asked. Today the only thing that asks is [`Ctx::measured`]; a scroll area over bounded
-    /// content is the second caller and reads it a frame late (ticket 14).
+    /// content is the second caller and reads it a frame late.
     ///
     /// It doubles as the flag for *this is a measured world*, which is why the two live together:
     /// there is no second bit to get out of step with this one.
@@ -574,7 +574,7 @@ struct ScrimLayer {
 ///
 /// # Why the runtime infers these at all
 ///
-/// The engine refuses to synthesise anything it did not see (ADR 0007): no double-click detection, no
+/// The engine refuses to synthesise anything it did not see: no double-click detection, no
 /// mouse-leave inferred from focus loss, no guess at an escape sequence. **The runtime is exactly
 /// where that inference is legitimate**, because it sits above the honest layer and because these are
 /// *thresholds* — configuration, not facts about the wire. The engine's own `Mouse::at` doc says so:
@@ -844,8 +844,8 @@ impl Frame {
     /// Called at the top of `begin`, before the index is cleared, which is the only moment both the
     /// batch and the previous frame's direction bits exist at once.
     ///
-    /// **Notches in one batch add up.** A wheel click folds into a frame (ADR 0016) and it is intent
-    /// (ADR 0008), and the two are only compatible if folding is a sum: overwriting made three
+    /// **Notches in one batch add up.** A wheel click folds into a frame and it is intent,
+    /// and the two are only compatible if folding is a sum: overwriting made three
     /// notches in one batch scroll one row, which is dropping intent by another name. The 1006
     /// encoding carries no magnitude, so counting the notches is the only place the count can come
     /// from.
@@ -1182,7 +1182,7 @@ impl Frame {
     /// **Nothing focused means no caret**, and the runtime blinks nothing.
     ///
     /// A caret on a screen where no widget holds the keyboard is a lie about where typing goes. The
-    /// terminal's own caret is what is being placed (ADR 0005), and a software caret is two wakeups
+    /// terminal's own caret is what is being placed, and a software caret is two wakeups
     /// a second for as long as anything has focus — which is why `end` asks for no wake here.
     fn settle_caret(&mut self) {
         if self.focused.is_none() {
@@ -1197,7 +1197,7 @@ impl Frame {
     ///
     /// It needs the ring to carry a **content-coordinate rectangle**, which overturns §8's *the ring
     /// carries no geometry* and nothing beside it — the rule was never "no geometry" but *geometry is
-    /// needed inside a frame and never across one* (ADR 0015), and this rect is read **here**,
+    /// needed inside a frame and never across one*, and this rect is read **here**,
     /// exactly where the press award already is. What crosses the boundary is [`IntoView`]: sixteen
     /// bytes, an area and an offset, no `Rect`.
     ///
@@ -1720,15 +1720,15 @@ pub struct Ctx<'f, 'v> {
     ///
     /// This is what makes the hit index need no geometry: containment is decided *during the draw*, in
     /// the coordinates the widget is already thinking in, and the index carries one bit instead of a
-    /// rectangle. Geometry is needed **inside** a frame and never across one (ADR 0015) — which is the
+    /// rectangle. Geometry is needed **inside** a frame and never across one — which is the
     /// rule, and is not the same as *no geometry*.
     pointer: Option<(i32, i32)>,
     /// This context's origin **in the enclosing scroll area's content coordinates**, which is what a
     /// ring entry's rectangle is in.
     ///
     /// It resets at the area boundary — a `scrolled` context *is* a content coordinate system — and
-    /// at the root, where the two are the same thing. Read at `end` and never across a frame
-    /// (ADR 0015).
+    /// at the root, where the two are the same thing. Read at `end` and never across a frame.
+    ///
     content: (i32, i32),
     /// **The scroll translation this context is drawing under, and nothing else.**
     ///
@@ -2678,7 +2678,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// obligation used to require a flag the application kept outside the frame.
     ///
     /// **The runtime still focuses nothing on its own, and that is now a decision rather than an
-    /// omission** (issue 25). Auto-focusing the first stop would be an opinion about which widget is
+    /// omission**. Auto-focusing the first stop would be an opinion about which widget is
     /// primary, on a runtime with no scene tree and no such opinion, and *first* would mean first in
     /// draw order.
     pub fn focus(&mut self, id: Id) {
@@ -2908,7 +2908,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// entries in [`crate::anim::WakeLedger`], because a fold is a wake and a census is not.
     ///
     /// **Attributed to the call site**, which is a `file:line:col` a diagnostic may print. An `Id`
-    /// could not be: it is a hash of an address that may never be persisted (ADR 0013), and the id
+    /// could not be: it is a hash of an address that may never be persisted, and the id
     /// the frame has at hand here is the id stack's current — the *closure tree*, so twelve animated
     /// chips all answer [`Id::ROOT`]. See [`Ctx::deadline_for`] for the counter that does name a
     /// widget, and `anim`'s module documentation for the numbers.
@@ -2953,7 +2953,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// Put the caret here, in this context's own coordinates.
     ///
     /// **The sink, and the last write of the frame wins** — `settle` forwards it to
-    /// `Screen::set_cursor` (ADR 0005). The shape is the theme's default; [`Ctx::caret_with`]
+    /// `Screen::set_cursor`. The shape is the theme's default; [`Ctx::caret_with`]
     /// carries one.
     ///
     /// Two refusals, and both are the same sentence about lying: **nothing focused means no caret**,
@@ -3261,7 +3261,7 @@ impl Driver {
     /// # It does not drain
     ///
     /// A `Wake` says *why*, not *what*. Events are drained by [`Driver::frame`], at `begin`, in
-    /// arrival order and interleaved — the batch split is over the interleaving (ADR 0016), so
+    /// arrival order and interleaved — the batch split is over the interleaving, so
     /// there is nothing here for a caller to take and nothing it could do with it if there were.
     ///
     /// ```no_run
@@ -3334,8 +3334,8 @@ impl Driver {
     ///
     /// Engine production ticket 07 built the pair, and **nothing above the engine could reach
     /// either half** — `Driver` owns its `Screen` privately. That is the third instance of one
-    /// shape this backlog has now settled three times: [`Driver::wait`] was the first (issue 23),
-    /// [`Driver::permit_slow`] the second (issue 30), and both had the same consequence, which is
+    /// shape this backlog has now settled three times: [`Driver::wait`] was the first,
+    /// [`Driver::permit_slow`] the second, and both had the same consequence, which is
     /// that the only crate in this workspace with a binary in it could not use a verb the engine's
     /// own documentation tells it to.
     ///
@@ -3351,7 +3351,7 @@ impl Driver {
     ///
     /// # The runtime's own state is untouched, because no frame runs inside a suspension
     ///
-    /// The four id-keyed facts (ADR 0012), the hit index and the ring are rebuilt from the next
+    /// The four id-keyed facts, the hit index and the ring are rebuilt from the next
     /// draw; the frame arena and the overlay queue are locals of [`Driver::frame`], so a suspend
     /// cannot happen inside one. The focus is the one thing that persists and it persists across
     /// this, which is asserted rather than assumed — see
@@ -4358,7 +4358,7 @@ mod routing_tests {
 
     /// **Folding a wheel is a sum, not an overwrite.**
     ///
-    /// A wheel notch folds into a frame (ADR 0016) *and* carries intent (ADR 0008), and the two are
+    /// A wheel notch folds into a frame *and* carries intent, and the two are
     /// only compatible if the notches add up. Overwriting made three notches in one batch scroll one
     /// row, which is dropping intent under another name.
     #[test]
@@ -7965,7 +7965,7 @@ mod loop_tests {
     /// **A suspension costs the runtime nothing, because no frame runs inside one.**
     ///
     /// This is the ticket's second question answered as an observable rather than as an argument.
-    /// The four id-keyed facts (ADR 0012), the hit index and the ring are rebuilt from the *next*
+    /// The four id-keyed facts, the hit index and the ring are rebuilt from the *next*
     /// draw, and the frame arena and the overlay queue are locals of [`Driver::frame`] — so what a
     /// suspend can reach is nothing, and the frame after a resume finds the seat where it left it.
     ///

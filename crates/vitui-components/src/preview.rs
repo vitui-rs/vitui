@@ -2510,7 +2510,7 @@ pub const SECTION_15_PHOTOGRAPH: [u64; 3] = [17_782, 14_833, 14_652];
 /// **Regions a picker declares, shut and open: 1 against 6.**
 ///
 /// The six are a subtraction and not a magnitude: the owner's shut face, the shell's blur position,
-/// the collection's one entry however many rows it has (§5), and the pane's three ([`REGIONS`]).
+/// the collection's one entry however many rows it has, and the pane's three ([`REGIONS`]).
 /// **Not one of them is a mechanism the three parts did not already have**, which is R3's claim.
 pub const PICKER_REGIONS: [usize; 2] = [1, 6];
 

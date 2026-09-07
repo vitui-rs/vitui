@@ -4,7 +4,7 @@ use crate::style::Style;
 
 /// What a cell holds instead of a character.
 ///
-/// A cell holds an interned extended-grapheme-cluster handle, never a `char` (spec §3, ADR 0023).
+/// A cell holds an interned extended-grapheme-cluster handle, never a `char`.
 /// The encoding leaves single scalars as their own handle, which is what makes the rule free on the
 /// common path — a cell holding `a` *is* `0x61`, with no table and no hash.
 ///
@@ -149,7 +149,7 @@ impl Cell {
     ///
     /// `EMPTY` is *there is nothing here*, which is exactly the statement — and it is a value **no
     /// composited frame can hold**, because the frame is opaque and its ground is a blank, while a
-    /// non-opaque layer's `EMPTY` cells are skipped rather than copied (spec §5). That is what makes
+    /// non-opaque layer's `EMPTY` cells are skipped rather than copied. That is what makes
     /// this sound rather than convenient: the equality filter's danger is the false *equality*, and a
     /// sentinel no frame cell can equal makes one unreachable with no flag to consult and no branch
     /// to forget. See [`crate::serial::Mirror`].

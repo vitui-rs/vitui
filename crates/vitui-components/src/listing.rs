@@ -128,13 +128,13 @@ pub const WRITES: u64 = W as u64 * H as u64;
 ///
 /// `1 + 80`: **one hit entry for the collection** (ADR 0028 — `Response::local` resolves the row by
 /// arithmetic, so per-row hover needs no per-row index entry) plus one target on each row that
-/// actually drew. A row outside the window has no entry, which is the runtime's half of the rule
-/// (ADR 0012): state for an undrawn row is state nothing can reach.
+/// actually drew. A row outside the window has no entry, which is the runtime's half of the rule:
+/// state for an undrawn row is state nothing can reach.
 pub const REGIONS: usize = 1 + H as usize;
 
 /// **Tab stops a correct frame declares, at every volume. One.**
 ///
-/// > A virtualised collection is one tab stop. (§13)
+/// > A virtualised collection is one tab stop.
 ///
 /// The ring is built from what drew, so a row outside the window has no entry and no rectangle;
 /// mapping a selection index to an offset is the container's job and a different mechanism.

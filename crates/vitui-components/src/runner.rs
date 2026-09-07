@@ -623,7 +623,7 @@ fn clusters(s: &str, limit: u16) -> Vec<(u16, u16, &str)> {
 /// > *The surface after a shrink equals a freshly built one*, written against a terminal resize,
 /// > passes on all twelve panels — because `Gallery::resize` allocates a new `Surface` and the
 /// > residue has nowhere to survive. **That spelling tests the resize path and not the defect**,
-/// > which is content shrinking inside a rectangle that does not move. (§21)
+/// > which is content shrinking inside a rectangle that does not move.
 ///
 /// [`Fixture::shrunk_to`] changes `rows` and leaves `w` and `h` alone; [`Fixture::resized`] changes
 /// `w` and `h`. Both exist and they are not the same gesture — the second is the spelling §21 says
@@ -1033,7 +1033,7 @@ pub fn driver_at(w: u16, h: u16, density: Density) -> Driver {
 
 /// **[`play`], at a chosen density.**
 ///
-/// Density is theme data and it changes rectangles (spec §3), so a scene measured at one density is
+/// Density is theme data and it changes rectangles, so a scene measured at one density is
 /// a measurement of one screen and not of the construction. `Driver::headless` builds
 /// `Theme::default()`, which is `Density::default()`; this rebuilds the same palette at the density
 /// asked for and keeps everything else — the glyph repertoire and the resolved colour tier — as the
@@ -1082,7 +1082,7 @@ pub fn compare(a: Painter, b: Painter, steps: &[Fixture]) -> Diff {
 
 /// **[`compare`], at a chosen density.**
 ///
-/// Density changes rectangles (spec §3), so two arms compared at two densities are not being
+/// Density changes rectangles, so two arms compared at two densities are not being
 /// compared at all. One argument, threaded through both plays, is what stops that being possible to
 /// write by accident.
 pub fn compare_at(density: Density, a: Painter, b: Painter, steps: &[Fixture]) -> Diff {

@@ -5,7 +5,7 @@
 //! `restyle` cannot take `impl Fn(Style) -> Style`. A closure receives a [`Style`] and a `Style`
 //! carries no table, so on an extended word it is handed a 52-bit handle it cannot resolve —
 //! which is exactly how the architecture's own prototype ended up returning extended styles
-//! untouched, silently, for the cells that most needed changing (spec §3). A descriptor says
+//! untouched, silently, for the cells that most needed changing. A descriptor says
 //! *what* to change and lets the verb, which owns the tables, decide *how*.
 //!
 //! The contract, written down rather than implied:

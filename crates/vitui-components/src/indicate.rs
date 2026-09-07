@@ -1,6 +1,6 @@
 //! **F5 indicators**, ~46 entries, expressed by `meter`, `chart`, `plot`, `overlay` and deadlines.
 //!
-//! The reduction is R2 and R4 (spec §18). R2 is the larger half and it is ADR 0018's `Role`:
+//! The reduction is R2 and R4. R2 is the larger half and it is ADR 0018's `Role`:
 //! status LEDs, health pills, dot indicators, badge variants, inline messages, banners, alerts and
 //! callouts are an **argument**, not a component, and [`ROLE_VARIANTS`] is that list as a value with
 //! `tests::no_role_variant_is_a_component_row` as the gate over [`crate::INVENTORY`].
@@ -1042,7 +1042,7 @@ mod tests {
         );
     }
 
-    /// **A spinner writes every cell of the rectangle it was handed** (spec §2), at every size from
+    /// **A spinner writes every cell of the rectangle it was handed**, at every size from
     /// 1x1 to 17x5.
     #[test]
     fn a_spinner_partitions_every_rectangle_it_is_handed() {

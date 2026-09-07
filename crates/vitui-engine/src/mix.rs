@@ -1,6 +1,6 @@
 //! The one operator, and what it does to a cell.
 //!
-//! Shadows, liftings, modal dimming, tints and fades are all [`Mix`] (spec §5). The map's
+//! Shadows, liftings, modal dimming, tints and fades are all [`Mix`]. The map's
 //! three-item list — `Replace`, `Darken`, `Blend(f32)` — collapsed to two mechanisms, and both
 //! halves of that are worth keeping: `Replace` is not a blend mode, it is what a content layer
 //! does, and **alpha-over is rejected** because a terminal cell has no alpha. Blending two layers'
@@ -260,7 +260,7 @@ impl<'a> Mixer<'a> {
     ///
     /// - **The identity.** `amount == 0` never reaches a cell.
     /// - **[`ColorDepth::None`].** There is no colour on the wire, so a `Mix` cannot change one.
-    ///   Worth **78.2 µs of the 107 µs worst screen** (§10), and taken here rather than per cell so
+    ///   Worth **78.2 µs of the 107 µs worst screen**, and taken here rather than per cell so
     ///   that *skipped outright* is a fact about the layer and not an early return repeated 24 000
     ///   times.
     /// - **A `toward` this terminal cannot resolve.** `Mix::new(Color::DEFAULT, …)` on a terminal
@@ -329,7 +329,7 @@ impl<'a> Mixer<'a> {
     /// `toward` sides for a cell that carries the bit would be right only if the terminal is going
     /// to honour the bit — and whether it does is a *serialise-time* decision the compositor cannot
     /// see: [`Capabilities`]'s `attrs_dropped` drops attributes a terminal does not render, silently,
-    /// below the packet (§10). A compositor that pre-swapped for a terminal that then dropped
+    /// below the packet. A compositor that pre-swapped for a terminal that then dropped
     /// `reverse` would be wrong in the other direction, and it would also make the mix depend on an
     /// attribute bit, which §5 nowhere says it does. `assert_reverse_is_left_to_the_terminal` pins
     /// the behaviour so that it is a choice rather than an accident.

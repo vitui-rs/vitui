@@ -8,41 +8,24 @@ license.workspace = true
 # `repository.workspace = true` here when the key goes back.
 rust-version.workspace = true
 
-# **Explicit, and cargo would have found it anyway.** A README in the package directory is
-# auto-detected, so this line changes nothing about what gets published — it is here because
-# ticket 01's whole finding was that a `rust-version` nobody checked had been switching lints off
-# for three releases. A key that is written down is a key a reader can see is wrong.
-#
-# It is **not** `readme.workspace = true`, and cannot usefully be: the four publishable crates have
-# genuinely different stories — the engine is complete, the runtime is half built, the components
-# crate is empty — and one shared file would put "components is empty scaffolding" on the engine's
-# crates.io page. Nothing gates this; a missing README surfaces as a `cargo publish` that ships a
-# blank front page, which is the first publish and not this commit.
+# Written out, though cargo would auto-detect a README in the package directory: a key on the page
+# is a key a reader can see is wrong. Not `readme.workspace = true` — each crate's front page is
+# about that crate, and one shared file would put the wrong story on three of the four crates.io
+# pages.
 readme = "README.md"
 
 [dependencies]
 vitui-runtime.workspace = true
 
-# **Dev only, and constraint C6 above is untouched.** `vitui-alloc-probe` is the counting global
-# allocator; the engine and the runtime both take it in exactly this place for exactly this reason —
-# *no allocation* is a count, and a count needs something that counts.
-#
-# It does not weaken the one gate that reads this file. `line::tests::the_components_manifest_names_
-# only_the_runtime` asserts `dependencies_of(manifest) == ["vitui-runtime"]`, and that helper sets
-# `inside = s == "[dependencies]"` on **every** line beginning with `[` — so this table turns it off
-# rather than adding to it. The C6 that matters is what a component-facing *library* links, and a
-# dev-dependency is not in it: `publish = false`, and no consumer of `vitui` ever compiles it.
-#
-# What it buys is `tests/budget.rs`, where the two standing budget counts run for the first time from
-# a crate that cannot name the engine. See that file's header.
+# Dev only. The rule this crate lives under is that its library depends on the runtime and cannot
+# name the engine; a dev-dependency is not part of that, because no consumer of the published crate
+# ever compiles one. `vitui-alloc-probe` is the counting global allocator the allocation gates
+# need, and it is what lets `tests/budget.rs` measure a frame from a crate that cannot name the
+# engine.
 [dev-dependencies]
 vitui-alloc-probe.workspace = true
-# **Dev only, and the crate line is untouched.** `vitui-bench` is this workspace's own round-robin
-# minimum-of-N harness, `publish = false`, and the engine and the runtime both take it in exactly
-# this place for exactly this reason: a *report* — a number a human reads — needs an instrument, and
-# `examples/gallery_numbers.rs` owes the one figure components 39's `t` criterion states in
-# nanoseconds. It is not in the shipped graph, so what a dependent of `vitui-components` pulls in is
-# unchanged, and `cargo deny`'s view of it does not move.
+# Dev only, for the same reason. `vitui-bench` is the round-robin minimum-of-N timing harness the
+# reports in `examples/` are measured with.
 vitui-bench.workspace = true
 
 [lints]

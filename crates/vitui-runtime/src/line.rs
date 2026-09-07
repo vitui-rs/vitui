@@ -183,7 +183,7 @@ pub const MODULES: [Module; 15] = [
 /// The names the ticket says must not exist, each because the map corrected the proposal that had
 /// them. Spec §4's three corrections plus the one deferral.
 ///
-/// - `input` — there are no per-id inboxes, so it is not a module of its own (ADR 0016).
+/// - `input` — there are no per-id inboxes, so it is not a module of its own.
 /// - `hit` — `ctx`'s.
 /// - `drag` — deferred to v2.
 /// - `Rows` — does not exist; `data` has no trait.

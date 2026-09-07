@@ -1,7 +1,7 @@
 //! The unblockable app thread: the in-loop detector, the escape hatch, and the debug observer.
 //!
 //! > **The compiler cannot stop the app thread from being slow. It can stop anything else from being
-//! > the app thread.** (spec §11)
+//! > the app thread.**
 //!
 //! Four of §11's five rungs are elsewhere and cost nothing: `Screen` and `View` are `!Send` by a
 //! private `PhantomData<*const ()>`, there is no blocking primitive on the app-thread side at all

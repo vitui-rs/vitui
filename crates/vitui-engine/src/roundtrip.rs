@@ -2,7 +2,7 @@
 //!
 //! Composite a frame, serialise it, replay the bytes through the terminal model, assert the
 //! replayed screen equals the frame that was composited — cell for cell, glyph and style. All four
-//! defects the architecture map found were found this way (spec §14). There is no file to review,
+//! defects the architecture map found were found this way. There is no file to review,
 //! nothing to bless and no maintenance, and a golden byte string would have pinned the encoding,
 //! which is exactly the part that is allowed to change.
 //!

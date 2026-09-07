@@ -411,7 +411,7 @@ pub const AW: u16 = 246;
 pub const AH: u16 = 69;
 /// **The screen this scene is played on: one column wider than the viewport.**
 ///
-/// Bars are reserved (ADR 0029), so a viewport [`AW`] wide needs a rectangle `AW + 1` wide. The
+/// Bars are reserved, so a viewport [`AW`] wide needs a rectangle `AW + 1` wide. The
 /// constant exists rather than the arithmetic being inlined because it is the rule, not a margin.
 pub const SCREEN_W: u16 = AW + 1;
 /// **The cells the reserved vertical bar writes on every frame of this screen**: its own column,
@@ -475,7 +475,7 @@ pub struct Row {
     pub h: u8,
 }
 
-/// **The caller's content index**, which is where an extent lives (§9, ADR 0002).
+/// **The caller's content index**, which is where an extent lives.
 ///
 /// `ytop` is the prefix sum of the heights, `rows + 1` entries, built **only** when a row can be
 /// taller than one cell — C05's rule, kept: it is four bytes a row and a uniform list does not pay
@@ -615,7 +615,7 @@ impl Content {
 /// **Which unit the extent is measured in.** The whole of the defect, as one enum.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Unit {
-    /// `Σ h`, in content cells. **The answer** (§9, ADR 0029).
+    /// `Σ h`, in content cells. **The answer**.
     Cells,
     /// The row count, used as if it were a length in cells.
     Rows,
@@ -1286,7 +1286,7 @@ pub fn steady(bars: Bars) -> Damage {
 /// **Which of the two scrollables the caller reached for.**
 ///
 /// > A `scroll_area` costs its **content**; a virtualised `collection` costs its **visible window**.
-/// > Every shipped scrollable of unbounded data is a `collection`. (§9)
+/// > Every shipped scrollable of unbounded data is a `collection`.
 ///
 /// Both compile and both look right on a thousand rows, which is what makes it *the single most
 /// expensive mistake available above this runtime* (`crates/vitui-runtime/src/scroll.rs`).

@@ -108,7 +108,7 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   since ticket 45 that is obligation **O7** rather than a habit: `vitui_components::consumer` joins
   the freeze against the import paths here.
 - **Active work: `.scratch/vitui-production/`** (opened 2026-09-01) — the whole workspace's road to a
-  published crate, eighteen tickets in six groups: the paperwork, the six unsubjected register rows
+  published crate, nineteen tickets in seven groups: the paperwork, the six unsubjected register rows
   (**all six standing**, by production 03 and 04),
   the fourteen hostile axes O5 still owed (**the group is closed**: `field`'s three taken by
   production 05, `table`'s two by 06, the overlay family's four by 08, the scroll family's three by
@@ -124,10 +124,23 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   recorded is not scheduled — the same sentence this backlog was opened with, one surface over.
   **Neither is on 15's `Blocked by:` line**: a widened visibility and a field on a `Default` struct
   are compatible additions, so both can land in 0.1.x.
-  **One of the eighteen can start today and it is still 02**, which is `ready-for-human` — it needs a
-  public repository. **15 is the frontier and it cannot start**, and by 2026-09-05 the only edge left
-  into it is 02: the five components architecture questions it also waited on — 19, 22, 23, 24 and
-  25 — all resolved, and what they decided is listed below.
+  A seventh group was added the same day and it is one ticket: **19 is the shipped documentation**,
+  which cites an ADR, a spec section, a ticket, a register row or a backlog path on a third of the
+  3,391 documented public items across the three crates, carries a compiled example on four percent
+  of them and a `# Examples` heading on none, and publishes 39 verification modules on
+  `vitui-components`' front page beside its 14 component families. **O1 is `Met` over 29 of 29 and
+  did not prevent any of it** — its query is *components with zero doc-tests == 0*, so it asks that
+  a page exists and is silent about whether it was written for a reader. The rule it installs is
+  *state the fact, not the pointer*, and it deliberately leaves `docs/adr/`, `.scratch/`, this file,
+  `docs/agents/` and `CONTEXT.md` alone, because those are what a pointer points at. **It is on
+  15's `Blocked by:` line** as a recommendation with the argument beside it: `cargo publish` builds
+  the docs.rs page out of exactly these comments, and it costs no schedule because 02 needs a human
+  either way.
+  **One ticket on the release path can start today and it is still 02**, which is `ready-for-human`
+  — it needs a public repository; by number the frontier for an agent is 17, with 18 and 19 beside
+  it. **15 is the release frontier and it cannot start**: its edges are 02 and 19, the five
+  components architecture questions it also waited on — that map's 19, 22, 23, 24 and 25, not this
+  backlog's numbers — having all resolved by 2026-09-05, and what they decided is listed below.
   **Windows is last, as 16**, blocked by the publish — which carries the consequence that no shipped
   string may claim a terminal the conform suite has not asked. Everything on it was already true and
   already recorded; what was missing was that nothing scheduled any of it.

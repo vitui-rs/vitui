@@ -8,37 +8,25 @@ license.workspace = true
 # `repository.workspace = true` here when the key goes back.
 rust-version.workspace = true
 
-# **Explicit, and cargo would have found it anyway.** A README in the package directory is
-# auto-detected, so this line changes nothing about what gets published — it is here because
-# ticket 01's whole finding was that a `rust-version` nobody checked had been switching lints off
-# for three releases. A key that is written down is a key a reader can see is wrong.
-#
-# It is **not** `readme.workspace = true`, and cannot usefully be: the four publishable crates have
-# genuinely different stories — the engine is complete, the runtime is half built, the components
-# crate is empty — and one shared file would put "components is empty scaffolding" on the engine's
-# crates.io page. Nothing gates this; a missing README surfaces as a `cargo publish` that ships a
-# blank front page, which is the first publish and not this commit.
+# Written out, though cargo would auto-detect a README in the package directory: a key on the page
+# is a key a reader can see is wrong. Not `readme.workspace = true` — each crate's front page is
+# about that crate, and one shared file would put the wrong story on three of the four crates.io
+# pages.
 readme = "README.md"
 
-# Dependency policy, from the map and restated by runtime ticket 14: vitui-runtime takes NO
-# dependencies beyond the engine. Layout, keys, theming, animation and the data contract are written
-# by hand and are modules of this crate; reactivity is not here at all — it is an application's, and
-# this workspace ships no reactivity crate of its own (architecture issue 24 deleted the one it had,
-# on a 0.21% spread across three drivers). ADR 0020's four hooks are the whole surface. Do not add a
-# crate here without a decision.
+# Dependency policy: this crate takes no dependencies beyond the engine. Layout, keys, theming,
+# animation and the data contract are written by hand and are modules of it. There is no reactivity
+# here and none is planned — a signal layer was built, measured at a 0.21% spread across three
+# drivers of one screen, and deleted. Do not add a crate here without a decision.
 [dependencies]
 vitui-engine.workspace = true
 
-# **Dev only, and the policy above is untouched.** `vitui-bench` is this workspace's own
-# round-robin minimum-of-N harness, `publish = false`, and the engine depends on it exactly here for
-# exactly this reason: several tickets on this backlog owe *reports* — numbers a human reads — and a
-# report needs an instrument. It is not in the shipped graph, so `cargo deny`'s view of what a
-# dependent of `vitui-runtime` pulls in is unchanged.
+# Dev only, so the policy above is untouched and nothing here reaches a dependent's graph.
+# `vitui-bench` is this workspace's own round-robin minimum-of-N timing harness.
 [dev-dependencies]
 vitui-bench.workspace = true
-# The counting global allocator, for the allocation gates. Dev only, `publish = false`, and the
-# engine takes it in exactly the same place for exactly the same reason: *no allocation* is a count,
-# and a count needs something that counts.
+# The counting global allocator, for the allocation gates: "no allocation during a frame" is a
+# count, and a count needs something that counts.
 vitui-alloc-probe.workspace = true
 
 [lints]

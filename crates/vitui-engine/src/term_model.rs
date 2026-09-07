@@ -1,6 +1,6 @@
 //! A miniature terminal that parses the serializer's own bytes back into a grid.
 //!
-//! This is not test scaffolding, it is the primary instrument (spec §8, §14). A serializer is a
+//! This is not test scaffolding, it is the primary instrument. A serializer is a
 //! program whose output is only checkable by a program that reads it, and building that program is
 //! a third of the work. All four defects the architecture map found were found by the round trip:
 //! composite a frame, serialise it, replay the bytes here, assert the replayed screen equals the
@@ -40,7 +40,7 @@
 //!
 //! # An extended cell is read back through the engine's own tables
 //!
-//! The model interns clusters into the engine's interner (ticket 06) for one reason, and SGR 58 and
+//! The model interns clusters into the engine's interner for one reason, and SGR 58 and
 //! OSC 8 need the same reason applied to two more tables: **a cell is compared whole, handle
 //! included**, and two tables cannot produce equal handles for one entry. So an underline colour and
 //! a URI parsed off the wire are minted back through the engine's [`Tables`], which is where the
@@ -228,7 +228,7 @@ impl TermModel {
     ///
     /// Content is anchored at the top left and the overflow is dropped, which is what a terminal with
     /// no scrollback in the alternate screen does. Nothing here reflows a line across the new width:
-    /// auto-wrap is off for the lifetime of the alt screen (§8), so no line on this screen was ever a
+    /// auto-wrap is off for the lifetime of the alt screen, so no line on this screen was ever a
     /// continuation of another one, and there is nothing to rejoin.
     pub(crate) fn resize(&mut self, width: u16, height: u16) {
         let mut cells = vec![Cell::BLANK; width as usize * height as usize];

@@ -3,7 +3,7 @@
 /// A rectangle of cells: an origin and a size.
 ///
 /// The origin is signed because a layer may hang off the top or left edge of the screen — such a
-/// layer is intersected, never rejected (spec §5). The size is unsigned because a rectangle with a
+/// layer is intersected, never rejected. The size is unsigned because a rectangle with a
 /// negative extent is not a thing the engine has to have an opinion about.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Hash)]
 pub struct Rect {

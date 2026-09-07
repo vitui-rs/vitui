@@ -4,7 +4,7 @@
 //!
 //! > Every number and every gate runs on clusters that are not one code point: a combining acute,
 //! > two marks on one base, a ZWJ family, a skin-tone modifier, `U+FE0F`, a regional-indicator pair,
-//! > CJK. (§11)
+//! > CJK.
 //!
 //! That sentence is the reason this module is a value rather than a `const CORPUS: &str` at the top
 //! of [`crate::document`]. A corpus written as a string literal is a corpus that can be **sampled**
@@ -16,7 +16,7 @@
 //! # `graphemes()` is unreachable from this crate, and that is a finding rather than an obstacle
 //!
 //! Spec §11's mechanism is a caret *moved in cluster steps*, and a cluster step needs segmentation.
-//! `vitui_engine::graphemes` is the engine's own forward iterator (ADR 0005), and what
+//! `vitui_engine::graphemes` is the engine's own forward iterator, and what
 //! `vitui-runtime` re-exports of it is **nothing**: `vitui_runtime::layout::text` ships [`width`],
 //! `wrap`, `wrap_height` and [`truncate`], and `crate::line::ENGINE_NAMES` is a list of *types* —
 //! `graphemes` is a free function and is on no re-export line in the crate. C6 says this crate's

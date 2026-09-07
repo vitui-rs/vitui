@@ -1143,7 +1143,7 @@ impl Text {
 
     /// **The wheel, in visual rows.** A notch up or down, clamped to the index.
     ///
-    /// A field declares `Interest::SCROLL` and owns its offset (§17), so it must **consume** the
+    /// A field declares `Interest::SCROLL` and owns its offset, so it must **consume** the
     /// notch: a widget that declares the pointer and does nothing with it is worse than one that
     /// declares nothing, because it is the topmost region over its rectangle and an enclosing
     /// `scroll_area` never sees the notch either. That is components ticket 20's defect class, and

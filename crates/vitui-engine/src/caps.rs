@@ -167,7 +167,7 @@ impl GlyphSet {
 ///
 /// **Nothing reads this yet, and that is the honest state rather than an oversight** — the same
 /// position [`Clock`](crate::Clock) was declared in. Our own UAX #29 / #11 tables are authoritative
-/// (spec §10) and `Wcwidth` is the lever for the field case where a terminal disagrees with them so
+/// and `Wcwidth` is the lever for the field case where a terminal disagrees with them so
 /// badly that matching its mistake is better than being right; building the second table is not
 /// this ticket's work. It is declared now because a knob that appears later is a breaking change to
 /// every `Overrides` literal.
@@ -289,7 +289,7 @@ pub struct Overrides {
     /// Pin the terminal's default background, as OSC 11 would have answered it.
     ///
     /// The same asymmetry as [`default_fg`](Overrides::default_fg), and this is the half spec §5
-    /// reads: a cell with a default background is left **unmixed** while this is silent (ADR 0025),
+    /// reads: a cell with a default background is left **unmixed** while this is silent,
     /// so declaring it is what reaches the *answered* branch of the compositor from a headless
     /// screen. These two are the only fields here whose reader is the compositor rather than the
     /// serializer.
@@ -624,7 +624,7 @@ pub(crate) struct Private {
     pub(crate) identity: Option<String>,
     /// Mode 2026. §8 is where its force-flush limits bind.
     pub(crate) sync_output: bool,
-    /// Mode 69, `DECSLRM`. Nothing in the serializer depends on it (§15); it is queried because the
+    /// Mode 69, `DECSLRM`. Nothing in the serializer depends on it; it is queried because the
     /// query is free inside the batch and because "we never asked" is a worse answer than "no".
     pub(crate) decslrm: bool,
     /// Whether SGR 38/48 take the pre-ITU-T **semicolon** form. See [`Capabilities::legacy_sgr`],

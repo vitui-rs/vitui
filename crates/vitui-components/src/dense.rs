@@ -540,7 +540,7 @@ fn widget_row<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, arm: Arm, line: Rect, i
 
 /// The scrim and the dialog. Returns how many regions it declared.
 ///
-/// **The scrim is a complement and never a fill** (§2). Drawn around the dialog it is four
+/// **The scrim is a complement and never a fill**. Drawn around the dialog it is four
 /// rectangles whose union with the dialog is the screen; filled under it, it is one wash and the
 /// dialog writes its own cells back on every frame that the dialog is not moving.
 fn modal<I: Ink>(

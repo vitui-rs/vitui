@@ -55,7 +55,7 @@
 //! The id stack is the closure tree, so a census keyed on the id the frame *has at hand* answers
 //! [`Id::ROOT`](crate::Id::ROOT) **12 of 12** for twelve animated chips and the enclosing key scope
 //! 12 of 12 when they are keyed — **never the widget**. And an `Id` is a hash of a file pointer that
-//! may never be persisted (ADR 0013), so it is not a name a diagnostic may print.
+//! may never be persisted, so it is not a name a diagnostic may print.
 //!
 //! What works is the **call site**, free at run time because it is a `&'static Location` —
 //! [`crate::id`]'s own words for the same mechanism, one module over. It is viral, and here the
@@ -524,7 +524,7 @@ impl Tally {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Runaway {
     /// **The offending line**, which is a `file:line:col` a diagnostic may print — unlike an
-    /// [`Id`], which is a hash of an address (ADR 0013).
+    /// [`Id`], which is a hash of an address.
     pub at: &'static Location<'static>,
     /// How many frames in a row.
     pub streak: u32,

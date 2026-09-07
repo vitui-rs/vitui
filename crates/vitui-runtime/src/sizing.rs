@@ -89,7 +89,7 @@ use crate::layout::text;
 ///
 /// # What is recorded is what a verb **offered**, not what it managed to write
 ///
-/// A verb that runs past its clip is clamped and discarded by the engine (ADR 0022), and recording
+/// A verb that runs past its clip is clamped and discarded by the engine, and recording
 /// the clamped result would make the extent agree with the clip by construction — which is the
 /// failure the glossary names as *the extent going blind sideways*. So a `text` at column 30 of a
 /// 20-column body reaches 30 plus its width, and the detector below sees a component drawing outside
@@ -100,7 +100,7 @@ use crate::layout::text;
 /// Measuring the display width of every verb's string is a grapheme walk a verb would not otherwise
 /// do — **7% of the frame budget** — so a real frame does not do it. Today the only thing that asks
 /// is [`crate::ctx::Ctx::measured`]; a scroll area over bounded content is the second caller and
-/// reads it one frame late (spec §13, ticket 14).
+/// reads it one frame late.
 ///
 /// # The trait form's first death, which is a compile outcome
 ///

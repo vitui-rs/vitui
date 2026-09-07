@@ -8,27 +8,19 @@ license.workspace = true
 # `repository.workspace = true` here when the key goes back.
 rust-version.workspace = true
 
-# **Explicit, and cargo would have found it anyway.** A README in the package directory is
-# auto-detected, so this line changes nothing about what gets published — it is here because
-# ticket 01's whole finding was that a `rust-version` nobody checked had been switching lints off
-# for three releases. A key that is written down is a key a reader can see is wrong.
-#
-# It is **not** `readme.workspace = true`, and cannot usefully be: the four publishable crates have
-# genuinely different stories — the engine is complete, the runtime is half built, the components
-# crate is empty — and one shared file would put "components is empty scaffolding" on the engine's
-# crates.io page. Nothing gates this; a missing README surfaces as a `cargo publish` that ships a
-# blank front page, which is the first publish and not this commit.
+# Written out, though cargo would auto-detect a README in the package directory: a key on the page
+# is a key a reader can see is wrong. Not `readme.workspace = true` — each crate's front page is
+# about that crate, and one shared file would put the wrong story on three of the four crates.io
+# pages.
 readme = "README.md"
 
-# **The one feature this crate has, and it is not a knob.** It compiles the reference compositor and
-# `crate::fuzz` — the two fuzz-target harnesses spec §14 asks for — for a crate that cannot be a
-# workspace member: `cargo-fuzz` needs nightly and `libfuzzer-sys`, so `fuzz/` is its own workspace
-# and reaches this one as a path dependency with `features = ["fuzz"]`.
+# The one feature this crate has, and it exists for the fuzz targets rather than for callers. It
+# compiles the reference compositor and `crate::fuzz`, the two libFuzzer harnesses, for a crate that
+# cannot be a workspace member: `cargo-fuzz` needs nightly and `libfuzzer-sys`, so `fuzz/` is its
+# own workspace and reaches this one as a path dependency with `features = ["fuzz"]`.
 #
-# It is **off by default and hidden from rustdoc**, so an ordinary build, an ordinary `cargo doc` and
-# an ordinary dependent see none of it. `crate::audit`'s `the_fuzz_door_is_behind_a_feature_and_hidden`
-# is what asserts that, in this file as well as in the crate root: §15 leaves feature flags and the
-# release policy undecided, and a feature that quietly turned on by default would be deciding it.
+# Off by default and hidden from rustdoc, so an ordinary build, an ordinary `cargo doc` and an
+# ordinary dependent see none of it. A test in `crate::audit` asserts both halves.
 [features]
 fuzz = []
 

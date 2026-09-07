@@ -105,7 +105,7 @@ use crate::style::{Color, Style, TAG_DEFAULT, TAG_INDEXED, TAG_RGB};
 ///
 /// Distinct from a frame, which is what the application *wants* shown. The mirror is what lets the
 /// serializer skip a cell the frame rewrote without changing, and what lets a scroll be proved
-/// before it is emitted (ADR 0006). It holds no application state and no handle, which is why it
+/// before it is emitted. It holds no application state and no handle, which is why it
 /// does not reopen "the render thread holds no screen-sized state".
 ///
 /// Read by the equality filter, which is what it was built for, and written as bytes go out. It is
@@ -115,7 +115,7 @@ use crate::style::{Color, Style, TAG_DEFAULT, TAG_INDEXED, TAG_RGB};
 /// # Unknown, and why it is per cell rather than per row
 ///
 /// A part of the mirror that cannot be trusted is **unknown**, and that is how a full repaint
-/// expresses itself without a separate mode (ADR 0006, §8). Three things make it unknown, and only
+/// expresses itself without a separate mode. Three things make it unknown, and only
 /// the third is new:
 ///
 /// - **at startup**, because the mirror records what the terminal shows and nobody recorded that;
@@ -142,8 +142,8 @@ use crate::style::{Color, Style, TAG_DEFAULT, TAG_INDEXED, TAG_RGB};
 ///
 /// There is no bitset and no branch. The unknown state is a **value**: [`Cell::UNKNOWN`], whose
 /// grapheme is the `EMPTY` sentinel, and **no composited frame can hold one** — the frame is opaque so
-/// its ground is a blank, and a non-opaque layer's `EMPTY` cells are skipped rather than copied
-/// (spec §5). So `frame_cell == mirror_cell` is *already* false wherever the mirror does not know, for
+/// its ground is a blank, and a non-opaque layer's `EMPTY` cells are skipped rather than copied.
+/// So `frame_cell == mirror_cell` is *already* false wherever the mirror does not know, for
 /// the same reason `1 != NaN`, and the filter's comparison needs nothing added to it.
 ///
 /// That is what makes it sound rather than convenient. The danger the unknown state exists for is not
@@ -179,7 +179,7 @@ use crate::style::{Color, Style, TAG_DEFAULT, TAG_INDEXED, TAG_RGB};
 /// needs an identity derived from the *narrowed content* rather than from the table, which is spec
 /// §6's **content-keyed packet** one layer along: built, measured at 1.8x on an adversarial page, and
 /// refused on the app thread's behalf. Nothing here reopens that. What bounds the residual instead is
-/// what bounds the table itself — an extended cell is under 1% of a screen (spec §3), and the channel
+/// what bounds the table itself — an extended cell is under 1% of a screen, and the channel
 /// that would have to be *animated* to make this cost anything is an underline colour.
 ///
 /// [`is_known`](Mirror::is_known) survives as a **row** query over the cells, and impl 15 corrected
@@ -268,7 +268,7 @@ impl Mirror {
     /// Move the rows of the band `top..=bot` the way `SU`/`SD` is about to move them on the terminal,
     /// and record the rows it exposes as **blank**.
     ///
-    /// Blank rather than unknown, and that is exact rather than optimistic (spec §8, ADR 0006): a
+    /// Blank rather than unknown, and that is exact rather than optimistic: a
     /// terminal erases what it exposes with the *current* background, and the scroll is emitted after
     /// the frame's own `SGR 0`, so background-colour-erase and erase-to-default agree. **The
     /// correctness of this line is an ordering, not a capability** — and the terminal model erases
@@ -734,7 +734,7 @@ impl Serializer {
     /// The order is the one that cannot be seen going wrong. A shape set after the caret is shown
     /// changes it under the eye; a caret shown before it is placed appears for one refresh where the
     /// last write ended. **Nothing here blinks anything** — the terminal's own caret does that, in
-    /// the terminal's process, at the user's rate (ADR 0005).
+    /// the terminal's process, at the user's rate.
     ///
     /// A move is emitted when the caret went somewhere, when it has just become visible, or when
     /// this frame wrote a cell — and only then, which is what keeps a steady caret free.
@@ -1497,7 +1497,7 @@ impl Serializer {
     ///
     /// # Two things a candidate must not be
     ///
-    /// **`CUF` is refused on a row that has emitted a non-ASCII cluster** (spec §10) — that is the
+    /// **`CUF` is refused on a row that has emitted a non-ASCII cluster** — that is the
     /// one rule here that is correctness rather than byte count.
     ///
     /// **An `LF` is only ever a downward move**, so it can never scroll: runs arrive in ascending row
@@ -3007,7 +3007,7 @@ mod tests {
     ///
     /// Three fixtures, and the middle one is what makes the third's refusal mean something. All three
     /// have the same one-column gap and the same five-byte move, refused `CUF` included, because the
-    /// changed cell before the gap is non-ASCII (§10). The gap is one byte, then three, then three
+    /// changed cell before the gap is non-ASCII. The gap is one byte, then three, then three
     /// again — so the third is refused for its **handle** and not for its price.
     #[test]
     fn a_bridge_is_refused_where_the_packet_cannot_resolve_the_mirrors_handle() {
@@ -3477,7 +3477,7 @@ mod tests {
     // Register #12, over the configurations the terminal model can express.
     // -----------------------------------------------------------------------------------------
 
-    /// **Gate, equality (register #12): the round trip stays green under every wire configuration.**
+    /// **Gate, equality: the round trip stays green under every wire configuration.**
     ///
     /// There are four axes below the packet that change the bytes without changing the picture — the
     /// two SGR spellings, the two underline-colour spellings, mode 2026 on or off, and OSC 8 on or

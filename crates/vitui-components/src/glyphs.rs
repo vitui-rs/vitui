@@ -1,7 +1,7 @@
 //! Spec §16's catalogue as a value: **six families over twenty entries, nine distinctions, and the
 //! nine-cell matrix as a count rather than as nine screenshots.**
 //!
-//! > A distinction survives the whole matrix iff it is carried on both axes. (ADR 0032)
+//! > A distinction survives the whole matrix iff it is carried on both axes.
 //!
 //! The runtime owns the mechanism — [`vitui_runtime::Glyph`], [`Theme::glyph`],
 //! [`vitui_runtime::Distinction`], [`Theme::shows`] — and it owns the two counts that make an entry
@@ -25,7 +25,7 @@
 //!
 //! Every function below takes a `&Theme` and asks it how it spells things. That is not a style
 //! choice: **occurrences of the repertoire type's path in `vitui-components/src` == 0** is the count
-//! that replaces the type `Paint` was able to be (§16), and it is checked by
+//! that replaces the type `Paint` was able to be, and it is checked by
 //! `crate::gates::tests::no_component_here_names_a_glyph_set_and_none_has_a_private_missing_table`
 //! and again by `crate::inventory::tests::no_component_source_names_the_repertoire`.
 //!
@@ -122,7 +122,7 @@ pub const fn family(g: Glyph) -> GlyphFamily {
 
 /// **How an entry of §16's twenty reaches a cell.**
 ///
-/// Every draw in this crate goes through [`Theme::glyph`] (ADR 0018), so *is this entry drawn* is a
+/// Every draw in this crate goes through [`Theme::glyph`], so *is this entry drawn* is a
 /// question about that call and about nothing else. Two shapes exist and the second is why this is
 /// an enum rather than a needle.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -736,7 +736,7 @@ pub fn distinctions_of(c: &Component) -> Vec<Distinction> {
 /// A label cut to `w` cells, as **the head and the one-cell marker** the caller writes after it.
 ///
 /// Two slices and no allocation, because this is the shape a drawing verb wants: `text::fit` writes
-/// the head, then the marker, then the remainder (§3). The marker is `""` when nothing was cut.
+/// the head, then the marker, then the remainder. The marker is `""` when nothing was cut.
 ///
 /// **The one-cell rule made callable**, which is the only form of it §16 says is enforceable: a
 /// three-cell `...` where one cell was reserved writes three cells where the reserved one was, and
@@ -844,7 +844,7 @@ mod tests {
     /// A theme at the rung a component gets when nobody has declared one, resolved at the tier the
     /// freeze's numbers are quoted at.
     ///
-    /// **`src/` may not name the axis** (§16), so this is the only rung reachable from here — and it
+    /// **`src/` may not name the axis**, so this is the only rung reachable from here — and it
     /// is reached the way a component reaches one, through a theme somebody else declared. The
     /// three-rung sweep is `crates/vitui-components/tests/glyph_matrix.rs`.
     fn declared() -> Theme {

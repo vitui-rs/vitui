@@ -1,7 +1,7 @@
 //! **O3's screens: one golden per construction, in engine 05's format and not a second one.**
 //!
 //! > O3 — one golden screen **per construction**, not per matrix cell: count `goldens ==
-//! > constructions`, **and** an equality: screens declared identical must be identical. (spec §17)
+//! > constructions`, **and** an equality: screens declared identical must be identical.
 //!
 //! A golden is the one instrument on this map that catches a **wrong cell**. O1 catches an API that
 //! cannot be called from outside the crate and O2 catches an inventory that has drifted from what
@@ -12,7 +12,7 @@
 //! # There is no second format, and [`FORMAT_OWNER`] is how that stays true
 //!
 //! The engine's `golden.rs` is `pub(crate)` throughout, so this crate cannot call it: a cell, a
-//! handle and a style bit are all unreadable from outside the engine (ADR 0023), which is the same
+//! handle and a style bit are all unreadable from outside the engine, which is the same
 //! barrier that makes `marked` [`crate::counters::Reading::Unreachable`]. **What cannot be shared
 //! is the code; what must not be forked is the format**, so the four load-bearing properties are
 //! [`FORMAT_PROPERTIES`] — read out of the owner's own header by
@@ -699,7 +699,7 @@ pub struct Screen {
     ///
     /// **A screen is one picture and one file**, whatever it takes to reach it. **One** of the
     /// twenty-eight plays more than one frame — `file_preview_pane`, because the answer arrives
-    /// after the question (spec §15) — and its golden is one file, because *a construction* is what
+    /// after the question — and its golden is one file, because *a construction* is what
     /// O3 counts and a cadence is not one.
     ///
     /// **The surface is not cleared between those frames**, and that is
@@ -1026,7 +1026,7 @@ pub const GLYPH_KEY_COUNT: usize = GLYPH_KEYS.len();
 /// [`Screen::rung`]. The one caller that can write that match is
 /// `crates/vitui-components/tests/golden.rs`.
 ///
-/// The density is not a parameter and that is deliberate. Density changes rectangles (spec §3), so
+/// The density is not a parameter and that is deliberate. Density changes rectangles, so
 /// a golden taken at another one is a golden of another screen — and the header line carries the
 /// tier and the rung but has no field for it, because there is no second format to add one to.
 /// `tests/golden.rs`'s `every_screen_is_taken_at_the_default_density` is what says so out loud.
@@ -1113,7 +1113,7 @@ pub fn on_disk() -> Vec<(String, usize)> {
 ///
 /// Every one of them draws through [`Pen`] and therefore through a component's `_into` spelling,
 /// because that is the only way a cell this crate wrote can be read back: nothing above the engine
-/// can look at a composited frame (ADR 0023), and `crate::composed`'s own gate is that the three
+/// can look at a composited frame, and `crate::composed`'s own gate is that the three
 /// spellings route into one body — so a screen drawn through the ink is a screen of the shipped
 /// drawing rather than of a copy.
 ///
@@ -1180,7 +1180,7 @@ mod shots {
         }
     }
 
-    /// A decode is a free function over an identity — never a closure (spec §15).
+    /// A decode is a free function over an identity — never a closure.
     fn decode(id: u64, _cancel: &Cancel) -> Doc {
         Doc(id)
     }
@@ -1489,7 +1489,7 @@ mod shots {
         toggle(pen, driver, Toggle::Switch);
     }
 
-    /// The three toggles are **one machine and three configurations** (spec §17, ADR 0041), so the
+    /// The three toggles are **one machine and three configurations**, so the
     /// three screens are one call with one field changed — and what a reviewer compares is three
     /// files that differ where the machine differs.
     fn toggle(pen: &mut Pen, driver: &mut Driver, kind: Toggle) {
@@ -1631,7 +1631,7 @@ mod shots {
         });
     }
 
-    /// **Two frames, because the answer arrives after the question** (spec §15): frame one asks,
+    /// **Two frames, because the answer arrives after the question**: frame one asks,
     /// the worker answers, frame two lands it and draws it. A screen that played one frame would be
     /// a golden of a pane with nothing in it, which is a picture but not the construction.
     ///

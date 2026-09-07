@@ -3,7 +3,7 @@
 //! A frame's bytes are the only thing `present` produces, so every gate on this lineage is a
 //! statement about what reached one of these.
 //!
-//! [`Harness`] is the **round trip** itself (spec §8, §14): composite a frame, serialise it, replay
+//! [`Harness`] is the **round trip** itself: composite a frame, serialise it, replay
 //! the bytes through the terminal model, assert the replayed screen equals the frame. It stores
 //! nothing, so there is no file to review, nothing to bless and no maintenance — and a golden byte
 //! string would have pinned the encoding, which is exactly the part ticket 15 has still to change. It lives here rather than in [`crate::roundtrip`] because
@@ -32,7 +32,7 @@ use crate::term_model::TermModel;
 ///
 /// **It has no exception any more, and losing one is what architecture ticket 20 bought.** A pair
 /// bisected by a [`View::child`](crate::View::child) clip used to be the one case this deliberately
-/// did not assert — a child may not widen its clip (spec §4), so the half outside stayed — and the
+/// did not assert — a child may not widen its clip, so the half outside stayed — and the
 /// instrument was written not to hide it rather than to excuse it. Ticket 20 answered the other way
 /// on evidence: three terminals blank the orphaned half themselves, so a surface holding one is a
 /// surface no terminal can show. The repair is bounded by the surface now, and this holds
@@ -110,7 +110,7 @@ pub(crate) mod bisecting_cjk {
 
 /// The two terminals the compositor is driven against, and why there are exactly two.
 ///
-/// Spec §5's colour resolution depends on an answer from the other end (ADR 0025), so a test about
+/// Spec §5's colour resolution depends on an answer from the other end, so a test about
 /// an operator has to say which terminal it is on. One definition of each, because the *silent* one
 /// is the default state of every headless test in this crate and a second copy of it could quietly
 /// answer something.
@@ -274,7 +274,7 @@ pub(crate) struct Harness {
     label: String,
     /// What the session prologue cost, so that the counters below are about **frames**.
     ///
-    /// Auto-wrap is switched off once on entering the alt screen (§8), which is one write of five
+    /// Auto-wrap is switched off once on entering the alt screen, which is one write of five
     /// bytes before any frame exists. Subtracting it here rather than in every caller is what keeps
     /// *one `write` per frame* a statement a gate can make — and the prologue itself is not left
     /// unasserted for it: `crate::engine`'s
@@ -573,7 +573,6 @@ impl Harness {
     /// true of this harness**, where the model is constructed blank beside a mirror constructed
     /// blank and the two agree by construction — the note on
     /// [`assert_mirror_matches_frame`](Harness::assert_mirror_matches_frame) has said so since
-    /// ticket 03.
     ///
     /// Keying the skip off `is_known` therefore looked right and was a silent hole: a row only
     /// becomes known when one frame writes **every column** of it, so any harness whose layers never

@@ -56,7 +56,7 @@ pub enum Family {
     /// F13 system — `meter`, `table`, `plot`, a log `collection`. ~30 entries, no v1 component.
     F13System,
     /// F14 terminal-native — `canvas` at three rungs, `pty`. ~24 entries, no v1 component; `pty` is
-    /// one of the two §18 exemplars that were **not** built (§22).
+    /// one of the two §18 exemplars that were **not** built.
     F14TerminalNative,
     /// F15 behavioural — **not here**. All twenty-three entries emit no cells, so they are
     /// `vitui-runtime`'s by the T2 test. [`Family::module`] is `None`.
@@ -116,7 +116,7 @@ impl Family {
     /// The module directory this family is the home of, or `None` when the family is not this
     /// crate's.
     ///
-    /// The name is a spelling and not a decision (§19). The `None` is a decision: F15 emits no
+    /// The name is a spelling and not a decision. The `None` is a decision: F15 emits no
     /// cells and belongs to `vitui-runtime`.
     pub const fn module(self) -> Option<&'static str> {
         Some(match self {

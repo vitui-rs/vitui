@@ -117,12 +117,12 @@ pub struct Entry {
     /// The caller's own key for whatever this row shows. Never an [`Id`](vitui_runtime::Id).
     pub node: u32,
     /// How deep it sits. **Not for the indent** — it is there so a collapse can find the interval it
-    /// removes without touching the forest: 115 µs against 1 187 at 349 524 rows (ADR 0028).
+    /// removes without touching the forest: 115 µs against 1 187 at 349 524 rows.
     pub depth: u16,
     /// Caller-defined bits: expanded, folded, filtered, continuation. See [`Entry::FOLDED`].
     pub flags: u8,
     /// How many screen rows it occupies. **The fourth field, and it is why variable row height is a
-    /// field rather than a fifth structure** (§7).
+    /// field rather than a fifth structure**.
     ///
     /// **At least one.** Zero is read as one by [`Heights::built`] rather than honoured — see there
     /// for why a zero-height row breaks the prefix sum's own invariant, and why *not shown* is
@@ -436,7 +436,7 @@ impl Order {
     /// **Where the caller's key `node` sits in the display order**, or `None` if it is folded away.
     ///
     /// A linear scan, and it is not a defect: [`Ask`] carries the caller's **key** rather than a
-    /// position, because a position is exactly the thing that goes stale (ADR 0031), and the verb a
+    /// position, because a position is exactly the thing that goes stale, and the verb a
     /// caller reaches for next — [`Order::fold`] — moves the tail of the same vector. Both are
     /// `O(len)` over eight-byte records, so the lookup is free beside the edit it precedes, and
     /// neither is in a frame.

@@ -95,7 +95,7 @@ pub struct BlockOpts<'a> {
     pub bordered: bool,
     /// Whether to apply the theme's density as a padding ring.
     ///
-    /// **Density is theme data, it changes rectangles, and this is where that lands** (spec §3).
+    /// **Density is theme data, it changes rectangles, and this is where that lands**.
     /// [`vitui_runtime::Density::Compact`] pads one cell and `Cosy` two, so the same form fits a
     /// different number of widgets at the two — which is a fact about the screen and is reported
     /// rather than hidden.

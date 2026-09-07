@@ -1,13 +1,12 @@
 //! **F7 collections**, ~50 entries, expressed by [`collection`] plus columns, an index or tiles.
 //!
-//! The reduction is R1 and R5 (spec §18). R5 is this family's own and it is the sharpest of the
+//! The reduction is R1 and R5. R5 is this family's own and it is the sharpest of the
 //! six: twenty-one of the survey's twenty-two data-grid features are caller state or layout, and
 //! the twenty-second — variable row height — is a fourth field on §7's record. **The index is the
 //! caller's**, which is what makes R5 a reduction rather than a deferral: an entry in that class
 //! needs no library mechanism at all, only a documented shape.
 //!
-//! Org charts, mind maps and pivot tables are layout research, four families away from a mechanism
-//! (§22).
+//! Org charts, mind maps and pivot tables are layout research, four families away from a mechanism.
 //!
 //! # `collection` — one component, one [`Mode`], thirteen match arms
 //!
@@ -67,7 +66,7 @@
 //!
 //! [`CollState`] is offset, selection, type-ahead buffer and `editing: Option<usize>`, because only
 //! one row can hold an inline editor. Nothing keyed by row index may exist, and the runtime enforces
-//! the other half: a row that did not draw cannot be clicked, focused or hovered (ADR 0012), so
+//! the other half: a row that did not draw cannot be clicked, focused or hovered, so
 //! state for an undrawn row is state nothing can reach. [`COLL_STATE_BYTES`] is the measured size
 //! and it does **not** reproduce §5's 208 — see that constant, which says why rather than padding
 //! the type to fit.
@@ -92,7 +91,7 @@
 //! ## What the component draws, and what it does not
 //!
 //! The rows the content admits belong to the **row drawer**, which owes each one the rectangle it
-//! is handed (§2, ADR 0026). Every other cell of the collection's rectangle is the collection's own
+//! is handed. Every other cell of the collection's rectangle is the collection's own
 //! and it writes them: that is the tail below the last content row, and writing it is the whole of
 //! the *stale tail* axis — 71 of 80 rows on `crate::listing`'s screen when it is left out.
 //!
@@ -420,7 +419,7 @@ pub const MODES: usize = Mode::ALL.len();
 ///
 /// The other half of criterion 1: *no second component in `INVENTORY` duplicates one of them.* Six
 /// inventory entries collapsing into one is most of why the v1 freeze is twenty-nine components
-/// rather than thirty-five (ADR 0028), and a row reappearing under one of these names is that
+/// rather than thirty-five, and a row reappearing under one of these names is that
 /// collapse being quietly undone.
 ///
 /// `radio` **is** an inventory row and is deliberately not here: standalone it is a `press`, and a
@@ -621,7 +620,7 @@ pub fn arms_in_apply() -> usize {
 /// terminal limit.
 ///
 /// `at` is resolved by the caller from `Response::local`, which is **this frame's** pointer, so
-/// there is no frame lag and no per-row hit entry (ADR 0028).
+/// there is no frame lag and no per-row hit entry.
 pub fn from_click(mods: Mods, at: usize) -> Gesture {
     match (mods.ctrl(), mods.shift()) {
         (true, true) => Gesture::ExtendAdd(at),
@@ -817,8 +816,8 @@ pub const SEARCH_BUDGET: usize = 4_096;
 /// exactly: `(cx, rect, index, Face)`, five independent bits and no `Sel` enum.
 ///
 /// `find` is **the caller's search** and it is handed the buffer and the bounded range to look in;
-/// the component owns the buffer, the deadline and the bound. `row` owes each rectangle it is handed
-/// (§2); every other cell of `area` is written here.
+/// the component owns the buffer, the deadline and the bound. `row` owes each rectangle it is handed;
+/// every other cell of `area` is written here.
 ///
 /// # The two closures arrive as `&mut dyn`, and that is a signature decision
 ///
@@ -2112,7 +2111,7 @@ pub mod defective {
     /// and there is nothing left of the row to draw; and it runs *faster* for the same reason.
     ///
     /// The one quantity that moves is **cells asked for**, and at depth ten the two builds are one
-    /// frame — which is a statement about the scene list (§21) rather than about the gate.
+    /// frame — which is a statement about the scene list rather than about the gate.
     #[track_caller]
     #[expect(
         clippy::too_many_arguments,
@@ -2154,7 +2153,7 @@ pub mod defective {
     /// **The tree that asks for a reveal on every frame.** [`super::defective::every_frame`]'s
     /// refusal, one component up and reached through the same field.
     ///
-    /// Production 07. `collection`'s own arm is `CollShape::reveal`, and a tree has no second
+    ///`collection`'s own arm is `CollShape::reveal`, and a tree has no second
     /// offset and no second reveal — so this is [`super::tree`] with one field of `TreeShape`
     /// changed and the defect lands in `collection`'s body, which is exactly spec §7's claim:
     /// *the wheel, the keyboard and the reveal are all `collection`'s, reached by calling it.*
@@ -3417,7 +3416,7 @@ impl TableState {
     /// **Carry the editing slot across a reorder — §6's 0.29 µs, as one lookup.**
     ///
     /// `to` answers *where did the row that was at `i` go*, and it is the caller's because only the
-    /// caller has both orders (ADR 0031). The cost is one call at any length **because the slot is
+    /// caller has both orders. The cost is one call at any length **because the slot is
     /// one position**; the column half is untouched, because it is a key.
     pub fn follow(&mut self, to: impl FnOnce(usize) -> Option<usize>) {
         if let Some(row) = self.coll.editing {
@@ -3512,7 +3511,7 @@ pub struct TableOpts {
 ///
 /// # Arguments
 ///
-/// `cell` is handed `(cx, rect, row, key, face)` and **owes every cell of the rectangle** (§2). The
+/// `cell` is handed `(cx, rect, row, key, face)` and **owes every cell of the rectangle**. The
 /// `Face` is the row's, because §5's five independent bits are a row's bits; a cell that wants the
 /// cell selection reads [`TableState::cells`], which is the caller's to consult and the caller's to
 /// gesture on.
@@ -3667,7 +3666,7 @@ struct TableShape {
 /// arm, so the repair is measured rather than asserted.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum Slack {
-    /// **The rule** (§2): a component handed a rectangle writes all of it.
+    /// **The rule**: a component handed a rectangle writes all of it.
     #[default]
     Written,
     /// **What shipped until issue 24**: the columns are drawn and the rest of the band is nobody's.
@@ -4148,7 +4147,7 @@ impl Default for TreeOpts {
 ///
 /// **Hostile axes:** `scrolled`, `shrunk`, `wheeled`, `narrow`.
 ///
-/// **All four have a scene**, and the last two arrived last of the whole freeze (production 07).
+/// **All four have a scene**, and the last two arrived last of the whole freeze.
 /// The line above is read by `crate::doc`'s O1 scan and joined against the freeze's own axis set,
 /// so it takes the four words and nothing else — a sentence appended to it is four axes and two
 /// fragments.
@@ -4175,10 +4174,10 @@ impl Default for TreeOpts {
 ///
 /// # The `+` is two verbs a row: the indent run and the chevron cell
 ///
-/// 222 verbs over 111 rows (§7). The indent is **one** [`Ink::run`] whatever its width — a padding
+/// 222 verbs over 111 rows. The indent is **one** [`Ink::run`] whatever its width — a padding
 /// band is exactly the verb a run is — and the chevron is one cell, a space on a leaf so that the
 /// partition is the same partition on every row. What is left of the rectangle goes to the row
-/// drawer, which owes every cell of it (§2, ADR 0026).
+/// drawer, which owes every cell of it.
 ///
 /// # The index is the caller's, and this component may only ask
 ///
@@ -4617,7 +4616,7 @@ pub struct PageOpts {
     /// How many rows one type-ahead keystroke may look at. [`CollOpts::search`], forwarded whole.
     pub search: usize,
     /// **A stepper at each end**, drawn in the two arrow glyphs the freeze declares for this
-    /// component (spec §17). Dropped when the strip has no room for a page between them, because a
+    /// component. Dropped when the strip has no room for a page between them, because a
     /// pager with no page in it is two buttons and a lie — `crate::scroll::ScrollbarOpts::caps`
     /// makes the same call for the same reason.
     pub steppers: bool,
@@ -5160,7 +5159,7 @@ mod tests {
 
     /// **A click on a page selects it and a click on a stepper steps**, both through `from_click`.
     ///
-    /// `from_click` and `from_key` are two readings of one vocabulary (§5), and this is the pointer
+    /// `from_click` and `from_key` are two readings of one vocabulary, and this is the pointer
     /// half of *no second navigation model*: the pager resolves *which column* by arithmetic and
     /// hands the answer to the same `apply` the keyboard reaches.
     ///
@@ -5792,9 +5791,9 @@ mod tests {
     ///
     /// Both halves of register row 71, and they are one screen because they fail together.
     ///
-    /// - **One hit entry per collection** (ADR 0028): the component declares exactly one however
+    /// - **One hit entry per collection**: the component declares exactly one however
     ///   many rows it stands, and the rows' own targets are the row drawer's.
-    /// - **`merges == 0`** (ADR 0027): the row loop is wrapped in `cx.with_id`, so two collections
+    /// - **`merges == 0`**: the row loop is wrapped in `cx.with_id`, so two collections
     ///   drawn from *one* line do not collide. The defective arm is the same loop written without
     ///   it, and **the screen it draws is pixel for pixel correct** — which is why `merges` is the
     ///   only instrument that reports it.
@@ -5866,7 +5865,7 @@ mod tests {
     ///
     /// **A press and a release cannot share a frame**, so the sequences below are the whole space:
     /// `route::edge_of` calls both `MouseKind::Down` and `MouseKind::Up` a *closing* edge and
-    /// `route::batch_len` stops at the first of them (ADR 0016). Until runtime architecture 29
+    /// `route::batch_len` stops at the first of them. Until runtime architecture 29
     /// this crate reconstructed the edge as `resp.pressed && !st.pressing`, which would have been
     /// blind to a press and a release in one batch; the batch split is why that was never a case
     /// rather than a second gate.
@@ -5877,7 +5876,7 @@ mod tests {
         /// One frame per entry; `None` draws without posting anything.
         ///
         /// The first is the frame that builds the hit index — nothing can be over a region that has
-        /// not been declared yet (ADR 0012) — and the second is a `Move`, because the runtime reads
+        /// not been declared yet — and the second is a `Move`, because the runtime reads
         /// the pointer's position once per frame before it walks the batch, so a `Down` arriving at
         /// a position nothing has moved to is a press over nothing.
         fn run(kinds: &[Option<MouseKind>], mods: Mods) -> (usize, Vec<usize>) {

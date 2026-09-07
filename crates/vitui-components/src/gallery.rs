@@ -2,7 +2,7 @@
 //! gate is two equalities over the table it is drawn from.**
 //!
 //! > O2 — a panel in the gallery binary | **two** equalities: nothing shown may be absent from the
-//! > freeze, and everything `built` must have a panel. (spec §17)
+//! > freeze, and everything `built` must have a panel.
 //!
 //! Components ticket 39. The binary is `crates/vitui-apps/examples/gallery.rs`; what lives here is
 //! the **screen**, and the reason it lives here rather than in the application is that spec §21
@@ -29,7 +29,7 @@
 //! # The population is `built`, for the third time on this map
 //!
 //! `spinner` is the twenty-ninth row and has no panel: *a panel for a function that does not exist
-//! is not a screen anybody can draw*. O1 chose `built` (ADR 0043), O3 chose `built` (ADR 0044), and
+//! is not a screen anybody can draw*. O1 chose `built`, O3 chose `built`, and
 //! O2's second equality is **already written over `built`** in the spec, so nothing had to be
 //! decided here — the population moves on its own the day `spinner` ships.
 //!
@@ -192,7 +192,7 @@ impl Preview for Doc {
     }
 }
 
-/// A decode is a free function over an identity — never a closure (spec §15).
+/// A decode is a free function over an identity — never a closure.
 fn decode(id: u64, _cancel: &Cancel) -> Doc {
     Doc(id)
 }
@@ -462,7 +462,7 @@ pub enum Keying {
     Themed,
     /// **The defect, and the plausible one.** `(data, tier)`: the colour depth is in the key and the
     /// theme is not, so it invalidates on `Ctrl+L` — the one axis that moves nothing on any panel
-    /// (ADR 0018) — and is a **hit** on `t` and on `Ctrl+G`, which are the two that move everything.
+    /// — and is a **hit** on `t` and on `Ctrl+G`, which are the two that move everything.
     ///
     /// It is the spelling ticket 41 names, and its shape is why: an enumeration of axes is a list
     /// the next reader forgets one of, and the theme's own `Revision` is the one key that cannot be
@@ -481,7 +481,7 @@ pub const SPIN_PER: std::time::Duration = std::time::Duration::from_millis(80);
 
 /// **Everything the twenty-nine panels keep between frames.**
 ///
-/// One value the caller owns, because the runtime has no retained structure (ADR 0012): what
+/// One value the caller owns, because the runtime has no retained structure: what
 /// survives a frame is what the application holds.
 pub struct Bag {
     /// The worker the two file components send their questions to.
@@ -597,7 +597,7 @@ impl Bag {
     /// Land whatever the worker has answered, if anything.
     ///
     /// **The two fields are split here rather than at the call site**, because a landing is taken at
-    /// the top of the view (ADR 0039) and the view holds one `&mut Bag`.
+    /// the top of the view and the view holds one `&mut Bag`.
     pub fn land_here(&mut self) -> crate::files::Landed {
         let Bag {
             pane, pane_task, ..
@@ -821,7 +821,7 @@ impl Gallery {
     /// The page, the scheme, the repertoire and the colour depth. It is what [`Clears::relaid_into`]
     /// compares, and it is a *value* rather than the runtime's `theme_changed` flag because a value
     /// that moved is a fact and a flag is a report of one. Density is the input it cannot carry —
-    /// it is theme data and it changes rectangles (spec §3) — and [`Gallery::ui_into`] ORs the flag
+    /// it is theme data and it changes rectangles — and [`Gallery::ui_into`] ORs the flag
     /// in for exactly that.
     fn screen_key(&self) -> u64 {
         let rung = RUNGS.iter().position(|r| *r == self.rung).unwrap_or(0) as u64;
@@ -1703,7 +1703,7 @@ mod draws {
         );
     }
 
-    /// **The band, which is all `sticky` is** (spec §9): the header shares `x` with a body scrolled
+    /// **The band, which is all `sticky` is**: the header shares `x` with a body scrolled
     /// four columns right, and the clip is what keeps it inside its own rectangle.
     pub fn sticky(
         _b: &mut Bag,
@@ -2077,7 +2077,7 @@ pub fn shape_as(w: u16, h: u16, frames: u32, remainder: Remainder) -> Shape {
 /// of a grid that does not divide and nowhere else.
 ///
 /// Three frames, which is the warm-up the two file components need: the answer arrives on a frame
-/// after the one that asked (spec §15).
+/// after the one that asked.
 pub fn shape_on(w: u16, h: u16, page: usize, remainder: Remainder) -> Shape {
     let (gallery, driver, pen) = play(w, h, page, 3, remainder);
     read_shape(&gallery, &driver, &pen, w, h)
@@ -2117,7 +2117,7 @@ pub fn screen(w: u16, h: u16, frames: u32, remainder: Remainder) -> crate::runne
 /// **Warmed, then measured on a fresh recorder.**
 ///
 /// The warm frames are what the two file components need — the answer arrives on a frame after the
-/// one that asked (spec §15) — and the fresh recorder is what makes [`Shape::unwritten`] a **steady
+/// one that asked — and the fresh recorder is what makes [`Shape::unwritten`] a **steady
 /// frame's** number: `crate::app::Clears` writes every cell of the screen on the first frame and on
 /// a resize, so a recorder carried across that frame answers *nobody ever left a cell alone*, which
 /// is zero on any screen that clears and says nothing about any component.
@@ -2209,7 +2209,7 @@ pub struct Swap {
     /// first refinement in the one place this module can demonstrate it: most of the cells a swap
     /// leaves alone are left alone *correctly*. A rung change moves the cells drawn from the theme's
     /// glyph table and no others, so the letters of every label are `kept` and right; the colour
-    /// axis moves nothing on any panel at all (ADR 0018), so `kept` reads 100% on a screen with
+    /// axis moves nothing on any panel at all, so `kept` reads 100% on a screen with
     /// nothing wrong with it. Register row 8's subject is [`Swap::stale`], which is a different
     /// number measured against a different arm.
     pub kept: usize,
@@ -2569,7 +2569,7 @@ pub struct MatrixCell {
     /// the theme because it is not measurable on the screen.
     pub roles_collapsed: usize,
     /// **How many of the nine distinctions the theme does not show.** The colour axis again, at the
-    /// level a component actually asks about (ADR 0032).
+    /// level a component actually asks about.
     pub distinctions_lost: usize,
 }
 
@@ -3549,7 +3549,7 @@ mod tests {
     ///
     /// Measured before anything was changed: handed a rectangle taller and wider than its content,
     /// every row of the freeze wrote all of it except **`select` and `file_picker` — 576 cells of a
-    /// 48x13 interior each** — which are exactly the two whose body is in another layer (§12). Their
+    /// 48x13 interior each** — which are exactly the two whose body is in another layer. Their
     /// remainder could not be *named*: §2's third clause is *the cells it does not write are named
     /// in its return value*, and both return the runtime's `Response`, which has no field for one.
     /// Writing them is the only reachable answer and both now do.
@@ -3605,7 +3605,7 @@ mod tests {
     /// complement is not the repair either — on this screen `kept` is **17 884 of 24 000** under a
     /// rung change with nothing whatever wrong, because a rung change moves the cells drawn from the
     /// theme's glyph table and no others, and it is **23 990 of 24 000** under a tier change because
-    /// the colour axis moves nothing on any canvas at all (ADR 0018). *Both numbers are the delta,
+    /// the colour axis moves nothing on any canvas at all. *Both numbers are the delta,
     /// read from its two ends.*
     ///
     /// What separates *the swap reached nothing* from *the swap had nothing to reach* is a second
@@ -3699,7 +3699,7 @@ mod tests {
     ///
     /// **And `Change::Tier` is 0 on the defective arm**, which is the whole argument for the key
     /// being the theme's own `Revision` rather than an enumeration: the axis this key remembered is
-    /// right, and it is the one axis that moves nothing anyway (ADR 0018). *An enumeration of axes
+    /// right, and it is the one axis that moves nothing anyway. *An enumeration of axes
     /// is a key the next reader forgets one of, and this one forgot the two that matter.*
     #[test]
     fn the_tier_keyed_memo_is_wrong_on_this_screen_and_the_old_gate_passes_on_it() {

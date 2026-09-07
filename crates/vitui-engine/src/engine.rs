@@ -14,14 +14,14 @@
 //! not a tidiness: it is what makes the deterministic mode exercise the handoff rather than bypass
 //! it, and it is why nothing this ticket added can change a byte the deterministic mode asserts.
 //!
-//! The deterministic mode is **public API rather than test scaffolding** (spec §14): an application
+//! The deterministic mode is **public API rather than test scaffolding**: an application
 //! author testing their own UI needs the same determinism the engine's tests need. A test is a
 //! straight-line program — draw, present, assert on the sink — with no condvar, no join, no timeout
 //! and no flake.
 //!
 //! The parking point is here since ticket
 //! 19: [`Screen::wait`] is the app thread's only blocking call, the frame clock gates it rather than
-//! `present` (ADR 0004), and *the renderer is free* reaches it through [`crate::clock::WakeSource`]
+//! `present`, and *the renderer is free* reaches it through [`crate::clock::WakeSource`]
 //! rather than through the mailbox's own condvar — one thread cannot park on two of them.
 //!
 //! # The three threads, and what each one owns
@@ -116,8 +116,8 @@ pub enum Clock {
 
 /// Where the frame's bytes go.
 ///
-/// A caller-supplied sink is what makes headless a fully *declared* tier rather than the lowest one
-/// (spec §10): with detection switched off and every axis pinned, any tier is testable, truecolor
+/// A caller-supplied sink is what makes headless a fully *declared* tier rather than the lowest one:
+/// with detection switched off and every axis pinned, any tier is testable, truecolor
 /// included.
 ///
 /// This is the one trait object in the engine and it is `std::io::Write`, not one of ours. Spec
@@ -240,7 +240,7 @@ pub struct Config {
     /// learns the number from the platform and says so here;
     /// [`Screen::set_max_frame_rate`] covers a monitor changing under a running program.
     ///
-    /// It is a **minimum gap and not a tick** (ADR 0004): the first damage after a quiet period
+    /// It is a **minimum gap and not a tick**: the first damage after a quiet period
     /// paints immediately and everything arriving inside the gap coalesces into one frame at the end
     /// of it. The gate sits on [`Screen::wait`], so a frame nobody will see costs neither a composite
     /// nor a layout.
@@ -908,7 +908,7 @@ pub struct Screen {
     wakes: Arc<WakeSource>,
     /// The authoritative size of the terminal: sampled at frame start, re-checked at submit.
     ///
-    /// Behind an `Arc` because the **input thread is the only writer** (spec §7) and this thread is
+    /// Behind an `Arc` because the **input thread is the only writer** and this thread is
     /// the only reader.
     terminal_size: Arc<TerminalSize>,
     /// What the input thread has parsed and this thread has not taken yet.
@@ -1049,7 +1049,7 @@ impl Screen {
     /// Write the bytes that hold for the whole session rather than for one frame.
     ///
     /// **Auto-wrap off, once, and it is a decision the spec states rather than an implementation
-    /// detail** (§8). It is worth ten bytes of every frame, which matters only because a caret blink
+    /// detail**. It is worth ten bytes of every frame, which matters only because a caret blink
     /// is a 29-byte frame — and it deletes both of cellbuf's bug-driven workarounds outright, because
     /// with no wrap there is no pending-wrap state and no bottom-right corner that scrolls. **Neither
     /// workaround is ported.** The cost of refusing auto-wrap is that a run ending at the right
@@ -1069,7 +1069,7 @@ impl Screen {
     /// Auto-wrap is a mode rather than a page, so switching it off is not undone by leaving: it has
     /// to be given back explicitly, and **before** the page is, or the last bytes of the session
     /// reprogram the terminal behind the user's returned prompt. Every `shortest` move in the
-    /// serializer is priced on the assumption that nothing wrapped (impl 13), and a serializer that
+    /// serializer is priced on the assumption that nothing wrapped, and a serializer that
     /// assumed it without asking for it would be right on most terminals and silently wrong on
     /// one.
     fn begin_session(&mut self, page: Page) {
@@ -1151,7 +1151,7 @@ impl Screen {
 
     /// Bring the renderer back from the render thread, so that the epilogue has a sink to go to.
     ///
-    /// **The render thread is joined; the input thread never is** (spec §7). This one is either
+    /// **The render thread is joined; the input thread never is**. This one is either
     /// parked on a condvar or inside a bounded `write`, both finite. The input thread sits in a
     /// blocking `read` with nothing to wake it short of a signal, so it dies with the process — and
     /// that asymmetry is here rather than in a document because this is the function where the second
@@ -1283,7 +1283,7 @@ impl Screen {
     /// size on the wire first.
     ///
     /// The layers keep their rectangles — the runtime brings a rectangle and a draw for every layer
-    /// every frame (spec §12), so a layer whose shape must change is
+    /// every frame, so a layer whose shape must change is
     /// [`LayerStack::set_rect`](crate::LayerStack::set_rect)'s business and not this one's.
     ///
     /// ```
@@ -1412,7 +1412,7 @@ impl Screen {
     /// Where the caret is, in **screen** coordinates, or `None` for no caret.
     ///
     /// Applied by [`present`](Screen::present) after the frame's last write, **which is the only
-    /// moment at which it is correct and a moment only the engine has** (ADR 0005): the frame has
+    /// moment at which it is correct and a moment only the engine has**: the frame has
     /// just moved the terminal's cursor to wherever its last cell was. The runtime translates from
     /// layer coordinates, which it can, because it brought the layer's rectangle.
     ///
@@ -1547,7 +1547,6 @@ impl Screen {
     /// byte. **A child that needs the keyboard needs its own standard input, or this process needs
     /// to be stopped while it runs.** That sentence is the first paragraph rather than the fifth
     /// because it was the fifth, and it was read as a caveat on a supported case: see production
-    /// ticket 13 and ADR 0052.
     ///
     /// The epilogue [`Screen::drop`] writes goes out — the input modes, the kitty flags, the caret,
     /// auto-wrap and the alternate screen, in that order — and raw mode goes with it. The `Screen`
@@ -1658,7 +1657,7 @@ impl Screen {
     /// # What is *not* done, and it is the answer to a question rather than an omission
     ///
     /// **The terminal is not asked anything.** [`Capabilities`](crate::Capabilities) is sampled once
-    /// and is immutable for the life of the `Screen` (spec §10), so a resume re-declares and never
+    /// and is immutable for the life of the `Screen`, so a resume re-declares and never
     /// re-detects. That is right for the two cases this pair is for — the terminal a suspend gave
     /// back is the terminal a resume takes, byte for byte — and it is *wrong* for a terminal that
     /// was replaced underneath the process. A reconnected `ssh` session or a `tmux` client attaching
@@ -2002,7 +2001,7 @@ impl Screen {
 
     /// Start again at a new size.
     ///
-    /// **Resize damages everything and is simply correct, not clever** (spec §6): mark the whole
+    /// **Resize damages everything and is simply correct, not clever**: mark the whole
     /// screen, clear every structure, reallocate the surfaces. A resized frame is composited from
     /// the layers rather than patched out of the one before it.
     ///
@@ -2025,7 +2024,7 @@ impl Screen {
     /// deliver instead.
     ///
     /// The layers keep their rectangles and their cells. The runtime brings a rectangle and a draw
-    /// for every layer every frame (spec §12), so a layer whose shape must change is
+    /// for every layer every frame, so a layer whose shape must change is
     /// [`set_rect`](crate::LayerStack::set_rect)'s business and not this one's.
     ///
     /// **Nothing outside this crate calls it, and nothing will.** §12's public surface has no
@@ -2376,7 +2375,7 @@ impl Screen {
     ///
     /// It lives here rather than being called on [`Screen::layers`] because the oracle needs the
     /// layer stack **and** the capabilities — an operator resolves colour against what the terminal
-    /// answered (ADR 0025) — and those are two fields of this struct. A caller that reached for both
+    /// answered — and those are two fields of this struct. A caller that reached for both
     /// itself would be holding one borrow of `self` mutably and another immutably; the split belongs
     /// where the fields are.
     #[cfg(any(test, feature = "fuzz"))]
@@ -2439,7 +2438,7 @@ impl Drop for Screen {
 
 /// The render thread's whole life: take a packet, write it, give it back.
 ///
-/// It holds **no application state and no handle at all** (ADR 0011). Everything a cell names was
+/// It holds **no application state and no handle at all**. Everything a cell names was
 /// resolved into the packet's own side tables at pack time, so nothing here points into a table the
 /// app thread is free to sweep — which is what keeps resize, shutdown and panic small.
 pub(crate) struct Renderer {
@@ -2464,7 +2463,7 @@ impl Renderer {
     }
 
     /// Start again at a new size: a fresh mirror, which knows nothing, which is the honest state for
-    /// a terminal that has just reflowed (ADR 0006).
+    /// a terminal that has just reflowed.
     fn resize(&mut self, w: u16, h: u16) {
         self.serializer = Serializer::new(w, h);
         self.size = (w, h);
@@ -2508,7 +2507,7 @@ fn render_loop(mailbox: &Mailbox, wakes: &WakeSource, renderer: &mut Renderer) {
 ///
 /// **The frame is never split on purpose.** A synchronised-output block spanning two `write` calls
 /// is still one block to the terminal; a frame split into two blocks tears. This loop is only about
-/// the kernel's buffer being smaller than the frame (spec §8).
+/// the kernel's buffer being smaller than the frame.
 ///
 /// A write error is still dropped on the floor here, and shutdown turned out not to be where that
 /// gets an answer: the render thread has nowhere upward to report one — `Presented` has no field
@@ -2663,7 +2662,7 @@ mod tests {
     /// **The caret is applied after the frame's last write**, asserted by byte order in the sink.
     ///
     /// It is the only moment at which it is correct: the frame has just moved the terminal's cursor
-    /// to wherever its last cell was (ADR 0005).
+    /// to wherever its last cell was.
     #[test]
     fn the_caret_is_applied_after_the_frames_last_write() {
         let mut h = crate::testing::Harness::new(20, 2);

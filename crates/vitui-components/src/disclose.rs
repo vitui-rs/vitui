@@ -27,7 +27,7 @@
 //!
 //! **The index row already ships, one family over.** [`crate::collect::tree`] is §8's first row
 //! expressed through the collection lineage: a fold leaves `order::Ask::Collapse` in a one-slot
-//! request and the caller splices after the draw (ADR 0031). What `Collapses::OnRequest` is for is
+//! request and the caller splices after the draw. What `Collapses::OnRequest` is for is
 //! the same configuration reached from *this* side — a section **header** over rows in a
 //! caller-owned index, which is code folding rather than a tree node — and it is the same machine
 //! rather than a second one, which is what makes the split checkable instead of a claim.
@@ -52,7 +52,7 @@
 //!
 //! # The height is an argument, and the watermark is §9's finding on the other axis
 //!
-//! The runtime has no measure pass (ADR 0014), so a section's open height comes from a **sizing
+//! The runtime has no measure pass, so a section's open height comes from a **sizing
 //! function beside the body** — [`sizing::check`]'s own `FnMut(u16) -> u16`, which is the shape the
 //! runtime already gates a component against.
 //!

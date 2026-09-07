@@ -293,14 +293,14 @@ impl Themes {
     /// Tell the registry what the terminal can show, and rebuild the current theme against it.
     ///
     /// **One theme, not the set.** The tier arrives from `Ctx::caps()`, told once at start-up and
-    /// told again if it is ever re-detected; the registry detects nothing itself (ADR 0007).
+    /// told again if it is ever re-detected; the registry detects nothing itself.
     pub fn set_tier(&mut self, tier: ColorDepth) {
         self.tier = tier;
         self.rebuild();
     }
 
-    /// Declare the glyph repertoire every theme in this set is built with. **Declared, never probed**
-    /// (ADR 0010).
+    /// Declare the glyph repertoire every theme in this set is built with. **Declared, never probed**.
+    ///
     pub fn set_glyphs(&mut self, glyphs: GlyphSet) {
         self.glyphs = glyphs;
         self.rebuild();

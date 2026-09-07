@@ -1,6 +1,6 @@
 //! **F9 overlays**, ~35 entries, expressed by `overlay`, layers, placement, scopes and `Trap`.
 //!
-//! The reduction is R1 and R2 (spec §18): modality is a `bool`, and the eighteen named popup,
+//! The reduction is R1 and R2: modality is a `bool`, and the eighteen named popup,
 //! dialog, drawer, sheet and toast entries are two axes of one component.
 //!
 //! `select` declares this family and is homed under F6, because §12's finding is that the popup is
@@ -54,7 +54,7 @@
 //!
 //! The layer is keyed and censused on the **request**, so a second request under one owner this
 //! frame is inert and `Frame::overlays_merged` counts it. A component with two overlays standing
-//! must **mint** a second id with `Ctx::with_key` (§4); shared, the two get one slot resized.
+//! must **mint** a second id with `Ctx::with_key`; shared, the two get one slot resized.
 //! An `Id` is a hash, so nothing recovers the rooting from the value — every workaround on this map
 //! that looks like a hack is that fact.
 //!
@@ -875,7 +875,7 @@ pub fn granted(sizing: Sizing, h: u16) -> (u16, u16) {
 /// Arithmetic over the three shipped functions that produce the answer —
 /// [`popup_size`], [`vitui_runtime::overlay::place`] and
 /// [`CollState::max_offset`] — and not a readback, because there is no readback to take: no cell of a
-/// composited surface is readable from outside the engine (ADR 0023), so *the row was drawn where the
+/// composited surface is readable from outside the engine, so *the row was drawn where the
 /// screen is not* has no observable form at this layer. What **is** observable is the rectangle the
 /// row was drawn in, and the two numbers this returns are that rectangle's consequences.
 ///

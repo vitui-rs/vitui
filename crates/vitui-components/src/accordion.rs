@@ -467,7 +467,7 @@ pub const fn admitted(h: u16) -> usize {
 /// The rectangle is the whole context. The accordion publishes one scrollable region, opens one
 /// scroll scope so that a section entirely outside the window is not drawn, stacks the sections, and
 /// **clears the residue itself**: the cells between the last section's last row and the bottom of
-/// the viewport are inside the accordion's rectangle and no section owns them (§2).
+/// the viewport are inside the accordion's rectangle and no section owns them.
 ///
 /// # It draws **through** [`collapsible`](crate::disclose::collapsible) since components ticket 22
 ///
@@ -1242,7 +1242,7 @@ impl Anchor {
 
 /// **The closed folds, sorted by start line. Caller state**, for the same forced reason a
 /// collection's selection is: it is one of the index's two inputs and only the party holding the
-/// document can materialise the index (§8).
+/// document can materialise the index.
 #[derive(Clone, Debug, Default)]
 pub struct Folds {
     closed: Vec<u32>,

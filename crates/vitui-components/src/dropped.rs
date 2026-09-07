@@ -143,7 +143,7 @@ pub const WHEELED_FROM: i32 = 10;
 
 /// **Where twenty clicks leave the window: thirty.** One row a click, which is
 /// `vitui_runtime::scroll::Wheel`'s default and the runtime's whole motion model — a notch is intent
-/// (ADR 0008) and the runtime has no standing to multiply somebody's intent by three.
+/// and the runtime has no standing to multiply somebody's intent by three.
 ///
 /// **It is short of the clamp on purpose.** Both lists hold [`OPTIONS`] rows in an [`H`]-row
 /// window, so the largest offset either admits is `64 - 24 = 40`; a run that ended *at* the clamp
@@ -156,7 +156,7 @@ pub const MOVED: i32 = WHEELED_FROM + CLICKS as i32;
 ///
 /// It is read **after the settling frame**, which is the whole reason that frame is played. The
 /// number one frame earlier is **1**, not 0 — a reveal crosses the frame boundary as sixteen bytes
-/// and is read on the frame after (ADR 0015), so the defective arm is always one click ahead of its
+/// and is read on the frame after, so the defective arm is always one click ahead of its
 /// own correction. That one is the runtime's documented residue rather than a softened defect, and
 /// it is [`Wheeled::after_last_click`]'s number and not this one.
 /// [`crate::wheel::DRAGGED_BACK`] is the same value one component over with the same split behind
@@ -263,7 +263,7 @@ pub fn file_names() -> Vec<String> {
     (0..FILES).map(|i| format!("file-{i:03}.txt")).collect()
 }
 
-/// **What a decode produces.** A free function over an identity and never a closure (spec §15), so
+/// **What a decode produces.** A free function over an identity and never a closure, so
 /// the payload is eight bytes and the pane's equality against it can be the pane's.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Doc(u64);

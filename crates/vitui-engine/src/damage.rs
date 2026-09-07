@@ -83,7 +83,7 @@ impl RowBits {
 
     /// Mark `lo..=hi` on row `y` as damaged, clamping to the bitset and discarding what falls
     /// outside it. Coordinates are signed because a verb writing far outside a surface is ordinary
-    /// traffic for a virtualised component, not an error (ADR 0022).
+    /// traffic for a virtualised component, not an error.
     pub(crate) fn mark(&mut self, y: i32, lo: i32, hi: i32) {
         if y < 0 || y >= self.height as i32 || hi < lo || self.width == 0 {
             return;
@@ -144,7 +144,7 @@ impl RowBits {
 
     /// Union `src`'s damage into this one, translated by `(dx, dy)` and clipped to `clip`.
     ///
-    /// A layer hanging off an edge is clipped, not dropped (spec §6).
+    /// A layer hanging off an edge is clipped, not dropped.
     pub(crate) fn union_translated(&mut self, src: &RowBits, dx: i32, dy: i32, clip: Rect) {
         // `src` and `self` are distinct borrows, so the marking happens inside the scan rather
         // than through a collected `Vec` — this runs on every frame and the frame budget is zero

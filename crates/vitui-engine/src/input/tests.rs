@@ -451,7 +451,7 @@ fn a_paste_of_exactly_the_ceiling_is_not_truncated() {
     }
 }
 
-/// **No timer rescues it** (§9): if the closing marker never comes, the channel is already broken.
+/// **No timer rescues it**: if the closing marker never comes, the channel is already broken.
 /// Nothing is emitted and nothing is lost, because there was nothing complete to hand up.
 #[test]
 fn an_unterminated_paste_is_not_rescued_by_anything() {

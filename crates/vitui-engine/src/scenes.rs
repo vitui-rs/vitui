@@ -893,7 +893,7 @@ impl Scene for EveryCellADistinctStyle {
 ///
 /// **It is the only measured shape that grows a handle table without bound**, and it decides table
 /// lifetime the way the sparse chart decided damage: table growth, the sweep, `repaint` and the memo,
-/// all at once (spec §3, §14). Impl 08 is what gave it a number; before that it was the one row on
+/// all at once. Impl 08 is what gave it a number; before that it was the one row on
 /// §14's normative list with nothing behind it.
 ///
 /// Three things make it measure something rather than nothing, and each of them was a way to get a
@@ -902,7 +902,7 @@ impl Scene for EveryCellADistinctStyle {
 /// - **The depth is pinned to truecolor.** A headless screen is at `ColorDepth::None`, and §5 skips
 ///   an operator layer outright there — see [`Scene::overrides`].
 /// - **The page has explicit colours.** A cell with a *default* background is left unmixed on a
-///   terminal silent on OSC 11 (§5), and every headless screen is silent, so a default-coloured page
+///   terminal silent on OSC 11, and every headless screen is silent, so a default-coloured page
 ///   would put an operator over cells the operator declines to touch.
 /// - **The page is hyperlinked**, which is what makes the mix's *result* need a table entry at all.
 ///   An inline cell mixes to an inline word and reaches no table; a hyperlinked one produces a style
@@ -997,7 +997,7 @@ impl HyperlinkedPageUnderAnOperator {
     /// Where band `b` of [`LINKS`](HyperlinkedPageUnderAnOperator::LINKS) starts and ends.
     ///
     /// Computed from the edges rather than from a width, because a width of `W / bands + 1` runs the
-    /// last bands off the right of the screen and the verbs clamp and discard them (ADR 0022) — which
+    /// last bands off the right of the screen and the verbs clamp and discard them — which
     /// is silent, and cost this scene twenty-one of its ninety-six links on the first run.
     fn band(b: u16) -> (i32, u16) {
         let bands = u32::from(HyperlinkedPageUnderAnOperator::LINKS);
@@ -1012,7 +1012,7 @@ impl HyperlinkedPageUnderAnOperator {
     /// included, so a redraw that only wrote text would leave the page *inline* from the second frame
     /// onward — and an inline cell mixes to an inline word and reaches no table, so the scene would
     /// report a fade that grows nothing. It is also what a real application does: the runtime brings
-    /// a draw for every layer every frame (spec §12), hyperlinks included.
+    /// a draw for every layer every frame, hyperlinks included.
     fn draw_page(&mut self, screen: &mut Screen) -> u32 {
         let page = self.page.expect("built");
         // **The page's own style does not move**, and that is load-bearing rather than lazy. The one

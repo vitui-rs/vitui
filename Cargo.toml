@@ -9,54 +9,26 @@ members = [
     "crates/vitui-alloc-probe",
     "crates/vitui-bench",
 ]
-# **Not a member, and the reason is `clippy.toml`.** `cargo clippy` lints every workspace member it
-# builds, and clippy reads its configuration from the crate being linted — so a `clippy.toml` inside
-# this workspace would apply engine ticket 23's disallowed-method list to `vitui-engine` itself, which
-# legitimately spawns, joins and locks on the two threads that exist so the app thread does not have
-# to. Excluding the template is what makes that fragment mean *the application author's crate*, which
-# is the only thing it can mean: see `examples/app-template/README.md`.
-#
-# **`crates/vitui-signals` used to be excluded here too**, and the reason is worth one sentence
-# because it is a property of cargo-deny rather than of that crate: `[bans] deny` bans a crate's
-# *presence* in the graph rather than only its dependents, so a member with nothing depending on it
-# fails `cargo deny check` outright and detaching was the only shape in which *the crate may exist
-# and nothing here may depend on it* was a sentence a tool could hold. The crate was deleted by
-# runtime architecture issue 24; `deny.toml` keeps the finding.
+# The application template is deliberately not a member. Clippy reads `clippy.toml` from the crate
+# being linted, so a config file inside this workspace would apply the template's disallowed-method
+# list to the engine itself — which legitimately spawns, joins and locks on the two threads that
+# exist so the application thread does not have to. Detaching the template is what makes that config
+# mean "the application author's crate".
 exclude = ["examples/app-template"]
 
 # Every warning is a build failure, in a local `cargo build` exactly as in CI.
 #
-# **This exists because a weaker local check let a defect reach the pipeline.** CI runs under
-# `RUSTFLAGS: -D warnings`, and a plain `cargo clippy --workspace --all-targets` on a developer's
-# machine does not — so a `cfg(test)`-gated guard that orphaned two imports passed locally and failed
-# the job. The general form is the one engine ticket 16 met twice: *a check that is weaker than the
-# gate is not a check.*
+# A `[lints]` table and not a committed `RUSTFLAGS`, because `RUSTFLAGS` in the environment does not
+# merge with `build.rustflags` — it replaces it. Anyone with `RUSTFLAGS="-C target-cpu=native"` set
+# for an unrelated reason would lose the deny and get a warning where CI gets an error. A `[lints]`
+# table cannot be switched off from a shell.
 #
-# `[lints]` rather than a committed `RUSTFLAGS` in `.cargo/config.toml`, and the reason is not the one
-# first written here. That one said `RUSTFLAGS` reaches dependencies, so an upstream deprecation would
-# fail our build; it does not. **Cargo passes `--cap-lints allow` to every registry dependency**, which
-# caps a `deny` back to `allow` — measured, not argued: `RUSTFLAGS="-D unsafe_code" cargo build` builds
-# `crossterm` and `mio` clean, and both are full of `unsafe`. The escape is real only for path and git
-# dependencies, and in this workspace those are our own crates, whose warnings are ours anyway.
+# `warnings` names every lint currently at warn level, clippy's included, so a `clippy::ptr_arg` is
+# an error here with no `RUSTFLAGS` set and no `[workspace.lints.clippy]` table is needed. It does
+# not reach registry dependencies: cargo passes them `--cap-lints allow`.
 #
-# The reason that stands is worse than the one it replaces, and it is the same failure this table
-# exists to prevent. **A `RUSTFLAGS` environment variable does not merge with `build.rustflags` — it
-# replaces it, silently.** So a developer with `RUSTFLAGS="-C target-cpu=native"` set for any unrelated
-# reason loses the deny outright and gets a warning where CI gets an error: *a check that is weaker
-# than the gate is not a check*, arriving through the very mechanism meant to enforce it. Verified both
-# directions on a throwaway crate — an unused import is an error with no variable set and a warning
-# with one. A `[lints]` table cannot be switched off from a shell.
-#
-# It also covers **clippy**, which is easy to doubt and was doubted in review: `warnings` is not a
-# rustc-only group, it names every lint currently at warn level, and clippy-driver applies it to its
-# own. Measured: a `clippy::ptr_arg` is an `error` under `cargo clippy` with no `RUSTFLAGS` set. No
-# `[workspace.lints.clippy]` table is needed, and adding one would only be for naming individual
-# clippy lints at a level other than their default.
-#
-# It reaches a crate only if that crate says `[lints] workspace = true`, so every manifest here does,
-# including the dev-only ones. A new crate that forgets the line is silently exempt — that is the one
-# maintenance cost, and it is why the line is in all six rather than in the ones that seemed to
-# matter.
+# It reaches a crate only if that crate says `[lints] workspace = true`, so every manifest here
+# does, including the dev-only ones. A new crate that forgets the line is silently exempt.
 [workspace.lints.rust]
 warnings = "deny"
 
@@ -64,74 +36,36 @@ warnings = "deny"
 version = "0.0.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
-# `repository` is deliberately absent and MUST be set before the first `cargo publish`: it read
-# `https://github.com/REPLACE-ME/vitui`, there is no public URL for this project yet, and a guessed
-# one is a link crates.io would serve to every reader — worse than an absent field, which at least
-# says nothing. The only remote is the shared local GitLab, which nobody outside this machine can
-# resolve. Removing the key means the six crate manifests lost their `repository.workspace = true`
-# too; putting it back means putting those back.
+# `repository` is absent on purpose and must be set before the first `cargo publish`. There is no
+# public URL for this project yet, and a guessed one is a link crates.io would serve to every
+# reader — worse than an absent field, which at least says nothing. Setting it again means putting
+# `repository.workspace = true` back in the crate manifests that inherited it.
 #
-# **Verified, not declared, and it was wrong by three releases.** It read `1.85`, which is the
-# edition-2024 floor rather than anything measured against this code. `cargo +1.85.0 check
-# --workspace --all-targets` and `+1.87.0` both fail with the same fourteen `error[E0658]: 'let'
-# expressions in this position are unstable` — ten in `crates/vitui-engine/src/sweep.rs` and four in
-# `layer.rs` — because **let-chains stabilised in 1.88**, in edition 2024 only. The compile stops at
-# `vitui-engine`, so fourteen is a lower bound on the sites and 1.88 is not: `cargo +1.88.0 check
-# --workspace --all-targets` builds every crate and every target clean, as does `-p vitui-engine
-# --features fuzz`, the one configuration `cargo test` misses.
+# The MSRV is measured, not inherited from the edition: let-chains stabilised in 1.88 and the engine
+# uses fourteen of them, so 1.85 and 1.87 both fail to compile this workspace. The `msrv` CI job is
+# what keeps the number honest.
 #
-# The `msrv` job in `.gitlab-ci.yml` is what keeps this number honest. A `rust-version` nothing
-# builds against is a claim, not a constraint — and note that raising it here is itself half a gate:
-# with `1.88` declared, `cargo +1.87.0 check` now refuses with *rustc 1.87.0 is not supported by the
-# following packages* before it compiles anything, which is only useful if some job actually runs an
-# old toolchain. Nothing did until that job existed.
-#
-# **This key is a clippy input, and correcting it is not a no-op — read this before bumping it.**
-# Clippy suppresses any lint whose suggested fix needs a newer compiler than the declared MSRV, so a
-# `rust-version` that is too low silently switches lints off. Measured on one tree with nothing but
-# this line changed: `1.85` gives `cargo clippy --workspace --all-targets` zero errors, `1.88` gives
-# **sixteen** — thirteen `clippy::collapsible_if` (the let-chain collapse needs 1.88) and three
-# `clippy::manual_is_multiple_of` (`is_multiple_of` landed in 1.87), across ten files in
-# `vitui-engine/src/`. Under `[workspace.lints.rust] warnings = "deny"` above, those are errors.
-#
-# The lints are real and were hidden by a false declaration; they are not an argument for putting
-# `1.85` back, and suppressing them with a `[workspace.lints.clippy]` table would be re-hiding them
-# by hand. They are a Rust-source fix, `cargo clippy --fix --workspace --all-targets` gets most of
-# it, and it is its own change rather than a rider on this one.
+# Note before bumping it: clippy suppresses any lint whose suggested fix needs a newer compiler than
+# the declared MSRV, so this key switches lints on and off. Raising 1.85 to 1.88 surfaced sixteen
+# real clippy errors that the low declaration had been hiding.
 rust-version = "1.88"
 
 [workspace.dependencies]
-# The engine's only permitted runtime dependency. See docs/adr/0001-crossterm-behind-a-seam.md.
+# The engine's only permitted runtime dependency, and it is used for terminal mode and input only —
+# never for output, and never in a public signature.
 #
-# `event-stream` stays disabled — it pulls `futures-core` and would tie the engine to an async
-# runtime, breaking the runtime-agnostic guarantee.
+# `event-stream` stays off: it pulls `futures-core` and would tie the engine to an async runtime.
+# `derive-more` stays off: it only derives traits on crossterm types this crate does not expose, and
+# costs a proc-macro chain at build time.
 #
-# `derive-more` is dropped from the defaults: it only adds trait derives to crossterm's public types,
-# which we do not expose anyway, and it drags in a proc-macro chain (syn, quote, convert_case,
-# unicode-segmentation) purely at build time.
-#
-# `events` was kept on the rationale that "the input parser is the entire reason this dependency
-# exists", and impl 20 found that sentence to be false. crossterm's parser is unreachable without
-# crossterm's *reader*: `event::read` opens `/dev/tty` and registers `SIGWINCH` on one poll, and this
-# crate already has the single reader that detection needs for its deadline. So the parser is ours
-# (`crate::input::parse`) and nothing here calls into `crossterm::event` at all.
-#
-# The feature is left on, and impl 22 is where that stopped being *handed forward* and became a
-# decision with a condition on it. Impl 20 left it here as the terminal-lifecycle ticket's to take,
-# on the grounds that removing it forecloses the only `SIGWINCH` this crate could reach. **That
-# ground does not survive**: crossterm registers `SIGWINCH` inside the same reader whose bytes this
-# crate cannot let it have, so nothing reachable is foreclosed. What removing it buys is four crates
-# — `mio`, `signal-hook`, `signal-hook-mio`, `filedescriptor` — and no behaviour.
-#
-# It stays on for a reason that is about evidence rather than about the tree. The only calls left are
-# `IsTty`, `enable_raw_mode`, `disable_raw_mode` and `terminal::size`, and whether those compile
-# without `events` is a **per-platform** question: `.github/workflows/ci.yml` names a three-OS matrix
-# and this repository has no hosted CI to run it, so one green macOS build is one third of the answer
-# to *does this still build on Windows*. A dependency-surface change whose failure mode is an
-# operating system nobody watched is not one to take on a third of the evidence, for a benefit that
-# is tree size. **It comes off with the first ticket that has a three-OS matrix watched green.**
-# Verified again at impl 22 with the feature off: the workspace builds on macOS/arm64 and the four
-# crates leave the tree.
+# `events` is on and nothing calls into `crossterm::event`. The parser is `crate::input::parse`,
+# because crossterm's parser is unreachable without crossterm's reader — `event::read` opens
+# `/dev/tty` and registers `SIGWINCH` on one poll, and this crate already owns the single reader
+# that capability detection needs for its deadline. Turning the feature off drops four crates
+# (`mio`, `signal-hook`, `signal-hook-mio`, `filedescriptor`) and changes no behaviour on macOS; it
+# stays on until a three-OS matrix has been watched green, because whether `IsTty`,
+# `enable_raw_mode`, `disable_raw_mode` and `terminal::size` compile without it is a per-platform
+# question and this workspace has never been built on Windows.
 crossterm = { version = "0.29", default-features = false, features = [
     "bracketed-paste",
     "events",
@@ -150,11 +84,9 @@ vitui-bench = { path = "crates/vitui-bench", version = "0.0.0" }
 [profile.bench]
 debug = true
 
-# `codegen-units = 1` was removed by runtime ticket 16, which inherited the decision from runtime
-# ticket 14's measurement. On the dense 300x80 screen a single-crate build costs 33.0 us with it and
-# 28.7 us at 16, while the four-crate build is 28.7 and 28.4 — four crates are four codegen units
-# whatever the setting says, so it is moot on the shipped workspace and costs 4.3 us, 4.3% of the
-# frame budget, on the one shape where it is not. Nothing was found that it buys. ThinLTO is what
-# earns the inlining back.
+# `codegen-units = 1` is deliberately not set. On the dense 300x80 screen a single-crate build costs
+# 33.0 us with it and 28.7 us at 16, while the four-crate build is 28.7 and 28.4 — four crates are
+# four codegen units whatever the setting says, so it is moot on this workspace and costs 4.3 us,
+# 4.3% of the frame budget, on the one shape where it is not. ThinLTO earns the inlining back.
 [profile.release]
 lto = "thin"

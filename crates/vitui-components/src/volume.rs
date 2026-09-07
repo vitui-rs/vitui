@@ -1,7 +1,7 @@
 //! **O6 — every component that takes a data volume holds sixty hertz at a million inputs**, as a
 //! query over [`crate::INVENTORY`] and an instrument that runs the shipped components.
 //!
-//! Spec §17 states its obligations as queries over the freeze (ADR 0033); components ticket 44
+//! Spec §17 states its obligations as queries over the freeze; components ticket 44
 //! states this one **after the map closed**, and it is an implementation ticket rather than an
 //! architecture issue because the *instrument* is buildable without reopening anything. ADR 0049 is
 //! the decision and §17's table carries the row.

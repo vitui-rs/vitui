@@ -3,7 +3,7 @@
 //!
 //! > **Tier 2 means the component is composed of mechanisms a Tier 1 ticket already measured**, and
 //! > the risk in shipping one is that the composition turns out to introduce something new — which
-//! > is the claim that turns out to be false when it is false. (components ticket 34)
+//! > is the claim that turns out to be false when it is false.
 //!
 //! The tier is not a quality ranking, so a gate over it cannot be a quality judgement either. What
 //! is checkable is the **shape of the claim**: each row names the mechanisms its component reaches
@@ -69,7 +69,7 @@ impl Found {
 /// **The nine components Tier 2 is, and what each of them is.**
 ///
 /// Six arrived with ticket 34 and the last three — `status_bar`, `pagination` and `form` — with
-/// ticket 35. A row for a component that does not exist is a row no scan can falsify, so
+///A row for a component that does not exist is a row no scan can falsify, so
 /// `tests::every_built_tier_two_row_is_surveyed` counts the two sets against each other in both
 /// directions; it is what made this table grow rather than agree with itself the day ticket 35
 /// landed.

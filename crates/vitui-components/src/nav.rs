@@ -1,7 +1,7 @@
 //! **F8 navigation**, ~35 entries, expressed by `collection` + `overlay`, and **no v1 component of
 //! its own** — plus spec §3's [`cursor`], the helper that decides *what a `Group` moves with*.
 //!
-//! The reduction is R1 and R3 (spec §18): §5's `Mode` absorbs tabs, the content switcher, the menu
+//! The reduction is R1 and R3: §5's `Mode` absorbs tabs, the content switcher, the menu
 //! bar, the submenu and the command palette body, and §12's two axes absorb the popup that carries
 //! them. The dock is v2.
 //!

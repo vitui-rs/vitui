@@ -13,7 +13,7 @@ use crate::ucd;
 /// The extended grapheme clusters of `s`, each with the columns it occupies.
 ///
 /// A borrowing iterator over slices of the caller's string. Never a `Vec<&str>`, which is what makes
-/// zero-allocation text structural rather than disciplined (spec §4).
+/// zero-allocation text structural rather than disciplined.
 ///
 /// ```
 /// let family = "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}";

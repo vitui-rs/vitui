@@ -1,6 +1,6 @@
 //! **F10 charts**, ~55 entries, expressed by `chart`, `plot`, axes and two memos.
 //!
-//! The reduction is R4 alone (spec §18), and it is the cleanest of the six: **every warning mark in
+//! The reduction is R4 alone, and it is the cleanest of the six: **every warning mark in
 //! this family means one thing** — a shape that is not axis-aligned costs sub-cell rasterisation —
 //! so the donut, the pie, the radar, the violin, the sankey, the treemap and the globe are all the
 //! same rasteriser with a different mapping from data to sub-cells. §13 priced the ladder exactly:

@@ -175,7 +175,7 @@ fn figure(ns: f64) -> String {
 /// forty layers *half of them operators*; the shipped `popup_stack` is forty content layers and no
 /// operator at all, and a whole-screen composite at **fifty** layers is 39.1–43.9 µs. There is also
 /// no forty-layer measurement to take: the depth axis is 1, 3, 20, 50, and there is **no door onto a
-/// composite alone on the public surface** (ADR 0023), so a per-scene isolated figure does not exist
+/// composite alone on the public surface**, so a per-scene isolated figure does not exist
 /// and cannot. The row takes the top of the fifty-layer bracket, which over-states forty rather than
 /// flattering it.
 ///

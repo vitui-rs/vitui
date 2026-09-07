@@ -1,19 +1,14 @@
 # The applications, as examples. Not a library anybody depends on.
 #
-# **A workspace member, and the reason is that `compare/run.sh` was not one.** `.github/compare.yml`
-# invoked a script nobody had committed, and the job had been failing at its Measure step since the
-# day it was written — a scheduled workflow nobody watches. Everything in `examples/` here is built
-# by `cargo clippy --workspace --all-targets` and by the `test` job, so an application that stops
-# compiling against the component surface fails the pipeline instead of rotting quietly. **That is
-# the whole point of the crate**: these are the first consumers the library has, and a consumer
-# nobody builds is a consumer nobody checks.
+# A workspace member so that CI builds it: these are the first consumers this library has, and a
+# consumer nobody builds is a consumer nobody checks. An application that stops compiling against
+# the component surface fails the pipeline instead of rotting quietly.
 #
-# **No `clippy.toml` here, deliberately.** Spec §11's disallowed-method rung belongs to
-# `examples/app-template`, which is outside the workspace precisely so that its list means *the
-# application author's crate* and not *every crate in this repository* — clippy reads its
-# configuration from the crate being linted, and a second copy inside the workspace would apply the
-# rung to `vitui-engine`, which legitimately spawns, joins and locks. `scripts/lint-rung-gate.sh`
-# gates the template; nothing is gained by a second home for the same fragment.
+# No `clippy.toml` here, deliberately. The application-author lint rung belongs to
+# `examples/app-template`, which sits outside the workspace so that its disallowed-method list means
+# "the application author's crate" — clippy reads its config from the crate being linted, and a copy
+# inside the workspace would apply the rung to the engine, which legitimately spawns, joins and
+# locks.
 [package]
 name = "vitui-apps"
 description = "Applications written against the vitui component surface"
@@ -23,27 +18,21 @@ license.workspace = true
 rust-version.workspace = true
 readme = "README.md"
 
-# **Never published.** `vitui-bench` and `vitui-alloc-probe` say the same thing for the same reason:
-# an instrument is not part of the library, and neither is a demonstration. What ships to crates.io
-# is `vitui`.
+# Never published: an instrument is not part of the library and neither is a demonstration.
 publish = false
 
-# **`vitui-runtime` and `vitui-components`, and deliberately not `vitui-engine`.**
+# The runtime and the components, and deliberately not the engine.
 #
-# This is components spec §0's constraint C6 applied one layer up, and here it is a *choice* rather
-# than a rule — an application may name the engine, and `examples/app-template` does. What it buys
-# is that every application in this directory is a standing proof that **the component-facing
-# surface is sufficient**: a program that could only be written by reaching past the runtime would
-# be a program that says the surface is not finished, and it would say so silently.
+# An application is allowed to name the engine — `examples/app-template` does. Not naming it here
+# is what makes every program in this directory a standing proof that the component-facing surface
+# is sufficient: one that could only be written by reaching past the runtime would say the surface
+# is unfinished, and it would say so silently.
 #
-# The two names are separate rather than the `vitui` facade for the same reason: depending on the
-# facade would make `vitui-engine` reachable **entire** through a re-export — `Surface`, `View`,
-# `Screen`, `Engine`, `LayerStack` — and the proof would evaporate without a single line changing.
-#
-# Note what this is not. Runtime architecture issue 22 made the engine's *vocabulary* reachable
-# through `vitui-runtime` (`Rect`, `Mouse`, `Mods` and the rest of its public surface), under a rule
-# gated in both directions. That is the seam working, not a hole in it: the machinery is still only
-# behind the facade, and an application that needs a `View` is an application with a finding.
+# The two names rather than the `vitui` facade, for the same reason: the facade re-exports the
+# engine entire — `Surface`, `View`, `Screen`, `Engine`, `LayerStack` — and the proof would
+# evaporate without a line changing. The engine's *vocabulary* is reachable through the runtime on
+# purpose (`Rect`, `Mouse`, `Mods`), which is the seam working rather than a hole in it: an
+# application that needs a `View` is an application with a finding.
 [dependencies]
 vitui-runtime.workspace = true
 vitui-components.workspace = true

@@ -3,7 +3,7 @@
 //! # One synchronisation primitive in the whole design
 //!
 //! `Mutex<Shared>` plus two condvars — one for *a packet landed*, one for *the renderer is free* —
-//! and `Shared` holds the slot, the free list and the ready flag together (spec §7). There is not
+//! and `Shared` holds the slot, the free list and the ready flag together. There is not
 //! one primitive per concern, and the mutex is not a compromise: hybrid pacing requires a condvar,
 //! `std`'s condvar requires a mutex, so the mutex exists whatever the slot looks like. Putting the
 //! slot under it costs nothing. The critical section on submit is measured at
@@ -405,7 +405,7 @@ impl Mailbox {
     ///
     /// # The packet in the slot is returned to the pool here, and not counted as superseded
     ///
-    /// *The last frame is not flushed on quit* (spec §7), so a suspend that raced a submit leaves
+    /// *The last frame is not flushed on quit*, so a suspend that raced a submit leaves
     /// a packet nobody wrote. It goes back on the free list directly rather than through the
     /// supersede path, because [`superseded`](Mailbox::superseded) is register entry #9's counter
     /// and its property is **zero, for ever** — a frame that was composed to be thrown away. This
@@ -646,7 +646,7 @@ mod tests {
         assert!(mailbox.take().is_none());
     }
 
-    /// **The last frame is not flushed on quit** (spec §7). A packet already in the slot is left
+    /// **The last frame is not flushed on quit**. A packet already in the slot is left
     /// there: showing state that is already stale buys nothing and costs exit latency. The same
     /// property as a write count on the wire is
     /// `crate::gates::the_last_frame_is_not_flushed_on_quit`.

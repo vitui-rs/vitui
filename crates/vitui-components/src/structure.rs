@@ -1,8 +1,8 @@
 //! **F2 structure**, ~38 entries, expressed by `panel`, `rule`, `block` and the operator layers.
 //!
-//! The reduction is R2 (spec §18): a container attribute in CSS is a component here and a component
+//! The reduction is R2: a container attribute in CSS is a component here and a component
 //! there is an argument here, and an inventory-driven count is structurally blind to both
-//! directions. A scrim is a complement and never a fill (§2), and there is no cut-out — a terminal
+//! directions. A scrim is a complement and never a fill, and there is no cut-out — a terminal
 //! cell has no alpha channel, so a scrim cannot have a hole in it.
 //!
 //! `status_bar` is homed here rather than under F13 because spec §21's ticket 35 settles what it
@@ -59,7 +59,7 @@ pub struct PanelOpts {
     /// Whether to draw a frame at all. A panel without one still has a padding ring.
     pub bordered: bool,
     /// Whether to apply the theme's density as a padding ring. Density is theme data and it changes
-    /// rectangles (spec §3).
+    /// rectangles.
     pub padded: bool,
     /// What the panel declares.
     ///

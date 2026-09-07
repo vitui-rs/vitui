@@ -59,7 +59,7 @@
 //! Adding a public empty struct to make a count come out right is worse than recording that the
 //! count is wrong, so the absence is **gated** — [`REFUSED_NAMES`] — with a positive twin naming
 //! `Capabilities` by path. `Config::packets` and `Config::resolver` went the same way and for the
-//! same kind of reason: the packet pool is fixed at two *provably* (spec §7), so a knob for it would
+//! same kind of reason: the packet pool is fixed at two *provably*, so a knob for it would
 //! be a knob that may only hold one value.
 //!
 //! # Precedence rule 4, and the one place it reads differently than §12 wrote it
@@ -1420,7 +1420,7 @@ pub const REFUSALS: &[Refusal] = &[
         what: "No trait — zero of them. The dependency arrow is enforced by there being no arrow",
         evidence: &[
             Evidence::Pair {
-                module: "lib.rs",
+                module: "refusals.rs",
                 hostile: "impl vitui_engine::Painter for Mine",
             },
             Evidence::Absence {
@@ -1459,7 +1459,7 @@ pub const REFUSALS: &[Refusal] = &[
         number: 8,
         what: "No executor and no thread pool",
         evidence: &[Evidence::Pair {
-            module: "lib.rs",
+            module: "refusals.rs",
             hostile: "ThreadPool::new(4)",
         }],
     },
@@ -1496,7 +1496,7 @@ pub const REFUSALS: &[Refusal] = &[
         number: 11,
         what: "No cells, no grapheme handles, no style bits (ADR 0023)",
         evidence: &[Evidence::Pair {
-            module: "lib.rs",
+            module: "refusals.rs",
             hostile: "Cell::default()",
         }],
     },
@@ -1550,7 +1550,7 @@ pub const REFUSALS: &[Refusal] = &[
         number: 0,
         what: "a serializer `Options` type (§8)",
         evidence: &[Evidence::Pair {
-            module: "lib.rs",
+            module: "refusals.rs",
             hostile: "Options::default()",
         }],
     },
@@ -1558,7 +1558,7 @@ pub const REFUSALS: &[Refusal] = &[
         number: 0,
         what: "a worker pool (§11)",
         evidence: &[Evidence::Pair {
-            module: "lib.rs",
+            module: "refusals.rs",
             hostile: "ThreadPool::new(4)",
         }],
     },
@@ -1608,7 +1608,7 @@ pub const NEGATIVE_CASES: usize = 37;
 ///
 /// The two arrived in that order and were written in the other one, so the last number a reader
 /// saw was forty-seven above a constant of forty-eight.
-pub const RUNNABLE_EXAMPLES: usize = 48;
+pub const RUNNABLE_EXAMPLES: usize = 50;
 
 #[cfg(test)]
 mod tests {
@@ -2329,14 +2329,17 @@ mod tests {
         );
     }
 
-    /// **The prelude is the nine names ticket 24 states, and the public modules are it and the fuzz
-    /// door.**
+    /// **The prelude is nine names, and the three public modules are it, the fuzz door and the
+    /// refusal corpus.**
     ///
-    /// It was *nothing is a public module but the prelude* until ticket 25, and the amendment is
-    /// stated rather than quietly widened: `crate::fuzz` is the second, it is behind a non-default
-    /// feature, it is `#[doc(hidden)]`, and
-    /// [`the_fuzz_door_is_behind_a_feature_and_hidden`] is what holds all three. Two is the number
-    /// now; a third fails here whatever it is.
+    /// It was *nothing is a public module but the prelude*, and each widening is stated rather than
+    /// taken quietly. `crate::fuzz` is behind a non-default feature and `#[doc(hidden)]`, which
+    /// [`the_fuzz_door_is_behind_a_feature_and_hidden`] holds. `crate::refusals` is
+    /// `#[doc(hidden)]` and holds the negative cases that have no type to hang a doctest on: they
+    /// were on the crate's own front page, where they were a gate for this workspace and noise for
+    /// every reader, and they have to stay a `pub` module because a `compile_fail` fence only runs
+    /// where rustdoc collects doctests. Three is the number now; a fourth fails here whatever it
+    /// is.
     #[test]
     fn the_prelude_re_exports_exactly_nine_names() {
         let statements = re_export_statements();
@@ -2346,13 +2349,26 @@ mod tests {
             .collect();
         assert_eq!(
             modules.len(),
-            2,
-            "the crate has public modules other than the prelude and the fuzz door: {modules:?}"
+            3,
+            "the crate has public modules other than the prelude, the fuzz door and the refusal \
+             corpus: {modules:?}"
         );
-        assert!(
-            modules.iter().any(|m| m.as_str() == "pub mod fuzz;"),
-            "the second public module is not the fuzz door: {modules:?}"
-        );
+        for expected in ["pub mod fuzz;", "pub mod refusals;"] {
+            assert!(
+                modules.iter().any(|m| m.as_str() == expected),
+                "`{expected}` is no longer one of the public modules: {modules:?}"
+            );
+        }
+        // Both are hidden, and that is the whole of what makes them acceptable on a public
+        // surface: a reader of the documentation never meets either.
+        for module in ["fuzz", "refusals"] {
+            let declaration = format!("#[doc(hidden)]\npub mod {module};");
+            assert!(
+                root().contains(&declaration),
+                "`{module}` is a public module without `#[doc(hidden)]` above it, so it is on the \
+                 documented surface"
+            );
+        }
         let root = root();
         let start = root
             .find("pub mod prelude")

@@ -2,8 +2,8 @@
 //!
 //! # What grows, and why only one of the two tables can
 //!
-//! **The clusters are not the problem and the styles are, and the difference is who writes them**
-//! (spec §3). A cluster handle comes from text the application supplied, so the interner is bounded
+//! **The clusters are not the problem and the styles are, and the difference is who writes them**.
+//! A cluster handle comes from text the application supplied, so the interner is bounded
 //! by the distinct clusters the application has ever drawn. An extended-style handle comes from a
 //! drawing verb *and from the compositor*, because a [`Mix`](crate::Mix) over an extended cell
 //! produces a style that has never existed — and an operator whose `amount` moves every frame
@@ -49,7 +49,7 @@
 //! # The URI table is not swept, and that is a decision
 //!
 //! **Link ids are few, and nothing measured suggests it matters.** Recorded here as a decision
-//! rather than left to be read as an omission (spec §3, §15).
+//! rather than left to be read as an omission.
 //!
 //! The reason it *used* to rest on is gone, and saying so is the point of this paragraph rather
 //! than a footnote to it. It was *an application holds handles to them* — `LinkId` was public and
@@ -65,7 +65,7 @@
 //! Exactly one reader compares handle identity across frames — the mirror — and the answer is one
 //! flag, [`Packet::repaint`](crate::packet::Packet::repaint). The **"second reader" this was feared
 //! for does not exist**, because a packet holds no handle: every handle is resolved into a side
-//! table at pack time (ADR 0011), so the app thread may sweep while the render thread is inside a
+//! table at pack time, so the app thread may sweep while the render thread is inside a
 //! 200 ms `write`.
 //!
 //! > **Nothing the render thread compares across frames may be derived from a position.**

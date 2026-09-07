@@ -1,8 +1,8 @@
 # vitui
 
 A fast, layered TUI library for Rust. **This crate is the facade** — it re-exports
-[`vitui-engine`](../vitui-engine), [`vitui-runtime`](../vitui-runtime) and
-[`vitui-components`](../vitui-components) and contains no logic of its own.
+[`vitui-engine`](https://docs.rs/vitui-engine), [`vitui-runtime`](https://docs.rs/vitui-runtime)
+and [`vitui-components`](https://docs.rs/vitui-components) and contains no logic of its own.
 
 **Nothing is published. The version is `0.0.0` and there is no stability promise before 0.x.**
 
@@ -21,11 +21,9 @@ one-line answer and the three-line answer differ only in what you can name.
 
 ## Status
 
-All three layers are implementation-complete: the engine's 26 tickets, the runtime's 21 and the
-components crate's 46, with the v1 freeze at **29 of 29 components built**. What a prospective user
-should know before depending on any of them is in the [repository README](../../README.md)'s status
-section — in short, this workspace has been run on four terminal emulator families and **never on
-Windows**.
+All three layers are implementation-complete, with the v1 freeze at **29 of 29 components built**.
+The one thing to know before depending on any of them: this workspace has been run on seven terminal
+emulator families, all on macOS, and **never on Windows**.
 
 ## Licence
 

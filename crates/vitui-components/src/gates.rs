@@ -4,7 +4,7 @@
 //! > The register is data, not prose — one row per gate with its kind, its owner, where it stood at
 //! > the branch point and where it stands now, so the delta is a number a test asserts. The reason
 //! > is §17's: every obligation stated as a sentence on this map has been broken by someone who had
-//! > read it. (§21)
+//! > read it.
 //!
 //! The finding this exists for is C11's, and it is the one R15 made on the runtime's map one layer
 //! up: **the corpus was not being run.** Of the eighteen gates the twelve component tickets

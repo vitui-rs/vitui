@@ -2,7 +2,7 @@
 //! [`crate::INVENTORY`]**, each returning a count or an equality.
 //!
 //! > Every documentation and verification obligation is a query over it, not a sentence in a
-//! > document. (ADR 0033)
+//! > document.
 //!
 //! # All seven run, and why that does not make the vacuity refusal a spare part
 //!
@@ -211,8 +211,8 @@ pub const DOC_TESTED: &[&str] = &[
 
 /// The ids the gallery binary shows a panel for. O2's evidence.
 ///
-/// **Twenty-eight, filled by components ticket 39.** The gallery is a gate rather than a demo
-/// (§21): every defect on the map that survived every gate then in force was invisible on the
+/// **Twenty-eight, filled by components ticket 39.** The gallery is a gate rather than a demo:
+/// every defect on the map that survived every gate then in force was invisible on the
 /// screen of the ticket that owned the mechanism and visible on the screen where the components
 /// meet.
 ///
@@ -724,7 +724,7 @@ pub fn o4(documented: &[&str], registered: &[&str]) -> Verdict {
 
 /// **O5 — at least one scene per hostile axis a component declares.**
 ///
-/// > **O5 is worth more than the other four together.** (§17)
+/// > **O5 is worth more than the other four together.**
 ///
 /// The population is *(component, axis) pairs where the flag is set* — thirty-four of them — and
 /// **not** the scene list. Written the other way round it is a loop over scenes, which over an
@@ -756,7 +756,7 @@ pub fn o5(scenes: &[(&str, Axis)]) -> Verdict {
 
 /// **O6 — every component that takes a data volume holds sixty hertz at a million inputs.**
 ///
-/// The sixth obligation, stated after the map closed (components ticket 44) and filed here rather
+/// The sixth obligation, stated after the map closed and filed here rather
 /// than in an architecture issue because the instrument is buildable without reopening anything.
 /// [`crate::volume`] is that instrument and this is the query.
 ///
@@ -862,7 +862,7 @@ pub fn o7_nothing_exercised_is_absent_from_the_freeze(applied: &[&str]) -> Verdi
 /// **O7, second equality — every component this crate declares is exercised by an application.**
 ///
 /// > **A gate exercises the component where its author put it, and an application puts it somewhere
-/// > else.** (components ticket 45)
+/// > else.**
 ///
 /// Four defects argue it and three of the four were found by a person running the thing:
 /// `counter` found that no loop could be written at all and that nothing holds the focus until an

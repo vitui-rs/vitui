@@ -123,7 +123,7 @@ pub const CLICKS: u32 = 20;
 /// **How far twenty clicks move the offset when the reveal is conditional. Twenty.**
 ///
 /// One row a click is `vitui_runtime::scroll::Wheel`'s default and the runtime's whole motion model:
-/// a notch is intent (ADR 0008) and the runtime has no standing to multiply somebody's intent by
+/// a notch is intent and the runtime has no standing to multiply somebody's intent by
 /// three. One *column* a click is the same default's other field, which is why the two axes share
 /// this number.
 pub const MOVED: i32 = CLICKS as i32;
@@ -149,13 +149,13 @@ pub const SCROLLED_AWAY: i32 = 200;
 pub const PANE_EXTENT: (u32, u32) = EXTENT;
 
 /// **The file the pane's question names.** One identity, asked on every frame, so `Task::request`
-/// deduplicates and the pane asks exactly once — which is the pane's own contract (§15) and not a
+/// deduplicates and the pane asks exactly once — which is the pane's own contract and not a
 /// convenience here.
 const PANE_FILE: u64 = 7;
 
 /// **What a decode produces**, and the extent is [`PANE_EXTENT`].
 ///
-/// A free function over an identity and never a closure (spec §15), which is why the payload is
+/// A free function over an identity and never a closure, which is why the payload is
 /// eight bytes.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 struct Doc(u64);
@@ -470,7 +470,7 @@ impl Wheeled {
 ///
 /// # Why `settled` and not `after_last_click`
 ///
-/// A reveal crosses the frame boundary as sixteen bytes and is read on the frame after (ADR 0015),
+/// A reveal crosses the frame boundary as sixteen bytes and is read on the frame after,
 /// so the defective arm is always one click ahead of its own correction: [`Wheeled::after_last_click`]
 /// is **1** and not 0. That one click is the runtime's own documented price —
 ///

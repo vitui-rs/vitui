@@ -14,7 +14,7 @@
 //! **twenty-seven rows**, counted twice off the file. The spec is the authority — `CLAUDE.md` says
 //! so in as many words, and the map is closed — so twenty-seven ship here and the disagreement is
 //! written down rather than resolved by dropping a row: **the freeze does not get rewritten when a
-//! later ticket disagrees with it** (ADR 0033), and a scene deleted to make a count come out is
+//! later ticket disagrees with it**, and a scene deleted to make a count come out is
 //! exactly the deletion the rule at the top of this module forbids.
 //!
 //! # There are thirty rows, and the three that are not §21's say so in a field
@@ -3401,7 +3401,7 @@ pub fn scenes_for(component: &str) -> impl Iterator<Item = &'static Scene> + '_ 
 
 /// **O5's evidence, derived from a scene list rather than written beside one.**
 ///
-/// > **O5 is worth more than the other four obligations together.** (§17)
+/// > **O5 is worth more than the other four obligations together.**
 ///
 /// An owed scene contributes nothing. §21 marks a row `(owed)` when the scene is normative and its
 /// number was never measured, and a scene nobody has run is not evidence that an axis has one — that

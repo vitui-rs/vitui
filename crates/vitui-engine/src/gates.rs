@@ -1751,7 +1751,7 @@ fn a_sweep_that_frees_only_the_top_of_a_table_does_not_renumber() {
 
 /// A sweep that renumbers marks **every** mirror row unknown, and one that does not marks none.
 ///
-/// This is the flag itself — `Packet::repaint` (§3, §8, ADR 0006) — and the count is the gate: a full
+/// This is the flag itself — `Packet::repaint` — and the count is the gate: a full
 /// repaint expresses itself as *every row unknown* rather than as a mode, so the number that has to
 /// go to zero is the number of rows still claiming to know what the terminal shows.
 ///
@@ -4460,7 +4460,7 @@ fn a_presses_only_terminal_never_yields_release_or_repeat() {
 /// **Register entry #14** — motion floods collapse to one per wake; press floods do not.
 ///
 /// One read is one wake, which is what the reader thread does: parse the whole read, then post.
-/// **The asymmetry is asserted in the same test on purpose** (ADR 0008): a position on the way
+/// **The asymmetry is asserted in the same test on purpose**: a position on the way
 /// carries no intent and the newest one supersedes it, and every other event expresses something the
 /// user meant and is never dropped. Two tests would let one of them be deleted without the other
 /// noticing.
@@ -6020,7 +6020,7 @@ fn ctrl_z_is_a_key_and_not_a_signal() {
     }
 }
 
-/// **The render thread is joined; the input thread is not** (spec §7).
+/// **The render thread is joined; the input thread is not**.
 ///
 /// The join is not observable as a join, so it is observed as its consequence: the renderer — and
 /// the sink inside it — comes back to the app thread, and the epilogue is written from **this**
@@ -6114,7 +6114,7 @@ impl std::io::Write for GatedLog {
     }
 }
 
-/// **The last frame is not flushed on quit** (spec §7), as a count of writes.
+/// **The last frame is not flushed on quit**, as a count of writes.
 ///
 /// Showing state that is already stale buys nothing and costs exit latency, so a packet still in the
 /// slot when `quit` arrives goes nowhere. Two frames are submitted and the renderer is held inside
@@ -7310,8 +7310,11 @@ fn the_watchdog_iteration_has_one_home() {
     // pointing at no function at all, invisible to `cargo doc` precisely because they are not
     // links. Joined here instead, and the path is spelled once above where it is *called*, so a
     // rename of the function breaks this file's build rather than four sentences.
+    // `lib.rs` is not on this list any more: the crate's front page used to argue the watchdog's
+    // threshold from the realistic iteration, and a front page is for a reader who has never seen
+    // this workspace's ledger. The figure is argued where it is used.
     let citation = ["ledger::", "realistic_iteration_ns"].concat();
-    for reader in ["engine.rs", "lib.rs", "perf.rs", "scenes.rs"] {
+    for reader in ["engine.rs", "perf.rs", "scenes.rs"] {
         let source =
             std::fs::read_to_string(src.join(reader)).expect("a readable shipped source file");
         assert!(

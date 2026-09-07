@@ -1,7 +1,7 @@
 //! **F12 files**, ~35 entries, expressed by `collection` + `scroll_area` + a worker + the preview
 //! pane.
 //!
-//! The reduction is R3 (spec §18), and R3 is the class that requires the most care: *composition
+//! The reduction is R3, and R3 is the class that requires the most care: *composition
 //! with no new mechanism* is exactly the claim that turns out to be false when it is false, which
 //! is why C16 was a ticket rather than an assertion. It resolved having built both rows —
 //! [`file_preview_pane`] and [`file_picker`] — and every defect it found was **at a seam between
@@ -831,7 +831,7 @@ impl Default for PickerOpts {
 /// R3's claim read on this list: a composition that introduces no mechanism introduces no axis
 /// either.
 ///
-/// **R3's claim is checked rather than asserted** (spec §18), because it is the class that turns out
+/// **R3's claim is checked rather than asserted**, because it is the class that turns out
 /// to be false when it is false: `crate::preview::picker_introduces_no_mechanism` reads this
 /// function's own source for a second [`Task`], a second [`CollState`], a second hit entry and a
 /// second key loop, and `crate::preview::picker_declares_what_its_parts_declare` compares the frame

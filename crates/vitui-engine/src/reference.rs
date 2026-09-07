@@ -175,7 +175,7 @@ fn paint_row(layers: &[LayerRef<'_>], row: &mut [Cell], painter: &mut [Option<us
 /// **A boundary between two columns one layer painted at once is that layer's own business.** The
 /// composite repairs what compositing broke and nothing else. There used to be exactly one way for a
 /// layer to hand it a pair that was already broken — [`View::child`](crate::View::child) could not
-/// widen its clip (spec §4), so a pair the clip bisected kept the half outside it — and this file
+/// widen its clip, so a pair the clip bisected kept the half outside it — and this file
 /// deliberately did not repair it, because an oracle that quietly did would have made gate #1 fail
 /// against the compositor instead of surfacing the open question. Architecture ticket 20 closed that
 /// question the other way and the door with it: the drawing verbs' repair is bounded by the surface,

@@ -238,7 +238,7 @@ pub const RIGHT_W: u16 = 7;
 pub const VIEW_W: u16 = W - LEFT_W - RIGHT_W;
 /// The scrolling band's content width at twelve declared columns: Σ of the nine scrolling widths.
 ///
-/// **The only place in a table where a width is not a viewport** (§6), and what a horizontal
+/// **The only place in a table where a width is not a viewport**, and what a horizontal
 /// scrollbar would be a fraction of.
 pub const CONTENT_W: u16 = 96 + 64 + 64 + 16 + 12 + 12 + 20 + 14 + 96;
 /// The largest horizontal offset twelve columns admit. `CONTENT_W - VIEW_W`.
@@ -376,7 +376,7 @@ fn partition(lo: usize, hi: usize, pred: impl Fn(usize) -> bool) -> usize {
 
 /// A stack buffer a cell's text is formatted into.
 ///
-/// **The frame allocates nothing** (§20), and `format!` allocates. `Ctx::stage`/`Ctx::blit` is the
+/// **The frame allocates nothing**, and `format!` allocates. `Ctx::stage`/`Ctx::blit` is the
 /// runtime's own answer to the same problem and it is not reachable through [`Ink`], which takes a
 /// `&str` — so the fixture keeps its own, sixty-four bytes on the stack, and
 /// `tests::a_frame_of_the_grid_allocates_nothing` is what says it worked.
@@ -729,7 +729,7 @@ pub fn draw_into<I: Ink>(
 ///
 /// The pad is placed from the text's **own** width and not from what the engine reported, because a
 /// component partitions its rectangle in its own coordinates and the clip is entitled to discard
-/// whatever leaves it (ADR 0022). Advancing by the reported count instead would make a clipped cell
+/// whatever leaves it. Advancing by the reported count instead would make a clipped cell
 /// pad the wrong columns, which is a partition defect the clip would then hide.
 fn emit<I: Ink>(
     ink: &mut I,
