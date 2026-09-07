@@ -347,7 +347,8 @@
 //!
 //! The threshold is **one frame interval, and 100 µs would have been a bug** — the map's < 100 µs is
 //! a CI gate on one stage of the engine's own work, and a full realistic `wake → submit` is
-//! 166.76 µs, so that watchdog fires on entirely legitimate frames. Debug panics on the first
+//! `ledger::realistic_iteration_ns`, so that watchdog fires on entirely legitimate frames. Debug
+//! panics on the first
 //! overrun, which is safe by construction because ticket 22's restoration is idempotent and runs
 //! before the default hook; release warns **once**, into a sink the caller supplies, and `None` is
 //! silence rather than stderr because a full-screen application's stderr is the terminal it is

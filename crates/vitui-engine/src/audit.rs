@@ -22,21 +22,25 @@
 //! prose count is ticket 12's and was never true of the block beside it; the block is what ticket 24
 //! means by *§12's listing*, and the block is what the inventory is checked against.
 //!
-//! The surface as built is **forty-nine types and one hundred and four functions**:
+//! The surface as built is the **built** row of this table, and nowhere else in this file: the
+//! two sentences that used to restate it in words — here and on [`SURFACE`] — said *one hundred and
+//! four* and *one hundred and five* against a gate asserting a third number, because a count
+//! spelled in words is outside every join this crate knows how to write.
+//! [`tests::the_counts_are_the_ones_the_audit_recorded`] reads the row's digits:
 //!
 //! | | types | functions |
 //! |---|---|---|
 //! | §12's block | 41 | 41 named, plus the 28 inside the four types it blesses wholesale |
 //! | absent, and recorded rather than resurrected | −1 (`Resolver`) | — |
-//! | added by implementation tickets, each naming one | +9 | +35 |
-//! | **built** | **49** | **104** |
+//! | added by implementation tickets, each naming one | +9 | +38 |
+//! | **built** | **49** | **107** |
 //!
 //! **Architecture ticket 21 moved both columns and left the type count where it was.** §12's block
 //! lost `LinkId` and gained `Link<'a>`, so forty-one is still forty-one; it lost `Screen::link`,
 //! which is why the named functions are forty-one rather than forty-two. Both absent names are in
 //! [`REFUSED_NAMES`], which is what makes the subtraction checkable rather than remembered.
 //!
-//! Not one of the nine types and not one of the thirty-five functions breaches a refusal: none is a
+//! Not one of the nine types and not one of the thirty-eight functions breaches a refusal: none is a
 //! layout, a widget, a signal, a trait, an alpha, a blocking primitive, an executor, a clock, a
 //! display query or a cell. Seven of the nine are input payload types §12's own delta list asked for
 //! without naming (*the six `Event` variants and their payload types*), one is the type of a field
@@ -298,7 +302,9 @@ pub const SOAK_ONLY_MODULES: &[&str] = &["fuzz.rs", "reference.rs"];
 /// does not list.
 ///
 /// Sorted by name, because the gates compare it against a parse of the source and a sorted list is
-/// the one a human can diff. Forty-nine types, one hundred and five functions, and no traits.
+/// the one a human can diff. **No traits**, and the counts are the module doc's table rather than a
+/// sentence here — this line carried *one hundred and five* for two tickets after the number
+/// became one hundred and seven.
 pub const SURFACE: &[Item] = &[
     Item {
         name: "AttachError",
@@ -1587,18 +1593,21 @@ pub const NEGATIVE_CASES: usize = 37;
 /// named items that no longer exist, and what replaced them is one more path inside the crate
 /// root's existing twin rather than a fence of its own.
 ///
-/// **Forty-eight since runtime architecture 28**, whose fence is the one place a caller is shown
-/// building the text half of a key at all — `KeyText::of`, which exists because the layer above had
-/// no way to write the key a `Typed` binding matches. It has no negative twin for the same reason
-/// the pair below has none: a constructor total by arithmetic refuses nothing a compile outcome can
-/// express.
-///
-/// **Forty-seven since production ticket 07**, and that one is the one place `Screen::suspend` and
+/// **Forty-seven since production ticket 07**, which is the one place `Screen::suspend` and
 /// `Screen::resume` are compiled as a caller would write them — three lines with somebody else
 /// holding the terminal in between. It has no negative twin because the pair refuses nothing a
 /// compile outcome can express: the closure form the two verbs replace is already held out by
 /// `no_public_verb_takes_a_closure_or_an_iterator`, which is a gate over the whole surface rather
 /// than a fence beside one item.
+///
+/// **Forty-eight since runtime architecture 28**, whose fence is the one place a caller is shown
+/// building the text half of a key at all — `KeyText::of`, which exists because the layer above had
+/// no way to write the key a `Typed` binding matches. It has no negative twin for the same reason
+/// the pair above has none: a constructor total by arithmetic refuses nothing a compile outcome can
+/// express.
+///
+/// The two arrived in that order and were written in the other one, so the last number a reader
+/// saw was forty-seven above a constant of forty-eight.
 pub const RUNNABLE_EXAMPLES: usize = 48;
 
 #[cfg(test)]
@@ -2175,6 +2184,107 @@ mod tests {
             41 - 1 + added,
             types,
             "§12's forty-one types, less `Resolver`, plus what the tickets added, is not what is here"
+        );
+
+        // **And the module doc's own table, which is the only place either count is now written.**
+        // This gate asserted both numbers as literals and joined *neither* to the prose beside it,
+        // so the type column stayed right for three tickets while the function column was restated
+        // as 104 in the header, 104 in this row and 105 on `SURFACE` — three figures, none of them
+        // the 107 two lines up. The digits are what make the row joinable; the two word-spelled
+        // sentences were deleted rather than corrected, because *one hundred and seven* is not a
+        // needle this crate can cheaply write.
+        let source = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/audit.rs"))
+            .expect("the table is in this file");
+        let row = source
+            .lines()
+            .find(|line| line.trim_start().starts_with("//! | **built** |"))
+            .expect("the module doc's table has a `built` row");
+        let stated: Vec<usize> = row
+            .split('|')
+            .filter_map(|cell| cell.trim().trim_matches('*').parse::<usize>().ok())
+            .collect();
+        assert_eq!(
+            stated,
+            vec![types, functions],
+            "the module doc's `built` row says {stated:?} and the surface is {types} types and \
+             {functions} functions"
+        );
+    }
+
+    /// **Gate: no trait of this crate's own is ever behind a `dyn`, which is what refusal 5
+    /// actually says.**
+    ///
+    /// [`tests::there_are_no_public_traits`] filters `declarations()` on `kind == "trait"`, so it
+    /// sees **declarations** and nothing else. Two trait objects are publicly nameable and neither
+    /// is visible to it: `Output::Sink` and `Config::overrun_report`, both carrying
+    /// `std::io::Write`. A review read that as the engine breaching its own refusal on the frame
+    /// path, and it is not — but the gate could not have told anyone either way, which is
+    /// this crate's *counters on the wrong side of the question* one axis over.
+    ///
+    /// **The distinction that decides it.** §12's refusal 5 is *the engine has nothing to call
+    /// upward, so the dependency arrow is enforced by there being no arrow*, and the negative
+    /// result it names is a painter — an **extension point the engine defines and a caller
+    /// implements**. `std::io::Write` is neither: it is where the bytes go, it is `std`'s, and a
+    /// caller handing over a sink is not registering behaviour for the engine to invoke on its
+    /// data. Nothing above can be called through it, which is the whole of what the arrow means.
+    ///
+    /// So the checkable form of refusal 5 is **not** *no `dyn`* but *no `dyn` over a trait this
+    /// crate declares*, and that is what runs here. A painter behind a trait object fails it — and
+    /// this paragraph may not spell that shape, because the first draft did and the gate caught its
+    /// own doc, which is the assembled needle earning its keep from the other side. The two sinks
+    /// pass and are named rather than exempted. `Scene` is the third and it is `cfg(test)`, the
+    /// same positive twin the sibling gate leans on.
+    ///
+    /// What it does not reach: a *generic* parameter bounded by a crate trait, which would be
+    /// static dispatch and a different refusal. There are none, and no gate says so.
+    #[test]
+    fn no_trait_of_this_crates_own_is_behind_a_dyn() {
+        // Assembled, because this file discusses the shape it looks for.
+        let opener = ["Box<", "dyn "].concat();
+        let mut behind: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+        for module in all_modules() {
+            let source = read(&module);
+            for (at, hit) in source.match_indices(&opener) {
+                let name: String = source[at + hit.len()..]
+                    .chars()
+                    .take_while(|c| c.is_alphanumeric() || *c == '_' || *c == ':')
+                    .collect();
+                behind.insert(name);
+            }
+        }
+        assert!(
+            !behind.is_empty(),
+            "no trait object was found in the crate at all, so this gate is reading nothing — \
+             the two sinks and `Scene` are three of them"
+        );
+
+        let declared: std::collections::BTreeSet<String> = declarations()
+            .into_iter()
+            .filter(|(_, kind, _)| kind == "trait")
+            .filter(|(file, _, _)| !TEST_ONLY_MODULES.contains(&file.as_str()))
+            .map(|(_, _, name)| name)
+            .collect();
+        let ours: Vec<&String> = behind
+            .iter()
+            .filter(|name| declared.contains(name.trim_start_matches("crate::")))
+            .collect();
+        assert!(
+            ours.is_empty(),
+            "{ours:?} is a trait this crate declares in a shipped module and reaches through a \
+             trait object. That is refusal 5 — nothing to call upward — and `there_are_no_public_traits` \
+             cannot see it, because a `dyn` is a use and not a declaration"
+        );
+
+        let expected: std::collections::BTreeSet<String> = ["Scene", "Write", "std::io::Write"]
+            .into_iter()
+            .map(str::to_string)
+            .collect();
+        assert_eq!(
+            behind, expected,
+            "the traits reached through a trait object are {behind:?}. Two of the three are \
+             `std::io::Write` under its two spellings — where the bytes go, and the only reason a \
+             `dyn` is on this surface at all — and `Scene` is `cfg(test)`. A fourth arrival is a \
+             decision about refusal 5 and not a rename"
         );
     }
 

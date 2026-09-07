@@ -331,6 +331,42 @@ impl Overrides {
         }
     }
 
+    /// **Write every `Some` onto an assembled [`Capabilities`], and touch nothing else.**
+    ///
+    /// [`Overrides::fill`]'s other half, and it lives here for the reason `fill` does: seven
+    /// `if let Some(x) = forced.x { caps.… = x }` lines in `assemble` were a free function reaching
+    /// into this type's fields more than into its own, and an eighth override meant editing a
+    /// struct, an `Env` reader and a stanza in a third place.
+    ///
+    /// **The order is `assemble`'s and is not this method's to have an opinion about**: every one of
+    /// the seven is applied *after* the unnegotiated axes are silenced, which is architecture ticket
+    /// 22's second half — a declared `hyperlinks` on a sink would otherwise be erased by the branch
+    /// that made it unreachable. Moving the seven here changed which function spells them and not
+    /// when they run.
+    fn apply_to(&self, caps: &mut Capabilities) {
+        if let Some(colors) = self.colors {
+            caps.colors = colors;
+        }
+        if let Some(glyphs) = self.glyphs {
+            caps.glyphs = glyphs;
+        }
+        if let Some(fg) = self.default_fg {
+            caps.default_fg = Some(fg);
+        }
+        if let Some(bg) = self.default_bg {
+            caps.default_bg = Some(bg);
+        }
+        if let Some(hyperlinks) = self.hyperlinks {
+            caps.hyperlinks = hyperlinks;
+        }
+        if let Some(legacy) = self.legacy_sgr {
+            caps.private.legacy_sgr = legacy;
+        }
+        if let Some(width) = self.width {
+            caps.private.width = width;
+        }
+    }
+
     /// Fill only the `None`s. The one mechanism the whole precedence order rests on.
     fn fill(&mut self, weaker: Overrides) {
         self.colors = self.colors.or(weaker.colors);
@@ -809,7 +845,7 @@ impl Capabilities {
     /// The argument is the type rather than the prose, which is why the spec could disagree with
     /// itself about it for as long as it did (arch 23): [`crate::quirks::Quirks::legacy_sgr`] is a
     /// `bool` and `apply` can only ever set it to `true`, so a one-way override is coherent in
-    /// exactly one direction. A default of `true` would need the four entries to force a value
+    /// exactly one direction. A default of `true` would need the four quirk entries to force a value
     /// their terminals already have.
     ///
     /// **SGR 58 is a separate axis** — see [`Self::underlines`] — because a terminal can want the
@@ -1031,16 +1067,50 @@ impl Capabilities {
         self.private.kitty_flags
     }
 
-    /// Which table decides a cluster's width.
-    #[allow(dead_code)]
-    pub(crate) fn width(&self) -> WidthSource {
-        self.private.width
+    /// **Blank every axis a terminal was never asked about.**
+    ///
+    /// A pipe, a file, a sink, or `TERM=dumb`: no query went out, so nothing came back, and a
+    /// default that looked like an answer would be this type's one forbidden move. Thirteen fields,
+    /// which is why it is a method — written inline in `assemble` they were a stanza with no name,
+    /// and *thirteen fields that are always written together* is the shape that hides the
+    /// fourteenth when a capability is added and this list is the one place nobody edits.
+    ///
+    /// **`colors` is not among them and must not be.** It is decided by `detect_depth`, which reads
+    /// the environment rather than a query, and the three routes that force it to
+    /// [`ColorDepth::None`] go through [`Overrides`] at levels 1 to 4 — *after* this, on purpose.
+    /// Blanking it here would put the same decision in two places with different precedence.
+    fn silence_what_was_never_asked(&mut self) {
+        self.hyperlinks = false;
+        self.grapheme_clusters = false;
+        self.key_release = false;
+        self.key_repeat = false;
+        self.alternate_keys = false;
+        self.associated_text = false;
+        self.mouse = false;
+        self.mouse_motion = false;
+        self.focus_events = false;
+        self.bracketed_paste = false;
+        self.private.sync_output = false;
+        self.private.decslrm = false;
+        self.private.kitty_flags = 0;
     }
 
-    /// When this terminal force-flushes an open synchronised-output block, where it says.
-    #[allow(dead_code)]
-    pub(crate) fn sync_flush(&self) -> Option<SyncFlush> {
-        self.private.sync_flush
+    /// Which table decides a cluster's width.
+    ///
+    /// **Read by a test and by nothing in a release build**, which is what the attribute says
+    /// rather than a blanket `allow`: the shipped reader of this field is `report`, which takes
+    /// `private.width` directly. A bare `allow(dead_code)` here made it indistinguishable from a
+    /// spare part, and `Capabilities::sync_flush` sat beside it wearing the same attribute and
+    /// genuinely was one.
+    #[cfg_attr(
+        not(test),
+        allow(
+            dead_code,
+            reason = "the one caller is a test; `report` reads the field rather than this verb"
+        )
+    )]
+    pub(crate) fn width(&self) -> WidthSource {
+        self.private.width
     }
 }
 
@@ -1081,16 +1151,15 @@ pub(crate) fn assemble(
     // Levels 1 through 4, weakest last, each filling only what is still `None`.
     let mut forced = overrides;
     forced.fill(env.as_overrides());
-    if env.no_color.is_some() {
-        forced.fill(Overrides {
-            colors: Some(ColorDepth::None),
-            ..Overrides::default()
-        });
-    }
-    if env.term_is_dumb() || ground != Ground::Tty {
-        // Not `glyphs`. `TERM=dumb` and a pipe are both statements about escape sequences and
-        // neither is a statement about the font, and lowering an axis nothing measured would be
-        // exactly the invention this type exists to refuse.
+    // **Three routes to one fill, and they were written as two identical stanzas.** `NO_COLOR` is
+    // the user saying it; `TERM=dumb` and a non-tty ground are the channel saying it. All three
+    // reach the same override, and a `fill` is idempotent, so the disjunction is the same
+    // assembly — one place to edit when a fourth route arrives.
+    //
+    // Not `glyphs`, for any of the three. `TERM=dumb` and a pipe are statements about escape
+    // sequences and neither is a statement about the font, and lowering an axis nothing measured
+    // would be exactly the invention this type exists to refuse.
+    if env.no_color.is_some() || env.term_is_dumb() || ground != Ground::Tty {
         forced.fill(Overrides {
             colors: Some(ColorDepth::None),
             ..Overrides::default()
@@ -1140,20 +1209,7 @@ pub(crate) fn assemble(
     quirks.apply(&mut caps);
 
     if !speaks_escapes {
-        // A pipe, a file, a sink, or `TERM=dumb`. Nothing was asked and nothing may be assumed.
-        caps.hyperlinks = false;
-        caps.grapheme_clusters = false;
-        caps.key_release = false;
-        caps.key_repeat = false;
-        caps.alternate_keys = false;
-        caps.associated_text = false;
-        caps.mouse = false;
-        caps.mouse_motion = false;
-        caps.focus_events = false;
-        caps.bracketed_paste = false;
-        caps.private.sync_output = false;
-        caps.private.decslrm = false;
-        caps.private.kitty_flags = 0;
+        caps.silence_what_was_never_asked();
     }
 
     // And levels 1 to 4 on top of all of it.
@@ -1163,27 +1219,7 @@ pub(crate) fn assemble(
     // erased by the very branch that made it unreachable if it were applied any earlier, and the
     // door that *is* applied earlier — `Quirks::hyperlinks`, at level 5 — is therefore not the door,
     // however much it looks like one.
-    if let Some(colors) = forced.colors {
-        caps.colors = colors;
-    }
-    if let Some(glyphs) = forced.glyphs {
-        caps.glyphs = glyphs;
-    }
-    if let Some(fg) = forced.default_fg {
-        caps.default_fg = Some(fg);
-    }
-    if let Some(bg) = forced.default_bg {
-        caps.default_bg = Some(bg);
-    }
-    if let Some(hyperlinks) = forced.hyperlinks {
-        caps.hyperlinks = hyperlinks;
-    }
-    if let Some(legacy) = forced.legacy_sgr {
-        caps.private.legacy_sgr = legacy;
-    }
-    if let Some(width) = forced.width {
-        caps.private.width = width;
-    }
+    forced.apply_to(&mut caps);
     caps
 }
 

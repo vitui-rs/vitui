@@ -267,9 +267,10 @@ pub struct Config {
     ///
     /// **The map's < 100 µs is a CI gate on one stage of the engine's own work, not a runtime
     /// threshold for the application's whole iteration**, and pinning it here at 100 µs would be a
-    /// bug rather than a strict setting: a full realistic `wake → submit` is **166.76 µs**, so the
-    /// watchdog would fire on entirely legitimate frames. One frame interval is 8.3 ms at 120 Hz and
-    /// 3.3 ms at 300 Hz, which makes that 166.76 µs 1.0% of it — 100x of headroom and no false
+    /// bug rather than a strict setting: a full realistic `wake → submit` is
+    /// `ledger::realistic_iteration_ns`, so the watchdog would fire on entirely legitimate
+    /// frames. One frame interval is 8.3 ms at 120 Hz and 3.3 ms at 300 Hz, which makes that
+    /// iteration 1.0% of it — 100x of headroom and no false
     /// positives — and an overrun then means a **dropped frame**, which is the event a user can
     /// actually perceive.
     ///
@@ -954,7 +955,10 @@ pub struct Screen {
     /// The pty detection read its answers from, held rather than dropped so that **one thread ever
     /// reads this file descriptor**. The input thread has adopted its channel; what is left here is
     /// the `Drop` that gives back raw mode and mode 2027. `None` whenever there is no terminal.
-    #[allow(dead_code)]
+    #[allow(
+        dead_code,
+        reason = "held for its `Drop` and read by nobody, which is the field's entire job"
+    )]
     tty: Option<Tty>,
     /// How many times [`Screen::layers`] has swept. Read by the gate that says `present` never does.
     #[cfg(test)]

@@ -1,4 +1,4 @@
-//! Damage: a per-row bitset with a dirty-row summary.
+//! Damage: a per-row bitset with a damaged-row summary.
 //!
 //! Marked once per drawing verb, cleared by `present`, scanned in row order into `(y, lo, hi)`
 //! runs. Exact by construction — it can never report a cell the frame did not change.
@@ -24,8 +24,12 @@
 //! five times as many runs** — 393 cursor moves against 79. The cursor moves are cheap; the 14 283
 //! unchanged cells the span model carries with them are not. More runs is not worse.
 //!
-//! The dirty-row summary is what makes an idle frame free: `clear` touches only rows that were
-//! dirty, and "is anything damaged" is one scan of a couple of words.
+//! The damaged-row summary is what makes an idle frame free: `clear` touches only rows that were
+//! damaged, and "is anything damaged" is one scan of a couple of words.
+//!
+//! **The word is *damaged* and not *dirty*.** `CONTEXT.md` gives this concept the name **Damage**,
+//! and *dirty* is the ratatui-lineage synonym for a full-buffer diff — the mechanism this module
+//! exists instead of. Four sentences here and one test name used it.
 
 use crate::geom::Rect;
 
@@ -47,7 +51,7 @@ impl Run {
     }
 }
 
-/// A per-row bitset with a dirty-row summary.
+/// A per-row bitset with a damaged-row summary.
 #[derive(Clone, Debug)]
 pub(crate) struct RowBits {
     width: u16,
@@ -348,7 +352,7 @@ mod tests {
     }
 
     #[test]
-    fn clear_touches_only_the_rows_that_were_dirty() {
+    fn clear_touches_only_the_rows_that_were_damaged() {
         let mut d = RowBits::new(300, 80);
         d.mark(0, 0, 0);
         d.mark(79, 0, 0);

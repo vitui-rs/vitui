@@ -499,8 +499,9 @@ impl Scene for ThreeDialogs {
 ///
 /// It has decided three tickets: 37.07x overdraw against per-row spans (arch 07), the 4.88x
 /// serializer walk that made the packet carry runs rather than the grid (arch 09), and the
-/// 166.76 us iteration that set the watchdog threshold to a frame interval rather than to 100 us
-/// (arch 18).
+/// `wake → submit` iteration that set the watchdog threshold to a frame interval rather than to
+/// 100 us (arch 18) — this is the scene that figure was measured on, and
+/// `ledger::realistic_iteration_ns` is where it lives.
 struct SparseChart {
     layer: Option<LayerId>,
 }
@@ -526,8 +527,8 @@ impl Scene for SparseChart {
     }
 
     fn decided(&self) -> &'static str {
-        "37.07x overdraw (arch 07), the 4.88x serializer walk (arch 09), the 166.76 us watchdog \
-         iteration (arch 18)"
+        "37.07x overdraw (arch 07), the 4.88x serializer walk (arch 09), the watchdog iteration \
+         (arch 18)"
     }
 
     fn build(&mut self, screen: &mut Screen) {

@@ -85,7 +85,8 @@ pub(crate) const DEFAULT_HZ: f32 = 60.0;
 ///
 /// 64 rather than 100 for two reasons, and both are about being noticed. At the default rate it puts
 /// the limit at **1.07 s**, which is past every legitimate frame this crate has ever measured — the
-/// worst realistic `wake → submit` is 166.76 µs, so the headroom is 6 400x — and still inside the
+/// worst realistic `wake → submit` (`ledger::realistic_iteration_ns`) leaves 6 400x of
+/// headroom against it — and still inside the
 /// span a developer stares at a frozen window before reaching for Ctrl-C. And it keeps the limit
 /// **caller-configurable through the same knob as the threshold**, so a test can drive the whole
 /// sanction in 128 ms rather than in a second.
@@ -126,10 +127,11 @@ const ZERO: Duration = Duration::ZERO;
 ///
 /// **The map's < 100 µs is a CI gate on one stage of the engine's own work, not a runtime threshold
 /// for the application's whole iteration**, and that distinction is the whole of why this function
-/// exists. A full realistic `wake → submit` — drawing, compositing under eight layers, packing — is
-/// **166.76 µs**, so a 100 µs watchdog fires on entirely legitimate frames. One frame interval is
-/// 8.3 ms at 120 Hz, which makes 166.76 µs 1.0% of it: 100x of headroom and no false positives. An
-/// overrun then means a **dropped frame**, which is the event a user can actually perceive.
+/// exists. A full realistic `wake → submit` — drawing, compositing under eight layers, packing —
+/// is `ledger::realistic_iteration_ns`, so a 100 µs watchdog fires on entirely legitimate
+/// frames. One frame interval is 8.3 ms at 120 Hz, which makes that iteration 1.0% of it: 100x of
+/// headroom and no false positives. An overrun then means a **dropped frame**, which is the event a
+/// user can actually perceive.
 ///
 /// # An unlimited rate still has a threshold
 ///
@@ -141,7 +143,7 @@ const ZERO: Duration = Duration::ZERO;
 /// Computed in nanoseconds by hand rather than through `Duration::try_from_secs_f64`, which is what
 /// `crate::clock::gap_for` uses: the truncation is the conservative direction, and this file may not
 /// name that function (see the module docs).
-fn threshold_for(hz: f32, pinned: Option<Duration>) -> Duration {
+pub(crate) fn threshold_for(hz: f32, pinned: Option<Duration>) -> Duration {
     if let Some(pinned) = pinned {
         return pinned;
     }
@@ -888,14 +890,6 @@ mod tests {
         }
         // And a rate that is merely very high still gets its own interval.
         assert_eq!(threshold_for(1000.0, None), Duration::from_micros(1_000));
-    }
-
-    #[test]
-    fn a_hundred_microsecond_threshold_would_have_been_a_bug() {
-        // Spec §11: a full realistic `wake -> submit` is 166.76 us, so 100 us fires on entirely
-        // legitimate frames. One frame interval at 120 Hz leaves 50x of headroom.
-        let realistic = Duration::from_nanos(166_760);
-        assert!(threshold_for(120.0, None) > realistic * 40);
     }
 
     #[test]

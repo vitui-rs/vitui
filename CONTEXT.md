@@ -57,6 +57,9 @@ conversation. Definitions only. The specs and ADRs carry the arguments and the n
 - **Exposure** — an area needing repaint though no layer's damage says so, its owner having been removed, reordered
   or moved. Recorded by the stack, folded into the frame's damage once.
 - **Ground** — what an untouched cell holds: a blank if opaque, the `EMPTY` sentinel otherwise.
+- **Floor** — the lowest layer that covers a run opaquely, so the composite starts there and skips everything
+  below. A layer *floors* a run when it is opaque and its rectangle contains the whole run; `Layer::floors` and the
+  `floor` it is searched for are the same word on purpose.
 - **Repair** — blanking the half of a double-width pair that lost its partner. It keeps its style and returns to the
   ground, being a cell nobody asked to write.
 - **Seam** — the boundary between a painted span and the cell beside it. Exactly two per paint, so repair is constant

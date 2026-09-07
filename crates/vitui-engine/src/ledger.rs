@@ -24,6 +24,12 @@
 //! was written four times in two files.** A number that has to be edited in four places to be
 //! corrected once is a number that will be corrected in three.
 //!
+//! **The first of those four counts was still open when this paragraph was three tickets old.** The
+//! realistic `wake → submit` iteration had grown from nine copies to ten and had never had a row
+//! here — the file built to end this had no home for its own motivating figure. It is
+//! [`realistic_iteration_ns`] now, and
+//! `crate::gates::the_watchdog_iteration_has_one_home` is what keeps it the only one.
+//!
 //! So a provenance comment beside each of a hundred literals would have satisfied the criterion and
 //! left the defect: the comment is only true where somebody remembered to put it, and the copy
 //! nobody found is the one that stays wrong. **One table, and the prose points at it.**
@@ -337,6 +343,40 @@ pub fn app_thread_total_ns() -> f64 {
         .filter(|r| r.kind == Kind::Cost)
         .map(|r| r.value)
         .sum()
+}
+
+/// **The worst realistic `wake → submit` iteration, and the number the watchdog threshold rests
+/// on.** 166.76 µs, arch 18, on the M1 Max.
+///
+/// Drawing, compositing under eight layers and packing, measured over
+/// `crate::scenes`' `sparse-chart-400-points` — four hundred one-cell writes scattered over the
+/// screen, which is the scene that decided this and two other tickets.
+///
+/// # Why it is a function here and not a row on the table
+///
+/// [`LEDGER`]'s six [`Kind::Cost`] rows are the **parts** of one frame and
+/// [`app_thread_total_ns`] adds them up, so a seventh cost row would be counted into that sum. This
+/// is a **measured whole** of a different scene, and the two are not addends of each other: as a
+/// row it would silently double the total it sits beside. So it joins
+/// [`the_parallel_compositing_ruling`] and [`the_watchdog_over_a_timing_report`] as a member of
+/// this module that is not a member of the table — the third such, and the first that is a number.
+///
+/// # What reads it, and why this file is where it lives
+///
+/// This is the figure the module doc above counts at **nine copies**, and the count was **ten** by
+/// the time it got a home: `engine.rs` twice, `perf.rs` four times, `scenes.rs` twice, `lib.rs` and
+/// `gates.rs`. It is not decorative in any of them. `perf::threshold_for` argues the whole *one
+/// frame interval rather than 100 µs* ruling from it, [`crate::perf`]'s stall factor prices its
+/// 6 400x of headroom against it, and `Config::overrun_threshold` repeats the argument for a
+/// caller. A number that has to be edited in ten places to be corrected once is the sentence this
+/// file opens with, and it was true of this file's own motivating figure for as long as the file
+/// has existed.
+///
+/// The digits now appear **once in the crate**, here, which
+/// `crate::gates::the_watchdog_iteration_has_one_home` is what keeps true — and it derives its
+/// needle from this function rather than spelling it, so the gate is not itself a copy.
+pub fn realistic_iteration_ns() -> f64 {
+    166_760.0
 }
 
 /// The full-screen budget, in nanoseconds. **One home**, and gate #23 reads it from here.

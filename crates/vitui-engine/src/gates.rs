@@ -6285,8 +6285,9 @@ fn the_restoration_stops_the_renderer_before_the_terminal_is_given_back() {
 // of any blocking accessor on `Slot` — so what is left here is what runs: the in-loop detector, the
 // escape hatch, and the observer thread whose sanction ends the process.
 //
-// **No gate here asserts a scheduler property.** A test that spends 166.76 us and then insists the
-// operating system gave the thread back inside 8.3 ms is a flaky test wearing a budget's clothes,
+// **No gate here asserts a scheduler property.** A test that spends a realistic iteration and then
+// insists the operating system gave the thread back inside 8.3 ms is a flaky test wearing a
+// budget's clothes,
 // which is exactly what §14 refuses. So the numbers live in `crate::perf`'s unit tests, where the
 // instants are arguments rather than measurements, and what is driven through the public API here is
 // the *wiring*: that the iteration begins at `wait` and ends at `present`, on every path out of it,
@@ -7054,8 +7055,15 @@ const ORDINALS: [&str; 9] = [
 /// `true` would need those *n* to force a value their terminals already have. A wrong *n* miscounts
 /// the things that argument quantifies over, in the only record of why the default is what it is —
 /// all eight sites are `pub(crate)`, so this is the documentation a maintainer reads rather than
-/// docs.rs, which is what makes it worth a gate rather than a proofread. The number is stated once,
-/// in [`crate::quirks`]'s module doc, and joined here to the arms that set the flag.
+/// docs.rs, which is what makes it worth a gate rather than a proofread.
+///
+/// **It is stated six times, and this gate reads all six.** Once in [`crate::quirks`]'s module
+/// doc, twice in `caps.rs` and three times in `serial.rs`. Production ticket 14 moved those five
+/// restatements off *three* and then recorded the result as *stated once*, which was the claim
+/// rather than the structure: the five were left correct and with nothing watching them, so a ninth
+/// forcing entry would have turned this file green and left them stale — the same defect one file
+/// over, and the one this gate exists for. The five are joined by the number word in front of the
+/// phrase rather than by the sentence's shape, so a rewording that keeps the number still passes.
 ///
 /// What it deliberately does not reach: whether a row's *recognition rule* matches the arm's
 /// condition. That is a second gate over a different join, and writing it as string matching over
@@ -7123,6 +7131,62 @@ fn the_quirk_tables_prose_is_joined_to_its_entries() {
          field*, so this number is load-bearing in `caps.rs`, `serial.rs` and the spec"
     );
 
+    // **And the same number where §10's argument is actually read, which is not this file.** The
+    // phrase is assembled rather than written, because this file is one of the places that quotes
+    // it. The floor per file is what was there when the gate was written: a scan that finds nothing
+    // is a scan of a file that moved, which is the one way a join like this reads green on a defect.
+    //
+    // **Only a cardinal in front of the phrase is a count**, which the first run of this gate found
+    // the hard way: `caps.rs` also carries *the fourth quirk entry*, and an ordinal there names
+    // **which** entry rather than how many. That is `lookup`'s own precedence-versus-arrival
+    // distinction one file over, so an ordinal is skipped rather than parsed — and the floor is
+    // what stops the skipping from becoming the answer.
+    let phrase = ["quirk ", "entr"].concat();
+    for (file, least) in [("caps.rs", 2usize), ("serial.rs", 3)] {
+        let sibling = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("src")
+                .join(file),
+        )
+        .expect("the sentences that read this number are beside this file");
+        // Flattened first, because a doc comment wraps and `caps.rs` wraps this very phrase
+        // between *quirk* and *entries*. A line-based scan found one of the two and reported the
+        // other as a sentence that had moved.
+        let flat = sibling
+            .lines()
+            .map(|line| {
+                let bare = line.trim_start();
+                bare.strip_prefix("///")
+                    .or_else(|| bare.strip_prefix("//!"))
+                    .or_else(|| bare.strip_prefix("//"))
+                    .unwrap_or(bare)
+                    .trim()
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+        let restated: Vec<usize> = CARDINALS
+            .iter()
+            .enumerate()
+            .flat_map(|(index, word)| {
+                let claim = [*word, " ", &phrase].concat();
+                std::iter::repeat_n(index + 1, flat.matches(&claim).count())
+            })
+            .collect();
+        assert!(
+            restated.len() >= least,
+            "`{file}` restates the legacy-SGR entry count on {} lines and had {least} when this \
+             gate was written, so this is reading a file whose sentences moved rather than the \
+             sentences themselves",
+            restated.len()
+        );
+        assert!(
+            restated.iter().all(|claimed| *claimed == forcing),
+            "`{file}` says {restated:?} where `quirks::lookup` forces {forcing} — and §10's \
+             argument is read here rather than in `quirks.rs`, which is why production ticket 14's \
+             *stated once* was a claim and not a structure"
+        );
+    }
+
     // The `# The nth entry` sections, which are the third statement of the same number. Only the
     // entries this repository gathered have one, so the highest is what is joined, not the count.
     let sections: Vec<usize> = ORDINALS
@@ -7161,5 +7225,129 @@ fn the_quirk_tables_prose_is_joined_to_its_entries() {
          already exists or skipping one that does not",
         ORDINALS[refused - 1],
         rows.len()
+    );
+}
+
+/// **Gate: the watchdog's realistic iteration is written once in the crate.**
+///
+/// [`crate::ledger`] opens on a defect and names this figure as the worst instance of it: *the
+/// realistic `wake → submit` iteration — the one number the whole watchdog threshold rests on —
+/// was written in **nine** places*. It was written in **ten** when this gate was added, and the
+/// ledger had never held it: `engine.rs` twice, `perf.rs` four times, `scenes.rs` twice, `lib.rs`
+/// and this file. The file built to give every gated or reported number one home did not have a
+/// row for its own motivating number.
+///
+/// It is now [`crate::ledger::realistic_iteration_ns`] and this is what keeps it there.
+///
+/// **The needle is derived and not written**, which matters twice. A scanner looking for a literal
+/// contains that literal — this crate's most-repeated trap — and a gate that spelled the digits
+/// would be the eleventh copy, asserting that there is only one. Formatting the function's own
+/// return value means the gate cannot disagree with the ledger about what it is looking for, and
+/// the needle changes with the row when the row is re-measured.
+///
+/// **Both spellings are scanned**, because the figure had two: a microsecond figure in the prose
+/// and a nanosecond integer in a test's argument. A future copy is as likely to be one as the
+/// other, and neither is written here — the first draft of this gate spelled them both in this
+/// paragraph and failed on itself, which is the trap working.
+///
+/// Non-vacuity is the first assertion rather than an afterthought: a gate that finds the digits
+/// nowhere would pass on a crate that had lost the ledger row entirely, which is
+/// *an equality between two things that do not exist holds*.
+#[test]
+fn the_watchdog_iteration_has_one_home() {
+    let ns = crate::ledger::realistic_iteration_ns();
+    let spellings = [
+        format!("{:.2}", ns / 1e3),
+        format!("{}_{:03}", (ns as u64) / 1000, (ns as u64) % 1000),
+    ];
+
+    fn walk(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+        for entry in std::fs::read_dir(dir).expect("a readable source directory") {
+            let path = entry.expect("a directory entry reads").path();
+            if path.is_dir() {
+                walk(&path, out);
+            } else if path.extension().is_some_and(|e| e == "rs") {
+                out.push(path);
+            }
+        }
+    }
+    let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut files = Vec::new();
+    walk(&src, &mut files);
+    files.sort();
+    assert!(
+        files.len() > 25,
+        "only {} source files were found, so this gate is scanning a fraction of the crate",
+        files.len()
+    );
+
+    let mut carriers: Vec<(String, usize)> = Vec::new();
+    for path in &files {
+        let source = std::fs::read_to_string(path).expect("a readable source file");
+        let hits: usize = spellings.iter().map(|s| source.matches(s).count()).sum();
+        if hits > 0 {
+            let name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .expect("a source file has a name")
+                .to_string();
+            carriers.push((name, hits));
+        }
+    }
+
+    assert_eq!(
+        carriers,
+        vec![("ledger.rs".to_string(), 2)],
+        "the realistic iteration is spelled in {carriers:?}. It has exactly one home — \
+         `ledger::realistic_iteration_ns`, where the doc states it and the body returns it — and \
+         every other reader links to that function instead of restating the digits. Ten copies is \
+         what the ledger's own opening paragraph counts nine of"
+    );
+
+    // **And the four readers still name the function they gave the digits up for.** `mod ledger`
+    // is `#[cfg(test)]`, so a shipped module cannot intra-doc-link into it: these citations are
+    // plain prose, which is production ticket 10's unowned class — 15 sites across the workspace
+    // pointing at no function at all, invisible to `cargo doc` precisely because they are not
+    // links. Joined here instead, and the path is spelled once above where it is *called*, so a
+    // rename of the function breaks this file's build rather than four sentences.
+    let citation = ["ledger::", "realistic_iteration_ns"].concat();
+    for reader in ["engine.rs", "lib.rs", "perf.rs", "scenes.rs"] {
+        let source =
+            std::fs::read_to_string(src.join(reader)).expect("a readable shipped source file");
+        assert!(
+            source.contains(&citation),
+            "`{reader}` argues from the realistic iteration and no longer names \
+             `{citation}`, so its reader has a figure with no way back to its provenance"
+        );
+    }
+}
+
+/// **Gate: a 100 µs watchdog would have fired on legitimate frames, and the figure that says so is
+/// the ledger's.**
+///
+/// This assertion lived in `crate::perf`'s own unit tests and spelled the iteration as a literal.
+/// Reading it from `crate::ledger` instead broke
+/// [`the_detector_reaches_for_nothing_in_the_crate`] on the spot, and that gate is right: `perf.rs`
+/// is `#[path]`-included by `examples/budget.rs`, so **one `crate::` in it drags the whole engine
+/// into that binary**. A number's home and a module's isolation pulled in opposite directions, and
+/// the isolation wins — so the assertion moved to where the ledger is reachable rather than the
+/// figure moving back to where it was a copy.
+///
+/// The claim, from spec §11: the map's < 100 µs is a CI gate on **one stage** of the engine's work,
+/// not a runtime threshold for an application's whole iteration. One frame interval at 120 Hz
+/// leaves better than 40x of headroom over a realistic one; 100 µs leaves none.
+#[test]
+fn a_hundred_microsecond_threshold_would_have_been_a_bug() {
+    let realistic = std::time::Duration::from_nanos(crate::ledger::realistic_iteration_ns() as u64);
+    let interval = crate::perf::threshold_for(120.0, None);
+    assert!(
+        interval > realistic * 40,
+        "one frame interval at 120 Hz is {interval:?} against a realistic iteration of \
+         {realistic:?}, which is less than the 40x this argument rests on"
+    );
+    assert!(
+        std::time::Duration::from_micros(100) < realistic,
+        "a 100 us threshold is above a realistic iteration of {realistic:?}, so the whole \
+         *100 us would have been a bug* argument no longer holds and §11 needs re-reading"
     );
 }
