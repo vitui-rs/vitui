@@ -118,3 +118,99 @@ with, so what it cannot express here is a fact about this surface instead of a t
 records two: `PanelOpts` has no title alignment, so the title is left-anchored where ratatui centres
 it, and there is no bottom-border title, so the instruction line sits on an interior row. Neither is
 worked around in the file — the point of a port is to show the gap.
+
+## Three ports of programs people use
+
+`commander`, `cluster` and `spf` are Midnight Commander, k9s and superfile. They are **ports**
+rather than inventions for `counter`'s reason, one scale up: a program somebody uses every day has
+a shape that is not ours to argue with, so what it cannot express here is a fact about this surface
+instead of a taste — and a gap three separate applications reach for is a gap rather than a
+preference.
+
+```sh
+cargo run -p vitui-apps --example commander   # mc: two panels, F1..F10, a shell prompt
+cargo run -p vitui-apps --example cluster     # k9s: a view stack, `:` and `/`, logs and YAML
+cargo run -p vitui-apps --example spf         # superfile: a sidebar, up to three panels, a footer
+```
+
+**All three run on invented data, deliberately.** A real `readdir` or a real `kubectl` would put
+the interesting failures in the transport rather than in the library under test, and everything is
+hashed out of its own name so two runs agree and an edit is a *deliberate* change rather than a
+different random draw.
+
+### What they found
+
+- **`commander` found the identity trap from the application side.** Two panels are two calls to
+  one function from **one** source line; `Ctx::id` is `Location::caller()`; without `Ctx::with_key`
+  the second panel takes the first one's focus, cursor and hover, and the screen looks fine while
+  the wrong panel answers the keyboard. `spf` has the same shape with three panels. `CLAUDE.md`
+  records `#[track_caller]`'s reach as a trap; this is the first time an application has met it.
+- **A dialog cannot answer its caller, and neither can a widget that is not focused.**
+  `Ctx::next_key` answers *only the focused id*, so a keyboard sink beside a focused `field` is
+  deaf: every `Enter` and `Esc` in these three arrives through `Driver::unhandled` instead. Both
+  facts are documented and both are easy to get wrong the first time, because the wrong version
+  compiles and draws correctly.
+- **A band the application composes is a rectangle the application owes in full** (spec §2). The
+  seventh row of `cluster`'s namespace column has no namespace in it, and left unwritten it kept
+  whatever the previous frame put there — a pod's `Running`, in the middle of the header.
+- **`owns_escape`'s defect is still live one key over.** `collect::from_key` answers a bare `Space`
+  with `Gesture::Toggle` and `Ctrl+A` with `Gesture::All` in *every* `Mode`, and `apply` ignores
+  both at `Mode::Cursor` — so the key is consumed to do nothing and the container above never sees
+  it. `commander` cannot type a space at its shell prompt, `cluster` moved k9s's `space` mark to
+  `Ctrl+Space`, and `spf`'s `Shift+↓` moves the cursor and extends nothing. All three use the
+  letters upstream also binds (`J`/`K`) or a chord, because a chord is declined.
+- **A dialog that closes does not give the keyboard back.** The focused widget stopped drawing, so
+  the vanish rule moves the focus to *the nearest surviving entry in the previous frame's ring
+  order* — which is never where the application wants it. `commander`'s `F5` on the left panel came
+  back with the **right** panel active, and `cluster`'s table went deaf after `Esc`. All three now
+  carry a one-`bool` standing request and re-seat.
+- **A match arm on a bare `Code::Char('q')` also catches `Ctrl+Q`.** `spf`'s help closed on `q` and
+  therefore swallowed the application's quit chord — components ticket 38's finding one level up
+  (*`Esc` and `Space` are keys and not chords*), met by an application instead of a component. All
+  three now answer the quit chord before anything else claims the keyboard, so the way out never
+  depends on which dialog is up.
+- **An application that hangs inside `Driver::frame` looks exactly like a rendering bug**, and that
+  is worth knowing before you go looking at the compositor. `commander` and `spf` both deleted an
+  entry by pointing it at *itself* — neat, because no listing scans for it — which turned the walk
+  up the parents into an infinite loop the moment anything asked for its path. The screen froze on
+  the last good frame, the process stayed alive, nothing panicked, and the visible symptom was *a
+  dialog that will not close*. Both now use a `dead` flag and both bound the walk, so a future
+  mistake degrades into a wrong path instead of a frame that never returns.
+- **A match on `k.code` is a keyboard that works on a legacy terminal and is half dead on a modern
+  one.** A terminal speaking the enhanced keyboard protocol sends the base key and the shift bit, so
+  `?` is `CSI 47;2;63u` or `CSI 47;2u` and `Shift+N` is `CSI 110;2;78u` or `CSI 110;2u` — and
+  `Code::Char('?')` sees neither. `cluster` opened its *filter* on `?`; `spf` lost every capital
+  `hotkeys.toml` binds. Both now go through a `KeyMap` of `Chord::typed(c)` plus the
+  `Chord::key(base).shift()` alternate ADR 0053 names, resolved with `KeyMap::match_first` from the
+  unhandled window. `commander` was unaffected and that is instructive: its only character route is
+  `keys::text`, which reads what the terminal *says was produced*.
+- **An overlay that appears is not on the screen until a second frame carries it**, and that frame
+  has to come from the terminal. `Ctx::overlay`'s body is entered on the frame the overlay is added
+  — with its granted rectangle, drawing normally — and the cells do not arrive; the next real event
+  of any kind brings them, and a frame the application asks for with `Ctx::request_frame` does not.
+  `commander`'s menu bar found it: opening a pull-down on `Response::clicked` looked like clicking
+  on nothing, and opening it on `Response::press_began` works, because the *release* then supplies
+  the frame. Everything else here opens a modal from a key, where the same accounting is satisfied
+  by accident.
+- **A `Tab` that moves the focus does not ask for the frame that draws it.** The ring resolves the
+  walk in `settle`, after the draw; nothing asks for another frame, so `wait` parks on the old
+  ring. `commander`'s `Tab` looked like it did nothing at all until the next keystroke. All three
+  compare `Driver::inspect().focused()` across frames and redraw — and read anything derived from
+  the focus at the *top* of the draw, not the bottom.
+
+### What they cannot say, in one list
+
+The same missing field turned up three times, which is what makes it worth stating here rather
+than in three file headers:
+
+| gap | who wanted it |
+|---|---|
+| `PanelOpts` has no bottom-border title or border-info items | `counter` (instructions), `commander` (free space), `spf` (`sort · Browser · 3/24`) |
+| `PanelOpts` has no title alignment | `counter`, `commander`, `cluster` |
+| `StatusOpts` has no per-segment role | `commander`'s function bar paints `1Help` in one colour where `mc` paints two |
+| `Column` carries no justification, so a header and its cells can disagree | `cluster`'s right-aligned `RESTARTS`, `CPU`, `MEM` |
+| the theme's twenty glyphs include no file icon | `spf`, which is a nerd-font application upstream |
+| `←`/`→` are `crate::nav::step`'s, so a container cannot bind them over a collection | `commander`'s menu bar (took `Alt+←`/`Alt+→`), `spf`'s open/parent |
+| `crate::collect::Refusal` is `pub(crate)`, so a container's own keys over a `collection` have no in-frame route | `commander`'s pull-downs, `spf`'s sort menu — both read them from `Driver::unhandled` instead |
+
+None of them is worked around in the files. The point of a port is to show the gap.

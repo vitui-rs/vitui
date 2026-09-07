@@ -95,7 +95,7 @@ pub struct App {
 /// and the reason is that there is nothing to port: what it demonstrates is *one component and one
 /// `Mode`*, and no other library's tutorial has an equivalent because no other library makes the
 /// claim.
-pub const APPS: [App; 18] = [
+pub const APPS: [App; 21] = [
     App {
         name: "counter",
         what: "A bordered panel, a centred value, and Left/Right/q. The smallest program anybody \
@@ -617,6 +617,94 @@ pub const APPS: [App; 18] = [
         ],
         after: None,
     },
+    App {
+        name: "commander",
+        what: "**GNU Midnight Commander**: a menu bar, two directory panels, a mini-status under \
+               each, a hint line, a shell prompt and the ten-button function bar, whose labels are \
+               `filemanager.c`'s own. The tree is synthetic and nothing opens a file, which is the \
+               point: the interesting failures stay in the library under test rather than in \
+               `std::fs`. **What it found is an identity defect a gate cannot have**: two panels \
+               are two calls from one source line, `Ctx::id` is `Location::caller()`, and without \
+               `Ctx::with_key` the second panel takes the first one's focus. It also shows the \
+               keyboard rule from the other side — `mc` sends every printable key to the prompt, \
+               and the only way to have that is for the table's type-ahead to answer `None` so the \
+               key is declined and arrives in `Driver::unhandled`",
+        uses: &[
+            "collect::table",
+            "collect::collection",
+            "collect::apply",
+            "structure::panel_with",
+            "structure::rule_with",
+            "structure::status_bar_with",
+            "text::text_with",
+            "input::field",
+            "input::button_with",
+            "overlay::overlay_with",
+            "scroll::scrollbar",
+            "edit::Text",
+            "ctx::Ctx::with_key",
+            "ctx::Driver::unhandled",
+        ],
+        after: Some("https://github.com/MidnightCommander/mc"),
+    },
+    App {
+        name: "cluster",
+        what: "**k9s**: the cluster-info block, the namespace and action mnemonics, the ASCII logo \
+               `internal/ui/splash.go` ships, one resource table and the breadcrumb trail. Nine \
+               pods, four deployments, four services, three nodes and five namespaces, all hashed \
+               out of their own names. It is a **stack of views** and `Esc` is pop, which is what \
+               makes logs, YAML and a description levels rather than modals — they scroll with the \
+               keys the table has and leave the way it does. The two meters in the header are the \
+               one thing k9s's colour-coded percentage is trying to say and cannot",
+        uses: &[
+            "collect::table",
+            "collect::apply",
+            "structure::panel_with",
+            "text::chip_with",
+            "indicate::meter_with",
+            "input::field",
+            "input::button_with",
+            "overlay::overlay_with",
+            "scroll::scrollbar",
+            "edit::Text",
+            "keys::KeyMap",
+            "keys::Chord",
+            "ctx::Driver::unhandled",
+        ],
+        after: Some("https://github.com/derailed/k9s"),
+    },
+    App {
+        name: "spf",
+        what: "**superfile**: a sidebar of `Home`, `Pinned` and `Disks`, one to three file panels, \
+               and a footer of three — processes, metadata, clipboard. The hotkeys are \
+               `hotkeys.toml`'s own, including the ones that read oddly out of context. `Ctrl+V` \
+               starts a **process**: a spinner, a meter and a done count that advance on a \
+               deadline the frame asks for itself, so an application with nothing running still \
+               costs zero wakeups. The rename is **in place**, drawn by the row drawer — which is \
+               worth seeing, because §5 fixes the shipped row signature at four arguments and none \
+               of them is an editor: the state a container needs is the caller's to capture. What \
+               it cannot say is the one a reader notices first — the theme has twenty glyphs and \
+               none of them is a file icon",
+        uses: &[
+            "collect::table",
+            "collect::collection",
+            "collect::apply",
+            "structure::panel_with",
+            "structure::status_bar_with",
+            "indicate::meter_with",
+            "indicate::spinner",
+            "input::field",
+            "input::button_with",
+            "overlay::overlay_with",
+            "scroll::scrollbar",
+            "edit::Text",
+            "keys::KeyMap",
+            "keys::Chord",
+            "ctx::Ctx::with_key",
+            "ctx::Ctx::deadline",
+        ],
+        after: Some("https://github.com/yorukot/superfile"),
+    },
 ];
 
 #[cfg(test)]
@@ -771,11 +859,12 @@ mod tests {
              column is documenting something that is no longer there"
         );
         assert_eq!(
-            checked, 51,
-            "**fifty-one (application, component) pairs**, and the number is here for the reason \
+            checked, 79,
+            "**seventy-nine (application, component) pairs**, and the number is here for the reason \
              every count on this map is: a scan whose needle has quietly stopped matching reports \
              every column clean, and two empty lists agree about everything. It moves when an \
-             application draws one more component, which is a deliberate edit"
+             application draws one more component, which is a deliberate edit — it was fifty-one \
+             before `commander`, `cluster` and `spf` added ten, eight and ten"
         );
     }
 
@@ -828,10 +917,10 @@ mod tests {
             checked += 1;
         }
         assert_eq!(
-            checked, 15,
+            checked, 18,
             "triage, ledger, explorer, reader, settings, compose, console, theatre, browse, mixer, \
-             vitals, roster, gallery, sheet and pipeline open the window; counter and latency read \
-             their keys through a `KeyMap` instead"
+             vitals, roster, gallery, sheet, pipeline, commander, cluster and spf open the window; \
+             counter and latency read their keys through a `KeyMap` instead"
         );
 
         // **The other directions**, or a scanner that has stopped finding `driver.frame(` reports

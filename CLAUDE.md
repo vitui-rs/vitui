@@ -104,7 +104,7 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   `PINS_SCENE_22`'s reason — *a register row and the scene list are read together* — and what buys a
   rename is a deferral note that already named the ticket. 10 also left *seven `should_panic` tests*
   standing over nine arms in the file it was opened to de-stale.
-- **`vitui-apps` — 18 applications**, one file each in `examples/`. A component ticket ships one, and
+- **`vitui-apps` — 21 applications**, one file each in `examples/`. A component ticket ships one, and
   since ticket 45 that is obligation **O7** rather than a habit: `vitui_components::consumer` joins
   the freeze against the import paths here.
 - **Active work: `.scratch/vitui-production/`** (opened 2026-09-01) — the whole workspace's road to a
@@ -551,7 +551,74 @@ instrument rather than in the code. Each of these has bitten at least twice.
   as measured, print what does not beside it, and never bend the code to make an old sentence true.
 - **`#[track_caller]` forwards into every `#[track_caller]` function it calls** and through nothing
   else — so a private body one frame down mints the caller's id, and two call sites of one component
-  are two widgets.
+  are two widgets. **And the converse is the half an application meets**: *one* call site drawing
+  *two* widgets mints **one** id, so a loop over two panels hands the second panel the first one's
+  focus, cursor and hover — and the screen looks perfect while the wrong panel answers the keyboard.
+  `Ctx::with_key` is the fix and `commander` is where it was found; `spf` has the same shape with
+  three panels. A gate never meets this, because a gate draws one subject.
+- **`Ctx::next_key` answers only the focused id, and `Ctx::decline` ends the level's turn**, which
+  together close two doors a container reaches for on its first day. A keyboard sink beside a
+  *focused* `field` is deaf — a dialog's `Enter` and `Esc` are the field's to decline and arrive in
+  `Driver::unhandled`, one frame later. And a container drawing a `collection` cannot read the keys
+  that collection declined **in the same frame**: `next_key` answers `None` for the rest of it. The
+  one in-frame route is `crate::collect::Refusal`, which is `pub(crate)`. Both shapes compile, draw
+  correctly and do nothing, which is why all three ports met them.
+- **`crate::nav::step` reads `←` and `→` as `↑` and `↓`**, so a `collection` *consumes* the two keys
+  a menu bar walks its pull-downs with. `commander` binds `Alt+←`/`Alt+→` instead — a collection
+  declines a chord and swallows no accelerator — and records that `mc`'s own binding is one this
+  surface cannot have.
+- **`owns_escape`'s defect is still live one key over.** Components architecture 22 taught `Escape`
+  to decline when `apply` would clear nothing — *the component owns it exactly when it would clear
+  something*. `collect::from_key` still answers a bare `Space` with `Gesture::Toggle` and `Ctrl+A`
+  with `Gesture::All` in **every** [`Mode`], and `apply` ignores both at `Mode::Cursor` and one of
+  them at `Mode::Options` — so the key is consumed to do nothing, `out.changed` is set for a frame
+  that changed nothing, and the container above never sees it. Three ports met it from three
+  directions: `commander` cannot type a space at its shell prompt, `cluster` had to move k9s's
+  `space` mark to `Ctrl+Space`, and `spf`'s `Shift+↓` moves the cursor and extends nothing. **Not
+  fixed** — `contract.rs`'s O4 sweep and the register both key off what a collection consumes, so
+  it is a map decision rather than a patch.
+- **A dialog that closes does not give the keyboard back, and the vanish rule decides where it
+  goes.** The focused widget stopped drawing, so the focus moves to *the nearest surviving entry in
+  the previous frame's ring order* — which for a screen with two panels is **the other panel**.
+  `commander`'s `F5` on the left panel came back with the right one active and `cluster`'s table went
+  deaf after an `Esc`; both look like the application forgot something and neither is visible in a
+  gate, because a gate draws one subject and closes no dialogs. The shape of the answer is a standing
+  one-`bool` request that outranks *read the focus and believe it*, and it has a second half: while
+  that request stands, a value **derived** from the focus must not be adopted, or the application
+  reads its own pending move back as the user's.
+- **A match on `k.code` is a keyboard that works on a legacy terminal and is half dead on a modern
+  one.** ADR 0053's *one keystroke has four wire spellings* is not a curiosity about `+`: a terminal
+  speaking the enhanced keyboard protocol sends the **base key and the shift bit**, so `?` arrives
+  as `CSI 47;2;63u` (code `/`, SHIFT, text `?`) or `CSI 47;2u` (code `/`, SHIFT, and nothing about
+  `?` at all), and `Shift+N` arrives as `CSI 110;2;78u` or `CSI 110;2u`. `cluster` matched
+  `Code::Char('?')` and `Code::Char('N')` and therefore opened the *filter* on `?` and sorted
+  nothing on `Shift+N` — on every terminal in this repository's own conform suite, while reading
+  perfectly on a legacy one. `spf` had the same hole under every capital `hotkeys.toml` binds.
+  **`Chord::typed(c)` covers three of the four spellings and the fourth needs an alternate**
+  (`Chord::key('/').shift()`), which is a second binding rather than a repair; `KeyMap::match_first`
+  takes the first match, so the shifted binding must be bound **before** the unshifted one it shares
+  a base key with. `KeyMap` works outside the draw — `match_first` takes a `&Key` — which is what
+  makes it usable from the unhandled window. A headless gate cannot see any of this, because a
+  headless gate posts the spelling the test author typed.
+- **An overlay that appears is not on the screen until a second frame, and the application cannot
+  supply it.** `Ctx::overlay`'s body is entered on the frame the overlay is added — the pass runs,
+  the body draws into its granted rectangle — and the cells do not reach the terminal; the next real
+  input event of any kind brings them, and `Ctx::request_frame` from inside the draw does **not**.
+  Found by `commander`'s menu bar, where a pull-down opened from `Response::clicked` looked like a
+  click on nothing and the same pull-down opened from `Response::press_began` works — because the
+  *release* is then the second event. Every other overlay in this workspace is opened from a key and
+  meets the accounting by accident, which is why it took an application with a mouse-driven menu to
+  see it.
+- **A `Tab` that moves the focus does not ask for the frame that would draw the move.** The ring
+  resolves the walk in `settle`, *after* the draw, so the frame that consumed the `Tab` painted the
+  old ring; `Frame::resolve_into_view` asks for another frame only when a reveal is pending (runtime
+  architecture 33), and a bare focus move asks for nothing. `wait` then parks on a screen one
+  keystroke behind — measured in `commander`, where `Tab` appeared not to switch panels at all until
+  the next key arrived. The one-line home is `Frame::resolve_tab`, beside `resolve_into_view`'s own
+  `wants_another_frame`; until then the three ports notice the move themselves by comparing
+  `Driver::inspect().focused()` across frames. **And the same staleness has an application half**: a
+  value derived from the focus must be read at the *top* of the draw, because everything below it is
+  what the reader sees.
 
 ## Workspace
 
@@ -583,12 +650,25 @@ crates/vitui-components   windows, panels, charts, lists, trees, forms, pickers 
                           └ `media` is **no row of the freeze at all** — §14's *no v1 component*, so
                             the family ships and `MEMBERS` is empty
 crates/vitui              facade re-export — engine, runtime, components
-crates/vitui-apps         18 applications, one file each in `examples/`: counter, triage, latency,
+crates/vitui-apps         21 applications, one file each in `examples/`: counter, triage, latency,
                           ledger, explorer, reader, settings, compose, console, theatre, browse,
-                          mixer, vitals, roster, gallery, sheet, pipeline, caps.
+                          mixer, vitals, roster, gallery, sheet, pipeline, caps, commander, cluster,
+                          spf.
                           The surface's only consumer, and repeatedly the thing that found the defect
                           the gates could not — a gate exercises a component where its author put it
                           and an application puts it somewhere else
+                          └ the last three are **ports of programs people use**: `commander` is GNU
+                            Midnight Commander, `cluster` is k9s, `spf` is superfile. A port's shape
+                            is not ours to argue with, so what it cannot express is a fact about the
+                            surface rather than a taste — and three of them wanting the same missing
+                            field is what turns a taste into a gap. All three run on invented data:
+                            a real `readdir` or a real `kubectl` puts the interesting failures in
+                            the transport instead of in the library under test
+                          └ `commander` found the identity trap from the application side: two
+                            panels are two calls from **one** source line, `Ctx::id` is
+                            `Location::caller()`, and without `Ctx::with_key` the second panel takes
+                            the first one's focus, cursor and hover. `spf` has the same shape with
+                            three panels
                           └ `caps` draws no frame: attach, read `Capabilities::report`, detach, print.
                             Every gate here is headless, so none can answer *what did my terminal
                             claim* — the question a person holding a broken screen has
@@ -692,6 +772,9 @@ marked `--probe` print one headless frame and what it cost:
 | `pipeline` | the anchor; `c` swaps the cadence, 60 wakes against 431 991 (`--probe`) |
 | `gallery` | every built component on one screen; `t` is the key (`--probe`, `--matrix`) |
 | `caps` | what THIS terminal answered; draws no frame |
+| `commander` | Midnight Commander; `Tab` swaps panels, `F5` copies, letters go to the shell prompt |
+| `cluster` | k9s; `:deploy` switches resource, `/` filters, `d`/`y`/`l` push a level, `Esc` pops |
+| `spf` | superfile; `v` select mode, `Ctrl+C`/`Ctrl+V` starts a process, `Ctrl+R` renames in place |
 
 Warnings are denied workspace-wide (`[workspace.lints.rust] warnings = "deny"`), so an enum variant
 nothing constructs is a build failure rather than a spare part.
